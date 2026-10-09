@@ -25,5 +25,7 @@ public enum ProductType {
 
     FEE,
 
-    BUNDLE
+    BUNDLE,
+
+    CONFIGURABLE
 }
