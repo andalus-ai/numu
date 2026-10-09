@@ -59,6 +59,7 @@
         <module>security</module>
         <module>observability</module>
         <module>reliability</module>
+        <module>cache</module>
 
         <!-- Phase 1 - identity / tenant / party / corporate -->
         <module>identity</module>
@@ -77,14 +78,18 @@
         <module>scheduling</module>
         <module>leave</module>
         <module>logistics</module>
+        <module>restaurant</module>
         <module>asset</module>
         <module>project</module>
         <module>construction</module>
         <module>budget</module>
 
-        <!-- Cross-cutting -->
+        <!-- Cross-cutting & Platform Services -->
         <module>common</module>
         <module>document</module>
+        <module>plugin</module>
+        <module>workflow</module>
+        <module>survey</module>
     </modules>
 
     <properties>
@@ -236,6 +241,11 @@
                 <artifactId>syirkah-event-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-event-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>tech.kayys.syirkah</groupId>
@@ -307,9 +317,52 @@
             </dependency>
 
             <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-plugin</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-workflow</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.assertj</groupId>
                 <artifactId>assertj-core</artifactId>
                 <version>${assertj.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-survey-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-survey-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-survey-adapter-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-survey-adapter-rest</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-survey-bootstrap</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.syirkah</groupId>
+                <artifactId>syirkah-survey-demo</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
         </dependencies>

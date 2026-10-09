@@ -35,6 +35,8 @@
     <modules>
         <module>reliability-api</module>
         <module>reliability-spi</module>
+        <module>reliability-application</module>
+        <module>reliability-adapter</module>
     </modules>
 
 </project>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>tech.kayys.syirkah</groupId>
+        <artifactId>syirkah-distributions</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>syirkah-distribution-construction</artifactId>
+    <name>Syirkah Distribution - Construction Project Management</name>
+    <description>
+        Targeted distribution for Construction Project Management:
+        WBS, project lifecycle, site supervision, budget tracking, and Gamelan workflow approvals.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-foundation-kernel</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-project-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-construction-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-budget-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-document-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-workflow</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-plugin</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

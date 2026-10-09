@@ -35,6 +35,8 @@
 
     <modules>
         <module>observability-api</module>
+        <module>observability-application</module>
+        <module>observability-adapter</module>
     </modules>
 
 </project>

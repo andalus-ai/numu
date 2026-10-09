@@ -1,0 +1,156 @@
+# Reference Kubernetes manifests. Adjust namespace, image, hostnames and the secret source for your cluster.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: syirkah-restaurant
+  labels: { app.kubernetes.io/name: syirkah-restaurant }
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syirkah-restaurant
+  labels: { app.kubernetes.io/name: syirkah-restaurant }
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app.kubernetes.io/name: syirkah-restaurant }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: syirkah-restaurant }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: "/q/metrics"
+    spec:
+      serviceAccountName: syirkah-restaurant
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app.kubernetes.io/name: syirkah-restaurant }
+      containers:
+        - name: app
+          image: registry.example.com/syirkah/restaurant:REPLACE_WITH_TAG
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: management, containerPort: 9000 }
+          envFrom:
+            - configMapRef: { name: syirkah-restaurant-config }
+            - secretRef: { name: syirkah-restaurant-secrets }
+          resources:
+            requests: { cpu: 500m, memory: 768Mi }
+            limits: { memory: 768Mi }          # memory limit == request; no CPU limit (avoids throttling latency)
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          startupProbe:
+            httpGet: { path: /q/health/started, port: management }
+            periodSeconds: 3
+            failureThreshold: 40
+          livenessProbe:
+            httpGet: { path: /q/health/live, port: management }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /q/health/ready, port: management }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec: { command: ["sh", "-c", "sleep 10"] }   # let the load balancer drain before SIGTERM
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 64Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: syirkah-restaurant
+  labels: { app.kubernetes.io/name: syirkah-restaurant }
+spec:
+  selector: { app.kubernetes.io/name: syirkah-restaurant }
+  ports:
+    - { name: http, port: 80, targetPort: http }          # route the ingress here; management port is intentionally not exposed
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: syirkah-restaurant
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: syirkah-restaurant }
+  minReplicas: 3
+  maxReplicas: 12
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 65 } }
+  behavior:
+    scaleDown: { stabilizationWindowSeconds: 300 }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: syirkah-restaurant
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: syirkah-restaurant }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: syirkah-restaurant
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: syirkah-restaurant }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+      ports: [{ port: 8080 }]
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      ports: [{ port: 9000 }]
+  egress:
+    - to: [{ namespaceSelector: {} , podSelector: { matchLabels: { k8s-app: kube-dns } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } } }]   # postgres + kafka namespace
+      ports: [{ port: 5432 }, { port: 9092 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } } }]
+      ports: [{ port: 4317 }]                                      # OTLP
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }]
+      ports: [{ port: 443 }]                                       # OIDC issuer JWKS
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: syirkah-restaurant-config
+data:
+  DEPLOY_ENV: prod
+  DB_HOST: postgres.data.svc
+  DB_NAME: syirkah
+  DB_SSLMODE: require
+  KAFKA_BOOTSTRAP: kafka.data.svc:9092
+  OTEL_ENDPOINT: http://otel-collector.monitoring.svc:4317
+  OIDC_ISSUER_URL: https://auth.example.com/realms/syirkah
+  CORS_ORIGINS: https://app.example.com
+# Secrets (DB_USER, DB_PASSWORD) belong in your secret manager (External Secrets / Vault / Sealed Secrets), not in git:
+#   kind: Secret, name: syirkah-restaurant-secrets

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>tech.kayys.syirkah</groupId>
+        <artifactId>syirkah-framework</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>syirkah-restaurant</artifactId>
+    <packaging>pom</packaging>
+    <name>Syirkah Restaurant Suite - Aggregator</name>
+    <description>Restaurant, kitchen, reservation and order bounded contexts with persistence and a Quarkus API.</description>
+    <modules>
+        <module>kernel/restaurant-kernel</module>
+        <module>venue/restaurant-venue-domain</module>
+        <module>venue/restaurant-venue-spi</module>
+        <module>venue/restaurant-venue-application</module>
+        <module>venue/restaurant-venue-adapter</module>
+        <module>order/restaurant-order-domain</module>
+        <module>order/restaurant-order-spi</module>
+        <module>order/restaurant-order-application</module>
+        <module>order/restaurant-order-adapter</module>
+        <module>kitchen/restaurant-kitchen-domain</module>
+        <module>kitchen/restaurant-kitchen-spi</module>
+        <module>kitchen/restaurant-kitchen-application</module>
+        <module>kitchen/restaurant-kitchen-adapter</module>
+        <module>reservation/restaurant-reservation-domain</module>
+        <module>reservation/restaurant-reservation-spi</module>
+        <module>reservation/restaurant-reservation-application</module>
+        <module>reservation/restaurant-reservation-adapter</module>
+        <module>integration/restaurant-integration</module>
+        <module>restaurant-persistence</module>
+        <module>restaurant-api</module>
+    </modules>
+</project>

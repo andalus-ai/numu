@@ -3,30 +3,33 @@ package tech.kayys.syirkah.foundation.adapter.context;
 import java.util.UUID;
 
 /**
- * Holder for distributed tracing and request correlation ID.
+ * Correlation id of the current request. Same dual strategy as {@link TenantContext}. Unlike the previous version,
+ * reading it never stores a generated id on the thread (that id then leaked into unrelated later requests).
  */
 public final class CorrelationContext {
 
     public static final String HEADER_CORRELATION_ID = "X-Correlation-ID";
-    private static final ThreadLocal<String> CURRENT_CORRELATION_ID = new ThreadLocal<>();
 
-    private CorrelationContext() {
-    }
+    private static final ThreadLocal<String> FALLBACK = new ThreadLocal<>();
+
+    private CorrelationContext() { }
 
     public static String getCorrelationId() {
-        String id = CURRENT_CORRELATION_ID.get();
-        if (id == null) {
-            id = UUID.randomUUID().toString();
-            CURRENT_CORRELATION_ID.set(id);
-        }
-        return id;
+        final var holder = TenantContext.holder();
+        final String id = holder != null ? holder.correlationId() : FALLBACK.get();
+        return id != null ? id : UUID.randomUUID().toString();
     }
 
     public static void setCorrelationId(String correlationId) {
-        CURRENT_CORRELATION_ID.set(correlationId);
+        final var holder = TenantContext.holder();
+        if (holder != null) {
+            holder.correlationId(correlationId);
+        } else {
+            FALLBACK.set(correlationId);
+        }
     }
 
     public static void clear() {
-        CURRENT_CORRELATION_ID.remove();
+        FALLBACK.remove();
     }
 }

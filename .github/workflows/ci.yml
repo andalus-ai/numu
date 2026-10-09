@@ -1,0 +1,52 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions: { contents: read }
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: syirkah }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21, cache: maven }
+      - name: Reactor consistency (unique ids, declared deps, no cycles, domain purity)
+        run: python3 tools/check-reactor.py
+      - name: Migrations apply on a clean database (V100, V200, V201)
+        run: |
+          for f in $(find . -path '*db/migration*' -name 'V*.sql' | sort -t/ -k5 -V); do
+            PGPASSWORD=postgres psql -h localhost -U postgres -d syirkah -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+      - name: Build and test
+        run: mvn -B -ntp verify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: surefire-reports, path: "**/target/surefire-reports", retention-days: 7 }
+
+  supply-chain:
+    runs-on: ubuntu-24.04
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21, cache: maven }
+      - name: SBOM (CycloneDX)
+        run: mvn -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.8.1:makeAggregateBom -DskipTests
+      - name: Dependency vulnerabilities (fail on CVSS >= 7)
+        run: mvn -B -ntp org.owasp:dependency-check-maven:10.0.4:aggregate -DfailBuildOnCVSS=7 -DnvdApiKey=${{ secrets.NVD_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: target/bom.json }
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }

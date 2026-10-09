@@ -36,6 +36,7 @@
         <module>security-domain</module>
         <module>security-spi</module>
         <module>security-application</module>
+        <module>security-adapter</module>
     </modules>
 
 </project>
