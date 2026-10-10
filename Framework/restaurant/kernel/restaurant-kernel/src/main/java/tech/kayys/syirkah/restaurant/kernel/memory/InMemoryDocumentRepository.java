@@ -1,9 +1,10 @@
 package tech.kayys.syirkah.restaurant.kernel.memory;
 
 import io.smallrye.mutiny.Uni;
+import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.syirkah.foundation.domain.entity.OptimisticLockable;
 import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
 import tech.kayys.syirkah.restaurant.kernel.domain.ConcurrencyConflictException;
-import tech.kayys.syirkah.restaurant.kernel.domain.RestaurantAggregate;
 import tech.kayys.syirkah.restaurant.kernel.spi.VersionedRepository;
 
 import java.util.List;
@@ -22,7 +23,7 @@ import java.util.function.Function;
  *
  * @param <S> snapshot type produced by the aggregate
  */
-public class InMemoryDocumentRepository<A extends RestaurantAggregate<ID>, ID extends DomainId<UUID>, S>
+public class InMemoryDocumentRepository<A extends AbstractAggregateRoot<ID> & OptimisticLockable, ID extends DomainId<UUID>, S>
         implements VersionedRepository<A, ID> {
 
     private record Key(UUID tenantId, UUID id) { }

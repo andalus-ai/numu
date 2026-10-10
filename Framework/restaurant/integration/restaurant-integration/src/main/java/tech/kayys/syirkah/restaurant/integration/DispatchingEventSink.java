@@ -19,7 +19,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <p>A failing policy never breaks the publisher (the publisher's transaction already decided the business
  * outcome); failures are kept in {@link #failures()} so tests and dev logs surface them.
  */
-public final class DispatchingEventSink implements DomainEventSink {
+public final class DispatchingEventSink implements DomainEventSink, tech.kayys.syirkah.reservation.spi.DomainEventSink {
 
     @FunctionalInterface
     public interface Policy<E extends DomainEvent> {

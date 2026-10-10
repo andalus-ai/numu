@@ -493,22 +493,22 @@
             </dependency>
             <dependency>
                 <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-restaurant-reservation-domain</artifactId>
+                <artifactId>syirkah-reservation-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-restaurant-reservation-spi</artifactId>
+                <artifactId>syirkah-reservation-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-restaurant-reservation-application</artifactId>
+                <artifactId>syirkah-reservation-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-restaurant-reservation-adapter</artifactId>
+                <artifactId>syirkah-reservation-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

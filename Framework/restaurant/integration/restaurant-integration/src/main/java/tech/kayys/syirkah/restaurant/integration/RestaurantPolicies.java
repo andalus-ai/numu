@@ -7,7 +7,7 @@ import tech.kayys.syirkah.restaurant.kitchen.domain.event.TicketItemReady;
 import tech.kayys.syirkah.restaurant.order.application.OrderService;
 import tech.kayys.syirkah.restaurant.order.domain.event.CourseFired;
 import tech.kayys.syirkah.restaurant.order.domain.event.OrderLineVoided;
-import tech.kayys.syirkah.restaurant.reservation.application.WaitlistService;
+import tech.kayys.syirkah.reservation.application.WaitlistService;
 import tech.kayys.syirkah.restaurant.venue.domain.event.TableCleaned;
 
 import java.util.Set;

@@ -4,7 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.validation.ConstraintViolationException;
 import tech.kayys.syirkah.restaurant.kernel.domain.ConcurrencyConflictException;
 import tech.kayys.syirkah.restaurant.kernel.domain.NotFoundException;
-import tech.kayys.syirkah.restaurant.reservation.application.SlotUnavailableException;
+import tech.kayys.syirkah.reservation.application.SlotUnavailableException;
 import tech.kayys.syirkah.reliability.application.idempotency.DuplicateRequestException;
 import tech.kayys.syirkah.security.adapter.ProblemRuleContributor;
 import tech.kayys.syirkah.security.application.problem.Problem;

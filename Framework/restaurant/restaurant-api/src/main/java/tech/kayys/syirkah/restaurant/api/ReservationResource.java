@@ -12,14 +12,15 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import tech.kayys.syirkah.reliability.application.idempotency.IdempotentExecutor;
-import tech.kayys.syirkah.restaurant.reservation.application.ReservationService;
-import tech.kayys.syirkah.restaurant.reservation.application.ReservationView;
-import tech.kayys.syirkah.restaurant.reservation.domain.BookingSource;
+import tech.kayys.syirkah.reservation.application.ReservationService;
+import tech.kayys.syirkah.reservation.application.ReservationView;
+import tech.kayys.syirkah.reservation.domain.BookingSource;
 import tech.kayys.syirkah.security.domain.valueobject.ActionType;
 
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -62,7 +63,7 @@ public class ReservationResource {
                     // scope includes the tenant: the same key from two tenants can never collide
                     : idempotency.execute(key, ctx.tenantId() + ":reservation.create", () -> service.create(cmd).map(ReservationView::id),
                             UUID::toString, UUID::fromString);
-            return id.flatMap(i -> service.get(ctx.tenantId(), i))
+            return id.flatMap(i -> service.booking(ctx.tenantId(), i))
                     .map(v -> Response.created(URI.create("/api/v1/venues/" + venueId + "/reservations/" + v.id())).entity(v).build());
         });
     }
@@ -70,12 +71,16 @@ public class ReservationResource {
     @GET
     @Path("/{id}")
     public Uni<ReservationView> get(@PathParam("id") UUID id) {
-        return secured.run("reservation.get", ActionType.READ, RESERVATION, ctx -> service.get(ctx.tenantId(), id));
+        return secured.run("reservation.get", ActionType.READ, RESERVATION, ctx -> service.booking(ctx.tenantId(), id));
     }
 
     @GET
     public Uni<List<ReservationView>> day(@PathParam("venueId") UUID venueId, @QueryParam("date") LocalDate date) {
-        return secured.run("reservation.list", ActionType.READ, RESERVATION, ctx -> service.listForDay(ctx.tenantId(), venueId, date));
+        return secured.run("reservation.list", ActionType.READ, RESERVATION, ctx -> {
+            final Instant from = date.atStartOfDay(ZoneOffset.UTC).toInstant();
+            final Instant to   = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+            return service.upcoming(ctx.tenantId(), venueId, from, to);
+        });
     }
 
     @GET
@@ -88,25 +93,33 @@ public class ReservationResource {
     @POST
     @Path("/{id}/deposit")
     public Uni<ReservationView> deposit(@PathParam("id") UUID id, @Valid DepositRequest r) {
-        return secured.run("reservation.deposit", ActionType.UPDATE, RESERVATION, ctx -> service.confirmDeposit(ctx.tenantId(), id, r.paymentRef()));
+        return secured.run("reservation.deposit", ActionType.UPDATE, RESERVATION,
+                ctx -> service.confirmDeposit(ctx.tenantId(), id, r.paymentRef())
+                        .flatMap(x -> service.booking(ctx.tenantId(), id)));
     }
 
     @POST
     @Path("/{id}/seat")
     public Uni<ReservationView> seat(@PathParam("id") UUID id) {
-        return secured.run("reservation.seat", ActionType.UPDATE, RESERVATION, ctx -> service.seat(ctx.tenantId(), id));
+        return secured.run("reservation.seat", ActionType.UPDATE, RESERVATION,
+                ctx -> service.seat(ctx.tenantId(), id)
+                        .flatMap(x -> service.booking(ctx.tenantId(), id)));
     }
 
     @POST
     @Path("/{id}/complete")
     public Uni<ReservationView> complete(@PathParam("id") UUID id) {
-        return secured.run("reservation.complete", ActionType.UPDATE, RESERVATION, ctx -> service.complete(ctx.tenantId(), id));
+        return secured.run("reservation.complete", ActionType.UPDATE, RESERVATION,
+                ctx -> service.complete(ctx.tenantId(), id)
+                        .flatMap(x -> service.booking(ctx.tenantId(), id)));
     }
 
     @POST
     @Path("/{id}/reschedule")
     public Uni<ReservationView> reschedule(@PathParam("id") UUID id, @Valid RescheduleRequest r) {
-        return secured.run("reservation.reschedule", ActionType.UPDATE, RESERVATION, ctx -> service.reschedule(ctx.tenantId(), id, r.startsAt(), r.partySize()));
+        return secured.run("reservation.reschedule", ActionType.UPDATE, RESERVATION,
+                ctx -> service.reschedule(ctx.tenantId(), id, r.startsAt(), r.partySize())
+                        .flatMap(x -> service.booking(ctx.tenantId(), id)));
     }
 
     /** Waiving a late fee / forfeited deposit needs the separate ReservationWaiver permission and is audited. */
@@ -114,13 +127,19 @@ public class ReservationResource {
     @Path("/{id}/cancel")
     public Uni<ReservationService.CancelResult> cancel(@PathParam("id") UUID id, @Valid CancelRequest r) {
         return secured.runElevated("reservation.cancel", ActionType.UPDATE, RESERVATION, r.waivePenalty(), RESERVATION_WAIVER,
-                "reservation=" + id, ctx -> service.cancel(ctx.tenantId(), id, r.reason(), r.waivePenalty()));
+                "reservation=" + id,
+                ctx -> service.cancel(ctx.tenantId(), id, r.reason(), r.waivePenalty())
+                        .flatMap(outcome -> service.booking(ctx.tenantId(), id)
+                                .map(view -> new ReservationService.CancelResult(view, outcome))));
     }
 
     @POST
     @Path("/{id}/no-show")
     public Uni<ReservationService.CancelResult> noShow(@PathParam("id") UUID id, @Valid NoShowRequest r) {
         return secured.runElevated("reservation.no-show", ActionType.UPDATE, RESERVATION, r.waivePenalty(), RESERVATION_WAIVER,
-                "reservation=" + id, ctx -> service.markNoShow(ctx.tenantId(), id, r.waivePenalty()));
+                "reservation=" + id,
+                ctx -> service.markNoShow(ctx.tenantId(), id, r.waivePenalty())
+                        .flatMap(outcome -> service.booking(ctx.tenantId(), id)
+                                .map(view -> new ReservationService.CancelResult(view, outcome))));
     }
 }

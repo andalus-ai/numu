@@ -11,13 +11,16 @@ import tech.kayys.syirkah.restaurant.kitchen.spi.AvailabilityBoardRepository;
 import tech.kayys.syirkah.restaurant.kitchen.spi.TicketRepository;
 import tech.kayys.syirkah.restaurant.order.domain.DineInOrder;
 import tech.kayys.syirkah.restaurant.order.spi.OrderRepository;
-import tech.kayys.syirkah.restaurant.reservation.domain.AvailabilityLedger;
-import tech.kayys.syirkah.restaurant.reservation.domain.LedgerId;
-import tech.kayys.syirkah.restaurant.reservation.domain.Reservation;
-import tech.kayys.syirkah.restaurant.reservation.domain.WaitlistEntry;
-import tech.kayys.syirkah.restaurant.reservation.spi.LedgerRepository;
-import tech.kayys.syirkah.restaurant.reservation.spi.ReservationRepository;
-import tech.kayys.syirkah.restaurant.reservation.spi.WaitlistRepository;
+import tech.kayys.syirkah.reservation.domain.AvailabilityLedger;
+import tech.kayys.syirkah.reservation.domain.FacilityId;
+import tech.kayys.syirkah.reservation.domain.LedgerId;
+import tech.kayys.syirkah.reservation.domain.Reservation;
+import tech.kayys.syirkah.reservation.domain.ReservationId;
+import tech.kayys.syirkah.reservation.domain.WaitlistEntry;
+import tech.kayys.syirkah.reservation.domain.WaitlistEntryId;
+import tech.kayys.syirkah.reservation.spi.LedgerRepository;
+import tech.kayys.syirkah.reservation.spi.ReservationRepository;
+import tech.kayys.syirkah.reservation.spi.WaitlistRepository;
 import tech.kayys.syirkah.restaurant.venue.domain.DiningTable;
 import tech.kayys.syirkah.restaurant.venue.domain.Menu;
 import tech.kayys.syirkah.restaurant.venue.domain.Venue;
@@ -44,8 +47,12 @@ public final class PgRestaurantRepositories {
         }
 
         @Override
+        public Uni<List<Reservation>> findStartingBetween(UUID tenantId, FacilityId facilityId, Instant from, Instant to) {
+            return query(tenantId, "venue_id = ?3 AND starts_at >= ?4 AND starts_at < ?5", "starts_at", facilityId.value(), from, to);
+        }
+
         public Uni<List<Reservation>> findStartingBetween(UUID tenantId, VenueId venueId, Instant from, Instant to) {
-            return query(tenantId, "venue_id = ?3 AND starts_at >= ?4 AND starts_at < ?5", "starts_at", venueId.value(), from, to);
+            return findStartingBetween(tenantId, FacilityId.of(venueId.value()), from, to);
         }
     }
 
@@ -67,8 +74,12 @@ public final class PgRestaurantRepositories {
         }
 
         @Override
+        public Uni<List<WaitlistEntry>> findOpen(UUID tenantId, FacilityId facilityId) {
+            return query(tenantId, "venue_id = ?3 AND status IN ('WAITING','NOTIFIED')", "starts_at", facilityId.value());
+        }
+
         public Uni<List<WaitlistEntry>> findOpen(UUID tenantId, VenueId venueId) {
-            return query(tenantId, "venue_id = ?3 AND status IN ('WAITING','NOTIFIED')", "starts_at", venueId.value());
+            return findOpen(tenantId, FacilityId.of(venueId.value()));
         }
     }
 

@@ -13,9 +13,9 @@ import tech.kayys.syirkah.restaurant.kitchen.adapter.memory.*;
 import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService;
 import tech.kayys.syirkah.restaurant.order.adapter.memory.InMemoryOrderRepository;
 import tech.kayys.syirkah.restaurant.order.application.OrderService;
-import tech.kayys.syirkah.restaurant.reservation.adapter.memory.*;
-import tech.kayys.syirkah.restaurant.reservation.application.*;
-import tech.kayys.syirkah.restaurant.reservation.domain.*;
+import tech.kayys.syirkah.reservation.adapter.memory.*;
+import tech.kayys.syirkah.reservation.application.*;
+import tech.kayys.syirkah.reservation.domain.*;
 import tech.kayys.syirkah.restaurant.venue.adapter.memory.InMemoryVenueRepositories;
 import tech.kayys.syirkah.restaurant.venue.application.MenuView;
 import tech.kayys.syirkah.restaurant.venue.application.VenueService;
@@ -55,8 +55,8 @@ class DinnerServiceScenarioTest {
     UUID venueId, grill, bar, t1, t2, rendang, mojito, dessert, menuId;
 
     static BookingRules rules() {
-        final var periods = new EnumMap<DayOfWeek, List<ServicePeriod>>(DayOfWeek.class);
-        for (var d : DayOfWeek.values()) periods.put(d, List.of(new ServicePeriod("dinner", LocalTime.of(17, 0), LocalTime.of(21, 0))));
+        final var periods = new EnumMap<DayOfWeek, List<OperatingWindow>>(DayOfWeek.class);
+        for (var d : DayOfWeek.values()) periods.put(d, List.of(new OperatingWindow("dinner", LocalTime.of(17, 0), LocalTime.of(21, 0), LocalTime.of(21, 0))));
         return new BookingRules(JKT, 1, 12, 60, Duration.ofMinutes(60), Duration.ofMinutes(30), Duration.ofMinutes(15),
                 Map.of(2, Duration.ofMinutes(75), 4, Duration.ofMinutes(90), 99, Duration.ofMinutes(120)), 8, Money.of(100_000, "IDR"),
                 Duration.ofHours(24), Money.of(50_000, "IDR"), Duration.ofMinutes(15), Duration.ofMinutes(15), periods);
@@ -70,8 +70,8 @@ class DinnerServiceScenarioTest {
                 (t, v, s) -> Uni.createFrom().item(2), uow, bus, clock);
         orders = new OrderService(new InMemoryOrderRepository(), VenueBackedPorts.menuLookup(menus), VenueBackedPorts.availability(kitchen),
                 VenueBackedPorts.policy(venues), VenueBackedPorts.seating(tables, bus, clock), uow, bus, clock);
-        waitlist = new WaitlistService(new InMemoryWaitlistRepository(), uow, bus, clock, Duration.ofMinutes(60), Duration.ofMinutes(10));
-        reservations = new ReservationService(new InMemoryReservationRepository(), new InMemoryLedgerRepository(),
+        waitlist = new WaitlistService(new InMemoryReservationRepositories.Waitlists(), uow, bus, clock, Duration.ofMinutes(60), Duration.ofMinutes(10));
+        reservations = new ReservationService(new InMemoryReservationRepositories.Reservations(), new InMemoryReservationRepositories.Ledgers(),
                 VenueBackedPorts.bookingRules(t -> rules()), VenueBackedPorts.tableDirectory(tables), uow, bus, clock);
         RestaurantPolicies.register(bus, kitchen, orders, waitlist);
 
@@ -164,9 +164,9 @@ class DinnerServiceScenarioTest {
         assertThat(bus.failures()).isEmpty();
 
         // --- the event stream tells the whole story, in tenant, with no guest personal data
-        assertThat(bus.types()).contains("restaurant.reservation.confirmed", "restaurant.order.course-fired", "restaurant.kitchen.ticket.created",
+        assertThat(bus.types()).contains("reservation.confirmed", "restaurant.order.course-fired", "restaurant.kitchen.ticket.created",
                 "restaurant.kitchen.item.ready", "restaurant.kitchen.ticket.bumped", "restaurant.kitchen.item.eighty-sixed",
-                "restaurant.order.line-voided", "restaurant.order.paid", "restaurant.table.cleaned", "restaurant.waitlist.notified");
+                "restaurant.order.line-voided", "restaurant.order.paid", "restaurant.table.cleaned", "reservation.waitlist.notified");
         assertThat(bus.all()).allMatch(p -> p.tenantId().equals(tenant));
         final var dump = bus.all().toString();
         assertThat(dump).doesNotContain("Budi", "Santoso", "3456", "Walk In", "0000 0000");

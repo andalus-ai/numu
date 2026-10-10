@@ -15,7 +15,7 @@ import tech.kayys.syirkah.restaurant.integration.PolicyEventDecoder;
 import tech.kayys.syirkah.restaurant.integration.RestaurantPolicies;
 import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService;
 import tech.kayys.syirkah.restaurant.order.application.OrderService;
-import tech.kayys.syirkah.restaurant.reservation.application.WaitlistService;
+import tech.kayys.syirkah.reservation.application.WaitlistService;
 
 import java.util.List;
 import java.util.UUID;

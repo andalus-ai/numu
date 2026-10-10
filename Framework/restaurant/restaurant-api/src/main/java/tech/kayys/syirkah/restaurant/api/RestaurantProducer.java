@@ -24,12 +24,12 @@ import tech.kayys.syirkah.restaurant.order.application.OrderService;
 import tech.kayys.syirkah.restaurant.order.spi.OrderRepository;
 import tech.kayys.syirkah.restaurant.persistence.MeteredDomainEventSink;
 import tech.kayys.syirkah.restaurant.persistence.OutboxDomainEventSink;
-import tech.kayys.syirkah.restaurant.reservation.application.ReservationService;
-import tech.kayys.syirkah.restaurant.reservation.application.WaitlistService;
-import tech.kayys.syirkah.restaurant.reservation.domain.BookingRules;
-import tech.kayys.syirkah.restaurant.reservation.spi.LedgerRepository;
-import tech.kayys.syirkah.restaurant.reservation.spi.ReservationRepository;
-import tech.kayys.syirkah.restaurant.reservation.spi.WaitlistRepository;
+import tech.kayys.syirkah.reservation.application.ReservationService;
+import tech.kayys.syirkah.reservation.application.WaitlistService;
+import tech.kayys.syirkah.reservation.domain.BookingRules;
+import tech.kayys.syirkah.reservation.spi.LedgerRepository;
+import tech.kayys.syirkah.reservation.spi.ReservationRepository;
+import tech.kayys.syirkah.reservation.spi.WaitlistRepository;
 import tech.kayys.syirkah.restaurant.venue.application.MenuView;
 import tech.kayys.syirkah.restaurant.venue.application.VenueService;
 import tech.kayys.syirkah.restaurant.venue.spi.DiningTableRepository;
@@ -79,6 +79,16 @@ public class RestaurantProducer {
         return new MeteredDomainEventSink(new OutboxDomainEventSink(outbox, mapper, this::actor, this::correlationId), metrics);
     }
 
+    /**
+     * Bridges the reservation bounded-context event sink to the same outbox implementation.
+     * Both interfaces declare the same method; the method reference satisfies the reservation.spi contract.
+     */
+    @Produces
+    @ApplicationScoped
+    tech.kayys.syirkah.reservation.spi.DomainEventSink reservationEventSink(DomainEventSink restaurantSink) {
+        return restaurantSink::publish;
+    }
+
     private String actor() {
         try {
             return requestContext.get().actor() == null ? "system" : requestContext.get().actor();
@@ -103,13 +113,15 @@ public class RestaurantProducer {
 
     @Produces
     @ApplicationScoped
-    VenueService venueService(VenueRepository v, DiningTableRepository t, MenuRepository m, DomainEventSink e, DomainClock c, CaffeineCache<MenuView> cache) {
+    VenueService venueService(VenueRepository v, DiningTableRepository t, MenuRepository m,
+                              DomainEventSink e, DomainClock c, CaffeineCache<MenuView> cache) {
         return new VenueService(v, t, m, uow, e, c, cache);
     }
 
     @Produces
     @ApplicationScoped
-    KitchenService kitchenService(TicketRepository t, AvailabilityBoardRepository b, DomainEventSink e, DomainClock c, VenueRepository venues) {
+    KitchenService kitchenService(TicketRepository t, AvailabilityBoardRepository b,
+                                  DomainEventSink e, DomainClock c, VenueRepository venues) {
         return new KitchenService(t, b, (tenant, venue, station) -> venues.find(tenant, venue)
                 .map(o -> o.flatMap(v -> v.stations().stream().filter(s -> s.id().equals(station)).findFirst()).map(s -> s.parallelism()).orElse(1)),
                 uow, e, c);
@@ -126,13 +138,13 @@ public class RestaurantProducer {
     @Produces
     @ApplicationScoped
     ReservationService reservationService(ReservationRepository r, LedgerRepository l, DiningTableRepository tables, BookingRules rules,
-                                          DomainEventSink e, DomainClock c) {
+                                          tech.kayys.syirkah.reservation.spi.DomainEventSink e, DomainClock c) {
         return new ReservationService(r, l, VenueBackedPorts.bookingRules(tenant -> rules), VenueBackedPorts.tableDirectory(tables), uow, e, c);
     }
 
     @Produces
     @ApplicationScoped
-    WaitlistService waitlistService(WaitlistRepository w, DomainEventSink e, DomainClock c) {
+    WaitlistService waitlistService(WaitlistRepository w, tech.kayys.syirkah.reservation.spi.DomainEventSink e, DomainClock c) {
         return new WaitlistService(w, uow, e, c, averageTurn, waitlistHold);
     }
 }

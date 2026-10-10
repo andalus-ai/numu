@@ -14,10 +14,12 @@ import tech.kayys.syirkah.restaurant.order.domain.LineSpec;
 import tech.kayys.syirkah.restaurant.order.domain.OrderLine;
 import tech.kayys.syirkah.restaurant.order.domain.PricingPolicy;
 import tech.kayys.syirkah.restaurant.order.spi.OrderPorts;
-import tech.kayys.syirkah.restaurant.reservation.domain.BookingRules;
-import tech.kayys.syirkah.restaurant.reservation.domain.TableInfo;
-import tech.kayys.syirkah.restaurant.reservation.spi.BookingRulesPort;
-import tech.kayys.syirkah.restaurant.reservation.spi.TableDirectoryPort;
+import tech.kayys.syirkah.reservation.domain.BookableResource;
+import tech.kayys.syirkah.reservation.domain.BookingRules;
+import tech.kayys.syirkah.reservation.domain.FacilityId;
+import tech.kayys.syirkah.reservation.domain.ResourceId;
+import tech.kayys.syirkah.reservation.spi.BookingRulesPort;
+import tech.kayys.syirkah.reservation.spi.ResourceDirectoryPort;
 import tech.kayys.syirkah.restaurant.venue.domain.Menu;
 import tech.kayys.syirkah.restaurant.venue.domain.TableStatus;
 import tech.kayys.syirkah.restaurant.venue.spi.DiningTableRepository;
@@ -26,8 +28,10 @@ import tech.kayys.syirkah.restaurant.venue.spi.VenueRepository;
 
 import java.util.Comparator;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Implements the other contexts' anti-corruption ports on top of the venue and kitchen contexts. Keeping these
@@ -80,14 +84,20 @@ public final class VenueBackedPorts {
     }
 
     /** Bookable tables = every table that is not blocked (a broken table must not be sold). */
-    public static TableDirectoryPort tableDirectory(DiningTableRepository tables) {
-        return (tenantId, venueId) -> tables.findByVenue(tenantId, venueId).map(list -> list.stream()
+    public static ResourceDirectoryPort tableDirectory(DiningTableRepository tables) {
+        return (tenantId, facilityId) -> tables.findByVenue(tenantId, VenueId.of(facilityId.value())).map(list -> list.stream()
                 .filter(t -> t.status() != TableStatus.BLOCKED)
-                .map(t -> new TableInfo(t.id(), t.label(), t.minCovers(), t.maxCovers(), t.combinableWith())).toList());
+                .map(t -> new BookableResource(
+                        ResourceId.of(t.id().value()),
+                        t.label(),
+                        t.minCovers(),
+                        t.maxCovers(),
+                        t.combinableWith().stream().map(id -> ResourceId.of(id.value())).collect(Collectors.toSet())
+                )).toList());
     }
 
     /** Same rules for every venue; replace with a per-venue lookup when venues configure their own policy. */
     public static BookingRulesPort bookingRules(Function<UUID, BookingRules> byTenant) {
-        return (tenantId, venueId) -> Uni.createFrom().item(() -> byTenant.apply(tenantId));
+        return (tenantId, facilityId) -> Uni.createFrom().item(() -> byTenant.apply(tenantId));
     }
 }

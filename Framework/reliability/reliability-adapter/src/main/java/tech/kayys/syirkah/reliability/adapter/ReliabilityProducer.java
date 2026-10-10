@@ -36,12 +36,6 @@ public class ReliabilityProducer {
 
     @ApplicationScoped
     @Produces
-    EventSerializerPort serializer(EventTypeRegistry registry) {
-        return new JsonEventSerializer(mapper, registry);
-    }
-
-    @ApplicationScoped
-    @Produces
     JsonEventSerializer jsonSerializer(EventTypeRegistry registry) {
         return new JsonEventSerializer(mapper, registry);
     }

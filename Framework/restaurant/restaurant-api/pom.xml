@@ -40,7 +40,7 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-reservation-application</artifactId>
+            <artifactId>syirkah-reservation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

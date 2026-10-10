@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import tech.kayys.syirkah.restaurant.reservation.application.WaitlistService;
+import tech.kayys.syirkah.reservation.application.WaitlistService;
 import tech.kayys.syirkah.security.domain.valueobject.ActionType;
 
 import java.util.List;

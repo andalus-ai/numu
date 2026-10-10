@@ -4,9 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
+import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.syirkah.foundation.domain.entity.OptimisticLockable;
 import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
 import tech.kayys.syirkah.restaurant.kernel.domain.ConcurrencyConflictException;
-import tech.kayys.syirkah.restaurant.kernel.domain.RestaurantAggregate;
 import tech.kayys.syirkah.restaurant.kernel.spi.VersionedRepository;
 
 import java.time.Instant;
@@ -27,7 +28,7 @@ import java.util.function.Function;
  *
  * @param <S> snapshot record (plain types only; JavaTimeModule must be registered on the ObjectMapper)
  */
-public abstract class PgDocumentRepository<A extends RestaurantAggregate<ID>, ID extends DomainId<UUID>, S>
+public abstract class PgDocumentRepository<A extends AbstractAggregateRoot<ID> & OptimisticLockable, ID extends DomainId<UUID>, S>
         implements VersionedRepository<A, ID> {
 
     /** Columns lifted out of the document for querying. Nulls are fine. */
@@ -53,6 +54,16 @@ public abstract class PgDocumentRepository<A extends RestaurantAggregate<ID>, ID
     private final Function<A, S> toSnapshot;
     private final Function<S, A> fromSnapshot;
     private final Function<A, Index> indexer;
+
+    /** Required by CDI for client proxies. */
+    protected PgDocumentRepository() {
+        this.mapper = null;
+        this.kind = null;
+        this.snapshotType = null;
+        this.toSnapshot = null;
+        this.fromSnapshot = null;
+        this.indexer = null;
+    }
 
     protected PgDocumentRepository(ObjectMapper mapper, String kind, Class<S> snapshotType, Function<A, S> toSnapshot,
                                    Function<S, A> fromSnapshot, Function<A, Index> indexer) {

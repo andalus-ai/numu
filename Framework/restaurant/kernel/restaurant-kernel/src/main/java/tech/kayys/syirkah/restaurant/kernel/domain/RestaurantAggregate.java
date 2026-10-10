@@ -1,6 +1,7 @@
 package tech.kayys.syirkah.restaurant.kernel.domain;
 
 import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.syirkah.foundation.domain.entity.OptimisticLockable;
 import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
 
 import java.time.Instant;
@@ -17,7 +18,8 @@ import java.time.Instant;
  *       {@code Instant.now()}, so rules such as "no-show only after the grace period" are deterministic to test.</li>
  * </ul>
  */
-public abstract class RestaurantAggregate<ID extends DomainId<?>> extends AbstractAggregateRoot<ID> {
+public abstract class RestaurantAggregate<ID extends DomainId<?>> extends AbstractAggregateRoot<ID>
+        implements OptimisticLockable {
 
     private static final long serialVersionUID = 1L;
 

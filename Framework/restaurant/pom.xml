@@ -27,10 +27,6 @@
         <module>kitchen/restaurant-kitchen-spi</module>
         <module>kitchen/restaurant-kitchen-application</module>
         <module>kitchen/restaurant-kitchen-adapter</module>
-        <module>reservation/restaurant-reservation-domain</module>
-        <module>reservation/restaurant-reservation-spi</module>
-        <module>reservation/restaurant-reservation-application</module>
-        <module>reservation/restaurant-reservation-adapter</module>
         <module>integration/restaurant-integration</module>
         <module>restaurant-persistence</module>
         <module>restaurant-api</module>

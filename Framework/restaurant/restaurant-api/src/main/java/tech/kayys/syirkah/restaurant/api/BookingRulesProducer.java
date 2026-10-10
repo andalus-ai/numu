@@ -6,8 +6,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.restaurant.reservation.domain.BookingRules;
-import tech.kayys.syirkah.restaurant.reservation.domain.ServicePeriod;
+import tech.kayys.syirkah.reservation.domain.BookingRules;
+import tech.kayys.syirkah.reservation.domain.OperatingWindow;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -50,12 +50,12 @@ public class BookingRulesProducer {
     Config c;
 
     @Produces
-    @ApplicationScoped
+    @jakarta.enterprise.context.Dependent
     BookingRules rules() {
-        final var periods = new EnumMap<DayOfWeek, List<ServicePeriod>>(DayOfWeek.class);
+        final var periods = new EnumMap<DayOfWeek, List<OperatingWindow>>(DayOfWeek.class);
         for (final var d : DayOfWeek.values()) {
-            periods.put(d, List.of(new ServicePeriod("lunch", c.lunchOpens(), c.lunchLastSeating()),
-                    new ServicePeriod("dinner", c.dinnerOpens(), c.dinnerLastSeating())));
+            periods.put(d, List.of(new OperatingWindow("lunch", c.lunchOpens(), c.lunchLastSeating(), c.lunchLastSeating()),
+                    new OperatingWindow("dinner", c.dinnerOpens(), c.dinnerLastSeating(), c.dinnerLastSeating())));
         }
         return new BookingRules(ZoneId.of(c.zone()), c.minParty(), c.maxParty(), c.maxAdvanceDays(), c.minLeadTime(), c.slotInterval(),
                 c.cleanupBuffer(), Map.of(2, Duration.ofMinutes(75), 4, Duration.ofMinutes(90), 6, Duration.ofMinutes(105), 99, Duration.ofMinutes(120)),
