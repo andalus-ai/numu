@@ -40,14 +40,14 @@ public class ReferralRepositoryImpl implements ReferralRepository {
 
     @Override
     public CompletionStage<Optional<Referral>> findById(ReferralId id) {
-    return Panache.withSession(() -> ReferralEntity.findById(id.getValue())
+    return Panache.withSession(() -> ReferralEntity.<ReferralEntity>findById(id.getValue())
                 .map(entity -> entity == null ? Optional.<Referral>empty() : Optional.of(mapper.toDomain(entity)))
                 ).subscribe().asCompletionStage();
     }
 
     @Override
     public CompletionStage<Boolean> existsById(ReferralId id) {
-    return Panache.withSession(() -> ReferralEntity.findById(id.getValue()).map(entity -> entity != null)).subscribe().asCompletionStage();
+    return Panache.withSession(() -> ReferralEntity.<ReferralEntity>findById(id.getValue()).map(entity -> entity != null)).subscribe().asCompletionStage();
     }
 
     @Override

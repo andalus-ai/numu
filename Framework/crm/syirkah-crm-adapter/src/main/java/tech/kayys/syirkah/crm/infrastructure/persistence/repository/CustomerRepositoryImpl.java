@@ -41,7 +41,7 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public CompletionStage<Optional<Customer>> findById(CustomerId id) {
-    return Panache.withSession(() -> CustomerEntity.findById(id.getValue())
+    return Panache.withSession(() -> CustomerEntity.<CustomerEntity>findById(id.getValue())
             .map(entity -> entity == null ? Optional.<Customer>empty() : Optional.of(mapper.toDomain(entity)))
             ).subscribe()
             .asCompletionStage();
@@ -49,7 +49,7 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public CompletionStage<Boolean> existsById(CustomerId id) {
-    return Panache.withSession(() -> CustomerEntity.findById(id.getValue())
+    return Panache.withSession(() -> CustomerEntity.<CustomerEntity>findById(id.getValue())
             .map(entity -> entity != null)
             ).subscribe()
             .asCompletionStage();
@@ -73,7 +73,7 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public CompletionStage<Customer> findByEmail(String email) {
-    return Panache.withSession(() -> CustomerEntity.find("email = ?1", email).firstResult()
+    return Panache.withSession(() -> CustomerEntity.<CustomerEntity>find("email = ?1", email).firstResult()
             .map(entity -> entity != null ? mapper.toDomain(entity) : null)
             ).subscribe()
             .asCompletionStage();
@@ -81,7 +81,7 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public CompletionStage<Customer> findByCustomerNumber(String customerNumber) {
-    return Panache.withSession(() -> CustomerEntity.find("customerNumber = ?1", customerNumber).firstResult()
+    return Panache.withSession(() -> CustomerEntity.<CustomerEntity>find("customerNumber = ?1", customerNumber).firstResult()
             .map(entity -> entity != null ? mapper.toDomain(entity) : null)
             ).subscribe()
             .asCompletionStage();
@@ -89,7 +89,7 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public CompletionStage<List<Customer>> findByCompanyName(String companyName) {
-    return Panache.withSession(() -> CustomerEntity.list("companyName like ?1", "%" + companyName + "%")
+    return Panache.withSession(() -> CustomerEntity.<CustomerEntity>list("companyName like ?1", "%" + companyName + "%")
             .map(entities -> entities.stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList()))
@@ -99,7 +99,7 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public CompletionStage<List<Customer>> findByIndustry(String industry) {
-    return Panache.withSession(() -> CustomerEntity.list("industry = ?1", industry)
+    return Panache.withSession(() -> CustomerEntity.<CustomerEntity>list("industry = ?1", industry)
             .map(entities -> entities.stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList()))
@@ -109,7 +109,7 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public CompletionStage<List<Customer>> findActiveCustomers() {
-    return Panache.withSession(() -> CustomerEntity.list("active = true")
+    return Panache.withSession(() -> CustomerEntity.<CustomerEntity>list("active = true")
             .map(entities -> entities.stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList()))

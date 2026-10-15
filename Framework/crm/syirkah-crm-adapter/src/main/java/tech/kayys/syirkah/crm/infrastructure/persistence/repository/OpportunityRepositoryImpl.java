@@ -47,7 +47,7 @@ public class OpportunityRepositoryImpl implements OpportunityRepository {
 
     @Override
     public CompletionStage<Optional<Opportunity>> findById(OpportunityId id) {
-    return Panache.withSession(() -> OpportunityEntity.findById(id.getValue())
+    return Panache.withSession(() -> OpportunityEntity.<OpportunityEntity>findById(id.getValue())
             .map(entity -> entity == null
                     ? Optional.<Opportunity>empty()
                     : Optional.of(mapper.toDomain((OpportunityEntity) entity)))
@@ -57,7 +57,7 @@ public class OpportunityRepositoryImpl implements OpportunityRepository {
 
     @Override
     public CompletionStage<Boolean> existsById(OpportunityId id) {
-    return Panache.withSession(() -> OpportunityEntity.findById(id.getValue())
+    return Panache.withSession(() -> OpportunityEntity.<OpportunityEntity>findById(id.getValue())
             .map(entity -> entity != null)
             ).subscribe()
             .asCompletionStage();

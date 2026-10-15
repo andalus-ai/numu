@@ -47,7 +47,7 @@ public class LeadRepositoryImpl implements LeadRepository {
 
     @Override
     public CompletionStage<Optional<Lead>> findById(LeadId id) {
-    return Panache.withSession(() -> LeadEntity.findById(id.getValue())
+    return Panache.withSession(() -> LeadEntity.<LeadEntity>findById(id.getValue())
             .map(entity -> entity == null ? Optional.<Lead>empty() : Optional.of(mapper.toDomain(entity)))
             ).subscribe()
             .asCompletionStage();
@@ -55,7 +55,7 @@ public class LeadRepositoryImpl implements LeadRepository {
 
     @Override
     public CompletionStage<Boolean> existsById(LeadId id) {
-    return Panache.withSession(() -> LeadEntity.findById(id.getValue())
+    return Panache.withSession(() -> LeadEntity.<LeadEntity>findById(id.getValue())
             .map(entity -> entity != null)
             ).subscribe()
             .asCompletionStage();

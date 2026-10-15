@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TEST="$ROOT/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandRunnerIntegrationTest.java"
+CONTEXT="$ROOT/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandContext.java"
+RUNNER="$ROOT/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandRunner.java"
+for file in "$TEST" "$CONTEXT" "$RUNNER"; do
+  test -s "$file" || { echo "FAIL: missing $file" >&2; exit 1; }
+done
+for expected in \
+  '@QuarkusTest' \
+  'failedCallbackRollsBackReservationAndOutboxTogether' \
+  'concurrentSameKeyCommandsExecuteBusinessCallbackAndAppendEventOnce' \
+  'new PgTransactionalCommandRunner(pool' \
+  'new IdempotentCommandExecutor(runner' \
+  'context.appendOutboxEvent(event)' \
+  'countIdempotency(tenant, key)' \
+  'countOutboxForTenant(tenant)'; do
+  grep -Fq "$expected" "$TEST" || { echo "FAIL: missing test contract: $expected" >&2; exit 1; }
+done
+grep -Fq 'pool.withTransaction' "$RUNNER"
+grep -Fq 'connection.preparedQuery(INSERT_RESERVATION)' "$CONTEXT"
+grep -Fq 'connection.preparedQuery(INSERT_OUTBOX_EVENT)' "$CONTEXT"
+echo 'PASS: transaction-runner integration test contract assertions'

@@ -40,14 +40,14 @@ public class TerritoryRepositoryImpl implements TerritoryRepository {
 
     @Override
     public CompletionStage<Optional<Territory>> findById(TerritoryId id) {
-    return Panache.withSession(() -> TerritoryEntity.findById(id.getValue())
+    return Panache.withSession(() -> TerritoryEntity.<TerritoryEntity>findById(id.getValue())
                 .map(entity -> entity == null ? Optional.<Territory>empty() : Optional.of(mapper.toDomain(entity)))
                 ).subscribe().asCompletionStage();
     }
 
     @Override
     public CompletionStage<Boolean> existsById(TerritoryId id) {
-    return Panache.withSession(() -> TerritoryEntity.findById(id.getValue()).map(entity -> entity != null)).subscribe().asCompletionStage();
+    return Panache.withSession(() -> TerritoryEntity.<TerritoryEntity>findById(id.getValue()).map(entity -> entity != null)).subscribe().asCompletionStage();
     }
 
     @Override

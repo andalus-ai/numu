@@ -40,7 +40,7 @@ public class TerritoryAssignmentRepositoryImpl implements TerritoryAssignmentRep
 
     @Override
     public CompletionStage<Optional<TerritoryAssignment>> findById(TerritoryAssignmentId id) {
-    return Panache.withSession(() -> TerritoryAssignmentEntity.findById(id.getValue())
+    return Panache.withSession(() -> TerritoryAssignmentEntity.<TerritoryAssignmentEntity>findById(id.getValue())
                 .map(entity -> entity == null
                         ? Optional.<TerritoryAssignment>empty()
                         : Optional.of(mapper.toDomain(entity)))
@@ -49,7 +49,7 @@ public class TerritoryAssignmentRepositoryImpl implements TerritoryAssignmentRep
 
     @Override
     public CompletionStage<Boolean> existsById(TerritoryAssignmentId id) {
-    return Panache.withSession(() -> TerritoryAssignmentEntity.findById(id.getValue()).map(entity -> entity != null)).subscribe().asCompletionStage();
+    return Panache.withSession(() -> TerritoryAssignmentEntity.<TerritoryAssignmentEntity>findById(id.getValue()).map(entity -> entity != null)).subscribe().asCompletionStage();
     }
 
     @Override

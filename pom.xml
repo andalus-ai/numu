@@ -29,7 +29,6 @@
 
     <modules>
         <module>Framework</module>
-        <module>distributions</module>
     </modules>
 
     <dependencyManagement>
