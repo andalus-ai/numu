@@ -94,6 +94,25 @@ class SyirkahCalculatorTest {
     }
 
     @Test
+    void unsupportedPartnershipProfitPolicyFailsClosed() {
+        SyirkahContractVersion contract = contract(SyirkahType.ABDAN,
+                party("a", SyirkahPartyRole.WORKING_PARTNER, "0", "50"),
+                party("b", SyirkahPartyRole.WORKING_PARTNER, "0", "50"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> calculator.calculate(contract, result("100", "0", "0", "0")));
+    }
+
+    @Test
+    void inanOrdinaryLossUsesCapitalContributionWeights() {
+        SyirkahContractVersion contract = contract(SyirkahType.INAN,
+                party("a", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "700", "50"),
+                party("b", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "300", "50"));
+        SyirkahCalculation result = calculator.calculate(contract, result("0", "100", "0", "0"));
+        assertEquals(new BigDecimal("70.00"), allocation(result, "a"));
+        assertEquals(new BigDecimal("30.00"), allocation(result, "b"));
+    }
+
+    @Test
     void rejectsNisbahThatDoesNotTotalOneHundred() {
         assertThrows(IllegalArgumentException.class, () -> new SyirkahContractVersion("c", 1, "t", "co", "USD",
                 SyirkahType.MUDHARABAH, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), "policy-1",
