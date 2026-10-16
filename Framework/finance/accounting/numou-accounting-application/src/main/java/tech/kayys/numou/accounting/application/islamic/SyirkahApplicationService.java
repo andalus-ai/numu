@@ -50,8 +50,15 @@ public final class SyirkahApplicationService {
         if (!contract.tenantId().equals(tenantId) || !contract.companyId().equals(companyId)) {
             throw new SecurityException("Contract scope mismatch");
         }
-        // Reuse the domain's date/currency/version validations before accepting the result.
-        calculator.calculate(contract, result);
+        // Record the evidenced business result even when its loss-policy subtype needs
+        // specialist review. Policy evaluation belongs to the explicit calculate step.
+        if (!contract.currencyCode().equalsIgnoreCase(result.currencyCode())) {
+            throw new IllegalArgumentException("Business result currency differs from contract currency");
+        }
+        if (result.periodStart().isBefore(contract.effectiveFrom())
+                || result.periodEnd().isAfter(contract.effectiveUntil())) {
+            throw new IllegalArgumentException("Business period falls outside contract version effective dates");
+        }
         repository.saveBusinessResult(tenantId, companyId, result, actor);
     }
 
@@ -69,6 +76,12 @@ public final class SyirkahApplicationService {
         int version = repository.saveCalculation(tenantId, companyId, calculation, actor);
         return repository.findCalculation(tenantId, companyId, resultId, version)
                 .orElseThrow(() -> new IllegalStateException("Persisted calculation could not be reloaded"));
+    }
+
+    public SyirkahCalculation findCalculation(String tenantId, String companyId, String resultId,
+                                             int calculationVersion) {
+        return repository.findCalculation(tenantId, companyId, resultId, calculationVersion)
+                .orElseThrow(() -> new IllegalArgumentException("Calculation snapshot not found"));
     }
 
     public SyirkahCalculation approveCalculation(String tenantId, String companyId, String resultId,
