@@ -13,9 +13,11 @@ import java.util.Optional;
  */
 public interface SyirkahRepository {
     void createContract(SyirkahContractVersion contract, String createdBy);
+    void createContractVersion(SyirkahContractVersion contract, String createdBy);
     void activateContract(String tenantId, String companyId, String contractId, int version,
                           String actor, String signedEvidenceReference);
     boolean isContractActive(String tenantId, String companyId, String contractId);
+    boolean isContractVersionActivated(String tenantId, String companyId, String contractId, int version);
     Optional<SyirkahContractVersion> findContract(String tenantId, String companyId,
                                                    String contractId, int version);
 
