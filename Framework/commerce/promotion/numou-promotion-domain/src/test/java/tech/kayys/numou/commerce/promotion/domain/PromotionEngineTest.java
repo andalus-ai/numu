@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.promotion.domain.action.BundlePrice;
-import tech.kayys.syirkah.commerce.promotion.domain.action.FixedAmountOff;
-import tech.kayys.syirkah.commerce.promotion.domain.action.FreeUnits;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PercentOff;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.AllLinesPresent;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumCartTotal;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumQuantityOf;
-import tech.kayys.syirkah.commerce.pricing.domain.PriceResult;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.commerce.promotion.domain.action.BundlePrice;
+import tech.kayys.numou.commerce.promotion.domain.action.FixedAmountOff;
+import tech.kayys.numou.commerce.promotion.domain.action.FreeUnits;
+import tech.kayys.numou.commerce.promotion.domain.action.PercentOff;
+import tech.kayys.numou.commerce.promotion.domain.condition.AllLinesPresent;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumCartTotal;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumQuantityOf;
+import tech.kayys.numou.commerce.pricing.domain.PriceResult;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -1,22 +1,22 @@
-package tech.kayys.syirkah.commerce.subscription.application;
+package tech.kayys.numou.commerce.subscription.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.subscription.application.command.RecordUsageCommand;
-import tech.kayys.syirkah.commerce.subscription.application.command.StartSubscriptionCommand;
-import tech.kayys.syirkah.commerce.subscription.application.handler.RecordUsageHandler;
-import tech.kayys.syirkah.commerce.subscription.application.handler.StartSubscriptionHandler;
-import tech.kayys.syirkah.commerce.subscription.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubOfferingRepository;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubPlanEntitlements;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubSubscriptionRepository;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubUsageMeters;
-import tech.kayys.syirkah.commerce.subscription.domain.BillingCycle;
-import tech.kayys.syirkah.commerce.subscription.domain.Entitlement;
-import tech.kayys.syirkah.commerce.subscription.domain.RenewalPolicy;
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.subscription.application.command.RecordUsageCommand;
+import tech.kayys.numou.commerce.subscription.application.command.StartSubscriptionCommand;
+import tech.kayys.numou.commerce.subscription.application.handler.RecordUsageHandler;
+import tech.kayys.numou.commerce.subscription.application.handler.StartSubscriptionHandler;
+import tech.kayys.numou.commerce.subscription.application.support.RecordingEventPublisher;
+import tech.kayys.numou.commerce.subscription.application.support.StubOfferingRepository;
+import tech.kayys.numou.commerce.subscription.application.support.StubPlanEntitlements;
+import tech.kayys.numou.commerce.subscription.application.support.StubSubscriptionRepository;
+import tech.kayys.numou.commerce.subscription.application.support.StubUsageMeters;
+import tech.kayys.numou.commerce.subscription.domain.BillingCycle;
+import tech.kayys.numou.commerce.subscription.domain.Entitlement;
+import tech.kayys.numou.commerce.subscription.domain.RenewalPolicy;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionId;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -51,7 +51,7 @@ class RecordUsageHandlerTest {
                 .await().indefinitely().orElseThrow();
     }
 
-    private tech.kayys.syirkah.foundation.application.result.Result<UsageReceipt> record(
+    private tech.kayys.numou.foundation.application.result.Result<UsageReceipt> record(
             String code, String units, Instant at) {
         return new RecordUsageHandler(subscriptions, entitlements, meters)
                 .handle(new RecordUsageCommand(

@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.identity.application.support;
+package tech.kayys.numou.identity.application.support;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.page.Page;
-import tech.kayys.syirkah.foundation.application.page.PageRequest;
-import tech.kayys.syirkah.identity.application.port.UserRepository;
-import tech.kayys.syirkah.identity.domain.user.User;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.identity.domain.valueobject.EmailAddress;
+import tech.kayys.numou.foundation.application.page.Page;
+import tech.kayys.numou.foundation.application.page.PageRequest;
+import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.domain.user.User;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.identity.domain.valueobject.EmailAddress;
 
 import java.util.LinkedHashMap;
 import java.util.List;

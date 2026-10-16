@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.commerce.configuration.domain;
+package tech.kayys.numou.commerce.configuration.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.specification.OptionGroupId;
-import tech.kayys.syirkah.product.domain.specification.OptionId;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecificationId;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.specification.OptionGroupId;
+import tech.kayys.numou.product.domain.specification.OptionId;
+import tech.kayys.numou.product.domain.specification.ProductSpecificationId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

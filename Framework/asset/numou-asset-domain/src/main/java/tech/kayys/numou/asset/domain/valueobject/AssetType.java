@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.valueobject;
+package tech.kayys.numou.asset.domain.valueobject;
 
 /**
  * Coarse classification of an Asset. Intentionally flat: no

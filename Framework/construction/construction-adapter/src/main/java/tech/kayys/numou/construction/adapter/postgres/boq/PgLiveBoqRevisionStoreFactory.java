@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.adapter.postgres.boq;
+package tech.kayys.numou.construction.adapter.postgres.boq;
 
 import io.vertx.mutiny.sqlclient.SqlConnection;
 

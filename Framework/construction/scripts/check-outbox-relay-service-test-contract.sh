@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST="$ROOT/construction-application/src/test/java/tech/kayys/syirkah/construction/application/outbox/OutboxRelayServiceTest.java"
+TEST="$ROOT/construction-application/src/test/java/tech/kayys/numou/construction/application/outbox/OutboxRelayServiceTest.java"
 DOC="$ROOT/docs/testing/outbox-relay-service-unit-tests.md"
 [[ -f "$TEST" && -f "$DOC" ]]
 grep -q 'emptyBatchDoesNotInvokeDeliveryAndReturnsZero' "$TEST"

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.application.api.command;
+package tech.kayys.numou.accounting.application.api.command;
 
-import tech.kayys.syirkah.accounting.application.cqrs.Command;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.accounting.domain.valueobject.AccountType;
+import tech.kayys.numou.accounting.application.cqrs.Command;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.valueobject.AccountType;
 
 import java.util.Objects;
 

@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.project.application.commercial.command;
+package tech.kayys.numou.project.application.commercial.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.project.domain.commercial.ChangeImpact;
-import tech.kayys.syirkah.project.domain.commercial.ChangeRequestId;
-import tech.kayys.syirkah.project.domain.commercial.ProjectContractId;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.project.domain.commercial.ChangeImpact;
+import tech.kayys.numou.project.domain.commercial.ChangeRequestId;
+import tech.kayys.numou.project.domain.commercial.ProjectContractId;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.util.Objects;
 

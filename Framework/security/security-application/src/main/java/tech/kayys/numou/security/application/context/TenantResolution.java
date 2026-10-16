@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.application.context;
+package tech.kayys.numou.security.application.context;
 
 import java.util.Objects;
 import java.util.UUID;

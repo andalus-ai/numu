@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.messaging;
+package tech.kayys.numou.document.adapter.outbound.messaging;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +8,7 @@ import io.smallrye.reactive.messaging.MutinyEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.reactive.messaging.Channel;
-import tech.kayys.syirkah.document.adapter.outbound.postgres.DocumentOutboxMessage;
+import tech.kayys.numou.document.adapter.outbound.postgres.DocumentOutboxMessage;
 
 @ApplicationScoped
 public class DocumentOutboxPublisher {

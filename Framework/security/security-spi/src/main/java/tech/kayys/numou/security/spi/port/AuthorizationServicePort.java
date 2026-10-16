@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.security.spi.port;
+package tech.kayys.numou.security.spi.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.security.domain.authorization.AccessDecision;
-import tech.kayys.syirkah.security.domain.authorization.AccessRequest;
+import tech.kayys.numou.security.domain.authorization.AccessDecision;
+import tech.kayys.numou.security.domain.authorization.AccessRequest;
 
 /**
  * Port for evaluating authorization access requests (security01.md §3.4).

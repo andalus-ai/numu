@@ -4,12 +4,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-common</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-common</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-analytics</artifactId>
+    <artifactId>numou-analytics</artifactId>
     <packaging>pom</packaging>
     <name>ERP Analytics</name>
     <description>Analytics Bounded Context</description>

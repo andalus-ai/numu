@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.hardening;
+package tech.kayys.numou.accounting.application.hardening;
 
-import tech.kayys.syirkah.accounting.domain.hardening.BridgeDispatch;
-import tech.kayys.syirkah.accounting.domain.hardening.BridgeIdempotencyRegistry;
+import tech.kayys.numou.accounting.domain.hardening.BridgeDispatch;
+import tech.kayys.numou.accounting.domain.hardening.BridgeIdempotencyRegistry;
 
 import java.util.Map;
 import java.util.UUID;

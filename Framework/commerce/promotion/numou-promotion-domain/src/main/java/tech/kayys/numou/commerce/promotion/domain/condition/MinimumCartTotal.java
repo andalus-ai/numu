@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.domain.condition;
+package tech.kayys.numou.commerce.promotion.domain.condition;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Objects;
 

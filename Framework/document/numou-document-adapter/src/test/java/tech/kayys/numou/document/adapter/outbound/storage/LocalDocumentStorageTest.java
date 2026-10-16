@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.document.adapter.outbound.storage;
+package tech.kayys.numou.document.adapter.outbound.storage;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import tech.kayys.syirkah.document.application.port.DocumentStoragePort;
+import tech.kayys.numou.document.application.port.DocumentStoragePort;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
 
 import java.util.ArrayList;
 import java.util.Collections;

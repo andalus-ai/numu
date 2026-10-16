@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.accounting.application.service;
+package tech.kayys.numou.accounting.application.service;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.application.port.AccountRepository;
-import tech.kayys.syirkah.accounting.application.port.FiscalPeriodRepository;
-import tech.kayys.syirkah.accounting.application.port.JournalEntryRepository;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.identifier.FiscalPeriodId;
-import tech.kayys.syirkah.accounting.domain.identifier.JournalEntryId;
-import tech.kayys.syirkah.accounting.domain.model.Account;
-import tech.kayys.syirkah.accounting.domain.model.FiscalPeriod;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
-import tech.kayys.syirkah.accounting.domain.valueobject.AccountType;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.application.port.AccountRepository;
+import tech.kayys.numou.accounting.application.port.FiscalPeriodRepository;
+import tech.kayys.numou.accounting.application.port.JournalEntryRepository;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.identifier.FiscalPeriodId;
+import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
+import tech.kayys.numou.accounting.domain.model.Account;
+import tech.kayys.numou.accounting.domain.model.FiscalPeriod;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.domain.valueobject.AccountType;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.time.Instant;
 import java.util.List;

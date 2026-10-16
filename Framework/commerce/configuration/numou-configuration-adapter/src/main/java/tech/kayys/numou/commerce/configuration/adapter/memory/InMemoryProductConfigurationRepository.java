@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.configuration.adapter.memory;
+package tech.kayys.numou.commerce.configuration.adapter.memory;
 
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfiguration;
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfigurationId;
-import tech.kayys.syirkah.commerce.configuration.spi.port.ProductConfigurationRepository;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfiguration;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfigurationId;
+import tech.kayys.numou.commerce.configuration.spi.port.ProductConfigurationRepository;
 
 import java.util.Map;
 import java.util.Optional;

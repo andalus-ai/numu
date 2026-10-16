@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.configuration.domain;
+package tech.kayys.numou.commerce.configuration.domain;
 
-import tech.kayys.syirkah.product.domain.specification.OptionGroup;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecification;
+import tech.kayys.numou.product.domain.specification.OptionGroup;
+import tech.kayys.numou.product.domain.specification.ProductSpecification;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.accounting.application.quality;
+package tech.kayys.numou.accounting.application.quality;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.quality.CapaAction;
-import tech.kayys.syirkah.accounting.domain.quality.Inspection;
-import tech.kayys.syirkah.accounting.domain.quality.NonConformance;
+import tech.kayys.numou.accounting.domain.quality.CapaAction;
+import tech.kayys.numou.accounting.domain.quality.Inspection;
+import tech.kayys.numou.accounting.domain.quality.NonConformance;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,7 +50,7 @@ class QualityServiceTest {
     @DisplayName("getInspection throws for unknown ID")
     void getInspection_notFound() {
         assertThrows(IllegalArgumentException.class, () -> svc.getInspection(
-                new tech.kayys.syirkah.accounting.domain.quality.InspectionId("bad-id")));
+                new tech.kayys.numou.accounting.domain.quality.InspectionId("bad-id")));
     }
 
     // ── Non-Conformance ───────────────────────────────────────────────────────

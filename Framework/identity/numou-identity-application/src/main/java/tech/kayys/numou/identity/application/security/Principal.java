@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.application.security;
+package tech.kayys.numou.identity.application.security;
 
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.util.Map;
 import java.util.Objects;

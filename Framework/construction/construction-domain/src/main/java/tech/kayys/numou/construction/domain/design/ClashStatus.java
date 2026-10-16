@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.design;
+package tech.kayys.numou.construction.domain.design;
 
 public enum ClashStatus {
     OPEN,

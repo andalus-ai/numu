@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.identity.application.query;
+package tech.kayys.numou.identity.application.query;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.page.PageRequest;
-import tech.kayys.syirkah.foundation.testing.time.FixedDomainClock;
-import tech.kayys.syirkah.identity.application.command.RegisterUserCommand;
-import tech.kayys.syirkah.identity.application.command.RegisterUserCommandHandler;
-import tech.kayys.syirkah.identity.application.support.InMemoryPasswordHasher;
-import tech.kayys.syirkah.identity.application.support.InMemoryUserRepository;
-import tech.kayys.syirkah.identity.application.support.PassthroughUnitOfWork;
-import tech.kayys.syirkah.identity.application.support.RecordingEventPublisher;
+import tech.kayys.numou.foundation.application.page.PageRequest;
+import tech.kayys.numou.foundation.testing.time.FixedDomainClock;
+import tech.kayys.numou.identity.application.command.RegisterUserCommand;
+import tech.kayys.numou.identity.application.command.RegisterUserCommandHandler;
+import tech.kayys.numou.identity.application.support.InMemoryPasswordHasher;
+import tech.kayys.numou.identity.application.support.InMemoryUserRepository;
+import tech.kayys.numou.identity.application.support.PassthroughUnitOfWork;
+import tech.kayys.numou.identity.application.support.RecordingEventPublisher;
 
 import java.time.Instant;
 

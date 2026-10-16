@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.commerce.configuration.application.handler;
+package tech.kayys.numou.commerce.configuration.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.configuration.application.query.ValidateConfigurationQuery;
-import tech.kayys.syirkah.commerce.configuration.domain.ConfigurationValidationResult;
-import tech.kayys.syirkah.commerce.configuration.domain.ConfigurationValidator;
-import tech.kayys.syirkah.commerce.configuration.spi.port.SpecificationLookupPort;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.configuration.application.query.ValidateConfigurationQuery;
+import tech.kayys.numou.commerce.configuration.domain.ConfigurationValidationResult;
+import tech.kayys.numou.commerce.configuration.domain.ConfigurationValidator;
+import tech.kayys.numou.commerce.configuration.spi.port.SpecificationLookupPort;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.util.Objects;
 

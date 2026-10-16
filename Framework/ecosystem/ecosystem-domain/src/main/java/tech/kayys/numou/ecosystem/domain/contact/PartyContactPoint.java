@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.ecosystem.domain.contact;
+package tech.kayys.numou.ecosystem.domain.contact;
 
-import tech.kayys.syirkah.ecosystem.domain.party.PartyId;
+import tech.kayys.numou.ecosystem.domain.party.PartyId;
 
 import java.io.Serializable;
 import java.util.Objects;

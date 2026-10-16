@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.logistics;
+package tech.kayys.numou.construction.domain.logistics;
 
 public enum SiteZoneType {
     WORKING_ZONE,

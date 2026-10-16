@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.security.application.authz;
+package tech.kayys.numou.security.application.authz;
 
-import tech.kayys.syirkah.security.domain.authorization.Permission;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.security.domain.authorization.Permission;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import static tech.kayys.syirkah.security.domain.valueobject.ActionType.CREATE;
-import static tech.kayys.syirkah.security.domain.valueobject.ActionType.DELETE;
-import static tech.kayys.syirkah.security.domain.valueobject.ActionType.PERFORM;
-import static tech.kayys.syirkah.security.domain.valueobject.ActionType.READ;
-import static tech.kayys.syirkah.security.domain.valueobject.ActionType.UPDATE;
+import static tech.kayys.numou.security.domain.valueobject.ActionType.CREATE;
+import static tech.kayys.numou.security.domain.valueobject.ActionType.DELETE;
+import static tech.kayys.numou.security.domain.valueobject.ActionType.PERFORM;
+import static tech.kayys.numou.security.domain.valueobject.ActionType.READ;
+import static tech.kayys.numou.security.domain.valueobject.ActionType.UPDATE;
 
 /**
  * Immutable role → permission table. Roles are the strings carried in the token's

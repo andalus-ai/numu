@@ -1,34 +1,34 @@
-package tech.kayys.syirkah.identity.adapter.bootstrap;
+package tech.kayys.numou.identity.adapter.bootstrap;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
-import tech.kayys.syirkah.identity.application.command.ChangeUserEmailCommandHandler;
-import tech.kayys.syirkah.identity.application.command.DeactivateUserCommandHandler;
-import tech.kayys.syirkah.identity.application.command.RegisterUserCommandHandler;
-import tech.kayys.syirkah.identity.application.port.AuthorizationPort;
-import tech.kayys.syirkah.identity.application.port.CurrentPrincipalPort;
-import tech.kayys.syirkah.identity.application.port.IdentityOutboxPort;
-import tech.kayys.syirkah.identity.application.port.MembershipManagementPort;
-import tech.kayys.syirkah.identity.application.port.PasswordHasher;
-import tech.kayys.syirkah.identity.application.port.RoleAssignmentPort;
-import tech.kayys.syirkah.identity.application.port.RoleRepository;
-import tech.kayys.syirkah.identity.application.port.TenantMembershipPort;
-import tech.kayys.syirkah.identity.application.port.UserRepository;
-import tech.kayys.syirkah.identity.application.query.GetUserByIdQueryHandler;
-import tech.kayys.syirkah.identity.application.query.ListUsersQueryHandler;
-import tech.kayys.syirkah.identity.application.service.AuthorizationService;
-import tech.kayys.syirkah.identity.application.service.RoleManagementService;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
+import tech.kayys.numou.identity.application.command.ChangeUserEmailCommandHandler;
+import tech.kayys.numou.identity.application.command.DeactivateUserCommandHandler;
+import tech.kayys.numou.identity.application.command.RegisterUserCommandHandler;
+import tech.kayys.numou.identity.application.port.AuthorizationPort;
+import tech.kayys.numou.identity.application.port.CurrentPrincipalPort;
+import tech.kayys.numou.identity.application.port.IdentityOutboxPort;
+import tech.kayys.numou.identity.application.port.MembershipManagementPort;
+import tech.kayys.numou.identity.application.port.PasswordHasher;
+import tech.kayys.numou.identity.application.port.RoleAssignmentPort;
+import tech.kayys.numou.identity.application.port.RoleRepository;
+import tech.kayys.numou.identity.application.port.TenantMembershipPort;
+import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.application.query.GetUserByIdQueryHandler;
+import tech.kayys.numou.identity.application.query.ListUsersQueryHandler;
+import tech.kayys.numou.identity.application.service.AuthorizationService;
+import tech.kayys.numou.identity.application.service.RoleManagementService;
 
 /**
  * Composition root for the Identity service. Handlers are plain
  * classes with constructor-injected ports (no CDI annotations on the
  * application layer itself, so it stays framework-free) - this is
  * the one place that wires ports (implemented in this module) into
- * use cases (defined in syirkah-identity-application).
+ * use cases (defined in numou-identity-application).
  */
 @ApplicationScoped
 public class IdentityHandlerProducers {

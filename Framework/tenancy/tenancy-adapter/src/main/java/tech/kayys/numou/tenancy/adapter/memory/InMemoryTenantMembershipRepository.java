@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.tenancy.adapter.memory;
+package tech.kayys.numou.tenancy.adapter.memory;
 
-import tech.kayys.syirkah.foundation.domain.ref.UserRef;
-import tech.kayys.syirkah.tenancy.domain.membership.TenantMembership;
-import tech.kayys.syirkah.tenancy.domain.membership.TenantMembershipId;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.tenancy.spi.port.TenantMembershipRepository;
+import tech.kayys.numou.foundation.domain.ref.UserRef;
+import tech.kayys.numou.tenancy.domain.membership.TenantMembership;
+import tech.kayys.numou.tenancy.domain.membership.TenantMembershipId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.tenancy.spi.port.TenantMembershipRepository;
 
 import java.util.Map;
 import java.util.Optional;

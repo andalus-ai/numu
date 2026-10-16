@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.security.spi.port;
+package tech.kayys.numou.security.spi.port;
 
-import tech.kayys.syirkah.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.authorization.Principal;
 
 import java.util.Objects;
 

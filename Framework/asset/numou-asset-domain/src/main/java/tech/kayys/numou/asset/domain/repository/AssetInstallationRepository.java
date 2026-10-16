@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.installation.AssetInstallation;
-import tech.kayys.syirkah.asset.domain.installation.AssetInstallationId;
+import tech.kayys.numou.asset.domain.installation.AssetInstallation;
+import tech.kayys.numou.asset.domain.installation.AssetInstallationId;
 
 import java.util.List;
 import java.util.Optional;

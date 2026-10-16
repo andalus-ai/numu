@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.receivables.infrastructure;
+package tech.kayys.numou.accounting.receivables.infrastructure;
 
-import tech.kayys.syirkah.accounting.domain.ar.CustomerInvoice;
-import tech.kayys.syirkah.accounting.domain.ar.CustomerInvoiceId;
-import tech.kayys.syirkah.accounting.domain.ar.CustomerInvoiceRepository;
+import tech.kayys.numou.accounting.domain.ar.CustomerInvoice;
+import tech.kayys.numou.accounting.domain.ar.CustomerInvoiceId;
+import tech.kayys.numou.accounting.domain.ar.CustomerInvoiceRepository;
 
 import java.util.Map;
 import java.util.Objects;

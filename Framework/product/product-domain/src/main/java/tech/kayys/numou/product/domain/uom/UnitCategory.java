@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.uom;
+package tech.kayys.numou.product.domain.uom;
 
 /**
  * The physical/business dimension a unit belongs to.

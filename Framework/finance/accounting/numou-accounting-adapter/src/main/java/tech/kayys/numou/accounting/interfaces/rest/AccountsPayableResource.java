@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -7,13 +7,13 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.ap.ApInvoiceService;
-import tech.kayys.syirkah.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
-import tech.kayys.syirkah.accounting.domain.ap.VendorId;
-import tech.kayys.syirkah.accounting.domain.ap.VendorInvoice;
-import tech.kayys.syirkah.accounting.domain.ap.VendorInvoiceId;
-import tech.kayys.syirkah.accounting.domain.ap.VendorInvoiceLine;
-import tech.kayys.syirkah.accounting.interfaces.rest.dto.RegisterVendorInvoiceRequest;
+import tech.kayys.numou.accounting.application.ap.ApInvoiceService;
+import tech.kayys.numou.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
+import tech.kayys.numou.accounting.domain.ap.VendorId;
+import tech.kayys.numou.accounting.domain.ap.VendorInvoice;
+import tech.kayys.numou.accounting.domain.ap.VendorInvoiceId;
+import tech.kayys.numou.accounting.domain.ap.VendorInvoiceLine;
+import tech.kayys.numou.accounting.interfaces.rest.dto.RegisterVendorInvoiceRequest;
 
 import java.net.URI;
 import java.util.ArrayList;

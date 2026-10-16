@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.quality.event;
+package tech.kayys.numou.construction.domain.quality.event;
 
-import tech.kayys.syirkah.construction.domain.quality.NcrSeverity;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.construction.domain.quality.NcrSeverity;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import java.time.Instant;
 import java.util.UUID;
 

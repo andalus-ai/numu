@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability.descriptor;
+package tech.kayys.numou.commerce.promotion.domain.capability.descriptor;
 
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilityKind;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionParameterSchema;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionTargetDescriptor;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.TargetType;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilityKind;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionParameterSchema;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionTargetDescriptor;
+import tech.kayys.numou.commerce.promotion.domain.compiler.TargetType;
 
 /** Descriptor for the {@code cart} target capability (product03.md §66). */
 public final class CartTargetDescriptor implements PromotionTargetDescriptor {

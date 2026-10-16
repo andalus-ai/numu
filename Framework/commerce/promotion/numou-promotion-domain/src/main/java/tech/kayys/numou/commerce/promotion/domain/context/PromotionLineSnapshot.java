@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.promotion.domain.context;
+package tech.kayys.numou.commerce.promotion.domain.context;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Quantity;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Quantity;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.sku.SkuId;
 
 import java.util.Objects;
 import java.util.Optional;

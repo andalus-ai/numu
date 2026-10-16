@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.product.domain.sku;
+package tech.kayys.numou.product.domain.sku;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.domain.event.SkuActivated;
-import tech.kayys.syirkah.product.domain.event.SkuCreated;
-import tech.kayys.syirkah.product.domain.event.SkuIdentifierAdded;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.variant.ProductVariantId;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.domain.event.SkuActivated;
+import tech.kayys.numou.product.domain.event.SkuCreated;
+import tech.kayys.numou.product.domain.event.SkuIdentifierAdded;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.variant.ProductVariantId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

@@ -1,21 +1,21 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PercentOff;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumQuantityOf;
-import tech.kayys.syirkah.commerce.promotion.domain.context.CartSnapshot;
-import tech.kayys.syirkah.commerce.promotion.domain.context.ChannelId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionLineId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionLineSnapshot;
-import tech.kayys.syirkah.commerce.promotion.domain.context.TenantRef;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
-import tech.kayys.syirkah.foundation.domain.valueobject.Quantity;
-import tech.kayys.syirkah.foundation.domain.valueobject.Unit;
+import tech.kayys.numou.commerce.promotion.domain.action.PercentOff;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumQuantityOf;
+import tech.kayys.numou.commerce.promotion.domain.context.CartSnapshot;
+import tech.kayys.numou.commerce.promotion.domain.context.ChannelId;
+import tech.kayys.numou.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionLineId;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionLineSnapshot;
+import tech.kayys.numou.commerce.promotion.domain.context.TenantRef;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.foundation.domain.valueobject.Quantity;
+import tech.kayys.numou.foundation.domain.valueobject.Unit;
 
 import java.time.Instant;
 import java.time.LocalDate;

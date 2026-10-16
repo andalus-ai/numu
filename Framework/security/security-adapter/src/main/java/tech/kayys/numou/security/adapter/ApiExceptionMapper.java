@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.adapter;
+package tech.kayys.numou.security.adapter;
 
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
@@ -7,9 +7,9 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import org.jboss.logging.Logger;
-import tech.kayys.syirkah.foundation.adapter.context.CorrelationContext;
-import tech.kayys.syirkah.security.application.problem.Problem;
-import tech.kayys.syirkah.security.application.problem.ProblemMapper;
+import tech.kayys.numou.foundation.adapter.context.CorrelationContext;
+import tech.kayys.numou.security.application.problem.Problem;
+import tech.kayys.numou.security.application.problem.ProblemMapper;
 
 /**
  * Single place where failures become HTTP responses. 5xx bodies are generic (the detail is logged with the

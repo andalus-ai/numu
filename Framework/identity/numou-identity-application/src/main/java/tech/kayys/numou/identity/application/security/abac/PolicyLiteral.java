@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.application.security.abac;
+package tech.kayys.numou.identity.application.security.abac;
 
 import java.math.BigDecimal;
 import java.time.Instant;

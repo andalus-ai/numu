@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.availability.AssetAvailabilityPeriod;
-import tech.kayys.syirkah.asset.domain.availability.AssetAvailabilityPeriodId;
-import tech.kayys.syirkah.asset.domain.availability.AssetAvailabilityType;
+import tech.kayys.numou.asset.domain.availability.AssetAvailabilityPeriod;
+import tech.kayys.numou.asset.domain.availability.AssetAvailabilityPeriodId;
+import tech.kayys.numou.asset.domain.availability.AssetAvailabilityType;
 
 import java.time.Instant;
 import java.util.List;

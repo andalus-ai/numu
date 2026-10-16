@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.restaurant.venue.domain;
+package tech.kayys.numou.restaurant.venue.domain;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.restaurant.kernel.domain.MenuItemId;
-import tech.kayys.syirkah.restaurant.kernel.domain.StationId;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.restaurant.kernel.domain.MenuItemId;
+import tech.kayys.numou.restaurant.kernel.domain.StationId;
 
 import java.time.Duration;
 import java.util.List;

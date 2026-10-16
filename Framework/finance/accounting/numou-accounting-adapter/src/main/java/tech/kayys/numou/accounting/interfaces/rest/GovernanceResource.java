@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -7,10 +7,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.hardening.AuditTrailService;
-import tech.kayys.syirkah.accounting.application.hardening.IdempotencyGuard;
-import tech.kayys.syirkah.accounting.application.hardening.SoDEnforcer;
-import tech.kayys.syirkah.accounting.domain.hardening.AuditRecord;
+import tech.kayys.numou.accounting.application.hardening.AuditTrailService;
+import tech.kayys.numou.accounting.application.hardening.IdempotencyGuard;
+import tech.kayys.numou.accounting.application.hardening.SoDEnforcer;
+import tech.kayys.numou.accounting.domain.hardening.AuditRecord;
 
 import java.util.List;
 import java.util.Map;

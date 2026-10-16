@@ -6,13 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-construction</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-construction</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-construction-adapter</artifactId>
+    <artifactId>numou-construction-adapter</artifactId>
     <name>Numou Construction - Adapter</name>
     <description>
         Infrastructure and in-memory adapter implementations for Construction SPI ports.
@@ -32,23 +32,23 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-construction-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-construction-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-construction-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-construction-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-construction-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-construction-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!--

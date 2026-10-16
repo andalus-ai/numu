@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.adapter.postgres.boq;
+package tech.kayys.numou.construction.adapter.postgres.boq;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.domain.boq.BoqItemType;
+import tech.kayys.numou.construction.domain.boq.BoqItemType;
 
 import java.math.BigDecimal;
 import java.time.Instant;

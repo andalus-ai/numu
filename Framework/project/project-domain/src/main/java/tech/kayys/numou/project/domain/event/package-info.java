@@ -5,4 +5,4 @@
  * application layer through the foundation {@code EventPublisher}
  * outbound port - aggregates never talk to Kafka or the database.
  */
-package tech.kayys.syirkah.project.domain.event;
+package tech.kayys.numou.project.domain.event;

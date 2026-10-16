@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.security.domain.authorization;
+package tech.kayys.numou.security.domain.authorization;
 
-import tech.kayys.syirkah.security.domain.valueobject.Decision;
+import tech.kayys.numou.security.domain.valueobject.Decision;
 
 import java.util.Objects;
 

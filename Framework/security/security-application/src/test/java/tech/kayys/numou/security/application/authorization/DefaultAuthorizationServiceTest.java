@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.security.application.authorization;
+package tech.kayys.numou.security.application.authorization;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.security.domain.authorization.AccessDecision;
-import tech.kayys.syirkah.security.domain.authorization.AccessRequest;
-import tech.kayys.syirkah.security.domain.authorization.Permission;
-import tech.kayys.syirkah.security.domain.authorization.Principal;
-import tech.kayys.syirkah.security.domain.identifier.PrincipalId;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
-import tech.kayys.syirkah.security.domain.valueobject.Decision;
-import tech.kayys.syirkah.security.spi.port.PolicyPort;
-import tech.kayys.syirkah.security.spi.port.ResourceAuthorizationPort;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.security.domain.authorization.AccessDecision;
+import tech.kayys.numou.security.domain.authorization.AccessRequest;
+import tech.kayys.numou.security.domain.authorization.Permission;
+import tech.kayys.numou.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.identifier.PrincipalId;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
+import tech.kayys.numou.security.domain.valueobject.Decision;
+import tech.kayys.numou.security.spi.port.PolicyPort;
+import tech.kayys.numou.security.spi.port.ResourceAuthorizationPort;
 
 import java.util.Set;
 import java.util.UUID;

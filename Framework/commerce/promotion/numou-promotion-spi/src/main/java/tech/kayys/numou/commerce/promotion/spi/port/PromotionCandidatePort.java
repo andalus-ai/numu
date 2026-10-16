@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.spi.port;
+package tech.kayys.numou.commerce.promotion.spi.port;
 
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionCandidate;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionResolveRequest;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionCandidate;
+import tech.kayys.numou.commerce.promotion.domain.PromotionResolveRequest;
 
 import java.time.LocalDate;
 import java.util.List;

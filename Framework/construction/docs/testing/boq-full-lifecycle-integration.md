@@ -11,7 +11,7 @@ The test uses the bundle's test fixture tables for live BOQ data. The revision s
 
 ## Local static checks
 
-From the `syirkah-phase1` directory, run:
+From the `numou-phase1` directory, run:
 
 ```bash
 ./scripts/run-phase1-static-checks.sh

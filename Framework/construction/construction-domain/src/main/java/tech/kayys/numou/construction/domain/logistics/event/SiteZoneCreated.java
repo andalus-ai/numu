@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.logistics.event;
+package tech.kayys.numou.construction.domain.logistics.event;
 
-import tech.kayys.syirkah.construction.domain.logistics.SiteZoneType;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.construction.domain.logistics.SiteZoneType;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import java.time.Instant;
 import java.util.UUID;
 

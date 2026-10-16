@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.mdm;
+package tech.kayys.numou.accounting.application.mdm;
 
-import tech.kayys.syirkah.accounting.domain.mdm.*;
+import tech.kayys.numou.accounting.domain.mdm.*;
 
 import java.time.LocalDate;
 import java.util.*;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.islamic;
+package tech.kayys.numou.accounting.application.islamic;
 
-import tech.kayys.syirkah.accounting.domain.islamic.ZakatCalculation;
+import tech.kayys.numou.accounting.domain.islamic.ZakatCalculation;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

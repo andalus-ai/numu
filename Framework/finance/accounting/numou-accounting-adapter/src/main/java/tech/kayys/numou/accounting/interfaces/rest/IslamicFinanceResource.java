@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -7,10 +7,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.islamic.IslamicFinanceService;
-import tech.kayys.syirkah.accounting.domain.islamic.IslamicContractType;
-import tech.kayys.syirkah.accounting.domain.islamic.SukukCertificate;
-import tech.kayys.syirkah.accounting.domain.islamic.ZakatCalculation;
+import tech.kayys.numou.accounting.application.islamic.IslamicFinanceService;
+import tech.kayys.numou.accounting.domain.islamic.IslamicContractType;
+import tech.kayys.numou.accounting.domain.islamic.SukukCertificate;
+import tech.kayys.numou.accounting.domain.islamic.ZakatCalculation;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

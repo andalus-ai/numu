@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.inventory.domain.reservation;
+package tech.kayys.numou.inventory.domain.reservation;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.inventory.domain.inventory.ItemId;
-import tech.kayys.syirkah.inventory.domain.inventory.WarehouseId;
+import tech.kayys.numou.inventory.domain.inventory.ItemId;
+import tech.kayys.numou.inventory.domain.inventory.WarehouseId;
 
 import java.math.BigDecimal;
 import java.time.Instant;

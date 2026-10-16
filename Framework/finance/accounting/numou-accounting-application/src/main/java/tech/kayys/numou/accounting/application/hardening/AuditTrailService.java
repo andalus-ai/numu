@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.hardening;
+package tech.kayys.numou.accounting.application.hardening;
 
-import tech.kayys.syirkah.accounting.domain.hardening.AuditAction;
-import tech.kayys.syirkah.accounting.domain.hardening.AuditRecord;
+import tech.kayys.numou.accounting.domain.hardening.AuditAction;
+import tech.kayys.numou.accounting.domain.hardening.AuditRecord;
 
 import java.util.ArrayList;
 import java.util.Collections;

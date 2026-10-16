@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.pricing.application.command;
+package tech.kayys.numou.commerce.pricing.application.command;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceListId;
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceListId;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Objects;
 

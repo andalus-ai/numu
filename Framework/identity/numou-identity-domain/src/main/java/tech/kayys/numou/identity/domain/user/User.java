@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.identity.domain.user;
+package tech.kayys.numou.identity.domain.user;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.identity.domain.event.UserActivated;
-import tech.kayys.syirkah.identity.domain.event.UserDeactivated;
-import tech.kayys.syirkah.identity.domain.event.UserEmailChanged;
-import tech.kayys.syirkah.identity.domain.event.UserRegistered;
-import tech.kayys.syirkah.identity.domain.exception.UserAlreadyActiveException;
-import tech.kayys.syirkah.identity.domain.exception.UserAlreadyDeactivatedException;
-import tech.kayys.syirkah.identity.domain.valueobject.DisplayName;
-import tech.kayys.syirkah.identity.domain.valueobject.EmailAddress;
-import tech.kayys.syirkah.identity.domain.valueobject.PasswordHash;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.identity.domain.event.UserActivated;
+import tech.kayys.numou.identity.domain.event.UserDeactivated;
+import tech.kayys.numou.identity.domain.event.UserEmailChanged;
+import tech.kayys.numou.identity.domain.event.UserRegistered;
+import tech.kayys.numou.identity.domain.exception.UserAlreadyActiveException;
+import tech.kayys.numou.identity.domain.exception.UserAlreadyDeactivatedException;
+import tech.kayys.numou.identity.domain.valueobject.DisplayName;
+import tech.kayys.numou.identity.domain.valueobject.EmailAddress;
+import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 import java.time.Instant;
 import java.util.Objects;

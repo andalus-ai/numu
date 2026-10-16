@@ -4,23 +4,23 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-restaurant</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-restaurant</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-restaurant-order-spi</artifactId>
+    <artifactId>numou-restaurant-order-spi</artifactId>
     <name>Restaurant order - SPI</name>
     <description>order ports.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-kernel</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-kernel</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-order-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-order-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -7,31 +7,31 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-promotion-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-promotion-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-promotion-application</artifactId>
+    <artifactId>numou-promotion-application</artifactId>
 
     <name>Numou Commerce Promotion - Application</name>
     <description>ApplyPromotions query handler (stateless discount resolution)</description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-promotion-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-promotion-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-promotion-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-promotion-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

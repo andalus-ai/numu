@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.relationship;
+package tech.kayys.numou.asset.domain.relationship;
 
 /** The semantic kind of relationship between two assets (see ASSET-16/17). */
 public enum AssetRelationshipType {

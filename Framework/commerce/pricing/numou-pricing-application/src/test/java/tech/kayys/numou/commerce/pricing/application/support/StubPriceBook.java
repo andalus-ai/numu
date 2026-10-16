@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.pricing.application.support;
+package tech.kayys.numou.commerce.pricing.application.support;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.pricing.spi.port.PriceBookPort;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.pricing.spi.port.PriceBookPort;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.HashMap;
 import java.util.Map;

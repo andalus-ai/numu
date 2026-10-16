@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.domain.islamic;
+package tech.kayys.numou.accounting.domain.islamic;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 /**
  * Islamic finance contract classification for Sharia-compliant accounting (PSAK 101-112 & AAOIFI).

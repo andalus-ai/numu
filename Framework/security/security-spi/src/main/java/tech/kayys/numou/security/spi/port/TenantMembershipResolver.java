@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.security.spi.port;
+package tech.kayys.numou.security.spi.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.security.domain.authorization.Principal;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.security.domain.authorization.Principal;
 
 /**
  * Resolves authoritative tenant membership from the identity provider/store.

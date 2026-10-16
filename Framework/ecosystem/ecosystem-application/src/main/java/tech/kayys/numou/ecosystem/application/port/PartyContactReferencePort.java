@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.ecosystem.application.port;
+package tech.kayys.numou.ecosystem.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.ecosystem.domain.contact.ContactPurpose;
-import tech.kayys.syirkah.ecosystem.domain.contact.PartyAddress;
-import tech.kayys.syirkah.ecosystem.domain.contact.PartyContactPoint;
-import tech.kayys.syirkah.ecosystem.domain.party.PartyId;
+import tech.kayys.numou.ecosystem.domain.contact.ContactPurpose;
+import tech.kayys.numou.ecosystem.domain.contact.PartyAddress;
+import tech.kayys.numou.ecosystem.domain.contact.PartyContactPoint;
+import tech.kayys.numou.ecosystem.domain.party.PartyId;
 
 import java.util.List;
 import java.util.Optional;

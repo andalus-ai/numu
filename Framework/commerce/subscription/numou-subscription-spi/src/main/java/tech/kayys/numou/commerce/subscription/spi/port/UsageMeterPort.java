@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.subscription.spi.port;
+package tech.kayys.numou.commerce.subscription.spi.port;
 
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId;
-import tech.kayys.syirkah.commerce.subscription.domain.UsageMeter;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionId;
+import tech.kayys.numou.commerce.subscription.domain.UsageMeter;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.accounting.application.sdk;
+package tech.kayys.numou.accounting.application.sdk;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.sdk.bootstrap.AccountingBootstrap;
-import tech.kayys.syirkah.accounting.application.sdk.bootstrap.AccountingEngine;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.aaoifi.AaoifiLitePlugin;
-import tech.kayys.syirkah.accounting.domain.event.MurabahaCreated;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.application.sdk.bootstrap.AccountingBootstrap;
+import tech.kayys.numou.accounting.application.sdk.bootstrap.AccountingEngine;
+import tech.kayys.numou.accounting.application.sdk.plugin.aaoifi.AaoifiLitePlugin;
+import tech.kayys.numou.accounting.domain.event.MurabahaCreated;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 
 import java.math.BigDecimal;
 

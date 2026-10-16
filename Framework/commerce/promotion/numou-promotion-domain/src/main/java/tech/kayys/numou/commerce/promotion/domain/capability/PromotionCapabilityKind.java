@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
 /**
  * Which flavour of promotion capability a descriptor describes

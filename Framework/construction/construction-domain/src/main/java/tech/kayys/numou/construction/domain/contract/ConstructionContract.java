@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.domain.contract;
+package tech.kayys.numou.construction.domain.contract;
 
-import tech.kayys.syirkah.construction.domain.contract.event.ConstructionContractActivated;
-import tech.kayys.syirkah.construction.domain.contract.event.ConstructionContractCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.contract.event.ConstructionContractActivated;
+import tech.kayys.numou.construction.domain.contract.event.ConstructionContractCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.integration.domain.model;
+package tech.kayys.numou.integration.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.integration.domain.identifier.ExternalSystemId;
-import tech.kayys.syirkah.integration.domain.identifier.WebhookSubscriptionId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.integration.domain.identifier.ExternalSystemId;
+import tech.kayys.numou.integration.domain.identifier.WebhookSubscriptionId;
 
 import java.time.Instant;
 import java.util.Objects;

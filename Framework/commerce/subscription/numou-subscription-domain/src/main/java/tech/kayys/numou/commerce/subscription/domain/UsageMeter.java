@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.subscription.domain;
+package tech.kayys.numou.commerce.subscription.domain;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
 
 import java.math.BigDecimal;
 import java.time.ZoneOffset;

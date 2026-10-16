@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.consolidation.ConsolidationGroup;
-import tech.kayys.syirkah.accounting.consolidation.ConsolidationRun;
-import tech.kayys.syirkah.accounting.consolidation.ConsolidationService;
-import tech.kayys.syirkah.accounting.consolidation.OwnershipEngine;
+import tech.kayys.numou.accounting.consolidation.ConsolidationGroup;
+import tech.kayys.numou.accounting.consolidation.ConsolidationRun;
+import tech.kayys.numou.accounting.consolidation.ConsolidationService;
+import tech.kayys.numou.accounting.consolidation.OwnershipEngine;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

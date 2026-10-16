@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.restaurant.kitchen.domain.event;
+package tech.kayys.numou.restaurant.kitchen.domain.event;
 
 import java.time.Instant;
 import java.util.UUID;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 public record TicketReady(
         UUID eventId,

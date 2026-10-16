@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
 /**
  * Business categories, not technical ones — the register must be

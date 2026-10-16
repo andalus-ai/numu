@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.accounting.application.quality.QualityService;
-import tech.kayys.syirkah.accounting.domain.quality.InspectionId;
-import tech.kayys.syirkah.accounting.domain.quality.NonConformance;
+import tech.kayys.numou.accounting.application.quality.QualityService;
+import tech.kayys.numou.accounting.domain.quality.InspectionId;
+import tech.kayys.numou.accounting.domain.quality.NonConformance;
 
 import java.util.Map;
 

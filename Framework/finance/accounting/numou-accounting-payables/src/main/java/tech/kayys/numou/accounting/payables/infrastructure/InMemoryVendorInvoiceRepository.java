@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.payables.infrastructure;
+package tech.kayys.numou.accounting.payables.infrastructure;
 
-import tech.kayys.syirkah.accounting.domain.ap.VendorInvoice;
-import tech.kayys.syirkah.accounting.domain.ap.VendorInvoiceId;
-import tech.kayys.syirkah.accounting.domain.ap.VendorInvoiceRepository;
+import tech.kayys.numou.accounting.domain.ap.VendorInvoice;
+import tech.kayys.numou.accounting.domain.ap.VendorInvoiceId;
+import tech.kayys.numou.accounting.domain.ap.VendorInvoiceRepository;
 
 import java.util.Map;
 import java.util.Objects;

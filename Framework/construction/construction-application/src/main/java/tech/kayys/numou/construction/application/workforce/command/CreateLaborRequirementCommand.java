@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.application.workforce.command;
+package tech.kayys.numou.construction.application.workforce.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.foundation.application.command.Command;
 import java.time.LocalDate;
 import java.util.UUID;
 

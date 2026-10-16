@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.domain.model;
+package tech.kayys.numou.accounting.domain.model;
 
-import tech.kayys.syirkah.accounting.domain.identifier.FiscalPeriodId;
-import tech.kayys.syirkah.accounting.domain.identifier.FiscalYearId;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.accounting.domain.identifier.FiscalPeriodId;
+import tech.kayys.numou.accounting.domain.identifier.FiscalYearId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.classification;
+package tech.kayys.numou.product.domain.classification;
 
 /**
  * Which taxonomy a classification scheme represents.

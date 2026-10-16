@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.receivables.application;
+package tech.kayys.numou.accounting.receivables.application;
 
-import tech.kayys.syirkah.accounting.domain.ar.*;
-import tech.kayys.syirkah.accounting.receivables.repository.InvoiceRepository;
+import tech.kayys.numou.accounting.domain.ar.*;
+import tech.kayys.numou.accounting.receivables.repository.InvoiceRepository;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

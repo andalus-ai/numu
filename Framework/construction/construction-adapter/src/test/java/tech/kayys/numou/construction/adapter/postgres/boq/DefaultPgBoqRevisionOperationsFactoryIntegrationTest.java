@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.adapter.postgres.boq;
+package tech.kayys.numou.construction.adapter.postgres.boq;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Uni;
@@ -8,10 +8,10 @@ import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.construction.adapter.postgres.idempotency.PgTransactionalCommandRunner;
-import tech.kayys.syirkah.construction.domain.boq.BoqCalculationPolicy;
-import tech.kayys.syirkah.construction.spi.boq.BoqRevisionAuthorization;
-import tech.kayys.syirkah.construction.spi.idempotency.TransactionalCommandContext;
+import tech.kayys.numou.construction.adapter.postgres.idempotency.PgTransactionalCommandRunner;
+import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
+import tech.kayys.numou.construction.spi.boq.BoqRevisionAuthorization;
+import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
 
 import java.math.RoundingMode;
 import java.time.Instant;

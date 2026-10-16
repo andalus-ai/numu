@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
 /**
  * Thrown when a risk (or one of its treatment actions) is asked to make

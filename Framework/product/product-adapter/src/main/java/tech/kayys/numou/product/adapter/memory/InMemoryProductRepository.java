@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.product.adapter.memory;
+package tech.kayys.numou.product.adapter.memory;
 
-import tech.kayys.syirkah.product.domain.product.Product;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.spi.port.ProductRepository;
+import tech.kayys.numou.product.domain.product.Product;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.spi.port.ProductRepository;
 
 import java.util.Map;
 import java.util.Objects;

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.organization.spi;
+package tech.kayys.numou.organization.spi;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.organization.domain.OrganizationUnit;
-import tech.kayys.syirkah.organization.domain.OrganizationUnitId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.organization.domain.OrganizationUnit;
+import tech.kayys.numou.organization.domain.OrganizationUnitId;
 
 /** Repository port for the {@link OrganizationUnit} aggregate. */
 public interface OrganizationUnitRepository extends Repository<OrganizationUnit, OrganizationUnitId> {

@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.application.sdk.testkit;
+package tech.kayys.numou.accounting.application.sdk.testkit;
 
-import tech.kayys.syirkah.accounting.application.sdk.bootstrap.AccountingBootstrap;
-import tech.kayys.syirkah.accounting.application.sdk.bootstrap.AccountingEngine;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.PlatformPlugin;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.application.sdk.bootstrap.AccountingBootstrap;
+import tech.kayys.numou.accounting.application.sdk.bootstrap.AccountingEngine;
+import tech.kayys.numou.accounting.application.sdk.plugin.PlatformPlugin;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * Test helper that gives third-party module authors a simple, fluent API for
- * writing accounting tests without framework boilsyirkahlate.
+ * writing accounting tests without framework boilnumoulate.
  */
 public final class AccountingTestKit {
 

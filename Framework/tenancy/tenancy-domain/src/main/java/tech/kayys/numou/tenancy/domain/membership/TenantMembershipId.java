@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.tenancy.domain.membership;
+package tech.kayys.numou.tenancy.domain.membership;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.io.Serializable;
 import java.util.Objects;

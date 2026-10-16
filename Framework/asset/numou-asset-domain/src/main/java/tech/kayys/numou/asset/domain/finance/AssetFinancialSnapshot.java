@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.finance;
+package tech.kayys.numou.asset.domain.finance;
 
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
 
 import java.math.BigDecimal;
 import java.time.Instant;

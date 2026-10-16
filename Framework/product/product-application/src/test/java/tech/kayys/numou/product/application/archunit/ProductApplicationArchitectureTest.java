@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.application.archunit;
+package tech.kayys.numou.product.application.archunit;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.testing.architecture.ForbiddenDependencyRules;
+import tech.kayys.numou.foundation.testing.architecture.ForbiddenDependencyRules;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
@@ -16,11 +16,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 class ProductApplicationArchitectureTest {
 
     private static final String APPLICATION_PACKAGE =
-            "tech.kayys.syirkah.product.application..";
+            "tech.kayys.numou.product.application..";
 
     private static final JavaClasses APPLICATION_CLASSES =
             new ClassFileImporter()
-                    .importPackages("tech.kayys.syirkah.product.application");
+                    .importPackages("tech.kayys.numou.product.application");
 
     @Test
     void applicationMustNotDependOnInfrastructure() {
@@ -36,7 +36,7 @@ class ProductApplicationArchitectureTest {
         noClasses()
                 .that().resideInAPackage(APPLICATION_PACKAGE)
                 .should().dependOnClassesThat()
-                .resideInAPackage("tech.kayys.syirkah.product.adapter..")
+                .resideInAPackage("tech.kayys.numou.product.adapter..")
                 .because("dependency direction is Adapter -> Application, never the reverse - "
                         + "ports are defined in product-spi and implemented in the adapter")
                 .check(APPLICATION_CLASSES);

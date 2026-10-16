@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.reservation.domain;
+package tech.kayys.numou.reservation.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.reservation.domain.event.ReservationCancelled;
-import tech.kayys.syirkah.reservation.domain.event.ReservationCheckedIn;
-import tech.kayys.syirkah.reservation.domain.event.ReservationCompleted;
-import tech.kayys.syirkah.reservation.domain.event.ReservationConfirmed;
-import tech.kayys.syirkah.reservation.domain.event.ReservationNoShow;
-import tech.kayys.syirkah.reservation.domain.event.ReservationRequested;
-import tech.kayys.syirkah.reservation.domain.event.ReservationRescheduled;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.reservation.domain.event.ReservationCancelled;
+import tech.kayys.numou.reservation.domain.event.ReservationCheckedIn;
+import tech.kayys.numou.reservation.domain.event.ReservationCompleted;
+import tech.kayys.numou.reservation.domain.event.ReservationConfirmed;
+import tech.kayys.numou.reservation.domain.event.ReservationNoShow;
+import tech.kayys.numou.reservation.domain.event.ReservationRequested;
+import tech.kayys.numou.reservation.domain.event.ReservationRescheduled;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -250,7 +250,7 @@ public final class Reservation extends ReservationAggregate<ReservationId> {
     }
 
     // Compatibility method for restaurant contexts
-    public void assignTables(Set<tech.kayys.syirkah.reservation.domain.ResourceId> tables, Instant now) {
+    public void assignTables(Set<tech.kayys.numou.reservation.domain.ResourceId> tables, Instant now) {
         assignResources(tables, now);
     }
 
@@ -270,7 +270,7 @@ public final class Reservation extends ReservationAggregate<ReservationId> {
     }
 
     private Money zero() {
-        return Money.zero(deposit != null ? deposit.currency() : tech.kayys.syirkah.foundation.domain.valueobject.Currency.IDR());
+        return Money.zero(deposit != null ? deposit.currency() : tech.kayys.numou.foundation.domain.valueobject.Currency.IDR());
     }
 
     // ---- Accessors ----

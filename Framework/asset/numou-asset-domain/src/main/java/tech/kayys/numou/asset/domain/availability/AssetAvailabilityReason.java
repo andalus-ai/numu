@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.availability;
+package tech.kayys.numou.asset.domain.availability;
 
 /**
  * Why an availability period exists (ASSET-26 §6).

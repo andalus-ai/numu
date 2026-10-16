@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.restaurant.venue.application;
+package tech.kayys.numou.restaurant.venue.application;
 
-import tech.kayys.syirkah.restaurant.venue.domain.Menu;
+import tech.kayys.numou.restaurant.venue.domain.Menu;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;

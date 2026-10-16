@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.restaurant.venue.domain;
+package tech.kayys.numou.restaurant.venue.domain;
 
-import tech.kayys.syirkah.restaurant.kernel.domain.StationId;
+import tech.kayys.numou.restaurant.kernel.domain.StationId;
 
 /** A cooking/prep station (grill, fry, cold, bar, pastry, expo) and how many items it works on at once. */
 public record StationRef(StationId id, String name, int parallelism) {

@@ -6,13 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-construction</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-construction</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-construction-domain</artifactId>
+    <artifactId>numou-construction-domain</artifactId>
     <name>Numou Construction - Domain</name>
     <description>
         Construction Management Domain Model (C10.1 - C10.27):
@@ -26,13 +26,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-project-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-project-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

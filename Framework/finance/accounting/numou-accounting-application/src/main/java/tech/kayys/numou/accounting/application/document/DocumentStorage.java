@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.document;
+package tech.kayys.numou.accounting.application.document;
 
 import java.io.InputStream;
 import java.util.Optional;

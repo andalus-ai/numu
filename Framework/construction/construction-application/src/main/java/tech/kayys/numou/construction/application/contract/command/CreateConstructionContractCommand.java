@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.application.contract.command;
+package tech.kayys.numou.construction.application.contract.command;
 
-import tech.kayys.syirkah.construction.domain.contract.ContractParty;
-import tech.kayys.syirkah.construction.domain.contract.ContractValue;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.construction.domain.contract.ContractParty;
+import tech.kayys.numou.construction.domain.contract.ContractValue;
+import tech.kayys.numou.foundation.application.command.Command;
 import java.util.UUID;
 
 public record CreateConstructionContractCommand(

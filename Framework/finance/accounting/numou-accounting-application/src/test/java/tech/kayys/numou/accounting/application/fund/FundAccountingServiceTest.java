@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.fund;
+package tech.kayys.numou.accounting.application.fund;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.fund.*;
+import tech.kayys.numou.accounting.domain.fund.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

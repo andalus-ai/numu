@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.commerce.promotion.domain.composition;
+package tech.kayys.numou.commerce.promotion.domain.composition;
 
-import tech.kayys.syirkah.commerce.pricing.domain.PriceAdjustment;
-import tech.kayys.syirkah.commerce.pricing.domain.PriceResult;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FixedDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FixedPriceBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FreeItemBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PromotionBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.ShippingDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.result.PromotionPriceAdjustment;
-import tech.kayys.syirkah.commerce.promotion.domain.result.PromotionPriceBreakdown;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionApplied;
-import tech.kayys.syirkah.commerce.promotion.domain.target.CartTarget;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.pricing.domain.PriceAdjustment;
+import tech.kayys.numou.commerce.pricing.domain.PriceResult;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FixedDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FixedPriceBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FreeItemBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PromotionBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.ShippingDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.result.PromotionPriceAdjustment;
+import tech.kayys.numou.commerce.promotion.domain.result.PromotionPriceBreakdown;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionApplied;
+import tech.kayys.numou.commerce.promotion.domain.target.CartTarget;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;

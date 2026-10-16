@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.contract;
+package tech.kayys.numou.construction.domain.contract;
 
 import java.util.Objects;
 import java.util.UUID;

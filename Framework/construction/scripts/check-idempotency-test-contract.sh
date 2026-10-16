@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST="$ROOT/construction-application/src/test/java/tech/kayys/syirkah/construction/application/idempotency/IdempotentCommandExecutorTest.java"
+TEST="$ROOT/construction-application/src/test/java/tech/kayys/numou/construction/application/idempotency/IdempotentCommandExecutorTest.java"
 [[ -f "$TEST" ]] || { echo "Missing IdempotentCommandExecutorTest.java" >&2; exit 1; }
 for method in \
   reservedRequestRunsActionAndStoresEncodedOutcome \

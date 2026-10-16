@@ -19,25 +19,25 @@ Bulk loading is a separate step behind the `PromotionRepository` port, so
 discovery stays storage-agnostic (product04.md section 28).
 
 ## New files
-- `syirkah-promotion-domain/src/main/java/.../domain/PromotionVersionId.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/PromotionCandidate.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/PromotionResolveRequest.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/PromotionResolveRequestFactory.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/PromotionCandidateRepository.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/DefaultPromotionResolver.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/PromotionScope.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/context/TenantId.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/context/BranchId.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/context/ProductId.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/context/SkuId.java`
-- `syirkah-promotion-domain/src/main/java/.../domain/context/CategoryId.java`
-- `syirkah-promotion-domain/src/test/java/.../domain/PromotionResolverTest.java`
-- `syirkah-promotion-spi/src/main/java/.../spi/port/PromotionCandidatePort.java`
-- `syirkah-promotion-spi/src/main/java/.../spi/port/PromotionRepository.java`
-- `syirkah-promotion-adapter/src/main/java/.../adapter/memory/InMemoryPromotionRepository.java`
-- `syirkah-promotion-adapter/src/test/java/.../adapter/memory/InMemoryPromotionRepositoryFindCandidatesTest.java`
-- `syirkah-promotion-application/src/main/java/.../application/handler/ApplyPromotionsHandler.java`
-- `syirkah-promotion-application/src/test/java/.../application/support/StubPromotionCandidates.java`
+- `numou-promotion-domain/src/main/java/.../domain/PromotionVersionId.java`
+- `numou-promotion-domain/src/main/java/.../domain/PromotionCandidate.java`
+- `numou-promotion-domain/src/main/java/.../domain/PromotionResolveRequest.java`
+- `numou-promotion-domain/src/main/java/.../domain/PromotionResolveRequestFactory.java`
+- `numou-promotion-domain/src/main/java/.../domain/PromotionCandidateRepository.java`
+- `numou-promotion-domain/src/main/java/.../domain/DefaultPromotionResolver.java`
+- `numou-promotion-domain/src/main/java/.../domain/PromotionScope.java`
+- `numou-promotion-domain/src/main/java/.../domain/context/TenantId.java`
+- `numou-promotion-domain/src/main/java/.../domain/context/BranchId.java`
+- `numou-promotion-domain/src/main/java/.../domain/context/ProductId.java`
+- `numou-promotion-domain/src/main/java/.../domain/context/SkuId.java`
+- `numou-promotion-domain/src/main/java/.../domain/context/CategoryId.java`
+- `numou-promotion-domain/src/test/java/.../domain/PromotionResolverTest.java`
+- `numou-promotion-spi/src/main/java/.../spi/port/PromotionCandidatePort.java`
+- `numou-promotion-spi/src/main/java/.../spi/port/PromotionRepository.java`
+- `numou-promotion-adapter/src/main/java/.../adapter/memory/InMemoryPromotionRepository.java`
+- `numou-promotion-adapter/src/test/java/.../adapter/memory/InMemoryPromotionRepositoryFindCandidatesTest.java`
+- `numou-promotion-application/src/main/java/.../application/handler/ApplyPromotionsHandler.java`
+- `numou-promotion-application/src/test/java/.../application/support/StubPromotionCandidates.java`
 
 ## Modified files
 - `PromotionStatus.java` — added SCHEDULED / PAUSED / EXPIRED / ARCHIVED / INACTIVE

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.restaurant.kitchen.application;
+package tech.kayys.numou.restaurant.kitchen.application;
 
-import tech.kayys.syirkah.restaurant.kitchen.domain.KitchenTicket;
+import tech.kayys.numou.restaurant.kitchen.domain.KitchenTicket;
 
 import java.time.Instant;
 import java.util.List;

@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.security.application.problem;
+package tech.kayys.numou.security.application.problem;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.DomainException;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.security.application.authz.AccessDeniedException;
-import tech.kayys.syirkah.security.application.redaction.PiiRedactor;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.DomainException;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.security.application.authz.AccessDeniedException;
+import tech.kayys.numou.security.application.redaction.PiiRedactor;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

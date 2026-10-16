@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.project.domain.commercial;
+package tech.kayys.numou.project.domain.commercial;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.project.domain.commercial.event.AdvanceApplied;
-import tech.kayys.syirkah.project.domain.commercial.event.AdvanceCreated;
-import tech.kayys.syirkah.project.domain.commercial.event.AdvanceReceived;
-import tech.kayys.syirkah.project.domain.commercial.event.AdvanceRefunded;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.project.domain.commercial.event.AdvanceApplied;
+import tech.kayys.numou.project.domain.commercial.event.AdvanceCreated;
+import tech.kayys.numou.project.domain.commercial.event.AdvanceReceived;
+import tech.kayys.numou.project.domain.commercial.event.AdvanceRefunded;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.time.Instant;
 import java.util.Objects;

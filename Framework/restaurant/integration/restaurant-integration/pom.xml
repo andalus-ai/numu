@@ -4,83 +4,83 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-restaurant</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-restaurant</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-restaurant-integration</artifactId>
+    <artifactId>numou-restaurant-integration</artifactId>
     <name>Restaurant - Integration</name>
     <description>Cross-context ports, event policies, in-process dispatcher, event decoder.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-kernel</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-kernel</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-venue-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-venue-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-venue-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-venue-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-venue-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-venue-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-order-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-order-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-order-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-order-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-order-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-order-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-kitchen-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-kitchen-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-kitchen-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-kitchen-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-kitchen-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-kitchen-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reservation-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reservation-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reservation-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reservation-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reservation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reservation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reliability-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reliability-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -102,32 +102,32 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-venue-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-venue-adapter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-order-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-order-adapter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-restaurant-kitchen-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-restaurant-kitchen-adapter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reservation-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reservation-adapter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-cache-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-cache-adapter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

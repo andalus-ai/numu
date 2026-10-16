@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.inbound.rest;
+package tech.kayys.numou.document.adapter.inbound.rest;
 
 import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.core.MediaType;

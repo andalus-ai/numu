@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.asset.domain.maintenance.schedule;
+package tech.kayys.numou.asset.domain.maintenance.schedule;
 
-import tech.kayys.syirkah.asset.domain.event.maintenance.MaintenanceScheduleCreated;
-import tech.kayys.syirkah.asset.domain.maintenance.plan.MaintenancePlanId;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.asset.domain.event.maintenance.MaintenanceScheduleCreated;
+import tech.kayys.numou.asset.domain.maintenance.plan.MaintenancePlanId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.time.Instant;
 import java.util.ArrayList;

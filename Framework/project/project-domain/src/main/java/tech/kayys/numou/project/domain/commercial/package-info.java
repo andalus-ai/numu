@@ -6,4 +6,4 @@
  * invoices, receivables, journals or payments. Downstream domains
  * react to commercial events instead of being modified directly.
  */
-package tech.kayys.syirkah.project.domain.commercial;
+package tech.kayys.numou.project.domain.commercial;

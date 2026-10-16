@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.mdm;
+package tech.kayys.numou.accounting.domain.mdm;
 
 /** Categorization of master data entities. */
 public enum MasterDataKind {

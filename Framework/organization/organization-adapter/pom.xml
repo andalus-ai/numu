@@ -5,23 +5,23 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-organization</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-organization</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-organization-adapter</artifactId>
+    <artifactId>numou-organization-adapter</artifactId>
     <name>Numou Organization - Adapter</name>
     <description>In-memory and other secondary adapter implementations for the organization bounded context.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-organization-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-organization-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-organization-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-organization-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

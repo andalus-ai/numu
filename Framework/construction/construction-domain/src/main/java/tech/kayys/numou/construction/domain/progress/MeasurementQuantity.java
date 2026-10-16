@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.progress;
+package tech.kayys.numou.construction.domain.progress;
 
 import java.math.BigDecimal;
 import java.util.Objects;

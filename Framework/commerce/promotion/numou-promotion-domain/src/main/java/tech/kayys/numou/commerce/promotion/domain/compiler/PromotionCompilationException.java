@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
 /**
  * Compilation error (product03.md). Carries a stable code, a human message

@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.identity.adapter.outbound.postgres;
+package tech.kayys.numou.identity.adapter.outbound.postgres;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.identity.application.port.AuthorizationPolicyRepository;
-import tech.kayys.syirkah.identity.application.security.abac.AuthorizationPolicy;
-import tech.kayys.syirkah.identity.application.security.abac.PolicyEffect;
+import tech.kayys.numou.identity.application.port.AuthorizationPolicyRepository;
+import tech.kayys.numou.identity.application.security.abac.AuthorizationPolicy;
+import tech.kayys.numou.identity.application.security.abac.PolicyEffect;
 
 import java.util.List;
 import java.util.UUID;

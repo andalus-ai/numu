@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.cache;
+package tech.kayys.numou.cache;
 
 import java.util.Objects;
 import java.util.UUID;

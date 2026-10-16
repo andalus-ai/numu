@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.architecture;
+package tech.kayys.numou.asset.domain.architecture;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -20,18 +20,18 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  */
 @DisplayName("Asset architecture")
 @AnalyzeClasses(
-        packages = "tech.kayys.syirkah.asset.domain",
+        packages = "tech.kayys.numou.asset.domain",
         importOptions = ImportOption.DoNotIncludeTests.class)
 class AssetArchitectureTest {
 
     @ArchTest
     static final ArchRule domainDoesNotDependOnOuterLayers = noClasses()
-            .that().resideInAPackage("tech.kayys.syirkah.asset.domain..")
+            .that().resideInAPackage("tech.kayys.numou.asset.domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "tech.kayys.syirkah.asset.application..",
-                    "tech.kayys.syirkah.asset.spi..",
-                    "tech.kayys.syirkah.asset.infrastructure..",
-                    "tech.kayys.syirkah.asset.interfaces..",
+                    "tech.kayys.numou.asset.application..",
+                    "tech.kayys.numou.asset.spi..",
+                    "tech.kayys.numou.asset.infrastructure..",
+                    "tech.kayys.numou.asset.interfaces..",
                     "io.quarkus..",
                     "jakarta.persistence..",
                     "jakarta.ws.rs..")
@@ -39,11 +39,11 @@ class AssetArchitectureTest {
 
     @ArchTest
     static final ArchRule domainOnlyUsesFoundationPrimitives = noClasses()
-            .that().resideInAPackage("tech.kayys.syirkah.asset.domain..")
+            .that().resideInAPackage("tech.kayys.numou.asset.domain..")
             .should().dependOnClassesThat()
             .resideOutsideOfPackages(
-                    "tech.kayys.syirkah.asset.domain..",
-                    "tech.kayys.syirkah.foundation..",
+                    "tech.kayys.numou.asset.domain..",
+                    "tech.kayys.numou.foundation..",
                     "java..",
                     "org.slf4j..")
             .allowEmptyShould(true)
@@ -54,7 +54,7 @@ class AssetArchitectureTest {
     void aggregateRaisesLifecycleEvents() {
         JavaClasses classes = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("tech.kayys.syirkah.asset.domain.model");
+                .importPackages("tech.kayys.numou.asset.domain.model");
 
         long raiseCalls = classes.stream()
                 .flatMap(clazz -> clazz.getMethodCallsFromSelf().stream())

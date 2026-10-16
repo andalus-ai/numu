@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.commerce.configuration.application.handler;
+package tech.kayys.numou.commerce.configuration.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.configuration.application.command.ClearOptionGroupCommand;
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfiguration;
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfigurationId;
-import tech.kayys.syirkah.commerce.configuration.spi.port.ProductConfigurationRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.configuration.application.command.ClearOptionGroupCommand;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfiguration;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfigurationId;
+import tech.kayys.numou.commerce.configuration.spi.port.ProductConfigurationRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.util.Objects;
 import java.util.Optional;

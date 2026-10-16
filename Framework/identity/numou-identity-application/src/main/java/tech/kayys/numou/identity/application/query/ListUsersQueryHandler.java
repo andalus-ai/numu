@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.identity.application.query;
+package tech.kayys.numou.identity.application.query;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.page.Page;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.identity.application.port.UserRepository;
+import tech.kayys.numou.foundation.application.page.Page;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.identity.application.port.UserRepository;
 
 import java.util.Objects;
 import java.util.stream.Collectors;

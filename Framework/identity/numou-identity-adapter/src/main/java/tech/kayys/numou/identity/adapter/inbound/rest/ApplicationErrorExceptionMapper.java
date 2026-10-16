@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.identity.adapter.inbound.rest;
+package tech.kayys.numou.identity.adapter.inbound.rest;
 
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
-import tech.kayys.syirkah.foundation.application.result.ApplicationErrorException;
+import tech.kayys.numou.foundation.application.result.ApplicationErrorException;
 
 /**
  * The only place that translates a structured ApplicationError into

@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-document-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-document-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-document</artifactId>
+    <artifactId>numou-document</artifactId>
 
     <name>Numou Document - Domain</name>
     <description>
@@ -22,8 +22,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

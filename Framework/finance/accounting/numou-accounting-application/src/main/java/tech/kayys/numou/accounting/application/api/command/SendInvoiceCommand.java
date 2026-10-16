@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.api.command;
+package tech.kayys.numou.accounting.application.api.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.accounting.domain.identifier.InvoiceId;
-import tech.kayys.syirkah.accounting.domain.valueobject.InvoiceDeliveryMethod;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.accounting.domain.identifier.InvoiceId;
+import tech.kayys.numou.accounting.domain.valueobject.InvoiceDeliveryMethod;
 
 /**
  * Command to send an invoice to the customer.

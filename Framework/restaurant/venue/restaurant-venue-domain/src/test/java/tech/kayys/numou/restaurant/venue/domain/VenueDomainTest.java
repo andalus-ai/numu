@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.restaurant.venue.domain;
+package tech.kayys.numou.restaurant.venue.domain;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.restaurant.kernel.domain.*;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.restaurant.kernel.domain.*;
 
 import java.math.BigDecimal;
 import java.time.Duration;

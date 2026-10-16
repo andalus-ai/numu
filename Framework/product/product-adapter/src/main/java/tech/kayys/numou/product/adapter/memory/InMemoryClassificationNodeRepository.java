@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.adapter.memory;
+package tech.kayys.numou.product.adapter.memory;
 
-import tech.kayys.syirkah.product.domain.classification.ClassificationNode;
-import tech.kayys.syirkah.product.domain.classification.ClassificationNodeId;
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeId;
-import tech.kayys.syirkah.product.spi.port.ClassificationNodeRepository;
+import tech.kayys.numou.product.domain.classification.ClassificationNode;
+import tech.kayys.numou.product.domain.classification.ClassificationNodeId;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeId;
+import tech.kayys.numou.product.spi.port.ClassificationNodeRepository;
 
 import java.util.Comparator;
 import java.util.List;

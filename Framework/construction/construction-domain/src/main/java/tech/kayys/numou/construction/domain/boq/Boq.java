@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.domain.boq;
+package tech.kayys.numou.construction.domain.boq;
 
-import tech.kayys.syirkah.construction.domain.boq.event.BoqApproved;
-import tech.kayys.syirkah.construction.domain.boq.event.BoqCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.boq.event.BoqApproved;
+import tech.kayys.numou.construction.domain.boq.event.BoqCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.tenancy.domain.membership;
+package tech.kayys.numou.tenancy.domain.membership;
 
-import tech.kayys.syirkah.foundation.domain.audit.AuditMeta;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.ref.UserRef;
-import tech.kayys.syirkah.tenancy.domain.membership.event.TenantMemberAccepted;
-import tech.kayys.syirkah.tenancy.domain.membership.event.TenantMemberInvited;
-import tech.kayys.syirkah.tenancy.domain.membership.event.TenantMemberRemoved;
-import tech.kayys.syirkah.tenancy.domain.membership.event.TenantMemberSuspended;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.audit.AuditMeta;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.ref.UserRef;
+import tech.kayys.numou.tenancy.domain.membership.event.TenantMemberAccepted;
+import tech.kayys.numou.tenancy.domain.membership.event.TenantMemberInvited;
+import tech.kayys.numou.tenancy.domain.membership.event.TenantMemberRemoved;
+import tech.kayys.numou.tenancy.domain.membership.event.TenantMemberSuspended;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.Objects;

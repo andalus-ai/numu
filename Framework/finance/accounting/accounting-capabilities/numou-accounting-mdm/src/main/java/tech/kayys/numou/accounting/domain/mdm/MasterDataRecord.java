@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.mdm;
+package tech.kayys.numou.accounting.domain.mdm;
 
 import java.time.LocalDate;
 import java.util.Collections;

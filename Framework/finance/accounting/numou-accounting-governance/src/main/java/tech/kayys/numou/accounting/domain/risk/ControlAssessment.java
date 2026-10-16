@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.risk;
+package tech.kayys.numou.accounting.domain.risk;
 
 import java.time.LocalDate;
 import java.util.Objects;

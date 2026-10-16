@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.restaurant.kitchen.application;
+package tech.kayys.numou.restaurant.kitchen.application;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.restaurant.kernel.domain.*;
-import tech.kayys.syirkah.restaurant.kernel.memory.RecordingEventSink;
-import tech.kayys.syirkah.restaurant.kitchen.adapter.memory.*;
-import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService.*;
-import tech.kayys.syirkah.restaurant.kitchen.domain.Priority;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.restaurant.kernel.domain.*;
+import tech.kayys.numou.restaurant.kernel.memory.RecordingEventSink;
+import tech.kayys.numou.restaurant.kitchen.adapter.memory.*;
+import tech.kayys.numou.restaurant.kitchen.application.KitchenService.*;
+import tech.kayys.numou.restaurant.kitchen.domain.Priority;
 
 import java.time.Duration;
 import java.time.Instant;

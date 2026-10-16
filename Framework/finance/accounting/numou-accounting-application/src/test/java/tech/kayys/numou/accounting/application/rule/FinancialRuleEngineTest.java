@@ -1,10 +1,10 @@
 
-package tech.kayys.syirkah.accounting.application.rule;
+package tech.kayys.numou.accounting.application.rule;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 
 import java.math.BigDecimal;
 import java.util.List;

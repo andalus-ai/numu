@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.tenancy.spi.port;
+package tech.kayys.numou.tenancy.spi.port;
 
-import tech.kayys.syirkah.foundation.domain.ref.UserRef;
-import tech.kayys.syirkah.tenancy.domain.membership.TenantMembership;
-import tech.kayys.syirkah.tenancy.domain.membership.TenantMembershipId;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.ref.UserRef;
+import tech.kayys.numou.tenancy.domain.membership.TenantMembership;
+import tech.kayys.numou.tenancy.domain.membership.TenantMembershipId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.util.Optional;
 

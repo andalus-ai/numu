@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -12,11 +12,11 @@ import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.restaurant.venue.application.MenuView;
-import tech.kayys.syirkah.restaurant.venue.application.VenueService;
-import tech.kayys.syirkah.restaurant.venue.domain.MenuItem;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.restaurant.venue.application.MenuView;
+import tech.kayys.numou.restaurant.venue.application.VenueService;
+import tech.kayys.numou.restaurant.venue.domain.MenuItem;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.MENU;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.MENU;
 
 /** Menu reads (cached) and administration. Every write invalidates the cached menu after commit. NOT COMPILED in sandbox. */
 @Path("/api/v1")

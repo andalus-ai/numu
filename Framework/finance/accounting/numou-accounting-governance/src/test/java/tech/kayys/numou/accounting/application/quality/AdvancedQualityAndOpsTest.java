@@ -1,20 +1,20 @@
-package tech.kayys.syirkah.accounting.application.quality;
+package tech.kayys.numou.accounting.application.quality;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.legal.LegalService;
-import tech.kayys.syirkah.accounting.application.maintenance.MaintenanceService;
-import tech.kayys.syirkah.accounting.application.risk.RiskService;
-import tech.kayys.syirkah.accounting.domain.legal.ComplianceStatus;
-import tech.kayys.syirkah.accounting.domain.legal.LegalContract;
-import tech.kayys.syirkah.accounting.domain.maintenance.MaintenanceType;
-import tech.kayys.syirkah.accounting.domain.maintenance.MaintenanceWorkOrder;
-import tech.kayys.syirkah.accounting.domain.maintenance.MeterUnit;
-import tech.kayys.syirkah.accounting.domain.quality.*;
-import tech.kayys.syirkah.accounting.domain.risk.RiskHeatMap;
-import tech.kayys.syirkah.accounting.domain.risk.RiskIncident;
-import tech.kayys.syirkah.accounting.domain.risk.RiskItem;
+import tech.kayys.numou.accounting.application.legal.LegalService;
+import tech.kayys.numou.accounting.application.maintenance.MaintenanceService;
+import tech.kayys.numou.accounting.application.risk.RiskService;
+import tech.kayys.numou.accounting.domain.legal.ComplianceStatus;
+import tech.kayys.numou.accounting.domain.legal.LegalContract;
+import tech.kayys.numou.accounting.domain.maintenance.MaintenanceType;
+import tech.kayys.numou.accounting.domain.maintenance.MaintenanceWorkOrder;
+import tech.kayys.numou.accounting.domain.maintenance.MeterUnit;
+import tech.kayys.numou.accounting.domain.quality.*;
+import tech.kayys.numou.accounting.domain.risk.RiskHeatMap;
+import tech.kayys.numou.accounting.domain.risk.RiskIncident;
+import tech.kayys.numou.accounting.domain.risk.RiskItem;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

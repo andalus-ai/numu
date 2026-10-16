@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.spi.boq;
+package tech.kayys.numou.construction.spi.boq;
 
 /**
  * Supplies the tenant selected by the authenticated server-side security context.

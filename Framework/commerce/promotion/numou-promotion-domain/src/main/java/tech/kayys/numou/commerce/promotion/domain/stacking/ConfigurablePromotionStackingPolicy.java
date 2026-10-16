@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.stacking;
+package tech.kayys.numou.commerce.promotion.domain.stacking;
 
-import tech.kayys.syirkah.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

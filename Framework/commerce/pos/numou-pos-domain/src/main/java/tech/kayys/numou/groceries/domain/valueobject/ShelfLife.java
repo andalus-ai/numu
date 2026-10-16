@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.groceries.domain.valueobject;
+package tech.kayys.numou.groceries.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

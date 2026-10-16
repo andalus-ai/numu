@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.ecosystem.domain.contact;
+package tech.kayys.numou.ecosystem.domain.contact;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.ecosystem.domain.party.PartyId;
+import tech.kayys.numou.ecosystem.domain.party.PartyId;
 
 import java.time.LocalDate;
 
@@ -37,7 +37,7 @@ class ContactDomainTest {
     @Test
     void shouldManageContactPointLifecycleAndVerification() {
         ContactPointId id = ContactPointId.generate();
-        ContactPoint cp = ContactPoint.create(id, ContactPointKind.EMAIL, "info@syirkah.tech");
+        ContactPoint cp = ContactPoint.create(id, ContactPointKind.EMAIL, "info@numou.tech");
 
         assertEquals(ContactPointStatus.ACTIVE, cp.status());
         assertEquals(VerificationStatus.UNVERIFIED, cp.verificationStatus());
@@ -46,8 +46,8 @@ class ContactDomainTest {
         assertEquals(VerificationStatus.VERIFIED, verified.verificationStatus());
 
         // Modifying value must reset verification to UNVERIFIED (invariant #6)
-        ContactPoint updated = verified.withValue("new@syirkah.tech");
-        assertEquals("new@syirkah.tech", updated.value());
+        ContactPoint updated = verified.withValue("new@numou.tech");
+        assertEquals("new@numou.tech", updated.value());
         assertEquals(VerificationStatus.UNVERIFIED, updated.verificationStatus());
     }
 

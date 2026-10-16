@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.inspection.finding;
+package tech.kayys.numou.asset.domain.inspection.finding;
 
-import tech.kayys.syirkah.asset.domain.inspection.AssetInspectionId;
+import tech.kayys.numou.asset.domain.inspection.AssetInspectionId;
 
 import java.time.Instant;
 import java.util.Objects;

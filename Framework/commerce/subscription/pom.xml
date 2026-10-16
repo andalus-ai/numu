@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-commerce</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-commerce</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-subscription-modules</artifactId>
+    <artifactId>numou-subscription-modules</artifactId>
     <packaging>pom</packaging>
 
     <name>Numou Commerce - Subscription Aggregator</name>
@@ -27,10 +27,10 @@
     </description>
 
     <modules>
-        <module>syirkah-subscription-domain</module>
-        <module>syirkah-subscription-spi</module>
-        <module>syirkah-subscription-application</module>
-        <module>syirkah-subscription-adapter</module>
+        <module>numou-subscription-domain</module>
+        <module>numou-subscription-spi</module>
+        <module>numou-subscription-application</module>
+        <module>numou-subscription-adapter</module>
     </modules>
 
 </project>

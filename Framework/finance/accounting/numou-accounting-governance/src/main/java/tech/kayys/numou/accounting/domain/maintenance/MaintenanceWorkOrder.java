@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.maintenance;
+package tech.kayys.numou.accounting.domain.maintenance;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;

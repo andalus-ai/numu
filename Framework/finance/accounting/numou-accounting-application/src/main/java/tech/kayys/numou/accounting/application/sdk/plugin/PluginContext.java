@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.sdk.plugin;
+package tech.kayys.numou.accounting.application.sdk.plugin;
 
-import tech.kayys.syirkah.accounting.application.compliance.ComplianceRule;
-import tech.kayys.syirkah.accounting.application.projection.Projection;
-import tech.kayys.syirkah.accounting.domain.event.AccountingEvent;
+import tech.kayys.numou.accounting.application.compliance.ComplianceRule;
+import tech.kayys.numou.accounting.application.projection.Projection;
+import tech.kayys.numou.accounting.domain.event.AccountingEvent;
 
 /**
  * Context passed to {@link PlatformPlugin#initialize(PluginContext)} during

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.currency;
+package tech.kayys.numou.accounting.domain.currency;
 
 /**
  * Type/purpose of foreign exchange rate.

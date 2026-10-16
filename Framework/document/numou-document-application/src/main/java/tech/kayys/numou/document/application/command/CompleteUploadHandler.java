@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.document.application.command;
+package tech.kayys.numou.document.application.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.domain.document.Document;
-import tech.kayys.syirkah.accounting.domain.document.DocumentId;
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionId;
-import tech.kayys.syirkah.document.application.port.DocumentAccessPort;
-import tech.kayys.syirkah.document.application.port.DocumentOutboxPort;
-import tech.kayys.syirkah.document.application.port.DocumentRepository;
-import tech.kayys.syirkah.document.application.port.DocumentStoragePort;
-import tech.kayys.syirkah.document.application.port.UploadSessionRepository;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.accounting.domain.document.Document;
+import tech.kayys.numou.accounting.domain.document.DocumentId;
+import tech.kayys.numou.accounting.domain.document.UploadSessionId;
+import tech.kayys.numou.document.application.port.DocumentAccessPort;
+import tech.kayys.numou.document.application.port.DocumentOutboxPort;
+import tech.kayys.numou.document.application.port.DocumentRepository;
+import tech.kayys.numou.document.application.port.DocumentStoragePort;
+import tech.kayys.numou.document.application.port.UploadSessionRepository;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.util.Objects;
 
@@ -57,7 +57,7 @@ public final class CompleteUploadHandler {
                         );
                     }
                     var session = optional.get();
-                    if (session.status() == tech.kayys.syirkah.accounting.domain.document.UploadSessionStatus.COMPLETED) {
+                    if (session.status() == tech.kayys.numou.accounting.domain.document.UploadSessionStatus.COMPLETED) {
                         return Uni.createFrom().item(resultFor(session));
                     }
                     var now = clock.now();
@@ -77,7 +77,7 @@ public final class CompleteUploadHandler {
                                             }
                                             var current = reloaded.get();
                                             if (current.status()
-                                                    == tech.kayys.syirkah.accounting.domain.document.UploadSessionStatus.COMPLETED) {
+                                                    == tech.kayys.numou.accounting.domain.document.UploadSessionStatus.COMPLETED) {
                                                 return Uni.createFrom().item(resultFor(current));
                                             }
                                             if (current.isExpiredAt(clock.now())) {
@@ -112,7 +112,7 @@ public final class CompleteUploadHandler {
     }
 
     private static CompleteUploadResult resultFor(
-            tech.kayys.syirkah.accounting.domain.document.UploadSession session
+            tech.kayys.numou.accounting.domain.document.UploadSession session
     ) {
         return new CompleteUploadResult(
                 session.completedDocumentId(),

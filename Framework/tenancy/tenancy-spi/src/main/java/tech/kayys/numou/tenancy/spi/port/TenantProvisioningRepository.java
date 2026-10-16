@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.tenancy.spi.port;
+package tech.kayys.numou.tenancy.spi.port;
 
-import tech.kayys.syirkah.tenancy.domain.provisioning.TenantProvisioning;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.tenancy.domain.provisioning.TenantProvisioning;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.util.Optional;
 

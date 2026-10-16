@@ -1,5 +1,5 @@
 
-package tech.kayys.syirkah.accounting.application.rule;
+package tech.kayys.numou.accounting.application.rule;
 
 /**
  * Contract for a single declarative financial rule.

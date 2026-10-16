@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.subscription.adapter.memory;
+package tech.kayys.numou.commerce.subscription.adapter.memory;
 
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId;
-import tech.kayys.syirkah.commerce.subscription.domain.UsageMeter;
-import tech.kayys.syirkah.commerce.subscription.spi.port.UsageMeterPort;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionId;
+import tech.kayys.numou.commerce.subscription.domain.UsageMeter;
+import tech.kayys.numou.commerce.subscription.spi.port.UsageMeterPort;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
 
 import java.util.Map;
 import java.util.Optional;

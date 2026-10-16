@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.restaurant.venue.domain;
+package tech.kayys.numou.restaurant.venue.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.restaurant.kernel.domain.RestaurantAggregate;
-import tech.kayys.syirkah.restaurant.kernel.domain.StationId;
-import tech.kayys.syirkah.restaurant.kernel.domain.VenueId;
-import tech.kayys.syirkah.restaurant.venue.domain.event.VenueCreated;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.restaurant.kernel.domain.RestaurantAggregate;
+import tech.kayys.numou.restaurant.kernel.domain.StationId;
+import tech.kayys.numou.restaurant.kernel.domain.VenueId;
+import tech.kayys.numou.restaurant.venue.domain.event.VenueCreated;
 
 import java.math.BigDecimal;
 import java.time.Instant;

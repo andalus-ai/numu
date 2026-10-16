@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.analytics.domain.valueobject;
+package tech.kayys.numou.analytics.domain.valueobject;
 
 /**
  * Frequency of report generation.

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.construction.spi.idempotency;
+package tech.kayys.numou.construction.spi.idempotency;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.domain.boq.BoqCalculationPolicy;
-import tech.kayys.syirkah.construction.domain.boq.BoqRevisionSnapshot;
-import tech.kayys.syirkah.construction.spi.outbox.TransactionalOutboxEvent;
+import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
+import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
+import tech.kayys.numou.construction.spi.outbox.TransactionalOutboxEvent;
 
 import java.time.Instant;
 import java.util.Optional;

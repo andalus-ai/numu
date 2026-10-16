@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.maintenance.plan.MaintenancePlan;
-import tech.kayys.syirkah.asset.domain.maintenance.plan.MaintenancePlanId;
+import tech.kayys.numou.asset.domain.maintenance.plan.MaintenancePlan;
+import tech.kayys.numou.asset.domain.maintenance.plan.MaintenancePlanId;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

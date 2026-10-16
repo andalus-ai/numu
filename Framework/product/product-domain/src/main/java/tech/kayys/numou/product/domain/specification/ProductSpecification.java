@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.domain.specification;
+package tech.kayys.numou.product.domain.specification;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.product.domain.event.ProductSpecificationChanged;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.product.domain.event.ProductSpecificationChanged;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.time.Instant;
 import java.util.ArrayList;

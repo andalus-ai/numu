@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.equipment;
+package tech.kayys.numou.construction.domain.equipment;
 
-import tech.kayys.syirkah.construction.domain.equipment.event.EquipmentRequirementCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.equipment.event.EquipmentRequirementCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Objects;

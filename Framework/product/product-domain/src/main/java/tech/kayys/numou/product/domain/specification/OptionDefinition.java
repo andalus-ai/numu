@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.specification;
+package tech.kayys.numou.product.domain.specification;
 
 /**
  * One selectable choice inside an option group (e.g. SMALL, OAT).

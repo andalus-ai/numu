@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.CompiledCondition;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionDefinition;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.CompiledCondition;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionDefinition;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionType;
 
 /**
  * Metadata + compilation for one condition (product03.md §67).

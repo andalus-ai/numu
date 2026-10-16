@@ -6,7 +6,7 @@ Exercise PostgreSQL row-level security `USING` and `WITH CHECK` behavior using a
 
 ## Run
 
-From the `syirkah-phase1` directory:
+From the `numou-phase1` directory:
 
 ```bash
 bash scripts/postgres-tenant-rls-write-boundary-test.sh

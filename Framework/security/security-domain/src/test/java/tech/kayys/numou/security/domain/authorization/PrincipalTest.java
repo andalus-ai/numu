@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.security.domain.authorization;
+package tech.kayys.numou.security.domain.authorization;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.security.domain.identifier.PrincipalId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.security.domain.identifier.PrincipalId;
 
 import java.util.Set;
 import java.util.UUID;

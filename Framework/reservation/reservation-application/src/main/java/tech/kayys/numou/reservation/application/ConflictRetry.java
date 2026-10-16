@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.reservation.application;
+package tech.kayys.numou.reservation.application;
 
 import io.smallrye.mutiny.Uni;
 

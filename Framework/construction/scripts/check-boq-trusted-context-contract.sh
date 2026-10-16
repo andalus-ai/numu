@@ -5,8 +5,8 @@ python3 - "$ROOT" <<'PY'
 from pathlib import Path
 import sys
 root = Path(sys.argv[1])
-spi_base = root / 'construction-spi/src/main/java/tech/kayys/syirkah/construction/spi'
-app_base = root / 'construction-application/src/main/java/tech/kayys/syirkah/construction/application'
+spi_base = root / 'construction-spi/src/main/java/tech/kayys/numou/construction/spi'
+app_base = root / 'construction-application/src/main/java/tech/kayys/numou/construction/application'
 tenant_port = (spi_base / 'boq/BoqRevisionTenantContext.java').read_text()
 workflow = (spi_base / 'boq/BoqRevisionWorkflow.java').read_text()
 if 'String requireTenantId()' not in tenant_port or 'fail closed' not in tenant_port:

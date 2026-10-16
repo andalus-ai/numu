@@ -11,10 +11,10 @@ EvaluationContext → Resolver → Evaluator → Stacking → Composer → Promo
 
 | Module | Role |
 | --- | --- |
-| `syirkah-promotion-domain` | Promotion, multi-rule, context, stacking, benefits, compiler registries |
-| `syirkah-promotion-spi` | `PromotionRepository`, `PromotionCandidatePort`, `CompiledPromotionProvider` |
-| `syirkah-promotion-application` | Create / Activate / Suspend / AddRule / UpdateRule / Apply / Calculate |
-| `syirkah-promotion-adapter` | In-memory repository + compiled cache |
+| `numou-promotion-domain` | Promotion, multi-rule, context, stacking, benefits, compiler registries |
+| `numou-promotion-spi` | `PromotionRepository`, `PromotionCandidatePort`, `CompiledPromotionProvider` |
+| `numou-promotion-application` | Create / Activate / Suspend / AddRule / UpdateRule / Apply / Calculate |
+| `numou-promotion-adapter` | In-memory repository + compiled cache |
 
 ## Runtime (product03)
 

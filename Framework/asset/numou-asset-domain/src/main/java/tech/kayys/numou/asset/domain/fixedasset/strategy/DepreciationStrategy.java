@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.fixedasset.strategy;
+package tech.kayys.numou.asset.domain.fixedasset.strategy;
 
 import java.math.BigDecimal;
 import java.util.Map;

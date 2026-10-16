@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
-import tech.kayys.syirkah.asset.domain.relationship.AssetRelationship;
-import tech.kayys.syirkah.asset.domain.relationship.AssetRelationshipId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.relationship.AssetRelationship;
+import tech.kayys.numou.asset.domain.relationship.AssetRelationshipId;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionRule;
-import tech.kayys.syirkah.commerce.promotion.domain.action.FixedAmountOff;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PromotionAction;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PercentOff;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumQuantityOf;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.PromotionCondition;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilityRegistry;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionConditionCapability;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionEffectCapability;
-import tech.kayys.syirkah.commerce.promotion.domain.target.CartTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.SingleTargetSelection;
+import tech.kayys.numou.commerce.promotion.domain.PromotionRule;
+import tech.kayys.numou.commerce.promotion.domain.action.FixedAmountOff;
+import tech.kayys.numou.commerce.promotion.domain.action.PromotionAction;
+import tech.kayys.numou.commerce.promotion.domain.action.PercentOff;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumQuantityOf;
+import tech.kayys.numou.commerce.promotion.domain.condition.PromotionCondition;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilityRegistry;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionConditionCapability;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionEffectCapability;
+import tech.kayys.numou.commerce.promotion.domain.target.CartTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.SingleTargetSelection;
 
 import java.util.List;
 import java.util.Map;

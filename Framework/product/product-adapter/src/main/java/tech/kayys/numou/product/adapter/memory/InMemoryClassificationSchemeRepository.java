@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.product.adapter.memory;
+package tech.kayys.numou.product.adapter.memory;
 
-import tech.kayys.syirkah.product.domain.classification.ClassificationScheme;
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeId;
-import tech.kayys.syirkah.product.spi.port.ClassificationSchemeRepository;
+import tech.kayys.numou.product.domain.classification.ClassificationScheme;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeId;
+import tech.kayys.numou.product.spi.port.ClassificationSchemeRepository;
 
 import java.util.Map;
 import java.util.Objects;

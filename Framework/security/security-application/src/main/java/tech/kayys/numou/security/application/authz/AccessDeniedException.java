@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.security.application.authz;
+package tech.kayys.numou.security.application.authz;
 
-import tech.kayys.syirkah.security.domain.authorization.AccessDecision;
+import tech.kayys.numou.security.domain.authorization.AccessDecision;
 
 /** Carries an internal denial reason; the REST layer maps it to 403 without echoing the reason. */
 public final class AccessDeniedException extends RuntimeException {

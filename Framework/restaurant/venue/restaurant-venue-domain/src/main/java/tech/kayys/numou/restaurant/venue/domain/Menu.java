@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.restaurant.venue.domain;
+package tech.kayys.numou.restaurant.venue.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.restaurant.kernel.domain.MenuId;
-import tech.kayys.syirkah.restaurant.kernel.domain.MenuItemId;
-import tech.kayys.syirkah.restaurant.kernel.domain.RestaurantAggregate;
-import tech.kayys.syirkah.restaurant.kernel.domain.StationId;
-import tech.kayys.syirkah.restaurant.kernel.domain.VenueId;
-import tech.kayys.syirkah.restaurant.venue.domain.event.MenuArchived;
-import tech.kayys.syirkah.restaurant.venue.domain.event.MenuItemPriceChanged;
-import tech.kayys.syirkah.restaurant.venue.domain.event.MenuPublished;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.restaurant.kernel.domain.MenuId;
+import tech.kayys.numou.restaurant.kernel.domain.MenuItemId;
+import tech.kayys.numou.restaurant.kernel.domain.RestaurantAggregate;
+import tech.kayys.numou.restaurant.kernel.domain.StationId;
+import tech.kayys.numou.restaurant.kernel.domain.VenueId;
+import tech.kayys.numou.restaurant.venue.domain.event.MenuArchived;
+import tech.kayys.numou.restaurant.venue.domain.event.MenuItemPriceChanged;
+import tech.kayys.numou.restaurant.venue.domain.event.MenuPublished;
 
 import java.math.BigDecimal;
 import java.time.Duration;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionEffectCapability;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionEffectCapability;
 
 /**
  * Capability descriptor adapter for {@link CompiledEffectFactory}.

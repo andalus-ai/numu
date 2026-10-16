@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.document.application.command;
+package tech.kayys.numou.document.application.command;
 
-import tech.kayys.syirkah.accounting.domain.document.DocumentId;
-import tech.kayys.syirkah.accounting.domain.document.DocumentVersionId;
+import tech.kayys.numou.accounting.domain.document.DocumentId;
+import tech.kayys.numou.accounting.domain.document.DocumentVersionId;
 
 public record CompleteUploadResult(DocumentId documentId, DocumentVersionId versionId, int versionNumber) {}

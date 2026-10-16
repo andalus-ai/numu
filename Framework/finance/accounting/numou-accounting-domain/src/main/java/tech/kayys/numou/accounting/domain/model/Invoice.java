@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.accounting.domain.model;
+package tech.kayys.numou.accounting.domain.model;
 
-import tech.kayys.syirkah.accounting.domain.identifier.CustomerId;
-import tech.kayys.syirkah.accounting.domain.identifier.InvoiceId;
-import tech.kayys.syirkah.accounting.domain.valueobject.InvoiceStatus;
-import tech.kayys.syirkah.accounting.domain.valueobject.PaymentMethod;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.accounting.domain.identifier.CustomerId;
+import tech.kayys.numou.accounting.domain.identifier.InvoiceId;
+import tech.kayys.numou.accounting.domain.valueobject.InvoiceStatus;
+import tech.kayys.numou.accounting.domain.valueobject.PaymentMethod;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.math.BigDecimal;
 import java.time.Instant;

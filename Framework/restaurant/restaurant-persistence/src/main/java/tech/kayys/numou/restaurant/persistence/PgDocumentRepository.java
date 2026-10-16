@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.restaurant.persistence;
+package tech.kayys.numou.restaurant.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.entity.OptimisticLockable;
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
-import tech.kayys.syirkah.restaurant.kernel.domain.ConcurrencyConflictException;
-import tech.kayys.syirkah.restaurant.kernel.spi.VersionedRepository;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.entity.OptimisticLockable;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.restaurant.kernel.domain.ConcurrencyConflictException;
+import tech.kayys.numou.restaurant.kernel.spi.VersionedRepository;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;

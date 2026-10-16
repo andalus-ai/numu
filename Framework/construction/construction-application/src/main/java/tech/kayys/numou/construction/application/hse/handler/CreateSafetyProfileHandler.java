@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.construction.application.hse.handler;
+package tech.kayys.numou.construction.application.hse.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.application.hse.command.CreateSafetyProfileCommand;
-import tech.kayys.syirkah.construction.domain.hse.SafetyProfile;
-import tech.kayys.syirkah.construction.spi.hse.SafetyProfileRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
+import tech.kayys.numou.construction.application.hse.command.CreateSafetyProfileCommand;
+import tech.kayys.numou.construction.domain.hse.SafetyProfile;
+import tech.kayys.numou.construction.spi.hse.SafetyProfileRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
 import java.util.Objects;
 
 public final class CreateSafetyProfileHandler implements CommandHandler<CreateSafetyProfileCommand, SafetyProfile> {

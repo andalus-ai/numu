@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.application.query;
+package tech.kayys.numou.commerce.promotion.application.query;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.foundation.application.query.Query;
 
 import java.util.Objects;
 

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.kiosk.domain.repository;
+package tech.kayys.numou.kiosk.domain.repository;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskId;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskSessionId;
-import tech.kayys.syirkah.kiosk.domain.model.KioskSession;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.kiosk.domain.identifier.KioskId;
+import tech.kayys.numou.kiosk.domain.identifier.KioskSessionId;
+import tech.kayys.numou.kiosk.domain.model.KioskSession;
 
 import java.util.List;
 import java.util.concurrent.CompletionStage;

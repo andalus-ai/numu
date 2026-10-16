@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.close;
+package tech.kayys.numou.accounting.domain.close;
 
 /**
  * Lifecycle states of a financial period close cycle.

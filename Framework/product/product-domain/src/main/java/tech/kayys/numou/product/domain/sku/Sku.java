@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.product.domain.sku;
+package tech.kayys.numou.product.domain.sku;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.domain.event.SkuActivated;
-import tech.kayys.syirkah.product.domain.event.SkuArchived;
-import tech.kayys.syirkah.product.domain.event.SkuCreated;
-import tech.kayys.syirkah.product.domain.event.SkuDiscontinued;
-import tech.kayys.syirkah.product.domain.event.SkuIdentifierAdded;
-import tech.kayys.syirkah.product.domain.event.SkuIdentifierRemoved;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.variant.ProductVariantId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.domain.event.SkuActivated;
+import tech.kayys.numou.product.domain.event.SkuArchived;
+import tech.kayys.numou.product.domain.event.SkuCreated;
+import tech.kayys.numou.product.domain.event.SkuDiscontinued;
+import tech.kayys.numou.product.domain.event.SkuIdentifierAdded;
+import tech.kayys.numou.product.domain.event.SkuIdentifierRemoved;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.variant.ProductVariantId;
 
 import java.time.Instant;
 import java.util.ArrayList;

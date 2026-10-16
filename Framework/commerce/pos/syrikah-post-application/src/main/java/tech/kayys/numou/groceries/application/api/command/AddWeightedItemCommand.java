@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.groceries.application.api.command;
+package tech.kayys.numou.groceries.application.api.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.groceries.domain.identifier.ProductId;
-import tech.kayys.syirkah.groceries.domain.identifier.ScaleId;
-import tech.kayys.syirkah.groceries.domain.valueobject.Weight;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.groceries.domain.identifier.ProductId;
+import tech.kayys.numou.groceries.domain.identifier.ScaleId;
+import tech.kayys.numou.groceries.domain.valueobject.Weight;
 import java.util.UUID;
 
 public record AddWeightedItemCommand(

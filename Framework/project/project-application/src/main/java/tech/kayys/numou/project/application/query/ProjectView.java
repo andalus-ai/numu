@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.query;
+package tech.kayys.numou.project.application.query;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.project.domain.project.Project;
-import tech.kayys.syirkah.project.domain.project.ProjectStatus;
-import tech.kayys.syirkah.project.domain.project.ProjectType;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.project.domain.project.Project;
+import tech.kayys.numou.project.domain.project.ProjectStatus;
+import tech.kayys.numou.project.domain.project.ProjectType;
 
 import java.util.Objects;
 import java.util.UUID;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.restaurant.order.domain;
+package tech.kayys.numou.restaurant.order.domain;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.List;
 import java.util.Set;

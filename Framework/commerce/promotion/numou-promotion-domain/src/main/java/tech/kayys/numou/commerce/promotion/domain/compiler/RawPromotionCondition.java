@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContexts;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.PromotionCondition;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContexts;
+import tech.kayys.numou.commerce.promotion.domain.condition.PromotionCondition;
 
 /**
  * Compiled condition that delegates to a legacy raw {@link PromotionCondition}.

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.validation;
+package tech.kayys.numou.commerce.promotion.domain.validation;
 
 import java.util.List;
 import java.util.Objects;

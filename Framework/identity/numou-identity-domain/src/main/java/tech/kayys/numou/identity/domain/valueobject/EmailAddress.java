@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.domain.valueobject;
+package tech.kayys.numou.identity.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.util.Locale;
 import java.util.Objects;

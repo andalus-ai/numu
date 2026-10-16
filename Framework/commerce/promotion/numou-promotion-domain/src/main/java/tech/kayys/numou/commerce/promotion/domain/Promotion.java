@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
-import tech.kayys.syirkah.commerce.promotion.domain.context.TenantRef;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.commerce.promotion.domain.context.TenantRef;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

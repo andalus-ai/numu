@@ -7,31 +7,31 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-offering-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-offering-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-offering-application</artifactId>
+    <artifactId>numou-offering-application</artifactId>
 
     <name>Numou Commerce Offering - Application</name>
     <description>Offering use cases (commands and handlers)</description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-offering-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-offering-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-offering-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-offering-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

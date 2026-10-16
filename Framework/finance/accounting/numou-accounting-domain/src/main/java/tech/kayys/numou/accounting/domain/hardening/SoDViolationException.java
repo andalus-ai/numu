@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.hardening;
+package tech.kayys.numou.accounting.domain.hardening;
 
 /** Thrown when Segregation of Duties policy is violated (e.g. maker approves own transaction). */
 public class SoDViolationException extends RuntimeException {

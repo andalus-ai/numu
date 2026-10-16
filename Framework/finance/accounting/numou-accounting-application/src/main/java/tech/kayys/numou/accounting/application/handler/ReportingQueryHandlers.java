@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.application.handler;
+package tech.kayys.numou.accounting.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.application.api.query.*;
-import tech.kayys.syirkah.accounting.application.cqrs.QueryHandler;
-import tech.kayys.syirkah.accounting.application.service.FinancialReportingService;
-import tech.kayys.syirkah.accounting.domain.report.*;
+import tech.kayys.numou.accounting.application.api.query.*;
+import tech.kayys.numou.accounting.application.cqrs.QueryHandler;
+import tech.kayys.numou.accounting.application.service.FinancialReportingService;
+import tech.kayys.numou.accounting.domain.report.*;
 
 import java.util.Objects;
 

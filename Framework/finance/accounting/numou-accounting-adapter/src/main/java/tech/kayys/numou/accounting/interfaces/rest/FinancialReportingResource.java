@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -6,12 +6,12 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.api.query.*;
-import tech.kayys.syirkah.accounting.application.cqrs.QueryBus;
-import tech.kayys.syirkah.accounting.application.service.FinancialReportingService;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.accounting.domain.report.*;
+import tech.kayys.numou.accounting.application.api.query.*;
+import tech.kayys.numou.accounting.application.cqrs.QueryBus;
+import tech.kayys.numou.accounting.application.service.FinancialReportingService;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.report.*;
 
 import java.time.LocalDate;
 

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.spi.outbox;
+package tech.kayys.numou.construction.spi.outbox;
 
 import java.time.Instant;
 import java.util.Objects;

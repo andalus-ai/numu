@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.security.adapter;
+package tech.kayys.numou.security.adapter;
 
 import jakarta.enterprise.context.RequestScoped;
-import tech.kayys.syirkah.security.application.context.SecurityContext;
+import tech.kayys.numou.security.application.context.SecurityContext;
 
 /** The verified {@link SecurityContext} of the current request; empty until the security filter has run. */
 @RequestScoped

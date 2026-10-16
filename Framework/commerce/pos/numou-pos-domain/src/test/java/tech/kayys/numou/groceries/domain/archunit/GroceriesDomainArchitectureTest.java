@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.groceries.domain.archunit;
+package tech.kayys.numou.groceries.domain.archunit;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Product foundation. It references a product that lives in the
  * Catalog / Product bounded context by {@code catalogProductId} and by
  * its own context-local
- * {@code tech.kayys.syirkah.groceries.domain.identifier.ProductId}.
+ * {@code tech.kayys.numou.groceries.domain.identifier.ProductId}.
  * It must never reuse the bare canonical Product aggregate name,
  * otherwise imports become ambiguous across the two contexts.</p>
  */
@@ -23,28 +23,28 @@ class GroceriesDomainArchitectureTest {
 
     private static final JavaClasses GROCERIES_CLASSES =
             new ClassFileImporter()
-                    .importPackages("tech.kayys.syirkah.groceries.domain");
+                    .importPackages("tech.kayys.numou.groceries.domain");
 
     @Test
     void posMustNotReuseTheBareCanonicalProductAggregateName() {
         assertEquals(
-                List.of("tech.kayys.syirkah.groceries.domain.model.PosProduct"),
+                List.of("tech.kayys.numou.groceries.domain.model.PosProduct"),
                 fullyQualifiedNamesOf(GROCERIES_CLASSES, "PosProduct"),
                 "POS (Groceries) must expose PosProduct, not the bare name "
                         + "Product; the bare name would clash with "
-                        + "tech.kayys.syirkah.product.domain.product.Product"
+                        + "tech.kayys.numou.product.domain.product.Product"
         );
     }
 
     @Test
     void posProductIdMustRemainContextLocal() {
         assertEquals(
-                List.of("tech.kayys.syirkah.groceries.domain.identifier.ProductId"),
+                List.of("tech.kayys.numou.groceries.domain.identifier.ProductId"),
                 fullyQualifiedNamesOf(GROCERIES_CLASSES, "ProductId"),
                 "POS (Groceries) keeps its own context-local ProductId "
                         + "(a reference to a product that lives in the Catalog / "
                         + "Product bounded context). It must not be replaced by "
-                        + "tech.kayys.syirkah.product.domain.product.ProductId, "
+                        + "tech.kayys.numou.product.domain.product.ProductId, "
                         + "otherwise cross-context identity mixing becomes possible."
         );
     }

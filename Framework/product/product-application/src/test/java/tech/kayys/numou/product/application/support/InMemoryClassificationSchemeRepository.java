@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.product.application.support;
+package tech.kayys.numou.product.application.support;
 
-import tech.kayys.syirkah.product.domain.classification.ClassificationScheme;
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeId;
-import tech.kayys.syirkah.product.spi.port.ClassificationSchemeRepository;
+import tech.kayys.numou.product.domain.classification.ClassificationScheme;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeId;
+import tech.kayys.numou.product.spi.port.ClassificationSchemeRepository;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

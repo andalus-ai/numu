@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.reservation.application;
+package tech.kayys.numou.reservation.application;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
-import tech.kayys.syirkah.reservation.domain.*;
-import tech.kayys.syirkah.reservation.spi.DomainEventSink;
-import tech.kayys.syirkah.reservation.spi.WaitlistRepository;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
+import tech.kayys.numou.reservation.domain.*;
+import tech.kayys.numou.reservation.spi.DomainEventSink;
+import tech.kayys.numou.reservation.spi.WaitlistRepository;
 
 import java.time.Duration;
 import java.util.*;

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.communication.domain.model;
+package tech.kayys.numou.communication.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.communication.domain.identifier.NotificationId;
-import tech.kayys.syirkah.communication.domain.valueobject.ChannelType;
-import tech.kayys.syirkah.communication.domain.valueobject.NotificationPriority;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.communication.domain.identifier.NotificationId;
+import tech.kayys.numou.communication.domain.valueobject.ChannelType;
+import tech.kayys.numou.communication.domain.valueobject.NotificationPriority;
 
 import java.time.Instant;
 import java.util.ArrayList;

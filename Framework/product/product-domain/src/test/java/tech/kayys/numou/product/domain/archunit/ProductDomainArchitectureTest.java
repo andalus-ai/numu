@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.domain.archunit;
+package tech.kayys.numou.product.domain.archunit;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.testing.architecture.ForbiddenDependencyRules;
+import tech.kayys.numou.foundation.testing.architecture.ForbiddenDependencyRules;
 
 import java.util.List;
 
@@ -19,11 +19,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ProductDomainArchitectureTest {
 
     private static final String DOMAIN_PACKAGE =
-            "tech.kayys.syirkah.product.domain..";
+            "tech.kayys.numou.product.domain..";
 
     private static final JavaClasses DOMAIN_CLASSES =
             new ClassFileImporter()
-                    .importPackages("tech.kayys.syirkah.product.domain");
+                    .importPackages("tech.kayys.numou.product.domain");
 
     @Test
     void domainMustNotDependOnFrameworksOrInfrastructure() {
@@ -49,9 +49,9 @@ class ProductDomainArchitectureTest {
                 .that().resideInAPackage(DOMAIN_PACKAGE)
                 .should().dependOnClassesThat()
                 .resideInAnyPackage(
-                        "tech.kayys.syirkah.product.application..",
-                        "tech.kayys.syirkah.product.spi..",
-                        "tech.kayys.syirkah.product.adapter.."
+                        "tech.kayys.numou.product.application..",
+                        "tech.kayys.numou.product.spi..",
+                        "tech.kayys.numou.product.adapter.."
                 )
                 .because("dependency direction is Adapter -> Application -> Domain, never the reverse")
                 .check(DOMAIN_CLASSES);
@@ -79,14 +79,14 @@ class ProductDomainArchitectureTest {
 
     // --- Product 1.0 consolidation guards ------------------------------
     // product-core held a second, flatter Product model in the SAME package
-    // prefix (tech.kayys.syirkah.product.domain.Product, .ProductStatus,
+    // prefix (tech.kayys.numou.product.domain.Product, .ProductStatus,
     // .ProductType, .ProductRepository). It was consolidated into this module
     // and deleted. These rules fail fast if a duplicate model is reintroduced.
 
     @Test
     void productAggregateMustExistExactlyOnce() {
         assertEquals(
-                List.of("tech.kayys.syirkah.product.domain.product.Product"),
+                List.of("tech.kayys.numou.product.domain.product.Product"),
                 simpleNamesOf("Product"),
                 "there must be exactly one Product aggregate; a second one "
                         + "means the retired product-core model has returned"
@@ -96,7 +96,7 @@ class ProductDomainArchitectureTest {
     @Test
     void productIdentityMustExistExactlyOnce() {
         assertEquals(
-                List.of("tech.kayys.syirkah.product.domain.product.ProductId"),
+                List.of("tech.kayys.numou.product.domain.product.ProductId"),
                 simpleNamesOf("ProductId"),
                 "there must be exactly one Product identity; a second one "
                         + "means the retired product-core model has returned"
@@ -106,13 +106,13 @@ class ProductDomainArchitectureTest {
     @Test
     void productStatusAndTypeMustExistExactlyOnce() {
         assertEquals(
-                List.of("tech.kayys.syirkah.product.domain.product.ProductStatus"),
+                List.of("tech.kayys.numou.product.domain.product.ProductStatus"),
                 simpleNamesOf("ProductStatus"),
                 "lifecycle enums must not be duplicated across Product models"
         );
 
         assertEquals(
-                List.of("tech.kayys.syirkah.product.domain.product.ProductType"),
+                List.of("tech.kayys.numou.product.domain.product.ProductType"),
                 simpleNamesOf("ProductType"),
                 "type enums must not be duplicated across Product models"
         );
@@ -124,7 +124,7 @@ class ProductDomainArchitectureTest {
                 .that().resideInAPackage(DOMAIN_PACKAGE)
                 .should().haveSimpleNameEndingWith("Repository")
                 .because("persistence ports belong to product-spi "
-                        + "(tech.kayys.syirkah.product.spi.port), not the domain; "
+                        + "(tech.kayys.numou.product.spi.port), not the domain; "
                         + "the retired product-core declared ProductRepository "
                         + "inside the domain package")
                 .check(DOMAIN_CLASSES);
@@ -144,7 +144,7 @@ class ProductDomainArchitectureTest {
                 .resideInAnyPackage("com.saas.product..")
                 .because("com.saas.product.* is the deprecated pre-1.0 duplicate "
                         + "model (product-runtime); the canonical model is "
-                        + "tech.kayys.syirkah.product.domain.*")
+                        + "tech.kayys.numou.product.domain.*")
                 .check(DOMAIN_CLASSES);
     }
 
@@ -165,7 +165,7 @@ class ProductDomainArchitectureTest {
         noClasses()
                 .that().resideInAPackage(DOMAIN_PACKAGE)
                 .should().dependOnClassesThat()
-                .resideInAnyPackage("tech.kayys.syirkah.catalog.domain..")
+                .resideInAnyPackage("tech.kayys.numou.catalog.domain..")
                 .because("Catalog is a separate bounded context that consumes "
                         + "Product IDs and events; the Product domain must not "
                         + "depend on it (dependency direction is Catalog -> Product)")
@@ -177,7 +177,7 @@ class ProductDomainArchitectureTest {
         noClasses()
                 .that().resideInAPackage(DOMAIN_PACKAGE)
                 .should().dependOnClassesThat()
-                .resideInAnyPackage("tech.kayys.syirkah.groceries.domain..")
+                .resideInAnyPackage("tech.kayys.numou.groceries.domain..")
                 .because("POS (Groceries) is a separate bounded context that "
                         + "consumes Product IDs and events; the Product domain "
                         + "must not depend on it (dependency direction is POS -> Product)")

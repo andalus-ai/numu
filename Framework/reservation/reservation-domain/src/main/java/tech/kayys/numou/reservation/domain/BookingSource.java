@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.reservation.domain;
+package tech.kayys.numou.reservation.domain;
 
 public enum BookingSource {
     WEB,

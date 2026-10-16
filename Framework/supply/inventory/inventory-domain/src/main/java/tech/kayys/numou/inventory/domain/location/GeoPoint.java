@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.inventory.domain.location;
+package tech.kayys.numou.inventory.domain.location;
 
 import java.math.BigDecimal;
 import java.util.Objects;

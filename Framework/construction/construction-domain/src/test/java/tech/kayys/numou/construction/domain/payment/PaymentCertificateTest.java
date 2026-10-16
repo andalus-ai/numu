@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.payment;
+package tech.kayys.numou.construction.domain.payment;
 
 import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;

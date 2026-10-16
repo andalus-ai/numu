@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.sku;
+package tech.kayys.numou.product.domain.sku;
 
 /**
  * SKU lifecycle - deliberately independent from the product

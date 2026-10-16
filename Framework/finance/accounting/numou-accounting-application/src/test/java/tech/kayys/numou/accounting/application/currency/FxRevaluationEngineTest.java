@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.accounting.application.currency;
+package tech.kayys.numou.accounting.application.currency;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.workflow.gamelan.GamelanWorkflowClient;
-import tech.kayys.syirkah.accounting.application.workflow.gamelan.InMemoryGamelanWorkflowAdapter;
-import tech.kayys.syirkah.accounting.application.workflow.gamelan.WorkflowInstanceStatus;
-import tech.kayys.syirkah.accounting.application.workflow.gamelan.WorkflowStartRequest;
-import tech.kayys.syirkah.accounting.domain.currency.ExchangeRateProvider;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.accounting.application.workflow.gamelan.GamelanWorkflowClient;
+import tech.kayys.numou.accounting.application.workflow.gamelan.InMemoryGamelanWorkflowAdapter;
+import tech.kayys.numou.accounting.application.workflow.gamelan.WorkflowInstanceStatus;
+import tech.kayys.numou.accounting.application.workflow.gamelan.WorkflowStartRequest;
+import tech.kayys.numou.accounting.domain.currency.ExchangeRateProvider;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

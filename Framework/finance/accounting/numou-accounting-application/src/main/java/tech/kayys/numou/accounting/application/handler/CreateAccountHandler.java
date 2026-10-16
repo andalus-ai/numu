@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.accounting.application.handler;
+package tech.kayys.numou.accounting.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.application.api.command.CreateAccountCommand;
-import tech.kayys.syirkah.accounting.application.cqrs.CommandHandler;
-import tech.kayys.syirkah.accounting.application.outbox.OutboxEvent;
-import tech.kayys.syirkah.accounting.application.outbox.OutboxRepository;
-import tech.kayys.syirkah.accounting.application.port.AccountRepository;
-import tech.kayys.syirkah.accounting.domain.event.AccountCreated;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.model.Account;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.accounting.application.api.command.CreateAccountCommand;
+import tech.kayys.numou.accounting.application.cqrs.CommandHandler;
+import tech.kayys.numou.accounting.application.outbox.OutboxEvent;
+import tech.kayys.numou.accounting.application.outbox.OutboxRepository;
+import tech.kayys.numou.accounting.application.port.AccountRepository;
+import tech.kayys.numou.accounting.domain.event.AccountCreated;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.model.Account;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
 
 import java.util.Objects;
 

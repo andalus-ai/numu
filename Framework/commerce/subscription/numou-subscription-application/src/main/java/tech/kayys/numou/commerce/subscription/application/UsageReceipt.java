@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.subscription.application;
+package tech.kayys.numou.commerce.subscription.application;
 
 import java.math.BigDecimal;
 import java.util.Objects;

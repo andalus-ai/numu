@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.islamic;
+package tech.kayys.numou.accounting.domain.islamic;
 
 /**
  * AAOIFI-compliant Islamic financing contracts.

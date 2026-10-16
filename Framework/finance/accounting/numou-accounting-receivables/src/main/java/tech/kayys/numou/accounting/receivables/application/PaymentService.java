@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.receivables.application;
+package tech.kayys.numou.accounting.receivables.application;
 
-import tech.kayys.syirkah.accounting.domain.ar.*;
-import tech.kayys.syirkah.accounting.receivables.repository.*;
+import tech.kayys.numou.accounting.domain.ar.*;
+import tech.kayys.numou.accounting.receivables.repository.*;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;

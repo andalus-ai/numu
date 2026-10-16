@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.accounting.application.projection;
+package tech.kayys.numou.accounting.application.projection;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.domain.event.AccountingEvent;
-import tech.kayys.syirkah.accounting.domain.event.JournalEntryPosted;
-import tech.kayys.syirkah.accounting.domain.event.JournalEntryReversed;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.domain.event.AccountingEvent;
+import tech.kayys.numou.accounting.domain.event.JournalEntryPosted;
+import tech.kayys.numou.accounting.domain.event.JournalEntryReversed;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.organization.domain;
+package tech.kayys.numou.organization.domain;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

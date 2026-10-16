@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.valueobject;
+package tech.kayys.numou.accounting.domain.valueobject;
 
 /**
  * Methods for delivering invoices.

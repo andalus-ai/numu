@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.pricing.domain.price;
+package tech.kayys.numou.commerce.pricing.domain.price;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.util.UUID;

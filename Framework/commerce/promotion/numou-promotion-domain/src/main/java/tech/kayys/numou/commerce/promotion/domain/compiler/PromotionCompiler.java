@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionStatus;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilityRegistry;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilities;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionStatus;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilityRegistry;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilities;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

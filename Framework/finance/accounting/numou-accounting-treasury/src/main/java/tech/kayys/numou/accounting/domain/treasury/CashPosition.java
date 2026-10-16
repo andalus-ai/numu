@@ -1,7 +1,7 @@
 
-package tech.kayys.syirkah.accounting.domain.treasury;
+package tech.kayys.numou.accounting.domain.treasury;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.time.LocalDate;
 import java.util.Objects;

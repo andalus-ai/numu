@@ -1,9 +1,9 @@
 
-package tech.kayys.syirkah.accounting.application.procurement;
+package tech.kayys.numou.accounting.application.procurement;
 
-import tech.kayys.syirkah.accounting.application.sdk.module.FinancialModule;
-import tech.kayys.syirkah.accounting.application.sdk.module.ModuleContext;
-import tech.kayys.syirkah.accounting.application.sdk.module.ModuleMetadata;
+import tech.kayys.numou.accounting.application.sdk.module.FinancialModule;
+import tech.kayys.numou.accounting.application.sdk.module.ModuleContext;
+import tech.kayys.numou.accounting.application.sdk.module.ModuleMetadata;
 
 public class ProcurementModule implements FinancialModule {
 

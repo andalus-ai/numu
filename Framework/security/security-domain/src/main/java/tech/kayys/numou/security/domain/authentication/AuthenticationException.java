@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.domain.authentication;
+package tech.kayys.numou.security.domain.authentication;
 
 public final class AuthenticationException extends RuntimeException {
     private final String code;

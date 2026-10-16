@@ -1,5 +1,5 @@
 
-package tech.kayys.syirkah.accounting.application.procurement;
+package tech.kayys.numou.accounting.application.procurement;
 
 import java.math.BigDecimal;
 import java.util.List;

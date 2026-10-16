@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.identity.domain.user;
+package tech.kayys.numou.identity.domain.user;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.identity.domain.exception.UserAlreadyActiveException;
-import tech.kayys.syirkah.identity.domain.exception.UserAlreadyDeactivatedException;
-import tech.kayys.syirkah.identity.domain.valueobject.DisplayName;
-import tech.kayys.syirkah.identity.domain.valueobject.EmailAddress;
-import tech.kayys.syirkah.identity.domain.valueobject.PasswordHash;
+import tech.kayys.numou.identity.domain.exception.UserAlreadyActiveException;
+import tech.kayys.numou.identity.domain.exception.UserAlreadyDeactivatedException;
+import tech.kayys.numou.identity.domain.valueobject.DisplayName;
+import tech.kayys.numou.identity.domain.valueobject.EmailAddress;
+import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 import java.time.Instant;
 
@@ -70,7 +70,7 @@ class UserTest {
 
         var events = user.pullDomainEvents();
         assertEquals(1, events.size());
-        assertTrue(events.get(0) instanceof tech.kayys.syirkah.identity.domain.event.UserEmailChanged);
+        assertTrue(events.get(0) instanceof tech.kayys.numou.identity.domain.event.UserEmailChanged);
     }
 
     @Test

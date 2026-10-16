@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.domain.bundle;
+package tech.kayys.numou.product.domain.bundle;
 
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.math.BigDecimal;
 import java.util.Objects;

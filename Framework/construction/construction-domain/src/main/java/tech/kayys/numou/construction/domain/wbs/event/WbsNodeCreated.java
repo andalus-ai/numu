@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.wbs.event;
+package tech.kayys.numou.construction.domain.wbs.event;
 
-import tech.kayys.syirkah.construction.domain.wbs.WbsNodeType;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.construction.domain.wbs.WbsNodeType;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import java.time.Instant;
 import java.util.UUID;
 

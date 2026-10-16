@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.spi.boq;
+package tech.kayys.numou.construction.spi.boq;
 
 import java.util.UUID;
 

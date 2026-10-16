@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.inventory.domain.reservation;
+package tech.kayys.numou.inventory.domain.reservation;
 
 /**
  * Lifecycle status of an inventory reservation.

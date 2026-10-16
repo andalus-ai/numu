@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.domain.document;
+package tech.kayys.numou.accounting.domain.document;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 
 import java.time.Instant;
 import java.util.ArrayList;

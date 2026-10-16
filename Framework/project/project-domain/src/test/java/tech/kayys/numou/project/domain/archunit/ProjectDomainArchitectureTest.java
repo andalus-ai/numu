@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.domain.archunit;
+package tech.kayys.numou.project.domain.archunit;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.testing.architecture.ForbiddenDependencyRules;
+import tech.kayys.numou.foundation.testing.architecture.ForbiddenDependencyRules;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
@@ -17,11 +17,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 class ProjectDomainArchitectureTest {
 
     private static final String DOMAIN_PACKAGE =
-            "tech.kayys.syirkah.project.domain..";
+            "tech.kayys.numou.project.domain..";
 
     private static final JavaClasses DOMAIN_CLASSES =
             new ClassFileImporter()
-                    .importPackages("tech.kayys.syirkah.project.domain");
+                    .importPackages("tech.kayys.numou.project.domain");
 
     @Test
     void domainMustNotDependOnFrameworksOrInfrastructure() {
@@ -47,9 +47,9 @@ class ProjectDomainArchitectureTest {
                 .that().resideInAPackage(DOMAIN_PACKAGE)
                 .should().dependOnClassesThat()
                 .resideInAnyPackage(
-                        "tech.kayys.syirkah.project.application..",
-                        "tech.kayys.syirkah.project.spi..",
-                        "tech.kayys.syirkah.project.adapter.."
+                        "tech.kayys.numou.project.application..",
+                        "tech.kayys.numou.project.spi..",
+                        "tech.kayys.numou.project.adapter.."
                 )
                 .because("dependency direction is Adapter -> Application -> Domain, never the reverse")
                 .check(DOMAIN_CLASSES);

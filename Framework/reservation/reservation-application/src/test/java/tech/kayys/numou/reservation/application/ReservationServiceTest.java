@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.reservation.application;
+package tech.kayys.numou.reservation.application;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.reservation.adapter.memory.InMemoryReservationRepositories;
-import tech.kayys.syirkah.reservation.domain.*;
-import tech.kayys.syirkah.reservation.spi.BookingRulesPort;
-import tech.kayys.syirkah.reservation.spi.DomainEventSink;
-import tech.kayys.syirkah.reservation.spi.ResourceDirectoryPort;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.reservation.adapter.memory.InMemoryReservationRepositories;
+import tech.kayys.numou.reservation.domain.*;
+import tech.kayys.numou.reservation.spi.BookingRulesPort;
+import tech.kayys.numou.reservation.spi.DomainEventSink;
+import tech.kayys.numou.reservation.spi.ResourceDirectoryPort;
 
 import java.time.*;
 import java.util.*;

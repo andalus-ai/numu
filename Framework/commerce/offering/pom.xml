@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-commerce</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-commerce</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-offering-modules</artifactId>
+    <artifactId>numou-offering-modules</artifactId>
     <packaging>pom</packaging>
 
     <name>Numou Commerce - Offering Aggregator</name>
@@ -23,10 +23,10 @@
     </description>
 
     <modules>
-        <module>syirkah-offering-domain</module>
-        <module>syirkah-offering-spi</module>
-        <module>syirkah-offering-application</module>
-        <module>syirkah-offering-adapter</module>
+        <module>numou-offering-domain</module>
+        <module>numou-offering-spi</module>
+        <module>numou-offering-application</module>
+        <module>numou-offering-adapter</module>
     </modules>
 
 </project>

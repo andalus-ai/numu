@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.reservation.domain;
+package tech.kayys.numou.reservation.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 
 /**
  * Thrown when the availability ledger cannot allocate contiguous resources for the requested capacity and time range.

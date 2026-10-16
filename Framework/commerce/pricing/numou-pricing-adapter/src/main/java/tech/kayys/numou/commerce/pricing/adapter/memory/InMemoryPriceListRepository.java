@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.pricing.adapter.memory;
+package tech.kayys.numou.commerce.pricing.adapter.memory;
 
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceList;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceListId;
-import tech.kayys.syirkah.commerce.pricing.spi.port.PriceListRepository;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceList;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceListId;
+import tech.kayys.numou.commerce.pricing.spi.port.PriceListRepository;
 
 import java.util.Map;
 import java.util.Optional;

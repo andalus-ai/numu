@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.application.close;
+package tech.kayys.numou.accounting.application.close;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.close.CloseCycle;
-import tech.kayys.syirkah.accounting.domain.close.CloseCycleId;
-import tech.kayys.syirkah.accounting.domain.close.CloseStatus;
+import tech.kayys.numou.accounting.domain.close.CloseCycle;
+import tech.kayys.numou.accounting.domain.close.CloseCycleId;
+import tech.kayys.numou.accounting.domain.close.CloseStatus;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.project.domain.project;
+package tech.kayys.numou.project.domain.project;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.project.domain.event.ProjectCancelled;
-import tech.kayys.syirkah.project.domain.event.ProjectCompleted;
-import tech.kayys.syirkah.project.domain.event.ProjectCreated;
-import tech.kayys.syirkah.project.domain.event.ProjectPlanned;
-import tech.kayys.syirkah.project.domain.event.ProjectPutOnHold;
-import tech.kayys.syirkah.project.domain.event.ProjectResumed;
-import tech.kayys.syirkah.project.domain.event.ProjectStarted;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.project.domain.event.ProjectCancelled;
+import tech.kayys.numou.project.domain.event.ProjectCompleted;
+import tech.kayys.numou.project.domain.event.ProjectCreated;
+import tech.kayys.numou.project.domain.event.ProjectPlanned;
+import tech.kayys.numou.project.domain.event.ProjectPutOnHold;
+import tech.kayys.numou.project.domain.event.ProjectResumed;
+import tech.kayys.numou.project.domain.event.ProjectStarted;
 
 import java.time.LocalDate;
 import java.util.List;

@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.close.CloseValidationEngine;
-import tech.kayys.syirkah.accounting.application.close.FinancialCloseService;
-import tech.kayys.syirkah.accounting.application.close.PeriodLockEngine;
-import tech.kayys.syirkah.accounting.domain.close.CloseCycle;
-import tech.kayys.syirkah.accounting.domain.close.CloseStatus;
+import tech.kayys.numou.accounting.application.close.CloseValidationEngine;
+import tech.kayys.numou.accounting.application.close.FinancialCloseService;
+import tech.kayys.numou.accounting.application.close.PeriodLockEngine;
+import tech.kayys.numou.accounting.domain.close.CloseCycle;
+import tech.kayys.numou.accounting.domain.close.CloseStatus;
 
 import static org.junit.jupiter.api.Assertions.*;
 

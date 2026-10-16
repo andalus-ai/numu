@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.product.adapter.memory;
+package tech.kayys.numou.product.adapter.memory;
 
-import tech.kayys.syirkah.product.domain.bundle.Bundle;
-import tech.kayys.syirkah.product.domain.bundle.BundleId;
-import tech.kayys.syirkah.product.spi.port.BundleRepository;
+import tech.kayys.numou.product.domain.bundle.Bundle;
+import tech.kayys.numou.product.domain.bundle.BundleId;
+import tech.kayys.numou.product.spi.port.BundleRepository;
 
 import java.util.Map;
 import java.util.Objects;

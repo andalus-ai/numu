@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.groceries.domain.valueobject;
+package tech.kayys.numou.groceries.domain.valueobject;
 
 /**
  *  product types with specific handling requirements.

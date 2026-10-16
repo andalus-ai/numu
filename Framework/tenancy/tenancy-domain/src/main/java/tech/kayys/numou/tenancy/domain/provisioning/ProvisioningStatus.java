@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.tenancy.domain.provisioning;
+package tech.kayys.numou.tenancy.domain.provisioning;
 
 /**
  * Overall provisioning workflow status for a Tenant.

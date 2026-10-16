@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.project.domain.commercial;
+package tech.kayys.numou.project.domain.commercial;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Objects;
 

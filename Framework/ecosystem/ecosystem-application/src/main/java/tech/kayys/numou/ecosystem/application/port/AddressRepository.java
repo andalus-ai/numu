@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.ecosystem.application.port;
+package tech.kayys.numou.ecosystem.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.ecosystem.domain.contact.Address;
-import tech.kayys.syirkah.ecosystem.domain.contact.AddressId;
+import tech.kayys.numou.ecosystem.domain.contact.Address;
+import tech.kayys.numou.ecosystem.domain.contact.AddressId;
 
 import java.util.Optional;
 

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.ecosystem.application.api.query;
+package tech.kayys.numou.ecosystem.application.api.query;
 
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.foundation.application.query.Query;
 
 import java.util.Objects;
 

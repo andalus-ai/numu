@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.tenancy.domain.tenant;
+package tech.kayys.numou.tenancy.domain.tenant;
 
 /**
  * Tenant lifecycle states.

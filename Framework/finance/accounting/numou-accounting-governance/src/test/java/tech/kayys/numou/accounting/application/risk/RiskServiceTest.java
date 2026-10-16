@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.application.risk;
+package tech.kayys.numou.accounting.application.risk;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.risk.RiskItem;
+import tech.kayys.numou.accounting.domain.risk.RiskItem;
 
 import static org.junit.jupiter.api.Assertions.*;
 

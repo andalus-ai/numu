@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
@@ -7,15 +7,15 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
-import tech.kayys.syirkah.event.spi.port.EventSerializerPort;
-import tech.kayys.syirkah.reliability.adapter.json.JsonDomainEvent;
-import tech.kayys.syirkah.reliability.application.inbox.InboxProcessor;
-import tech.kayys.syirkah.restaurant.integration.DispatchingEventSink;
-import tech.kayys.syirkah.restaurant.integration.PolicyEventDecoder;
-import tech.kayys.syirkah.restaurant.integration.RestaurantPolicies;
-import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService;
-import tech.kayys.syirkah.restaurant.order.application.OrderService;
-import tech.kayys.syirkah.reservation.application.WaitlistService;
+import tech.kayys.numou.event.spi.port.EventSerializerPort;
+import tech.kayys.numou.reliability.adapter.json.JsonDomainEvent;
+import tech.kayys.numou.reliability.application.inbox.InboxProcessor;
+import tech.kayys.numou.restaurant.integration.DispatchingEventSink;
+import tech.kayys.numou.restaurant.integration.PolicyEventDecoder;
+import tech.kayys.numou.restaurant.integration.RestaurantPolicies;
+import tech.kayys.numou.restaurant.kitchen.application.KitchenService;
+import tech.kayys.numou.restaurant.order.application.OrderService;
+import tech.kayys.numou.reservation.application.WaitlistService;
 
 import java.util.List;
 import java.util.UUID;

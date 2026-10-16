@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-JAVA="$ROOT/construction-adapter/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/context/PgTenantContextTransactionIntegrationTest.java"
+JAVA="$ROOT/construction-adapter/src/test/java/tech/kayys/numou/construction/adapter/postgres/context/PgTenantContextTransactionIntegrationTest.java"
 for expected in \
   'committedTenantContextDoesNotLeakIntoNextTransactionOnSameConnection' \
   'rolledBackTenantContextDoesNotLeakIntoNextTransactionOnSameConnection' \

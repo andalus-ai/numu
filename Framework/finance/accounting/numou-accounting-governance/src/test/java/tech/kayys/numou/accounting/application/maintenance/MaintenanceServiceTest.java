@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.application.maintenance;
+package tech.kayys.numou.accounting.application.maintenance;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.maintenance.MaintenanceWorkOrder;
+import tech.kayys.numou.accounting.domain.maintenance.MaintenanceWorkOrder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

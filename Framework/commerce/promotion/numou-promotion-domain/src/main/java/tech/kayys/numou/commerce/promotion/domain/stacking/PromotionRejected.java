@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.promotion.domain.stacking;
+package tech.kayys.numou.commerce.promotion.domain.stacking;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
 
 import java.util.Objects;
 

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.hris.domain.model;
+package tech.kayys.numou.hris.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.hris.domain.identifier.PerformanceReviewId;
-import tech.kayys.syirkah.hris.domain.valueobject.ReviewStatus;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.hris.domain.identifier.PerformanceReviewId;
+import tech.kayys.numou.hris.domain.valueobject.ReviewStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -232,7 +232,7 @@ public final class PerformanceReview extends AbstractAggregateRoot<PerformanceRe
     /**
      * Review criteria value object.
      */
-    public static final class ReviewCriteria implements tech.kayys.syirkah.foundation.domain.valueobject.ValueObject {
+    public static final class ReviewCriteria implements tech.kayys.numou.foundation.domain.valueobject.ValueObject {
         private static final long serialVersionUID = 1L;
 
         private final String category;

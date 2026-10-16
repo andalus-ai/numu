@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.reservation.application;
+package tech.kayys.numou.reservation.application;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
-import tech.kayys.syirkah.reservation.domain.*;
-import tech.kayys.syirkah.reservation.spi.BookingRulesPort;
-import tech.kayys.syirkah.reservation.spi.DomainEventSink;
-import tech.kayys.syirkah.reservation.spi.LedgerRepository;
-import tech.kayys.syirkah.reservation.spi.ReservationRepository;
-import tech.kayys.syirkah.reservation.spi.ResourceDirectoryPort;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
+import tech.kayys.numou.reservation.domain.*;
+import tech.kayys.numou.reservation.spi.BookingRulesPort;
+import tech.kayys.numou.reservation.spi.DomainEventSink;
+import tech.kayys.numou.reservation.spi.LedgerRepository;
+import tech.kayys.numou.reservation.spi.ReservationRepository;
+import tech.kayys.numou.reservation.spi.ResourceDirectoryPort;
 
 import java.time.Duration;
 import java.time.Instant;

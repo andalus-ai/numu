@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.classification;
+package tech.kayys.numou.asset.domain.classification;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.util.Objects;
 

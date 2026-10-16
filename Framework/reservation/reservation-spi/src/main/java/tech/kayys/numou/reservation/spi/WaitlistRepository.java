@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.reservation.spi;
+package tech.kayys.numou.reservation.spi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.reservation.domain.FacilityId;
-import tech.kayys.syirkah.reservation.domain.WaitlistEntry;
-import tech.kayys.syirkah.reservation.domain.WaitlistEntryId;
+import tech.kayys.numou.reservation.domain.FacilityId;
+import tech.kayys.numou.reservation.domain.WaitlistEntry;
+import tech.kayys.numou.reservation.domain.WaitlistEntryId;
 
 import java.util.List;
 import java.util.Optional;

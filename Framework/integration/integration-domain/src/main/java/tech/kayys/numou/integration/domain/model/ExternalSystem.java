@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.integration.domain.model;
+package tech.kayys.numou.integration.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.integration.domain.identifier.ExternalSystemId;
-import tech.kayys.syirkah.integration.domain.valueobject.AuthScheme;
-import tech.kayys.syirkah.integration.domain.valueobject.ExternalSystemStatus;
-import tech.kayys.syirkah.integration.domain.valueobject.ExternalSystemType;
-import tech.kayys.syirkah.integration.domain.valueobject.IntegrationDirection;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.integration.domain.identifier.ExternalSystemId;
+import tech.kayys.numou.integration.domain.valueobject.AuthScheme;
+import tech.kayys.numou.integration.domain.valueobject.ExternalSystemStatus;
+import tech.kayys.numou.integration.domain.valueobject.ExternalSystemType;
+import tech.kayys.numou.integration.domain.valueobject.IntegrationDirection;
 
 import java.time.Instant;
 import java.util.Collections;

@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.catalog.domain.model;
+package tech.kayys.numou.catalog.domain.model;
 
-import tech.kayys.syirkah.catalog.domain.event.ProductCreated;
-import tech.kayys.syirkah.catalog.domain.event.ProductPriceChanged;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.catalog.domain.valueobject.CatalogProductStatus;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.catalog.domain.event.ProductCreated;
+import tech.kayys.numou.catalog.domain.event.ProductPriceChanged;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.catalog.domain.valueobject.CatalogProductStatus;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.time.Instant;
 
@@ -14,12 +14,12 @@ import java.time.Instant;
  * Catalog (bounded-context) product aggregate.
  *
  * <p>This is <b>not</b> the Product foundation aggregate
- * ({@code tech.kayys.syirkah.product.domain.product.Product}).
+ * ({@code tech.kayys.numou.product.domain.product.Product}).
  * The Catalog context adds catalog-listing concerns (price, stock
  * level, catalog status) that the Product foundation deliberately
  * does not know about (product00.md: no pricing/inventory inside
  * Product). It references the foundation by
- * {@code tech.kayys.syirkah.product.domain.product.ProductId}.
+ * {@code tech.kayys.numou.product.domain.product.ProductId}.
  *
  * @deprecated kept for source compatibility; migrate to
  *     {@code CatalogProduct} once the rename is complete.

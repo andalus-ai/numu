@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.construction.application.boq.handler;
+package tech.kayys.numou.construction.application.boq.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.application.boq.command.CreateBoqCommand;
-import tech.kayys.syirkah.construction.domain.boq.Boq;
-import tech.kayys.syirkah.construction.spi.boq.BoqRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
+import tech.kayys.numou.construction.application.boq.command.CreateBoqCommand;
+import tech.kayys.numou.construction.domain.boq.Boq;
+import tech.kayys.numou.construction.spi.boq.BoqRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
 import java.util.Objects;
 
 public final class CreateBoqHandler implements CommandHandler<CreateBoqCommand, Boq> {

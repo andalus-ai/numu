@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.product.application.command;
+package tech.kayys.numou.product.application.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.product.domain.classification.ClassificationNodeId;
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeId;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.product.domain.classification.ClassificationNodeId;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeId;
 
 import java.util.Objects;
 

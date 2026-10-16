@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.workforce.domain.skill;
+package tech.kayys.numou.workforce.domain.skill;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.workforce.domain.qualification.Qualification;
-import tech.kayys.syirkah.workforce.domain.qualification.QualificationId;
-import tech.kayys.syirkah.workforce.domain.qualification.WorkerQualification;
-import tech.kayys.syirkah.workforce.domain.qualification.WorkerQualificationId;
-import tech.kayys.syirkah.workforce.domain.worker.WorkerId;
+import tech.kayys.numou.workforce.domain.qualification.Qualification;
+import tech.kayys.numou.workforce.domain.qualification.QualificationId;
+import tech.kayys.numou.workforce.domain.qualification.WorkerQualification;
+import tech.kayys.numou.workforce.domain.qualification.WorkerQualificationId;
+import tech.kayys.numou.workforce.domain.worker.WorkerId;
 
 import java.time.LocalDate;
 

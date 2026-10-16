@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.commerce.promotion.domain.context;
+package tech.kayys.numou.commerce.promotion.domain.context;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionLine;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Quantity;
-import tech.kayys.syirkah.foundation.domain.valueobject.Unit;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.commerce.promotion.domain.PromotionLine;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Quantity;
+import tech.kayys.numou.foundation.domain.valueobject.Unit;
 
 import java.util.ArrayList;
 import java.util.List;

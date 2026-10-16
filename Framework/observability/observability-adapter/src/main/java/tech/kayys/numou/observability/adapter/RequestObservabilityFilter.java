@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.observability.adapter;
+package tech.kayys.numou.observability.adapter;
 
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
@@ -10,8 +10,8 @@ import jakarta.ws.rs.container.ContainerResponseFilter;
 import jakarta.ws.rs.ext.Provider;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
-import tech.kayys.syirkah.foundation.adapter.context.CorrelationContext;
-import tech.kayys.syirkah.foundation.adapter.context.RequestContextHolder;
+import tech.kayys.numou.foundation.adapter.context.CorrelationContext;
+import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -28,9 +28,9 @@ import java.util.regex.Pattern;
 @Priority(Priorities.AUTHENTICATION - 200)
 public class RequestObservabilityFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
-    private static final Logger ACCESS = Logger.getLogger("syirkah.access");
+    private static final Logger ACCESS = Logger.getLogger("numou.access");
     private static final Pattern SAFE_ID = Pattern.compile("^[A-Za-z0-9._-]{8,64}$");
-    private static final String START = "syirkah.start";
+    private static final String START = "numou.start";
 
     @Inject
     RequestContextHolder holder;

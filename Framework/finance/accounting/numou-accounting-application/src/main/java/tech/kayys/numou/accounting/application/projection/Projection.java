@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.projection;
+package tech.kayys.numou.accounting.application.projection;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.domain.event.AccountingEvent;
+import tech.kayys.numou.accounting.domain.event.AccountingEvent;
 
 /**
  * Contract for event-driven read model updaters.

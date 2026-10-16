@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.fixedasset;
+package tech.kayys.numou.asset.domain.fixedasset;
 
 /**
  * Classification of leases under IFRS 16 / US GAAP ASC 842.

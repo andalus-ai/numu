@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.groceries.domain.repository;
+package tech.kayys.numou.groceries.domain.repository;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.groceries.domain.identifier.ProductId;
-import tech.kayys.syirkah.groceries.domain.model.PosProduct;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.groceries.domain.identifier.ProductId;
+import tech.kayys.numou.groceries.domain.model.PosProduct;
 
 import java.util.concurrent.CompletionStage;
 

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.hse;
+package tech.kayys.numou.construction.domain.hse;
 
-import tech.kayys.syirkah.construction.domain.hse.event.SafetyProfileCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.hse.event.SafetyProfileCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.groceries.application.api;
+package tech.kayys.numou.groceries.application.api;
 
 import java.time.Instant;
 import java.util.List;

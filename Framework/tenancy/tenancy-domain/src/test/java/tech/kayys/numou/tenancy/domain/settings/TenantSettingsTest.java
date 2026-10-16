@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.tenancy.domain.settings;
+package tech.kayys.numou.tenancy.domain.settings;
 
-import tech.kayys.syirkah.foundation.domain.audit.AuditMeta;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.audit.AuditMeta;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

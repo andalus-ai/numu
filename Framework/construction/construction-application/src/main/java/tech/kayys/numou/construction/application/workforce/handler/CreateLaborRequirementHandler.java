@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.construction.application.workforce.handler;
+package tech.kayys.numou.construction.application.workforce.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.application.workforce.command.CreateLaborRequirementCommand;
-import tech.kayys.syirkah.construction.domain.workforce.LaborRequirement;
-import tech.kayys.syirkah.construction.spi.workforce.LaborRequirementRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
+import tech.kayys.numou.construction.application.workforce.command.CreateLaborRequirementCommand;
+import tech.kayys.numou.construction.domain.workforce.LaborRequirement;
+import tech.kayys.numou.construction.spi.workforce.LaborRequirementRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
 import java.util.Objects;
 
 public final class CreateLaborRequirementHandler implements CommandHandler<CreateLaborRequirementCommand, LaborRequirement> {

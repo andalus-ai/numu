@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.domain.user;
+package tech.kayys.numou.identity.domain.user;
 
 /**
  * Deliberately simple - three states cover registration through

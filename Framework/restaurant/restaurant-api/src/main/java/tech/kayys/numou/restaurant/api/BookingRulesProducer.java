@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.reservation.domain.BookingRules;
-import tech.kayys.syirkah.reservation.domain.OperatingWindow;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.reservation.domain.BookingRules;
+import tech.kayys.numou.reservation.domain.OperatingWindow;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -18,13 +18,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Default booking policy from configuration ({@code syirkah.restaurant.booking.*}). Replace this producer with a
+ * Default booking policy from configuration ({@code numou.restaurant.booking.*}). Replace this producer with a
  * per-venue lookup when venues need their own rules.
  */
 @ApplicationScoped
 public class BookingRulesProducer {
 
-    @ConfigMapping(prefix = "syirkah.restaurant.booking")
+    @ConfigMapping(prefix = "numou.restaurant.booking")
     public interface Config {
         @WithDefault("Asia/Jakarta") String zone();
         @WithDefault("1") int minParty();

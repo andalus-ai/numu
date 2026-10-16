@@ -4,9 +4,9 @@ set -euo pipefail
 # Real PostgreSQL race test for same-key idempotency reservations.
 # Uses the project's actual migration schema, but simulates the command body in SQL;
 # it does not invoke the Java executor or PgTransactionalCommandRunner.
-CONTAINER_NAME="syirkah-pg-idempotency-race-$$"
+CONTAINER_NAME="numou-pg-idempotency-race-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55448}"
-PASSWORD="syirkah_test_only"
+PASSWORD="numou_test_only"
 TMP_DIR="$(mktemp -d)"
 cleanup() {
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -18,21 +18,21 @@ command -v docker >/dev/null || { echo "ERROR: docker is required" >&2; exit 2; 
 command -v psql >/dev/null || { echo "ERROR: psql client is required" >&2; exit 2; }
 
 docker run -d --rm --name "$CONTAINER_NAME" \
-  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=syirkah_test \
+  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=numou_test \
   -p "127.0.0.1:${PORT}:5432" postgres:16-alpine >/dev/null
 for _ in $(seq 1 60); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null 2>&1; then break; fi
+  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
-docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null
+docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null
 
 for migration in "$(dirname "$0")"/../db/migration/*.sql; do
-  docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d syirkah_test < "$migration" >/dev/null
+  docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d numou_test < "$migration" >/dev/null
 done
 
 # The helper table represents the business effect that must execute only for the
 # transaction that successfully reserves the idempotency key.
-docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d syirkah_test <<'SQL'
+docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d numou_test <<'SQL'
 CREATE TABLE test_command_effect (
   tenant_id VARCHAR(100) NOT NULL,
   idempotency_key VARCHAR(200) NOT NULL,
@@ -44,7 +44,7 @@ SQL
 # Worker A wins the unique-key insert and holds the transaction open. Worker B
 # races the same key while A is uncommitted; its ON CONFLICT must wait, then lose.
 (
-  PGPASSWORD="$PASSWORD" psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U postgres -d syirkah_test \
+  PGPASSWORD="$PASSWORD" psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U postgres -d numou_test \
     >"$TMP_DIR/worker-a.out" 2>&1 <<'SQL'
 BEGIN;
 WITH reserved AS (
@@ -66,7 +66,7 @@ SQL
 A_PID=$!
 sleep 0.35
 (
-  PGPASSWORD="$PASSWORD" psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U postgres -d syirkah_test \
+  PGPASSWORD="$PASSWORD" psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U postgres -d numou_test \
     >"$TMP_DIR/worker-b.out" 2>&1 <<'SQL'
 BEGIN;
 WITH reserved AS (
@@ -96,7 +96,7 @@ fi
 
 # A different fingerprint cannot take over the same tenant/key or execute a
 # second business effect. It is detected by reading the existing fingerprint.
-PGPASSWORD="$PASSWORD" psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U postgres -d syirkah_test <<'SQL'
+PGPASSWORD="$PASSWORD" psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U postgres -d numou_test <<'SQL'
 DO $$
 BEGIN
   IF (SELECT count(*) FROM construction_command_idempotency

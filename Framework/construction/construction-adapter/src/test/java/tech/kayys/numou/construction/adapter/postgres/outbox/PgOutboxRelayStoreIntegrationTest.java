@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.adapter.postgres.outbox;
+package tech.kayys.numou.construction.adapter.postgres.outbox;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.pgclient.PgPool;
@@ -7,7 +7,7 @@ import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.construction.spi.outbox.OutboxRelayStore;
+import tech.kayys.numou.construction.spi.outbox.OutboxRelayStore;
 
 import java.time.Instant;
 import java.util.List;

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.kiosk.domain.model;
+package tech.kayys.numou.kiosk.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskSessionId;
-import tech.kayys.syirkah.kiosk.domain.valueobject.SessionStatus;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.kiosk.domain.identifier.KioskSessionId;
+import tech.kayys.numou.kiosk.domain.valueobject.SessionStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;

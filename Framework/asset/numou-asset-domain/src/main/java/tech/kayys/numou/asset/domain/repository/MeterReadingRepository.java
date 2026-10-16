@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.meter.MeterReading;
+import tech.kayys.numou.asset.domain.meter.MeterReading;
 
 import java.time.Instant;
 import java.util.List;

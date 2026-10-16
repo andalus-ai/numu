@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.asset.domain.model;
+package tech.kayys.numou.asset.domain.model;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.asset.domain.event.*;
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
-import tech.kayys.syirkah.asset.domain.location.AssetLocation;
-import tech.kayys.syirkah.asset.domain.custody.AssetCustody;
-import tech.kayys.syirkah.asset.domain.classification.AssetClassification;
-import tech.kayys.syirkah.asset.domain.valueobject.AssetStatus;
-import tech.kayys.syirkah.asset.domain.valueobject.AssetType;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.asset.domain.event.*;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.location.AssetLocation;
+import tech.kayys.numou.asset.domain.custody.AssetCustody;
+import tech.kayys.numou.asset.domain.classification.AssetClassification;
+import tech.kayys.numou.asset.domain.valueobject.AssetStatus;
+import tech.kayys.numou.asset.domain.valueobject.AssetType;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.time.Duration;
 import java.time.Instant;

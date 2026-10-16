@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.fund;
+package tech.kayys.numou.accounting.application.fund;
 
-import tech.kayys.syirkah.accounting.domain.fund.*;
+import tech.kayys.numou.accounting.domain.fund.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

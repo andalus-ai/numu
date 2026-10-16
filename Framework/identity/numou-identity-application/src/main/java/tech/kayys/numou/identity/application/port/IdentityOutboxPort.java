@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.identity.application.port;
+package tech.kayys.numou.identity.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.util.List;
 

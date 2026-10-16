@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.handover;
+package tech.kayys.numou.construction.domain.handover;
 
 public enum ConstructionCompletionStatus {
     IN_PROGRESS,

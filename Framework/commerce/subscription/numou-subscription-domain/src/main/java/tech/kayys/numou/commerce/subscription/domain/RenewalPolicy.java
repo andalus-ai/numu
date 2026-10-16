@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.subscription.domain;
+package tech.kayys.numou.commerce.subscription.domain;
 
 /**
  * Renewal policy (blueprint §9 "Renewal Policy").

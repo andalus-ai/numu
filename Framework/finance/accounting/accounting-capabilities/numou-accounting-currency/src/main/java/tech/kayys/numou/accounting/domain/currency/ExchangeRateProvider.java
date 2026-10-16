@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.domain.currency;
+package tech.kayys.numou.accounting.domain.currency;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

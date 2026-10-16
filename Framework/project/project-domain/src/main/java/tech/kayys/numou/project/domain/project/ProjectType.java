@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.project;
+package tech.kayys.numou.project.domain.project;
 
 /** Commercial classification of projects. */
 public enum ProjectType {

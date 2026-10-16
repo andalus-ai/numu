@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.close;
+package tech.kayys.numou.accounting.application.close;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

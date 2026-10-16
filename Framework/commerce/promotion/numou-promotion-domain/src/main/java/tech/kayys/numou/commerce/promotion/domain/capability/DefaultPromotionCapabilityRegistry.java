@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionType;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.EffectType;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.PromotionCompilationException;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.TargetType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.EffectType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.PromotionCompilationException;
+import tech.kayys.numou.commerce.promotion.domain.compiler.TargetType;
 
 import java.util.Collection;
 import java.util.Comparator;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.ecosystem.domain.valueobject;
+package tech.kayys.numou.ecosystem.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 /**
  * Coarse grouping of capabilities, aligned with the phased capability

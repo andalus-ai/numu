@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.closeout;
+package tech.kayys.numou.construction.domain.closeout;
 
 public enum FinalAccountStatus {
     DRAFT,

@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.commerce.subscription.application.handler;
+package tech.kayys.numou.commerce.subscription.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.subscription.application.SubscriptionErrors;
-import tech.kayys.syirkah.commerce.subscription.application.query.CheckEntitlementQuery;
-import tech.kayys.syirkah.commerce.subscription.domain.AccessDecision;
-import tech.kayys.syirkah.commerce.subscription.domain.EntitlementAccess;
-import tech.kayys.syirkah.commerce.subscription.domain.UsageMeter;
-import tech.kayys.syirkah.commerce.subscription.spi.port.PlanEntitlementPort;
-import tech.kayys.syirkah.commerce.subscription.spi.port.SubscriptionRepositoryPort;
-import tech.kayys.syirkah.commerce.subscription.spi.port.UsageMeterPort;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.subscription.application.SubscriptionErrors;
+import tech.kayys.numou.commerce.subscription.application.query.CheckEntitlementQuery;
+import tech.kayys.numou.commerce.subscription.domain.AccessDecision;
+import tech.kayys.numou.commerce.subscription.domain.EntitlementAccess;
+import tech.kayys.numou.commerce.subscription.domain.UsageMeter;
+import tech.kayys.numou.commerce.subscription.spi.port.PlanEntitlementPort;
+import tech.kayys.numou.commerce.subscription.spi.port.SubscriptionRepositoryPort;
+import tech.kayys.numou.commerce.subscription.spi.port.UsageMeterPort;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.util.Objects;
 

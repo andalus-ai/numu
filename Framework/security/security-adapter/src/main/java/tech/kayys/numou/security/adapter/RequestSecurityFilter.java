@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.adapter;
+package tech.kayys.numou.security.adapter;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import io.vertx.core.http.HttpServerRequest;
@@ -12,14 +12,14 @@ import jakarta.ws.rs.ext.Provider;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
-import tech.kayys.syirkah.foundation.adapter.context.CorrelationContext;
-import tech.kayys.syirkah.foundation.adapter.context.RequestContextHolder;
-import tech.kayys.syirkah.security.application.context.SecurityContext;
-import tech.kayys.syirkah.security.application.context.TenantGuard;
-import tech.kayys.syirkah.security.application.context.TenantResolution;
-import tech.kayys.syirkah.security.application.problem.Problem;
-import tech.kayys.syirkah.security.domain.authorization.Principal;
-import tech.kayys.syirkah.security.domain.identifier.PrincipalId;
+import tech.kayys.numou.foundation.adapter.context.CorrelationContext;
+import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
+import tech.kayys.numou.security.application.context.SecurityContext;
+import tech.kayys.numou.security.application.context.TenantGuard;
+import tech.kayys.numou.security.application.context.TenantResolution;
+import tech.kayys.numou.security.application.problem.Problem;
+import tech.kayys.numou.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.identifier.PrincipalId;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -106,8 +106,8 @@ public class RequestSecurityFilter implements ContainerRequestFilter {
             tenants.add(active);
         }
         final String handle = token.getClaim("preferred_username") != null ? token.getClaim("preferred_username").toString() : subject;
-        final Set<tech.kayys.syirkah.foundation.domain.tenant.TenantId> tenantIds = tenants.stream()
-                .map(tech.kayys.syirkah.foundation.domain.tenant.TenantId::of)
+        final Set<tech.kayys.numou.foundation.domain.tenant.TenantId> tenantIds = tenants.stream()
+                .map(tech.kayys.numou.foundation.domain.tenant.TenantId::of)
                 .collect(java.util.stream.Collectors.toSet());
         return new Principal(PrincipalId.of(id), handle, tenantIds);
     }

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.identity.application.port;
+package tech.kayys.numou.identity.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.identity.application.security.Principal;
-import tech.kayys.syirkah.identity.application.security.AuthorizationRequirement;
-import tech.kayys.syirkah.identity.application.security.abac.AuthorizationContext;
+import tech.kayys.numou.identity.application.security.Principal;
+import tech.kayys.numou.identity.application.security.AuthorizationRequirement;
+import tech.kayys.numou.identity.application.security.abac.AuthorizationContext;
 
 public interface ResourceAttributePort {
     Uni<AuthorizationContext> resolve(

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.application.query;
+package tech.kayys.numou.identity.application.query;
 
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.foundation.application.query.Query;
 
 import java.util.Objects;
 import java.util.UUID;

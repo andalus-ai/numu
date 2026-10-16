@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.domain.compliance;
+package tech.kayys.numou.accounting.domain.compliance;
 
-import tech.kayys.syirkah.accounting.domain.valueobject.ComplianceStandard;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.accounting.domain.valueobject.ComplianceStandard;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 import java.util.Objects;
 
 /**

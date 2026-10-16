@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.promotion.domain.condition;
+package tech.kayys.numou.commerce.promotion.domain.condition;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
 
 import java.util.List;
 import java.util.Objects;

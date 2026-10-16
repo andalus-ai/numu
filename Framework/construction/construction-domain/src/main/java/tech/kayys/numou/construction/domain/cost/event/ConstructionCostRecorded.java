@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.cost.event;
+package tech.kayys.numou.construction.domain.cost.event;
 
-import tech.kayys.syirkah.construction.domain.cost.ConstructionCostType;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.construction.domain.cost.ConstructionCostType;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

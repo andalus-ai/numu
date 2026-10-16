@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.identity.application.support;
+package tech.kayys.numou.identity.application.support;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 
 import java.util.function.Supplier;
 

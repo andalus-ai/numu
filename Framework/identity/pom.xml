@@ -8,22 +8,22 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-identity</artifactId>
+    <artifactId>numou-identity</artifactId>
     <packaging>pom</packaging>
 
     <name>ERP Identity</name>
     <description>Identity Bounded Context</description>
 
     <modules>
-        <module>syirkah-identity-domain</module>
-        <module>syirkah-identity-application</module>
-        <module>syirkah-identity-adapter</module>
+        <module>numou-identity-domain</module>
+        <module>numou-identity-application</module>
+        <module>numou-identity-adapter</module>
     </modules>
 
 </project>

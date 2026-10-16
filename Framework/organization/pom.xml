@@ -6,13 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-organization</artifactId>
+    <artifactId>numou-organization</artifactId>
     <packaging>pom</packaging>
     <name>Numou Organization</name>
     <description>Standalone organization bounded context — org chart, units, hierarchy. Reusable across any use case.</description>

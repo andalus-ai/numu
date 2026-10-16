@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.groceries.domain.model;
+package tech.kayys.numou.groceries.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.groceries.domain.identifier.ScaleId;
-import tech.kayys.syirkah.groceries.domain.valueobject.Weight;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.groceries.domain.identifier.ScaleId;
+import tech.kayys.numou.groceries.domain.valueobject.Weight;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -188,7 +188,7 @@ public final class ScaleDevice extends AbstractAggregateRoot<ScaleId> {
         }
     }
 
-    public static final class ScaleTransaction implements tech.kayys.syirkah.foundation.domain.valueobject.ValueObject {
+    public static final class ScaleTransaction implements tech.kayys.numou.foundation.domain.valueobject.ValueObject {
         private static final long serialVersionUID = 1L;
 
         private final String productId;

@@ -3,22 +3,22 @@ set -euo pipefail
 
 # Disposable PostgreSQL test for tenant-scoped BOQ revision storage and outbox predicates.
 # Requires Docker. Does not touch an existing database and does not execute Java code.
-CONTAINER_NAME="syirkah-pg-tenant-$$"
+CONTAINER_NAME="numou-pg-tenant-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55442}"
-PASSWORD="syirkah_test_only"
+PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 docker run -d --rm --name "$CONTAINER_NAME" \
-  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=syirkah_test \
+  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=numou_test \
   -p "127.0.0.1:${PORT}:5432" postgres:16-alpine >/dev/null
 for _ in $(seq 1 60); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null 2>&1; then break; fi
+  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
-docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null
+docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null
 
-docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d syirkah_test <<'SQL'
+docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d numou_test <<'SQL'
 CREATE TABLE test_revision_snapshot (
   tenant_id text NOT NULL, boq_id uuid NOT NULL, revision_number integer NOT NULL,
   project_id uuid NOT NULL, status text NOT NULL,

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.commercial;
+package tech.kayys.numou.project.domain.commercial;
 
 /**
  * The role a party plays in a contract. A project may hold several

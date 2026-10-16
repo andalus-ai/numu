@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.identity.adapter.outbound.security;
+package tech.kayys.numou.identity.adapter.outbound.security;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import io.quarkus.security.identity.SecurityIdentity;
-import tech.kayys.syirkah.identity.application.port.AuthorizationException;
-import tech.kayys.syirkah.identity.application.port.CurrentPrincipalPort;
-import tech.kayys.syirkah.identity.application.security.Principal;
-import tech.kayys.syirkah.identity.application.security.PrincipalType;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.identity.application.port.AuthorizationException;
+import tech.kayys.numou.identity.application.port.CurrentPrincipalPort;
+import tech.kayys.numou.identity.application.security.Principal;
+import tech.kayys.numou.identity.application.security.PrincipalType;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -36,10 +36,10 @@ public class OidcCurrentPrincipalAdapter implements CurrentPrincipalPort {
                     || !Objects.equals(subject, identity.getPrincipal().getName())) {
                 return Uni.createFrom().failure(new AuthorizationException("authentication.invalid"));
             }
-            var typeClaim = token.getClaim("syirkah_principal_type");
+            var typeClaim = token.getClaim("numou_principal_type");
             var type = typeClaim == null ? PrincipalType.USER : principalType(typeClaim.toString());
             var userId = type == PrincipalType.USER
-                    ? UserId.of(parseUuid(token.getClaim("syirkah_user_id"), "syirkah_user_id"))
+                    ? UserId.of(parseUuid(token.getClaim("numou_user_id"), "numou_user_id"))
                     : null;
             if (type == PrincipalType.SERVICE) {
                 parseUuid(subject, "service subject");

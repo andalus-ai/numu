@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.milestone;
+package tech.kayys.numou.project.domain.milestone;
 
 /** Business meaning of a milestone. */
 public enum MilestoneType {

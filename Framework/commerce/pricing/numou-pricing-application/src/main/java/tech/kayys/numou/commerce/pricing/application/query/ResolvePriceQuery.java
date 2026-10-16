@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.pricing.application.query;
+package tech.kayys.numou.commerce.pricing.application.query;
 
-import tech.kayys.syirkah.commerce.pricing.domain.PricingContext;
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.commerce.pricing.domain.PricingContext;
+import tech.kayys.numou.foundation.application.query.Query;
 
 import java.util.Objects;
 

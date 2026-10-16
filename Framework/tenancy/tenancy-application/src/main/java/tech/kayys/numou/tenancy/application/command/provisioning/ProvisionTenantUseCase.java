@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.tenancy.application.command.provisioning;
+package tech.kayys.numou.tenancy.application.command.provisioning;
 
-import tech.kayys.syirkah.tenancy.domain.provisioning.ProvisioningStatus;
-import tech.kayys.syirkah.tenancy.domain.provisioning.ProvisioningStep;
-import tech.kayys.syirkah.tenancy.domain.provisioning.TenantProvisioning;
-import tech.kayys.syirkah.tenancy.domain.provisioning.TenantProvisioningId;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.tenancy.spi.port.TenantAccessProvisioner;
-import tech.kayys.syirkah.tenancy.spi.port.TenantFeatureProvisioner;
-import tech.kayys.syirkah.tenancy.spi.port.TenantProvisioningRepository;
-import tech.kayys.syirkah.tenancy.spi.port.TenantRepository;
-import tech.kayys.syirkah.tenancy.spi.port.TenantSettingsProvisioner;
-import tech.kayys.syirkah.tenancy.spi.port.TenantStorageProvisioner;
-import tech.kayys.syirkah.tenancy.spi.port.TenantSubscriptionProvisioner;
+import tech.kayys.numou.tenancy.domain.provisioning.ProvisioningStatus;
+import tech.kayys.numou.tenancy.domain.provisioning.ProvisioningStep;
+import tech.kayys.numou.tenancy.domain.provisioning.TenantProvisioning;
+import tech.kayys.numou.tenancy.domain.provisioning.TenantProvisioningId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.tenancy.spi.port.TenantAccessProvisioner;
+import tech.kayys.numou.tenancy.spi.port.TenantFeatureProvisioner;
+import tech.kayys.numou.tenancy.spi.port.TenantProvisioningRepository;
+import tech.kayys.numou.tenancy.spi.port.TenantRepository;
+import tech.kayys.numou.tenancy.spi.port.TenantSettingsProvisioner;
+import tech.kayys.numou.tenancy.spi.port.TenantStorageProvisioner;
+import tech.kayys.numou.tenancy.spi.port.TenantSubscriptionProvisioner;
 
 import java.util.Objects;
 

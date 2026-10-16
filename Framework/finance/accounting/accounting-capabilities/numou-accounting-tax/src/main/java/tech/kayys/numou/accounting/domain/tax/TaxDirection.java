@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.tax;
+package tech.kayys.numou.accounting.domain.tax;
 
 /** Tax flow direction (Receivable vs Payable). */
 public enum TaxDirection {

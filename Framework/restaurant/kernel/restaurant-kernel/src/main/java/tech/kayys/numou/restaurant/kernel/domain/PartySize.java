@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.kernel.domain;
+package tech.kayys.numou.restaurant.kernel.domain;
 
 /** Number of guests (covers). Upper limits are venue policy, not a domain constant. */
 public record PartySize(int value) {

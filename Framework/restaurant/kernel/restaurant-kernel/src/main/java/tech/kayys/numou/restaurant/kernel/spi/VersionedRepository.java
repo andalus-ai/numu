@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.restaurant.kernel.spi;
+package tech.kayys.numou.restaurant.kernel.spi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.entity.AggregateRoot;
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.entity.AggregateRoot;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Optional;
 import java.util.UUID;

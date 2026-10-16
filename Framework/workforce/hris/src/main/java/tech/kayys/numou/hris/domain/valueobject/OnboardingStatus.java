@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.hris.domain.valueobject;
+package tech.kayys.numou.hris.domain.valueobject;
 
 /**
  * Status of an onboarding process.

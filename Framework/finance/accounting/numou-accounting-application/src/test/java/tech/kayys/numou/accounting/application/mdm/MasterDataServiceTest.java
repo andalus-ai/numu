@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.mdm;
+package tech.kayys.numou.accounting.application.mdm;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.mdm.*;
+import tech.kayys.numou.accounting.domain.mdm.*;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -16,13 +16,13 @@ class MasterDataServiceTest {
         var id = MasterDataId.generate();
         var code = MasterDataCode.of("PROD-001");
 
-        service.register(id, code, MasterDataKind.PRODUCT, "Entsyirkahrise Server",
+        service.register(id, code, MasterDataKind.PRODUCT, "Entnumourise Server",
                 LocalDate.of(2026, 1, 1), Map.of("taxNumber", "VAT-ID-12345"));
         service.publish(id);
 
         var found = service.findEffective(code, LocalDate.of(2026, 5, 1));
         assertTrue(found.isPresent());
-        assertEquals("Entsyirkahrise Server", found.get().name());
+        assertEquals("Entnumourise Server", found.get().name());
 
         // Test duplicate detection / golden record lookup
         var byTax = service.findByTaxNumber("VAT-ID-12345");

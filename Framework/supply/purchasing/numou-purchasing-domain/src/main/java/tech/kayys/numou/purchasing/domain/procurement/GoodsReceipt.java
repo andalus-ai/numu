@@ -1,5 +1,5 @@
 
-package tech.kayys.syirkah.purchasing.domain.procurement;
+package tech.kayys.numou.purchasing.domain.procurement;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.application.support;
+package tech.kayys.numou.product.application.support;
 
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.sku.Sku;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
-import tech.kayys.syirkah.product.spi.port.SkuRepository;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.sku.Sku;
+import tech.kayys.numou.product.domain.sku.SkuId;
+import tech.kayys.numou.product.spi.port.SkuRepository;
 
 import java.util.LinkedHashMap;
 import java.util.List;

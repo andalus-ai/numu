@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.restaurant.kernel;
+package tech.kayys.numou.restaurant.kernel;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.restaurant.kernel.domain.*;
-import tech.kayys.syirkah.restaurant.kernel.memory.InMemoryDocumentRepository;
+import tech.kayys.numou.restaurant.kernel.domain.*;
+import tech.kayys.numou.restaurant.kernel.memory.InMemoryDocumentRepository;
 
 import java.time.Duration;
 import java.time.Instant;

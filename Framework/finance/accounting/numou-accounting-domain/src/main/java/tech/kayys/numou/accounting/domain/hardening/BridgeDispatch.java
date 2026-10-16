@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.hardening;
+package tech.kayys.numou.accounting.domain.hardening;
 
 import java.time.Instant;
 import java.util.Objects;

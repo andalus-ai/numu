@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.document;
+package tech.kayys.numou.construction.domain.document;
 
 public enum DrawingStatus {
     DRAFT,

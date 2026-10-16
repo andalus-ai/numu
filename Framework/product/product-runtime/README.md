@@ -4,13 +4,13 @@ This is the pre-1.0 Quarkus prototype. It is NOT the Product foundation.
 
 ## Status: DEPRECATED — MIGRATE AWAY
 
-`product-runtime` (artifact `syirkah-product-runtime`) is **excluded from
+`product-runtime` (artifact `numou-product-runtime`) is **excluded from
 the Maven reactor** and carries a **duplicate Product model**
 (`com.saas.product.*`) that predates Product 1.0. It must **not** be used
 as the canonical Product model. The canonical model lives in
-`syirkah-product-domain` (`tech.kayys.syirkah.product.domain.*`) and is
-consumed by `syirkah-product-application`, `syirkah-product-adapter`,
-`syirkah-product-spi`.
+`numou-product-domain` (`tech.kayys.numou.product.domain.*`) and is
+consumed by `numou-product-application`, `numou-product-adapter`,
+`numou-product-spi`.
 
 This module is retained only as a **reference implementation** of the
 extension-map / JSONB / CQRS patterns described below. New code must
@@ -19,7 +19,7 @@ module.
 
 ### Duplicate model — what must NOT be copied here
 
-| This module (`com.saas.product.*`) | Canonical (`tech.kayys.syirkah.product.domain.*`) |
+| This module (`com.saas.product.*`) | Canonical (`tech.kayys.numou.product.domain.*`) |
 | --- | --- |
 | `core/model/ProductId` (String-backed) | `product.domain.product.ProductId` (`record(UUID)` implements `DomainId<UUID>`) |
 | `core/model/ProductCore` | `product.domain.product.Product` (aggregate root, events, identifiers) |

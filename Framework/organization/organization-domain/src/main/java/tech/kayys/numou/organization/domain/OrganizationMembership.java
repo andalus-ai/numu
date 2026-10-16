@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.organization.domain;
+package tech.kayys.numou.organization.domain;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.time.Instant;
 import java.util.Objects;

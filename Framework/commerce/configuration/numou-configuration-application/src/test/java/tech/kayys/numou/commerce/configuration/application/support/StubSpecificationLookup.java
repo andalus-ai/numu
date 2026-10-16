@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.configuration.application.support;
+package tech.kayys.numou.commerce.configuration.application.support;
 
-import tech.kayys.syirkah.commerce.configuration.spi.port.SpecificationLookupPort;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecification;
+import tech.kayys.numou.commerce.configuration.spi.port.SpecificationLookupPort;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.specification.ProductSpecification;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,10 +1,10 @@
 
-package tech.kayys.syirkah.purchasing.domain.procurement;
+package tech.kayys.numou.purchasing.domain.procurement;
 
-import tech.kayys.syirkah.purchasing.domain.event.procurement.RequisitionApproved;
-import tech.kayys.syirkah.purchasing.domain.event.procurement.RequisitionCreated;
-import tech.kayys.syirkah.purchasing.domain.event.procurement.RequisitionSubmitted;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.purchasing.domain.event.procurement.RequisitionApproved;
+import tech.kayys.numou.purchasing.domain.event.procurement.RequisitionCreated;
+import tech.kayys.numou.purchasing.domain.event.procurement.RequisitionSubmitted;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.ArrayList;
 import java.util.Collections;

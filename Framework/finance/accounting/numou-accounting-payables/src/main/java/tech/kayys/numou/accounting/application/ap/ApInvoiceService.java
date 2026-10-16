@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.ap;
+package tech.kayys.numou.accounting.application.ap;
 
-import tech.kayys.syirkah.accounting.domain.ap.*;
+import tech.kayys.numou.accounting.domain.ap.*;
 
 import java.util.List;
 import java.util.Objects;

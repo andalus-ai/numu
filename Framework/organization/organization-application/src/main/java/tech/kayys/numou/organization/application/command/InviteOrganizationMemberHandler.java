@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.organization.application.command;
+package tech.kayys.numou.organization.application.command;
 
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.organization.application.port.IdentityUserPort;
-import tech.kayys.syirkah.organization.domain.OrganizationMembership;
-import tech.kayys.syirkah.organization.domain.OrganizationMembershipId;
-import tech.kayys.syirkah.organization.spi.OrganizationMembershipRepository;
-import tech.kayys.syirkah.organization.spi.OrganizationRepository;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.organization.application.port.IdentityUserPort;
+import tech.kayys.numou.organization.domain.OrganizationMembership;
+import tech.kayys.numou.organization.domain.OrganizationMembershipId;
+import tech.kayys.numou.organization.spi.OrganizationMembershipRepository;
+import tech.kayys.numou.organization.spi.OrganizationRepository;
 
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;

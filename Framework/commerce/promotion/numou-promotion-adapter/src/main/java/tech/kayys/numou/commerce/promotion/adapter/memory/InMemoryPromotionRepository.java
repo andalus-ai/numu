@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.commerce.promotion.adapter.memory;
+package tech.kayys.numou.commerce.promotion.adapter.memory;
 
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionCandidate;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionResolveRequest;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionStatus;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionVersionId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.ChannelId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.TenantRef;
-import tech.kayys.syirkah.commerce.promotion.spi.port.PromotionCandidatePort;
-import tech.kayys.syirkah.commerce.promotion.spi.port.PromotionRepository;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionCandidate;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionResolveRequest;
+import tech.kayys.numou.commerce.promotion.domain.PromotionStatus;
+import tech.kayys.numou.commerce.promotion.domain.PromotionVersionId;
+import tech.kayys.numou.commerce.promotion.domain.context.ChannelId;
+import tech.kayys.numou.commerce.promotion.domain.context.TenantRef;
+import tech.kayys.numou.commerce.promotion.spi.port.PromotionCandidatePort;
+import tech.kayys.numou.commerce.promotion.spi.port.PromotionRepository;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -107,7 +107,7 @@ public final class InMemoryPromotionRepository
 
     private static boolean matchesBranch(
             Promotion promotion,
-            java.util.Optional<tech.kayys.syirkah.commerce.promotion.domain.context.BranchId> requestBranch) {
+            java.util.Optional<tech.kayys.numou.commerce.promotion.domain.context.BranchId> requestBranch) {
         if (promotion.scope().branches().isEmpty()) {
             return true;
         }

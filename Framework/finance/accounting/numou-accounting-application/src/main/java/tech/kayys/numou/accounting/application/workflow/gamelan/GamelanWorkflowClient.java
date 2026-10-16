@@ -1,5 +1,5 @@
 
-package tech.kayys.syirkah.accounting.application.workflow.gamelan;
+package tech.kayys.numou.accounting.application.workflow.gamelan;
 
 import io.smallrye.mutiny.Uni;
 

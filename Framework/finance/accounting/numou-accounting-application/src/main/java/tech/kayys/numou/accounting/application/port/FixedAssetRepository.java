@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.port;
+package tech.kayys.numou.accounting.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.domain.identifier.FixedAssetId;
-import tech.kayys.syirkah.accounting.domain.model.FixedAsset;
+import tech.kayys.numou.accounting.domain.identifier.FixedAssetId;
+import tech.kayys.numou.accounting.domain.model.FixedAsset;
 
 import java.util.List;
 import java.util.Optional;

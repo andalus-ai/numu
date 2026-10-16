@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.adapter.memory;
+package tech.kayys.numou.construction.adapter.memory;
 
-import tech.kayys.syirkah.construction.domain.boq.Boq;
-import tech.kayys.syirkah.construction.domain.boq.BoqId;
-import tech.kayys.syirkah.construction.spi.boq.BoqRepository;
+import tech.kayys.numou.construction.domain.boq.Boq;
+import tech.kayys.numou.construction.domain.boq.BoqId;
+import tech.kayys.numou.construction.spi.boq.BoqRepository;
 
 import java.util.Map;
 import java.util.Optional;

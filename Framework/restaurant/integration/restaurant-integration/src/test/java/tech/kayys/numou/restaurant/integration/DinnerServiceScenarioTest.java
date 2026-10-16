@@ -1,26 +1,26 @@
-package tech.kayys.syirkah.restaurant.integration;
+package tech.kayys.numou.restaurant.integration;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.cache.CachePolicy;
-import tech.kayys.syirkah.cache.adapter.CaffeineCache;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.restaurant.kernel.domain.*;
-import tech.kayys.syirkah.restaurant.kitchen.adapter.memory.*;
-import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService;
-import tech.kayys.syirkah.restaurant.order.adapter.memory.InMemoryOrderRepository;
-import tech.kayys.syirkah.restaurant.order.application.OrderService;
-import tech.kayys.syirkah.reservation.adapter.memory.*;
-import tech.kayys.syirkah.reservation.application.*;
-import tech.kayys.syirkah.reservation.domain.*;
-import tech.kayys.syirkah.restaurant.venue.adapter.memory.InMemoryVenueRepositories;
-import tech.kayys.syirkah.restaurant.venue.application.MenuView;
-import tech.kayys.syirkah.restaurant.venue.application.VenueService;
-import tech.kayys.syirkah.restaurant.venue.domain.MenuItem;
-import tech.kayys.syirkah.restaurant.venue.domain.TableStatus;
+import tech.kayys.numou.cache.CachePolicy;
+import tech.kayys.numou.cache.adapter.CaffeineCache;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.restaurant.kernel.domain.*;
+import tech.kayys.numou.restaurant.kitchen.adapter.memory.*;
+import tech.kayys.numou.restaurant.kitchen.application.KitchenService;
+import tech.kayys.numou.restaurant.order.adapter.memory.InMemoryOrderRepository;
+import tech.kayys.numou.restaurant.order.application.OrderService;
+import tech.kayys.numou.reservation.adapter.memory.*;
+import tech.kayys.numou.reservation.application.*;
+import tech.kayys.numou.reservation.domain.*;
+import tech.kayys.numou.restaurant.venue.adapter.memory.InMemoryVenueRepositories;
+import tech.kayys.numou.restaurant.venue.application.MenuView;
+import tech.kayys.numou.restaurant.venue.application.VenueService;
+import tech.kayys.numou.restaurant.venue.domain.MenuItem;
+import tech.kayys.numou.restaurant.venue.domain.TableStatus;
 
 import java.math.BigDecimal;
 import java.time.*;
@@ -64,7 +64,7 @@ class DinnerServiceScenarioTest {
 
     @BeforeEach
     void setUp() {
-        final var clock = (tech.kayys.syirkah.foundation.domain.time.DomainClock) now::get;
+        final var clock = (tech.kayys.numou.foundation.domain.time.DomainClock) now::get;
         venue = new VenueService(venues, tables, menus, uow, bus, clock, menuCache);
         kitchen = new KitchenService(new InMemoryTicketRepository(), new InMemoryAvailabilityBoardRepository(),
                 (t, v, s) -> Uni.createFrom().item(2), uow, bus, clock);

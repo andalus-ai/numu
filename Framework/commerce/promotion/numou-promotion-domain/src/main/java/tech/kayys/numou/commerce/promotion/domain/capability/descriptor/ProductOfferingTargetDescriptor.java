@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability.descriptor;
+package tech.kayys.numou.commerce.promotion.domain.capability.descriptor;
 
-import tech.kayys.syirkah.commerce.promotion.domain.capability.ParameterDefinition;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilityKind;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionParameterSchema;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionTargetDescriptor;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionValueType;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.TargetType;
+import tech.kayys.numou.commerce.promotion.domain.capability.ParameterDefinition;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilityKind;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionParameterSchema;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionTargetDescriptor;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionValueType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.TargetType;
 
 /** Descriptor for the {@code offering} target capability (product02.md §18). */
 public final class ProductOfferingTargetDescriptor implements PromotionTargetDescriptor {

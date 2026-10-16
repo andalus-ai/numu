@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.application.site.command;
+package tech.kayys.numou.construction.application.site.command;
 
-import tech.kayys.syirkah.construction.domain.site.SiteAddress;
-import tech.kayys.syirkah.construction.domain.site.SiteType;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.construction.domain.site.SiteAddress;
+import tech.kayys.numou.construction.domain.site.SiteType;
+import tech.kayys.numou.foundation.application.command.Command;
 import java.util.UUID;
 
 public record CreateConstructionSiteCommand(

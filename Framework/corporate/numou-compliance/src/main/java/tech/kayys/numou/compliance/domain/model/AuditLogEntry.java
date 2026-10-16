@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.compliance.domain.model;
+package tech.kayys.numou.compliance.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.compliance.domain.identifier.AuditLogId;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.compliance.domain.valueobject.AuditAction;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.compliance.domain.identifier.AuditLogId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.compliance.domain.valueobject.AuditAction;
 
 import java.time.Instant;
 

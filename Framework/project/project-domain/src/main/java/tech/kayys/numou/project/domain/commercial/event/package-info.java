@@ -4,4 +4,4 @@
  * Event types are stable, machine-readable and outbox-friendly
  * ({@code project.*}).
  */
-package tech.kayys.syirkah.project.domain.commercial.event;
+package tech.kayys.numou.project.domain.commercial.event;

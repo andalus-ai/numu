@@ -1,23 +1,23 @@
-package tech.kayys.syirkah.project.application.command;
+package tech.kayys.numou.project.application.command;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.project.application.support.InMemoryProjectMilestoneRepository;
-import tech.kayys.syirkah.project.application.support.InMemoryProjectPhaseRepository;
-import tech.kayys.syirkah.project.application.support.InMemoryProjectRepository;
-import tech.kayys.syirkah.project.application.support.InMemoryProjectTaskRepository;
-import tech.kayys.syirkah.project.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.project.domain.project.Project;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.project.ProjectStatus;
-import tech.kayys.syirkah.project.domain.project.ProjectType;
-import tech.kayys.syirkah.project.domain.task.ProjectTask;
-import tech.kayys.syirkah.project.domain.task.ProjectTaskId;
-import tech.kayys.syirkah.project.domain.task.TaskNumber;
-import tech.kayys.syirkah.project.domain.task.TaskPriority;
-import tech.kayys.syirkah.project.domain.task.TaskStatus;
-import tech.kayys.syirkah.project.domain.task.TaskType;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.project.application.support.InMemoryProjectMilestoneRepository;
+import tech.kayys.numou.project.application.support.InMemoryProjectPhaseRepository;
+import tech.kayys.numou.project.application.support.InMemoryProjectRepository;
+import tech.kayys.numou.project.application.support.InMemoryProjectTaskRepository;
+import tech.kayys.numou.project.application.support.RecordingEventPublisher;
+import tech.kayys.numou.project.domain.project.Project;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.project.ProjectStatus;
+import tech.kayys.numou.project.domain.project.ProjectType;
+import tech.kayys.numou.project.domain.task.ProjectTask;
+import tech.kayys.numou.project.domain.task.ProjectTaskId;
+import tech.kayys.numou.project.domain.task.TaskNumber;
+import tech.kayys.numou.project.domain.task.TaskPriority;
+import tech.kayys.numou.project.domain.task.TaskStatus;
+import tech.kayys.numou.project.domain.task.TaskType;
 
 import java.time.LocalDate;
 
@@ -150,7 +150,7 @@ class ProjectTaskCommandHandlerTest {
         } catch (RuntimeException expected) {
             assertTrue(expected.getMessage().contains("Only TODO tasks can be started")
                     || expected.getCause() instanceof
-                    tech.kayys.syirkah.project.domain.task.InvalidTaskStateException);
+                    tech.kayys.numou.project.domain.task.InvalidTaskStateException);
             return;
         }
 
@@ -174,7 +174,7 @@ class ProjectTaskCommandHandlerTest {
         } catch (RuntimeException expected) {
             assertTrue(expected.getMessage().contains("Only in-progress tasks can be completed")
                     || expected.getCause() instanceof
-                    tech.kayys.syirkah.project.domain.task.InvalidTaskStateException);
+                    tech.kayys.numou.project.domain.task.InvalidTaskStateException);
             return;
         }
 

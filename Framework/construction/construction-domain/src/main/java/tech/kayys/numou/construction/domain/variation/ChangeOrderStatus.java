@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.variation;
+package tech.kayys.numou.construction.domain.variation;
 
 public enum ChangeOrderStatus {
     DRAFT,

@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.workforce.domain.worker;
+package tech.kayys.numou.workforce.domain.worker;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.ref.PersonRef;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.workforce.domain.worker.event.WorkerActivated;
-import tech.kayys.syirkah.workforce.domain.worker.event.WorkerCreated;
-import tech.kayys.syirkah.workforce.domain.worker.event.WorkerDeactivated;
-import tech.kayys.syirkah.workforce.domain.worker.event.WorkerSuspended;
+import tech.kayys.numou.foundation.domain.ref.PersonRef;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.workforce.domain.worker.event.WorkerActivated;
+import tech.kayys.numou.workforce.domain.worker.event.WorkerCreated;
+import tech.kayys.numou.workforce.domain.worker.event.WorkerDeactivated;
+import tech.kayys.numou.workforce.domain.worker.event.WorkerSuspended;
 
 import java.time.Instant;
 import java.util.UUID;

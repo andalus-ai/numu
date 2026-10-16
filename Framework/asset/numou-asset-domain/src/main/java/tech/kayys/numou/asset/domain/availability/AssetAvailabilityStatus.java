@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.availability;
+package tech.kayys.numou.asset.domain.availability;
 
 /**
  * Coarse availability projection of an asset at "now" (ASSET-26 §5).

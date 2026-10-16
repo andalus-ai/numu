@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.document.AssetDocumentReference;
-import tech.kayys.syirkah.asset.domain.document.AssetDocumentReferenceId;
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.document.AssetDocumentReference;
+import tech.kayys.numou.asset.domain.document.AssetDocumentReferenceId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
 
 import java.time.Duration;
 import java.time.Instant;

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.handover;
+package tech.kayys.numou.construction.domain.handover;
 
-import tech.kayys.syirkah.construction.domain.handover.event.ConstructionHandedOver;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.handover.event.ConstructionHandedOver;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Objects;

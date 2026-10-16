@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.collaboration;
+package tech.kayys.numou.construction.domain.collaboration;
 
-import tech.kayys.syirkah.construction.domain.collaboration.event.SiteInstructionIssued;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.collaboration.event.SiteInstructionIssued;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

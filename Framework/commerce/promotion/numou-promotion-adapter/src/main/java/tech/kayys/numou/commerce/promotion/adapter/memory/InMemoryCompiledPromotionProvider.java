@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.adapter.memory;
+package tech.kayys.numou.commerce.promotion.adapter.memory;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.CompiledPromotion;
-import tech.kayys.syirkah.commerce.promotion.spi.port.CompiledPromotionProvider;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.compiler.CompiledPromotion;
+import tech.kayys.numou.commerce.promotion.spi.port.CompiledPromotionProvider;
 
 import java.util.ArrayList;
 import java.util.Collection;

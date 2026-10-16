@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.restaurant.kitchen.domain;
+package tech.kayys.numou.restaurant.kitchen.domain;
 
-import tech.kayys.syirkah.restaurant.kernel.domain.StationId;
+import tech.kayys.numou.restaurant.kernel.domain.StationId;
 
 import java.time.Duration;
 import java.time.Instant;

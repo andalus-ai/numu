@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.domain.compliance;
+package tech.kayys.numou.accounting.domain.compliance;
 
-import tech.kayys.syirkah.accounting.domain.model.Account;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
-import tech.kayys.syirkah.accounting.domain.islamic.ShariaContractType;
-import tech.kayys.syirkah.accounting.domain.valueobject.ComplianceStandard;
+import tech.kayys.numou.accounting.domain.model.Account;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.domain.islamic.ShariaContractType;
+import tech.kayys.numou.accounting.domain.valueobject.ComplianceStandard;
 
 /**
  * Hybrid dual-ledger strategy supporting both conventional and Islamic windows simultaneously.

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.security.spi.port;
+package tech.kayys.numou.security.spi.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.security.domain.authentication.AuthenticationResult;
-import tech.kayys.syirkah.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.authentication.AuthenticationResult;
+import tech.kayys.numou.security.domain.authorization.Principal;
 
 import java.util.Optional;
 

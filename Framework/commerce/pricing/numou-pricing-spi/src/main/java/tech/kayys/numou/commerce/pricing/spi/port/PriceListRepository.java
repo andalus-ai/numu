@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.pricing.spi.port;
+package tech.kayys.numou.commerce.pricing.spi.port;
 
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceList;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceListId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceList;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceListId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

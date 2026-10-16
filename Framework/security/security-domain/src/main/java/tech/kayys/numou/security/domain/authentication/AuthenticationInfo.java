@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.domain.authentication;
+package tech.kayys.numou.security.domain.authentication;
 
 import java.time.Instant;
 import java.util.Objects;

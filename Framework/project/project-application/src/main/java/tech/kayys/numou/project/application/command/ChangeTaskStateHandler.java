@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.project.application.command;
+package tech.kayys.numou.project.application.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.project.domain.task.ProjectTask;
-import tech.kayys.syirkah.project.domain.task.ProjectTaskId;
-import tech.kayys.syirkah.project.spi.port.ProjectTaskRepository;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.project.domain.task.ProjectTask;
+import tech.kayys.numou.project.domain.task.ProjectTaskId;
+import tech.kayys.numou.project.spi.port.ProjectTaskRepository;
 
 import java.util.Objects;
 import java.util.function.Consumer;

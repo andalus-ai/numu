@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.commerce.pricing.application.handler;
+package tech.kayys.numou.commerce.pricing.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.pricing.application.command.CreatePriceListCommand;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceList;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceListId;
-import tech.kayys.syirkah.commerce.pricing.spi.port.PriceListRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.pricing.application.command.CreatePriceListCommand;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceList;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceListId;
+import tech.kayys.numou.commerce.pricing.spi.port.PriceListRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.util.Objects;
 

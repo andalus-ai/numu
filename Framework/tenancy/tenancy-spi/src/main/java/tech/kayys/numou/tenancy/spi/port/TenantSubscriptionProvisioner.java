@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.tenancy.spi.port;
+package tech.kayys.numou.tenancy.spi.port;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 /**
  * SPI port for the Subscription provisioning step.

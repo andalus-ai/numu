@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.support;
+package tech.kayys.numou.project.application.support;
 
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.task.TaskDependency;
-import tech.kayys.syirkah.project.domain.task.TaskDependencyId;
-import tech.kayys.syirkah.project.spi.port.TaskDependencyRepository;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.task.TaskDependency;
+import tech.kayys.numou.project.domain.task.TaskDependencyId;
+import tech.kayys.numou.project.spi.port.TaskDependencyRepository;
 
 import java.util.LinkedHashMap;
 import java.util.List;

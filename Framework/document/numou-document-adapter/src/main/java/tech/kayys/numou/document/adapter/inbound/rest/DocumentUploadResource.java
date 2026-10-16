@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.inbound.rest;
+package tech.kayys.numou.document.adapter.inbound.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -9,14 +9,14 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.accounting.domain.document.DocumentClassification;
-import tech.kayys.syirkah.accounting.domain.document.DocumentMetadata;
-import tech.kayys.syirkah.accounting.domain.document.DocumentType;
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionId;
-import tech.kayys.syirkah.document.application.command.CompleteUpload;
-import tech.kayys.syirkah.document.application.command.CompleteUploadHandler;
-import tech.kayys.syirkah.document.application.command.CreateUploadSession;
-import tech.kayys.syirkah.document.application.command.CreateUploadSessionHandler;
+import tech.kayys.numou.accounting.domain.document.DocumentClassification;
+import tech.kayys.numou.accounting.domain.document.DocumentMetadata;
+import tech.kayys.numou.accounting.domain.document.DocumentType;
+import tech.kayys.numou.accounting.domain.document.UploadSessionId;
+import tech.kayys.numou.document.application.command.CompleteUpload;
+import tech.kayys.numou.document.application.command.CompleteUploadHandler;
+import tech.kayys.numou.document.application.command.CreateUploadSession;
+import tech.kayys.numou.document.application.command.CreateUploadSessionHandler;
 
 import java.net.URI;
 import java.time.Duration;

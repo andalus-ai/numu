@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.tenancy.adapter.memory;
+package tech.kayys.numou.tenancy.adapter.memory;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.tenancy.spi.port.TenantStorageProvisioner;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.tenancy.spi.port.TenantStorageProvisioner;
 
 /**
  * No-op TenantStorageProvisioner — for in-memory / test environments.

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.cqrs;
+package tech.kayys.numou.accounting.application.cqrs;
 
 import io.smallrye.mutiny.Uni;
 

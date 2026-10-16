@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.workforce;
+package tech.kayys.numou.construction.domain.workforce;
 
-import tech.kayys.syirkah.construction.domain.workforce.event.LaborRequirementCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.workforce.event.LaborRequirementCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;

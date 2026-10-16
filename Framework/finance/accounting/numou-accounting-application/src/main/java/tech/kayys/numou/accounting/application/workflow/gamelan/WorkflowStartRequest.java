@@ -1,8 +1,8 @@
 
-package tech.kayys.syirkah.accounting.application.workflow.gamelan;
+package tech.kayys.numou.accounting.application.workflow.gamelan;
 
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 
 import java.util.Map;
 import java.util.Objects;

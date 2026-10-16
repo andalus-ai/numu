@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.api.query;
+package tech.kayys.numou.accounting.application.api.query;
 
 import java.util.List;
 

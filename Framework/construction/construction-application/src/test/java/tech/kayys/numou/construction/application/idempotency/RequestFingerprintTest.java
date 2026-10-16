@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.application.idempotency;
+package tech.kayys.numou.construction.application.idempotency;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

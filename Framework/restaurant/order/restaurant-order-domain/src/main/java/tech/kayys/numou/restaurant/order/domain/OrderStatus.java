@@ -1,3 +1,3 @@
-package tech.kayys.syirkah.restaurant.order.domain;
+package tech.kayys.numou.restaurant.order.domain;
 
 public enum OrderStatus { OPEN, BILL_REQUESTED, PAID, VOIDED }

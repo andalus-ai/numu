@@ -4,23 +4,23 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-accounting-services</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-accounting-services</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-accounting-capabilities</artifactId>
+    <artifactId>numou-accounting-capabilities</artifactId>
     <packaging>pom</packaging>
     <name>Accounting Domain Capabilities</name>
     <modules>
-        <module>syirkah-accounting-islamic</module>
-        <module>syirkah-accounting-mdm</module>
-        <module>syirkah-accounting-multitenancy</module>
-        <module>syirkah-accounting-report</module>
-        <module>syirkah-accounting-workflow</module>
-        <module>syirkah-accounting-tax</module>
-        <module>syirkah-accounting-cost</module>
-        <module>syirkah-accounting-currency</module>
-        <module>syirkah-accounting-compliance</module>
+        <module>numou-accounting-islamic</module>
+        <module>numou-accounting-mdm</module>
+        <module>numou-accounting-multitenancy</module>
+        <module>numou-accounting-report</module>
+        <module>numou-accounting-workflow</module>
+        <module>numou-accounting-tax</module>
+        <module>numou-accounting-cost</module>
+        <module>numou-accounting-currency</module>
+        <module>numou-accounting-compliance</module>
     </modules>
 </project>

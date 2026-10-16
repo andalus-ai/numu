@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.project.application.query;
+package tech.kayys.numou.project.application.query;
 
-import tech.kayys.syirkah.project.domain.milestone.MilestoneStatus;
-import tech.kayys.syirkah.project.domain.milestone.MilestoneType;
-import tech.kayys.syirkah.project.domain.milestone.ProjectMilestone;
+import tech.kayys.numou.project.domain.milestone.MilestoneStatus;
+import tech.kayys.numou.project.domain.milestone.MilestoneType;
+import tech.kayys.numou.project.domain.milestone.ProjectMilestone;
 
 import java.time.LocalDate;
 import java.util.Objects;

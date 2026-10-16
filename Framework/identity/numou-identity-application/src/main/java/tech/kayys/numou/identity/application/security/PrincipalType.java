@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.application.security;
+package tech.kayys.numou.identity.application.security;
 
 public enum PrincipalType {
     USER,

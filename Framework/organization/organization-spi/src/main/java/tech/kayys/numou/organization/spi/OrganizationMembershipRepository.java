@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.organization.spi;
+package tech.kayys.numou.organization.spi;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.organization.domain.OrganizationId;
-import tech.kayys.syirkah.organization.domain.OrganizationMembership;
-import tech.kayys.syirkah.organization.domain.OrganizationMembershipId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.organization.domain.OrganizationId;
+import tech.kayys.numou.organization.domain.OrganizationMembership;
+import tech.kayys.numou.organization.domain.OrganizationMembershipId;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

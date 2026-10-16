@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.meter;
+package tech.kayys.numou.asset.domain.meter;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;

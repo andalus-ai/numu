@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.configuration.application.query;
+package tech.kayys.numou.commerce.configuration.application.query;
 
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfiguration;
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfiguration;
+import tech.kayys.numou.foundation.application.query.Query;
 
 import java.util.Objects;
 

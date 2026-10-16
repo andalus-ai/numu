@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.project.application.project;
+package tech.kayys.numou.project.application.project;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.result.ApplicationErrorException;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.project.application.support.InMemoryProjectFinanceStore;
-import tech.kayys.syirkah.project.application.support.InMemoryProjectRepository;
-import tech.kayys.syirkah.project.domain.project.InvalidProjectStateException;
-import tech.kayys.syirkah.project.domain.project.Project;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.project.ProjectNumber;
-import tech.kayys.syirkah.project.domain.project.ProjectType;
+import tech.kayys.numou.foundation.application.result.ApplicationErrorException;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.project.application.support.InMemoryProjectFinanceStore;
+import tech.kayys.numou.project.application.support.InMemoryProjectRepository;
+import tech.kayys.numou.project.domain.project.InvalidProjectStateException;
+import tech.kayys.numou.project.domain.project.Project;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.project.ProjectNumber;
+import tech.kayys.numou.project.domain.project.ProjectType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

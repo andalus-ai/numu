@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.construction.application.idempotency;
+package tech.kayys.numou.construction.application.idempotency;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.spi.idempotency.CommandIdempotencyStore;
-import tech.kayys.syirkah.construction.spi.idempotency.TransactionalCommandContext;
-import tech.kayys.syirkah.construction.spi.idempotency.TransactionalCommandRunner;
+import tech.kayys.numou.construction.spi.idempotency.CommandIdempotencyStore;
+import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
+import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandRunner;
 
 import java.time.Instant;
 import java.util.Objects;

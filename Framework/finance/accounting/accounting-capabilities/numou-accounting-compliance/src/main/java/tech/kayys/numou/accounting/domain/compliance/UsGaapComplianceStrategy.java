@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.domain.compliance;
+package tech.kayys.numou.accounting.domain.compliance;
 
-import tech.kayys.syirkah.accounting.domain.model.Account;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
-import tech.kayys.syirkah.accounting.domain.valueobject.ComplianceStandard;
+import tech.kayys.numou.accounting.domain.model.Account;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.domain.valueobject.ComplianceStandard;
 
 /**
  * US GAAP compliance strategy enforcing FASB rules and US reporting requirements.

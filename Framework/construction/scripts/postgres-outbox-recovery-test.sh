@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Disposable PostgreSQL test for outbox claim exclusivity, lease expiry and token fencing.
 # Requires Docker; does not connect to or mutate an existing database.
-CONTAINER_NAME="syirkah-pg-outbox-$$"
+CONTAINER_NAME="numou-pg-outbox-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55441}"
-PASSWORD="syirkah_test_only"
+PASSWORD="numou_test_only"
 TMP_DIR="$(mktemp -d)"
 cleanup() {
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -14,19 +14,19 @@ cleanup() {
 trap cleanup EXIT
 
 docker run -d --rm --name "$CONTAINER_NAME" \
-  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=syirkah_test \
+  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=numou_test \
   -p "127.0.0.1:${PORT}:5432" postgres:16-alpine >/dev/null
 for _ in $(seq 1 60); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null 2>&1; then break; fi
+  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
-docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null
+docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null
 for migration in "$(dirname "$0")"/../db/migration/*.sql; do
-  docker exec -i "$CONTAINER_NAME" psql -q -v ON_ERROR_STOP=1 -U postgres -d syirkah_test < "$migration"
+  docker exec -i "$CONTAINER_NAME" psql -q -v ON_ERROR_STOP=1 -U postgres -d numou_test < "$migration"
 done
 
 psql() {
-  docker exec -i "$CONTAINER_NAME" psql -Atq -v ON_ERROR_STOP=1 -U postgres -d syirkah_test "$@"
+  docker exec -i "$CONTAINER_NAME" psql -Atq -v ON_ERROR_STOP=1 -U postgres -d numou_test "$@"
 }
 
 # Fixed IDs and timestamps make the ordering assertion deterministic.

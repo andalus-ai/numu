@@ -1,19 +1,19 @@
-package tech.kayys.syirkah.workforce.domain.position.policy;
+package tech.kayys.numou.workforce.domain.position.policy;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.workforce.domain.employment.Employment;
-import tech.kayys.syirkah.workforce.domain.employment.EmploymentId;
-import tech.kayys.syirkah.workforce.domain.employment.EmploymentType;
-import tech.kayys.syirkah.workforce.domain.employment.OrganizationRef;
-import tech.kayys.syirkah.workforce.domain.employment.PositionRef;
-import tech.kayys.syirkah.workforce.domain.position.Position;
-import tech.kayys.syirkah.workforce.domain.position.PositionId;
-import tech.kayys.syirkah.foundation.domain.ref.PersonRef;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.workforce.domain.worker.Worker;
-import tech.kayys.syirkah.workforce.domain.worker.WorkerId;
-import tech.kayys.syirkah.workforce.domain.worker.WorkerType;
+import tech.kayys.numou.workforce.domain.employment.Employment;
+import tech.kayys.numou.workforce.domain.employment.EmploymentId;
+import tech.kayys.numou.workforce.domain.employment.EmploymentType;
+import tech.kayys.numou.workforce.domain.employment.OrganizationRef;
+import tech.kayys.numou.workforce.domain.employment.PositionRef;
+import tech.kayys.numou.workforce.domain.position.Position;
+import tech.kayys.numou.workforce.domain.position.PositionId;
+import tech.kayys.numou.foundation.domain.ref.PersonRef;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.workforce.domain.worker.Worker;
+import tech.kayys.numou.workforce.domain.worker.WorkerId;
+import tech.kayys.numou.workforce.domain.worker.WorkerType;
 
 import java.time.Instant;
 import java.time.LocalDate;

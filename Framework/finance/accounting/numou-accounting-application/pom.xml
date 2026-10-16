@@ -4,91 +4,91 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-accounting-services</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-accounting-services</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-accounting-application</artifactId>
+    <artifactId>numou-accounting-application</artifactId>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-payables</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-payables</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-receivables</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-receivables</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-consolidation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-consolidation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-treasury</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-treasury</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-document</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-document</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-islamic</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-islamic</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-mdm</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-mdm</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-multitenancy</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-multitenancy</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-report</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-report</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-workflow</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-workflow</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-tax</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-tax</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-cost</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-cost</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-currency</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-currency</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-compliance</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-compliance</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

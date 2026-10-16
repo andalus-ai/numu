@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.ar;
+package tech.kayys.numou.accounting.domain.ar;
 
 import org.junit.jupiter.api.Test;
 
@@ -69,7 +69,7 @@ class CustomerInvoiceTest {
     }
 
     @Test
-    void ovsyirkahayment_rejected() {
+    void ovnumouayment_rejected() {
         var inv = new CustomerInvoice(
                 CustomerInvoiceId.generate(), CustomerId.of("C-1"),
                 "CINV-001", "USD", List.of(line("4000-REV", "500", "50")));

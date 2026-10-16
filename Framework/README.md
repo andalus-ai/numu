@@ -10,11 +10,11 @@ coupling them to the draft monolith.
 ## Modules
 
 ```text
-syirkah-platform/
+numou-platform/
 ├── foundation/
-│   ├── domain/         syirkah-foundation        pure Java DDD kit
-│   ├── application/     syirkah-foundation-application    CQRS kit (Mutiny)
-│   └── testing/         syirkah-foundation-testing        shared test doubles + ArchUnit rules
+│   ├── domain/         numou-foundation        pure Java DDD kit
+│   ├── application/     numou-foundation-application    CQRS kit (Mutiny)
+│   └── testing/         numou-foundation-testing        shared test doubles + ArchUnit rules
 ├── Domain/
 │   ├── identity/       identity bounded context
 │   ├── catalog/        product/catalog capability
@@ -24,7 +24,7 @@ syirkah-platform/
 
 ## BOM
 
-Products should import `tech.kayys.syirkah:syirkah-bom` with
+Products should import `tech.kayys.numou:numou-bom` with
 `<type>pom</type>` and `<scope>import</scope>` in their
 `dependencyManagement`. The BOM aligns the Framework version, Quarkus/JUnit
 versions inherited from the parent, Foundation artifacts, and extracted
@@ -35,8 +35,8 @@ without repeating versions.
 <dependencyManagement>
   <dependencies>
     <dependency>
-      <groupId>tech.kayys.syirkah</groupId>
-      <artifactId>syirkah-bom</artifactId>
+      <groupId>tech.kayys.numou</groupId>
+      <artifactId>numou-bom</artifactId>
       <version>0.1.0-SNAPSHOT</version>
       <type>pom</type>
       <scope>import</scope>
@@ -54,10 +54,10 @@ Infrastructure (adapter)  →  Application  →  Domain
 
 ## Foundation
 
-### `syirkah-foundation` — pure Java, zero runtime dependencies
+### `numou-foundation` — pure Java, zero runtime dependencies
 
 ```text
-tech.kayys.syirkah.foundation.domain
+tech.kayys.numou.foundation.domain
 ├── identifier    DomainId<T>
 ├── entity        Entity<ID>, AggregateRoot<ID>, AbstractAggregateRoot<ID>
 ├── valueobject   ValueObject, Money, Currency, Quantity, Unit, Percentage, DateRange
@@ -71,10 +71,10 @@ An aggregate exposes plain Java methods (`user.activate()`), not
 `Uni<User> activate()` — reactive orchestration is an *application*
 concern, not a domain one.
 
-### `syirkah-foundation-application` — CQRS building blocks, reactive orchestration
+### `numou-foundation-application` — CQRS building blocks, reactive orchestration
 
 ```text
-tech.kayys.syirkah.foundation.application
+tech.kayys.numou.foundation.application
 ├── command       Command, CommandHandler<C, R>
 ├── query         Query, QueryHandler<Q, R>
 ├── result        Result<T>, ApplicationError, ApplicationErrorException
@@ -83,14 +83,14 @@ tech.kayys.syirkah.foundation.application
 └── transaction   UnitOfWork                (transaction-boundary port)
 ```
 
-Allowed to depend on Mutiny and `syirkah-foundation` — nothing
+Allowed to depend on Mutiny and `numou-foundation` — nothing
 else. `CommandHandler`/`QueryHandler` are where `Uni` orchestration
 lives; the aggregates they call stay synchronous.
 
-### `syirkah-foundation-testing` — shared test doubles + ArchUnit rules *(new)*
+### `numou-foundation-testing` — shared test doubles + ArchUnit rules *(new)*
 
 ```text
-tech.kayys.syirkah.foundation.testing
+tech.kayys.numou.foundation.testing
 ├── time            FixedDomainClock             deterministic DomainClock test double
 └── architecture    ForbiddenDependencyRules     shared "no framework leakage" ArchUnit rules
 ```
@@ -99,11 +99,11 @@ Added so every downstream module (`identity`, and whatever comes
 next) writes its architecture test as one line —
 `ForbiddenDependencyRules.checkNoDependencyOn(...)` — instead of
 re-declaring and slowly drifting out of sync with its own
-forbidden-package list. `syirkah-foundation-application`'s own
+forbidden-package list. `numou-foundation-application`'s own
 `ApplicationArchitectureTest` has been refactored to use it too.
 
-**Not** used by `syirkah-foundation` itself: that module is a
-compile dependency of `syirkah-foundation-testing`, so the reverse
+**Not** used by `numou-foundation` itself: that module is a
+compile dependency of `numou-foundation-testing`, so the reverse
 dependency would create a cycle in the Maven reactor.
 `DomainArchitectureTest` stays self-contained for that reason — noted
 directly in its Javadoc so it doesn't look like an oversight later.
@@ -113,10 +113,10 @@ directly in its Javadoc so it doesn't look like an oversight later.
 The first bounded context, built to prove the foundation's pattern
 holds up in practice — not a toy, a complete vertical slice.
 
-### `syirkah-identity-domain`
+### `numou-identity-domain`
 
 ```text
-tech.kayys.syirkah.identity.domain
+tech.kayys.numou.identity.domain
 ├── user          UserId, User (aggregate root), UserStatus
 ├── valueobject   EmailAddress, PasswordHash, DisplayName
 ├── event         UserRegistered, UserActivated, UserEmailChanged, UserDeactivated
@@ -134,10 +134,10 @@ products with very different tenancy models. Uniqueness of email is
 other users, which only the application layer (via the repository
 port) can do.
 
-### `syirkah-identity-application`
+### `numou-identity-application`
 
 ```text
-tech.kayys.syirkah.identity.application
+tech.kayys.numou.identity.application
 ├── command   RegisterUserCommand, ChangeUserEmailCommand, DeactivateUserCommand (+ handlers)
 ├── query     GetUserByIdQuery, ListUsersQuery (+ handlers), UserView (read projection)
 └── port      UserRepository, PasswordHasher
@@ -148,12 +148,12 @@ tech.kayys.syirkah.identity.application
 `PasswordHasher` is deliberately synchronous: hashing is CPU-bound,
 not I/O-bound, so wrapping it in a `Uni` would add nothing.
 
-### `syirkah-identity-adapter`
+### `numou-identity-adapter`
 
 The only module allowed to depend on Quarkus/Hibernate/Kafka directly:
 
 ```text
-tech.kayys.syirkah.identity.adapter
+tech.kayys.numou.identity.adapter
 ├── inbound/rest        UserResource (JAX-RS), ApplicationErrorExceptionMapper, DTOs
 ├── outbound/postgres    UserEntity (Panache), PostgresUserRepository
 ├── outbound/security     JBcryptPasswordHasher
@@ -220,7 +220,7 @@ fails if `identity.application` ever depends on `identity.adapter`.
 - More bounded contexts (`catalog`, `order`, `inventory`, `payment`,
   ...), each following the exact `domain`/`application`/`adapter`
   shape `identity` now demonstrates.
-- The `syirkah-quarkus-platform` starter (shared reactive config, JSON,
+- The `numou-quarkus-platform` starter (shared reactive config, JSON,
   correlation ID, tenant context, security/JWT, observability, Kafka/
   Postgres/Redis conventions, transactional outbox, idempotency
   store, API error contract) — `identity/adapter` hand-wires all of
@@ -253,5 +253,5 @@ Either:
    transactional outbox once a use case needs the stronger guarantee.
 2. Or start the second bounded context (Catalog or Organization are
    natural next candidates) using `identity/*` as the template —
-   that's the point at which shared adapter boilsyirkahlate becomes worth
-   extracting into `syirkah-quarkus-platform`.
+   that's the point at which shared adapter boilnumoulate becomes worth
+   extracting into `numou-quarkus-platform`.

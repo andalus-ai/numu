@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.configuration.domain;
+package tech.kayys.numou.commerce.configuration.domain;
 
 import java.util.Objects;
 

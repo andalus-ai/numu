@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.product.application.command;
+package tech.kayys.numou.product.application.command;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.product.application.support.InMemorySkuRepository;
-import tech.kayys.syirkah.product.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.product.domain.sku.Sku;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifier;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifierType;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
-import tech.kayys.syirkah.product.domain.variant.ProductVariantId;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.product.application.support.InMemorySkuRepository;
+import tech.kayys.numou.product.application.support.RecordingEventPublisher;
+import tech.kayys.numou.product.domain.sku.Sku;
+import tech.kayys.numou.product.domain.sku.SkuIdentifier;
+import tech.kayys.numou.product.domain.sku.SkuIdentifierType;
+import tech.kayys.numou.product.domain.sku.SkuId;
+import tech.kayys.numou.product.domain.variant.ProductVariantId;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

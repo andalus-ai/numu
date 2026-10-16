@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.product.domain.classification;
+package tech.kayys.numou.product.domain.classification;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.domain.event.ClassificationNodeArchived;
-import tech.kayys.syirkah.product.domain.event.ClassificationNodeCreated;
-import tech.kayys.syirkah.product.domain.event.ClassificationNodeMoved;
-import tech.kayys.syirkah.product.domain.event.ClassificationNodeRenamed;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.domain.event.ClassificationNodeArchived;
+import tech.kayys.numou.product.domain.event.ClassificationNodeCreated;
+import tech.kayys.numou.product.domain.event.ClassificationNodeMoved;
+import tech.kayys.numou.product.domain.event.ClassificationNodeRenamed;
 
 import java.time.Instant;
 import java.util.Objects;

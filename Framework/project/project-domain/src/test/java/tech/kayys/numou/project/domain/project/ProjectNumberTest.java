@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.project;
+package tech.kayys.numou.project.domain.project;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

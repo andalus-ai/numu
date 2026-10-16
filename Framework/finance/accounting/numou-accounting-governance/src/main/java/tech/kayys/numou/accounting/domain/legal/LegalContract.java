@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.legal;
+package tech.kayys.numou.accounting.domain.legal;
 
 import java.time.LocalDate;
 import java.util.Objects;
@@ -8,17 +8,17 @@ public final class LegalContract {
 
     private final String contractId;
     private final String title;
-    private final String countsyirkaharty;
+    private final String countnumouarty;
     private final LocalDate startDate;
     private final LocalDate endDate;
     private Status status;
     private boolean autoRenew;
     private int renewalNoticePeriodDays;
 
-    public LegalContract(String contractId, String title, String countsyirkaharty, LocalDate startDate, LocalDate endDate) {
+    public LegalContract(String contractId, String title, String countnumouarty, LocalDate startDate, LocalDate endDate) {
         this.contractId = Objects.requireNonNull(contractId, "contractId must not be null");
         this.title = Objects.requireNonNull(title, "title must not be null");
-        this.countsyirkaharty = Objects.requireNonNull(countsyirkaharty, "countsyirkaharty must not be null");
+        this.countnumouarty = Objects.requireNonNull(countnumouarty, "countnumouarty must not be null");
         this.startDate = Objects.requireNonNull(startDate, "startDate must not be null");
         this.endDate = Objects.requireNonNull(endDate, "endDate must not be null");
         this.status = Status.DRAFT;
@@ -52,7 +52,7 @@ public final class LegalContract {
 
     public String contractId() { return contractId; }
     public String title() { return title; }
-    public String countsyirkaharty() { return countsyirkaharty; }
+    public String countnumouarty() { return countnumouarty; }
     public LocalDate startDate() { return startDate; }
     public LocalDate endDate() { return endDate; }
     public Status status() { return status; }

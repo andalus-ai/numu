@@ -9,7 +9,7 @@ for token in \
   'FORCE ROW LEVEL SECURITY' \
   "current_setting('app.tenant_id', true)" \
   'GRANT SELECT, UPDATE (status, lease_token)' \
-  'GRANT INSERT ON outbox_role_boundary_fixture TO syirkah_command_writer_test' \
+  'GRANT INSERT ON outbox_role_boundary_fixture TO numou_command_writer_test' \
   'cross-tenant update unexpectedly changed event' \
   'relay role unexpectedly updated tenant ownership' \
   'command writer role unexpectedly updated relay state' \

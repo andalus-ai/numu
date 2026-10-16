@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.TargetType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.TargetType;
 
 /**
  * Self-describing metadata for a target capability (product03.md §63-§66).

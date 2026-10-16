@@ -3,25 +3,25 @@ set -euo pipefail
 
 # Disposable PostgreSQL test for transaction-local tenant context on reused connections.
 # This proves the fixture protocol, not the actual Numou pool/runtime wiring.
-CONTAINER_NAME="syirkah-pg-tenant-context-pool-$$"
+CONTAINER_NAME="numou-pg-tenant-context-pool-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55445}"
-PASSWORD="syirkah_test_only"
+PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 docker run -d --rm --name "$CONTAINER_NAME" \
-  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=syirkah_test \
+  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=numou_test \
   -p "127.0.0.1:${PORT}:5432" postgres:16-alpine >/dev/null
 for _ in $(seq 1 60); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null 2>&1; then break; fi
+  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
-docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null
+docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null
 
-psql() { docker exec -i "$CONTAINER_NAME" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d syirkah_test "$@"; }
+psql() { docker exec -i "$CONTAINER_NAME" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d numou_test "$@"; }
 
 psql <<'SQL'
-CREATE ROLE syirkah_tenant_context_test NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE numou_tenant_context_test NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE TABLE tenant_context_pool_fixture (
   row_id integer PRIMARY KEY,
   tenant_id text NOT NULL,
@@ -32,8 +32,8 @@ ALTER TABLE tenant_context_pool_fixture FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_context_pool_policy ON tenant_context_pool_fixture
   USING (tenant_id = current_setting('app.tenant_id', true))
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true));
-GRANT USAGE ON SCHEMA public TO syirkah_tenant_context_test;
-GRANT SELECT ON tenant_context_pool_fixture TO syirkah_tenant_context_test;
+GRANT USAGE ON SCHEMA public TO numou_tenant_context_test;
+GRANT SELECT ON tenant_context_pool_fixture TO numou_tenant_context_test;
 INSERT INTO tenant_context_pool_fixture VALUES
   (1, 'tenant-a', 'a-secret'),
   (2, 'tenant-b', 'b-secret');
@@ -41,7 +41,7 @@ SQL
 
 # Keep one physical PostgreSQL session open across multiple transactions to model a pooled connection.
 RESULT="$(psql -At <<'SQL'
-SET ROLE syirkah_tenant_context_test;
+SET ROLE numou_tenant_context_test;
 BEGIN;
 SELECT set_config('app.tenant_id', 'tenant-a', true);
 DO $$ BEGIN
@@ -95,8 +95,8 @@ SQL
 [[ "$RESULT" == *'PASS: tenant-context-pool-safety'* ]] || { echo "FAIL: tenant context pool safety result missing: $RESULT" >&2; exit 1; }
 
 # Independent sessions must each remain scoped to their own authenticated server-side context.
-A="$(psql -Atc "SET ROLE syirkah_tenant_context_test; BEGIN; SELECT set_config('app.tenant_id','tenant-a',true); SELECT string_agg(tenant_id, ',') FROM tenant_context_pool_fixture; COMMIT")"
-B="$(psql -Atc "SET ROLE syirkah_tenant_context_test; BEGIN; SELECT set_config('app.tenant_id','tenant-b',true); SELECT string_agg(tenant_id, ',') FROM tenant_context_pool_fixture; COMMIT")"
+A="$(psql -Atc "SET ROLE numou_tenant_context_test; BEGIN; SELECT set_config('app.tenant_id','tenant-a',true); SELECT string_agg(tenant_id, ',') FROM tenant_context_pool_fixture; COMMIT")"
+B="$(psql -Atc "SET ROLE numou_tenant_context_test; BEGIN; SELECT set_config('app.tenant_id','tenant-b',true); SELECT string_agg(tenant_id, ',') FROM tenant_context_pool_fixture; COMMIT")"
 [[ "$A" == *'tenant-a'* && "$A" != *'tenant-b'* ]] || { echo "FAIL: session A crossed tenant boundary: $A" >&2; exit 1; }
 [[ "$B" == *'tenant-b'* && "$B" != *'tenant-a'* ]] || { echo "FAIL: session B crossed tenant boundary: $B" >&2; exit 1; }
 

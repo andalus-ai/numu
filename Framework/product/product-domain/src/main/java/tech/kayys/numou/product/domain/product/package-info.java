@@ -5,4 +5,4 @@
  * customer concerns - those are separate capabilities that consume
  * Product IDs and Product events (see Docs/Product/product00.md).
  */
-package tech.kayys.syirkah.product.domain.product;
+package tech.kayys.numou.product.domain.product;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.specification;
+package tech.kayys.numou.product.domain.specification;
 
 import java.util.List;
 import java.util.Objects;

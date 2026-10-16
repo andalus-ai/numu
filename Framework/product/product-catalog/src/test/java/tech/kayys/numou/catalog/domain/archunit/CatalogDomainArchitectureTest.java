@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.catalog.domain.archunit;
+package tech.kayys.numou.catalog.domain.archunit;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <p>Catalog is a <b>separate</b> bounded context from the Product
  * foundation. It references the foundation by
- * {@code tech.kayys.syirkah.product.domain.product.ProductId} and
+ * {@code tech.kayys.numou.product.domain.product.ProductId} and
  * consumes Product events — it must never shadow the canonical
  * Product names, otherwise imports become ambiguous across the two
  * contexts.</p>
@@ -22,31 +22,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class CatalogDomainArchitectureTest {
 
     private static final String CATALOG_PACKAGE =
-            "tech.kayys.syirkah.catalog.domain..";
+            "tech.kayys.numou.catalog.domain..";
 
     private static final JavaClasses CATALOG_CLASSES =
             new ClassFileImporter()
-                    .importPackages("tech.kayys.syirkah.catalog.domain");
+                    .importPackages("tech.kayys.numou.catalog.domain");
 
     @Test
     void catalogMustNotReuseTheBareCanonicalProductAggregateName() {
         assertEquals(
-                List.of("tech.kayys.syirkah.catalog.domain.model.CatalogProduct"),
+                List.of("tech.kayys.numou.catalog.domain.model.CatalogProduct"),
                 fullyQualifiedNamesOf(CATALOG_CLASSES, "CatalogProduct"),
                 "Catalog must expose CatalogProduct, not the bare name Product; "
                         + "the bare name would clash with "
-                        + "tech.kayys.syirkah.product.domain.product.Product"
+                        + "tech.kayys.numou.product.domain.product.Product"
         );
     }
 
     @Test
     void catalogMustNotReuseTheBareCanonicalProductStatusName() {
         assertEquals(
-                List.of("tech.kayys.syirkah.catalog.domain.valueobject.CatalogProductStatus"),
+                List.of("tech.kayys.numou.catalog.domain.valueobject.CatalogProductStatus"),
                 fullyQualifiedNamesOf(CATALOG_CLASSES, "CatalogProductStatus"),
                 "Catalog must expose CatalogProductStatus, not the bare name "
                         + "ProductStatus; the bare name would clash with "
-                        + "tech.kayys.syirkah.product.domain.product.ProductStatus"
+                        + "tech.kayys.numou.product.domain.product.ProductStatus"
         );
     }
 
@@ -58,7 +58,7 @@ class CatalogDomainArchitectureTest {
         noClasses()
                 .that().resideInAPackage(CATALOG_PACKAGE)
                 .should().dependOnClassesThat()
-                .haveFullyQualifiedName("tech.kayys.syirkah.product.domain.product.Product")
+                .haveFullyQualifiedName("tech.kayys.numou.product.domain.product.Product")
                 .because("Catalog references the Product foundation by ProductId "
                         + "and consumes its events, but must not depend on the "
                         + "Product aggregate root itself")

@@ -8,27 +8,27 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-identity</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-identity</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-identity-domain</artifactId>
+    <artifactId>numou-identity-domain</artifactId>
 
     <name>ERP Identity - Domain</name>
     <description>
         Pure Java Identity bounded context domain model: the User
         aggregate, its value objects (EmailAddress, PasswordHash,
         DisplayName), domain events, and domain exceptions. Depends
-        only on syirkah-foundation at compile scope.
+        only on numou-foundation at compile scope.
     </description>
 
     <dependencies>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -45,8 +45,8 @@
         </dependency>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-testing</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-testing</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

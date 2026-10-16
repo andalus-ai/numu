@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.cost;
+package tech.kayys.numou.construction.domain.cost;
 
-import tech.kayys.syirkah.construction.domain.cost.event.ConstructionCostRecorded;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.cost.event.ConstructionCostRecorded;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
 /**
  * Lifecycle of a promotion (product05.md §3).

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.offering.application.command;
+package tech.kayys.numou.commerce.offering.application.command;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.foundation.application.command.Command;
 
 import java.util.Objects;
 

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.domain.authorization;
+package tech.kayys.numou.security.domain.authorization;
 
 import java.util.Objects;
 import java.util.Set;

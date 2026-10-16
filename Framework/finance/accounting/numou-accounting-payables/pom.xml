@@ -4,18 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-accounting-services</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-accounting-services</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-accounting-payables</artifactId>
+    <artifactId>numou-accounting-payables</artifactId>
     <name>ERP Accounting - Payables</name>
     <description>Accounts payable vendor invoice verification, 3-way matching engine, and payment scheduling.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-accounting-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-accounting-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.query;
+package tech.kayys.numou.project.application.query;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.project.domain.phase.PhaseStatus;
-import tech.kayys.syirkah.project.domain.phase.PhaseType;
-import tech.kayys.syirkah.project.domain.phase.ProjectPhase;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.project.domain.phase.PhaseStatus;
+import tech.kayys.numou.project.domain.phase.PhaseType;
+import tech.kayys.numou.project.domain.phase.ProjectPhase;
 
 import java.util.Objects;
 import java.util.UUID;

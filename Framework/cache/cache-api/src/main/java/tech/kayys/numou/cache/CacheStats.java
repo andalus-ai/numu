@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.cache;
+package tech.kayys.numou.cache;
 
 /** Point-in-time counters, exported as metrics by the observability adapter. */
 public record CacheStats(long hits, long misses, long loads, long loadFailures, long invalidations) {

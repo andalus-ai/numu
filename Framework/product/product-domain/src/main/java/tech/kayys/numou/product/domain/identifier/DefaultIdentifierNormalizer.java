@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.domain.identifier;
+package tech.kayys.numou.product.domain.identifier;
 
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifierType;
+import tech.kayys.numou.product.domain.sku.SkuIdentifierType;
 
 /**
  * Default normalizer: trim; strip non-digits for GTIN/EAN/UPC/ISBN.

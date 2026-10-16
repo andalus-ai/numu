@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.product.application.command;
+package tech.kayys.numou.product.application.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.product.domain.sku.Sku;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
-import tech.kayys.syirkah.product.spi.port.SkuRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.product.domain.sku.Sku;
+import tech.kayys.numou.product.domain.sku.SkuId;
+import tech.kayys.numou.product.spi.port.SkuRepository;
 
 import java.util.Objects;
 import java.util.Optional;

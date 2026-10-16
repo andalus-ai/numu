@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.identity.application.port;
+package tech.kayys.numou.identity.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.identity.application.security.abac.AuthorizationPolicy;
+import tech.kayys.numou.identity.application.security.abac.AuthorizationPolicy;
 
 import java.util.List;
 

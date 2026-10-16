@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.domain.classification;
+package tech.kayys.numou.product.domain.classification;
 
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 /**
  * Connects a {@link ProductId} to a {@link ClassificationNodeId}

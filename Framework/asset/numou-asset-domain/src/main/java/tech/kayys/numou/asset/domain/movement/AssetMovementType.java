@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.movement;
+package tech.kayys.numou.asset.domain.movement;
 
 /**
  * The kind of historical fact recorded about an asset (see ASSET-13).

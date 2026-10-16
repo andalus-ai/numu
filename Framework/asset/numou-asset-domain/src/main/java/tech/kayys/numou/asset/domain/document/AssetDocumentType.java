@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.document;
+package tech.kayys.numou.asset.domain.document;
 
 /**
  * Asset-facing meaning of a referenced document (ASSET-24 §5-§6).

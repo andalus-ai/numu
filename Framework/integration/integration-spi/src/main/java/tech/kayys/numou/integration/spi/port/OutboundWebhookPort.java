@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.integration.spi.port;
+package tech.kayys.numou.integration.spi.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.event.domain.BusinessEvent;
-import tech.kayys.syirkah.event.domain.EventEnvelope;
+import tech.kayys.numou.event.domain.BusinessEvent;
+import tech.kayys.numou.event.domain.EventEnvelope;
 
 /**
  * Delivers a signed webhook to a partner endpoint.

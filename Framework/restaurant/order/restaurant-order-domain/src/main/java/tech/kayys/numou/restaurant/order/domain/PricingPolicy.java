@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.order.domain;
+package tech.kayys.numou.restaurant.order.domain;
 
 import java.math.BigDecimal;
 import java.util.Objects;

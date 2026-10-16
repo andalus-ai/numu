@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.fund;
+package tech.kayys.numou.accounting.domain.fund;
 
 import java.math.BigDecimal;
 import java.util.Objects;

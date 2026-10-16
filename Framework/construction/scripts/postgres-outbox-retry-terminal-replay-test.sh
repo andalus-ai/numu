@@ -3,25 +3,25 @@ set -euo pipefail
 
 # Disposable PostgreSQL acceptance test for bounded retry scheduling, terminal
 # failures, and audited operator replay. Never connects to an existing database.
-CONTAINER_NAME="syirkah-pg-outbox-retry-$$"
+CONTAINER_NAME="numou-pg-outbox-retry-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55442}"
-PASSWORD="syirkah_test_only"
+PASSWORD="numou_test_only"
 TMP_DIR="$(mktemp -d)"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
 docker run -d --rm --name "$CONTAINER_NAME" \
-  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=syirkah_test \
+  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=numou_test \
   -p "127.0.0.1:${PORT}:5432" postgres:16-alpine >/dev/null
 for _ in $(seq 1 60); do
-  docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null 2>&1 && break
+  docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null 2>&1 && break
   sleep 1
 done
-docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null
+docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null
 for migration in "$(dirname "$0")"/../db/migration/*.sql; do
-  docker exec -i "$CONTAINER_NAME" psql -q -v ON_ERROR_STOP=1 -U postgres -d syirkah_test < "$migration"
+  docker exec -i "$CONTAINER_NAME" psql -q -v ON_ERROR_STOP=1 -U postgres -d numou_test < "$migration"
 done
-psql() { docker exec -i "$CONTAINER_NAME" psql -Atq -v ON_ERROR_STOP=1 -U postgres -d syirkah_test "$@"; }
+psql() { docker exec -i "$CONTAINER_NAME" psql -Atq -v ON_ERROR_STOP=1 -U postgres -d numou_test "$@"; }
 
 psql <<'SQL'
 CREATE TABLE outbox_replay_audit (

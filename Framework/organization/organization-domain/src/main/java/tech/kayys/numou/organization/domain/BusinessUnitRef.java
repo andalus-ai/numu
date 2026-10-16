@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.organization.domain;
+package tech.kayys.numou.organization.domain;
 
 import java.util.Objects;
 

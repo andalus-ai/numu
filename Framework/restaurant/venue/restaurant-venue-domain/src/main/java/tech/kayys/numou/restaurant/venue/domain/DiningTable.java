@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.restaurant.venue.domain;
+package tech.kayys.numou.restaurant.venue.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.restaurant.kernel.domain.DiningTableId;
-import tech.kayys.syirkah.restaurant.kernel.domain.OrderId;
-import tech.kayys.syirkah.restaurant.kernel.domain.RestaurantAggregate;
-import tech.kayys.syirkah.restaurant.kernel.domain.VenueId;
-import tech.kayys.syirkah.restaurant.venue.domain.event.TableBlocked;
-import tech.kayys.syirkah.restaurant.venue.domain.event.TableCleaned;
-import tech.kayys.syirkah.restaurant.venue.domain.event.TableReleased;
-import tech.kayys.syirkah.restaurant.venue.domain.event.TableSeated;
-import tech.kayys.syirkah.restaurant.venue.domain.event.TableUnblocked;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.restaurant.kernel.domain.DiningTableId;
+import tech.kayys.numou.restaurant.kernel.domain.OrderId;
+import tech.kayys.numou.restaurant.kernel.domain.RestaurantAggregate;
+import tech.kayys.numou.restaurant.kernel.domain.VenueId;
+import tech.kayys.numou.restaurant.venue.domain.event.TableBlocked;
+import tech.kayys.numou.restaurant.venue.domain.event.TableCleaned;
+import tech.kayys.numou.restaurant.venue.domain.event.TableReleased;
+import tech.kayys.numou.restaurant.venue.domain.event.TableSeated;
+import tech.kayys.numou.restaurant.venue.domain.event.TableUnblocked;
 
 import java.time.Instant;
 import java.util.Collections;

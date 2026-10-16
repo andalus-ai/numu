@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.reservation.spi;
+package tech.kayys.numou.reservation.spi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.reservation.domain.AvailabilityLedger;
-import tech.kayys.syirkah.reservation.domain.FacilityId;
-import tech.kayys.syirkah.reservation.domain.LedgerId;
+import tech.kayys.numou.reservation.domain.AvailabilityLedger;
+import tech.kayys.numou.reservation.domain.FacilityId;
+import tech.kayys.numou.reservation.domain.LedgerId;
 
 import java.time.Instant;
 import java.time.LocalDate;

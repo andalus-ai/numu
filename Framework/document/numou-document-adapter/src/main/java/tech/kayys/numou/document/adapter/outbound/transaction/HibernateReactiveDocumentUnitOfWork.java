@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.document.adapter.outbound.transaction;
+package tech.kayys.numou.document.adapter.outbound.transaction;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 
 import java.util.function.Supplier;
 

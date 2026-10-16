@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.commerce.subscription.domain;
+package tech.kayys.numou.commerce.subscription.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.subscription.domain.event.SubscriptionCancelled;
-import tech.kayys.syirkah.commerce.subscription.domain.event.SubscriptionRenewed;
-import tech.kayys.syirkah.commerce.subscription.domain.event.SubscriptionStarted;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.subscription.domain.event.SubscriptionCancelled;
+import tech.kayys.numou.commerce.subscription.domain.event.SubscriptionRenewed;
+import tech.kayys.numou.commerce.subscription.domain.event.SubscriptionStarted;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
 
 import java.time.LocalDate;
 

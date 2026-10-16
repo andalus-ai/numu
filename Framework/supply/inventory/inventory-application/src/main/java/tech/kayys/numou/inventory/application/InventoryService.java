@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.inventory.application;
+package tech.kayys.numou.inventory.application;
 
-import tech.kayys.syirkah.inventory.domain.inventory.*;
-import tech.kayys.syirkah.inventory.spi.InventoryRepository;
+import tech.kayys.numou.inventory.domain.inventory.*;
+import tech.kayys.numou.inventory.spi.InventoryRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

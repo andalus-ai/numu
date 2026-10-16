@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.application.query;
+package tech.kayys.numou.product.application.query;
 
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeId;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeId;
 
 import java.util.List;
 import java.util.Objects;

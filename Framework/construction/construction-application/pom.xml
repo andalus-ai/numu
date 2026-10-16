@@ -6,13 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-construction</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-construction</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-construction-application</artifactId>
+    <artifactId>numou-construction-application</artifactId>
     <name>Numou Construction - Application</name>
     <description>
         Application service layer, use cases, command and query handlers for Construction domain.
@@ -20,23 +20,23 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-construction-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-construction-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-construction-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-construction-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-project-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-project-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

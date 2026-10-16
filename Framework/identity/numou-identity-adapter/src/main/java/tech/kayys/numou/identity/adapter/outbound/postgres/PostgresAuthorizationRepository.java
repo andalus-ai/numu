@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.identity.adapter.outbound.postgres;
+package tech.kayys.numou.identity.adapter.outbound.postgres;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.identity.application.port.AuthorizationPort;
-import tech.kayys.syirkah.identity.application.port.TenantMembershipPort;
-import tech.kayys.syirkah.identity.application.security.AuthorizationRequirement;
-import tech.kayys.syirkah.identity.application.security.Principal;
-import tech.kayys.syirkah.identity.application.security.PrincipalType;
+import tech.kayys.numou.identity.application.port.AuthorizationPort;
+import tech.kayys.numou.identity.application.port.TenantMembershipPort;
+import tech.kayys.numou.identity.application.security.AuthorizationRequirement;
+import tech.kayys.numou.identity.application.security.Principal;
+import tech.kayys.numou.identity.application.security.PrincipalType;
 
 import java.util.Set;
 import java.util.UUID;

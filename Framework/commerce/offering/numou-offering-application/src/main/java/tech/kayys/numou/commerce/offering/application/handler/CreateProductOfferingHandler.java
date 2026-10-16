@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.commerce.offering.application.handler;
+package tech.kayys.numou.commerce.offering.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.offering.application.command.CreateProductOfferingCommand;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOffering;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.offering.spi.port.ProductOfferingRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.offering.application.command.CreateProductOfferingCommand;
+import tech.kayys.numou.commerce.offering.domain.ProductOffering;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.offering.spi.port.ProductOfferingRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.util.Objects;
 

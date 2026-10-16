@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.reservation.application;
+package tech.kayys.numou.reservation.application;
 
-import tech.kayys.syirkah.reservation.domain.Reservation;
-import tech.kayys.syirkah.reservation.domain.ResourceId;
+import tech.kayys.numou.reservation.domain.Reservation;
+import tech.kayys.numou.reservation.domain.ResourceId;
 
 import java.time.Instant;
 import java.util.List;

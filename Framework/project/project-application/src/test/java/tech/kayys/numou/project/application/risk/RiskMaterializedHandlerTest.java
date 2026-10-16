@@ -1,28 +1,28 @@
-package tech.kayys.syirkah.project.application.risk;
+package tech.kayys.numou.project.application.risk;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.project.application.support.InMemoryIssueRepository;
-import tech.kayys.syirkah.project.application.support.InMemoryProjectRepository;
-import tech.kayys.syirkah.project.application.support.InMemoryRiskRepository;
-import tech.kayys.syirkah.project.application.risk.policy.DefaultRiskMaterializationPolicy;
-import tech.kayys.syirkah.project.application.risk.policy.RiskMaterializedHandler;
-import tech.kayys.syirkah.project.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.project.domain.project.Project;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.project.ProjectNumber;
-import tech.kayys.syirkah.project.domain.project.ProjectType;
-import tech.kayys.syirkah.project.domain.risk.IssueId;
-import tech.kayys.syirkah.project.domain.risk.IssuePriority;
-import tech.kayys.syirkah.project.domain.risk.IssueSeverity;
-import tech.kayys.syirkah.project.domain.risk.Risk;
-import tech.kayys.syirkah.project.domain.risk.RiskCategory;
-import tech.kayys.syirkah.project.domain.risk.RiskId;
-import tech.kayys.syirkah.project.domain.risk.RiskResponse;
-import tech.kayys.syirkah.project.domain.risk.RiskSource;
-import tech.kayys.syirkah.project.domain.risk.event.IssueRaised;
-import tech.kayys.syirkah.project.domain.risk.event.RiskMaterialized;
+import tech.kayys.numou.project.application.support.InMemoryIssueRepository;
+import tech.kayys.numou.project.application.support.InMemoryProjectRepository;
+import tech.kayys.numou.project.application.support.InMemoryRiskRepository;
+import tech.kayys.numou.project.application.risk.policy.DefaultRiskMaterializationPolicy;
+import tech.kayys.numou.project.application.risk.policy.RiskMaterializedHandler;
+import tech.kayys.numou.project.application.support.RecordingEventPublisher;
+import tech.kayys.numou.project.domain.project.Project;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.project.ProjectNumber;
+import tech.kayys.numou.project.domain.project.ProjectType;
+import tech.kayys.numou.project.domain.risk.IssueId;
+import tech.kayys.numou.project.domain.risk.IssuePriority;
+import tech.kayys.numou.project.domain.risk.IssueSeverity;
+import tech.kayys.numou.project.domain.risk.Risk;
+import tech.kayys.numou.project.domain.risk.RiskCategory;
+import tech.kayys.numou.project.domain.risk.RiskId;
+import tech.kayys.numou.project.domain.risk.RiskResponse;
+import tech.kayys.numou.project.domain.risk.RiskSource;
+import tech.kayys.numou.project.domain.risk.event.IssueRaised;
+import tech.kayys.numou.project.domain.risk.event.RiskMaterialized;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -63,8 +63,8 @@ class RiskMaterializedHandlerTest {
                 RiskCategory.SUPPLIER, RiskSource.SUPPLIER,
                 IDENTIFIED_ON, TARGET
         );
-        risk.assess(tech.kayys.syirkah.project.domain.risk.Probability.VERY_HIGH,
-                tech.kayys.syirkah.project.domain.risk.ImpactLevel.CRITICAL);
+        risk.assess(tech.kayys.numou.project.domain.risk.Probability.VERY_HIGH,
+                tech.kayys.numou.project.domain.risk.ImpactLevel.CRITICAL);
         risk.planResponse(RiskResponse.MITIGATE);
         risk.monitor();
         risk.materialize();
@@ -96,8 +96,8 @@ class RiskMaterializedHandlerTest {
                 RiskCategory.QUALITY, RiskSource.MARKET,
                 IDENTIFIED_ON, TARGET
         );
-        risk.assess(tech.kayys.syirkah.project.domain.risk.Probability.HIGH,
-                tech.kayys.syirkah.project.domain.risk.ImpactLevel.MAJOR);
+        risk.assess(tech.kayys.numou.project.domain.risk.Probability.HIGH,
+                tech.kayys.numou.project.domain.risk.ImpactLevel.MAJOR);
         risk.planResponse(RiskResponse.TRANSFER);
         risk.monitor();
         risk.materialize();

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.offering.application;
+package tech.kayys.numou.commerce.offering.application;
 
 public final class OfferingErrors {
 

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.workflow;
+package tech.kayys.numou.accounting.application.workflow;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.workflow.*;
+import tech.kayys.numou.accounting.domain.workflow.*;
 
 import java.util.Map;
 import java.util.Set;

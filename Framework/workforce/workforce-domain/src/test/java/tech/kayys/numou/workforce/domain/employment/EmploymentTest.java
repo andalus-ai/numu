@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.workforce.domain.employment;
+package tech.kayys.numou.workforce.domain.employment;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.workforce.domain.employment.event.EmploymentStarted;
-import tech.kayys.syirkah.workforce.domain.employment.event.EmploymentSuspended;
-import tech.kayys.syirkah.workforce.domain.employment.event.EmploymentTerminated;
-import tech.kayys.syirkah.workforce.domain.worker.WorkerId;
+import tech.kayys.numou.workforce.domain.employment.event.EmploymentStarted;
+import tech.kayys.numou.workforce.domain.employment.event.EmploymentSuspended;
+import tech.kayys.numou.workforce.domain.employment.event.EmploymentTerminated;
+import tech.kayys.numou.workforce.domain.worker.WorkerId;
 
 import java.time.LocalDate;
 import java.util.UUID;

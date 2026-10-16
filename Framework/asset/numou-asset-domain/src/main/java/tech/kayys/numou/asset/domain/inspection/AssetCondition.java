@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.inspection;
+package tech.kayys.numou.asset.domain.inspection;
 
 /**
  * Observed physical condition of an asset or component (see ASSET-20

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.application.port;
+package tech.kayys.numou.identity.application.port;
 
-import tech.kayys.syirkah.identity.domain.valueobject.PasswordHash;
+import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 /**
  * Synchronous by design - hashing is CPU-bound, not I/O-bound, so

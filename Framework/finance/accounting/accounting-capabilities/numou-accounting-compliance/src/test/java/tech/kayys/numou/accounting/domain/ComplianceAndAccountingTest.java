@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.accounting.domain;
+package tech.kayys.numou.accounting.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.compliance.*;
-import tech.kayys.syirkah.accounting.domain.identifier.*;
-import tech.kayys.syirkah.accounting.domain.islamic.ShariaContractType;
-import tech.kayys.syirkah.accounting.domain.model.*;
-import tech.kayys.syirkah.accounting.domain.valueobject.*;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.domain.compliance.*;
+import tech.kayys.numou.accounting.domain.identifier.*;
+import tech.kayys.numou.accounting.domain.islamic.ShariaContractType;
+import tech.kayys.numou.accounting.domain.model.*;
+import tech.kayys.numou.accounting.domain.valueobject.*;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.time.Instant;

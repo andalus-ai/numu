@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.specification;
+package tech.kayys.numou.product.domain.specification;
 
 import java.io.Serializable;
 import java.math.BigDecimal;

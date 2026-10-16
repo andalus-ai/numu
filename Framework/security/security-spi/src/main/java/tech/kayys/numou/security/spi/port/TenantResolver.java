@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.security.spi.port;
+package tech.kayys.numou.security.spi.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 /**
  * Resolves and validates a tenant for an authenticated principal.

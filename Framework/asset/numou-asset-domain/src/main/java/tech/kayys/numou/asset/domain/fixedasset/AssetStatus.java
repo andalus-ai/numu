@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.fixedasset;
+package tech.kayys.numou.asset.domain.fixedasset;
 
 /** Lifecycle status of a fixed asset. */
 public enum AssetStatus {

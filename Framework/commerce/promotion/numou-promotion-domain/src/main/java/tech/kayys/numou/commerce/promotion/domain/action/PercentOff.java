@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.action;
+package tech.kayys.numou.commerce.promotion.domain.action;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
 
 import java.util.Objects;
 

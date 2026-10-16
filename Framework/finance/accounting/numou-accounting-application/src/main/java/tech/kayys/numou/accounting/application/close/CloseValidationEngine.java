@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.close;
+package tech.kayys.numou.accounting.application.close;
 
-import tech.kayys.syirkah.accounting.domain.close.CloseCycle;
-import tech.kayys.syirkah.accounting.domain.close.CloseTask;
-import tech.kayys.syirkah.accounting.domain.close.CloseTaskStatus;
+import tech.kayys.numou.accounting.domain.close.CloseCycle;
+import tech.kayys.numou.accounting.domain.close.CloseTask;
+import tech.kayys.numou.accounting.domain.close.CloseTaskStatus;
 
 import java.util.ArrayList;
 import java.util.List;

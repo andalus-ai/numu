@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.domain.report;
+package tech.kayys.numou.accounting.domain.report;
 
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.valueobject.AccountType;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.valueobject.AccountType;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.time.LocalDate;
 import java.util.List;

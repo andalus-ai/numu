@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
 /**
  * Operating mode of the kiosk.

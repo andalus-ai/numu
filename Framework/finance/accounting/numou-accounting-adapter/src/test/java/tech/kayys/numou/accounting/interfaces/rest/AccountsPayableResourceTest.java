@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.ap.ApInvoiceService;
-import tech.kayys.syirkah.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
-import tech.kayys.syirkah.accounting.domain.ap.VendorInvoice;
-import tech.kayys.syirkah.accounting.interfaces.rest.dto.RegisterVendorInvoiceRequest;
+import tech.kayys.numou.accounting.application.ap.ApInvoiceService;
+import tech.kayys.numou.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
+import tech.kayys.numou.accounting.domain.ap.VendorInvoice;
+import tech.kayys.numou.accounting.interfaces.rest.dto.RegisterVendorInvoiceRequest;
 
 import java.math.BigDecimal;
 import java.util.List;

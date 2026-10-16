@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.domain.identifier;
+package tech.kayys.numou.product.domain.identifier;
 
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifier;
+import tech.kayys.numou.product.domain.sku.SkuIdentifier;
 
 /**
  * Validates identifier shape for a given type (product02.md).

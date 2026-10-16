@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.spi.port;
+package tech.kayys.numou.product.spi.port;
 
-import tech.kayys.syirkah.product.domain.classification.ClassificationNodeId;
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeId;
-import tech.kayys.syirkah.product.domain.classification.ProductClassification;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.classification.ClassificationNodeId;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeId;
+import tech.kayys.numou.product.domain.classification.ProductClassification;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.util.List;
 import java.util.concurrent.CompletionStage;

@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.security.adapter;
+package tech.kayys.numou.security.adapter;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
 
 import java.util.List;
 
-/** {@code syirkah.security.*} / {@code syirkah.ratelimit.*} configuration. */
-@ConfigMapping(prefix = "syirkah")
+/** {@code numou.security.*} / {@code numou.ratelimit.*} configuration. */
+@ConfigMapping(prefix = "numou")
 public interface SecurityConfig {
 
     Security security();
@@ -15,15 +15,15 @@ public interface SecurityConfig {
 
     interface Security {
         /** JWT claim holding the active tenant id. */
-        @WithDefault("syirkah_tenant_id")
+        @WithDefault("numou_tenant_id")
         String tenantClaim();
 
         /** JWT claim holding every tenant the user belongs to (array of UUIDs). */
-        @WithDefault("syirkah_tenants")
+        @WithDefault("numou_tenants")
         String tenantsClaim();
 
         /** JWT claim holding the principal's UUID. */
-        @WithDefault("syirkah_user_id")
+        @WithDefault("numou_user_id")
         String userIdClaim();
 
         /** Only set true behind a proxy that overwrites X-Forwarded-For; otherwise clients could spoof their IP. */

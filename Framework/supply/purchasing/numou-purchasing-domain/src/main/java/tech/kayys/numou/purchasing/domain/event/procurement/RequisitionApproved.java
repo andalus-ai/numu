@@ -1,7 +1,7 @@
 
-package tech.kayys.syirkah.purchasing.domain.event.procurement;
+package tech.kayys.numou.purchasing.domain.event.procurement;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.time.Instant;
 import java.util.UUID;

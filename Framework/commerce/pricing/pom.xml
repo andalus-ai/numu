@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-commerce</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-commerce</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-pricing-modules</artifactId>
+    <artifactId>numou-pricing-modules</artifactId>
     <packaging>pom</packaging>
 
     <name>Numou Commerce - Pricing Aggregator</name>
@@ -25,10 +25,10 @@
     </description>
 
     <modules>
-        <module>syirkah-pricing-domain</module>
-        <module>syirkah-pricing-spi</module>
-        <module>syirkah-pricing-application</module>
-        <module>syirkah-pricing-adapter</module>
+        <module>numou-pricing-domain</module>
+        <module>numou-pricing-spi</module>
+        <module>numou-pricing-application</module>
+        <module>numou-pricing-adapter</module>
     </modules>
 
 </project>

@@ -1,22 +1,22 @@
-package tech.kayys.syirkah.product.application.command;
+package tech.kayys.numou.product.application.command;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.product.application.support.InMemoryProductRepository;
-import tech.kayys.syirkah.product.application.support.InMemoryProductSpecificationRepository;
-import tech.kayys.syirkah.product.application.support.InMemoryProductVariantRepository;
-import tech.kayys.syirkah.product.application.support.InMemorySkuRepository;
-import tech.kayys.syirkah.product.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.product.domain.event.ProductSpecificationChanged;
-import tech.kayys.syirkah.product.domain.event.ProductVariantCreated;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.product.ProductType;
-import tech.kayys.syirkah.product.domain.identifier.ProductIdentifier;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifier;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifierType;
-import tech.kayys.syirkah.product.domain.specification.AttributeDefinition;
-import tech.kayys.syirkah.product.domain.specification.AttributeType;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.product.application.support.InMemoryProductRepository;
+import tech.kayys.numou.product.application.support.InMemoryProductSpecificationRepository;
+import tech.kayys.numou.product.application.support.InMemoryProductVariantRepository;
+import tech.kayys.numou.product.application.support.InMemorySkuRepository;
+import tech.kayys.numou.product.application.support.RecordingEventPublisher;
+import tech.kayys.numou.product.domain.event.ProductSpecificationChanged;
+import tech.kayys.numou.product.domain.event.ProductVariantCreated;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.product.ProductType;
+import tech.kayys.numou.product.domain.identifier.ProductIdentifier;
+import tech.kayys.numou.product.domain.sku.SkuIdentifier;
+import tech.kayys.numou.product.domain.sku.SkuIdentifierType;
+import tech.kayys.numou.product.domain.specification.AttributeDefinition;
+import tech.kayys.numou.product.domain.specification.AttributeType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -206,7 +206,7 @@ class ProductCatalogCommandHandlerTest {
         ).await().indefinitely().orElseThrow();
 
         assertInstanceOf(
-                tech.kayys.syirkah.product.domain.event.SkuCreated.class,
+                tech.kayys.numou.product.domain.event.SkuCreated.class,
                 events.published().getFirst()
         );
 
@@ -267,7 +267,7 @@ class ProductCatalogCommandHandlerTest {
                 new AddProductIdentifierCommand(
                         productId,
                         new ProductIdentifier(
-                                tech.kayys.syirkah.product.domain.identifier.ProductIdentifierType.GTIN,
+                                tech.kayys.numou.product.domain.identifier.ProductIdentifierType.GTIN,
                                 " 8991234567890"  // normalized to 8991234567890
                         )
                 )
@@ -292,7 +292,7 @@ class ProductCatalogCommandHandlerTest {
                 new AddProductIdentifierCommand(
                         productId,
                         new ProductIdentifier(
-                                tech.kayys.syirkah.product.domain.identifier.ProductIdentifierType.EAN,
+                                tech.kayys.numou.product.domain.identifier.ProductIdentifierType.EAN,
                                 "8991234567890"
                         )
                 )
@@ -304,7 +304,7 @@ class ProductCatalogCommandHandlerTest {
                 new AddProductIdentifierCommand(
                         productId,
                         new ProductIdentifier(
-                                tech.kayys.syirkah.product.domain.identifier.ProductIdentifierType.EAN,
+                                tech.kayys.numou.product.domain.identifier.ProductIdentifierType.EAN,
                                 "8991234567890"
                         )
                 )

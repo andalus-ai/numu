@@ -5,14 +5,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-finance</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-finance</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>tech.kayys.syirkah</groupId>
-    <artifactId>syirkah-accounting-services</artifactId>
+    <groupId>tech.kayys.numou</groupId>
+    <artifactId>numou-accounting-services</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>ERP Accounting - Services</name>
@@ -20,13 +20,13 @@
 
     <modules>
         <module>accounting-capabilities</module>
-        <module>syirkah-accounting-domain</module>
-        <module>syirkah-accounting-application</module>
-        <module>syirkah-accounting-payables</module>
-        <module>syirkah-accounting-receivables</module>
-        <module>syirkah-accounting-consolidation</module>
-        <module>syirkah-accounting-treasury</module>
-        <module>syirkah-accounting-governance</module>
-        <module>syirkah-accounting-adapter</module>
+        <module>numou-accounting-domain</module>
+        <module>numou-accounting-application</module>
+        <module>numou-accounting-payables</module>
+        <module>numou-accounting-receivables</module>
+        <module>numou-accounting-consolidation</module>
+        <module>numou-accounting-treasury</module>
+        <module>numou-accounting-governance</module>
+        <module>numou-accounting-adapter</module>
     </modules>
 </project>

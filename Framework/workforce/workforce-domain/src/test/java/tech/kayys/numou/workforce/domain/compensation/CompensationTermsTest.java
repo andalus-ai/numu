@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.workforce.domain.compensation;
+package tech.kayys.numou.workforce.domain.compensation;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.workforce.domain.compensation.event.CompensationTermsCreated;
-import tech.kayys.syirkah.workforce.domain.compensation.event.CompensationTermsEnded;
-import tech.kayys.syirkah.workforce.domain.employment.EmploymentId;
-import tech.kayys.syirkah.workforce.domain.paycomponent.PayComponentId;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.workforce.domain.compensation.event.CompensationTermsCreated;
+import tech.kayys.numou.workforce.domain.compensation.event.CompensationTermsEnded;
+import tech.kayys.numou.workforce.domain.employment.EmploymentId;
+import tech.kayys.numou.workforce.domain.paycomponent.PayComponentId;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.organization.application.command;
+package tech.kayys.numou.organization.application.command;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 public record CreateOrganizationCommand(
         TenantId tenantId,

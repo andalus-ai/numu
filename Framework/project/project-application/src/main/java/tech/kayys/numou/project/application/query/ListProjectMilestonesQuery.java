@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.project.application.query;
+package tech.kayys.numou.project.application.query;
 
-import tech.kayys.syirkah.foundation.application.query.Query;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.application.query.Query;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.util.Objects;
 

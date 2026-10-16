@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.risk.policy;
+package tech.kayys.numou.project.application.risk.policy;
 
-import tech.kayys.syirkah.project.domain.risk.IssuePriority;
-import tech.kayys.syirkah.project.domain.risk.IssueSeverity;
-import tech.kayys.syirkah.project.domain.risk.RiskScore;
-import tech.kayys.syirkah.project.domain.risk.event.RiskMaterialized;
+import tech.kayys.numou.project.domain.risk.IssuePriority;
+import tech.kayys.numou.project.domain.risk.IssueSeverity;
+import tech.kayys.numou.project.domain.risk.RiskScore;
+import tech.kayys.numou.project.domain.risk.event.RiskMaterialized;
 
 import java.util.UUID;
 

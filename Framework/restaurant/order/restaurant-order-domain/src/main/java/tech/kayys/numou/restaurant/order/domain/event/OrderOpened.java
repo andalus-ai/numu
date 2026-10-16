@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.restaurant.order.domain.event;
+package tech.kayys.numou.restaurant.order.domain.event;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 public record OrderOpened(
         UUID eventId,

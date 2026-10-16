@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.masterdata;
+package tech.kayys.numou.construction.domain.masterdata;
 
 public enum SpecificationType {
     GENERAL,

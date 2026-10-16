@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.purchasing.domain.model;
+package tech.kayys.numou.purchasing.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.purchasing.domain.identifier.ContractId;
-import tech.kayys.syirkah.purchasing.domain.identifier.VendorId;
-import tech.kayys.syirkah.purchasing.domain.valueobject.*;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.purchasing.domain.identifier.ContractId;
+import tech.kayys.numou.purchasing.domain.identifier.VendorId;
+import tech.kayys.numou.purchasing.domain.valueobject.*;
 
 import java.time.Instant;
 import java.util.ArrayList;

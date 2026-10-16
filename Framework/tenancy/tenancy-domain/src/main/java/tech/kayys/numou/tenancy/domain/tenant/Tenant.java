@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.tenancy.domain.tenant;
+package tech.kayys.numou.tenancy.domain.tenant;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
-import tech.kayys.syirkah.foundation.domain.audit.AuditMeta;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.ref.OrganizationRef;
-import tech.kayys.syirkah.tenancy.domain.tenant.event.TenantActivated;
-import tech.kayys.syirkah.tenancy.domain.tenant.event.TenantCreated;
-import tech.kayys.syirkah.tenancy.domain.tenant.event.TenantDeactivated;
-import tech.kayys.syirkah.tenancy.domain.tenant.event.TenantOrganizationChanged;
-import tech.kayys.syirkah.tenancy.domain.tenant.event.TenantRenamed;
-import tech.kayys.syirkah.tenancy.domain.tenant.event.TenantSuspended;
+import tech.kayys.numou.foundation.domain.audit.AuditMeta;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.ref.OrganizationRef;
+import tech.kayys.numou.tenancy.domain.tenant.event.TenantActivated;
+import tech.kayys.numou.tenancy.domain.tenant.event.TenantCreated;
+import tech.kayys.numou.tenancy.domain.tenant.event.TenantDeactivated;
+import tech.kayys.numou.tenancy.domain.tenant.event.TenantOrganizationChanged;
+import tech.kayys.numou.tenancy.domain.tenant.event.TenantRenamed;
+import tech.kayys.numou.tenancy.domain.tenant.event.TenantSuspended;
 
 import java.time.Instant;
 import java.util.Objects;

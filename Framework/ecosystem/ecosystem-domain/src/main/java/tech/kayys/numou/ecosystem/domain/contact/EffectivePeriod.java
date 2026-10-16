@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.ecosystem.domain.contact;
+package tech.kayys.numou.ecosystem.domain.contact;
 
 import java.io.Serializable;
 import java.time.LocalDate;

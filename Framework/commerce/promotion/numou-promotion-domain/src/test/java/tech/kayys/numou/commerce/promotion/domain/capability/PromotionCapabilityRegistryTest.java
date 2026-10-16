@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionType;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.EffectType;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.PromotionCompilationException;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.TargetType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.EffectType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.PromotionCompilationException;
+import tech.kayys.numou.commerce.promotion.domain.compiler.TargetType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,10 +39,10 @@ class PromotionCapabilityRegistryTest {
         assertEquals("channel", condition.type().value());
         assertEquals("1", condition.version());
         assertNotNull(condition.descriptor());
-        assertNotNull(condition.compile(tech.kayys.syirkah.commerce.promotion.domain.compiler
+        assertNotNull(condition.compile(tech.kayys.numou.commerce.promotion.domain.compiler
                 .ConditionDefinition.leaf(
                         ConditionType.of("channel"),
-                        tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionOperator.EQUALS,
+                        tech.kayys.numou.commerce.promotion.domain.compiler.ConditionOperator.EQUALS,
                         "POS")));
 
         assertThrows(PromotionCompilationException.class,
@@ -68,7 +68,7 @@ class PromotionCapabilityRegistryTest {
 
         assertEquals(PromotionCapabilityKind.CONDITION, descriptor.kind());
         assertTrue(descriptor.supportedOperators().contains(
-                tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionOperator.EQUALS));
+                tech.kayys.numou.commerce.promotion.domain.compiler.ConditionOperator.EQUALS));
         assertEquals(PromotionValueType.STRING, descriptor.valueType());
         assertTrue(descriptor.schema().isEmpty());
 

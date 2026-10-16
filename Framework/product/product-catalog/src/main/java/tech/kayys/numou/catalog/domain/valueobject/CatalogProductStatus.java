@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.catalog.domain.valueobject;
+package tech.kayys.numou.catalog.domain.valueobject;
 
 /**
  * Catalog (bounded-context) product status.
  *
  * <p>This is <b>not</b> the Product foundation lifecycle
- * ({@code tech.kayys.syirkah.product.domain.product.ProductStatus}:
+ * ({@code tech.kayys.numou.product.domain.product.ProductStatus}:
  * DRAFT → ACTIVE → DISCONTINUED → ARCHIVED). The Catalog context
  * keeps its own reversible model (DRAFT/ACTIVE/INACTIVE/DISCONTINUED)
  * because catalog listing and Product foundation lifecycle are

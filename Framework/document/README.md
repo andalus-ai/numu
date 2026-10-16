@@ -5,15 +5,15 @@ tests and an S3-compatible implementation for production deployments.
 
 The local adapter is disabled in the `prod` Quarkus build profile. Production
 must be built with the build-time property
-`syirkah.document.storage=s3`; otherwise the application fails closed instead of
+`numou.document.storage=s3`; otherwise the application fails closed instead of
 silently storing documents on a local disk. Configure the S3 adapter with:
 
 ```properties
-syirkah.document.s3.bucket=${DOCUMENT_S3_BUCKET}
-syirkah.document.s3.region=${DOCUMENT_S3_REGION:us-east-1}
-syirkah.document.s3.endpoint=${DOCUMENT_S3_ENDPOINT:}
-syirkah.document.s3.path-style=${DOCUMENT_S3_PATH_STYLE:false}
-syirkah.document.max-upload-bytes=${DOCUMENT_MAX_UPLOAD_BYTES:104857600}
+numou.document.s3.bucket=${DOCUMENT_S3_BUCKET}
+numou.document.s3.region=${DOCUMENT_S3_REGION:us-east-1}
+numou.document.s3.endpoint=${DOCUMENT_S3_ENDPOINT:}
+numou.document.s3.path-style=${DOCUMENT_S3_PATH_STYLE:false}
+numou.document.max-upload-bytes=${DOCUMENT_MAX_UPLOAD_BYTES:104857600}
 ```
 
 Credentials use the AWS SDK default provider chain. Set an endpoint and

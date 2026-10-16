@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.port;
+package tech.kayys.numou.accounting.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.domain.identifier.FiscalPeriodId;
-import tech.kayys.syirkah.accounting.domain.model.FiscalPeriod;
+import tech.kayys.numou.accounting.domain.identifier.FiscalPeriodId;
+import tech.kayys.numou.accounting.domain.model.FiscalPeriod;
 
 import java.time.LocalDate;
 import java.util.List;

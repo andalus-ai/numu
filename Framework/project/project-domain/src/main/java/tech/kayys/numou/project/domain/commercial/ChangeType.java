@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.commercial;
+package tech.kayys.numou.project.domain.commercial;
 
 /**
  * What a proposed change affects.

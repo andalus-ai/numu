@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.maintenance.due.MaintenanceDue;
-import tech.kayys.syirkah.asset.domain.maintenance.due.MaintenanceDueId;
+import tech.kayys.numou.asset.domain.maintenance.due.MaintenanceDue;
+import tech.kayys.numou.asset.domain.maintenance.due.MaintenanceDueId;
 
 import java.util.List;
 import java.util.Optional;

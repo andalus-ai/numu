@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.identity.adapter.outbound.security;
+package tech.kayys.numou.identity.adapter.outbound.security;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.identity.application.port.EffectivePermissionPort;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.security.domain.authorization.Principal;
-import tech.kayys.syirkah.security.domain.identifier.PrincipalId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.application.port.EffectivePermissionPort;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.identifier.PrincipalId;
 
 import java.util.Set;
 import java.util.UUID;
@@ -27,7 +27,7 @@ class IdentityPolicyAdapterTest {
         assertEquals("read", p2.action());
         assertEquals("sales.order.read", p2.name());
 
-        var domainPerm = new tech.kayys.syirkah.identity.domain.role.Permission("financial.ledger.post");
+        var domainPerm = new tech.kayys.numou.identity.domain.role.Permission("financial.ledger.post");
         var p3 = IdentityPermissionMapper.toSecurityPermission(domainPerm);
         assertEquals("financial.ledger", p3.resource());
         assertEquals("post", p3.action());

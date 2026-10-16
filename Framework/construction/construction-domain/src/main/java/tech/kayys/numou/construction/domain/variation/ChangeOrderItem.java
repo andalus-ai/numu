@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.domain.variation;
+package tech.kayys.numou.construction.domain.variation;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;

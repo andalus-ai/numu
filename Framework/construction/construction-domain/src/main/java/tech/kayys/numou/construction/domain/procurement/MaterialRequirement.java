@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.procurement;
+package tech.kayys.numou.construction.domain.procurement;
 
-import tech.kayys.syirkah.construction.domain.procurement.event.MaterialRequirementCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.procurement.event.MaterialRequirementCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.company.domain.valueobject;
+package tech.kayys.numou.company.domain.valueobject;
 
 /**
  * Status of a company.

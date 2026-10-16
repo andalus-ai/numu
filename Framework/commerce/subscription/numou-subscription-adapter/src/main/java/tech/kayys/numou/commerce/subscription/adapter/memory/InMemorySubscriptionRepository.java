@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.subscription.adapter.memory;
+package tech.kayys.numou.commerce.subscription.adapter.memory;
 
-import tech.kayys.syirkah.commerce.subscription.domain.Subscription;
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId;
-import tech.kayys.syirkah.commerce.subscription.spi.port.SubscriptionRepositoryPort;
+import tech.kayys.numou.commerce.subscription.domain.Subscription;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionId;
+import tech.kayys.numou.commerce.subscription.spi.port.SubscriptionRepositoryPort;
 
 import java.util.Map;
 import java.util.Optional;

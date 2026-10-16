@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.tax;
+package tech.kayys.numou.accounting.application.tax;
 
-import tech.kayys.syirkah.accounting.domain.tax.*;
+import tech.kayys.numou.accounting.domain.tax.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

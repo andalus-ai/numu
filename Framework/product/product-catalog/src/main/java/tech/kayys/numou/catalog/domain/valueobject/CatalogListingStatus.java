@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.catalog.domain.valueobject;
+package tech.kayys.numou.catalog.domain.valueobject;
 
 /**
  * Publication lifecycle status of a catalog listing (config03.md §P4-17 #8).

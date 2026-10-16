@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.product;
+package tech.kayys.numou.product.domain.product;
 
 /**
  * The nature of a business offering. Product Foundation must never

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
-import tech.kayys.syirkah.asset.domain.model.Asset;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.model.Asset;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

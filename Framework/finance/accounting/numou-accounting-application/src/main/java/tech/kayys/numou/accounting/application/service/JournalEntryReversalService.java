@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.accounting.application.service;
+package tech.kayys.numou.accounting.application.service;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.application.port.AccountRepository;
-import tech.kayys.syirkah.accounting.application.port.JournalEntryRepository;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.identifier.JournalEntryId;
-import tech.kayys.syirkah.accounting.domain.model.Account;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.application.port.AccountRepository;
+import tech.kayys.numou.accounting.application.port.JournalEntryRepository;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
+import tech.kayys.numou.accounting.domain.model.Account;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
 
 import java.time.Instant;
 import java.util.Objects;

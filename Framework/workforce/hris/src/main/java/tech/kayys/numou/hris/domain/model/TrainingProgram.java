@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.hris.domain.model;
+package tech.kayys.numou.hris.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.hris.domain.identifier.TrainingId;
-import tech.kayys.syirkah.hris.domain.valueobject.TrainingStatus;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.hris.domain.identifier.TrainingId;
+import tech.kayys.numou.hris.domain.valueobject.TrainingStatus;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

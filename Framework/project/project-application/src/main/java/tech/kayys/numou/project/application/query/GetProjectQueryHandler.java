@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.query;
+package tech.kayys.numou.project.application.query;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.project.spi.port.ProjectRepository;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.project.spi.port.ProjectRepository;
 
 import java.util.Objects;
 

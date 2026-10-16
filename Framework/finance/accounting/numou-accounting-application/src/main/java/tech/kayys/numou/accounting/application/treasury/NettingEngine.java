@@ -1,8 +1,8 @@
 
-package tech.kayys.syirkah.accounting.application.treasury;
+package tech.kayys.numou.accounting.application.treasury;
 
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;

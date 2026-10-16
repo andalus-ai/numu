@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.project.domain.project;
+package tech.kayys.numou.project.domain.project;
 
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
 
 public final class InvalidProjectStateException
         extends InvalidStateException {

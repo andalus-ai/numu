@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.security.application.context;
+package tech.kayys.numou.security.application.context;
 
-import tech.kayys.syirkah.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.authorization.Principal;
 
 import java.util.UUID;
 

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.stacking;
+package tech.kayys.numou.commerce.promotion.domain.stacking;
 
 import java.util.Objects;
 

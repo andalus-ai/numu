@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.application.api.query;
+package tech.kayys.numou.accounting.application.api.query;
 
-import tech.kayys.syirkah.accounting.application.cqrs.Query;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.accounting.domain.report.IncomeStatement;
-import tech.kayys.syirkah.accounting.domain.report.ReportPeriod;
+import tech.kayys.numou.accounting.application.cqrs.Query;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.report.IncomeStatement;
+import tech.kayys.numou.accounting.domain.report.ReportPeriod;
 
 import java.util.Objects;
 

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.security.adapter;
+package tech.kayys.numou.security.adapter;
 
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.foundation.adapter.context.CorrelationContext;
-import tech.kayys.syirkah.security.application.problem.Problem;
+import tech.kayys.numou.foundation.adapter.context.CorrelationContext;
+import tech.kayys.numou.security.application.problem.Problem;
 
 import java.util.LinkedHashMap;
 

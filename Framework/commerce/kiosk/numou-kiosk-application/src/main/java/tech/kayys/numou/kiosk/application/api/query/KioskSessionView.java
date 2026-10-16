@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.kiosk.application.api.query;
+package tech.kayys.numou.kiosk.application.api.query;
 
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskId;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskSessionId;
-import tech.kayys.syirkah.kiosk.domain.valueobject.SessionStatus;
+import tech.kayys.numou.kiosk.domain.identifier.KioskId;
+import tech.kayys.numou.kiosk.domain.identifier.KioskSessionId;
+import tech.kayys.numou.kiosk.domain.valueobject.SessionStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;

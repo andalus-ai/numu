@@ -1,32 +1,32 @@
-package tech.kayys.syirkah.identity.adapter.inbound.rest;
+package tech.kayys.numou.identity.adapter.inbound.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.foundation.application.page.Page;
-import tech.kayys.syirkah.foundation.application.page.PageRequest;
-import tech.kayys.syirkah.identity.adapter.inbound.rest.dto.ChangeEmailRequest;
-import tech.kayys.syirkah.identity.adapter.inbound.rest.dto.DeactivateUserRequest;
-import tech.kayys.syirkah.identity.adapter.inbound.rest.dto.RegisterUserRequest;
-import tech.kayys.syirkah.identity.adapter.inbound.rest.dto.UserResponse;
-import tech.kayys.syirkah.identity.application.command.ChangeUserEmailCommand;
-import tech.kayys.syirkah.identity.application.command.ChangeUserEmailCommandHandler;
-import tech.kayys.syirkah.identity.application.command.DeactivateUserCommand;
-import tech.kayys.syirkah.identity.application.command.DeactivateUserCommandHandler;
-import tech.kayys.syirkah.identity.application.command.RegisterUserCommand;
-import tech.kayys.syirkah.identity.application.command.RegisterUserCommandHandler;
-import tech.kayys.syirkah.identity.application.port.CurrentPrincipalPort;
-import tech.kayys.syirkah.identity.application.query.GetUserByIdQuery;
-import tech.kayys.syirkah.identity.application.query.GetUserByIdQueryHandler;
-import tech.kayys.syirkah.identity.application.query.ListUsersQuery;
-import tech.kayys.syirkah.identity.application.query.ListUsersQueryHandler;
-import tech.kayys.syirkah.identity.application.query.UserView;
+import tech.kayys.numou.foundation.application.page.Page;
+import tech.kayys.numou.foundation.application.page.PageRequest;
+import tech.kayys.numou.identity.adapter.inbound.rest.dto.ChangeEmailRequest;
+import tech.kayys.numou.identity.adapter.inbound.rest.dto.DeactivateUserRequest;
+import tech.kayys.numou.identity.adapter.inbound.rest.dto.RegisterUserRequest;
+import tech.kayys.numou.identity.adapter.inbound.rest.dto.UserResponse;
+import tech.kayys.numou.identity.application.command.ChangeUserEmailCommand;
+import tech.kayys.numou.identity.application.command.ChangeUserEmailCommandHandler;
+import tech.kayys.numou.identity.application.command.DeactivateUserCommand;
+import tech.kayys.numou.identity.application.command.DeactivateUserCommandHandler;
+import tech.kayys.numou.identity.application.command.RegisterUserCommand;
+import tech.kayys.numou.identity.application.command.RegisterUserCommandHandler;
+import tech.kayys.numou.identity.application.port.CurrentPrincipalPort;
+import tech.kayys.numou.identity.application.query.GetUserByIdQuery;
+import tech.kayys.numou.identity.application.query.GetUserByIdQueryHandler;
+import tech.kayys.numou.identity.application.query.ListUsersQuery;
+import tech.kayys.numou.identity.application.query.ListUsersQueryHandler;
+import tech.kayys.numou.identity.application.query.UserView;
 
 import java.net.URI;
 import java.util.UUID;
-import tech.kayys.syirkah.identity.application.security.PrincipalType;
+import tech.kayys.numou.identity.application.security.PrincipalType;
 
 /**
  * Thin inbound HTTP adapter. It does exactly two things: translate

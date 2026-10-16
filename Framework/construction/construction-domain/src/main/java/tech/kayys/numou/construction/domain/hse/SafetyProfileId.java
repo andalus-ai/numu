@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.domain.hse;
+package tech.kayys.numou.construction.domain.hse;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 import java.util.Objects;
 import java.util.UUID;
 

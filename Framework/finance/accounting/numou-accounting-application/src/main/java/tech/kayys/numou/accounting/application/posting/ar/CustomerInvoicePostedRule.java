@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.posting.ar;
+package tech.kayys.numou.accounting.application.posting.ar;
 
-import tech.kayys.syirkah.accounting.application.posting.*;
-import tech.kayys.syirkah.accounting.domain.ar.*;
+import tech.kayys.numou.accounting.application.posting.*;
+import tech.kayys.numou.accounting.domain.ar.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;

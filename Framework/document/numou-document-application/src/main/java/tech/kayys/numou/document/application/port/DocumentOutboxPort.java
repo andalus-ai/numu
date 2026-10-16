@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.document.application.port;
+package tech.kayys.numou.document.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.util.List;
 

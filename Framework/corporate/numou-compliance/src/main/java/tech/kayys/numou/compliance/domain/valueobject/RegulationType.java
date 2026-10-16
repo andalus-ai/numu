@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.compliance.domain.valueobject;
+package tech.kayys.numou.compliance.domain.valueobject;
 
 /**
  * Types of regulations.

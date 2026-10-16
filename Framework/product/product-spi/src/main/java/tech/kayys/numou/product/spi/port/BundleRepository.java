@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.product.spi.port;
+package tech.kayys.numou.product.spi.port;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.product.domain.bundle.Bundle;
-import tech.kayys.syirkah.product.domain.bundle.BundleId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.product.domain.bundle.Bundle;
+import tech.kayys.numou.product.domain.bundle.BundleId;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

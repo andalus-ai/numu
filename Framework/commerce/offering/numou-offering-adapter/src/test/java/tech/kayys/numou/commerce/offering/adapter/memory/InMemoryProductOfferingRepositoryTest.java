@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.commerce.offering.adapter.memory;
+package tech.kayys.numou.commerce.offering.adapter.memory;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.offering.domain.ChannelId;
-import tech.kayys.syirkah.commerce.offering.domain.OfferingType;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOffering;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.offering.domain.ChannelId;
+import tech.kayys.numou.commerce.offering.domain.OfferingType;
+import tech.kayys.numou.commerce.offering.domain.ProductOffering;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.time.LocalDate;
 import java.util.UUID;

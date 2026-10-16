@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.identity.application.query;
+package tech.kayys.numou.identity.application.query;
 
-import tech.kayys.syirkah.foundation.application.page.PageRequest;
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.foundation.application.page.PageRequest;
+import tech.kayys.numou.foundation.application.query.Query;
 
 import java.util.Objects;
 

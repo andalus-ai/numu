@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -6,9 +6,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.service.AccountingComplianceEngine;
-import tech.kayys.syirkah.accounting.domain.compliance.ComplianceConfiguration;
-import tech.kayys.syirkah.accounting.domain.valueobject.ComplianceStandard;
+import tech.kayys.numou.accounting.application.service.AccountingComplianceEngine;
+import tech.kayys.numou.accounting.domain.compliance.ComplianceConfiguration;
+import tech.kayys.numou.accounting.domain.valueobject.ComplianceStandard;
 
 @Path("/api/v1/accounting/compliance/config")
 @Produces(MediaType.APPLICATION_JSON)

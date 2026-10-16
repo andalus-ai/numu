@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.restaurant.kitchen.spi;
+package tech.kayys.numou.restaurant.kitchen.spi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.restaurant.kernel.domain.OrderId;
-import tech.kayys.syirkah.restaurant.kernel.domain.StationId;
-import tech.kayys.syirkah.restaurant.kernel.domain.TicketId;
-import tech.kayys.syirkah.restaurant.kernel.domain.VenueId;
-import tech.kayys.syirkah.restaurant.kernel.spi.VersionedRepository;
-import tech.kayys.syirkah.restaurant.kitchen.domain.KitchenTicket;
+import tech.kayys.numou.restaurant.kernel.domain.OrderId;
+import tech.kayys.numou.restaurant.kernel.domain.StationId;
+import tech.kayys.numou.restaurant.kernel.domain.TicketId;
+import tech.kayys.numou.restaurant.kernel.domain.VenueId;
+import tech.kayys.numou.restaurant.kernel.spi.VersionedRepository;
+import tech.kayys.numou.restaurant.kitchen.domain.KitchenTicket;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.subscription.domain;
+package tech.kayys.numou.commerce.subscription.domain;
 
 /**
  * Lifecycle of a subscription (blueprint §9 "Status").

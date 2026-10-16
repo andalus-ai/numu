@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.domain.valueobject;
+package tech.kayys.numou.accounting.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.math.BigDecimal;
 import java.util.Objects;

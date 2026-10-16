@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.controls;
+package tech.kayys.numou.construction.domain.controls;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

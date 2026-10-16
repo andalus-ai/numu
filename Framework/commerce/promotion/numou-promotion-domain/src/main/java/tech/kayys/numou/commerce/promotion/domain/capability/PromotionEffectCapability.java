@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.CompiledEffect;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.EffectDefinition;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.EffectType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.CompiledEffect;
+import tech.kayys.numou.commerce.promotion.domain.compiler.EffectDefinition;
+import tech.kayys.numou.commerce.promotion.domain.compiler.EffectType;
 
 /** Metadata + compilation for one effect (product03.md §67). */
 public interface PromotionEffectCapability {

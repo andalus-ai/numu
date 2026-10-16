@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.organization.application.port;
+package tech.kayys.numou.organization.application.port;
 
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.util.concurrent.CompletionStage;
 

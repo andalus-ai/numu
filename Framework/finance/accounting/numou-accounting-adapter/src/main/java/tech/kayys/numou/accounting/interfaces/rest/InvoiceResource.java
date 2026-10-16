@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.api.InvoiceService;
-import tech.kayys.syirkah.accounting.application.api.command.*;
-import tech.kayys.syirkah.accounting.application.api.query.*;
-import tech.kayys.syirkah.accounting.domain.identifier.InvoiceId;
-import tech.kayys.syirkah.accounting.domain.valueobject.InvoiceDeliveryMethod;
-import tech.kayys.syirkah.accounting.domain.valueobject.PaymentMethod;
+import tech.kayys.numou.accounting.application.api.InvoiceService;
+import tech.kayys.numou.accounting.application.api.command.*;
+import tech.kayys.numou.accounting.application.api.query.*;
+import tech.kayys.numou.accounting.domain.identifier.InvoiceId;
+import tech.kayys.numou.accounting.domain.valueobject.InvoiceDeliveryMethod;
+import tech.kayys.numou.accounting.domain.valueobject.PaymentMethod;
 
 import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.inject.Inject;
@@ -32,7 +32,7 @@ import java.util.concurrent.CompletionStage;
 // (produced by AccountingServiceProducer). Remove this gate once
 // application.api.InvoiceService is implemented or this resource is retired.
 @IfBuildProperty(
-        name = "syirkah.accounting.invoice-api.enabled",
+        name = "numou.accounting.invoice-api.enabled",
         stringValue = "false")
 @Path("/api/v1/invoices")
 @Produces(MediaType.APPLICATION_JSON)
@@ -287,7 +287,7 @@ public class InvoiceResource {
         // Parse and build search query
         SearchInvoicesQuery query = new SearchInvoicesQuery(
             customerId != null ? java.util.UUID.fromString(customerId.toString()) : null,
-            status != null ? tech.kayys.syirkah.accounting.domain.valueobject.InvoiceStatus.valueOf(status) : null,
+            status != null ? tech.kayys.numou.accounting.domain.valueobject.InvoiceStatus.valueOf(status) : null,
             fromDate != null ? java.time.Instant.parse(fromDate) : null,
             toDate != null ? java.time.Instant.parse(toDate) : null,
             minAmount,

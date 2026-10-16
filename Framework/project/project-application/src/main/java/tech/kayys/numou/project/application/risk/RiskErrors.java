@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.application.risk;
+package tech.kayys.numou.project.application.risk;
 
 public final class RiskErrors {
 

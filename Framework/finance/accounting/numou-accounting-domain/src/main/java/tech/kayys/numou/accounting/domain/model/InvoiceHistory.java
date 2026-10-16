@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.domain.model;
+package tech.kayys.numou.accounting.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
-import tech.kayys.syirkah.accounting.domain.valueobject.InvoiceStatus;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.accounting.domain.valueobject.InvoiceStatus;
 
 import java.time.Instant;
 import java.util.Objects;

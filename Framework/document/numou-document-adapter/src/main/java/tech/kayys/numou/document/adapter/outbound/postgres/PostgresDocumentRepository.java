@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.document.adapter.outbound.postgres;
+package tech.kayys.numou.document.adapter.outbound.postgres;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.accounting.domain.document.Document;
-import tech.kayys.syirkah.accounting.domain.document.DocumentClassification;
-import tech.kayys.syirkah.accounting.domain.document.DocumentId;
-import tech.kayys.syirkah.accounting.domain.document.DocumentMetadata;
-import tech.kayys.syirkah.accounting.domain.document.DocumentStatus;
-import tech.kayys.syirkah.accounting.domain.document.DocumentType;
-import tech.kayys.syirkah.accounting.domain.document.DocumentVersion;
-import tech.kayys.syirkah.accounting.domain.document.DocumentVersionId;
-import tech.kayys.syirkah.document.application.port.DocumentRepository;
+import tech.kayys.numou.accounting.domain.document.Document;
+import tech.kayys.numou.accounting.domain.document.DocumentClassification;
+import tech.kayys.numou.accounting.domain.document.DocumentId;
+import tech.kayys.numou.accounting.domain.document.DocumentMetadata;
+import tech.kayys.numou.accounting.domain.document.DocumentStatus;
+import tech.kayys.numou.accounting.domain.document.DocumentType;
+import tech.kayys.numou.accounting.domain.document.DocumentVersion;
+import tech.kayys.numou.accounting.domain.document.DocumentVersionId;
+import tech.kayys.numou.document.application.port.DocumentRepository;
 
 import java.util.HashSet;
 import java.util.Optional;

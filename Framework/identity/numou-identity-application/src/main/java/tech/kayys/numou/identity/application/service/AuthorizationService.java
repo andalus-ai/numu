@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.identity.application.service;
+package tech.kayys.numou.identity.application.service;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.identity.application.port.AuthorizationException;
-import tech.kayys.syirkah.identity.application.port.AuthorizationPort;
-import tech.kayys.syirkah.identity.application.port.CurrentPrincipalPort;
-import tech.kayys.syirkah.identity.application.port.TenantMembershipPort;
-import tech.kayys.syirkah.identity.application.security.AuthorizationRequirement;
+import tech.kayys.numou.identity.application.port.AuthorizationException;
+import tech.kayys.numou.identity.application.port.AuthorizationPort;
+import tech.kayys.numou.identity.application.port.CurrentPrincipalPort;
+import tech.kayys.numou.identity.application.port.TenantMembershipPort;
+import tech.kayys.numou.identity.application.security.AuthorizationRequirement;
 
 import java.util.Objects;
 

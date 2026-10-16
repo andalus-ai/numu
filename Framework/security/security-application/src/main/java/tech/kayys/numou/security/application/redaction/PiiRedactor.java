@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.application.redaction;
+package tech.kayys.numou.security.application.redaction;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

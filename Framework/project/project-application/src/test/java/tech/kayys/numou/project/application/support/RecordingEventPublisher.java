@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.project.application.support;
+package tech.kayys.numou.project.application.support;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.util.ArrayList;
 import java.util.List;

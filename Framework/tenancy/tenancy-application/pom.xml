@@ -5,23 +5,23 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-tenancy</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-tenancy</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-tenancy-application</artifactId>
+    <artifactId>numou-tenancy-application</artifactId>
     <name>Numou Tenancy - Application</name>
     <description>Use cases / command handlers for Tenant, Membership, Settings, and Provisioning.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-tenancy-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-tenancy-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

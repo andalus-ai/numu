@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.document;
+package tech.kayys.numou.construction.domain.document;
 
-import tech.kayys.syirkah.construction.domain.document.event.RfiSubmitted;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.document.event.RfiSubmitted;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.accounting.domain.model;
+package tech.kayys.numou.accounting.domain.model;
 
-import tech.kayys.syirkah.accounting.domain.dimension.DimensionValue;
-import tech.kayys.syirkah.accounting.domain.event.*;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.identifier.JournalEntryId;
-import tech.kayys.syirkah.accounting.domain.islamic.ShariaContractType;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerAware;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantAware;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.accounting.domain.dimension.DimensionValue;
+import tech.kayys.numou.accounting.domain.event.*;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
+import tech.kayys.numou.accounting.domain.islamic.ShariaContractType;
+import tech.kayys.numou.accounting.domain.ledger.LedgerAware;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantAware;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.time.Instant;
 import java.util.ArrayList;

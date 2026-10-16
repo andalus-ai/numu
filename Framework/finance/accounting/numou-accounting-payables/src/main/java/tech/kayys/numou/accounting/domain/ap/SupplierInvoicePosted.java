@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.ap;
+package tech.kayys.numou.accounting.domain.ap;
 
 import java.time.Instant;
 import java.util.List;

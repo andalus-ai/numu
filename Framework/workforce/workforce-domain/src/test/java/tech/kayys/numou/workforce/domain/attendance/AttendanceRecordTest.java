@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.workforce.domain.attendance;
+package tech.kayys.numou.workforce.domain.attendance;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.workforce.domain.attendance.event.AttendanceRecordClosed;
-import tech.kayys.syirkah.workforce.domain.attendance.event.AttendanceRecordCreated;
-import tech.kayys.syirkah.workforce.domain.attendance.event.WorkerClockedIn;
-import tech.kayys.syirkah.workforce.domain.attendance.event.WorkerClockedOut;
-import tech.kayys.syirkah.workforce.domain.employment.EmploymentId;
-import tech.kayys.syirkah.workforce.domain.worker.WorkerId;
+import tech.kayys.numou.workforce.domain.attendance.event.AttendanceRecordClosed;
+import tech.kayys.numou.workforce.domain.attendance.event.AttendanceRecordCreated;
+import tech.kayys.numou.workforce.domain.attendance.event.WorkerClockedIn;
+import tech.kayys.numou.workforce.domain.attendance.event.WorkerClockedOut;
+import tech.kayys.numou.workforce.domain.employment.EmploymentId;
+import tech.kayys.numou.workforce.domain.worker.WorkerId;
 
 import java.time.Duration;
 import java.time.LocalDate;

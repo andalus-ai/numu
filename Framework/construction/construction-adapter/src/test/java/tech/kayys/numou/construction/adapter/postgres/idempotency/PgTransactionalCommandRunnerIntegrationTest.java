@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.adapter.postgres.idempotency;
+package tech.kayys.numou.construction.adapter.postgres.idempotency;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Uni;
@@ -8,13 +8,13 @@ import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.construction.application.idempotency.CommandOutcomeCodec;
-import tech.kayys.syirkah.construction.application.idempotency.IdempotentCommandExecutor;
-import tech.kayys.syirkah.construction.domain.boq.BoqCalculationPolicy;
-import tech.kayys.syirkah.construction.domain.boq.BoqRevisionSnapshot;
-import tech.kayys.syirkah.construction.spi.idempotency.CommandIdempotencyStore;
-import tech.kayys.syirkah.construction.spi.idempotency.TransactionalCommandContext;
-import tech.kayys.syirkah.construction.spi.outbox.TransactionalOutboxEvent;
+import tech.kayys.numou.construction.application.idempotency.CommandOutcomeCodec;
+import tech.kayys.numou.construction.application.idempotency.IdempotentCommandExecutor;
+import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
+import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
+import tech.kayys.numou.construction.spi.idempotency.CommandIdempotencyStore;
+import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
+import tech.kayys.numou.construction.spi.outbox.TransactionalOutboxEvent;
 
 import java.time.Instant;
 import java.util.UUID;

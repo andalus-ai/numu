@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.ecosystem.application.port;
+package tech.kayys.numou.ecosystem.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.ecosystem.domain.identifier.ParticipantId;
-import tech.kayys.syirkah.ecosystem.domain.model.Participant;
+import tech.kayys.numou.ecosystem.domain.identifier.ParticipantId;
+import tech.kayys.numou.ecosystem.domain.model.Participant;
 
 import java.util.Optional;
 

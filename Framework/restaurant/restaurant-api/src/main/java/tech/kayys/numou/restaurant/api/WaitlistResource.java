@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -9,14 +9,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import tech.kayys.syirkah.reservation.application.WaitlistService;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.reservation.application.WaitlistService;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.WAITLIST;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.WAITLIST;
 
 @Path("/api/v1/venues/{venueId}/waitlist")
 @Produces(MediaType.APPLICATION_JSON)

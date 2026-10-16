@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.groceries.application.api;
+package tech.kayys.numou.groceries.application.api;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.adapter.postgres.context;
+package tech.kayys.numou.construction.adapter.postgres.context;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Uni;

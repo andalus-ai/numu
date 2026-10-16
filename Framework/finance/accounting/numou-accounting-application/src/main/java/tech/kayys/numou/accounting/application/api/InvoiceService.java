@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.api;
+package tech.kayys.numou.accounting.application.api;
 
-import tech.kayys.syirkah.accounting.application.api.command.*;
-import tech.kayys.syirkah.accounting.application.api.query.*;
-import tech.kayys.syirkah.accounting.domain.identifier.InvoiceId;
+import tech.kayys.numou.accounting.application.api.command.*;
+import tech.kayys.numou.accounting.application.api.query.*;
+import tech.kayys.numou.accounting.domain.identifier.InvoiceId;
 
 import java.util.concurrent.CompletionStage;
 

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.configuration.spi.port;
+package tech.kayys.numou.commerce.configuration.spi.port;
 
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecification;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.specification.ProductSpecification;
 
 import java.util.List;
 import java.util.concurrent.CompletionStage;

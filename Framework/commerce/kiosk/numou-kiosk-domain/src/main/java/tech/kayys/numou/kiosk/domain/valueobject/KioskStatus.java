@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
 /**
  * Status of a kiosk device.

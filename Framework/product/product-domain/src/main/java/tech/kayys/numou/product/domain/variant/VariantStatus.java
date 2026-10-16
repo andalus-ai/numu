@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.variant;
+package tech.kayys.numou.product.domain.variant;
 
 /**
  * Variant lifecycle - independent from the product lifecycle: a

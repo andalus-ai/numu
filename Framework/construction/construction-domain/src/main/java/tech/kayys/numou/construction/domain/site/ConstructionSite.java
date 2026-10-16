@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.domain.site;
+package tech.kayys.numou.construction.domain.site;
 
-import tech.kayys.syirkah.construction.domain.site.event.ConstructionSiteClosed;
-import tech.kayys.syirkah.construction.domain.site.event.ConstructionSiteCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.site.event.ConstructionSiteClosed;
+import tech.kayys.numou.construction.domain.site.event.ConstructionSiteCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.consolidation;
+package tech.kayys.numou.accounting.consolidation;
 
 import java.util.Optional;
 

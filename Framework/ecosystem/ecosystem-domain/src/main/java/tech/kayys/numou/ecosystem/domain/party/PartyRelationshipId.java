@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.ecosystem.domain.party;
+package tech.kayys.numou.ecosystem.domain.party;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.util.UUID;

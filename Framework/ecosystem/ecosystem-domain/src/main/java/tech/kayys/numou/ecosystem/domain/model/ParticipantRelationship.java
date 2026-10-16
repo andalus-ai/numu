@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.ecosystem.domain.model;
+package tech.kayys.numou.ecosystem.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.ecosystem.domain.identifier.ParticipantId;
-import tech.kayys.syirkah.ecosystem.domain.identifier.RelationshipId;
-import tech.kayys.syirkah.ecosystem.domain.valueobject.RelationshipStatus;
-import tech.kayys.syirkah.ecosystem.domain.valueobject.RelationshipType;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.ecosystem.domain.identifier.ParticipantId;
+import tech.kayys.numou.ecosystem.domain.identifier.RelationshipId;
+import tech.kayys.numou.ecosystem.domain.valueobject.RelationshipStatus;
+import tech.kayys.numou.ecosystem.domain.valueobject.RelationshipType;
 
 import java.time.Instant;
 import java.time.LocalDate;

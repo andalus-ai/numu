@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.risk;
+package tech.kayys.numou.construction.domain.risk;
 
 public enum ConstructionClaimStatus {
     NOTIFIED,

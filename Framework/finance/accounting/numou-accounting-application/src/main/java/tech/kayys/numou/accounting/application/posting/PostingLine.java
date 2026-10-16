@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.posting;
+package tech.kayys.numou.accounting.application.posting;
 
 import java.math.BigDecimal;
 import java.util.Objects;

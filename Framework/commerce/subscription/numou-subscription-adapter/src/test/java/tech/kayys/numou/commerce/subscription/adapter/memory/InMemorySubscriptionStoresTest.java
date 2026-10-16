@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.commerce.subscription.adapter.memory;
+package tech.kayys.numou.commerce.subscription.adapter.memory;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.subscription.domain.BillingCycle;
-import tech.kayys.syirkah.commerce.subscription.domain.Entitlement;
-import tech.kayys.syirkah.commerce.subscription.domain.RenewalPolicy;
-import tech.kayys.syirkah.commerce.subscription.domain.Subscription;
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId;
-import tech.kayys.syirkah.commerce.subscription.domain.UsageEntry;
-import tech.kayys.syirkah.commerce.subscription.domain.UsageMeter;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.subscription.domain.BillingCycle;
+import tech.kayys.numou.commerce.subscription.domain.Entitlement;
+import tech.kayys.numou.commerce.subscription.domain.RenewalPolicy;
+import tech.kayys.numou.commerce.subscription.domain.Subscription;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionId;
+import tech.kayys.numou.commerce.subscription.domain.UsageEntry;
+import tech.kayys.numou.commerce.subscription.domain.UsageMeter;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
 
 import java.math.BigDecimal;
 import java.time.Instant;

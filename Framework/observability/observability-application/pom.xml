@@ -4,23 +4,23 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-observability</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-observability</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-observability-application</artifactId>
+    <artifactId>numou-observability-application</artifactId>
     <name>Numou Observability - Application</name>
     <description>Handler/use-case decorators: span + duration + outcome metrics with a tag-cardinality guard.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-observability-api</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-observability-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

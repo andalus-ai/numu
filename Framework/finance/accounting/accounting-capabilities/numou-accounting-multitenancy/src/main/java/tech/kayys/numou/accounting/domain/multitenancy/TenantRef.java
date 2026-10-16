@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.domain.multitenancy;
+package tech.kayys.numou.accounting.domain.multitenancy;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 import java.util.Objects;
 import java.util.UUID;
 

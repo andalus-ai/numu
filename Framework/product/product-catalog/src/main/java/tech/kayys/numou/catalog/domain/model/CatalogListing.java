@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.catalog.domain.model;
+package tech.kayys.numou.catalog.domain.model;
 
-import tech.kayys.syirkah.catalog.domain.valueobject.CatalogId;
-import tech.kayys.syirkah.catalog.domain.valueobject.CatalogListingId;
-import tech.kayys.syirkah.catalog.domain.valueobject.CatalogListingStatus;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.catalog.domain.valueobject.CatalogId;
+import tech.kayys.numou.catalog.domain.valueobject.CatalogListingId;
+import tech.kayys.numou.catalog.domain.valueobject.CatalogListingStatus;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.util.Objects;
 

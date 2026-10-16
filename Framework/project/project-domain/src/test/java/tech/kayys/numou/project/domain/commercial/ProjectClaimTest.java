@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.project.domain.commercial;
+package tech.kayys.numou.project.domain.commercial;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.project.domain.commercial.event.ClaimAccepted;
-import tech.kayys.syirkah.project.domain.commercial.event.ClaimRejected;
-import tech.kayys.syirkah.project.domain.commercial.event.ClaimSettled;
-import tech.kayys.syirkah.project.domain.commercial.event.ClaimSubmitted;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.project.domain.commercial.event.ClaimAccepted;
+import tech.kayys.numou.project.domain.commercial.event.ClaimRejected;
+import tech.kayys.numou.project.domain.commercial.event.ClaimSettled;
+import tech.kayys.numou.project.domain.commercial.event.ClaimSubmitted;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.math.BigDecimal;
 

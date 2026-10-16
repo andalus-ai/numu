@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.domain.role;
+package tech.kayys.numou.identity.domain.role;
 
 import java.util.Objects;
 

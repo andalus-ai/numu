@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.identity.application.command;
+package tech.kayys.numou.identity.application.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
-import tech.kayys.syirkah.identity.application.port.UserRepository;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.identity.domain.valueobject.EmailAddress;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
+import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.identity.domain.valueobject.EmailAddress;
 
 import java.util.Objects;
 

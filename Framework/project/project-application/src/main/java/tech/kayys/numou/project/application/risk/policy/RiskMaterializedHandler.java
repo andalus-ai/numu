@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.project.application.risk.policy;
+package tech.kayys.numou.project.application.risk.policy;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.project.domain.risk.Issue;
-import tech.kayys.syirkah.project.domain.risk.IssueId;
-import tech.kayys.syirkah.project.domain.risk.event.RiskMaterialized;
-import tech.kayys.syirkah.project.spi.port.IssueRepository;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.project.domain.risk.Issue;
+import tech.kayys.numou.project.domain.risk.IssueId;
+import tech.kayys.numou.project.domain.risk.event.RiskMaterialized;
+import tech.kayys.numou.project.spi.port.IssueRepository;
 
 import java.util.Objects;
 

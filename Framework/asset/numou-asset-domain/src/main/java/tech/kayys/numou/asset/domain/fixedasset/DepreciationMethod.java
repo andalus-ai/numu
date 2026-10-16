@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.fixedasset;
+package tech.kayys.numou.asset.domain.fixedasset;
 
 /** Depreciation calculation method. */
 public enum DepreciationMethod {

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.task;
+package tech.kayys.numou.project.domain.task;
 
 public enum AssignmentStatus {
 

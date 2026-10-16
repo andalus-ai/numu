@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.postgres;
+package tech.kayys.numou.document.adapter.outbound.postgres;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,13 +6,13 @@ import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.accounting.domain.document.DocumentArchived;
-import tech.kayys.syirkah.accounting.domain.document.DocumentCreated;
-import tech.kayys.syirkah.accounting.domain.document.DocumentDeleted;
-import tech.kayys.syirkah.accounting.domain.document.DocumentPublished;
-import tech.kayys.syirkah.accounting.domain.document.DocumentVersionCreated;
-import tech.kayys.syirkah.document.application.port.DocumentOutboxPort;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.accounting.domain.document.DocumentArchived;
+import tech.kayys.numou.accounting.domain.document.DocumentCreated;
+import tech.kayys.numou.accounting.domain.document.DocumentDeleted;
+import tech.kayys.numou.accounting.domain.document.DocumentPublished;
+import tech.kayys.numou.accounting.domain.document.DocumentVersionCreated;
+import tech.kayys.numou.document.application.port.DocumentOutboxPort;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.time.Instant;
 import java.util.List;

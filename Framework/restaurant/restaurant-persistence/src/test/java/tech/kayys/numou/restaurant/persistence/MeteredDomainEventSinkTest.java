@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.restaurant.persistence;
+package tech.kayys.numou.restaurant.persistence;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.observability.MetricName;
-import tech.kayys.syirkah.observability.MetricsPort;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.observability.MetricName;
+import tech.kayys.numou.observability.MetricsPort;
 
 import java.time.Duration;
 import java.time.Instant;

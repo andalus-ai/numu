@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.commerce.promotion.domain.context;
+package tech.kayys.numou.commerce.promotion.domain.context;
 
-import tech.kayys.syirkah.commerce.promotion.domain.target.LineTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.MultiTargetSelection;
-import tech.kayys.syirkah.commerce.promotion.domain.target.PromotionTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.PromotionTargetSelection;
-import tech.kayys.syirkah.commerce.promotion.domain.target.SingleTargetSelection;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
+import tech.kayys.numou.commerce.promotion.domain.target.LineTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.MultiTargetSelection;
+import tech.kayys.numou.commerce.promotion.domain.target.PromotionTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.PromotionTargetSelection;
+import tech.kayys.numou.commerce.promotion.domain.target.SingleTargetSelection;
+import tech.kayys.numou.product.domain.sku.SkuId;
 
 import java.util.List;
 import java.util.Objects;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.milestone;
+package tech.kayys.numou.project.domain.milestone;
 
 /**
  * Lifecycle status of a project milestone.

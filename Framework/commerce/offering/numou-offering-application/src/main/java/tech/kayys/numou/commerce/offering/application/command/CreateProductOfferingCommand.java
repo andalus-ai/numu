@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.commerce.offering.application.command;
+package tech.kayys.numou.commerce.offering.application.command;
 
-import tech.kayys.syirkah.commerce.offering.domain.ChannelId;
-import tech.kayys.syirkah.commerce.offering.domain.OfferingType;
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.offering.domain.ChannelId;
+import tech.kayys.numou.commerce.offering.domain.OfferingType;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.util.Objects;
 import java.util.UUID;

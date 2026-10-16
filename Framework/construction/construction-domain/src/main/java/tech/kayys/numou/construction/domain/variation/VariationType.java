@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.variation;
+package tech.kayys.numou.construction.domain.variation;
 
 public enum VariationType {
     ADD_QUANTITY,

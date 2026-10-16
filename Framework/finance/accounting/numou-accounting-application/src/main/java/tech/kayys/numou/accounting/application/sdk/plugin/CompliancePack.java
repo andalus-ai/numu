@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.sdk.plugin;
+package tech.kayys.numou.accounting.application.sdk.plugin;
 
 /**
  * Specialised PlatformPlugin that represents a country / standards compliance pack

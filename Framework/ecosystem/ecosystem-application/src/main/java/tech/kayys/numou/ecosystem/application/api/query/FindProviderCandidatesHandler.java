@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.ecosystem.application.api.query;
+package tech.kayys.numou.ecosystem.application.api.query;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.ecosystem.application.port.CapabilityRepository;
-import tech.kayys.syirkah.ecosystem.application.port.ParticipantRepository;
-import tech.kayys.syirkah.ecosystem.application.port.ProviderCapabilityRepository;
-import tech.kayys.syirkah.ecosystem.domain.model.Capability;
-import tech.kayys.syirkah.ecosystem.domain.model.ProviderCapability;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
+import tech.kayys.numou.ecosystem.application.port.CapabilityRepository;
+import tech.kayys.numou.ecosystem.application.port.ParticipantRepository;
+import tech.kayys.numou.ecosystem.application.port.ProviderCapabilityRepository;
+import tech.kayys.numou.ecosystem.domain.model.Capability;
+import tech.kayys.numou.ecosystem.domain.model.ProviderCapability;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
 
 import java.util.List;
 import java.util.Locale;

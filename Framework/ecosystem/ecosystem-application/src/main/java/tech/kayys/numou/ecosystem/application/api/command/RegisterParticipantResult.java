@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.ecosystem.application.api.command;
+package tech.kayys.numou.ecosystem.application.api.command;
 
 import java.util.UUID;
 

@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.document.application.command;
+package tech.kayys.numou.document.application.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.domain.document.UploadSession;
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionId;
-import tech.kayys.syirkah.document.application.port.DocumentAccessPort;
-import tech.kayys.syirkah.document.application.port.DocumentStoragePort;
-import tech.kayys.syirkah.document.application.port.UploadSessionRepository;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.accounting.domain.document.UploadSession;
+import tech.kayys.numou.accounting.domain.document.UploadSessionId;
+import tech.kayys.numou.document.application.port.DocumentAccessPort;
+import tech.kayys.numou.document.application.port.DocumentStoragePort;
+import tech.kayys.numou.document.application.port.UploadSessionRepository;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.time.Duration;
 import java.util.Objects;

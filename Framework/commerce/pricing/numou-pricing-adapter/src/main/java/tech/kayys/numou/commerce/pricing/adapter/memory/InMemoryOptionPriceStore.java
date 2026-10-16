@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.pricing.adapter.memory;
+package tech.kayys.numou.commerce.pricing.adapter.memory;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.pricing.spi.port.OptionPricePort;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.pricing.spi.port.OptionPricePort;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Map;
 import java.util.Objects;

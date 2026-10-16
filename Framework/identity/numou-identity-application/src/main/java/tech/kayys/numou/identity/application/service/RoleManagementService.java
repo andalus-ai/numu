@@ -1,21 +1,21 @@
-package tech.kayys.syirkah.identity.application.service;
+package tech.kayys.numou.identity.application.service;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
-import tech.kayys.syirkah.identity.application.port.IdentityOutboxPort;
-import tech.kayys.syirkah.identity.application.port.MembershipManagementPort;
-import tech.kayys.syirkah.identity.application.port.RoleAssignmentPort;
-import tech.kayys.syirkah.identity.application.port.RoleRepository;
-import tech.kayys.syirkah.identity.application.security.AuthorizationRequirement;
-import tech.kayys.syirkah.identity.application.security.PrincipalType;
-import tech.kayys.syirkah.identity.application.port.CurrentPrincipalPort;
-import tech.kayys.syirkah.identity.domain.role.Permission;
-import tech.kayys.syirkah.identity.domain.role.Role;
-import tech.kayys.syirkah.identity.domain.role.RoleId;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
+import tech.kayys.numou.identity.application.port.IdentityOutboxPort;
+import tech.kayys.numou.identity.application.port.MembershipManagementPort;
+import tech.kayys.numou.identity.application.port.RoleAssignmentPort;
+import tech.kayys.numou.identity.application.port.RoleRepository;
+import tech.kayys.numou.identity.application.security.AuthorizationRequirement;
+import tech.kayys.numou.identity.application.security.PrincipalType;
+import tech.kayys.numou.identity.application.port.CurrentPrincipalPort;
+import tech.kayys.numou.identity.domain.role.Permission;
+import tech.kayys.numou.identity.domain.role.Role;
+import tech.kayys.numou.identity.domain.role.RoleId;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.util.Objects;
 

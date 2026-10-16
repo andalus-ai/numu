@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.subscription.spi.port;
+package tech.kayys.numou.commerce.subscription.spi.port;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.subscription.domain.Entitlement;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.subscription.domain.Entitlement;
 
 import java.util.List;
 import java.util.concurrent.CompletionStage;

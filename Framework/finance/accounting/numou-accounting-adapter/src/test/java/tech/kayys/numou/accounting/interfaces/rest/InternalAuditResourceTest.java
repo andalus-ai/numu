@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.audit.InternalAuditService;
+import tech.kayys.numou.accounting.application.audit.InternalAuditService;
 
 import java.util.List;
 import java.util.Map;

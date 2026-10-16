@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.identity.adapter.outbound.security;
+package tech.kayys.numou.identity.adapter.outbound.security;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import org.mindrot.jbcrypt.BCrypt;
-import tech.kayys.syirkah.identity.application.port.PasswordHasher;
-import tech.kayys.syirkah.identity.domain.valueobject.PasswordHash;
+import tech.kayys.numou.identity.application.port.PasswordHasher;
+import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 @ApplicationScoped
 public class JBcryptPasswordHasher implements PasswordHasher {

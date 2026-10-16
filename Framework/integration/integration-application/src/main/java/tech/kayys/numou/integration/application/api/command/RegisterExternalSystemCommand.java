@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.integration.application.api.command;
+package tech.kayys.numou.integration.application.api.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.integration.domain.valueobject.AuthScheme;
-import tech.kayys.syirkah.integration.domain.valueobject.ExternalSystemType;
-import tech.kayys.syirkah.integration.domain.valueobject.IntegrationDirection;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.integration.domain.valueobject.AuthScheme;
+import tech.kayys.numou.integration.domain.valueobject.ExternalSystemType;
+import tech.kayys.numou.integration.domain.valueobject.IntegrationDirection;
 
 import java.util.Objects;
 import java.util.Set;

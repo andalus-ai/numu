@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
 /**
  * Outcome of evaluating one condition against a controlled context

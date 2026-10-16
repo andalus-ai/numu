@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.api.query;
+package tech.kayys.numou.accounting.application.api.query;
 
-import tech.kayys.syirkah.accounting.domain.valueobject.InvoiceStatus;
+import tech.kayys.numou.accounting.domain.valueobject.InvoiceStatus;
 
 import java.util.Map;
 

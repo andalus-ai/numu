@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.inspection;
+package tech.kayys.numou.asset.domain.inspection;
 
 /** Lifecycle status of an asset inspection (see ASSET-20 section 20.4). */
 public enum AssetInspectionStatus {

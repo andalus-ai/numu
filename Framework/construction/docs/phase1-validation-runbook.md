@@ -7,7 +7,7 @@ This starter has two distinct validation layers. Keep their evidence separate:
 
 ## Commands
 
-From the `syirkah-phase1` directory:
+From the `numou-phase1` directory:
 
 ```bash
 # Fast checks; no database or Docker required

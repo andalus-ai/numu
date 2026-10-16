@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.cache;
+package tech.kayys.numou.cache;
 
 import io.smallrye.mutiny.Uni;
 

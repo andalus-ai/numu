@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilityRegistry;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilities;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilityRegistry;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilities;
 
 import java.util.Objects;
 

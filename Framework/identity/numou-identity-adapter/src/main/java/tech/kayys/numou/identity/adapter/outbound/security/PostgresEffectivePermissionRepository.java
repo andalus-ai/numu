@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.identity.adapter.outbound.security;
+package tech.kayys.numou.identity.adapter.outbound.security;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.identity.application.port.EffectivePermissionPort;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.application.port.EffectivePermissionPort;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.util.Set;
 

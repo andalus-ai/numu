@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.postgres;
+package tech.kayys.numou.document.adapter.outbound.postgres;
 
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.Column;

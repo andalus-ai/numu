@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.result;
+package tech.kayys.numou.commerce.promotion.domain.result;
 
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionApplied;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionRejected;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionApplied;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionRejected;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.List;
 import java.util.Objects;

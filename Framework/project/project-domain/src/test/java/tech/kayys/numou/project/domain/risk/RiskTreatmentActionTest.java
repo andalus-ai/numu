@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.time.LocalDate;
 import java.util.UUID;

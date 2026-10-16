@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.domain.model;
+package tech.kayys.numou.accounting.domain.model;
 
-import tech.kayys.syirkah.accounting.domain.event.MurabahaCreated;
-import tech.kayys.syirkah.accounting.domain.event.MurabahaSettled;
-import tech.kayys.syirkah.accounting.domain.event.ProfitRecognized;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.event.MurabahaCreated;
+import tech.kayys.numou.accounting.domain.event.MurabahaSettled;
+import tech.kayys.numou.accounting.domain.event.ProfitRecognized;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

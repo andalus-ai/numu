@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.commerce.promotion.domain.validation;
+package tech.kayys.numou.commerce.promotion.domain.validation;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionRule;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PercentOff;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumQuantityOf;
-import tech.kayys.syirkah.commerce.promotion.domain.observability.PromotionEvaluationTracer;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionApplied;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
-import tech.kayys.syirkah.commerce.promotion.domain.target.CartTarget;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionRule;
+import tech.kayys.numou.commerce.promotion.domain.action.PercentOff;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumQuantityOf;
+import tech.kayys.numou.commerce.promotion.domain.observability.PromotionEvaluationTracer;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionApplied;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
+import tech.kayys.numou.commerce.promotion.domain.target.CartTarget;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
 
 import java.time.LocalDate;
 import java.util.List;

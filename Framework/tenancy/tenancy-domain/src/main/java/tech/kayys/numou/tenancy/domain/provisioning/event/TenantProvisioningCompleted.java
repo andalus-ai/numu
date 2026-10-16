@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.tenancy.domain.provisioning.event;
+package tech.kayys.numou.tenancy.domain.provisioning.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.UUID;

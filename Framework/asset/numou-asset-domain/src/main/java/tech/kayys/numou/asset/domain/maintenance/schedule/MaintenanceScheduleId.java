@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.maintenance.schedule;
+package tech.kayys.numou.asset.domain.maintenance.schedule;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.io.Serializable;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.phase;
+package tech.kayys.numou.project.domain.phase;
 
 /**
  * Generic classification of a phase.

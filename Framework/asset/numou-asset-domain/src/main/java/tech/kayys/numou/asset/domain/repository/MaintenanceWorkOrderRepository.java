@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.maintenance.workorder.MaintenanceWorkOrder;
-import tech.kayys.syirkah.asset.domain.maintenance.workorder.MaintenanceWorkOrderId;
+import tech.kayys.numou.asset.domain.maintenance.workorder.MaintenanceWorkOrder;
+import tech.kayys.numou.asset.domain.maintenance.workorder.MaintenanceWorkOrderId;
 
 import java.util.List;
 import java.util.Optional;

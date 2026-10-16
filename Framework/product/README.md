@@ -22,7 +22,7 @@ product/
 ### product-domain (pure Java, no frameworks)
 
 ```text
-tech.kayys.syirkah.product.domain
+tech.kayys.numou.product.domain
 ├── product/         Product, ProductId, ProductType, ProductStatus
 ├── identifier/      ProductIdentifier, IdentifierType
 ├── variant/         ProductVariant, ProductVariantId, VariantStatus, VariantAttribute
@@ -107,7 +107,7 @@ product — product02.md places it there deliberately.
 ## Consolidated: `product-core` (removed)
 
 `product-core` carried a **second, flatter Product domain** in the *same*
-package prefix as `product-domain` (`tech.kayys.syirkah.product.domain.*`).
+package prefix as `product-domain` (`tech.kayys.numou.product.domain.*`).
 It has been consolidated into Product 1.0 and the module deleted.
 
 ## Bounded-context naming (consolidation round 2)
@@ -122,7 +122,7 @@ reference the foundation by `ProductId` and by consuming Product events.
 | --- | --- | --- | --- |
 | Catalog (`product-catalog`) | `catalog.domain.model.Product` | `catalog.domain.model.CatalogProduct` | References `product.domain.product.ProductId`; adds price / stock level / catalog status |
 | Catalog (`product-catalog`) | `catalog.domain.valueobject.ProductStatus` | `catalog.domain.valueobject.CatalogProductStatus` | Own reversible lifecycle (DRAFT/ACTIVE/INACTIVE/DISCONTINUED); deliberately decoupled from the Product foundation one-way lifecycle |
-| POS / Groceries (`commerce/pos/syirkah-pos-domain`) | `groceries.domain.model.Product` | `groceries.domain.model.PosProduct` | References the Catalog / Product product by `catalogProductId`; carries POS-specific attributes (shelf life, batch lots, allergens, weight, temperature) |
+| POS / Groceries (`commerce/pos/numou-pos-domain`) | `groceries.domain.model.Product` | `groceries.domain.model.PosProduct` | References the Catalog / Product product by `catalogProductId`; carries POS-specific attributes (shelf life, batch lots, allergens, weight, temperature) |
 | POS / Groceries | `groceries.domain.identifier.ProductId` | kept as-is, `@Deprecated` | Context-local reference identity; must not be replaced by `product.domain.product.ProductId` |
 
 Guards:

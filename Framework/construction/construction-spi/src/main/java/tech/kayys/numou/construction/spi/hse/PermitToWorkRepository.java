@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.hse;
+package tech.kayys.numou.construction.spi.hse;
 
-import tech.kayys.syirkah.construction.domain.hse.PermitToWork;
-import tech.kayys.syirkah.construction.domain.hse.PermitToWorkId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.hse.PermitToWork;
+import tech.kayys.numou.construction.domain.hse.PermitToWorkId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

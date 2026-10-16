@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.commerce.configuration.domain;
+package tech.kayys.numou.commerce.configuration.domain;
 
-import tech.kayys.syirkah.commerce.configuration.domain.event.OptionDeselected;
-import tech.kayys.syirkah.commerce.configuration.domain.event.OptionSelected;
-import tech.kayys.syirkah.commerce.configuration.domain.event.ProductConfigurationCancelled;
-import tech.kayys.syirkah.commerce.configuration.domain.event.ProductConfigurationCompleted;
-import tech.kayys.syirkah.commerce.configuration.domain.event.ProductConfigurationCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.specification.OptionGroupId;
-import tech.kayys.syirkah.product.domain.specification.OptionId;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecificationId;
+import tech.kayys.numou.commerce.configuration.domain.event.OptionDeselected;
+import tech.kayys.numou.commerce.configuration.domain.event.OptionSelected;
+import tech.kayys.numou.commerce.configuration.domain.event.ProductConfigurationCancelled;
+import tech.kayys.numou.commerce.configuration.domain.event.ProductConfigurationCompleted;
+import tech.kayys.numou.commerce.configuration.domain.event.ProductConfigurationCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.specification.OptionGroupId;
+import tech.kayys.numou.product.domain.specification.OptionId;
+import tech.kayys.numou.product.domain.specification.ProductSpecificationId;
 
 import java.time.Instant;
 import java.util.ArrayList;

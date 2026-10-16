@@ -1,22 +1,22 @@
-package tech.kayys.syirkah.product.application.command;
+package tech.kayys.numou.product.application.command;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.application.support.InMemoryProductRepository;
-import tech.kayys.syirkah.product.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.product.domain.event.ProductActivated;
-import tech.kayys.syirkah.product.domain.event.ProductArchived;
-import tech.kayys.syirkah.product.domain.event.ProductCreated;
-import tech.kayys.syirkah.product.domain.event.ProductDiscontinued;
-import tech.kayys.syirkah.product.domain.event.ProductIdentifierAdded;
-import tech.kayys.syirkah.product.domain.event.ProductRenamed;
-import tech.kayys.syirkah.product.domain.identifier.ProductIdentifierType;
-import tech.kayys.syirkah.product.domain.identifier.ProductIdentifier;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.product.ProductStatus;
-import tech.kayys.syirkah.product.domain.product.ProductType;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.application.support.InMemoryProductRepository;
+import tech.kayys.numou.product.application.support.RecordingEventPublisher;
+import tech.kayys.numou.product.domain.event.ProductActivated;
+import tech.kayys.numou.product.domain.event.ProductArchived;
+import tech.kayys.numou.product.domain.event.ProductCreated;
+import tech.kayys.numou.product.domain.event.ProductDiscontinued;
+import tech.kayys.numou.product.domain.event.ProductIdentifierAdded;
+import tech.kayys.numou.product.domain.event.ProductRenamed;
+import tech.kayys.numou.product.domain.identifier.ProductIdentifierType;
+import tech.kayys.numou.product.domain.identifier.ProductIdentifier;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.product.ProductStatus;
+import tech.kayys.numou.product.domain.product.ProductType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability.descriptor;
+package tech.kayys.numou.commerce.promotion.domain.capability.descriptor;
 
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilityKind;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionConditionDescriptor;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionConditionParameterSchema;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionValueType;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionOperator;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionType;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilityKind;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionConditionDescriptor;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionConditionParameterSchema;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionValueType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionOperator;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionType;
 
 import java.util.Set;
 

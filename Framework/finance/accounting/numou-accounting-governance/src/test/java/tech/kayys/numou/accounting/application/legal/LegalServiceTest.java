@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.application.legal;
+package tech.kayys.numou.accounting.application.legal;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.legal.LegalContract;
+import tech.kayys.numou.accounting.domain.legal.LegalContract;
 
 import java.time.LocalDate;
 

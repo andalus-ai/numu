@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.support;
+package tech.kayys.numou.project.application.support;
 
-import tech.kayys.syirkah.project.domain.milestone.ProjectMilestone;
-import tech.kayys.syirkah.project.domain.milestone.ProjectMilestoneId;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.spi.port.ProjectMilestoneRepository;
+import tech.kayys.numou.project.domain.milestone.ProjectMilestone;
+import tech.kayys.numou.project.domain.milestone.ProjectMilestoneId;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.spi.port.ProjectMilestoneRepository;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;

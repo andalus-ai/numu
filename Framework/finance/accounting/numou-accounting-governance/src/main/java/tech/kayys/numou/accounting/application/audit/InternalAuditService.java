@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.audit;
+package tech.kayys.numou.accounting.application.audit;
 
-import tech.kayys.syirkah.accounting.domain.audit.*;
+import tech.kayys.numou.accounting.domain.audit.*;
 
 import java.time.LocalDate;
 import java.util.*;

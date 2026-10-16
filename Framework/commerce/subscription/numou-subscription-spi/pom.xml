@@ -7,21 +7,21 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-subscription-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-subscription-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-subscription-spi</artifactId>
+    <artifactId>numou-subscription-spi</artifactId>
 
     <name>Numou Commerce Subscription - SPI</name>
     <description>Subscription persistence, plan entitlements and usage meter ports</description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-subscription-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-subscription-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.project.domain.risk.event;
+package tech.kayys.numou.project.domain.risk.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.risk.IssueId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.risk.IssueId;
 
 import java.time.Instant;
 import java.util.Objects;

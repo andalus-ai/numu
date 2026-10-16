@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.organization.domain;
+package tech.kayys.numou.organization.domain;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.organization.domain.event.OrganizationCreated;
-import tech.kayys.syirkah.organization.domain.event.OrganizationDissolved;
-import tech.kayys.syirkah.organization.domain.event.OrganizationReactivated;
-import tech.kayys.syirkah.organization.domain.event.OrganizationSuspended;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.organization.domain.event.OrganizationCreated;
+import tech.kayys.numou.organization.domain.event.OrganizationDissolved;
+import tech.kayys.numou.organization.domain.event.OrganizationReactivated;
+import tech.kayys.numou.organization.domain.event.OrganizationSuspended;
 
 import java.time.Instant;
 import java.util.Objects;

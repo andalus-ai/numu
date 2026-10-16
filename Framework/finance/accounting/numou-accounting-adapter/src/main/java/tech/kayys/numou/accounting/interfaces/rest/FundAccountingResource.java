@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -7,8 +7,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.fund.FundAccountingService;
-import tech.kayys.syirkah.accounting.domain.fund.*;
+import tech.kayys.numou.accounting.application.fund.FundAccountingService;
+import tech.kayys.numou.accounting.domain.fund.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

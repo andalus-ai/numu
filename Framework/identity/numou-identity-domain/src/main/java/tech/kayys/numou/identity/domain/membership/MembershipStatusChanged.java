@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.identity.domain.membership;
+package tech.kayys.numou.identity.domain.membership;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.time.Instant;
 import java.util.UUID;

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.tenancy.adapter.memory;
+package tech.kayys.numou.tenancy.adapter.memory;
 
-import tech.kayys.syirkah.tenancy.domain.settings.TenantSettings;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.tenancy.spi.port.TenantSettingsRepository;
+import tech.kayys.numou.tenancy.domain.settings.TenantSettings;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.tenancy.spi.port.TenantSettingsRepository;
 
 import java.util.Map;
 import java.util.Optional;

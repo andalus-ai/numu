@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
-import tech.kayys.syirkah.commerce.promotion.domain.context.CategoryId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.ChannelId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.CustomerId;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.SkuId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.TenantRef;
+import tech.kayys.numou.commerce.promotion.domain.context.CategoryId;
+import tech.kayys.numou.commerce.promotion.domain.context.ChannelId;
+import tech.kayys.numou.commerce.promotion.domain.context.CustomerId;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.promotion.domain.context.SkuId;
+import tech.kayys.numou.commerce.promotion.domain.context.TenantRef;
 
 import java.util.List;
 import java.util.Set;
@@ -19,7 +19,7 @@ import java.util.Set;
  */
 public record PromotionScope(
         Set<ChannelId> channels,
-        Set<tech.kayys.syirkah.commerce.promotion.domain.context.BranchId> branches,
+        Set<tech.kayys.numou.commerce.promotion.domain.context.BranchId> branches,
         Set<ProductId> products,
         Set<SkuId> skus,
         Set<CategoryId> categories,
@@ -41,7 +41,7 @@ public record PromotionScope(
 
     public static PromotionScope of(
             Set<ChannelId> channels,
-            Set<tech.kayys.syirkah.commerce.promotion.domain.context.BranchId> branches,
+            Set<tech.kayys.numou.commerce.promotion.domain.context.BranchId> branches,
             Set<ProductId> products,
             Set<SkuId> skus,
             Set<CategoryId> categories,

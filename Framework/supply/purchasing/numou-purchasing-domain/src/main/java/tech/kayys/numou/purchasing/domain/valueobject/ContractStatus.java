@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.purchasing.domain.valueobject;
+package tech.kayys.numou.purchasing.domain.valueobject;
 
 /**
  * Contract status enumeration representing the lifecycle states.

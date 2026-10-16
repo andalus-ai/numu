@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.commerce.promotion.domain.stacking;
+package tech.kayys.numou.commerce.promotion.domain.stacking;
 
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FixedDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FixedPriceBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FreeItemBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PromotionBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.ShippingDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.composition.PromotionBenefitComposer;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FixedDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FixedPriceBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FreeItemBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PromotionBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.ShippingDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.composition.PromotionBenefitComposer;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.List;
 import java.util.Objects;

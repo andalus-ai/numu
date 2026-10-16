@@ -1,7 +1,7 @@
 
-package tech.kayys.syirkah.purchasing.domain.procurement;
+package tech.kayys.numou.purchasing.domain.procurement;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.util.Objects;

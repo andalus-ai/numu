@@ -1,19 +1,19 @@
-package tech.kayys.syirkah.identity.adapter.outbound.postgres;
+package tech.kayys.numou.identity.adapter.outbound.postgres;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.identity.application.security.abac.AllOf;
-import tech.kayys.syirkah.identity.application.security.abac.AnyOf;
-import tech.kayys.syirkah.identity.application.security.abac.AttributeNamespace;
-import tech.kayys.syirkah.identity.application.security.abac.AttributeReference;
-import tech.kayys.syirkah.identity.application.security.abac.Comparison;
-import tech.kayys.syirkah.identity.application.security.abac.ComparisonOperator;
-import tech.kayys.syirkah.identity.application.security.abac.Contains;
-import tech.kayys.syirkah.identity.application.security.abac.Not;
-import tech.kayys.syirkah.identity.application.security.abac.PolicyCondition;
+import tech.kayys.numou.identity.application.security.abac.AllOf;
+import tech.kayys.numou.identity.application.security.abac.AnyOf;
+import tech.kayys.numou.identity.application.security.abac.AttributeNamespace;
+import tech.kayys.numou.identity.application.security.abac.AttributeReference;
+import tech.kayys.numou.identity.application.security.abac.Comparison;
+import tech.kayys.numou.identity.application.security.abac.ComparisonOperator;
+import tech.kayys.numou.identity.application.security.abac.Contains;
+import tech.kayys.numou.identity.application.security.abac.Not;
+import tech.kayys.numou.identity.application.security.abac.PolicyCondition;
 
 import java.util.ArrayList;
 import java.util.List;

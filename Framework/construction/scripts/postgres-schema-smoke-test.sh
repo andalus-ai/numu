@@ -3,30 +3,30 @@ set -euo pipefail
 
 # Disposable PostgreSQL smoke test for the migration starter.
 # Requires Docker. Does not connect to or mutate an existing database.
-CONTAINER_NAME="syirkah-pg-smoke-$$"
+CONTAINER_NAME="numou-pg-smoke-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55439}"
-PASSWORD="syirkah_test_only"
+PASSWORD="numou_test_only"
 cleanup() {
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 docker run -d --rm --name "$CONTAINER_NAME" \
-  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=syirkah_test \
+  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=numou_test \
   -p "127.0.0.1:${PORT}:5432" postgres:16-alpine >/dev/null
 
 for _ in $(seq 1 60); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null 2>&1; then break; fi
+  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
-docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null
+docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null
 
 for migration in "$(dirname "$0")"/../db/migration/*.sql; do
   echo "Applying $(basename "$migration")"
-  docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d syirkah_test < "$migration"
+  docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d numou_test < "$migration"
 done
 
-docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d syirkah_test <<'SQL'
+docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d numou_test <<'SQL'
 DO $$
 DECLARE
   b uuid := '10000000-0000-0000-0000-000000000001';

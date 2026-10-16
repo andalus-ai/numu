@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.hardening;
+package tech.kayys.numou.accounting.application.hardening;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.hardening.DomainHealthInvariants;
+import tech.kayys.numou.accounting.domain.hardening.DomainHealthInvariants;
 
 import java.math.BigDecimal;
 

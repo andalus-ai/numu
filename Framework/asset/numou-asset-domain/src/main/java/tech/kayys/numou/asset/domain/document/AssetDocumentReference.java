@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.document;
+package tech.kayys.numou.asset.domain.document;
 
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
 
 import java.time.Instant;
 import java.util.Objects;

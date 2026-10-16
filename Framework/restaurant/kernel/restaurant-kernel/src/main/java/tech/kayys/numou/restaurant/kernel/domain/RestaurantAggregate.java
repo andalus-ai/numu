@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.restaurant.kernel.domain;
+package tech.kayys.numou.restaurant.kernel.domain;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.entity.OptimisticLockable;
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.entity.OptimisticLockable;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.time.Instant;
 

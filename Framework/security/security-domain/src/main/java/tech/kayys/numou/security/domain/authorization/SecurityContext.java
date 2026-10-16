@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.security.domain.authorization;
+package tech.kayys.numou.security.domain.authorization;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.security.domain.authentication.AuthenticationInfo;
-import tech.kayys.syirkah.security.domain.authentication.AuthenticationMethod;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.security.domain.authentication.AuthenticationInfo;
+import tech.kayys.numou.security.domain.authentication.AuthenticationMethod;
 
 import java.time.Instant;
 import java.util.Objects;

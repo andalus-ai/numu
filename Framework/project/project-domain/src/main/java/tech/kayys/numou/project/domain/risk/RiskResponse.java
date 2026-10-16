@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
 /**
  * Response strategy. EXPLOIT and ENHANCE let the same model carry

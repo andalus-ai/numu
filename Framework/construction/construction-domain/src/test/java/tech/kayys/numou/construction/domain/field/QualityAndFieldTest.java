@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.field;
+package tech.kayys.numou.construction.domain.field;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.construction.domain.quality.*;
+import tech.kayys.numou.construction.domain.quality.*;
 
 import java.time.LocalDate;
 import java.util.UUID;

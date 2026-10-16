@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.application.query;
+package tech.kayys.numou.product.application.query;
 
-import tech.kayys.syirkah.product.domain.classification.ClassificationNode;
-import tech.kayys.syirkah.product.domain.classification.ClassificationNodeId;
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeId;
-import tech.kayys.syirkah.product.spi.port.ClassificationNodeRepository;
+import tech.kayys.numou.product.domain.classification.ClassificationNode;
+import tech.kayys.numou.product.domain.classification.ClassificationNodeId;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeId;
+import tech.kayys.numou.product.spi.port.ClassificationNodeRepository;
 
 import java.util.ArrayList;
 import java.util.List;

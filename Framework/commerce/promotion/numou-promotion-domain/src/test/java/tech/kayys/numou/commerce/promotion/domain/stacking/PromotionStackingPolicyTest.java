@@ -1,20 +1,20 @@
-package tech.kayys.syirkah.commerce.promotion.domain.stacking;
+package tech.kayys.numou.commerce.promotion.domain.stacking;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.pricing.domain.PriceResult;
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionEngine;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionLine;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionRule;
-import tech.kayys.syirkah.commerce.promotion.domain.action.FixedAmountOff;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PercentOff;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumQuantityOf;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.commerce.pricing.domain.PriceResult;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.commerce.promotion.domain.PromotionEngine;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionLine;
+import tech.kayys.numou.commerce.promotion.domain.PromotionRule;
+import tech.kayys.numou.commerce.promotion.domain.action.FixedAmountOff;
+import tech.kayys.numou.commerce.promotion.domain.action.PercentOff;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumQuantityOf;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -140,7 +140,7 @@ class PromotionStackingPolicyTest {
 
         assertTrue(result.hasApplications());
         assertTrue(result.applied().getFirst().benefits().getFirst()
-                instanceof tech.kayys.syirkah.commerce.promotion.domain.benefit.PercentageDiscountBenefit);
+                instanceof tech.kayys.numou.commerce.promotion.domain.benefit.PercentageDiscountBenefit);
         assertEquals(0, BigDecimal.valueOf(3600)
                 .compareTo(result.price().totalDiscount().amount()));
     }

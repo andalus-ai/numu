@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.masterdata;
+package tech.kayys.numou.construction.spi.masterdata;
 
-import tech.kayys.syirkah.construction.domain.masterdata.ConstructionSpecification;
-import tech.kayys.syirkah.construction.domain.masterdata.ConstructionSpecificationId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.masterdata.ConstructionSpecification;
+import tech.kayys.numou.construction.domain.masterdata.ConstructionSpecificationId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 

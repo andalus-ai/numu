@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.equipment;
+package tech.kayys.numou.construction.domain.equipment;
 
 public enum EquipmentRequirementStatus {
     DRAFT,

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.kernel.domain;
+package tech.kayys.numou.restaurant.kernel.domain;
 
 import java.time.Duration;
 import java.time.Instant;

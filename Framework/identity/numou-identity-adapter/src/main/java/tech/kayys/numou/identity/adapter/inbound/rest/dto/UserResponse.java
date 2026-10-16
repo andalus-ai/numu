@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.identity.adapter.inbound.rest.dto;
+package tech.kayys.numou.identity.adapter.inbound.rest.dto;
 
-import tech.kayys.syirkah.identity.application.query.UserView;
-import tech.kayys.syirkah.identity.domain.user.UserStatus;
+import tech.kayys.numou.identity.application.query.UserView;
+import tech.kayys.numou.identity.domain.user.UserStatus;
 
 import java.util.UUID;
 

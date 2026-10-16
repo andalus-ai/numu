@@ -7,21 +7,21 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-pricing-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-pricing-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-pricing-spi</artifactId>
+    <artifactId>numou-pricing-spi</artifactId>
 
     <name>Numou Commerce Pricing - SPI</name>
     <description>Price source ports (price list / option adjustment lookup)</description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-pricing-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-pricing-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

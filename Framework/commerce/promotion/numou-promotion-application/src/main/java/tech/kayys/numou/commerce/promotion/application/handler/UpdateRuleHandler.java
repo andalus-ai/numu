@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.commerce.promotion.application.handler;
+package tech.kayys.numou.commerce.promotion.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.promotion.application.command.UpdateRuleCommand;
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionStatus;
-import tech.kayys.syirkah.commerce.promotion.spi.port.PromotionRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.promotion.application.command.UpdateRuleCommand;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionStatus;
+import tech.kayys.numou.commerce.promotion.spi.port.PromotionRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.util.Objects;
 

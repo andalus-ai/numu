@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.restaurant.order.spi;
+package tech.kayys.numou.restaurant.order.spi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.restaurant.kernel.domain.OrderId;
-import tech.kayys.syirkah.restaurant.order.domain.LineSpec;
-import tech.kayys.syirkah.restaurant.order.domain.PricingPolicy;
+import tech.kayys.numou.restaurant.kernel.domain.OrderId;
+import tech.kayys.numou.restaurant.order.domain.LineSpec;
+import tech.kayys.numou.restaurant.order.domain.PricingPolicy;
 
 import java.util.Optional;
 import java.util.UUID;

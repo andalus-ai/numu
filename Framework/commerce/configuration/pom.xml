@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-commerce</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-commerce</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-configuration-modules</artifactId>
+    <artifactId>numou-configuration-modules</artifactId>
     <packaging>pom</packaging>
 
     <name>Numou Commerce - Configuration Aggregator</name>
@@ -26,10 +26,10 @@
     </description>
 
     <modules>
-        <module>syirkah-configuration-domain</module>
-        <module>syirkah-configuration-spi</module>
-        <module>syirkah-configuration-application</module>
-        <module>syirkah-configuration-adapter</module>
+        <module>numou-configuration-domain</module>
+        <module>numou-configuration-spi</module>
+        <module>numou-configuration-application</module>
+        <module>numou-configuration-adapter</module>
     </modules>
 
 </project>

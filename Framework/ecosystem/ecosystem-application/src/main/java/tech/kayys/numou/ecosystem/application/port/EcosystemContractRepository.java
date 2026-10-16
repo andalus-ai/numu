@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.ecosystem.application.port;
+package tech.kayys.numou.ecosystem.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.ecosystem.domain.identifier.CapabilityId;
-import tech.kayys.syirkah.ecosystem.domain.identifier.EcosystemContractId;
-import tech.kayys.syirkah.ecosystem.domain.identifier.ParticipantId;
-import tech.kayys.syirkah.ecosystem.domain.model.EcosystemContract;
+import tech.kayys.numou.ecosystem.domain.identifier.CapabilityId;
+import tech.kayys.numou.ecosystem.domain.identifier.EcosystemContractId;
+import tech.kayys.numou.ecosystem.domain.identifier.ParticipantId;
+import tech.kayys.numou.ecosystem.domain.model.EcosystemContract;
 
 import java.util.List;
 import java.util.Optional;

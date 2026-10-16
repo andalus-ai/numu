@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.product.domain;
+package tech.kayys.numou.product.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.product.domain.bundle.BundleComponent;
-import tech.kayys.syirkah.product.domain.identifier.ProductIdentifierType;
-import tech.kayys.syirkah.product.domain.identifier.ProductIdentifier;
-import tech.kayys.syirkah.product.domain.packaging.Packaging;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifier;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifierType;
-import tech.kayys.syirkah.product.domain.uom.UnitCategory;
-import tech.kayys.syirkah.product.domain.uom.UnitConversion;
-import tech.kayys.syirkah.product.domain.uom.UnitOfMeasure;
+import tech.kayys.numou.product.domain.bundle.BundleComponent;
+import tech.kayys.numou.product.domain.identifier.ProductIdentifierType;
+import tech.kayys.numou.product.domain.identifier.ProductIdentifier;
+import tech.kayys.numou.product.domain.packaging.Packaging;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.sku.SkuIdentifier;
+import tech.kayys.numou.product.domain.sku.SkuIdentifierType;
+import tech.kayys.numou.product.domain.uom.UnitCategory;
+import tech.kayys.numou.product.domain.uom.UnitConversion;
+import tech.kayys.numou.product.domain.uom.UnitOfMeasure;
 
 import java.math.BigDecimal;
 
@@ -146,7 +146,7 @@ class ProductValueObjectTest {
         var identifier = new ProductIdentifier(
                 ProductIdentifierType.SUPPLIER_CODE,
                 " SUP-991 ",
-                tech.kayys.syirkah.product.domain.identifier.ProductIdentifierScope.SUPPLIER
+                tech.kayys.numou.product.domain.identifier.ProductIdentifierScope.SUPPLIER
         );
 
         assertEquals("SUP-991", identifier.value());
@@ -158,7 +158,7 @@ class ProductValueObjectTest {
         );
 
         assertEquals(
-                tech.kayys.syirkah.product.domain.identifier.ProductIdentifierScope.GLOBAL,
+                tech.kayys.numou.product.domain.identifier.ProductIdentifierScope.GLOBAL,
                 namespaceless.scope());
 
         assertThrows(

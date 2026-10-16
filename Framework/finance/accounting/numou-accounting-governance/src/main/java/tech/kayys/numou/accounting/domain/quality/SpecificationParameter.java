@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.quality;
+package tech.kayys.numou.accounting.domain.quality;
 
 import java.util.Objects;
 

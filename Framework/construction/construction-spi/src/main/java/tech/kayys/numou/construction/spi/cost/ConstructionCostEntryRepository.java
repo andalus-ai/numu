@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.cost;
+package tech.kayys.numou.construction.spi.cost;
 
-import tech.kayys.syirkah.construction.domain.cost.ConstructionCostEntry;
-import tech.kayys.syirkah.construction.domain.cost.ConstructionCostEntryId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.cost.ConstructionCostEntry;
+import tech.kayys.numou.construction.domain.cost.ConstructionCostEntryId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.reservation.domain.event;
+package tech.kayys.numou.reservation.domain.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.time.Instant;
 import java.util.List;

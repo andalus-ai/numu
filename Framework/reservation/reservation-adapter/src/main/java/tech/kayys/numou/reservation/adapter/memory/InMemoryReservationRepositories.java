@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.reservation.adapter.memory;
+package tech.kayys.numou.reservation.adapter.memory;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
-import tech.kayys.syirkah.reservation.domain.*;
-import tech.kayys.syirkah.reservation.spi.LedgerRepository;
-import tech.kayys.syirkah.reservation.spi.ReservationRepository;
-import tech.kayys.syirkah.reservation.spi.WaitlistRepository;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.reservation.domain.*;
+import tech.kayys.numou.reservation.spi.LedgerRepository;
+import tech.kayys.numou.reservation.spi.ReservationRepository;
+import tech.kayys.numou.reservation.spi.WaitlistRepository;
 
 import java.time.Instant;
 import java.util.*;

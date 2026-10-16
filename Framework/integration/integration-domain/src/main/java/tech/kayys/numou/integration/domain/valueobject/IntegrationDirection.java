@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.integration.domain.valueobject;
+package tech.kayys.numou.integration.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 /** Which way data flows between Numou and an external system. */
 public enum IntegrationDirection implements ValueObject {

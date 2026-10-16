@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.risk;
+package tech.kayys.numou.construction.domain.risk;
 
-import tech.kayys.syirkah.construction.domain.risk.event.ConstructionClaimSubmitted;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.risk.event.ConstructionClaimSubmitted;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

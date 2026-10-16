@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.reservation.application;
+package tech.kayys.numou.reservation.application;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 
 import java.time.Instant;
 import java.util.List;

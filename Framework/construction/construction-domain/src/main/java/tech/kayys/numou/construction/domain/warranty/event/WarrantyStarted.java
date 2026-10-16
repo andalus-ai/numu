@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.domain.warranty.event;
+package tech.kayys.numou.construction.domain.warranty.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.tenancy.domain.provisioning;
+package tech.kayys.numou.tenancy.domain.provisioning;
 
 /**
  * Individual steps in the tenant provisioning workflow.

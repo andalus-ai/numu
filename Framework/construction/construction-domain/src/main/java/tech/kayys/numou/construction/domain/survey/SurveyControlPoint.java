@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.domain.survey;
+package tech.kayys.numou.construction.domain.survey;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.util.Objects;
 import java.util.UUID;
 

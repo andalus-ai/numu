@@ -6,13 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-tenancy</artifactId>
+    <artifactId>numou-tenancy</artifactId>
     <packaging>pom</packaging>
     <name>Numou Tenancy</name>
     <description>

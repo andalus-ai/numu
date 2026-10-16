@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.organization.domain;
+package tech.kayys.numou.organization.domain;
 
 /**
  * Functional classification of an OrganizationUnit (config02.md §P4-12 #10).

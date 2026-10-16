@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.outbox;
+package tech.kayys.numou.accounting.application.outbox;
 
 import io.smallrye.mutiny.Uni;
 

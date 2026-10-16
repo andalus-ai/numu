@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.communication.domain.model;
+package tech.kayys.numou.communication.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.communication.domain.identifier.TemplateId;
-import tech.kayys.syirkah.communication.domain.valueobject.MessageType;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.communication.domain.identifier.TemplateId;
+import tech.kayys.numou.communication.domain.valueobject.MessageType;
 
 import java.time.Instant;
 import java.util.ArrayList;

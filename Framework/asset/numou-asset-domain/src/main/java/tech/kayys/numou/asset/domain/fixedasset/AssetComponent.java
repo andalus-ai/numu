@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.fixedasset;
+package tech.kayys.numou.asset.domain.fixedasset;
 
 import java.math.BigDecimal;
 import java.util.Objects;

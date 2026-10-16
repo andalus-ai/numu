@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.port;
+package tech.kayys.numou.accounting.application.port;
 
-import tech.kayys.syirkah.accounting.domain.model.Invoice;
+import tech.kayys.numou.accounting.domain.model.Invoice;
 
 import java.util.concurrent.CompletionStage;
 

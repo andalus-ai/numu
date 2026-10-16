@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.integration.spi.port;
+package tech.kayys.numou.integration.spi.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.integration.domain.identifier.ExternalSystemId;
+import tech.kayys.numou.integration.domain.identifier.ExternalSystemId;
 
 import java.util.Map;
 

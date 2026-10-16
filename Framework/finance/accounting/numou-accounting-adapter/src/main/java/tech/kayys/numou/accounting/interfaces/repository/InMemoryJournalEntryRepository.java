@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.interfaces.repository;
+package tech.kayys.numou.accounting.interfaces.repository;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.accounting.application.port.JournalEntryRepository;
-import tech.kayys.syirkah.accounting.domain.identifier.JournalEntryId;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.application.port.JournalEntryRepository;
+import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
 
 import java.util.ArrayList;
 import java.util.List;

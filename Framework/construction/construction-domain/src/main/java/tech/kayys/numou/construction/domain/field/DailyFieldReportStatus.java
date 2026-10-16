@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.field;
+package tech.kayys.numou.construction.domain.field;
 
 public enum DailyFieldReportStatus {
     DRAFT,

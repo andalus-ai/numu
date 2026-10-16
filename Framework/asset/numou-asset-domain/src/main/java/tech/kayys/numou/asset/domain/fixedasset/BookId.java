@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.fixedasset;
+package tech.kayys.numou.asset.domain.fixedasset;
 
 import java.util.Objects;
 

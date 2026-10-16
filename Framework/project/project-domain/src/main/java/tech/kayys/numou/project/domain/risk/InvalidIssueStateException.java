@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
 /**
  * Thrown when an issue is asked to make a transition its current status

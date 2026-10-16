@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.domain.document;
+package tech.kayys.numou.accounting.domain.document;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;

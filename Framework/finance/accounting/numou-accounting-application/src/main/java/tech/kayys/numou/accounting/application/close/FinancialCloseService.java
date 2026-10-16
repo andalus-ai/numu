@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.close;
+package tech.kayys.numou.accounting.application.close;
 
-import tech.kayys.syirkah.accounting.domain.close.CloseCycle;
-import tech.kayys.syirkah.accounting.domain.close.CloseCycleId;
-import tech.kayys.syirkah.accounting.domain.close.CloseTask;
+import tech.kayys.numou.accounting.domain.close.CloseCycle;
+import tech.kayys.numou.accounting.domain.close.CloseCycleId;
+import tech.kayys.numou.accounting.domain.close.CloseTask;
 
 import java.util.Map;
 import java.util.Objects;

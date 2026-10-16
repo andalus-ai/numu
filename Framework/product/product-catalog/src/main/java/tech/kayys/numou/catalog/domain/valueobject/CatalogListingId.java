@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.catalog.domain.valueobject;
+package tech.kayys.numou.catalog.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Strongly typed identifier for a {@link tech.kayys.syirkah.catalog.domain.model.CatalogListing} (config03.md §P4-17 #8).
+ * Strongly typed identifier for a {@link tech.kayys.numou.catalog.domain.model.CatalogListing} (config03.md §P4-17 #8).
  */
 public record CatalogListingId(UUID value) implements DomainId<UUID> {
 

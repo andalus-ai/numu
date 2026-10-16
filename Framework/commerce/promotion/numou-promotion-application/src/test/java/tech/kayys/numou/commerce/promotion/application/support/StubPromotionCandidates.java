@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.commerce.promotion.application.support;
+package tech.kayys.numou.commerce.promotion.application.support;
 
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionCandidate;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionResolveRequest;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionVersionId;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionCandidate;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionResolveRequest;
+import tech.kayys.numou.commerce.promotion.domain.PromotionVersionId;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -17,8 +17,8 @@ import java.util.concurrent.CompletionStage;
  * Test double for the promotion candidate lookup.
  */
 public final class StubPromotionCandidates
-        implements tech.kayys.syirkah.commerce.promotion.domain.PromotionCandidateRepository,
-                   tech.kayys.syirkah.commerce.promotion.spi.port.PromotionRepository {
+        implements tech.kayys.numou.commerce.promotion.domain.PromotionCandidateRepository,
+                   tech.kayys.numou.commerce.promotion.spi.port.PromotionRepository {
 
     private final List<Promotion> promotions = new ArrayList<>();
 

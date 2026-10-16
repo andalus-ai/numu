@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.product.domain.variant;
+package tech.kayys.numou.product.domain.variant;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.domain.event.ProductVariantActivated;
-import tech.kayys.syirkah.product.domain.event.ProductVariantArchived;
-import tech.kayys.syirkah.product.domain.event.ProductVariantCreated;
-import tech.kayys.syirkah.product.domain.event.ProductVariantDiscontinued;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.domain.event.ProductVariantActivated;
+import tech.kayys.numou.product.domain.event.ProductVariantArchived;
+import tech.kayys.numou.product.domain.event.ProductVariantCreated;
+import tech.kayys.numou.product.domain.event.ProductVariantDiscontinued;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.time.Instant;
 import java.util.ArrayList;

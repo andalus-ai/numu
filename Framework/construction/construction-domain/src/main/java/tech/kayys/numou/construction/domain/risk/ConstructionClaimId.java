@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.domain.risk;
+package tech.kayys.numou.construction.domain.risk;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 import java.util.Objects;
 import java.util.UUID;
 

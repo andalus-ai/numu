@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.pricing.domain.price;
+package tech.kayys.numou.commerce.pricing.domain.price;
 
 /** Lifecycle of a price list (product02.md). */
 public enum PriceListStatus {

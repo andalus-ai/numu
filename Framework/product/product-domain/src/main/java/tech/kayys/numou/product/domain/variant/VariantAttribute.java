@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.variant;
+package tech.kayys.numou.product.domain.variant;
 
 /**
  * One selected attribute of a variant (e.g. color=BLACK, size=M).

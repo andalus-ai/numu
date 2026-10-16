@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.tenancy.domain.provisioning;
+package tech.kayys.numou.tenancy.domain.provisioning;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;

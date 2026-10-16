@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.support;
+package tech.kayys.numou.project.application.support;
 
-import tech.kayys.syirkah.project.domain.commercial.ProjectAdvance;
-import tech.kayys.syirkah.project.domain.commercial.ProjectAdvanceId;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.spi.port.ProjectAdvanceRepository;
+import tech.kayys.numou.project.domain.commercial.ProjectAdvance;
+import tech.kayys.numou.project.domain.commercial.ProjectAdvanceId;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.spi.port.ProjectAdvanceRepository;
 
 import java.util.LinkedHashMap;
 import java.util.List;

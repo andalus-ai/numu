@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.project.domain.milestone;
+package tech.kayys.numou.project.domain.milestone;
 
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
 
 /** Raised when a milestone transition is attempted from the wrong status. */
 public final class InvalidMilestoneStateException

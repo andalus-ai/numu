@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.commerce.subscription.application.support;
+package tech.kayys.numou.commerce.subscription.application.support;
 
-import tech.kayys.syirkah.commerce.offering.domain.ChannelId;
-import tech.kayys.syirkah.commerce.offering.domain.OfferingStatus;
-import tech.kayys.syirkah.commerce.offering.domain.OfferingType;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOffering;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.offering.spi.port.ProductOfferingRepository;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.offering.domain.ChannelId;
+import tech.kayys.numou.commerce.offering.domain.OfferingStatus;
+import tech.kayys.numou.commerce.offering.domain.OfferingType;
+import tech.kayys.numou.commerce.offering.domain.ProductOffering;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.offering.spi.port.ProductOfferingRepository;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.util.LinkedHashMap;
 import java.util.List;

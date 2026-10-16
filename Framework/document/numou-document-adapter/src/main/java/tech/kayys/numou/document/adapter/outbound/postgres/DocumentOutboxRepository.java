@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.postgres;
+package tech.kayys.numou.document.adapter.outbound.postgres;
 
 import io.smallrye.mutiny.Uni;
 

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.product.application.command;
+package tech.kayys.numou.product.application.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.product.domain.classification.ClassificationSchemeType;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.product.domain.classification.ClassificationSchemeType;
 
 import java.util.Objects;
 

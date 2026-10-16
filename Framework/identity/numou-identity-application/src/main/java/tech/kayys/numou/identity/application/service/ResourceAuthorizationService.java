@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.identity.application.service;
+package tech.kayys.numou.identity.application.service;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.identity.application.port.AuthorizationPolicyRepository;
-import tech.kayys.syirkah.identity.application.port.AuthorizationPort;
-import tech.kayys.syirkah.identity.application.port.ResourceAttributePort;
-import tech.kayys.syirkah.identity.application.security.AuthorizationRequirement;
-import tech.kayys.syirkah.identity.application.security.Principal;
-import tech.kayys.syirkah.identity.application.security.abac.PolicyEffect;
-import tech.kayys.syirkah.identity.application.security.abac.PolicyEvaluator;
+import tech.kayys.numou.identity.application.port.AuthorizationPolicyRepository;
+import tech.kayys.numou.identity.application.port.AuthorizationPort;
+import tech.kayys.numou.identity.application.port.ResourceAttributePort;
+import tech.kayys.numou.identity.application.security.AuthorizationRequirement;
+import tech.kayys.numou.identity.application.security.Principal;
+import tech.kayys.numou.identity.application.security.abac.PolicyEffect;
+import tech.kayys.numou.identity.application.security.abac.PolicyEvaluator;
 
 import java.util.Objects;
 

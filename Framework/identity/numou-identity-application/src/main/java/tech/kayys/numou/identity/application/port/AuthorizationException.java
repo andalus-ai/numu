@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.application.port;
+package tech.kayys.numou.identity.application.port;
 
 public final class AuthorizationException extends RuntimeException {
     public AuthorizationException(String permission) {

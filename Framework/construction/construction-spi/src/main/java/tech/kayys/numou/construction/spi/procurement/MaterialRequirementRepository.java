@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.procurement;
+package tech.kayys.numou.construction.spi.procurement;
 
-import tech.kayys.syirkah.construction.domain.procurement.MaterialRequirement;
-import tech.kayys.syirkah.construction.domain.procurement.MaterialRequirementId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.procurement.MaterialRequirement;
+import tech.kayys.numou.construction.domain.procurement.MaterialRequirementId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

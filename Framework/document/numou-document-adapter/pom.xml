@@ -5,12 +5,12 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-document-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-document-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-document-adapter</artifactId>
+    <artifactId>numou-document-adapter</artifactId>
     <name>Numou Document - Adapter</name>
     <properties>
         <quarkus.platform.version>3.15.1</quarkus.platform.version>
@@ -29,13 +29,13 @@
     </dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-document-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-document-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-identity-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-identity-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

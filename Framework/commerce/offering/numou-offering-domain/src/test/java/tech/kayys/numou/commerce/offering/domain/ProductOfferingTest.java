@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.commerce.offering.domain;
+package tech.kayys.numou.commerce.offering.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.offering.domain.event.ProductOfferingActivated;
-import tech.kayys.syirkah.commerce.offering.domain.event.ProductOfferingCreated;
-import tech.kayys.syirkah.commerce.offering.domain.event.ProductOfferingRetired;
-import tech.kayys.syirkah.commerce.offering.domain.event.ProductOfferingSuspended;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.offering.domain.event.ProductOfferingActivated;
+import tech.kayys.numou.commerce.offering.domain.event.ProductOfferingCreated;
+import tech.kayys.numou.commerce.offering.domain.event.ProductOfferingRetired;
+import tech.kayys.numou.commerce.offering.domain.event.ProductOfferingSuspended;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.time.LocalDate;
 import java.util.UUID;

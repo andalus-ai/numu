@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.integration.application.port;
+package tech.kayys.numou.integration.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.integration.domain.identifier.ExternalSystemId;
-import tech.kayys.syirkah.integration.domain.identifier.WebhookSubscriptionId;
-import tech.kayys.syirkah.integration.domain.model.WebhookSubscription;
+import tech.kayys.numou.integration.domain.identifier.ExternalSystemId;
+import tech.kayys.numou.integration.domain.identifier.WebhookSubscriptionId;
+import tech.kayys.numou.integration.domain.model.WebhookSubscription;
 
 import java.util.List;
 import java.util.Optional;

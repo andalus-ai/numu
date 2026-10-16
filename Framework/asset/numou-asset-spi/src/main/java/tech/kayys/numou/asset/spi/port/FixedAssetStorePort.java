@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.asset.spi.port;
+package tech.kayys.numou.asset.spi.port;
 
-import tech.kayys.syirkah.asset.domain.fixedasset.CipId;
-import tech.kayys.syirkah.asset.domain.fixedasset.ConstructionProject;
-import tech.kayys.syirkah.asset.domain.fixedasset.FixedAssetAggregate;
-import tech.kayys.syirkah.asset.domain.fixedasset.LeaseContract;
-import tech.kayys.syirkah.asset.domain.fixedasset.LeaseId;
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.fixedasset.CipId;
+import tech.kayys.numou.asset.domain.fixedasset.ConstructionProject;
+import tech.kayys.numou.asset.domain.fixedasset.FixedAssetAggregate;
+import tech.kayys.numou.asset.domain.fixedasset.LeaseContract;
+import tech.kayys.numou.asset.domain.fixedasset.LeaseId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
 
 import java.util.Optional;
 

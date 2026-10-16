@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.restaurant.kitchen.domain;
+package tech.kayys.numou.restaurant.kitchen.domain;
 
-import tech.kayys.syirkah.restaurant.kernel.domain.RestaurantAggregate;
-import tech.kayys.syirkah.restaurant.kernel.domain.VenueId;
-import tech.kayys.syirkah.restaurant.kitchen.domain.event.ItemEightySixed;
-import tech.kayys.syirkah.restaurant.kitchen.domain.event.ItemRestored;
+import tech.kayys.numou.restaurant.kernel.domain.RestaurantAggregate;
+import tech.kayys.numou.restaurant.kernel.domain.VenueId;
+import tech.kayys.numou.restaurant.kitchen.domain.event.ItemEightySixed;
+import tech.kayys.numou.restaurant.kitchen.domain.event.ItemRestored;
 
 import java.time.Instant;
 import java.util.ArrayList;

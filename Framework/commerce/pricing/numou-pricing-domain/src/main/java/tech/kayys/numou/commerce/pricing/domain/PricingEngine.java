@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.pricing.domain;
+package tech.kayys.numou.commerce.pricing.domain;
 
 /**
  * Pure-domain price resolution port.

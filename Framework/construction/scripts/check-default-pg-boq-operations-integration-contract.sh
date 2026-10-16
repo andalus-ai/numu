@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST="$ROOT/construction-adapter/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java"
+TEST="$ROOT/construction-adapter/src/test/java/tech/kayys/numou/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java"
 [[ -f "$TEST" ]] || { echo "Missing integration test: $TEST" >&2; exit 1; }
 checks=(
   'DefaultPgBoqRevisionOperationsFactory'

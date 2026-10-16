@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.tenancy.application.command.settings;
+package tech.kayys.numou.tenancy.application.command.settings;
 
-import tech.kayys.syirkah.tenancy.domain.settings.TenantSettings;
-import tech.kayys.syirkah.tenancy.spi.port.TenantSettingsRepository;
+import tech.kayys.numou.tenancy.domain.settings.TenantSettings;
+import tech.kayys.numou.tenancy.spi.port.TenantSettingsRepository;
 
 import java.util.Objects;
 

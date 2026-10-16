@@ -1,6 +1,6 @@
 package tech.kayys.tax.domain.calculation;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Objects;
 

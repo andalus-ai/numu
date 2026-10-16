@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.construction.adapter.postgres.idempotency;
+package tech.kayys.numou.construction.adapter.postgres.idempotency;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.RowSet;
 import io.vertx.mutiny.sqlclient.SqlConnection;
 import io.vertx.mutiny.sqlclient.Tuple;
-import tech.kayys.syirkah.construction.spi.idempotency.CommandIdempotencyStore;
-import tech.kayys.syirkah.construction.spi.idempotency.TransactionalCommandContext;
-import tech.kayys.syirkah.construction.spi.outbox.TransactionalOutboxEvent;
+import tech.kayys.numou.construction.spi.idempotency.CommandIdempotencyStore;
+import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
+import tech.kayys.numou.construction.spi.outbox.TransactionalOutboxEvent;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;

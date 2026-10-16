@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.restaurant.kitchen.domain;
+package tech.kayys.numou.restaurant.kitchen.domain;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.restaurant.kernel.domain.*;
-import tech.kayys.syirkah.restaurant.kitchen.domain.TicketRouter.*;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.restaurant.kernel.domain.*;
+import tech.kayys.numou.restaurant.kitchen.domain.TicketRouter.*;
 
 import java.time.Duration;
 import java.time.Instant;

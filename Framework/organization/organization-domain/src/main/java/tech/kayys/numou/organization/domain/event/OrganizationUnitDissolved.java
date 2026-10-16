@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.organization.domain.event;
+package tech.kayys.numou.organization.domain.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.organization.domain.OrganizationId;
-import tech.kayys.syirkah.organization.domain.OrganizationUnitId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.organization.domain.OrganizationId;
+import tech.kayys.numou.organization.domain.OrganizationUnitId;
 
 import java.time.Instant;
 import java.util.UUID;

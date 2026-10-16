@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.restaurant.integration;
+package tech.kayys.numou.restaurant.integration;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.restaurant.kernel.spi.DomainEventSink;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.restaurant.kernel.spi.DomainEventSink;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +19,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <p>A failing policy never breaks the publisher (the publisher's transaction already decided the business
  * outcome); failures are kept in {@link #failures()} so tests and dev logs surface them.
  */
-public final class DispatchingEventSink implements DomainEventSink, tech.kayys.syirkah.reservation.spi.DomainEventSink {
+public final class DispatchingEventSink implements DomainEventSink, tech.kayys.numou.reservation.spi.DomainEventSink {
 
     @FunctionalInterface
     public interface Policy<E extends DomainEvent> {

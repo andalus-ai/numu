@@ -4,23 +4,23 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-observability</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-observability</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-observability-adapter</artifactId>
+    <artifactId>numou-observability-adapter</artifactId>
     <name>Numou Observability - Adapter</name>
     <description>Request correlation/MDC filter, Micrometer MetricsPort, OpenTelemetry TracingPort.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-observability-api</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-observability-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.design;
+package tech.kayys.numou.construction.spi.design;
 
-import tech.kayys.syirkah.construction.domain.design.ClashIssue;
-import tech.kayys.syirkah.construction.domain.design.ClashIssueId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.design.ClashIssue;
+import tech.kayys.numou.construction.domain.design.ClashIssueId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

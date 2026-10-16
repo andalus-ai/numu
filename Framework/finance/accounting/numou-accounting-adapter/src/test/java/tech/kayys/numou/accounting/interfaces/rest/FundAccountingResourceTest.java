@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.fund.FundAccountingService;
-import tech.kayys.syirkah.accounting.domain.fund.Fund;
-import tech.kayys.syirkah.accounting.domain.fund.FundType;
-import tech.kayys.syirkah.accounting.domain.fund.Grant;
+import tech.kayys.numou.accounting.application.fund.FundAccountingService;
+import tech.kayys.numou.accounting.domain.fund.Fund;
+import tech.kayys.numou.accounting.domain.fund.FundType;
+import tech.kayys.numou.accounting.domain.fund.Grant;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

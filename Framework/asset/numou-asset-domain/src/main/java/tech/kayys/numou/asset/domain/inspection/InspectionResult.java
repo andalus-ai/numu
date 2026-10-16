@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.inspection;
+package tech.kayys.numou.asset.domain.inspection;
 
 /**
  * Overall result of an inspection as a whole (see ASSET-20 section 20.6).

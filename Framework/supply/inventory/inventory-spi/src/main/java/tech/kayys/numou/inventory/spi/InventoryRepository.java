@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.inventory.spi;
+package tech.kayys.numou.inventory.spi;
 
-import tech.kayys.syirkah.inventory.domain.inventory.*;
+import tech.kayys.numou.inventory.domain.inventory.*;
 
 import java.util.List;
 

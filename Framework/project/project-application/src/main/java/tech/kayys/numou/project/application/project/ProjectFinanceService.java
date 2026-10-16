@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.project.application.project;
+package tech.kayys.numou.project.application.project;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.project.domain.project.InvalidProjectStateException;
-import tech.kayys.syirkah.project.domain.project.Project;
-import tech.kayys.syirkah.project.domain.project.ProjectCostEntry;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.project.ProjectRevenueEntry;
-import tech.kayys.syirkah.project.domain.project.ProjectStatus;
-import tech.kayys.syirkah.project.spi.port.ProjectFinanceStorePort;
-import tech.kayys.syirkah.project.spi.port.ProjectRepository;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.project.domain.project.InvalidProjectStateException;
+import tech.kayys.numou.project.domain.project.Project;
+import tech.kayys.numou.project.domain.project.ProjectCostEntry;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.project.ProjectRevenueEntry;
+import tech.kayys.numou.project.domain.project.ProjectStatus;
+import tech.kayys.numou.project.spi.port.ProjectFinanceStorePort;
+import tech.kayys.numou.project.spi.port.ProjectRepository;
 
 import java.math.BigDecimal;
 import java.util.List;

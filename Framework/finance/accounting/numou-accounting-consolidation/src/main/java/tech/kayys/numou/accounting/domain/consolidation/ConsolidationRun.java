@@ -1,8 +1,8 @@
 
-package tech.kayys.syirkah.accounting.domain.consolidation;
+package tech.kayys.numou.accounting.domain.consolidation;
 
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

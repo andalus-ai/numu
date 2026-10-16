@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.controls;
+package tech.kayys.numou.construction.domain.controls;
 
-import tech.kayys.syirkah.construction.domain.controls.event.BaselineApproved;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.controls.event.BaselineApproved;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

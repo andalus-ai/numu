@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.ap;
+package tech.kayys.numou.accounting.domain.ap;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

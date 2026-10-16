@@ -1,20 +1,20 @@
-package tech.kayys.syirkah.commerce.pricing.application;
+package tech.kayys.numou.commerce.pricing.application;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfiguration;
-import tech.kayys.syirkah.commerce.configuration.domain.SelectedOption;
-import tech.kayys.syirkah.commerce.offering.domain.ChannelId;
-import tech.kayys.syirkah.commerce.pricing.application.handler.ResolvePriceHandler;
-import tech.kayys.syirkah.commerce.pricing.application.query.ResolvePriceQuery;
-import tech.kayys.syirkah.commerce.pricing.application.support.StubOfferingRepository;
-import tech.kayys.syirkah.commerce.pricing.application.support.StubOptionPrices;
-import tech.kayys.syirkah.commerce.pricing.application.support.StubPriceBook;
-import tech.kayys.syirkah.commerce.pricing.domain.PricingContext;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Quantity;
-import tech.kayys.syirkah.foundation.domain.valueobject.Unit;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfiguration;
+import tech.kayys.numou.commerce.configuration.domain.SelectedOption;
+import tech.kayys.numou.commerce.offering.domain.ChannelId;
+import tech.kayys.numou.commerce.pricing.application.handler.ResolvePriceHandler;
+import tech.kayys.numou.commerce.pricing.application.query.ResolvePriceQuery;
+import tech.kayys.numou.commerce.pricing.application.support.StubOfferingRepository;
+import tech.kayys.numou.commerce.pricing.application.support.StubOptionPrices;
+import tech.kayys.numou.commerce.pricing.application.support.StubPriceBook;
+import tech.kayys.numou.commerce.pricing.domain.PricingContext;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Quantity;
+import tech.kayys.numou.foundation.domain.valueobject.Unit;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.math.BigDecimal;
 import java.time.Instant;

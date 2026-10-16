@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.risk.event.IssueClosed;
-import tech.kayys.syirkah.project.domain.risk.event.IssueRaised;
-import tech.kayys.syirkah.project.domain.risk.event.IssueResolved;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.risk.event.IssueClosed;
+import tech.kayys.numou.project.domain.risk.event.IssueRaised;
+import tech.kayys.numou.project.domain.risk.event.IssueResolved;
 
 import java.time.Instant;
 import java.util.Objects;

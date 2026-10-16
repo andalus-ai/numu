@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.spi.asset;
+package tech.kayys.numou.asset.spi.asset;
 
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

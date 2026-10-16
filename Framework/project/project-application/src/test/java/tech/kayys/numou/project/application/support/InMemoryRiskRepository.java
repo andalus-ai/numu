@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.project.application.support;
+package tech.kayys.numou.project.application.support;
 
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.risk.Risk;
-import tech.kayys.syirkah.project.domain.risk.RiskId;
-import tech.kayys.syirkah.project.domain.risk.RiskStatus;
-import tech.kayys.syirkah.project.spi.port.RiskRepository;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.risk.Risk;
+import tech.kayys.numou.project.domain.risk.RiskId;
+import tech.kayys.numou.project.domain.risk.RiskStatus;
+import tech.kayys.numou.project.spi.port.RiskRepository;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;

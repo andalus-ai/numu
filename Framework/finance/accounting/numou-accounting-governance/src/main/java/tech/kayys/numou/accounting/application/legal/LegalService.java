@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.legal;
+package tech.kayys.numou.accounting.application.legal;
 
-import tech.kayys.syirkah.accounting.domain.legal.*;
+import tech.kayys.numou.accounting.domain.legal.*;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -15,8 +15,8 @@ public final class LegalService {
     // ── Contracts ─────────────────────────────────────────────────────────────
 
     public LegalContract registerContract(String contractId, String title,
-                                          String countsyirkaharty, LocalDate startDate, LocalDate endDate) {
-        var contract = new LegalContract(contractId, title, countsyirkaharty, startDate, endDate);
+                                          String countnumouarty, LocalDate startDate, LocalDate endDate) {
+        var contract = new LegalContract(contractId, title, countnumouarty, startDate, endDate);
         contracts.put(contractId, contract);
         return contract;
     }

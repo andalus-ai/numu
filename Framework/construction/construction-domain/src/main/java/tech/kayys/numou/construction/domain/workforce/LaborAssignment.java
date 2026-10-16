@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.workforce;
+package tech.kayys.numou.construction.domain.workforce;
 
 import java.time.LocalDate;
 import java.util.Objects;

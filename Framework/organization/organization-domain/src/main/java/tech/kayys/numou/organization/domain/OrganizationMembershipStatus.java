@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.organization.domain;
+package tech.kayys.numou.organization.domain;
 
 public enum OrganizationMembershipStatus {
     PENDING,

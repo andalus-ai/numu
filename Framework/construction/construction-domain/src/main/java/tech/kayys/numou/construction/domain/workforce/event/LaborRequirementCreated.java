@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.domain.workforce.event;
+package tech.kayys.numou.construction.domain.workforce.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import java.time.Instant;
 import java.util.UUID;
 

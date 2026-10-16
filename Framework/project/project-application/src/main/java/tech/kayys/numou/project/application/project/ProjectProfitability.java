@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.project.application.project;
+package tech.kayys.numou.project.application.project;
 
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

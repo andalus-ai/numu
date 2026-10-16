@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.reservation.domain;
+package tech.kayys.numou.reservation.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.reservation.domain.event.WaitlistCheckedIn;
-import tech.kayys.syirkah.reservation.domain.event.WaitlistJoined;
-import tech.kayys.syirkah.reservation.domain.event.WaitlistLeft;
-import tech.kayys.syirkah.reservation.domain.event.WaitlistNotified;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.reservation.domain.event.WaitlistCheckedIn;
+import tech.kayys.numou.reservation.domain.event.WaitlistJoined;
+import tech.kayys.numou.reservation.domain.event.WaitlistLeft;
+import tech.kayys.numou.reservation.domain.event.WaitlistNotified;
 
 import java.time.Duration;
 import java.time.Instant;

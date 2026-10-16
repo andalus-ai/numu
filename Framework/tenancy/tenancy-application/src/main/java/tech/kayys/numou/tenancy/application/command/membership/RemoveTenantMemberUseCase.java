@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.tenancy.application.command.membership;
+package tech.kayys.numou.tenancy.application.command.membership;
 
-import tech.kayys.syirkah.tenancy.domain.membership.TenantMembership;
-import tech.kayys.syirkah.tenancy.spi.port.TenantMembershipRepository;
+import tech.kayys.numou.tenancy.domain.membership.TenantMembership;
+import tech.kayys.numou.tenancy.spi.port.TenantMembershipRepository;
 
 import java.util.Objects;
 

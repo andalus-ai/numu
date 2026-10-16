@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.observability;
+package tech.kayys.numou.observability;
 
 import io.smallrye.mutiny.Uni;
 

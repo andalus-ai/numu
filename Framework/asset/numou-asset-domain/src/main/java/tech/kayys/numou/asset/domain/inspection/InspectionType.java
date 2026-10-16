@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.inspection;
+package tech.kayys.numou.asset.domain.inspection;
 
 /** Kind of inspection being performed (see ASSET-20 section 20.5). */
 public enum InspectionType {

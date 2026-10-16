@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.api.query;
+package tech.kayys.numou.accounting.application.api.query;
 
-import tech.kayys.syirkah.accounting.application.cqrs.Query;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.model.Account;
+import tech.kayys.numou.accounting.application.cqrs.Query;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.model.Account;
 
 import java.util.Objects;
 import java.util.Optional;

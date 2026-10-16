@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.security.domain.audit.model;
+package tech.kayys.numou.security.domain.audit.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.security.domain.audit.identifier.AuditTrailId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.security.domain.audit.identifier.AuditTrailId;
 
 import java.time.Instant;
 import java.util.ArrayList;

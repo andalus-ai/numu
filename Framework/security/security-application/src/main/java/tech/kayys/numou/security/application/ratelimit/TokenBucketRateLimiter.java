@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.application.ratelimit;
+package tech.kayys.numou.security.application.ratelimit;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;

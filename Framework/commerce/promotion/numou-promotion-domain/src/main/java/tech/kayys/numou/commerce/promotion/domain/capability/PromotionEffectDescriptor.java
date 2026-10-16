@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.EffectType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.EffectType;
 
 /**
  * Self-describing metadata for an effect capability (product03.md §63).

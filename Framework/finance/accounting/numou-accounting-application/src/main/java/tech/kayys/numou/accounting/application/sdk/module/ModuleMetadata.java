@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.sdk.module;
+package tech.kayys.numou.accounting.application.sdk.module;
 
 /**
  * Descriptive metadata for a FinancialModule.

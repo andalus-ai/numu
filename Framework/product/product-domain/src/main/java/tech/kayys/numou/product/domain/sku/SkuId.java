@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.domain.sku;
+package tech.kayys.numou.product.domain.sku;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.util.UUID;

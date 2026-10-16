@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.project.application.command;
+package tech.kayys.numou.project.application.command;
 
-import tech.kayys.syirkah.project.domain.task.ProjectTaskId;
+import tech.kayys.numou.project.domain.task.ProjectTaskId;
 
 import java.util.Objects;
 
@@ -9,7 +9,7 @@ import java.util.Objects;
  */
 public record StartTaskCommand(
         ProjectTaskId taskId
-) implements tech.kayys.syirkah.foundation.application.command.Command {
+) implements tech.kayys.numou.foundation.application.command.Command {
 
     public StartTaskCommand {
         Objects.requireNonNull(taskId, "taskId cannot be null");

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.CompiledTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.TargetDefinition;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.TargetType;
+import tech.kayys.numou.commerce.promotion.domain.compiler.CompiledTarget;
+import tech.kayys.numou.commerce.promotion.domain.compiler.TargetDefinition;
+import tech.kayys.numou.commerce.promotion.domain.compiler.TargetType;
 
 /** Metadata + compilation for one target (product03.md §67). */
 public interface PromotionTargetCapability {

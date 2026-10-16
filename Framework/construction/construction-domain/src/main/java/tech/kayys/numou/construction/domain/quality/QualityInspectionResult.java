@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.quality;
+package tech.kayys.numou.construction.domain.quality;
 
 public enum QualityInspectionResult {
     PASS,

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.subscription.domain;
+package tech.kayys.numou.commerce.subscription.domain;
 
 import java.time.LocalDate;
 

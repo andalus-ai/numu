@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.document;
+package tech.kayys.numou.accounting.domain.document;
 
 /** Lifecycle status of a document. */
 public enum DocumentStatus {

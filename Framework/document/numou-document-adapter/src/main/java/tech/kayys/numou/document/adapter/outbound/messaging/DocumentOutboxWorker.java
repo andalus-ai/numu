@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.messaging;
+package tech.kayys.numou.document.adapter.outbound.messaging;
 
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.mutiny.Multi;
@@ -6,8 +6,8 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import tech.kayys.syirkah.document.adapter.outbound.postgres.DocumentOutboxRepository;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.document.adapter.outbound.postgres.DocumentOutboxRepository;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.time.Duration;
 
@@ -27,8 +27,8 @@ public class DocumentOutboxWorker {
             DocumentOutboxRepository repository,
             DocumentOutboxPublisher publisher,
             DomainClock clock,
-            @ConfigProperty(name = "syirkah.document.outbox.batch-size", defaultValue = "50") int batchSize,
-            @ConfigProperty(name = "syirkah.document.outbox.max-attempts", defaultValue = "12") int maximumAttempts
+            @ConfigProperty(name = "numou.document.outbox.batch-size", defaultValue = "50") int batchSize,
+            @ConfigProperty(name = "numou.document.outbox.max-attempts", defaultValue = "12") int maximumAttempts
     ) {
         if (batchSize < 1 || batchSize > 500 || maximumAttempts < 1) {
             throw new IllegalArgumentException("Invalid document outbox worker configuration");
@@ -40,7 +40,7 @@ public class DocumentOutboxWorker {
         this.maximumAttempts = maximumAttempts;
     }
 
-    @Scheduled(every = "${syirkah.document.outbox.poll-interval:5s}",
+    @Scheduled(every = "${numou.document.outbox.poll-interval:5s}",
             concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     Uni<Void> poll() {
         var now = clock.now();
@@ -53,7 +53,7 @@ public class DocumentOutboxWorker {
     }
 
     private Uni<Void> publishOne(
-            tech.kayys.syirkah.document.adapter.outbound.postgres.DocumentOutboxMessage message
+            tech.kayys.numou.document.adapter.outbound.postgres.DocumentOutboxMessage message
     ) {
         return publisher.publish(message)
                 .ifNoItem().after(PUBLISH_TIMEOUT).fail()

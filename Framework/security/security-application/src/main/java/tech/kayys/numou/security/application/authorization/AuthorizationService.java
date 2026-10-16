@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.security.application.authorization;
+package tech.kayys.numou.security.application.authorization;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.security.domain.authorization.AccessDecision;
-import tech.kayys.syirkah.security.domain.authorization.AccessRequest;
+import tech.kayys.numou.security.domain.authorization.AccessDecision;
+import tech.kayys.numou.security.domain.authorization.AccessRequest;
 
 /**
  * Application port for evaluating access control decisions (security02.md §P3-05).

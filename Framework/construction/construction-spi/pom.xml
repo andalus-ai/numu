@@ -6,13 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-construction</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-construction</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-construction-spi</artifactId>
+    <artifactId>numou-construction-spi</artifactId>
     <name>Numou Construction - SPI</name>
     <description>
         Service Provider Interfaces (SPI) and repository ports for the Construction domain.
@@ -20,18 +20,18 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-construction-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-construction-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-project-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-project-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

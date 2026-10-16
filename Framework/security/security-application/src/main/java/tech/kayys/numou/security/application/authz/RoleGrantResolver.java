@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.security.application.authz;
+package tech.kayys.numou.security.application.authz;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.security.application.context.SecurityContext;
-import tech.kayys.syirkah.security.domain.authorization.Permission;
+import tech.kayys.numou.security.application.context.SecurityContext;
+import tech.kayys.numou.security.domain.authorization.Permission;
 
 import java.util.Objects;
 import java.util.Set;

@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.integration.application.api.command;
+package tech.kayys.numou.integration.application.api.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.integration.application.port.ExternalSystemRepository;
-import tech.kayys.syirkah.integration.domain.identifier.ExternalSystemId;
-import tech.kayys.syirkah.integration.domain.model.ExternalSystem;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.integration.application.port.ExternalSystemRepository;
+import tech.kayys.numou.integration.domain.identifier.ExternalSystemId;
+import tech.kayys.numou.integration.domain.model.ExternalSystem;
 
 import java.util.Objects;
 
@@ -46,7 +46,7 @@ public final class RegisterExternalSystemHandler
                         saved.getStatus().name())))
                 .onFailure()
                 .recoverWithItem(error -> Result.failure(
-                        tech.kayys.syirkah.foundation.application.result.ApplicationError.of(
+                        tech.kayys.numou.foundation.application.result.ApplicationError.of(
                                 "INTEGRATION_EXTERNAL_SYSTEM_REGISTER_FAILED",
                                 "Could not register external system '" + request.name()
                                         + "': " + error.getMessage())));

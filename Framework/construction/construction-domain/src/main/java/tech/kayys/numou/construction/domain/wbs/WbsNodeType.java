@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.wbs;
+package tech.kayys.numou.construction.domain.wbs;
 
 public enum WbsNodeType {
     PROJECT,

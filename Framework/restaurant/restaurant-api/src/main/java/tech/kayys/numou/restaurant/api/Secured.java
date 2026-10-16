@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.observability.MetricsPort;
-import tech.kayys.syirkah.observability.TracingPort;
-import tech.kayys.syirkah.observability.application.ObservedHandlers;
-import tech.kayys.syirkah.security.adapter.CurrentSecurity;
-import tech.kayys.syirkah.security.application.authz.AuthorizationService;
-import tech.kayys.syirkah.security.application.context.SecurityContext;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.observability.MetricsPort;
+import tech.kayys.numou.observability.TracingPort;
+import tech.kayys.numou.observability.application.ObservedHandlers;
+import tech.kayys.numou.security.adapter.CurrentSecurity;
+import tech.kayys.numou.security.application.authz.AuthorizationService;
+import tech.kayys.numou.security.application.context.SecurityContext;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.util.function.Function;
 

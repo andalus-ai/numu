@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.inbound.rest;
+package tech.kayys.numou.document.adapter.inbound.rest;
 
 import io.smallrye.common.annotation.Blocking;
 import io.quarkus.arc.profile.UnlessBuildProfile;
@@ -10,7 +10,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.document.adapter.outbound.storage.LocalDocumentStorage;
+import tech.kayys.numou.document.adapter.outbound.storage.LocalDocumentStorage;
 
 import java.io.InputStream;
 import java.util.UUID;

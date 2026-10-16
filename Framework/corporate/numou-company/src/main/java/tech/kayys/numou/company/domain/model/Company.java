@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.company.domain.model;
+package tech.kayys.numou.company.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
-import tech.kayys.syirkah.company.domain.identifier.CompanyId;
-import tech.kayys.syirkah.company.domain.valueobject.Address;
-import tech.kayys.syirkah.company.domain.valueobject.CompanyStatus;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.company.domain.identifier.CompanyId;
+import tech.kayys.numou.company.domain.valueobject.Address;
+import tech.kayys.numou.company.domain.valueobject.CompanyStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;

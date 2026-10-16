@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.application.port;
+package tech.kayys.numou.document.application.port;
 
 import io.smallrye.mutiny.Uni;
 

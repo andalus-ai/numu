@@ -28,19 +28,19 @@ Self-service kiosks are increasingly common in grocery and retail environments. 
 
 ```
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/api/KioskService.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/api/KioskService.java`**:
 
 ```java
 
 ```
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/api/command/StartKioskSessionCommand.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/api/command/StartKioskSessionCommand.java`**:
 
 ```java
 
 ```
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/internal/StartKioskSessionHandler.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/internal/StartKioskSessionHandler.java`**:
 
 ```java
 
@@ -48,7 +48,7 @@ Self-service kiosks are increasingly common in grocery and retail environments. 
 
 ## 3. Kiosk REST API
 
-**`/modules/kiosk/interfaces/src/main/java/tech/kayys/syirkah/kiosk/interfaces/rest/KioskResource.java`**:
+**`/modules/kiosk/interfaces/src/main/java/tech/kayys/numou/kiosk/interfaces/rest/KioskResource.java`**:
 
 ```java
 
@@ -103,7 +103,7 @@ Self-service kiosks are increasingly common in grocery and retail environments. 
 
 ## 5. Architecture Tests
 
-**`/architecture/tests/src/test/java/tech/kayys/syirkah/architecture/CompleteArchitectureTest.java`** (add Kiosk rules):
+**`/architecture/tests/src/test/java/tech/kayys/numou/architecture/CompleteArchitectureTest.java`** (add Kiosk rules):
 
 ```java
 // Add to existing CompleteArchitectureTest class:
@@ -112,33 +112,33 @@ Self-service kiosks are increasingly common in grocery and retail environments. 
 static final ArchRule kioskDomainMustNotDependOnOtherContexts =
         noClasses()
                 .that()
-                .resideInAPackage("tech.kayys.syirkah.kiosk.domain..")
+                .resideInAPackage("tech.kayys.numou.kiosk.domain..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
-                        "tech.kayys.syirkah.catalog..",
-                        "tech.kayys.syirkah.inventory..",
-                        "tech.kayys.syirkah.accounting.."
+                        "tech.kayys.numou.catalog..",
+                        "tech.kayys.numou.inventory..",
+                        "tech.kayys.numou.accounting.."
                 );
 
 @ArchTest
 static final ArchRule kioskDomainPackagesCorrect =
         classes()
                 .that()
-                .resideInAPackage("tech.kayys.syirkah.kiosk.domain..")
+                .resideInAPackage("tech.kayys.numou.kiosk.domain..")
                 .should()
                 .resideInAnyPackage(
-                        "tech.kayys.syirkah.kiosk.domain.model..",
-                        "tech.kayys.syirkah.kiosk.domain.identifier..",
-                        "tech.kayys.syirkah.kiosk.domain.valueobject..",
-                        "tech.kayys.syirkah.kiosk.domain.repository.."
+                        "tech.kayys.numou.kiosk.domain.model..",
+                        "tech.kayys.numou.kiosk.domain.identifier..",
+                        "tech.kayys.numou.kiosk.domain.valueobject..",
+                        "tech.kayys.numou.kiosk.domain.repository.."
                 );
 
 @ArchTest
 static final ArchRule kioskSessionStateMachine =
         classes()
                 .that()
-                .resideInAPackage("tech.kayys.syirkah.kiosk.domain.valueobject..")
+                .resideInAPackage("tech.kayys.numou.kiosk.domain.valueobject..")
                 .and()
                 .haveSimpleName("SessionStatus")
                 .should()
@@ -203,12 +203,12 @@ Now I'll provide a much deeper implementation of the Self-Service Kiosk with adv
 
 ### 1.1 Kiosk Hardware Configuration
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/valueobject/HardwareConfig.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/valueobject/HardwareConfig.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.ValueObject;
+import tech.kayys.numou.foundation.domain.ValueObject;
 
 import java.util.Objects;
 
@@ -465,12 +465,12 @@ public final class HardwareConfig implements ValueObject {
 
 ### 1.2 Accessibility & Multi-Language Support
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/valueobject/AccessibilityConfig.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/valueobject/AccessibilityConfig.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.ValueObject;
+import tech.kayys.numou.foundation.domain.ValueObject;
 
 /**
  * Accessibility configuration for the kiosk.
@@ -618,12 +618,12 @@ public final class AccessibilityConfig implements ValueObject {
 }
 ```
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/valueobject/LanguageSupport.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/valueobject/LanguageSupport.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.ValueObject;
+import tech.kayys.numou.foundation.domain.ValueObject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -801,12 +801,12 @@ public final class LanguageSupport implements ValueObject {
 
 ### 1.3 Payment Processing Integration
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/valueobject/PaymentConfig.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/valueobject/PaymentConfig.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.ValueObject;
+import tech.kayys.numou.foundation.domain.ValueObject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1039,12 +1039,12 @@ public final class PaymentConfig implements ValueObject {
 
 ### 1.4 Age Verification & ID Scanning
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/valueobject/AgeVerificationResult.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/valueobject/AgeVerificationResult.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.ValueObject;
+import tech.kayys.numou.foundation.domain.ValueObject;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -1212,13 +1212,13 @@ public final class AgeVerificationResult implements ValueObject {
 
 ### 1.5 Self-Checkout with Weight Validation
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/valueobject/WeightValidation.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/valueobject/WeightValidation.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.ValueObject;
-import tech.kayys.syirkah.groceries.domain.valueobject.Weight;
+import tech.kayys.numou.foundation.domain.ValueObject;
+import tech.kayys.numou.groceries.domain.valueobject.Weight;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -1410,14 +1410,14 @@ public final class WeightValidation implements ValueObject {
 
 ### 2.1 Kiosk Session Manager
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/internal/KioskSessionManager.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/internal/KioskSessionManager.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.application.internal;
+package tech.kayys.numou.kiosk.application.internal;
 
-import tech.kayys.syirkah.foundation.application.UseCase;
-import tech.kayys.syirkah.kiosk.domain.model.KioskSession;
-import tech.kayys.syirkah.kiosk.domain.repository.KioskSessionRepository;
+import tech.kayys.numou.foundation.application.UseCase;
+import tech.kayys.numou.kiosk.domain.model.KioskSession;
+import tech.kayys.numou.kiosk.domain.repository.KioskSessionRepository;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -1529,13 +1529,13 @@ public class KioskSessionManager {
 
 ### 2.2 Age Verification Service
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/internal/AgeVerificationService.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/internal/AgeVerificationService.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.application.internal;
+package tech.kayys.numou.kiosk.application.internal;
 
-import tech.kayys.syirkah.foundation.application.UseCase;
-import tech.kayys.syirkah.kiosk.domain.valueobject.AgeVerificationResult;
+import tech.kayys.numou.foundation.application.UseCase;
+import tech.kayys.numou.kiosk.domain.valueobject.AgeVerificationResult;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -1695,15 +1695,15 @@ public class AgeVerificationService {
 
 ### 2.3 Weight Validation Service
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/internal/WeightValidationService.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/internal/WeightValidationService.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.application.internal;
+package tech.kayys.numou.kiosk.application.internal;
 
-import tech.kayys.syirkah.foundation.application.UseCase;
-import tech.kayys.syirkah.kiosk.domain.valueobject.WeightValidation;
-import tech.kayys.syirkah.groceries.domain.valueobject.Weight;
-import tech.kayys.syirkah.kiosk.domain.model.ScaleDevice;
+import tech.kayys.numou.foundation.application.UseCase;
+import tech.kayys.numou.kiosk.domain.valueobject.WeightValidation;
+import tech.kayys.numou.groceries.domain.valueobject.Weight;
+import tech.kayys.numou.kiosk.domain.model.ScaleDevice;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -1827,13 +1827,13 @@ public class WeightValidationService {
 
 ### 2.4 Kiosk Dashboard Service
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/api/KioskDashboardService.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/api/KioskDashboardService.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.application.api;
+package tech.kayys.numou.kiosk.application.api;
 
-import tech.kayys.syirkah.kiosk.application.api.query.*;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskId;
+import tech.kayys.numou.kiosk.application.api.query.*;
+import tech.kayys.numou.kiosk.domain.identifier.KioskId;
 
 import java.util.concurrent.CompletionStage;
 
@@ -1881,17 +1881,17 @@ public interface KioskDashboardService {
 
 ### 2.5 Kiosk Dashboard Implementation
 
-**`/modules/kiosk/application/src/main/java/tech/kayys/syirkah/kiosk/application/internal/KioskDashboardServiceImpl.java`**:
+**`/modules/kiosk/application/src/main/java/tech/kayys/numou/kiosk/application/internal/KioskDashboardServiceImpl.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.application.internal;
+package tech.kayys.numou.kiosk.application.internal;
 
-import tech.kayys.syirkah.foundation.application.UseCase;
-import tech.kayys.syirkah.kiosk.application.api.KioskDashboardService;
-import tech.kayys.syirkah.kiosk.domain.model.KioskDevice;
-import tech.kayys.syirkah.kiosk.domain.model.KioskSession;
-import tech.kayys.syirkah.kiosk.domain.repository.KioskDeviceRepository;
-import tech.kayys.syirkah.kiosk.domain.repository.KioskSessionRepository;
+import tech.kayys.numou.foundation.application.UseCase;
+import tech.kayys.numou.kiosk.application.api.KioskDashboardService;
+import tech.kayys.numou.kiosk.domain.model.KioskDevice;
+import tech.kayys.numou.kiosk.domain.model.KioskSession;
+import tech.kayys.numou.kiosk.domain.repository.KioskDeviceRepository;
+import tech.kayys.numou.kiosk.domain.repository.KioskSessionRepository;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -2171,15 +2171,15 @@ public class KioskDashboardServiceImpl implements KioskDashboardService {
 
 ## 3. Kiosk REST API Extensions
 
-**`/modules/kiosk/interfaces/src/main/java/tech/kayys/syirkah/kiosk/interfaces/rest/KioskDashboardResource.java`**:
+**`/modules/kiosk/interfaces/src/main/java/tech/kayys/numou/kiosk/interfaces/rest/KioskDashboardResource.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.interfaces.rest;
+package tech.kayys.numou.kiosk.interfaces.rest;
 
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.kiosk.application.api.KioskDashboardService;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskId;
+import tech.kayys.numou.kiosk.application.api.KioskDashboardService;
+import tech.kayys.numou.kiosk.domain.identifier.KioskId;
 
 import javax.inject.Inject;
 import javax.ws.rs.*;
@@ -2342,13 +2342,13 @@ Let me implement these missing components:
 
 ## 1. Offline Mode & Sync
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/model/OfflineTransaction.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/model/OfflineTransaction.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.model;
+package tech.kayys.numou.kiosk.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.AggregateRoot;
-import tech.kayys.syirkah.kiosk.domain.identifier.OfflineTransactionId;
+import tech.kayys.numou.foundation.domain.AggregateRoot;
+import tech.kayys.numou.kiosk.domain.identifier.OfflineTransactionId;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -2553,10 +2553,10 @@ public final class OfflineTransaction extends AggregateRoot<OfflineTransactionId
 **`/modules/kiosk/domain/src/main/java/tech/kiosk/domain/model/HardwareDevice.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.model;
+package tech.kayys.numou.kiosk.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.AggregateRoot;
-import tech.kayys.syirkah.kiosk.domain.identifier.HardwareDeviceId;
+import tech.kayys.numou.foundation.domain.AggregateRoot;
+import tech.kayys.numou.kiosk.domain.identifier.HardwareDeviceId;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -2763,13 +2763,13 @@ public final class HardwareDevice extends AggregateRoot<HardwareDeviceId> {
 
 ## 3. Kiosk Self-Checkout Flow
 
-**`/modules/kiosk/domain/src/main/java/tech/kayys/syirkah/kiosk/domain/model/CheckoutSession.java`**:
+**`/modules/kiosk/domain/src/main/java/tech/kayys/numou/kiosk/domain/model/CheckoutSession.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.model;
+package tech.kayys.numou.kiosk.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.AggregateRoot;
-import tech.kayys.syirkah.kiosk.domain.identifier.CheckoutSessionId;
+import tech.kayys.numou.foundation.domain.AggregateRoot;
+import tech.kayys.numou.kiosk.domain.identifier.CheckoutSessionId;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -3132,7 +3132,7 @@ public final class CheckoutSession extends AggregateRoot<CheckoutSessionId> {
 **`/modules/kiosk/domain/src/main/java/tech/kiosk/domain/valueobject/KioskAnalytics.java`**:
 
 ```java
-package tech.kayys.syirkah.kiosk.domain.valueobject;
+package tech.kayys.numou.kiosk.domain.valueobject;
 
 import java.time.Instant;
 import java.time.LocalDate;

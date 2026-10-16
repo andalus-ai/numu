@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.cost;
+package tech.kayys.numou.accounting.domain.cost;
 
 import java.util.Objects;
 import java.util.UUID;

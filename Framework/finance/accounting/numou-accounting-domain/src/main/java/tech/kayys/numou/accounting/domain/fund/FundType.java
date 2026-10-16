@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.fund;
+package tech.kayys.numou.accounting.domain.fund;
 
 /**
  * Standard fund accounting classification.

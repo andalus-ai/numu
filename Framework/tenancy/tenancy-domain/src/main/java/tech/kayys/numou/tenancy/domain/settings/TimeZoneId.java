@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.tenancy.domain.settings;
+package tech.kayys.numou.tenancy.domain.settings;
 
 import java.util.Objects;
 

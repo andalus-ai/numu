@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.domain.role;
+package tech.kayys.numou.identity.domain.role;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.util.UUID;

@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.security.application.tenant;
+package tech.kayys.numou.security.application.tenant;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.security.domain.authentication.TenantResolutionException;
-import tech.kayys.syirkah.security.domain.authorization.Principal;
-import tech.kayys.syirkah.security.domain.identifier.PrincipalId;
-import tech.kayys.syirkah.security.spi.port.TenantMembershipResolver;
-import tech.kayys.syirkah.security.spi.port.TenantResolutionRequest;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.security.domain.authentication.TenantResolutionException;
+import tech.kayys.numou.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.identifier.PrincipalId;
+import tech.kayys.numou.security.spi.port.TenantMembershipResolver;
+import tech.kayys.numou.security.spi.port.TenantResolutionRequest;
 
 import java.util.UUID;
 

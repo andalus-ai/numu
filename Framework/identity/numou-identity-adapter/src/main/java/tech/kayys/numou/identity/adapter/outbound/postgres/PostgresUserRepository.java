@@ -1,23 +1,23 @@
-package tech.kayys.syirkah.identity.adapter.outbound.postgres;
+package tech.kayys.numou.identity.adapter.outbound.postgres;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.foundation.application.page.Page;
-import tech.kayys.syirkah.foundation.application.page.PageRequest;
-import tech.kayys.syirkah.identity.application.port.UserRepository;
-import tech.kayys.syirkah.identity.domain.user.User;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.identity.domain.user.UserStatus;
-import tech.kayys.syirkah.identity.domain.valueobject.DisplayName;
-import tech.kayys.syirkah.identity.domain.valueobject.EmailAddress;
-import tech.kayys.syirkah.identity.domain.valueobject.PasswordHash;
+import tech.kayys.numou.foundation.application.page.Page;
+import tech.kayys.numou.foundation.application.page.PageRequest;
+import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.domain.user.User;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.identity.domain.user.UserStatus;
+import tech.kayys.numou.identity.domain.valueobject.DisplayName;
+import tech.kayys.numou.identity.domain.valueobject.EmailAddress;
+import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Implements the UserRepository port defined in syirkah-identity-application
+ * Implements the UserRepository port defined in numou-identity-application
  * on top of Hibernate Reactive Panache. Owns the ONLY mapping between
  * the persistence model (UserEntity) and the domain aggregate (User)
  * in the whole codebase.

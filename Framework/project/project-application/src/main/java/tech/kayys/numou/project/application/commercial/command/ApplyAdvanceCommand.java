@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.project.application.commercial.command;
+package tech.kayys.numou.project.application.commercial.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.project.domain.commercial.ProjectAdvanceId;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.project.domain.commercial.ProjectAdvanceId;
 
 import java.util.Objects;
 

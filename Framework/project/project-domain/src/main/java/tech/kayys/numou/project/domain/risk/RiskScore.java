@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
 /**
  * Calculated score, never hand-entered: {@code score = probability ×

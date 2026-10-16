@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.messaging;
+package tech.kayys.numou.document.adapter.outbound.messaging;
 
 import org.junit.jupiter.api.Test;
 

@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.organization.adapter.memory;
+package tech.kayys.numou.organization.adapter.memory;
 
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.organization.domain.OrganizationId;
-import tech.kayys.syirkah.organization.domain.OrganizationMembership;
-import tech.kayys.syirkah.organization.domain.OrganizationMembershipId;
-import tech.kayys.syirkah.organization.spi.OrganizationMembershipRepository;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.organization.domain.OrganizationId;
+import tech.kayys.numou.organization.domain.OrganizationMembership;
+import tech.kayys.numou.organization.domain.OrganizationMembershipId;
+import tech.kayys.numou.organization.spi.OrganizationMembershipRepository;
 
 import java.util.Map;
 import java.util.Optional;

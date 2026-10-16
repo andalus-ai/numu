@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.project.application.risk.command;
+package tech.kayys.numou.project.application.risk.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.risk.IssuePriority;
-import tech.kayys.syirkah.project.domain.risk.IssueSeverity;
-import tech.kayys.syirkah.project.domain.risk.RiskId;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.risk.IssuePriority;
+import tech.kayys.numou.project.domain.risk.IssueSeverity;
+import tech.kayys.numou.project.domain.risk.RiskId;
 
 import java.util.Objects;
 import java.util.UUID;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
 
 import java.util.ArrayList;
 import java.util.List;

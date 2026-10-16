@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.project.application.query;
+package tech.kayys.numou.project.application.query;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.project.spi.port.ProjectMilestoneRepository;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.project.spi.port.ProjectMilestoneRepository;
 
 import java.util.Comparator;
 import java.util.List;

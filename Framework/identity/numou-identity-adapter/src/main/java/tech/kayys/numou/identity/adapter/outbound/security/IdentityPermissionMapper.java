@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.adapter.outbound.security;
+package tech.kayys.numou.identity.adapter.outbound.security;
 
-import tech.kayys.syirkah.security.domain.authorization.Permission;
+import tech.kayys.numou.security.domain.authorization.Permission;
 
 /**
  * Maps Identity domain permission representations into canonical Security domain Permissions (security02.md §P3-16).
@@ -31,7 +31,7 @@ public final class IdentityPermissionMapper {
     /**
      * Translates an Identity Permission domain object into canonical Security Permission.
      */
-    public static Permission toSecurityPermission(tech.kayys.syirkah.identity.domain.role.Permission permission) {
+    public static Permission toSecurityPermission(tech.kayys.numou.identity.domain.role.Permission permission) {
         if (permission == null) {
             throw new IllegalArgumentException("permission cannot be null");
         }

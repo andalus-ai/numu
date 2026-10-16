@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.inventory.domain.inventory;
+package tech.kayys.numou.inventory.domain.inventory;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.port;
+package tech.kayys.numou.accounting.application.port;
 
 import java.util.concurrent.CompletionStage;
 

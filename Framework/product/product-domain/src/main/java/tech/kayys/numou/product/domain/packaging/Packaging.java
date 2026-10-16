@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.domain.packaging;
+package tech.kayys.numou.product.domain.packaging;
 
-import tech.kayys.syirkah.product.domain.uom.UnitOfMeasure;
+import tech.kayys.numou.product.domain.uom.UnitOfMeasure;
 
 import java.math.BigDecimal;
 import java.util.Objects;

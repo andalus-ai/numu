@@ -1,8 +1,8 @@
 package tech.kayys.tax.domain.calculation;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.MonetaryRoundingPolicy;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.MonetaryRoundingPolicy;
 import tech.kayys.tax.domain.category.TaxTreatment;
 import tech.kayys.tax.domain.policy.TaxDeterminationService;
 import tech.kayys.tax.domain.policy.TaxPolicy;

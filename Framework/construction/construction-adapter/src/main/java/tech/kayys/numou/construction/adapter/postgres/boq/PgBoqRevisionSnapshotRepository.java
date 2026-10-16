@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.construction.adapter.postgres.boq;
+package tech.kayys.numou.construction.adapter.postgres.boq;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.RowSet;
 import io.vertx.mutiny.sqlclient.SqlConnection;
 import io.vertx.mutiny.sqlclient.Tuple;
-import tech.kayys.syirkah.construction.domain.boq.BoqItemType;
-import tech.kayys.syirkah.construction.domain.boq.BoqRevisionSnapshot;
-import tech.kayys.syirkah.construction.spi.boq.BoqRevisionSnapshotRepository;
+import tech.kayys.numou.construction.domain.boq.BoqItemType;
+import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
+import tech.kayys.numou.construction.spi.boq.BoqRevisionSnapshotRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;

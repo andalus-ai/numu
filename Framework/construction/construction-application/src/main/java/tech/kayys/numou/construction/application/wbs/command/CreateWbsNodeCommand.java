@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.application.wbs.command;
+package tech.kayys.numou.construction.application.wbs.command;
 
-import tech.kayys.syirkah.construction.domain.wbs.WbsNodeType;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.construction.domain.wbs.WbsNodeType;
+import tech.kayys.numou.foundation.application.command.Command;
 import java.util.UUID;
 
 public record CreateWbsNodeCommand(

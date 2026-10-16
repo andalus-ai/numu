@@ -1,12 +1,12 @@
 # Numou Phase 1 — BOQ foundation implementation starter
 
-## P0 audit findings from `syirkah-framework.txt`
+## P0 audit findings from `numou-framework.txt`
 
 Verified in the source dump:
 - `Boq` has `currentRevision`, but its lifecycle only moves `DRAFT -> UNDER_REVIEW -> APPROVED`; there is no visible revision creation/snapshot workflow.
 - `BoqItem.amount()` directly multiplies quantity by rate, with no explicit rounding policy or quantity/rate unit compatibility check.
 - `BoqQuantity` and `BoqRate` use string units. `BoqRate` uses `java.util.Currency`.
-- `foundation.domain.valueobject.Money` and `MonetaryRoundingPolicy` exist. The foundation currency is `tech.kayys.syirkah.foundation.domain.valueobject.Currency`, distinct from `java.util.Currency`.
+- `foundation.domain.valueobject.Money` and `MonetaryRoundingPolicy` exist. The foundation currency is `tech.kayys.numou.foundation.domain.valueobject.Currency`, distinct from `java.util.Currency`.
 - `InMemoryBoqRepository` stores live aggregate object references in a `ConcurrentHashMap`, and `save` replaces the stored object by id. It is suitable as a dev/test adapter, not evidence of durable persistence, immutable snapshots, or optimistic concurrency.
 - `BoqRepository` exposes `findByProjectId`, but no revision-specific query is visible in the inspected interface.
 
@@ -227,7 +227,7 @@ Static check: `scripts/check-boq-authorization-contract.sh`. This starter bundle
 
 ## Trusted context runtime unit tests (latest slice)
 
-Added `construction-application/src/test/java/tech/kayys/syirkah/construction/application/boq/handler/TrustedCommandContextTest.java`. It verifies trusted actor/tenant propagation for all three commands, fail-closed behavior when actor or tenant context is missing, fixed-clock propagation, and that command records do not expose actor/tenant fields. See `docs/testing/trusted-context-runtime-tests.md`.
+Added `construction-application/src/test/java/tech/kayys/numou/construction/application/boq/handler/TrustedCommandContextTest.java`. It verifies trusted actor/tenant propagation for all three commands, fail-closed behavior when actor or tenant context is missing, fixed-clock propagation, and that command records do not expose actor/tenant fields. See `docs/testing/trusted-context-runtime-tests.md`.
 
 These Java tests were added but not compiled or executed in this source-only bundle because the host project's build descriptor and exact dependencies are not present. They test the handler boundary, not the full authorization/database transaction path.
 
@@ -239,7 +239,7 @@ Added `scripts/postgres-command-atomicity-test.sh` and `docs/testing/command-ato
 
 ## Latest slice: Java idempotency executor unit tests
 
-Added `construction-application/src/test/java/tech/kayys/syirkah/construction/application/idempotency/IdempotentCommandExecutorTest.java` with seven cases for reservation success, cached completed retries, key reuse conflicts, incomplete reservations, action failure, failed completion, and input validation. Run `scripts/check-idempotency-test-contract.sh` for a lightweight source-presence check; details and limits are in `docs/testing/java-idempotency-test-notes.md`.
+Added `construction-application/src/test/java/tech/kayys/numou/construction/application/idempotency/IdempotentCommandExecutorTest.java` with seven cases for reservation success, cached completed retries, key reuse conflicts, incomplete reservations, action failure, failed completion, and input validation. Run `scripts/check-idempotency-test-contract.sh` for a lightweight source-presence check; details and limits are in `docs/testing/java-idempotency-test-notes.md`.
 
 **Validation boundary:** the source-contract script verifies that the seven test cases are present; it does not compile or execute Java. The fake runner used by these unit tests does not simulate database transactions. Because this starter contains no Maven/Gradle build descriptor and lacks the host dependency graph, Java execution and PostgreSQL integration remain unverified. The next acceptance gate is to run these tests in the actual Numou build and add integration tests against the real PostgreSQL adapters and transaction runner.
 
@@ -253,7 +253,7 @@ Added `PgTransactionalCommandRunnerIntegrationTest.java` to exercise the actual 
 
 ## Live BOQ revision operations integration tests
 
-`construction-adapter/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java` exercises the actual revision operations factory against PostgreSQL using explicitly test-only live BOQ tables. It verifies capture writes and rollback of snapshot, item, revision counter, live state, and outbox event. See `docs/testing/default-pg-boq-revision-operations-integration.md` for prerequisites and limitations. Run `scripts/check-default-pg-boq-operations-integration-contract.sh` for the static contract check; this is not a substitute for compiling/running the Java integration test.
+`construction-adapter/src/test/java/tech/kayys/numou/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java` exercises the actual revision operations factory against PostgreSQL using explicitly test-only live BOQ tables. It verifies capture writes and rollback of snapshot, item, revision counter, live state, and outbox event. See `docs/testing/default-pg-boq-revision-operations-integration.md` for prerequisites and limitations. Run `scripts/check-default-pg-boq-operations-integration-contract.sh` for the static contract check; this is not a substitute for compiling/running the Java integration test.
 
 ### BOQ lifecycle concurrency tests
 

@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.identity.adapter.outbound.postgres;
+package tech.kayys.numou.identity.adapter.outbound.postgres;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.identity.application.port.IdentityOutboxPort;
-import tech.kayys.syirkah.identity.application.port.RoleAssignmentPort;
-import tech.kayys.syirkah.identity.domain.role.RoleId;
-import tech.kayys.syirkah.identity.domain.role.TenantRoleAssignmentChanged;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.application.port.IdentityOutboxPort;
+import tech.kayys.numou.identity.application.port.RoleAssignmentPort;
+import tech.kayys.numou.identity.domain.role.RoleId;
+import tech.kayys.numou.identity.domain.role.TenantRoleAssignmentChanged;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.time.Instant;
 import java.util.List;

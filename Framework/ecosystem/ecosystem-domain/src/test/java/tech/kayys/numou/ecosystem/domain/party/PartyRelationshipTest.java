@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.ecosystem.domain.party;
+package tech.kayys.numou.ecosystem.domain.party;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 
 import java.time.LocalDate;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.adapter.postgres.outbox;
+package tech.kayys.numou.construction.adapter.postgres.outbox;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
@@ -6,7 +6,7 @@ import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.construction.spi.outbox.OutboxRelayStore;
+import tech.kayys.numou.construction.spi.outbox.OutboxRelayStore;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;

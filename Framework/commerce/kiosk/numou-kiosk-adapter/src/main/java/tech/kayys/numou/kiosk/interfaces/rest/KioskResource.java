@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.kiosk.interfaces.rest;
+package tech.kayys.numou.kiosk.interfaces.rest;
 
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.kiosk.application.api.KioskService;
-import tech.kayys.syirkah.kiosk.application.api.command.*;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskId;
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskSessionId;
-import tech.kayys.syirkah.kiosk.domain.valueobject.*;
+import tech.kayys.numou.kiosk.application.api.KioskService;
+import tech.kayys.numou.kiosk.application.api.command.*;
+import tech.kayys.numou.kiosk.domain.identifier.KioskId;
+import tech.kayys.numou.kiosk.domain.identifier.KioskSessionId;
+import tech.kayys.numou.kiosk.domain.valueobject.*;
 
 import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.inject.Inject;
@@ -26,7 +26,7 @@ import java.util.concurrent.CompletionStage;
 // without a provider fails CDI validation at build time. Remove this gate
 // once a KioskService implementation is registered as a CDI bean.
 @IfBuildProperty(
-        name = "syirkah.kiosk.api.enabled",
+        name = "numou.kiosk.api.enabled",
         stringValue = "false")
 @Path("/api/v1/kiosks")
 @Produces(MediaType.APPLICATION_JSON)

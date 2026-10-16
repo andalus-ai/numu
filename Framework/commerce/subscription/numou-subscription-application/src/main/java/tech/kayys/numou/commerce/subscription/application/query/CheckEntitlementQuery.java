@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.subscription.application.query;
+package tech.kayys.numou.commerce.subscription.application.query;
 
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId;
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionId;
+import tech.kayys.numou.foundation.application.query.Query;
 
 import java.time.LocalDate;
 import java.util.Objects;

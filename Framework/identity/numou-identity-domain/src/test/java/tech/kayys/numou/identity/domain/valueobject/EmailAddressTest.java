@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.domain.valueobject;
+package tech.kayys.numou.identity.domain.valueobject;
 
 import org.junit.jupiter.api.Test;
 

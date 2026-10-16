@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.warranty.WarrantyClaim;
-import tech.kayys.syirkah.asset.domain.warranty.WarrantyClaimId;
+import tech.kayys.numou.asset.domain.warranty.WarrantyClaim;
+import tech.kayys.numou.asset.domain.warranty.WarrantyClaimId;
 
 import java.util.List;
 import java.util.Optional;

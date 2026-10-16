@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.application.command;
+package tech.kayys.numou.commerce.promotion.application.command;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionRule;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionRule;
+import tech.kayys.numou.foundation.application.command.Command;
 
 import java.util.Objects;
 

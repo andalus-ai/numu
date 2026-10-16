@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.cache.adapter;
+package tech.kayys.numou.cache.adapter;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.cache.Cache;
-import tech.kayys.syirkah.cache.CacheKey;
-import tech.kayys.syirkah.cache.CachePolicy;
-import tech.kayys.syirkah.cache.CacheStats;
+import tech.kayys.numou.cache.Cache;
+import tech.kayys.numou.cache.CacheKey;
+import tech.kayys.numou.cache.CachePolicy;
+import tech.kayys.numou.cache.CacheStats;
 
 import java.util.Objects;
 import java.util.UUID;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.product.domain.classification;
+package tech.kayys.numou.product.domain.classification;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.UUID;
 

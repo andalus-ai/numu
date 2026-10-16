@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.groceries.application.api.query;
+package tech.kayys.numou.groceries.application.api.query;
 
-import tech.kayys.syirkah.foundation.application.query.Query;
+import tech.kayys.numou.foundation.application.query.Query;
 
 public record GetExpiringProductsQuery(int daysThreshold) implements Query {
     public GetExpiringProductsQuery {

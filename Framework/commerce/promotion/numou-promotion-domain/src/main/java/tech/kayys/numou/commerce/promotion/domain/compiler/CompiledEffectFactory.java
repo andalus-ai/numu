@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
 public interface CompiledEffectFactory {
 

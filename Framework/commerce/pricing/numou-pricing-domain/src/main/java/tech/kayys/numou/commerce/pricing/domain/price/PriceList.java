@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.commerce.pricing.domain.price;
+package tech.kayys.numou.commerce.pricing.domain.price;
 
-import tech.kayys.syirkah.commerce.pricing.domain.event.PriceEntryAdded;
-import tech.kayys.syirkah.commerce.pricing.domain.event.PriceEntryChanged;
-import tech.kayys.syirkah.commerce.pricing.domain.event.PriceListActivated;
-import tech.kayys.syirkah.commerce.pricing.domain.event.PriceListArchived;
-import tech.kayys.syirkah.commerce.pricing.domain.event.PriceListCreated;
-import tech.kayys.syirkah.commerce.pricing.domain.event.PriceListSuspended;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.pricing.domain.event.PriceEntryAdded;
+import tech.kayys.numou.commerce.pricing.domain.event.PriceEntryChanged;
+import tech.kayys.numou.commerce.pricing.domain.event.PriceListActivated;
+import tech.kayys.numou.commerce.pricing.domain.event.PriceListArchived;
+import tech.kayys.numou.commerce.pricing.domain.event.PriceListCreated;
+import tech.kayys.numou.commerce.pricing.domain.event.PriceListSuspended;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.collaboration;
+package tech.kayys.numou.construction.domain.collaboration;
 
 public enum SiteInstructionStatus {
     ISSUED,

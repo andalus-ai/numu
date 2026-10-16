@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.commerce.promotion.domain.stacking;
+package tech.kayys.numou.commerce.promotion.domain.stacking;
 
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FixedDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FixedPriceBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FreeItemBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PromotionBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.ShippingDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.target.CartTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.LineTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.PromotionTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.ShippingTarget;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FixedDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FixedPriceBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FreeItemBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PercentageDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PromotionBenefit;
+import tech.kayys.numou.commerce.promotion.domain.benefit.ShippingDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.target.CartTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.LineTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.PromotionTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.ShippingTarget;
 
 /**
  * Practical default benefit compatibility (product03.md §12):

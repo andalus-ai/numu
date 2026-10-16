@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.target.CartTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.SingleTargetSelection;
+import tech.kayys.numou.commerce.promotion.domain.target.CartTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.SingleTargetSelection;
 
 public final class CartTargetFactory implements CompiledTargetFactory {
 

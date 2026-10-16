@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.ar;
+package tech.kayys.numou.accounting.application.ar;
 
-import tech.kayys.syirkah.accounting.domain.ar.*;
+import tech.kayys.numou.accounting.domain.ar.*;
 
 import java.math.BigDecimal;
 import java.util.List;

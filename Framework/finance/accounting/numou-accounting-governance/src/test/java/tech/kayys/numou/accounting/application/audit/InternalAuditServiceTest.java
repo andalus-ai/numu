@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.application.audit;
+package tech.kayys.numou.accounting.application.audit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.audit.AuditEngagement;
-import tech.kayys.syirkah.accounting.domain.audit.AuditFinding;
+import tech.kayys.numou.accounting.domain.audit.AuditEngagement;
+import tech.kayys.numou.accounting.domain.audit.AuditFinding;
 
 import static org.junit.jupiter.api.Assertions.*;
 

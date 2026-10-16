@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.rule.DeclarativeRuleEngine;
+import tech.kayys.numou.accounting.application.rule.DeclarativeRuleEngine;
 
 import java.math.BigDecimal;
 import java.util.Map;

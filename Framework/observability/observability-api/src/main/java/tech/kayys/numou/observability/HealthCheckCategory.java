@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.observability;
+package tech.kayys.numou.observability;
 
 /**
  * Operational category of a health check (config02.md §P4-07 #6).

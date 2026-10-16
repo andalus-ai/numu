@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.subscription.application;
+package tech.kayys.numou.commerce.subscription.application;
 
 public final class SubscriptionErrors {
 

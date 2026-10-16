@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.boq;
+package tech.kayys.numou.construction.domain.boq;
 
 public enum BoqItemType {
     WORK,

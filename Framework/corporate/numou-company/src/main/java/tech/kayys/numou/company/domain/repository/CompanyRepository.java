@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.company.domain.repository;
+package tech.kayys.numou.company.domain.repository;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.company.domain.identifier.CompanyId;
-import tech.kayys.syirkah.company.domain.model.Company;
-import tech.kayys.syirkah.company.domain.valueobject.CompanyStatus;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.company.domain.identifier.CompanyId;
+import tech.kayys.numou.company.domain.model.Company;
+import tech.kayys.numou.company.domain.valueobject.CompanyStatus;
 
 import java.util.List;
 import java.util.concurrent.CompletionStage;

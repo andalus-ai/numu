@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.accounting.application.service;
+package tech.kayys.numou.accounting.application.service;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.api.command.PostJournalEntryCommand;
-import tech.kayys.syirkah.accounting.application.port.*;
-import tech.kayys.syirkah.accounting.domain.compliance.ComplianceConfiguration;
-import tech.kayys.syirkah.accounting.domain.identifier.*;
-import tech.kayys.syirkah.accounting.domain.model.*;
-import tech.kayys.syirkah.accounting.domain.report.*;
-import tech.kayys.syirkah.accounting.domain.valueobject.*;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.application.api.command.PostJournalEntryCommand;
+import tech.kayys.numou.accounting.application.port.*;
+import tech.kayys.numou.accounting.domain.compliance.ComplianceConfiguration;
+import tech.kayys.numou.accounting.domain.identifier.*;
+import tech.kayys.numou.accounting.domain.model.*;
+import tech.kayys.numou.accounting.domain.report.*;
+import tech.kayys.numou.accounting.domain.valueobject.*;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.time.Duration;
 import java.time.LocalDate;

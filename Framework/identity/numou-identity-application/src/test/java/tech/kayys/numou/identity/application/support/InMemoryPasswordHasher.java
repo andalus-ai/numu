@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.identity.application.support;
+package tech.kayys.numou.identity.application.support;
 
-import tech.kayys.syirkah.identity.application.port.PasswordHasher;
-import tech.kayys.syirkah.identity.domain.valueobject.PasswordHash;
+import tech.kayys.numou.identity.application.port.PasswordHasher;
+import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 /**
  * NOT for production use - just tags the raw value so tests can

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.restaurant.kernel.application;
+package tech.kayys.numou.restaurant.kernel.application;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.restaurant.kernel.domain.ConcurrencyConflictException;
+import tech.kayys.numou.restaurant.kernel.domain.ConcurrencyConflictException;
 
 import java.util.function.Supplier;
 

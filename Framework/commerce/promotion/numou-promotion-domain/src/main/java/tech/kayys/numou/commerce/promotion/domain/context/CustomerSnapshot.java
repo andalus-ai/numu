@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.context;
+package tech.kayys.numou.commerce.promotion.domain.context;
 
 import java.util.Objects;
 import java.util.Optional;

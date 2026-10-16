@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.application.outbox;
+package tech.kayys.numou.construction.application.outbox;
 
 import org.junit.jupiter.api.Test;
 

@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.groceries.domain.model;
+package tech.kayys.numou.groceries.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
-import tech.kayys.syirkah.groceries.domain.identifier.ProductId;
-import tech.kayys.syirkah.groceries.domain.valueobject.ProductType;
-import tech.kayys.syirkah.groceries.domain.valueobject.ShelfLife;
-import tech.kayys.syirkah.groceries.domain.valueobject.Weight;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.groceries.domain.identifier.ProductId;
+import tech.kayys.numou.groceries.domain.valueobject.ProductType;
+import tech.kayys.numou.groceries.domain.valueobject.ShelfLife;
+import tech.kayys.numou.groceries.domain.valueobject.Weight;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,7 +21,7 @@ import java.util.UUID;
  * extension of a product that lives in the Catalog / Product bounded
  * context (referenced by {@code catalogProductId}). Keeping it in its
  * own package prevents accidental cross-context mixing with
- * {@code tech.kayys.syirkah.product.domain.product.Product}.
+ * {@code tech.kayys.numou.product.domain.product.Product}.
  *
  * <p>It carries POS-specific attributes (shelf life, batch lots,
  * allergens, weight, temperature control) that the Product foundation

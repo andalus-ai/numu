@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -7,13 +7,13 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.application.api.command.ApproveJournalEntryCommand;
-import tech.kayys.syirkah.accounting.application.api.command.PostJournalEntryCommand;
-import tech.kayys.syirkah.accounting.application.api.command.ReverseJournalEntryCommand;
-import tech.kayys.syirkah.accounting.application.cqrs.CommandBus;
-import tech.kayys.syirkah.accounting.application.port.JournalEntryRepository;
-import tech.kayys.syirkah.accounting.domain.identifier.JournalEntryId;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.application.api.command.ApproveJournalEntryCommand;
+import tech.kayys.numou.accounting.application.api.command.PostJournalEntryCommand;
+import tech.kayys.numou.accounting.application.api.command.ReverseJournalEntryCommand;
+import tech.kayys.numou.accounting.application.cqrs.CommandBus;
+import tech.kayys.numou.accounting.application.port.JournalEntryRepository;
+import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
 
 import java.util.List;
 import java.util.UUID;

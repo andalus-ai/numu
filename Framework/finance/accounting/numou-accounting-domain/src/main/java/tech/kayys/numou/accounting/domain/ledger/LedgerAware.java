@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.ledger;
+package tech.kayys.numou.accounting.domain.ledger;
 
 /**
  * Contract implemented by all aggregates belonging to a specific financial ledger.

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.hardening;
+package tech.kayys.numou.accounting.application.hardening;
 
-import tech.kayys.syirkah.accounting.domain.hardening.SoDViolationException;
+import tech.kayys.numou.accounting.domain.hardening.SoDViolationException;
 
 import java.util.Objects;
 

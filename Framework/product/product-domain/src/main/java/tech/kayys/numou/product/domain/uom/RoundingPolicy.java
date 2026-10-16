@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.uom;
+package tech.kayys.numou.product.domain.uom;
 
 import java.math.RoundingMode;
 import java.util.Objects;

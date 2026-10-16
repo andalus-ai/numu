@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-document-modules</artifactId>
+    <artifactId>numou-document-modules</artifactId>
     <packaging>pom</packaging>
 
     <name>Numou Document</name>
@@ -23,9 +23,9 @@
     </description>
 
     <modules>
-        <module>syirkah-document</module>
-        <module>syirkah-document-application</module>
-        <module>syirkah-document-adapter</module>
+        <module>numou-document</module>
+        <module>numou-document-application</module>
+        <module>numou-document-adapter</module>
     </modules>
 
 </project>

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.organization.domain;
+package tech.kayys.numou.organization.domain;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.organization.domain.event.OrganizationUnitCreated;
-import tech.kayys.syirkah.organization.domain.event.OrganizationUnitDissolved;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.organization.domain.event.OrganizationUnitCreated;
+import tech.kayys.numou.organization.domain.event.OrganizationUnitDissolved;
 
 import java.time.Instant;
 import java.util.Objects;

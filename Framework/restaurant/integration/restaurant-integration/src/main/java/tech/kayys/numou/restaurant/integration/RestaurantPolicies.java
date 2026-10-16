@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.restaurant.integration;
+package tech.kayys.numou.restaurant.integration;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService;
-import tech.kayys.syirkah.restaurant.kitchen.domain.Priority;
-import tech.kayys.syirkah.restaurant.kitchen.domain.event.TicketItemReady;
-import tech.kayys.syirkah.restaurant.order.application.OrderService;
-import tech.kayys.syirkah.restaurant.order.domain.event.CourseFired;
-import tech.kayys.syirkah.restaurant.order.domain.event.OrderLineVoided;
-import tech.kayys.syirkah.reservation.application.WaitlistService;
-import tech.kayys.syirkah.restaurant.venue.domain.event.TableCleaned;
+import tech.kayys.numou.restaurant.kitchen.application.KitchenService;
+import tech.kayys.numou.restaurant.kitchen.domain.Priority;
+import tech.kayys.numou.restaurant.kitchen.domain.event.TicketItemReady;
+import tech.kayys.numou.restaurant.order.application.OrderService;
+import tech.kayys.numou.restaurant.order.domain.event.CourseFired;
+import tech.kayys.numou.restaurant.order.domain.event.OrderLineVoided;
+import tech.kayys.numou.reservation.application.WaitlistService;
+import tech.kayys.numou.restaurant.venue.domain.event.TableCleaned;
 
 import java.util.Set;
 

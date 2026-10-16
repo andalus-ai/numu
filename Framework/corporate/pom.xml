@@ -4,17 +4,17 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-corporate</artifactId>
+    <artifactId>numou-corporate</artifactId>
     <packaging>pom</packaging>
     <name>ERP Company</name>
     <description>Company Bounded Context</description>
     <modules>
-        <module>syirkah-company</module>
-        <module>syirkah-compliance</module>
+        <module>numou-company</module>
+        <module>numou-compliance</module>
     </modules>
 </project>

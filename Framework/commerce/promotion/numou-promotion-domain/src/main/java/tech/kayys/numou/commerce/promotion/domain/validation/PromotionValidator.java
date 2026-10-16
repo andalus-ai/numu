@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.commerce.promotion.domain.validation;
+package tech.kayys.numou.commerce.promotion.domain.validation;
 
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionRule;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.CompiledPromotion;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.PromotionCompilationResult;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.PromotionCompiler;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionRule;
+import tech.kayys.numou.commerce.promotion.domain.compiler.CompiledPromotion;
+import tech.kayys.numou.commerce.promotion.domain.compiler.PromotionCompilationResult;
+import tech.kayys.numou.commerce.promotion.domain.compiler.PromotionCompiler;
 
 import java.util.ArrayList;
 import java.util.HashSet;

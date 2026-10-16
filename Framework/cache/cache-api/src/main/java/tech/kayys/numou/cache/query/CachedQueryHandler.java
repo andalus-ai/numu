@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.cache.query;
+package tech.kayys.numou.cache.query;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.cache.Cache;
-import tech.kayys.syirkah.cache.CacheKey;
-import tech.kayys.syirkah.foundation.application.query.Query;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
+import tech.kayys.numou.cache.Cache;
+import tech.kayys.numou.cache.CacheKey;
+import tech.kayys.numou.foundation.application.query.Query;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
 
 import java.util.Objects;
 import java.util.function.Function;

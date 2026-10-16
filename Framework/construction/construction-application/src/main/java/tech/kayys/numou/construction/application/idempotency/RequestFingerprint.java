@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.application.idempotency;
+package tech.kayys.numou.construction.application.idempotency;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

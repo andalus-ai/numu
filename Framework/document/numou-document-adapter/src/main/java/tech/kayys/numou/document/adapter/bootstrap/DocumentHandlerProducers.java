@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.document.adapter.bootstrap;
+package tech.kayys.numou.document.adapter.bootstrap;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.document.application.command.CompleteUploadHandler;
-import tech.kayys.syirkah.document.application.command.CreateUploadSessionHandler;
-import tech.kayys.syirkah.document.application.port.DocumentAccessPort;
-import tech.kayys.syirkah.document.application.port.DocumentOutboxPort;
-import tech.kayys.syirkah.document.application.port.DocumentRepository;
-import tech.kayys.syirkah.document.application.port.DocumentStoragePort;
-import tech.kayys.syirkah.document.application.port.UploadSessionRepository;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.document.application.command.CompleteUploadHandler;
+import tech.kayys.numou.document.application.command.CreateUploadSessionHandler;
+import tech.kayys.numou.document.application.port.DocumentAccessPort;
+import tech.kayys.numou.document.application.port.DocumentOutboxPort;
+import tech.kayys.numou.document.application.port.DocumentRepository;
+import tech.kayys.numou.document.application.port.DocumentStoragePort;
+import tech.kayys.numou.document.application.port.UploadSessionRepository;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 @ApplicationScoped
 public class DocumentHandlerProducers {

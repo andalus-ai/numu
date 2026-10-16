@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.groceries.domain.identifier;
+package tech.kayys.numou.groceries.domain.identifier;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.io.Serializable;
@@ -13,7 +13,7 @@ import java.util.UUID;
  * context-local reference to a product that lives in the Catalog /
  * Product bounded context. Keeping it in its own package prevents
  * accidental cross-context mixing with
- * {@code tech.kayys.syirkah.product.domain.product.ProductId}.
+ * {@code tech.kayys.numou.product.domain.product.ProductId}.
  *
  * <p>Consider renaming to {@code PosProductRef} if the team prefers
  * an explicit "reference" naming convention across all contexts.</p>

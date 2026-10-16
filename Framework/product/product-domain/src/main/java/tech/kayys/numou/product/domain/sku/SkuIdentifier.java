@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.sku;
+package tech.kayys.numou.product.domain.sku;
 
 /**
  * One external identification attached to a SKU (e.g. EAN

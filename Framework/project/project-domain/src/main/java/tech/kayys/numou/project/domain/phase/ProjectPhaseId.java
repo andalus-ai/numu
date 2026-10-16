@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.project.domain.phase;
+package tech.kayys.numou.project.domain.phase;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.util.Objects;
 import java.util.UUID;

@@ -1,22 +1,22 @@
-package tech.kayys.syirkah.product.adapter.memory;
+package tech.kayys.numou.product.adapter.memory;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.product.domain.product.Product;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.product.ProductType;
-import tech.kayys.syirkah.product.domain.sku.Sku;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifier;
-import tech.kayys.syirkah.product.domain.sku.SkuIdentifierType;
+import tech.kayys.numou.product.domain.product.Product;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.product.ProductType;
+import tech.kayys.numou.product.domain.sku.Sku;
+import tech.kayys.numou.product.domain.sku.SkuId;
+import tech.kayys.numou.product.domain.sku.SkuIdentifier;
+import tech.kayys.numou.product.domain.sku.SkuIdentifierType;
 
-import tech.kayys.syirkah.product.domain.specification.AttributeDefinition;
-import tech.kayys.syirkah.product.domain.specification.AttributeType;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecification;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecificationId;
-import tech.kayys.syirkah.product.domain.variant.ProductVariant;
-import tech.kayys.syirkah.product.domain.variant.ProductVariantId;
-import tech.kayys.syirkah.product.domain.variant.VariantAttribute;
+import tech.kayys.numou.product.domain.specification.AttributeDefinition;
+import tech.kayys.numou.product.domain.specification.AttributeType;
+import tech.kayys.numou.product.domain.specification.ProductSpecification;
+import tech.kayys.numou.product.domain.specification.ProductSpecificationId;
+import tech.kayys.numou.product.domain.variant.ProductVariant;
+import tech.kayys.numou.product.domain.variant.ProductVariantId;
+import tech.kayys.numou.product.domain.variant.VariantAttribute;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

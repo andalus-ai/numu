@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.port;
+package tech.kayys.numou.accounting.application.port;
 
-import tech.kayys.syirkah.accounting.domain.identifier.JournalEntryId;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Optional;

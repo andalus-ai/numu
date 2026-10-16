@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.domain.ledger;
+package tech.kayys.numou.accounting.domain.ledger;
 
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantAware;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.accounting.domain.valueobject.ComplianceStandard;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantAware;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.valueobject.ComplianceStandard;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
 
 import java.util.Objects;
 

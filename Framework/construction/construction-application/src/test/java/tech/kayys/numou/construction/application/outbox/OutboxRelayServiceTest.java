@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.construction.application.outbox;
+package tech.kayys.numou.construction.application.outbox;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.construction.spi.outbox.OutboxDeliveryPort;
-import tech.kayys.syirkah.construction.spi.outbox.OutboxRelayStore;
+import tech.kayys.numou.construction.spi.outbox.OutboxDeliveryPort;
+import tech.kayys.numou.construction.spi.outbox.OutboxRelayStore;
 
 import java.time.Clock;
 import java.time.Duration;

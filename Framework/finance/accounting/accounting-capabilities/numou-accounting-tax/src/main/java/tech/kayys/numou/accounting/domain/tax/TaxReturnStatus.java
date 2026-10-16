@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.tax;
+package tech.kayys.numou.accounting.domain.tax;
 
 /** Tax filing return status. */
 public enum TaxReturnStatus {

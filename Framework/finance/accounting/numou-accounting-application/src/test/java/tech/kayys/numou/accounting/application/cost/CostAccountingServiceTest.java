@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.cost;
+package tech.kayys.numou.accounting.application.cost;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.cost.*;
+import tech.kayys.numou.accounting.domain.cost.*;
 
 import java.math.BigDecimal;
 import java.util.Map;

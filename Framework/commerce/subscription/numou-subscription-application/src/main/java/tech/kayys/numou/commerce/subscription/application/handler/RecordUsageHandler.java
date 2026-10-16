@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.commerce.subscription.application.handler;
+package tech.kayys.numou.commerce.subscription.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.subscription.application.SubscriptionErrors;
-import tech.kayys.syirkah.commerce.subscription.application.UsageReceipt;
-import tech.kayys.syirkah.commerce.subscription.application.command.RecordUsageCommand;
-import tech.kayys.syirkah.commerce.subscription.domain.UsageEntry;
-import tech.kayys.syirkah.commerce.subscription.domain.UsageMeter;
-import tech.kayys.syirkah.commerce.subscription.spi.port.PlanEntitlementPort;
-import tech.kayys.syirkah.commerce.subscription.spi.port.SubscriptionRepositoryPort;
-import tech.kayys.syirkah.commerce.subscription.spi.port.UsageMeterPort;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.subscription.application.SubscriptionErrors;
+import tech.kayys.numou.commerce.subscription.application.UsageReceipt;
+import tech.kayys.numou.commerce.subscription.application.command.RecordUsageCommand;
+import tech.kayys.numou.commerce.subscription.domain.UsageEntry;
+import tech.kayys.numou.commerce.subscription.domain.UsageMeter;
+import tech.kayys.numou.commerce.subscription.spi.port.PlanEntitlementPort;
+import tech.kayys.numou.commerce.subscription.spi.port.SubscriptionRepositoryPort;
+import tech.kayys.numou.commerce.subscription.spi.port.UsageMeterPort;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.time.ZoneOffset;
 import java.util.Objects;
@@ -74,8 +74,8 @@ public final class RecordUsageHandler
 
     private Uni<Result<UsageReceipt>> accumulate(
             RecordUsageCommand command,
-            tech.kayys.syirkah.commerce.subscription.domain.Subscription subscription,
-            tech.kayys.syirkah.commerce.subscription.domain.Entitlement entitlement
+            tech.kayys.numou.commerce.subscription.domain.Subscription subscription,
+            tech.kayys.numou.commerce.subscription.domain.Entitlement entitlement
     ) {
         var period = subscription.currentPeriod();
         return Uni.createFrom()

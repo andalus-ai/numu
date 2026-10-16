@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.document.application.command;
+package tech.kayys.numou.document.application.command;
 
-import tech.kayys.syirkah.accounting.domain.document.DocumentClassification;
-import tech.kayys.syirkah.accounting.domain.document.DocumentMetadata;
-import tech.kayys.syirkah.accounting.domain.document.DocumentType;
+import tech.kayys.numou.accounting.domain.document.DocumentClassification;
+import tech.kayys.numou.accounting.domain.document.DocumentMetadata;
+import tech.kayys.numou.accounting.domain.document.DocumentType;
 
 import java.time.Duration;
 

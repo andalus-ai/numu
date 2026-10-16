@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.cache.adapter;
+package tech.kayys.numou.cache.adapter;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.cache.CacheKey;
-import tech.kayys.syirkah.cache.CachePolicy;
+import tech.kayys.numou.cache.CacheKey;
+import tech.kayys.numou.cache.CachePolicy;
 
 import java.time.Duration;
 import java.util.UUID;

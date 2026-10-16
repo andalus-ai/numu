@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.accounting.application.sdk.plugin.aaoifi;
+package tech.kayys.numou.accounting.application.sdk.plugin.aaoifi;
 
-import tech.kayys.syirkah.accounting.application.compliance.ComplianceRule;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.CompliancePack;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.PluginContext;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.PluginMetadata;
-import tech.kayys.syirkah.accounting.domain.compliance.ComplianceConfiguration;
-import tech.kayys.syirkah.accounting.domain.islamic.ShariaContractType;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.application.compliance.ComplianceRule;
+import tech.kayys.numou.accounting.application.sdk.plugin.CompliancePack;
+import tech.kayys.numou.accounting.application.sdk.plugin.PluginContext;
+import tech.kayys.numou.accounting.application.sdk.plugin.PluginMetadata;
+import tech.kayys.numou.accounting.domain.compliance.ComplianceConfiguration;
+import tech.kayys.numou.accounting.domain.islamic.ShariaContractType;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
 
 /**
  * AAOIFI Lite compliance pack.

@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.construction.application.profile;
+package tech.kayys.numou.construction.application.profile;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.construction.application.profile.command.CreateConstructionProjectProfileCommand;
-import tech.kayys.syirkah.construction.application.profile.handler.CreateConstructionProjectProfileHandler;
-import tech.kayys.syirkah.construction.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.construction.domain.profile.ConstructionContractType;
-import tech.kayys.syirkah.construction.domain.profile.ConstructionType;
-import tech.kayys.syirkah.construction.domain.profile.DeliveryMethod;
+import tech.kayys.numou.construction.application.profile.command.CreateConstructionProjectProfileCommand;
+import tech.kayys.numou.construction.application.profile.handler.CreateConstructionProjectProfileHandler;
+import tech.kayys.numou.construction.application.support.RecordingEventPublisher;
+import tech.kayys.numou.construction.domain.profile.ConstructionContractType;
+import tech.kayys.numou.construction.domain.profile.ConstructionType;
+import tech.kayys.numou.construction.domain.profile.DeliveryMethod;
 
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;

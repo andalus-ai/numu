@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.identity.adapter.outbound.security;
+package tech.kayys.numou.identity.adapter.outbound.security;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.identity.application.port.MembershipManagementPort;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.security.domain.authorization.Principal;
-import tech.kayys.syirkah.security.spi.port.TenantMembershipResolver;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.application.port.MembershipManagementPort;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.security.domain.authorization.Principal;
+import tech.kayys.numou.security.spi.port.TenantMembershipResolver;
 
 import java.util.Objects;
 

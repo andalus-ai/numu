@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.pricing.domain;
+package tech.kayys.numou.commerce.pricing.domain;
 
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfiguration;
-import tech.kayys.syirkah.commerce.offering.domain.ChannelId;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.foundation.domain.valueobject.Quantity;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfiguration;
+import tech.kayys.numou.commerce.offering.domain.ChannelId;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.foundation.domain.valueobject.Quantity;
 
 import java.time.Instant;
 import java.util.Objects;

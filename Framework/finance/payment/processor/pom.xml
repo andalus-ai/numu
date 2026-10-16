@@ -4,7 +4,7 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
+        <groupId>tech.kayys.numou</groupId>
         <artifactId>finance-payment</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
@@ -47,16 +47,16 @@
     </dependencies>
 
     <modules>
-        <module>syirkah-payment-ovo</module>
-        <module>syirkah-payment-bank</module>
-        <module>syirkah-payment-card</module>
-        <module>syirkah-payment-fintech</module>
-        <module>syirkah-payment-qris</module>
-        <module>syirkah-payment-ewallet</module>
-        <module>syirkah-payment-retail</module>
-        <module>syirkah-payment-cash</module>
-        <module>syirkah-payment-gopay</module>
-        <module>syirkah-payment-virtualaccount</module>
-        <module>syirkah-payment-edc</module>
+        <module>numou-payment-ovo</module>
+        <module>numou-payment-bank</module>
+        <module>numou-payment-card</module>
+        <module>numou-payment-fintech</module>
+        <module>numou-payment-qris</module>
+        <module>numou-payment-ewallet</module>
+        <module>numou-payment-retail</module>
+        <module>numou-payment-cash</module>
+        <module>numou-payment-gopay</module>
+        <module>numou-payment-virtualaccount</module>
+        <module>numou-payment-edc</module>
     </modules>
 </project>

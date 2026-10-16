@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.hardening;
+package tech.kayys.numou.accounting.application.hardening;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.hardening.AuditAction;
-import tech.kayys.syirkah.accounting.domain.hardening.SoDViolationException;
+import tech.kayys.numou.accounting.domain.hardening.AuditAction;
+import tech.kayys.numou.accounting.domain.hardening.SoDViolationException;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.accounting.application.sdk.module;
+package tech.kayys.numou.accounting.application.sdk.module;
 
-import tech.kayys.syirkah.accounting.application.cqrs.Command;
-import tech.kayys.syirkah.accounting.application.cqrs.CommandHandler;
-import tech.kayys.syirkah.accounting.application.cqrs.Query;
-import tech.kayys.syirkah.accounting.application.cqrs.QueryHandler;
-import tech.kayys.syirkah.accounting.application.projection.Projection;
-import tech.kayys.syirkah.accounting.domain.event.AccountingEvent;
+import tech.kayys.numou.accounting.application.cqrs.Command;
+import tech.kayys.numou.accounting.application.cqrs.CommandHandler;
+import tech.kayys.numou.accounting.application.cqrs.Query;
+import tech.kayys.numou.accounting.application.cqrs.QueryHandler;
+import tech.kayys.numou.accounting.application.projection.Projection;
+import tech.kayys.numou.accounting.domain.event.AccountingEvent;
 
 /**
  * Context passed to FinancialModule.register(...) during bootstrap.

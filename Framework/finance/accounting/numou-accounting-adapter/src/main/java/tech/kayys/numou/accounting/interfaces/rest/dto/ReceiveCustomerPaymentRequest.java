@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest.dto;
+package tech.kayys.numou.accounting.interfaces.rest.dto;
 
 import java.math.BigDecimal;
 

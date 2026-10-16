@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.accounting.application.sdk.bootstrap;
+package tech.kayys.numou.accounting.application.sdk.bootstrap;
 
-import tech.kayys.syirkah.accounting.application.cqrs.CommandBus;
-import tech.kayys.syirkah.accounting.application.cqrs.QueryBus;
-import tech.kayys.syirkah.accounting.application.outbox.OutboxRepository;
-import tech.kayys.syirkah.accounting.application.projection.ProjectionRegistry;
-import tech.kayys.syirkah.accounting.application.sdk.module.FinancialModule;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.PlatformPlugin;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.PluginRegistry;
+import tech.kayys.numou.accounting.application.cqrs.CommandBus;
+import tech.kayys.numou.accounting.application.cqrs.QueryBus;
+import tech.kayys.numou.accounting.application.outbox.OutboxRepository;
+import tech.kayys.numou.accounting.application.projection.ProjectionRegistry;
+import tech.kayys.numou.accounting.application.sdk.module.FinancialModule;
+import tech.kayys.numou.accounting.application.sdk.plugin.PlatformPlugin;
+import tech.kayys.numou.accounting.application.sdk.plugin.PluginRegistry;
 
 import java.util.List;
 

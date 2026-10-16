@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.support;
+package tech.kayys.numou.project.application.support;
 
-import tech.kayys.syirkah.project.domain.project.ProjectCostEntry;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.project.ProjectRevenueEntry;
-import tech.kayys.syirkah.project.spi.port.ProjectFinanceStorePort;
+import tech.kayys.numou.project.domain.project.ProjectCostEntry;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.project.ProjectRevenueEntry;
+import tech.kayys.numou.project.spi.port.ProjectFinanceStorePort;
 
 import java.util.ArrayList;
 import java.util.List;

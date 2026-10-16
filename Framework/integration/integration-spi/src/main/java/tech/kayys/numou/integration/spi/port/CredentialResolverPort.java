@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.integration.spi.port;
+package tech.kayys.numou.integration.spi.port;
 
 import io.smallrye.mutiny.Uni;
 

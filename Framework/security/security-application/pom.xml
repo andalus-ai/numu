@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-security</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-security</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-security-application</artifactId>
+    <artifactId>numou-security-application</artifactId>
 
     <name>Numou Security - Application</name>
     <description>
@@ -23,18 +23,18 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-security-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-security-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-security-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-security-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -43,8 +43,8 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-cache-api</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-cache-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

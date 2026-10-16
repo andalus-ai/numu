@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.application.posting;
+package tech.kayys.numou.accounting.application.posting;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.posting.ap.SupplierInvoicePostedRule;
-import tech.kayys.syirkah.accounting.application.posting.ar.*;
-import tech.kayys.syirkah.accounting.domain.ap.*;
-import tech.kayys.syirkah.accounting.domain.ar.*;
+import tech.kayys.numou.accounting.application.posting.ap.SupplierInvoicePostedRule;
+import tech.kayys.numou.accounting.application.posting.ar.*;
+import tech.kayys.numou.accounting.domain.ap.*;
+import tech.kayys.numou.accounting.domain.ar.*;
 
 import java.math.BigDecimal;
 import java.util.List;

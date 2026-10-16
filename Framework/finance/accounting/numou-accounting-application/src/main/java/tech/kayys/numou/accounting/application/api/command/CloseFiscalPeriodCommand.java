@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.api.command;
+package tech.kayys.numou.accounting.application.api.command;
 
-import tech.kayys.syirkah.accounting.application.cqrs.Command;
-import tech.kayys.syirkah.accounting.domain.identifier.FiscalPeriodId;
+import tech.kayys.numou.accounting.application.cqrs.Command;
+import tech.kayys.numou.accounting.domain.identifier.FiscalPeriodId;
 
 import java.util.Objects;
 

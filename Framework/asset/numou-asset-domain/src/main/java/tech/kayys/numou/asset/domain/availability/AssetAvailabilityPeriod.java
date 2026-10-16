@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.availability;
+package tech.kayys.numou.asset.domain.availability;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 
 import java.time.Instant;
 import java.util.Objects;

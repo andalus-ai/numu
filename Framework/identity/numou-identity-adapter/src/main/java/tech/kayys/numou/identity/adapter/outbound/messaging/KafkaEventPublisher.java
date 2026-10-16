@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.adapter.outbound.messaging;
+package tech.kayys.numou.identity.adapter.outbound.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
@@ -6,8 +6,8 @@ import io.smallrye.reactive.messaging.MutinyEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.reactive.messaging.Channel;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.util.List;
 

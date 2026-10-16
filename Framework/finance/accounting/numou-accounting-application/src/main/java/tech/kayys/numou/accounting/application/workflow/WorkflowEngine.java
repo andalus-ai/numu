@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.workflow;
+package tech.kayys.numou.accounting.application.workflow;
 
-import tech.kayys.syirkah.accounting.domain.workflow.*;
+import tech.kayys.numou.accounting.domain.workflow.*;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

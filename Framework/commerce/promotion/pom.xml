@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-commerce</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-commerce</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-promotion-modules</artifactId>
+    <artifactId>numou-promotion-modules</artifactId>
     <packaging>pom</packaging>
 
     <name>Numou Commerce - Promotion Aggregator</name>
@@ -27,10 +27,10 @@
     </description>
 
     <modules>
-        <module>syirkah-promotion-domain</module>
-        <module>syirkah-promotion-spi</module>
-        <module>syirkah-promotion-application</module>
-        <module>syirkah-promotion-adapter</module>
+        <module>numou-promotion-domain</module>
+        <module>numou-promotion-spi</module>
+        <module>numou-promotion-application</module>
+        <module>numou-promotion-adapter</module>
     </modules>
 
 </project>

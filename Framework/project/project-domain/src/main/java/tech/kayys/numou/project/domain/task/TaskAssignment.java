@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.project.domain.task;
+package tech.kayys.numou.project.domain.task;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.time.Instant;
 import java.util.Objects;

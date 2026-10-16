@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.movement;
+package tech.kayys.numou.asset.domain.movement;
 
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
 
 import java.time.Instant;
 import java.util.Objects;

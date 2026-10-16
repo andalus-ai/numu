@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.adapter.inbound.rest;
+package tech.kayys.numou.identity.adapter.inbound.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -11,9 +11,9 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.identity.application.service.RoleManagementService;
-import tech.kayys.syirkah.identity.domain.role.RoleId;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.identity.application.service.RoleManagementService;
+import tech.kayys.numou.identity.domain.role.RoleId;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.net.URI;
 import java.util.UUID;

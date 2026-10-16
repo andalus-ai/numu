@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.specification;
+package tech.kayys.numou.product.domain.specification;
 
 /**
  * The value domain of an attribute definition.

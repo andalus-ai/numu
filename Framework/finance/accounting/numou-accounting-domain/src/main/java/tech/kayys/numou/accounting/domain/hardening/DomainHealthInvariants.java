@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.hardening;
+package tech.kayys.numou.accounting.domain.hardening;
 
 import java.math.BigDecimal;
 import java.util.Objects;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.domain.valueobject;
+package tech.kayys.numou.accounting.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 public enum AccountType implements ValueObject {
     ASSET("Asset", true),

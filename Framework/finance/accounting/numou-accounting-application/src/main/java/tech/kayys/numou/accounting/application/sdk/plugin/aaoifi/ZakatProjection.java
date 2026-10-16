@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.application.sdk.plugin.aaoifi;
+package tech.kayys.numou.accounting.application.sdk.plugin.aaoifi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.application.projection.Projection;
-import tech.kayys.syirkah.accounting.domain.event.AccountingEvent;
-import tech.kayys.syirkah.accounting.domain.event.MurabahaCreated;
+import tech.kayys.numou.accounting.application.projection.Projection;
+import tech.kayys.numou.accounting.domain.event.AccountingEvent;
+import tech.kayys.numou.accounting.domain.event.MurabahaCreated;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

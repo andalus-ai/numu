@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.project.application.command;
+package tech.kayys.numou.project.application.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.project.domain.task.TaskDependency;
-import tech.kayys.syirkah.project.domain.task.TaskDependencyId;
-import tech.kayys.syirkah.project.spi.port.ProjectTaskRepository;
-import tech.kayys.syirkah.project.spi.port.TaskDependencyRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.project.domain.task.TaskDependency;
+import tech.kayys.numou.project.domain.task.TaskDependencyId;
+import tech.kayys.numou.project.spi.port.ProjectTaskRepository;
+import tech.kayys.numou.project.spi.port.TaskDependencyRepository;
 
 import java.util.Objects;
 

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.restaurant.venue.domain.event;
+package tech.kayys.numou.restaurant.venue.domain.event;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 public record MenuItemPriceChanged(
         UUID eventId,

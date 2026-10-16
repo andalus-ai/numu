@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.classification;
+package tech.kayys.numou.product.domain.classification;
 
 /** Lifecycle of a classification scheme. */
 public enum ClassificationSchemeStatus {

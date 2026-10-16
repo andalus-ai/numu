@@ -6,4 +6,4 @@
  * search, inventory, accounting) react to these instead of Product
  * calling them directly.
  */
-package tech.kayys.syirkah.product.domain.event;
+package tech.kayys.numou.product.domain.event;

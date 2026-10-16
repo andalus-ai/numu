@@ -7,26 +7,26 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-pricing-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-pricing-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-pricing-adapter</artifactId>
+    <artifactId>numou-pricing-adapter</artifactId>
 
     <name>Numou Commerce Pricing - Adapter</name>
     <description>In-memory price book + option adjustment stores</description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-pricing-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-pricing-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-pricing-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-pricing-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

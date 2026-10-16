@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.workforce;
+package tech.kayys.numou.construction.spi.workforce;
 
-import tech.kayys.syirkah.construction.domain.workforce.LaborRequirement;
-import tech.kayys.syirkah.construction.domain.workforce.LaborRequirementId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.workforce.LaborRequirement;
+import tech.kayys.numou.construction.domain.workforce.LaborRequirementId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

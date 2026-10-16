@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.commerce.pricing.application.handler;
+package tech.kayys.numou.commerce.pricing.application.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.commerce.offering.domain.OfferingStatus;
-import tech.kayys.syirkah.commerce.offering.spi.port.ProductOfferingRepository;
-import tech.kayys.syirkah.commerce.pricing.application.query.ResolvePriceQuery;
-import tech.kayys.syirkah.commerce.pricing.domain.PriceAdjustment;
-import tech.kayys.syirkah.commerce.pricing.domain.PriceResult;
-import tech.kayys.syirkah.commerce.pricing.spi.port.OptionPricePort;
-import tech.kayys.syirkah.commerce.pricing.spi.port.PriceBookPort;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
+import tech.kayys.numou.commerce.offering.domain.OfferingStatus;
+import tech.kayys.numou.commerce.offering.spi.port.ProductOfferingRepository;
+import tech.kayys.numou.commerce.pricing.application.query.ResolvePriceQuery;
+import tech.kayys.numou.commerce.pricing.domain.PriceAdjustment;
+import tech.kayys.numou.commerce.pricing.domain.PriceResult;
+import tech.kayys.numou.commerce.pricing.spi.port.OptionPricePort;
+import tech.kayys.numou.commerce.pricing.spi.port.PriceBookPort;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
 
 import java.util.ArrayList;
 import java.util.Objects;
@@ -74,7 +74,7 @@ public final class ResolvePriceHandler
 
     private Uni<Result<PriceResult>> resolveAdjustments(
             ResolvePriceQuery query,
-            tech.kayys.syirkah.foundation.domain.valueobject.Money base
+            tech.kayys.numou.foundation.domain.valueobject.Money base
     ) {
         var context = query.context();
         Uni<Result<PriceResult>> acc = Uni.createFrom()

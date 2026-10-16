@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.risk.event.RiskAssessed;
-import tech.kayys.syirkah.project.domain.risk.event.RiskClosed;
-import tech.kayys.syirkah.project.domain.risk.event.RiskIdentified;
-import tech.kayys.syirkah.project.domain.risk.event.RiskMaterialized;
-import tech.kayys.syirkah.project.domain.risk.event.RiskMonitoringStarted;
-import tech.kayys.syirkah.project.domain.risk.event.RiskResponsePlanned;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.risk.event.RiskAssessed;
+import tech.kayys.numou.project.domain.risk.event.RiskClosed;
+import tech.kayys.numou.project.domain.risk.event.RiskIdentified;
+import tech.kayys.numou.project.domain.risk.event.RiskMaterialized;
+import tech.kayys.numou.project.domain.risk.event.RiskMonitoringStarted;
+import tech.kayys.numou.project.domain.risk.event.RiskResponsePlanned;
 
 import java.time.Instant;
 import java.time.LocalDate;

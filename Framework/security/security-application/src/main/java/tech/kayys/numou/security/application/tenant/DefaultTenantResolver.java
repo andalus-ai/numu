@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.security.application.tenant;
+package tech.kayys.numou.security.application.tenant;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.security.domain.authentication.TenantResolutionException;
-import tech.kayys.syirkah.security.spi.port.TenantMembershipResolver;
-import tech.kayys.syirkah.security.spi.port.TenantResolutionRequest;
-import tech.kayys.syirkah.security.spi.port.TenantResolver;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.security.domain.authentication.TenantResolutionException;
+import tech.kayys.numou.security.spi.port.TenantMembershipResolver;
+import tech.kayys.numou.security.spi.port.TenantResolutionRequest;
+import tech.kayys.numou.security.spi.port.TenantResolver;
 
 import java.util.Objects;
 

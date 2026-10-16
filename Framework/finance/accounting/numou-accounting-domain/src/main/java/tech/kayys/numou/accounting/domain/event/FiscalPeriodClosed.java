@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.domain.event;
+package tech.kayys.numou.accounting.domain.event;
 
-import tech.kayys.syirkah.accounting.domain.identifier.FiscalPeriodId;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.identifier.FiscalPeriodId;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 
 import java.time.Instant;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.payment;
+package tech.kayys.numou.construction.domain.payment;
 
 public enum PaymentCertificateStatus {
     DRAFT,

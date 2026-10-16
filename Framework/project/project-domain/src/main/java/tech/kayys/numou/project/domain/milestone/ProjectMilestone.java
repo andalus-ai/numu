@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.project.domain.milestone;
+package tech.kayys.numou.project.domain.milestone;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.project.domain.event.MilestoneCancelled;
-import tech.kayys.syirkah.project.domain.event.MilestoneCreated;
-import tech.kayys.syirkah.project.domain.event.MilestoneReached;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.project.domain.event.MilestoneCancelled;
+import tech.kayys.numou.project.domain.event.MilestoneCreated;
+import tech.kayys.numou.project.domain.event.MilestoneReached;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.time.Instant;
 import java.time.LocalDate;

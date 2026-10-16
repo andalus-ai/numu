@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST="$ROOT/construction-adapter/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/outbox/PgOutboxRelayStoreIntegrationTest.java"
-STORE="$ROOT/construction-adapter/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/outbox/PgOutboxRelayStore.java"
+TEST="$ROOT/construction-adapter/src/test/java/tech/kayys/numou/construction/adapter/postgres/outbox/PgOutboxRelayStoreIntegrationTest.java"
+STORE="$ROOT/construction-adapter/src/main/java/tech/kayys/numou/construction/adapter/postgres/outbox/PgOutboxRelayStore.java"
 for token in \
   '@QuarkusTest' \
   'claimsEligibleRowsAndPersistsLeaseIdentity' \

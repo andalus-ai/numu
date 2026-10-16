@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.maintenance;
+package tech.kayys.numou.accounting.application.maintenance;
 
-import tech.kayys.syirkah.accounting.domain.maintenance.*;
+import tech.kayys.numou.accounting.domain.maintenance.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

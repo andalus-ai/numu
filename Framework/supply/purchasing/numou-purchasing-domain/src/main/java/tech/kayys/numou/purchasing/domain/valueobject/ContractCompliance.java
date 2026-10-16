@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.purchasing.domain.valueobject;
+package tech.kayys.numou.purchasing.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 import java.time.Instant;
 import java.util.Objects;

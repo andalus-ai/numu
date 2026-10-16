@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.product;
+package tech.kayys.numou.product.domain.product;
 
 /**
  * Product lifecycle. The order is a domain rule, not a database

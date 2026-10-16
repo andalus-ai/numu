@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.interfaces.repository;
+package tech.kayys.numou.accounting.interfaces.repository;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.accounting.application.outbox.OutboxEvent;
-import tech.kayys.syirkah.accounting.application.outbox.OutboxRepository;
+import tech.kayys.numou.accounting.application.outbox.OutboxEvent;
+import tech.kayys.numou.accounting.application.outbox.OutboxRepository;
 
 import java.util.ArrayList;
 import java.util.List;

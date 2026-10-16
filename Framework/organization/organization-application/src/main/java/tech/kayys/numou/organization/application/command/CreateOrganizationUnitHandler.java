@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.organization.application.command;
+package tech.kayys.numou.organization.application.command;
 
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.organization.domain.OrganizationUnit;
-import tech.kayys.syirkah.organization.domain.OrganizationUnitId;
-import tech.kayys.syirkah.organization.spi.OrganizationUnitRepository;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.organization.domain.OrganizationUnit;
+import tech.kayys.numou.organization.domain.OrganizationUnitId;
+import tech.kayys.numou.organization.spi.OrganizationUnitRepository;
 
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;

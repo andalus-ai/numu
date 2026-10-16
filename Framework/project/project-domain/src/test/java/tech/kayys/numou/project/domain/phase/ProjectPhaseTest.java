@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.project.domain.phase;
+package tech.kayys.numou.project.domain.phase;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.project.domain.event.PhaseCompleted;
-import tech.kayys.syirkah.project.domain.event.PhaseCreated;
-import tech.kayys.syirkah.project.domain.event.PhaseStarted;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.project.domain.event.PhaseCompleted;
+import tech.kayys.numou.project.domain.event.PhaseCreated;
+import tech.kayys.numou.project.domain.event.PhaseStarted;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.time.LocalDate;
 

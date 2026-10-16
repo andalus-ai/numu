@@ -5,4 +5,4 @@
  * GTIN, supplier code, manufacturer part number, external system ID
  * - without adding a column per scheme.
  */
-package tech.kayys.syirkah.product.domain.identifier;
+package tech.kayys.numou.product.domain.identifier;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.site;
+package tech.kayys.numou.construction.domain.site;
 
 import org.junit.jupiter.api.Test;
 import java.util.UUID;

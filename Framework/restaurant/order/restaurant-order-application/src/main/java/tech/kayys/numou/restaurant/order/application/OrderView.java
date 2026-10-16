@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.restaurant.order.application;
+package tech.kayys.numou.restaurant.order.application;
 
-import tech.kayys.syirkah.restaurant.order.domain.DineInOrder;
-import tech.kayys.syirkah.restaurant.order.domain.OrderLine;
+import tech.kayys.numou.restaurant.order.domain.DineInOrder;
+import tech.kayys.numou.restaurant.order.domain.OrderLine;
 
 import java.math.BigDecimal;
 import java.util.List;

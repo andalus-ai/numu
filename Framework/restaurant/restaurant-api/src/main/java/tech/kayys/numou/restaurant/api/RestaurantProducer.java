@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -6,35 +6,35 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import tech.kayys.syirkah.cache.CachePolicy;
-import tech.kayys.syirkah.cache.adapter.CaffeineCache;
-import tech.kayys.syirkah.foundation.adapter.context.RequestContextHolder;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
-import tech.kayys.syirkah.observability.MetricsPort;
-import tech.kayys.syirkah.reliability.adapter.json.JsonDomainEvent;
-import tech.kayys.syirkah.reliability.adapter.json.EventTypeRegistry;
-import tech.kayys.syirkah.reliability.spi.port.OutboxStorePort;
-import tech.kayys.syirkah.restaurant.integration.VenueBackedPorts;
-import tech.kayys.syirkah.restaurant.kernel.spi.DomainEventSink;
-import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService;
-import tech.kayys.syirkah.restaurant.kitchen.spi.AvailabilityBoardRepository;
-import tech.kayys.syirkah.restaurant.kitchen.spi.TicketRepository;
-import tech.kayys.syirkah.restaurant.order.application.OrderService;
-import tech.kayys.syirkah.restaurant.order.spi.OrderRepository;
-import tech.kayys.syirkah.restaurant.persistence.MeteredDomainEventSink;
-import tech.kayys.syirkah.restaurant.persistence.OutboxDomainEventSink;
-import tech.kayys.syirkah.reservation.application.ReservationService;
-import tech.kayys.syirkah.reservation.application.WaitlistService;
-import tech.kayys.syirkah.reservation.domain.BookingRules;
-import tech.kayys.syirkah.reservation.spi.LedgerRepository;
-import tech.kayys.syirkah.reservation.spi.ReservationRepository;
-import tech.kayys.syirkah.reservation.spi.WaitlistRepository;
-import tech.kayys.syirkah.restaurant.venue.application.MenuView;
-import tech.kayys.syirkah.restaurant.venue.application.VenueService;
-import tech.kayys.syirkah.restaurant.venue.spi.DiningTableRepository;
-import tech.kayys.syirkah.restaurant.venue.spi.MenuRepository;
-import tech.kayys.syirkah.restaurant.venue.spi.VenueRepository;
+import tech.kayys.numou.cache.CachePolicy;
+import tech.kayys.numou.cache.adapter.CaffeineCache;
+import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
+import tech.kayys.numou.observability.MetricsPort;
+import tech.kayys.numou.reliability.adapter.json.JsonDomainEvent;
+import tech.kayys.numou.reliability.adapter.json.EventTypeRegistry;
+import tech.kayys.numou.reliability.spi.port.OutboxStorePort;
+import tech.kayys.numou.restaurant.integration.VenueBackedPorts;
+import tech.kayys.numou.restaurant.kernel.spi.DomainEventSink;
+import tech.kayys.numou.restaurant.kitchen.application.KitchenService;
+import tech.kayys.numou.restaurant.kitchen.spi.AvailabilityBoardRepository;
+import tech.kayys.numou.restaurant.kitchen.spi.TicketRepository;
+import tech.kayys.numou.restaurant.order.application.OrderService;
+import tech.kayys.numou.restaurant.order.spi.OrderRepository;
+import tech.kayys.numou.restaurant.persistence.MeteredDomainEventSink;
+import tech.kayys.numou.restaurant.persistence.OutboxDomainEventSink;
+import tech.kayys.numou.reservation.application.ReservationService;
+import tech.kayys.numou.reservation.application.WaitlistService;
+import tech.kayys.numou.reservation.domain.BookingRules;
+import tech.kayys.numou.reservation.spi.LedgerRepository;
+import tech.kayys.numou.reservation.spi.ReservationRepository;
+import tech.kayys.numou.reservation.spi.WaitlistRepository;
+import tech.kayys.numou.restaurant.venue.application.MenuView;
+import tech.kayys.numou.restaurant.venue.application.VenueService;
+import tech.kayys.numou.restaurant.venue.spi.DiningTableRepository;
+import tech.kayys.numou.restaurant.venue.spi.MenuRepository;
+import tech.kayys.numou.restaurant.venue.spi.VenueRepository;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -61,9 +61,9 @@ public class RestaurantProducer {
     @Inject
     EventTypeRegistry eventTypes;
 
-    @ConfigProperty(name = "syirkah.restaurant.waitlist.average-turn", defaultValue = "PT60M")
+    @ConfigProperty(name = "numou.restaurant.waitlist.average-turn", defaultValue = "PT60M")
     Duration averageTurn;
-    @ConfigProperty(name = "syirkah.restaurant.waitlist.hold", defaultValue = "PT10M")
+    @ConfigProperty(name = "numou.restaurant.waitlist.hold", defaultValue = "PT10M")
     Duration waitlistHold;
 
     @Produces
@@ -85,7 +85,7 @@ public class RestaurantProducer {
      */
     @Produces
     @ApplicationScoped
-    tech.kayys.syirkah.reservation.spi.DomainEventSink reservationEventSink(DomainEventSink restaurantSink) {
+    tech.kayys.numou.reservation.spi.DomainEventSink reservationEventSink(DomainEventSink restaurantSink) {
         return restaurantSink::publish;
     }
 
@@ -138,13 +138,13 @@ public class RestaurantProducer {
     @Produces
     @ApplicationScoped
     ReservationService reservationService(ReservationRepository r, LedgerRepository l, DiningTableRepository tables, BookingRules rules,
-                                          tech.kayys.syirkah.reservation.spi.DomainEventSink e, DomainClock c) {
+                                          tech.kayys.numou.reservation.spi.DomainEventSink e, DomainClock c) {
         return new ReservationService(r, l, VenueBackedPorts.bookingRules(tenant -> rules), VenueBackedPorts.tableDirectory(tables), uow, e, c);
     }
 
     @Produces
     @ApplicationScoped
-    WaitlistService waitlistService(WaitlistRepository w, tech.kayys.syirkah.reservation.spi.DomainEventSink e, DomainClock c) {
+    WaitlistService waitlistService(WaitlistRepository w, tech.kayys.numou.reservation.spi.DomainEventSink e, DomainClock c) {
         return new WaitlistService(w, uow, e, c, averageTurn, waitlistHold);
     }
 }

@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.asset.domain.inspection;
+package tech.kayys.numou.asset.domain.inspection;
 
-import tech.kayys.syirkah.asset.domain.event.AssetInspectionCancelled;
-import tech.kayys.syirkah.asset.domain.event.AssetInspectionCompleted;
-import tech.kayys.syirkah.asset.domain.event.AssetInspectionCreated;
-import tech.kayys.syirkah.asset.domain.event.AssetInspectionFindingAdded;
-import tech.kayys.syirkah.asset.domain.event.AssetInspectionStarted;
-import tech.kayys.syirkah.asset.domain.inspection.finding.FindingSeverity;
-import tech.kayys.syirkah.asset.domain.inspection.finding.InspectionFinding;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.asset.domain.event.AssetInspectionCancelled;
+import tech.kayys.numou.asset.domain.event.AssetInspectionCompleted;
+import tech.kayys.numou.asset.domain.event.AssetInspectionCreated;
+import tech.kayys.numou.asset.domain.event.AssetInspectionFindingAdded;
+import tech.kayys.numou.asset.domain.event.AssetInspectionStarted;
+import tech.kayys.numou.asset.domain.inspection.finding.FindingSeverity;
+import tech.kayys.numou.asset.domain.inspection.finding.InspectionFinding;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -151,9 +151,9 @@ public final class AssetInspection extends AbstractAggregateRoot<AssetInspection
         return item;
     }
 
-    public tech.kayys.syirkah.asset.domain.inspection.finding.InspectionFinding addFinding(
+    public tech.kayys.numou.asset.domain.inspection.finding.InspectionFinding addFinding(
             String category, String description,
-            tech.kayys.syirkah.asset.domain.inspection.finding.FindingSeverity severity,
+            tech.kayys.numou.asset.domain.inspection.finding.FindingSeverity severity,
             String recommendedAction, UUID findingWorkOrderId, String recordedBy, DomainClock clock) {
         Objects.requireNonNull(clock, "clock cannot be null");
         if (status == AssetInspectionStatus.COMPLETED || status == AssetInspectionStatus.CANCELLED) {
@@ -165,8 +165,8 @@ public final class AssetInspection extends AbstractAggregateRoot<AssetInspection
         if (severity == null) {
             throw new BusinessRuleViolation("finding severity is required");
         }
-        tech.kayys.syirkah.asset.domain.inspection.finding.InspectionFinding finding =
-                tech.kayys.syirkah.asset.domain.inspection.finding.InspectionFinding.record(
+        tech.kayys.numou.asset.domain.inspection.finding.InspectionFinding finding =
+                tech.kayys.numou.asset.domain.inspection.finding.InspectionFinding.record(
                         id(), tenantId, assetId, category, description, severity,
                         recommendedAction, findingWorkOrderId, clock.now(), recordedBy);
         findings.add(finding);
@@ -202,7 +202,7 @@ public final class AssetInspection extends AbstractAggregateRoot<AssetInspection
     public Instant completedAt() { return completedAt; }
     public Instant cancelledAt() { return cancelledAt; }
     public List<InspectionItem> items() { return Collections.unmodifiableList(items); }
-    public List<tech.kayys.syirkah.asset.domain.inspection.finding.InspectionFinding> findings() {
+    public List<tech.kayys.numou.asset.domain.inspection.finding.InspectionFinding> findings() {
         return Collections.unmodifiableList(findings);
     }
 }

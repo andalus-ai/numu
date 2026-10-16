@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.purchasing.domain.procurement;
+package tech.kayys.numou.purchasing.domain.procurement;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -8,18 +8,18 @@ import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.restaurant.kitchen.application.KitchenService;
-import tech.kayys.syirkah.restaurant.kitchen.application.TicketView;
-import tech.kayys.syirkah.restaurant.kitchen.domain.Priority;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.restaurant.kitchen.application.KitchenService;
+import tech.kayys.numou.restaurant.kitchen.application.TicketView;
+import tech.kayys.numou.restaurant.kitchen.domain.Priority;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.KITCHEN_AVAILABILITY;
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.KITCHEN_TICKET;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.KITCHEN_AVAILABILITY;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.KITCHEN_TICKET;
 
 /** Kitchen display (KDS) and the 86 board. Poll {@code /queue} every few seconds from the screen. NOT COMPILED in sandbox. */
 @Path("/api/v1/venues/{venueId}/kitchen")

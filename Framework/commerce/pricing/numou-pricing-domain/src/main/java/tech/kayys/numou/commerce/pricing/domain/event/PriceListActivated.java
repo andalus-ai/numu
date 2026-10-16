@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.pricing.domain.event;
+package tech.kayys.numou.commerce.pricing.domain.event;
 
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceListId;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceListId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.time.Instant;
 import java.util.Objects;

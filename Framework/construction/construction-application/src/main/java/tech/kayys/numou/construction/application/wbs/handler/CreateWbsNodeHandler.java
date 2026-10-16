@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.construction.application.wbs.handler;
+package tech.kayys.numou.construction.application.wbs.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.application.wbs.command.CreateWbsNodeCommand;
-import tech.kayys.syirkah.construction.domain.wbs.WbsNode;
-import tech.kayys.syirkah.construction.spi.wbs.WbsNodeRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
+import tech.kayys.numou.construction.application.wbs.command.CreateWbsNodeCommand;
+import tech.kayys.numou.construction.domain.wbs.WbsNode;
+import tech.kayys.numou.construction.spi.wbs.WbsNodeRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
 import java.util.Objects;
 
 public final class CreateWbsNodeHandler implements CommandHandler<CreateWbsNodeCommand, WbsNode> {

@@ -1,22 +1,22 @@
-package tech.kayys.syirkah.commerce.promotion.application;
+package tech.kayys.numou.commerce.promotion.application;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.promotion.application.handler.ApplyPromotionsHandler;
-import tech.kayys.syirkah.commerce.promotion.application.query.ApplyPromotionsQuery;
-import tech.kayys.syirkah.commerce.promotion.application.support.StubPromotionCandidates;
-import tech.kayys.syirkah.commerce.promotion.domain.DefaultPromotionResolver;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionContext;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionRule;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PercentOff;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumQuantityOf;
-import tech.kayys.syirkah.commerce.promotion.domain.context.TenantRef;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
-import tech.kayys.syirkah.commerce.promotion.domain.Promotion;
+import tech.kayys.numou.commerce.promotion.application.handler.ApplyPromotionsHandler;
+import tech.kayys.numou.commerce.promotion.application.query.ApplyPromotionsQuery;
+import tech.kayys.numou.commerce.promotion.application.support.StubPromotionCandidates;
+import tech.kayys.numou.commerce.promotion.domain.DefaultPromotionResolver;
+import tech.kayys.numou.commerce.promotion.domain.PromotionContext;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionRule;
+import tech.kayys.numou.commerce.promotion.domain.action.PercentOff;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumQuantityOf;
+import tech.kayys.numou.commerce.promotion.domain.context.TenantRef;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionStackingConfiguration;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.commerce.promotion.domain.Promotion;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -36,7 +36,7 @@ class ApplyPromotionsHandlerTest {
 
     private static PromotionContext cart() {
         return new PromotionContext(
-                List.of(new tech.kayys.syirkah.commerce.promotion.domain.PromotionLine(
+                List.of(new tech.kayys.numou.commerce.promotion.domain.PromotionLine(
                         "COFFEE", 2, Money.of(18000, "IDR"))),
                 null,
                 "POS",
@@ -53,7 +53,7 @@ class ApplyPromotionsHandlerTest {
                                 new PercentOff(Percentage.of(10))),
                         PromotionStackingConfiguration.bestResult(1),
                         TenantRef.of("DEFAULT"),
-                        tech.kayys.syirkah.commerce.promotion.domain.PromotionScope.all())
+                        tech.kayys.numou.commerce.promotion.domain.PromotionScope.all())
                 .activate());
 
         var result = handler.handle(new ApplyPromotionsQuery(cart()))

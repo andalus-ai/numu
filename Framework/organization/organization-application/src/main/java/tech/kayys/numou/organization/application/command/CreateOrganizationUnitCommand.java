@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.organization.application.command;
+package tech.kayys.numou.organization.application.command;
 
-import tech.kayys.syirkah.organization.domain.OrganizationId;
-import tech.kayys.syirkah.organization.domain.OrganizationUnitId;
+import tech.kayys.numou.organization.domain.OrganizationId;
+import tech.kayys.numou.organization.domain.OrganizationUnitId;
 
 public record CreateOrganizationUnitCommand(
         OrganizationId organizationId,

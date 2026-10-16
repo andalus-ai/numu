@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.domain.audit;
+package tech.kayys.numou.security.domain.audit;
 
 import java.util.Objects;
 

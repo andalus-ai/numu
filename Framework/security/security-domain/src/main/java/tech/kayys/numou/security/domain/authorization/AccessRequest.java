@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.security.domain.authorization;
+package tech.kayys.numou.security.domain.authorization;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.util.Objects;
 import java.util.UUID;

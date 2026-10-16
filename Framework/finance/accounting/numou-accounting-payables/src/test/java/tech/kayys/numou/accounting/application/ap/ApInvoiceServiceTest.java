@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.accounting.application.ap;
+package tech.kayys.numou.accounting.application.ap;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.ap.*;
-import tech.kayys.syirkah.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
+import tech.kayys.numou.accounting.domain.ap.*;
+import tech.kayys.numou.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
 
 import java.math.BigDecimal;
 import java.util.List;

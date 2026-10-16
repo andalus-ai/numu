@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.subscription.application.support;
+package tech.kayys.numou.commerce.subscription.application.support;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.subscription.domain.Entitlement;
-import tech.kayys.syirkah.commerce.subscription.spi.port.PlanEntitlementPort;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.subscription.domain.Entitlement;
+import tech.kayys.numou.commerce.subscription.spi.port.PlanEntitlementPort;
 
 import java.util.LinkedHashMap;
 import java.util.List;

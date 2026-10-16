@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.target.CartTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.target.PromotionTargetSelection;
-import tech.kayys.syirkah.commerce.promotion.domain.target.SingleTargetSelection;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.target.CartTarget;
+import tech.kayys.numou.commerce.promotion.domain.target.PromotionTargetSelection;
+import tech.kayys.numou.commerce.promotion.domain.target.SingleTargetSelection;
 
 /** Resolves the whole cart as the effect target. */
 public record CompiledCartTarget() implements CompiledTarget {

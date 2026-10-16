@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.hse;
+package tech.kayys.numou.construction.domain.hse;
 
 public enum PermitType {
     HOT_WORK,

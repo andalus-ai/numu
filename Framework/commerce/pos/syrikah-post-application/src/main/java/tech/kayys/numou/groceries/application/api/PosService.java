@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.groceries.application.api;
+package tech.kayys.numou.groceries.application.api;
 
-import tech.kayys.syirkah.groceries.application.api.command.*;
-import tech.kayys.syirkah.groceries.application.api.query.*;
-import tech.kayys.syirkah.groceries.domain.identifier.ScaleId;
-import tech.kayys.syirkah.groceries.domain.identifier.ProductId;
-import tech.kayys.syirkah.groceries.domain.valueobject.Weight;
+import tech.kayys.numou.groceries.application.api.command.*;
+import tech.kayys.numou.groceries.application.api.query.*;
+import tech.kayys.numou.groceries.domain.identifier.ScaleId;
+import tech.kayys.numou.groceries.domain.identifier.ProductId;
+import tech.kayys.numou.groceries.domain.valueobject.Weight;
 
 import java.util.concurrent.CompletionStage;
 

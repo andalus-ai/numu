@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.rule;
+package tech.kayys.numou.accounting.application.rule;
 
 /** Thrown when a blocking rule violation occurs. */
 public class RuleViolationException extends RuntimeException {

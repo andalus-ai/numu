@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.ecosystem.domain.party;
+package tech.kayys.numou.ecosystem.domain.party;
 
 /**
  * Directional relationship type between parties (config02.md §P4-11 #17).

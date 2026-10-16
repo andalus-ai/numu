@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.tenancy.domain.membership.event;
+package tech.kayys.numou.tenancy.domain.membership.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.ref.UserRef;
-import tech.kayys.syirkah.tenancy.domain.membership.TenantMembershipId;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.ref.UserRef;
+import tech.kayys.numou.tenancy.domain.membership.TenantMembershipId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.bundle;
+package tech.kayys.numou.product.domain.bundle;
 
 /**
  * Bundle lifecycle. Same vocabulary as Product/SKU:

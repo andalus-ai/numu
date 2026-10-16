@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.restaurant.kernel.domain;
+package tech.kayys.numou.restaurant.kernel.domain;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.io.Serializable;
 import java.util.Objects;

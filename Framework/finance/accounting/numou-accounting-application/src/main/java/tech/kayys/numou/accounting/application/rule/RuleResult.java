@@ -1,5 +1,5 @@
 
-package tech.kayys.syirkah.accounting.application.rule;
+package tech.kayys.numou.accounting.application.rule;
 
 public record RuleResult(
         boolean matched,

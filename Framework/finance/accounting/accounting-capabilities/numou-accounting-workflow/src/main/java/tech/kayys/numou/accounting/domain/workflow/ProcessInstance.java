@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.workflow;
+package tech.kayys.numou.accounting.domain.workflow;
 
 import java.time.Instant;
 import java.util.ArrayList;

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.pricing.spi.port;
+package tech.kayys.numou.commerce.pricing.spi.port;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

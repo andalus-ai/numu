@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.storage;
+package tech.kayys.numou.document.adapter.outbound.storage;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -7,7 +7,7 @@ import io.quarkus.arc.profile.UnlessBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import tech.kayys.syirkah.document.application.port.DocumentStoragePort;
+import tech.kayys.numou.document.application.port.DocumentStoragePort;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,11 +46,11 @@ public class LocalDocumentStorage implements DocumentStoragePort {
 
     @Inject
     public LocalDocumentStorage(
-            @ConfigProperty(name = "syirkah.document.local-root",
-                    defaultValue = "${java.io.tmpdir}/syirkah-documents") String root,
-            @ConfigProperty(name = "syirkah.document.upload-base-url",
+            @ConfigProperty(name = "numou.document.local-root",
+                    defaultValue = "${java.io.tmpdir}/numou-documents") String root,
+            @ConfigProperty(name = "numou.document.upload-base-url",
                     defaultValue = "http://localhost:8083") String publicBaseUri,
-            @ConfigProperty(name = "syirkah.document.max-upload-bytes",
+            @ConfigProperty(name = "numou.document.max-upload-bytes",
                     defaultValue = "104857600") long maximumUploadSize
     ) {
         this(Path.of(root), URI.create(publicBaseUri), maximumUploadSize, Clock.systemUTC());

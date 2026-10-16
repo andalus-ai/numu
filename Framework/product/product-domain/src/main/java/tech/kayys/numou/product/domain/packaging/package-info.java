@@ -3,4 +3,4 @@
  * deliberately distinct from {@code uom.UnitConversion}: packaging
  * describes how a product is packed for trade, not unit physics.
  */
-package tech.kayys.syirkah.product.domain.packaging;
+package tech.kayys.numou.product.domain.packaging;

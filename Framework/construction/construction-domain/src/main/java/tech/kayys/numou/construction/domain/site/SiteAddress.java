@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.site;
+package tech.kayys.numou.construction.domain.site;
 
 public record SiteAddress(
         String addressLine,

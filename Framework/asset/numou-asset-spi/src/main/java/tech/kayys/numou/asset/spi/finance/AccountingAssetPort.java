@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.spi.finance;
+package tech.kayys.numou.asset.spi.finance;
 
 import java.math.BigDecimal;
 import java.time.Instant;

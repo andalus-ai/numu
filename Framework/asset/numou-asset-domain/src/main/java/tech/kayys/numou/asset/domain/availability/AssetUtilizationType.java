@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.availability;
+package tech.kayys.numou.asset.domain.availability;
 
 /**
  * Semantic kind of a utilization observation (ASSET-26 §16).

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.asset.domain.fixedasset;
+package tech.kayys.numou.asset.domain.fixedasset;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.asset.domain.identifier.AssetId;
+import tech.kayys.numou.asset.domain.identifier.AssetId;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

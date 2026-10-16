@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.offering.domain;
+package tech.kayys.numou.commerce.offering.domain;
 
 public enum OfferingType {
     STANDARD,

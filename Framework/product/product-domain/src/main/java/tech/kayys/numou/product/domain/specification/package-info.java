@@ -6,4 +6,4 @@
  * The specification is a separate, reusable aggregate - one
  * specification can be referenced by many products.
  */
-package tech.kayys.syirkah.product.domain.specification;
+package tech.kayys.numou.product.domain.specification;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.spi.idempotency;
+package tech.kayys.numou.construction.spi.idempotency;
 
 import io.smallrye.mutiny.Uni;
 

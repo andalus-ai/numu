@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.document;
+package tech.kayys.numou.accounting.domain.document;
 
 public enum UploadSessionStatus {
     PENDING,

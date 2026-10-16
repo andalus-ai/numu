@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.purchasing.domain.repository;
+package tech.kayys.numou.purchasing.domain.repository;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.purchasing.domain.identifier.ContractId;
-import tech.kayys.syirkah.purchasing.domain.identifier.VendorId;
-import tech.kayys.syirkah.purchasing.domain.model.VendorContract;
-import tech.kayys.syirkah.purchasing.domain.valueobject.ContractStatus;
-import tech.kayys.syirkah.purchasing.domain.valueobject.ContractType;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.purchasing.domain.identifier.ContractId;
+import tech.kayys.numou.purchasing.domain.identifier.VendorId;
+import tech.kayys.numou.purchasing.domain.model.VendorContract;
+import tech.kayys.numou.purchasing.domain.valueobject.ContractStatus;
+import tech.kayys.numou.purchasing.domain.valueobject.ContractType;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.time.Instant;
 import java.util.List;

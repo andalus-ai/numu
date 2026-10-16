@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.subscription.spi.port;
+package tech.kayys.numou.commerce.subscription.spi.port;
 
-import tech.kayys.syirkah.commerce.subscription.domain.Subscription;
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.commerce.subscription.domain.Subscription;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 
 /**
  * Persistence for the Subscription aggregate — reuses the

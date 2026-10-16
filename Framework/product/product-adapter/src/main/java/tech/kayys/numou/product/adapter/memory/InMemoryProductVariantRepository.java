@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.adapter.memory;
+package tech.kayys.numou.product.adapter.memory;
 
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.variant.ProductVariant;
-import tech.kayys.syirkah.product.domain.variant.ProductVariantId;
-import tech.kayys.syirkah.product.spi.port.ProductVariantRepository;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.variant.ProductVariant;
+import tech.kayys.numou.product.domain.variant.ProductVariantId;
+import tech.kayys.numou.product.spi.port.ProductVariantRepository;
 
 import java.util.List;
 import java.util.Map;

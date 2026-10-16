@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.construction.domain.profile.event;
+package tech.kayys.numou.construction.domain.profile.event;
 
-import tech.kayys.syirkah.construction.domain.profile.ConstructionContractType;
-import tech.kayys.syirkah.construction.domain.profile.ConstructionType;
-import tech.kayys.syirkah.construction.domain.profile.DeliveryMethod;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.construction.domain.profile.ConstructionContractType;
+import tech.kayys.numou.construction.domain.profile.ConstructionType;
+import tech.kayys.numou.construction.domain.profile.DeliveryMethod;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import java.time.Instant;
 import java.util.UUID;
 

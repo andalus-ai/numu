@@ -7,26 +7,26 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-promotion-modules</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-promotion-modules</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-promotion-adapter</artifactId>
+    <artifactId>numou-promotion-adapter</artifactId>
 
     <name>Numou Commerce Promotion - Adapter</name>
     <description>In-memory promotion store</description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-promotion-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-promotion-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-promotion-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-promotion-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

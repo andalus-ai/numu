@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.construction.application.equipment.handler;
+package tech.kayys.numou.construction.application.equipment.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.application.equipment.command.CreateEquipmentRequirementCommand;
-import tech.kayys.syirkah.construction.domain.equipment.EquipmentRequirement;
-import tech.kayys.syirkah.construction.spi.equipment.EquipmentRequirementRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
+import tech.kayys.numou.construction.application.equipment.command.CreateEquipmentRequirementCommand;
+import tech.kayys.numou.construction.domain.equipment.EquipmentRequirement;
+import tech.kayys.numou.construction.spi.equipment.EquipmentRequirementRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
 import java.util.Objects;
 
 public final class CreateEquipmentRequirementHandler implements CommandHandler<CreateEquipmentRequirementCommand, EquipmentRequirement> {

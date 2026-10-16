@@ -1,29 +1,29 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.promotion.domain.action.BundlePrice;
-import tech.kayys.syirkah.commerce.promotion.domain.action.FixedAmountOff;
-import tech.kayys.syirkah.commerce.promotion.domain.action.FreeUnits;
-import tech.kayys.syirkah.commerce.promotion.domain.action.PercentOff;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.AllLinesPresent;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumCartTotal;
-import tech.kayys.syirkah.commerce.promotion.domain.condition.MinimumQuantityOf;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionRule;
-import tech.kayys.syirkah.commerce.promotion.domain.capability.PromotionCapabilities;
-import tech.kayys.syirkah.commerce.promotion.domain.context.CartSnapshot;
-import tech.kayys.syirkah.commerce.promotion.domain.context.ChannelId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionLineId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionLineSnapshot;
-import tech.kayys.syirkah.commerce.promotion.domain.target.CartTarget;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.FixedDiscountBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.target.SingleTargetSelection;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
-import tech.kayys.syirkah.foundation.domain.valueobject.Quantity;
-import tech.kayys.syirkah.foundation.domain.valueobject.Unit;
+import tech.kayys.numou.commerce.promotion.domain.action.BundlePrice;
+import tech.kayys.numou.commerce.promotion.domain.action.FixedAmountOff;
+import tech.kayys.numou.commerce.promotion.domain.action.FreeUnits;
+import tech.kayys.numou.commerce.promotion.domain.action.PercentOff;
+import tech.kayys.numou.commerce.promotion.domain.condition.AllLinesPresent;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumCartTotal;
+import tech.kayys.numou.commerce.promotion.domain.condition.MinimumQuantityOf;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionRule;
+import tech.kayys.numou.commerce.promotion.domain.capability.PromotionCapabilities;
+import tech.kayys.numou.commerce.promotion.domain.context.CartSnapshot;
+import tech.kayys.numou.commerce.promotion.domain.context.ChannelId;
+import tech.kayys.numou.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionLineId;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionLineSnapshot;
+import tech.kayys.numou.commerce.promotion.domain.target.CartTarget;
+import tech.kayys.numou.commerce.promotion.domain.benefit.FixedDiscountBenefit;
+import tech.kayys.numou.commerce.promotion.domain.target.SingleTargetSelection;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.foundation.domain.valueobject.Quantity;
+import tech.kayys.numou.foundation.domain.valueobject.Unit;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -68,7 +68,7 @@ class CompiledPromotionRuleTest {
         // adapter); the effect is a capability-driven CompiledEffect.
         assertTrue(compiled.condition().evaluate(context));
         assertTrue(compiled.effect().evaluate(
-                tech.kayys.syirkah.commerce.promotion.domain.PromotionId.generate(),
+                tech.kayys.numou.commerce.promotion.domain.PromotionId.generate(),
                 context,
                 compiled.target().resolve(context)).size() == 1);
     }
@@ -82,7 +82,7 @@ class CompiledPromotionRuleTest {
 
         assertTrue(compiled.condition().evaluate(context));
         var benefits = compiled.effect().evaluate(
-                tech.kayys.syirkah.commerce.promotion.domain.PromotionId.generate(),
+                tech.kayys.numou.commerce.promotion.domain.PromotionId.generate(),
                 context,
                 compiled.target().resolve(context));
         assertEquals(1, benefits.size());

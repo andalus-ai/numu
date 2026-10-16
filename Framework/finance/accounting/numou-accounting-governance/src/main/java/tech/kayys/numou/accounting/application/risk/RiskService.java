@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.risk;
+package tech.kayys.numou.accounting.application.risk;
 
-import tech.kayys.syirkah.accounting.domain.risk.*;
+import tech.kayys.numou.accounting.domain.risk.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

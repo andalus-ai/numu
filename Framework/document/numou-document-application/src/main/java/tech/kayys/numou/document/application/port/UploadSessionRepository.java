@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.document.application.port;
+package tech.kayys.numou.document.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.accounting.domain.document.UploadSession;
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionId;
+import tech.kayys.numou.accounting.domain.document.UploadSession;
+import tech.kayys.numou.accounting.domain.document.UploadSessionId;
 
 import java.util.Optional;
 

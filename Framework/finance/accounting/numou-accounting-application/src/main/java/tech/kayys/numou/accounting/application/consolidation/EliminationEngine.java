@@ -1,9 +1,9 @@
 
-package tech.kayys.syirkah.accounting.application.consolidation;
+package tech.kayys.numou.accounting.application.consolidation;
 
-import tech.kayys.syirkah.accounting.domain.consolidation.EliminationEntry;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.domain.consolidation.EliminationEntry;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.util.Objects;

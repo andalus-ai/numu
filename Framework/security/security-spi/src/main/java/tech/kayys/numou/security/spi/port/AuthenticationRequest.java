@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.spi.port;
+package tech.kayys.numou.security.spi.port;
 
 import java.util.Objects;
 

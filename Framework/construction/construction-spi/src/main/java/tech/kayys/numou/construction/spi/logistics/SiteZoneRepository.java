@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.logistics;
+package tech.kayys.numou.construction.spi.logistics;
 
-import tech.kayys.syirkah.construction.domain.logistics.SiteZone;
-import tech.kayys.syirkah.construction.domain.logistics.SiteZoneId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.logistics.SiteZone;
+import tech.kayys.numou.construction.domain.logistics.SiteZoneId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

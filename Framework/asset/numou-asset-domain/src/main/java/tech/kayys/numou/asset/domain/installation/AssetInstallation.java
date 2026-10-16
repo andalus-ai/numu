@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.installation;
+package tech.kayys.numou.asset.domain.installation;
 
-import tech.kayys.syirkah.asset.domain.relationship.AssetRelationshipType;
+import tech.kayys.numou.asset.domain.relationship.AssetRelationshipType;
 
 import java.time.Instant;
 import java.util.Objects;

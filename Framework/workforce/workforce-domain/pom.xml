@@ -5,18 +5,18 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-workforce</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-workforce</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-workforce-domain</artifactId>
+    <artifactId>numou-workforce-domain</artifactId>
     <name>Numou Workforce - Domain</name>
     <description>Workforce core aggregates, employment, position, skills, organization, scheduling and leave.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

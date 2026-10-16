@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.commerce.configuration.domain;
+package tech.kayys.numou.commerce.configuration.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.specification.OptionDefinition;
-import tech.kayys.syirkah.product.domain.specification.OptionGroup;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecification;
-import tech.kayys.syirkah.product.domain.specification.ProductSpecificationId;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.specification.OptionDefinition;
+import tech.kayys.numou.product.domain.specification.OptionGroup;
+import tech.kayys.numou.product.domain.specification.ProductSpecification;
+import tech.kayys.numou.product.domain.specification.ProductSpecificationId;
 
 import java.util.List;
 

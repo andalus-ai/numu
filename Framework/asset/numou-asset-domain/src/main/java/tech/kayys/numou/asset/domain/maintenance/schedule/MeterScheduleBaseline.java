@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.maintenance.schedule;
+package tech.kayys.numou.asset.domain.maintenance.schedule;
 
-import tech.kayys.syirkah.asset.domain.meter.MeterType;
+import tech.kayys.numou.asset.domain.meter.MeterType;
 
 import java.math.BigDecimal;
 import java.time.Instant;

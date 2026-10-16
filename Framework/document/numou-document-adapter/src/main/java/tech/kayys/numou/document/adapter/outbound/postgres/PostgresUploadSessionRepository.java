@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.document.adapter.outbound.postgres;
+package tech.kayys.numou.document.adapter.outbound.postgres;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.LockModeType;
-import tech.kayys.syirkah.accounting.domain.document.DocumentClassification;
-import tech.kayys.syirkah.accounting.domain.document.DocumentId;
-import tech.kayys.syirkah.accounting.domain.document.DocumentMetadata;
-import tech.kayys.syirkah.accounting.domain.document.DocumentType;
-import tech.kayys.syirkah.accounting.domain.document.DocumentVersionId;
-import tech.kayys.syirkah.accounting.domain.document.UploadSession;
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionId;
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionStatus;
-import tech.kayys.syirkah.document.application.port.UploadSessionRepository;
+import tech.kayys.numou.accounting.domain.document.DocumentClassification;
+import tech.kayys.numou.accounting.domain.document.DocumentId;
+import tech.kayys.numou.accounting.domain.document.DocumentMetadata;
+import tech.kayys.numou.accounting.domain.document.DocumentType;
+import tech.kayys.numou.accounting.domain.document.DocumentVersionId;
+import tech.kayys.numou.accounting.domain.document.UploadSession;
+import tech.kayys.numou.accounting.domain.document.UploadSessionId;
+import tech.kayys.numou.accounting.domain.document.UploadSessionStatus;
+import tech.kayys.numou.document.application.port.UploadSessionRepository;
 
 import java.util.Optional;
 

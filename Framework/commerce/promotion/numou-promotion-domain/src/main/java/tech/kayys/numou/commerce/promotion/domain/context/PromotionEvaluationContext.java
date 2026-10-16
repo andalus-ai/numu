@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.domain.context;
+package tech.kayys.numou.commerce.promotion.domain.context;
 
-import tech.kayys.syirkah.commerce.promotion.domain.target.PromotionTargetSelection;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
+import tech.kayys.numou.commerce.promotion.domain.target.PromotionTargetSelection;
+import tech.kayys.numou.product.domain.sku.SkuId;
 
 import java.time.Instant;
 import java.util.List;

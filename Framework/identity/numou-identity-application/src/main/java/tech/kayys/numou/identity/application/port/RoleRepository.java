@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.identity.application.port;
+package tech.kayys.numou.identity.application.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.identity.domain.role.Role;
-import tech.kayys.syirkah.identity.domain.role.RoleId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.domain.role.Role;
+import tech.kayys.numou.identity.domain.role.RoleId;
 
 import java.util.Optional;
 

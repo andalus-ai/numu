@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.adapter.postgres.idempotency;
+package tech.kayys.numou.construction.adapter.postgres.idempotency;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
@@ -6,7 +6,7 @@ import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.construction.spi.idempotency.CommandIdempotencyStore;
+import tech.kayys.numou.construction.spi.idempotency.CommandIdempotencyStore;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;

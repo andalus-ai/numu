@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.spi.boq;
+package tech.kayys.numou.construction.spi.boq;
 
 import io.smallrye.mutiny.Uni;
 import java.util.UUID;

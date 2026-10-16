@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-finance</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-finance</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
@@ -18,59 +18,59 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-core</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-method</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-method</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-api</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-gateway</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-gateway</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-fnb</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-fnb</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-merchant</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-merchant</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-grpc</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-grpc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-payment-util</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-util</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
 
     <modules>
-        <module>syirkah-payment-gateway</module>
-        <module>syirkah-payment-method</module>
-        <module>syirkah-payment-core</module>
-        <module>syirkah-payment-merchant</module>
-        <module>syirkah-payment-grpc</module>
-        <module>syirkah-payment-rest</module>
+        <module>numou-payment-gateway</module>
+        <module>numou-payment-method</module>
+        <module>numou-payment-core</module>
+        <module>numou-payment-merchant</module>
+        <module>numou-payment-grpc</module>
+        <module>numou-payment-rest</module>
         <module>processor</module>
         <!--
             PARKED (see Framework/README.md, "Parked legacy modules"):
-            syirkah-payment-fnb and syirkah-payment-util still import
+            numou-payment-fnb and numou-payment-util still import
             jakarta.* plus tech.kayys.payment.model, tech.kayys.sy.tenant
             and tech.kayys.transaction.domain - APIs none of which exist
             in this workspace. They predate the reactor and were never

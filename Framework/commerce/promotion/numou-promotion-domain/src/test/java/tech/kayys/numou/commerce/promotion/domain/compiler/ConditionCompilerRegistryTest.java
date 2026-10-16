@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.promotion.domain.context.ChannelId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.CartSnapshot;
-import tech.kayys.syirkah.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionLineId;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionLineSnapshot;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.Quantity;
-import tech.kayys.syirkah.foundation.domain.valueobject.Unit;
+import tech.kayys.numou.commerce.promotion.domain.context.ChannelId;
+import tech.kayys.numou.commerce.promotion.domain.context.CartSnapshot;
+import tech.kayys.numou.commerce.promotion.domain.context.DefaultPromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionLineId;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionLineSnapshot;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Quantity;
+import tech.kayys.numou.foundation.domain.valueobject.Unit;
 
 import java.time.Instant;
 import java.util.List;

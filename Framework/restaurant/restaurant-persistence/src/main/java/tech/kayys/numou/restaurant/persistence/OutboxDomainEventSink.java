@@ -1,17 +1,17 @@
-package tech.kayys.syirkah.restaurant.persistence;
+package tech.kayys.numou.restaurant.persistence;
 
-import tech.kayys.syirkah.reliability.adapter.json.JsonDomainEvent;
+import tech.kayys.numou.reliability.adapter.json.JsonDomainEvent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.event.domain.EventEnvelope;
-import tech.kayys.syirkah.event.domain.identifier.CorrelationId;
-import tech.kayys.syirkah.event.domain.valueobject.EventMetadata;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.reliability.outbox.OutboxEntry;
-import tech.kayys.syirkah.reliability.spi.port.OutboxStorePort;
-import tech.kayys.syirkah.restaurant.kernel.spi.DomainEventSink;
+import tech.kayys.numou.event.domain.EventEnvelope;
+import tech.kayys.numou.event.domain.identifier.CorrelationId;
+import tech.kayys.numou.event.domain.valueobject.EventMetadata;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.reliability.outbox.OutboxEntry;
+import tech.kayys.numou.reliability.spi.port.OutboxStorePort;
+import tech.kayys.numou.restaurant.kernel.spi.DomainEventSink;
 
 import java.util.List;
 import java.util.Objects;
@@ -57,7 +57,7 @@ public final class OutboxDomainEventSink implements DomainEventSink {
         final var payload = new JsonDomainEvent(e.eventId(), e.occurredAt().toString(), e.eventType(), data);
         final var meta = EventMetadata.of(tenantId, null, actor.get(), CorrelationId.of(correlationId.get()));
         // keep the domain event's own identity so redelivery/dedupe use the id the aggregate generated
-        final var withId = new EventMetadata(tech.kayys.syirkah.event.domain.identifier.EventId.of(e.eventId()), meta.correlationId(),
+        final var withId = new EventMetadata(tech.kayys.numou.event.domain.identifier.EventId.of(e.eventId()), meta.correlationId(),
                 meta.causationId(), meta.tenantId(), meta.participantId(), meta.actorId(), e.occurredAt().toString(), meta.traceId());
         return OutboxEntry.pending(new EventEnvelope<>(withId, payload.eventVersion(), payload));
     }

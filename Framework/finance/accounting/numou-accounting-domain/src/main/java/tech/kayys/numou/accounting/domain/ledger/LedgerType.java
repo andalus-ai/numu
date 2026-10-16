@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.domain.ledger;
+package tech.kayys.numou.accounting.domain.ledger;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 /**
  * Classification of financial ledgers for multi-ledger accounting.

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.kiosk.application.api.query;
+package tech.kayys.numou.kiosk.application.api.query;
 
-import tech.kayys.syirkah.kiosk.domain.identifier.KioskSessionId;
+import tech.kayys.numou.kiosk.domain.identifier.KioskSessionId;
 
 import java.math.BigDecimal;
 

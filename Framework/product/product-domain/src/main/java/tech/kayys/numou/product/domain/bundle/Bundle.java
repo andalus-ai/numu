@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.product.domain.bundle;
+package tech.kayys.numou.product.domain.bundle;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.domain.event.BundleActivated;
-import tech.kayys.syirkah.product.domain.event.BundleArchived;
-import tech.kayys.syirkah.product.domain.event.BundleComponentAdded;
-import tech.kayys.syirkah.product.domain.event.BundleComponentRemoved;
-import tech.kayys.syirkah.product.domain.event.BundleCreated;
-import tech.kayys.syirkah.product.domain.event.BundleDiscontinued;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.domain.event.BundleActivated;
+import tech.kayys.numou.product.domain.event.BundleArchived;
+import tech.kayys.numou.product.domain.event.BundleComponentAdded;
+import tech.kayys.numou.product.domain.event.BundleComponentRemoved;
+import tech.kayys.numou.product.domain.event.BundleCreated;
+import tech.kayys.numou.product.domain.event.BundleDiscontinued;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -1,22 +1,22 @@
-package tech.kayys.syirkah.document.application.command;
+package tech.kayys.numou.document.application.command;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.document.Document;
-import tech.kayys.syirkah.accounting.domain.document.DocumentClassification;
-import tech.kayys.syirkah.accounting.domain.document.DocumentId;
-import tech.kayys.syirkah.accounting.domain.document.DocumentMetadata;
-import tech.kayys.syirkah.accounting.domain.document.DocumentType;
-import tech.kayys.syirkah.accounting.domain.document.UploadSession;
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionId;
-import tech.kayys.syirkah.document.application.port.DocumentAccessPort;
-import tech.kayys.syirkah.document.application.port.DocumentOutboxPort;
-import tech.kayys.syirkah.document.application.port.DocumentRepository;
-import tech.kayys.syirkah.document.application.port.DocumentStoragePort;
-import tech.kayys.syirkah.document.application.port.UploadSessionRepository;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.accounting.domain.document.Document;
+import tech.kayys.numou.accounting.domain.document.DocumentClassification;
+import tech.kayys.numou.accounting.domain.document.DocumentId;
+import tech.kayys.numou.accounting.domain.document.DocumentMetadata;
+import tech.kayys.numou.accounting.domain.document.DocumentType;
+import tech.kayys.numou.accounting.domain.document.UploadSession;
+import tech.kayys.numou.accounting.domain.document.UploadSessionId;
+import tech.kayys.numou.document.application.port.DocumentAccessPort;
+import tech.kayys.numou.document.application.port.DocumentOutboxPort;
+import tech.kayys.numou.document.application.port.DocumentRepository;
+import tech.kayys.numou.document.application.port.DocumentStoragePort;
+import tech.kayys.numou.document.application.port.UploadSessionRepository;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -59,7 +59,7 @@ class CompleteUploadHandlerTest {
         assertTrue(fixture.documents.isEmpty());
         assertTrue(fixture.outboxEvents.isEmpty());
         assertEquals(
-                tech.kayys.syirkah.accounting.domain.document.UploadSessionStatus.PENDING,
+                tech.kayys.numou.accounting.domain.document.UploadSessionStatus.PENDING,
                 session.status()
         );
     }

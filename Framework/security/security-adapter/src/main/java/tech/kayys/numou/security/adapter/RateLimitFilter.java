@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.adapter;
+package tech.kayys.numou.security.adapter;
 
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
@@ -6,8 +6,8 @@ import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.ext.Provider;
-import tech.kayys.syirkah.security.application.problem.Problem;
-import tech.kayys.syirkah.security.application.ratelimit.TokenBucketRateLimiter;
+import tech.kayys.numou.security.application.problem.Problem;
+import tech.kayys.numou.security.application.ratelimit.TokenBucketRateLimiter;
 
 import java.util.Map;
 

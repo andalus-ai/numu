@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.domain.progress;
+package tech.kayys.numou.construction.domain.progress;
 
-import tech.kayys.syirkah.construction.domain.progress.event.ProgressMeasurementApproved;
-import tech.kayys.syirkah.construction.domain.progress.event.ProgressMeasurementRecorded;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.progress.event.ProgressMeasurementApproved;
+import tech.kayys.numou.construction.domain.progress.event.ProgressMeasurementRecorded;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Objects;

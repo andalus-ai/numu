@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.currency;
+package tech.kayys.numou.accounting.domain.currency;
 
 /**
  * Service port for executing currency conversions.

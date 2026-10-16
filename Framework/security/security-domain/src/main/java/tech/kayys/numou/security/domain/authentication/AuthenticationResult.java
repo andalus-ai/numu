@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.security.domain.authentication;
+package tech.kayys.numou.security.domain.authentication;
 
-import tech.kayys.syirkah.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.authorization.Principal;
 
 import java.util.Objects;
 

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -11,11 +11,11 @@ import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.syirkah.reliability.application.idempotency.IdempotentExecutor;
-import tech.kayys.syirkah.reservation.application.ReservationService;
-import tech.kayys.syirkah.reservation.application.ReservationView;
-import tech.kayys.syirkah.reservation.domain.BookingSource;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.reliability.application.idempotency.IdempotentExecutor;
+import tech.kayys.numou.reservation.application.ReservationService;
+import tech.kayys.numou.reservation.application.ReservationView;
+import tech.kayys.numou.reservation.domain.BookingSource;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.net.URI;
 import java.time.Instant;
@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.RESERVATION;
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.RESERVATION_WAIVER;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.RESERVATION;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.RESERVATION_WAIVER;
 
 /** Reservations. Mutations are idempotent when the caller sends {@code Idempotency-Key}. NOT COMPILED in sandbox. */
 @Path("/api/v1/venues/{venueId}/reservations")

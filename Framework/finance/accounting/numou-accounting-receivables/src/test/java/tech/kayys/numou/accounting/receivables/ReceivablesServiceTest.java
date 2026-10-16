@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.accounting.receivables;
+package tech.kayys.numou.accounting.receivables;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.ar.*;
-import tech.kayys.syirkah.accounting.receivables.application.*;
-import tech.kayys.syirkah.accounting.receivables.infrastructure.*;
+import tech.kayys.numou.accounting.domain.ar.*;
+import tech.kayys.numou.accounting.receivables.application.*;
+import tech.kayys.numou.accounting.receivables.infrastructure.*;
 import java.math.BigDecimal;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;

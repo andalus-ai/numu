@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.target.SingleTargetSelection;
-import tech.kayys.syirkah.commerce.promotion.domain.target.SkuTarget;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
+import tech.kayys.numou.commerce.promotion.domain.target.SingleTargetSelection;
+import tech.kayys.numou.commerce.promotion.domain.target.SkuTarget;
+import tech.kayys.numou.product.domain.sku.SkuId;
 
 import java.util.UUID;
 

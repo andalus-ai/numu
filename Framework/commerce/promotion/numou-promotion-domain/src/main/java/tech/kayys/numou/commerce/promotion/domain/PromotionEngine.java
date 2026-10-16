@@ -1,15 +1,15 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
-import tech.kayys.syirkah.commerce.pricing.domain.PriceResult;
-import tech.kayys.syirkah.commerce.promotion.domain.composition.PromotionBenefitComposer;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContexts;
-import tech.kayys.syirkah.commerce.promotion.domain.result.PromotionResult;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.DefaultPromotionStackingPolicy;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionCompositionResult;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionEvaluation;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionStackingPolicy;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.pricing.domain.PriceResult;
+import tech.kayys.numou.commerce.promotion.domain.composition.PromotionBenefitComposer;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContexts;
+import tech.kayys.numou.commerce.promotion.domain.result.PromotionResult;
+import tech.kayys.numou.commerce.promotion.domain.stacking.DefaultPromotionStackingPolicy;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionCompositionResult;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionEvaluation;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionStackingPolicy;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.ArrayList;
 import java.util.List;

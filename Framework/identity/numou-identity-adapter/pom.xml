@@ -8,19 +8,19 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-identity</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-identity</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-identity-adapter</artifactId>
+    <artifactId>numou-identity-adapter</artifactId>
     <packaging>jar</packaging>
 
     <name>ERP Identity - Adapter</name>
     <description>
         Deployable Quarkus service for the Identity bounded context.
-        Implements syirkah-identity-application's ports: PostgresUserRepository
+        Implements numou-identity-application's ports: PostgresUserRepository
         (Hibernate Reactive Panache), JBcryptPasswordHasher,
         KafkaEventPublisher (SmallRye Reactive Messaging),
         HibernateReactiveUnitOfWork - and exposes them over REST
@@ -55,14 +55,14 @@
     <dependencies>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-identity-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-identity-application</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-security-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-security-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
 

@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.product.spi.port;
+package tech.kayys.numou.product.spi.port;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.product.domain.product.ProductId;
-import tech.kayys.syirkah.product.domain.sku.Sku;
-import tech.kayys.syirkah.product.domain.sku.SkuId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.product.domain.product.ProductId;
+import tech.kayys.numou.product.domain.sku.Sku;
+import tech.kayys.numou.product.domain.sku.SkuId;
 
 import java.util.List;
 import java.util.Optional;

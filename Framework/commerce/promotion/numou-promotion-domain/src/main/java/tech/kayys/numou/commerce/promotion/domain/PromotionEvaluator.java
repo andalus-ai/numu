@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.CompiledPromotion;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.PromotionEvaluationResult;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionEvaluation;
+import tech.kayys.numou.commerce.promotion.domain.compiler.CompiledPromotion;
+import tech.kayys.numou.commerce.promotion.domain.compiler.PromotionEvaluationResult;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionEvaluation;
 
 import java.util.Optional;
 
@@ -51,7 +51,7 @@ public interface PromotionEvaluator {
      *
      * <p>This is the primary P6 entry point. It returns a
      * {@link PromotionEvaluationResult} carrying the four-way
-     * {@link tech.kayys.syirkah.commerce.promotion.domain.compiler.PromotionEvaluationStatus}
+     * {@link tech.kayys.numou.commerce.promotion.domain.compiler.PromotionEvaluationStatus}
      * and a reason code for every condition, so callers can explain why a
      * promotion applied or did not apply.</p>
      */

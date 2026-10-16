@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.subscription.domain;
+package tech.kayys.numou.commerce.subscription.domain;
 
 import java.math.BigDecimal;
 import java.time.Instant;

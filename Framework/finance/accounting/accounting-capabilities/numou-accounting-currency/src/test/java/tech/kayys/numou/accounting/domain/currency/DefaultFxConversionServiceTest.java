@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.domain.currency;
+package tech.kayys.numou.accounting.domain.currency;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.foundation.domain.valueobject.MonetaryRoundingPolicy;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.foundation.domain.valueobject.MonetaryRoundingPolicy;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

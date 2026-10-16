@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.interfaces.rest;
+package tech.kayys.numou.accounting.interfaces.rest;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -7,10 +7,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import tech.kayys.syirkah.accounting.consolidation.ConsolidationGroup;
-import tech.kayys.syirkah.accounting.consolidation.ConsolidationRun;
-import tech.kayys.syirkah.accounting.consolidation.ConsolidationService;
-import tech.kayys.syirkah.accounting.consolidation.OwnershipEngine;
+import tech.kayys.numou.accounting.consolidation.ConsolidationGroup;
+import tech.kayys.numou.accounting.consolidation.ConsolidationRun;
+import tech.kayys.numou.accounting.consolidation.ConsolidationService;
+import tech.kayys.numou.accounting.consolidation.OwnershipEngine;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

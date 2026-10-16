@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.security.application.authorization;
+package tech.kayys.numou.security.application.authorization;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.security.domain.authorization.AccessDecision;
-import tech.kayys.syirkah.security.domain.authorization.AccessRequest;
-import tech.kayys.syirkah.security.domain.authorization.PermissionEvaluator;
-import tech.kayys.syirkah.security.spi.port.PolicyPort;
-import tech.kayys.syirkah.security.spi.port.ResourceAuthorizationPort;
+import tech.kayys.numou.security.domain.authorization.AccessDecision;
+import tech.kayys.numou.security.domain.authorization.AccessRequest;
+import tech.kayys.numou.security.domain.authorization.PermissionEvaluator;
+import tech.kayys.numou.security.spi.port.PolicyPort;
+import tech.kayys.numou.security.spi.port.ResourceAuthorizationPort;
 
 import java.util.Objects;
 

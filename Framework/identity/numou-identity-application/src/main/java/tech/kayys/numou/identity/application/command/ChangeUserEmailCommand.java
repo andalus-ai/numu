@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.application.command;
+package tech.kayys.numou.identity.application.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.foundation.application.command.Command;
 
 import java.util.Objects;
 import java.util.UUID;

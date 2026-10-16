@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.security.domain.valueobject;
+package tech.kayys.numou.security.domain.valueobject;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.ValueObject;
+import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
 /**
  * Outcome of an authorization check.

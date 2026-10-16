@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.tenancy.domain.settings.event;
+package tech.kayys.numou.tenancy.domain.settings.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.tenancy.domain.settings.LocaleCode;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.tenancy.domain.settings.LocaleCode;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.UUID;

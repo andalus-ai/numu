@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.document;
+package tech.kayys.numou.accounting.domain.document;
 
 import java.util.Collections;
 import java.util.Map;

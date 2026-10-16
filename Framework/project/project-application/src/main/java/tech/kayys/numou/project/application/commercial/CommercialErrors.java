@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.application.commercial;
+package tech.kayys.numou.project.application.commercial;
 
 public final class CommercialErrors {
 

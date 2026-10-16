@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.product.domain.classification;
+package tech.kayys.numou.product.domain.classification;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.domain.event.ClassificationSchemeActivated;
-import tech.kayys.syirkah.product.domain.event.ClassificationSchemeArchived;
-import tech.kayys.syirkah.product.domain.event.ClassificationSchemeCreated;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.domain.event.ClassificationSchemeActivated;
+import tech.kayys.numou.product.domain.event.ClassificationSchemeArchived;
+import tech.kayys.numou.product.domain.event.ClassificationSchemeCreated;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.project.application.query;
+package tech.kayys.numou.project.application.query;
 
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.project.domain.phase.ProjectPhaseId;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.task.ProjectTask;
-import tech.kayys.syirkah.project.domain.task.ProjectTaskId;
-import tech.kayys.syirkah.project.domain.task.TaskNumber;
-import tech.kayys.syirkah.project.domain.task.TaskPriority;
-import tech.kayys.syirkah.project.domain.task.TaskStatus;
-import tech.kayys.syirkah.project.domain.task.TaskType;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.project.domain.phase.ProjectPhaseId;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.task.ProjectTask;
+import tech.kayys.numou.project.domain.task.ProjectTaskId;
+import tech.kayys.numou.project.domain.task.TaskNumber;
+import tech.kayys.numou.project.domain.task.TaskPriority;
+import tech.kayys.numou.project.domain.task.TaskStatus;
+import tech.kayys.numou.project.domain.task.TaskType;
 
 import java.util.Objects;
 

@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.compliance.domain.model;
+package tech.kayys.numou.compliance.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.compliance.domain.identifier.ComplianceRequirementId;
-import tech.kayys.syirkah.compliance.domain.identifier.RegulationId;
-import tech.kayys.syirkah.compliance.domain.valueobject.ComplianceStatus;
-import tech.kayys.syirkah.compliance.domain.valueobject.InternalControlType;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.compliance.domain.identifier.ComplianceRequirementId;
+import tech.kayys.numou.compliance.domain.identifier.RegulationId;
+import tech.kayys.numou.compliance.domain.valueobject.ComplianceStatus;
+import tech.kayys.numou.compliance.domain.valueobject.InternalControlType;
 
 import java.time.Instant;
 import java.util.ArrayList;

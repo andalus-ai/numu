@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.risk.command;
+package tech.kayys.numou.project.application.risk.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.risk.RiskCategory;
-import tech.kayys.syirkah.project.domain.risk.RiskSource;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.risk.RiskCategory;
+import tech.kayys.numou.project.domain.risk.RiskSource;
 
 import java.time.LocalDate;
 import java.util.Objects;

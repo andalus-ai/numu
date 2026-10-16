@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.organization.adapter.memory;
+package tech.kayys.numou.organization.adapter.memory;
 
-import tech.kayys.syirkah.organization.domain.OrganizationUnit;
-import tech.kayys.syirkah.organization.domain.OrganizationUnitId;
-import tech.kayys.syirkah.organization.spi.OrganizationUnitRepository;
+import tech.kayys.numou.organization.domain.OrganizationUnit;
+import tech.kayys.numou.organization.domain.OrganizationUnitId;
+import tech.kayys.numou.organization.spi.OrganizationUnitRepository;
 
 import java.util.Map;
 import java.util.Optional;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.application.hardening;
+package tech.kayys.numou.accounting.application.hardening;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

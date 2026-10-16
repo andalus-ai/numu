@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-integration</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-integration</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-integration-spi</artifactId>
+    <artifactId>numou-integration-spi</artifactId>
 
     <name>Numou Integration - SPI</name>
     <description>
@@ -24,18 +24,18 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-integration-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-integration-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-event-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-event-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

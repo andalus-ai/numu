@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.integration;
+package tech.kayys.numou.restaurant.integration;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -7,10 +7,10 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.reliability.adapter.json.JsonDomainEvent;
-import tech.kayys.syirkah.restaurant.order.domain.event.CourseFired;
-import tech.kayys.syirkah.restaurant.venue.domain.event.TableCleaned;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.reliability.adapter.json.JsonDomainEvent;
+import tech.kayys.numou.restaurant.order.domain.event.CourseFired;
+import tech.kayys.numou.restaurant.venue.domain.event.TableCleaned;
 
 import java.io.IOException;
 import java.time.Instant;

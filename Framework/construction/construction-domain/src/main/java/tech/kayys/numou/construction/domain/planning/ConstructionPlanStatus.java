@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.planning;
+package tech.kayys.numou.construction.domain.planning;
 
 public enum ConstructionPlanStatus {
     DRAFT,

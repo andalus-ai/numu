@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.domain.commercial.event;
+package tech.kayys.numou.project.domain.commercial.event;
 
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.project.domain.commercial.ProjectRetentionId;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.project.domain.commercial.ProjectRetentionId;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.time.Instant;
 import java.util.UUID;

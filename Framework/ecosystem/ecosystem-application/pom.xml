@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-ecosystem</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-ecosystem</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-ecosystem-application</artifactId>
+    <artifactId>numou-ecosystem-application</artifactId>
 
     <name>Numou Ecosystem - Application</name>
     <description>
@@ -26,14 +26,14 @@
     <dependencies>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-ecosystem-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-ecosystem-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -50,8 +50,8 @@
         </dependency>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-testing</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-testing</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

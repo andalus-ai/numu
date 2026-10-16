@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.ecosystem.domain.contact;
+package tech.kayys.numou.ecosystem.domain.contact;
 
 /**
  * Declared purpose of an address or contact point usage (config03.md §P4-13).

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.construction.domain.logistics;
+package tech.kayys.numou.construction.domain.logistics;
 
-import tech.kayys.syirkah.construction.domain.logistics.event.SiteZoneCreated;
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.construction.domain.logistics.event.SiteZoneCreated;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

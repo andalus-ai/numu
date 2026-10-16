@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.commerce.promotion.domain.observability;
+package tech.kayys.numou.commerce.promotion.domain.observability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
 
 import java.util.Objects;
 

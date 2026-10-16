@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.accounting.application.sdk;
+package tech.kayys.numou.accounting.application.sdk;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.sdk.bootstrap.AccountingBootstrap;
-import tech.kayys.syirkah.accounting.application.sdk.bootstrap.AccountingEngine;
-import tech.kayys.syirkah.accounting.application.sdk.plugin.aaoifi.AaoifiLitePlugin;
-import tech.kayys.syirkah.accounting.application.sdk.testkit.AccountingTestKit;
+import tech.kayys.numou.accounting.application.sdk.bootstrap.AccountingBootstrap;
+import tech.kayys.numou.accounting.application.sdk.bootstrap.AccountingEngine;
+import tech.kayys.numou.accounting.application.sdk.plugin.aaoifi.AaoifiLitePlugin;
+import tech.kayys.numou.accounting.application.sdk.testkit.AccountingTestKit;
 
 import static org.junit.jupiter.api.Assertions.*;
 

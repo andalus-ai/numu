@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.document.adapter.outbound.security;
+package tech.kayys.numou.document.adapter.outbound.security;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.document.application.port.DocumentAccessPort;
-import tech.kayys.syirkah.identity.application.security.AuthorizationRequirement;
-import tech.kayys.syirkah.identity.application.service.AuthorizationService;
+import tech.kayys.numou.document.application.port.DocumentAccessPort;
+import tech.kayys.numou.identity.application.security.AuthorizationRequirement;
+import tech.kayys.numou.identity.application.service.AuthorizationService;
 
 @ApplicationScoped
 public class IdentityDocumentAccessAdapter implements DocumentAccessPort {

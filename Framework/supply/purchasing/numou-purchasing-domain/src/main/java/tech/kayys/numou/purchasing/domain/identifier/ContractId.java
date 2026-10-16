@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.purchasing.domain.identifier;
+package tech.kayys.numou.purchasing.domain.identifier;
 
-import tech.kayys.syirkah.foundation.domain.identifier.DomainId;
+import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
 import java.io.Serializable;
 import java.util.Objects;

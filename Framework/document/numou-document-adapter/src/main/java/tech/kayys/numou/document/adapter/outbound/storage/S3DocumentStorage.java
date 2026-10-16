@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.document.adapter.outbound.storage;
+package tech.kayys.numou.document.adapter.outbound.storage;
 
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.smallrye.mutiny.Uni;
@@ -20,7 +20,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
-import tech.kayys.syirkah.document.application.port.DocumentStoragePort;
+import tech.kayys.numou.document.application.port.DocumentStoragePort;
 
 import java.io.IOException;
 import java.net.URI;
@@ -35,7 +35,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
-@IfBuildProperty(name = "syirkah.document.storage", stringValue = "s3")
+@IfBuildProperty(name = "numou.document.storage", stringValue = "s3")
 public class S3DocumentStorage implements DocumentStoragePort {
     private static final long MAXIMUM_S3_PUT_SIZE = 5_000_000_000L;
 
@@ -47,11 +47,11 @@ public class S3DocumentStorage implements DocumentStoragePort {
 
     @Inject
     public S3DocumentStorage(
-            @ConfigProperty(name = "syirkah.document.s3.bucket") String bucket,
-            @ConfigProperty(name = "syirkah.document.s3.region", defaultValue = "us-east-1") String region,
-            @ConfigProperty(name = "syirkah.document.s3.endpoint", defaultValue = "") String endpoint,
-            @ConfigProperty(name = "syirkah.document.s3.path-style", defaultValue = "false") boolean pathStyle,
-            @ConfigProperty(name = "syirkah.document.max-upload-bytes",
+            @ConfigProperty(name = "numou.document.s3.bucket") String bucket,
+            @ConfigProperty(name = "numou.document.s3.region", defaultValue = "us-east-1") String region,
+            @ConfigProperty(name = "numou.document.s3.endpoint", defaultValue = "") String endpoint,
+            @ConfigProperty(name = "numou.document.s3.path-style", defaultValue = "false") boolean pathStyle,
+            @ConfigProperty(name = "numou.document.max-upload-bytes",
                     defaultValue = "104857600") long maximumUploadSize
     ) {
         this.bucket = requireText(bucket, "S3 bucket");

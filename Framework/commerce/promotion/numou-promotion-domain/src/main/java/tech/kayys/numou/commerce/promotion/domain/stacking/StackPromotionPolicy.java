@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.domain.stacking;
+package tech.kayys.numou.commerce.promotion.domain.stacking;
 
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PromotionBenefit;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PromotionBenefit;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
 
 import java.util.ArrayList;
 import java.util.Comparator;

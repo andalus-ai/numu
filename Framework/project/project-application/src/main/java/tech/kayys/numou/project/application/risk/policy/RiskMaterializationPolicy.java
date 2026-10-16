@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.project.application.risk.policy;
+package tech.kayys.numou.project.application.risk.policy;
 
-import tech.kayys.syirkah.project.domain.risk.event.RiskMaterialized;
+import tech.kayys.numou.project.domain.risk.event.RiskMaterialized;
 
 /**
  * Decides how a materialized risk becomes an issue.

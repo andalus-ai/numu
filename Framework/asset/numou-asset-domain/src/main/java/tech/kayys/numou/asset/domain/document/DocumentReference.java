@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.document;
+package tech.kayys.numou.asset.domain.document;
 
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

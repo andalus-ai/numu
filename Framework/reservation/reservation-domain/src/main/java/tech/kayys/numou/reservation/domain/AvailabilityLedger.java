@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.reservation.domain;
+package tech.kayys.numou.reservation.domain;
 
-import tech.kayys.syirkah.reservation.domain.event.ResourcesAssigned;
+import tech.kayys.numou.reservation.domain.event.ResourcesAssigned;
 
 import java.time.Instant;
 import java.time.LocalDate;

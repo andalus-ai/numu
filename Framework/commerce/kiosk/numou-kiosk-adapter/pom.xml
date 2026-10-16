@@ -4,24 +4,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-kiosk</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-kiosk</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-kiosk-adapter</artifactId>
+    <artifactId>numou-kiosk-adapter</artifactId>
     <packaging>jar</packaging>
     <name>ERP Kiosk - Adapter</name>
     <description>Quarkus microservice adapter for Kiosk</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-kiosk-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-kiosk-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

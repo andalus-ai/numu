@@ -1,20 +1,20 @@
-package tech.kayys.syirkah.restaurant.order.domain;
+package tech.kayys.numou.restaurant.order.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.restaurant.kernel.domain.DiningTableId;
-import tech.kayys.syirkah.restaurant.kernel.domain.OrderId;
-import tech.kayys.syirkah.restaurant.kernel.domain.RestaurantAggregate;
-import tech.kayys.syirkah.restaurant.kernel.domain.VenueId;
-import tech.kayys.syirkah.restaurant.order.domain.event.BillRequested;
-import tech.kayys.syirkah.restaurant.order.domain.event.CourseFired;
-import tech.kayys.syirkah.restaurant.order.domain.event.OrderDiscountApplied;
-import tech.kayys.syirkah.restaurant.order.domain.event.OrderLineVoided;
-import tech.kayys.syirkah.restaurant.order.domain.event.OrderOpened;
-import tech.kayys.syirkah.restaurant.order.domain.event.OrderPaid;
-import tech.kayys.syirkah.restaurant.order.domain.event.OrderTableTransferred;
-import tech.kayys.syirkah.restaurant.order.domain.event.OrderVoided;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.restaurant.kernel.domain.DiningTableId;
+import tech.kayys.numou.restaurant.kernel.domain.OrderId;
+import tech.kayys.numou.restaurant.kernel.domain.RestaurantAggregate;
+import tech.kayys.numou.restaurant.kernel.domain.VenueId;
+import tech.kayys.numou.restaurant.order.domain.event.BillRequested;
+import tech.kayys.numou.restaurant.order.domain.event.CourseFired;
+import tech.kayys.numou.restaurant.order.domain.event.OrderDiscountApplied;
+import tech.kayys.numou.restaurant.order.domain.event.OrderLineVoided;
+import tech.kayys.numou.restaurant.order.domain.event.OrderOpened;
+import tech.kayys.numou.restaurant.order.domain.event.OrderPaid;
+import tech.kayys.numou.restaurant.order.domain.event.OrderTableTransferred;
+import tech.kayys.numou.restaurant.order.domain.event.OrderVoided;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -274,7 +274,7 @@ public final class DineInOrder extends RestaurantAggregate<OrderId> {
      * the printed bill always adds up.
      */
     public OrderTotals totals() {
-        final var currency = tech.kayys.syirkah.foundation.domain.valueobject.Currency.of(policy.currency());
+        final var currency = tech.kayys.numou.foundation.domain.valueobject.Currency.of(policy.currency());
         BigDecimal subtotal = BigDecimal.ZERO;
         for (final var l : lines) {
             if (l.isLive()) {

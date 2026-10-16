@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.communication.domain.valueobject;
+package tech.kayys.numou.communication.domain.valueobject;
 
 /**
  * Types of messages.

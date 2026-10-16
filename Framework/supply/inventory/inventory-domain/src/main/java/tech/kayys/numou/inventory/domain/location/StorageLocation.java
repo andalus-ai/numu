@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.inventory.domain.location;
+package tech.kayys.numou.inventory.domain.location;
 
-import tech.kayys.syirkah.inventory.domain.inventory.WarehouseId;
+import tech.kayys.numou.inventory.domain.inventory.WarehouseId;
 
 import java.util.Objects;
 

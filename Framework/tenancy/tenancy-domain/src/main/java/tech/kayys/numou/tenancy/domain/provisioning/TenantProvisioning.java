@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.tenancy.domain.provisioning;
+package tech.kayys.numou.tenancy.domain.provisioning;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.tenancy.domain.provisioning.event.TenantProvisioningCompleted;
-import tech.kayys.syirkah.tenancy.domain.provisioning.event.TenantProvisioningFailed;
-import tech.kayys.syirkah.tenancy.domain.provisioning.event.TenantProvisioningStarted;
-import tech.kayys.syirkah.tenancy.domain.provisioning.event.TenantProvisioningStepCompleted;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.tenancy.domain.provisioning.event.TenantProvisioningCompleted;
+import tech.kayys.numou.tenancy.domain.provisioning.event.TenantProvisioningFailed;
+import tech.kayys.numou.tenancy.domain.provisioning.event.TenantProvisioningStarted;
+import tech.kayys.numou.tenancy.domain.provisioning.event.TenantProvisioningStepCompleted;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.Collections;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.commercial;
+package tech.kayys.numou.project.domain.commercial;
 
 /**
  * The business nature of a contract, deliberately generic so the same

@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.commerce.pricing.domain;
+package tech.kayys.numou.commerce.pricing.domain;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceList;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceListId;
-import tech.kayys.syirkah.commerce.pricing.domain.price.PriceListStatus;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceList;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceListId;
+import tech.kayys.numou.commerce.pricing.domain.price.PriceListStatus;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.UUID;
 

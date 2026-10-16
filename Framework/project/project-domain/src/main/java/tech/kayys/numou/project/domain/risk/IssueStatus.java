@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.risk;
+package tech.kayys.numou.project.domain.risk;
 
 /**
  * Issue lifecycle: OPEN → INVESTIGATING → ACTION_PLANNED → IN_PROGRESS

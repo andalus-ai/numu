@@ -1,5 +1,5 @@
 
-package tech.kayys.syirkah.accounting.application.procurement;
+package tech.kayys.numou.accounting.application.procurement;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

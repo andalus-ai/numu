@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.hris.domain.model;
+package tech.kayys.numou.hris.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.hris.domain.identifier.OnboardingId;
-import tech.kayys.syirkah.hris.domain.valueobject.OnboardingStatus;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.hris.domain.identifier.OnboardingId;
+import tech.kayys.numou.hris.domain.valueobject.OnboardingStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -209,7 +209,7 @@ public final class OnboardingProcess extends AbstractAggregateRoot<OnboardingId>
     /**
      * Onboarding task value object.
      */
-    public static final class OnboardingTask implements tech.kayys.syirkah.foundation.domain.valueobject.ValueObject {
+    public static final class OnboardingTask implements tech.kayys.numou.foundation.domain.valueobject.ValueObject {
         private static final long serialVersionUID = 1L;
 
         private final String id;

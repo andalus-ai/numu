@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.accounting.application.document;
+package tech.kayys.numou.accounting.application.document;
 
-import tech.kayys.syirkah.accounting.domain.document.*;
+import tech.kayys.numou.accounting.domain.document.*;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.security.spi.port;
+package tech.kayys.numou.security.spi.port;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.security.domain.audit.AuditEntry;
+import tech.kayys.numou.security.domain.audit.AuditEntry;
 
 import java.util.List;
 

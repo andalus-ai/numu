@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.tenancy.application.command.settings;
+package tech.kayys.numou.tenancy.application.command.settings;
 
-import tech.kayys.syirkah.tenancy.domain.settings.TimeZoneId;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.tenancy.domain.settings.TimeZoneId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 public record ChangeTenantTimezoneCommand(TenantId tenantId, TimeZoneId timezone, String actor) {}

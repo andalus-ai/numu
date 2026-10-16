@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.accounting.domain;
+package tech.kayys.numou.accounting.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.domain.event.MurabahaCreated;
-import tech.kayys.syirkah.accounting.domain.event.MurabahaSettled;
-import tech.kayys.syirkah.accounting.domain.event.ProfitRecognized;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.model.MurabahaContract;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.event.MurabahaCreated;
+import tech.kayys.numou.accounting.domain.event.MurabahaSettled;
+import tech.kayys.numou.accounting.domain.event.ProfitRecognized;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.model.MurabahaContract;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 
 import java.math.BigDecimal;
 import java.util.List;

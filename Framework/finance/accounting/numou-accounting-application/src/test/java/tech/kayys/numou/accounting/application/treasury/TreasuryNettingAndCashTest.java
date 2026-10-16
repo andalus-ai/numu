@@ -1,17 +1,17 @@
 
-package tech.kayys.syirkah.accounting.application.treasury;
+package tech.kayys.numou.accounting.application.treasury;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.treasury.NettingEngine;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.accounting.domain.treasury.CashPosition;
-import tech.kayys.syirkah.accounting.domain.treasury.PaymentBatch;
-import tech.kayys.syirkah.accounting.domain.treasury.PaymentBatchStatus;
-import tech.kayys.syirkah.foundation.domain.valueobject.Currency;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.application.treasury.NettingEngine;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.accounting.domain.treasury.CashPosition;
+import tech.kayys.numou.accounting.domain.treasury.PaymentBatch;
+import tech.kayys.numou.accounting.domain.treasury.PaymentBatchStatus;
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

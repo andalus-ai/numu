@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.accounting.application.compliance;
+package tech.kayys.numou.accounting.application.compliance;
 
-import tech.kayys.syirkah.accounting.domain.compliance.ComplianceConfiguration;
-import tech.kayys.syirkah.accounting.domain.model.JournalEntry;
+import tech.kayys.numou.accounting.domain.compliance.ComplianceConfiguration;
+import tech.kayys.numou.accounting.domain.model.JournalEntry;
 
 public interface ComplianceRule {
     String name();

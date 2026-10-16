@@ -5,4 +5,4 @@
  * Product only defines units and conversions; stock quantities
  * remain inventory's concern.
  */
-package tech.kayys.syirkah.product.domain.uom;
+package tech.kayys.numou.product.domain.uom;

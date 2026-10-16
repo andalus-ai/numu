@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.restaurant.venue.spi;
+package tech.kayys.numou.restaurant.venue.spi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.restaurant.kernel.domain.MenuId;
-import tech.kayys.syirkah.restaurant.kernel.domain.VenueId;
-import tech.kayys.syirkah.restaurant.kernel.spi.VersionedRepository;
-import tech.kayys.syirkah.restaurant.venue.domain.Menu;
+import tech.kayys.numou.restaurant.kernel.domain.MenuId;
+import tech.kayys.numou.restaurant.kernel.domain.VenueId;
+import tech.kayys.numou.restaurant.kernel.spi.VersionedRepository;
+import tech.kayys.numou.restaurant.venue.domain.Menu;
 
 import java.util.List;
 import java.util.UUID;

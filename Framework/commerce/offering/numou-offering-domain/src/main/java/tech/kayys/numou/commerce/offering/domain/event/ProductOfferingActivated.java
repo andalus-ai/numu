@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.offering.domain.event;
+package tech.kayys.numou.commerce.offering.domain.event;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.time.Instant;
 import java.util.Objects;

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.pricing.domain.price;
+package tech.kayys.numou.commerce.pricing.domain.price;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.util.Objects;
 

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.contract;
+package tech.kayys.numou.construction.spi.contract;
 
-import tech.kayys.syirkah.construction.domain.contract.ConstructionContract;
-import tech.kayys.syirkah.construction.domain.contract.ConstructionContractId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.contract.ConstructionContract;
+import tech.kayys.numou.construction.domain.contract.ConstructionContractId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.project.domain.task;
+package tech.kayys.numou.project.domain.task;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.util.UUID;
 

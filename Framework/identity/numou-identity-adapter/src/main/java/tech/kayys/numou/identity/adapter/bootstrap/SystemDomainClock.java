@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.identity.adapter.bootstrap;
+package tech.kayys.numou.identity.adapter.bootstrap;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.syirkah.foundation.domain.time.DomainClock;
+import tech.kayys.numou.foundation.domain.time.DomainClock;
 
 import java.time.Instant;
 

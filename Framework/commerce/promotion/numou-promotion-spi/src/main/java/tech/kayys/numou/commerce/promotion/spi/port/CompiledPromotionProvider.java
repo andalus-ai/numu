@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.commerce.promotion.spi.port;
+package tech.kayys.numou.commerce.promotion.spi.port;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.CompiledPromotion;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.compiler.CompiledPromotion;
 
 import java.util.Collection;
 import java.util.List;

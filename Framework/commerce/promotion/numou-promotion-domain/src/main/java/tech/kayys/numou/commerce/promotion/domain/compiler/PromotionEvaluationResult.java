@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.compiler;
+package tech.kayys.numou.commerce.promotion.domain.compiler;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionVersionId;
-import tech.kayys.syirkah.commerce.promotion.domain.benefit.PromotionBenefit;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.PromotionVersionId;
+import tech.kayys.numou.commerce.promotion.domain.benefit.PromotionBenefit;
 
 import java.util.List;
 import java.util.Objects;

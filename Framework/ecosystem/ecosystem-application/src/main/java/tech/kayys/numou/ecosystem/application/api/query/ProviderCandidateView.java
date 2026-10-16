@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.ecosystem.application.api.query;
+package tech.kayys.numou.ecosystem.application.api.query;
 
 /**
  * A participant that can currently supply a capability.

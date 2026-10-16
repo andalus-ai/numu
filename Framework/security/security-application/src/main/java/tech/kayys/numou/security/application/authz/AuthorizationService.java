@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.security.application.authz;
+package tech.kayys.numou.security.application.authz;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.security.application.context.SecurityContext;
-import tech.kayys.syirkah.security.domain.audit.AuditEntry;
-import tech.kayys.syirkah.security.domain.authorization.AccessDecision;
-import tech.kayys.syirkah.security.domain.authorization.AccessRequest;
-import tech.kayys.syirkah.security.domain.authorization.PermissionEvaluator;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
-import tech.kayys.syirkah.security.spi.port.AuditPort;
+import tech.kayys.numou.security.application.context.SecurityContext;
+import tech.kayys.numou.security.domain.audit.AuditEntry;
+import tech.kayys.numou.security.domain.authorization.AccessDecision;
+import tech.kayys.numou.security.domain.authorization.AccessRequest;
+import tech.kayys.numou.security.domain.authorization.PermissionEvaluator;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
+import tech.kayys.numou.security.spi.port.AuditPort;
 
 import java.util.Objects;
 
@@ -32,7 +32,7 @@ public final class AuthorizationService {
         return grants.grantsFor(ctx).map(granted -> {
             final var evaluator = new PermissionEvaluator(granted, null);
             return evaluator.decide(new AccessRequest(
-                    ctx.principal(), tech.kayys.syirkah.foundation.domain.tenant.TenantId.of(ctx.tenantId()), action, resourceType, resourceId, ""));
+                    ctx.principal(), tech.kayys.numou.foundation.domain.tenant.TenantId.of(ctx.tenantId()), action, resourceType, resourceId, ""));
         });
     }
 

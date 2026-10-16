@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.accounting.application.sdk.module;
+package tech.kayys.numou.accounting.application.sdk.module;
 
 /**
  * The primary extension point for third-party financial modules
  * (Payroll, HR, Manufacturing, CRM, Treasury, …).
  *
  * <p>Modules are discovered via {@link java.util.ServiceLoader} or registered
- * programmatically through {@link tech.kayys.syirkah.accounting.application.sdk.bootstrap.AccountingBootstrap}.
+ * programmatically through {@link tech.kayys.numou.accounting.application.sdk.bootstrap.AccountingBootstrap}.
  */
 public interface FinancialModule {
 

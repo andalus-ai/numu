@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.ecosystem.domain.party;
+package tech.kayys.numou.ecosystem.domain.party;
 
 /**
  * Status of a relationship between parties.

@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.ecosystem.application.api.command;
+package tech.kayys.numou.ecosystem.application.api.command;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.ecosystem.application.port.ParticipantRepository;
-import tech.kayys.syirkah.ecosystem.domain.identifier.ParticipantId;
-import tech.kayys.syirkah.ecosystem.domain.model.Participant;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.foundation.application.result.Result;
-import tech.kayys.syirkah.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.ecosystem.application.port.ParticipantRepository;
+import tech.kayys.numou.ecosystem.domain.identifier.ParticipantId;
+import tech.kayys.numou.ecosystem.domain.model.Participant;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.foundation.application.result.Result;
+import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 
 import java.util.Objects;
 

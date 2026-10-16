@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.identity.application.query;
+package tech.kayys.numou.identity.application.query;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.foundation.application.result.ApplicationError;
-import tech.kayys.syirkah.identity.application.port.UserRepository;
-import tech.kayys.syirkah.identity.domain.user.User;
-import tech.kayys.syirkah.identity.domain.user.UserId;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.foundation.application.result.ApplicationError;
+import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.domain.user.User;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.util.Objects;
 

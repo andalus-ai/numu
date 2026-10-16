@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.benefit;
+package tech.kayys.numou.commerce.promotion.domain.benefit;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.target.PromotionTarget;
-import tech.kayys.syirkah.foundation.domain.valueobject.Percentage;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.target.PromotionTarget;
+import tech.kayys.numou.foundation.domain.valueobject.Percentage;
 
 import java.util.Objects;
 

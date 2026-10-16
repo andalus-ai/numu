@@ -1,18 +1,18 @@
-package tech.kayys.syirkah.product.domain.product;
+package tech.kayys.numou.product.domain.product;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
-import tech.kayys.syirkah.product.domain.event.ProductActivated;
-import tech.kayys.syirkah.product.domain.event.ProductArchived;
-import tech.kayys.syirkah.product.domain.event.ProductCreated;
-import tech.kayys.syirkah.product.domain.event.ProductDiscontinued;
-import tech.kayys.syirkah.product.domain.event.ProductIdentifierAdded;
-import tech.kayys.syirkah.product.domain.event.ProductIdentifierRemoved;
-import tech.kayys.syirkah.product.domain.event.ProductRenamed;
-import tech.kayys.syirkah.product.domain.identifier.ProductIdentifierType;
-import tech.kayys.syirkah.product.domain.identifier.ProductIdentifier;
+import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.product.domain.event.ProductActivated;
+import tech.kayys.numou.product.domain.event.ProductArchived;
+import tech.kayys.numou.product.domain.event.ProductCreated;
+import tech.kayys.numou.product.domain.event.ProductDiscontinued;
+import tech.kayys.numou.product.domain.event.ProductIdentifierAdded;
+import tech.kayys.numou.product.domain.event.ProductIdentifierRemoved;
+import tech.kayys.numou.product.domain.event.ProductRenamed;
+import tech.kayys.numou.product.domain.identifier.ProductIdentifierType;
+import tech.kayys.numou.product.domain.identifier.ProductIdentifier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

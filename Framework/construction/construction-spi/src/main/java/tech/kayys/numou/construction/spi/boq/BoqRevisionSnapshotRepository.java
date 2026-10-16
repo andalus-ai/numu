@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.construction.spi.boq;
+package tech.kayys.numou.construction.spi.boq;
 
-import tech.kayys.syirkah.construction.domain.boq.BoqRevisionSnapshot;
+import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
 
 import java.util.List;
 import java.util.Optional;

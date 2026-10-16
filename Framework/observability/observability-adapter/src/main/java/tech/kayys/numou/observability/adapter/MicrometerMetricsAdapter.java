@@ -1,12 +1,12 @@
-package tech.kayys.syirkah.observability.adapter;
+package tech.kayys.numou.observability.adapter;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.observability.MetricName;
-import tech.kayys.syirkah.observability.MetricsPort;
+import tech.kayys.numou.observability.MetricName;
+import tech.kayys.numou.observability.MetricsPort;
 
 import java.time.Duration;
 import java.util.function.Supplier;

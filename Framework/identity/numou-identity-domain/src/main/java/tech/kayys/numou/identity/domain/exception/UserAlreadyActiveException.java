@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.domain.exception;
+package tech.kayys.numou.identity.domain.exception;
 
-import tech.kayys.syirkah.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
 
 public final class UserAlreadyActiveException extends InvalidStateException {
 

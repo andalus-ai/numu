@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.document.application.command;
+package tech.kayys.numou.document.application.command;
 
-import tech.kayys.syirkah.accounting.domain.document.UploadSessionId;
+import tech.kayys.numou.accounting.domain.document.UploadSessionId;
 
 import java.time.Instant;
 import java.util.Map;

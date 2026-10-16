@@ -1,24 +1,24 @@
-package tech.kayys.syirkah.commerce.subscription.application;
+package tech.kayys.numou.commerce.subscription.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.subscription.application.command.RenewSubscriptionCommand;
-import tech.kayys.syirkah.commerce.subscription.application.command.StartSubscriptionCommand;
-import tech.kayys.syirkah.commerce.subscription.application.handler.RenewSubscriptionHandler;
-import tech.kayys.syirkah.commerce.subscription.application.handler.StartSubscriptionHandler;
-import tech.kayys.syirkah.commerce.subscription.application.support.RecordingEventPublisher;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubOfferingRepository;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubPlanEntitlements;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubSubscriptionRepository;
-import tech.kayys.syirkah.commerce.subscription.application.support.StubUsageMeters;
-import tech.kayys.syirkah.commerce.subscription.domain.BillingCycle;
-import tech.kayys.syirkah.commerce.subscription.domain.Entitlement;
-import tech.kayys.syirkah.commerce.subscription.domain.RenewalPolicy;
-import tech.kayys.syirkah.commerce.subscription.domain.SubscriptionStatus;
-import tech.kayys.syirkah.commerce.subscription.domain.event.SubscriptionStarted;
-import tech.kayys.syirkah.product.domain.product.ProductId;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.subscription.application.command.RenewSubscriptionCommand;
+import tech.kayys.numou.commerce.subscription.application.command.StartSubscriptionCommand;
+import tech.kayys.numou.commerce.subscription.application.handler.RenewSubscriptionHandler;
+import tech.kayys.numou.commerce.subscription.application.handler.StartSubscriptionHandler;
+import tech.kayys.numou.commerce.subscription.application.support.RecordingEventPublisher;
+import tech.kayys.numou.commerce.subscription.application.support.StubOfferingRepository;
+import tech.kayys.numou.commerce.subscription.application.support.StubPlanEntitlements;
+import tech.kayys.numou.commerce.subscription.application.support.StubSubscriptionRepository;
+import tech.kayys.numou.commerce.subscription.application.support.StubUsageMeters;
+import tech.kayys.numou.commerce.subscription.domain.BillingCycle;
+import tech.kayys.numou.commerce.subscription.domain.Entitlement;
+import tech.kayys.numou.commerce.subscription.domain.RenewalPolicy;
+import tech.kayys.numou.commerce.subscription.domain.SubscriptionStatus;
+import tech.kayys.numou.commerce.subscription.domain.event.SubscriptionStarted;
+import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.time.LocalDate;
 
@@ -51,7 +51,7 @@ class SubscriptionCommandHandlerTest {
         return offering.id();
     }
 
-    private tech.kayys.syirkah.commerce.subscription.domain.SubscriptionId start(
+    private tech.kayys.numou.commerce.subscription.domain.SubscriptionId start(
             ProductOfferingId offeringId) {
         return startHandler.handle(new StartSubscriptionCommand(
                         "customer-42", offeringId, 5,

@@ -1,10 +1,10 @@
-package tech.kayys.syirkah.accounting.application.spi;
+package tech.kayys.numou.accounting.application.spi;
 
-import tech.kayys.syirkah.accounting.application.api.command.CreateInvoiceCommand;
-import tech.kayys.syirkah.accounting.application.api.command.PostJournalEntryCommand;
-import tech.kayys.syirkah.accounting.application.api.command.RecordPaymentCommand;
-import tech.kayys.syirkah.accounting.domain.identifier.InvoiceId;
-import tech.kayys.syirkah.accounting.domain.identifier.JournalEntryId;
+import tech.kayys.numou.accounting.application.api.command.CreateInvoiceCommand;
+import tech.kayys.numou.accounting.application.api.command.PostJournalEntryCommand;
+import tech.kayys.numou.accounting.application.api.command.RecordPaymentCommand;
+import tech.kayys.numou.accounting.domain.identifier.InvoiceId;
+import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
 
 import java.util.concurrent.CompletionStage;
 

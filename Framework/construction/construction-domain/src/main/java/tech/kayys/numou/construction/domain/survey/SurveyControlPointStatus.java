@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.survey;
+package tech.kayys.numou.construction.domain.survey;
 
 public enum SurveyControlPointStatus {
     ESTABLISHED,

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.construction.spi.boq;
+package tech.kayys.numou.construction.spi.boq;
 
-import tech.kayys.syirkah.construction.domain.boq.Boq;
-import tech.kayys.syirkah.construction.domain.boq.BoqId;
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
+import tech.kayys.numou.construction.domain.boq.Boq;
+import tech.kayys.numou.construction.domain.boq.BoqId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;

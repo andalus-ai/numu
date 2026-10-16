@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain.observability;
+package tech.kayys.numou.commerce.promotion.domain.observability;
 
-import tech.kayys.syirkah.commerce.promotion.domain.PromotionId;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionApplied;
-import tech.kayys.syirkah.commerce.promotion.domain.stacking.PromotionRejected;
+import tech.kayys.numou.commerce.promotion.domain.PromotionId;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionApplied;
+import tech.kayys.numou.commerce.promotion.domain.stacking.PromotionRejected;
 
 import java.util.ArrayList;
 import java.util.List;

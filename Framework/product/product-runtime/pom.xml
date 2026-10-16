@@ -6,13 +6,13 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>tech.kayys.syirkah</groupId>
-    <artifactId>syirkah-product</artifactId>
+    <groupId>tech.kayys.numou</groupId>
+    <artifactId>numou-product</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>syirkah-product-runtime</artifactId>
+  <artifactId>numou-product-runtime</artifactId>
   <packaging>jar</packaging>
 
   <name>Product Module</name>
@@ -25,7 +25,7 @@
   <dependencies>
     <!--
       Transitional runtime facade; migrate its legacy com.saas.product.*
-      domain model to syirkah-product-domain (product-core was removed after
+      domain model to numou-product-domain (product-core was removed after
       being consolidated into Product 1.0).
     -->
     <!-- ── Core CDI / Arc ─────────────────────────────────────────────── -->

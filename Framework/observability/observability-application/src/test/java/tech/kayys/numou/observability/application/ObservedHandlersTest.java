@@ -1,13 +1,13 @@
-package tech.kayys.syirkah.observability.application;
+package tech.kayys.numou.observability.application;
 
-import tech.kayys.syirkah.observability.MetricName;
-import tech.kayys.syirkah.observability.MetricsPort;
-import tech.kayys.syirkah.observability.SafeTags;
-import tech.kayys.syirkah.observability.TracingPort;
+import tech.kayys.numou.observability.MetricName;
+import tech.kayys.numou.observability.MetricsPort;
+import tech.kayys.numou.observability.SafeTags;
+import tech.kayys.numou.observability.TracingPort;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.foundation.application.command.Command;
 
 import java.time.Duration;
 import java.util.*;

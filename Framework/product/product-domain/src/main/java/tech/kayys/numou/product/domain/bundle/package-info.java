@@ -6,4 +6,4 @@
  * (commercial rule) and NOT BOM (manufacturing structure) - those
  * live in their own capabilities.
  */
-package tech.kayys.syirkah.product.domain.bundle;
+package tech.kayys.numou.product.domain.bundle;

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.commerce.promotion.domain;
+package tech.kayys.numou.commerce.promotion.domain;
 
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionEvaluationResult;
-import tech.kayys.syirkah.commerce.promotion.domain.compiler.ConditionEvaluationStatus;
-import tech.kayys.syirkah.commerce.promotion.domain.context.PromotionEvaluationContext;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionEvaluationResult;
+import tech.kayys.numou.commerce.promotion.domain.compiler.ConditionEvaluationStatus;
+import tech.kayys.numou.commerce.promotion.domain.context.PromotionEvaluationContext;
 
 /**
  * Capability-driven condition evaluator (product04.md section 5).

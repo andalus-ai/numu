@@ -4,33 +4,33 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-reservation</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-reservation</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-reservation-application</artifactId>
+    <artifactId>numou-reservation-application</artifactId>
     <name>Reservation - Application</name>
     <description>Application services, optimistic retry coordination and use cases for bookings and waitlist.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reservation-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reservation-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reservation-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reservation-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -38,8 +38,8 @@
             <artifactId>mutiny</artifactId>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reservation-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reservation-adapter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

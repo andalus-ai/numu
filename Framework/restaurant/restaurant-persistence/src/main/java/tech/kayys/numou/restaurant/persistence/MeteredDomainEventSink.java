@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.restaurant.persistence;
+package tech.kayys.numou.restaurant.persistence;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.observability.MetricName;
-import tech.kayys.syirkah.observability.MetricsPort;
-import tech.kayys.syirkah.observability.SafeTags;
-import tech.kayys.syirkah.restaurant.kernel.spi.DomainEventSink;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.observability.MetricName;
+import tech.kayys.numou.observability.MetricsPort;
+import tech.kayys.numou.observability.SafeTags;
+import tech.kayys.numou.restaurant.kernel.spi.DomainEventSink;
 
 import java.util.List;
 import java.util.Objects;

@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.availability.AssetUtilizationRecord;
+import tech.kayys.numou.asset.domain.availability.AssetUtilizationRecord;
 
 import java.time.Instant;
 import java.util.List;

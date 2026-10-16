@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.tenancy.domain.membership;
+package tech.kayys.numou.tenancy.domain.membership;
 
 /**
  * Membership lifecycle states.

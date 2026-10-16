@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.inventory.domain.reservation;
+package tech.kayys.numou.inventory.domain.reservation;
 
 import java.util.Objects;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.persistence;
+package tech.kayys.numou.restaurant.persistence;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

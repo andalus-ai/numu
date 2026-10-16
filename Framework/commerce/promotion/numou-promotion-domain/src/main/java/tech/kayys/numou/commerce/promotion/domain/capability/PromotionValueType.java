@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.commerce.promotion.domain.capability;
+package tech.kayys.numou.commerce.promotion.domain.capability;
 
 /**
  * Declared value type of a capability parameter (product03.md §62).

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.contract;
+package tech.kayys.numou.construction.domain.contract;
 
 import java.math.BigDecimal;
 import java.util.Currency;

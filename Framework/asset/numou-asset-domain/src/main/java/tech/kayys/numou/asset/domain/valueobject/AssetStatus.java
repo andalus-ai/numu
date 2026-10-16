@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.valueobject;
+package tech.kayys.numou.asset.domain.valueobject;
 
 /**
  * Lifecycle status of an Asset. This is deliberately the ONLY lifecycle

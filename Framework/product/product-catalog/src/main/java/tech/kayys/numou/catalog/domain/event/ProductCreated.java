@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.catalog.domain.event;
+package tech.kayys.numou.catalog.domain.event;
 
-import tech.kayys.syirkah.catalog.domain.model.CatalogProduct;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.catalog.domain.model.CatalogProduct;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.time.Instant;
 import java.util.UUID;

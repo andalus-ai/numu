@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.construction.application.profile.command;
+package tech.kayys.numou.construction.application.profile.command;
 
-import tech.kayys.syirkah.construction.domain.profile.ConstructionContractType;
-import tech.kayys.syirkah.construction.domain.profile.ConstructionType;
-import tech.kayys.syirkah.construction.domain.profile.DeliveryMethod;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.construction.domain.profile.ConstructionContractType;
+import tech.kayys.numou.construction.domain.profile.ConstructionType;
+import tech.kayys.numou.construction.domain.profile.DeliveryMethod;
+import tech.kayys.numou.foundation.application.command.Command;
 import java.util.UUID;
 
 public record CreateConstructionProjectProfileCommand(

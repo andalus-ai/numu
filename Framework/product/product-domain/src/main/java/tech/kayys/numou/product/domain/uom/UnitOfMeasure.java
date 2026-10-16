@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.product.domain.uom;
+package tech.kayys.numou.product.domain.uom;
 
 /**
  * A named unit of measure (e.g. KG/WEIGHT, BOX/COUNT).

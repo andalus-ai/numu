@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.subscription.application.command;
+package tech.kayys.numou.commerce.subscription.application.command;
 
-import tech.kayys.syirkah.commerce.offering.domain.ProductOfferingId;
-import tech.kayys.syirkah.commerce.subscription.domain.BillingCycle;
-import tech.kayys.syirkah.commerce.subscription.domain.RenewalPolicy;
-import tech.kayys.syirkah.foundation.application.command.Command;
+import tech.kayys.numou.commerce.offering.domain.ProductOfferingId;
+import tech.kayys.numou.commerce.subscription.domain.BillingCycle;
+import tech.kayys.numou.commerce.subscription.domain.RenewalPolicy;
+import tech.kayys.numou.foundation.application.command.Command;
 
 import java.time.LocalDate;
 import java.util.Objects;

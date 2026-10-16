@@ -4,27 +4,27 @@ set -euo pipefail
 # Disposable PostgreSQL protocol test for atomic BOQ + idempotency + outbox writes.
 # This validates database transaction semantics using a test-only live BOQ table;
 # it does not invoke the Java workflow or PgTransactionalCommandRunner.
-CONTAINER_NAME="syirkah-pg-command-atomicity-$$"
+CONTAINER_NAME="numou-pg-command-atomicity-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55447}"
-PASSWORD="syirkah_test_only"
+PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 docker run -d --rm --name "$CONTAINER_NAME" \
-  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=syirkah_test \
+  -e POSTGRES_PASSWORD="$PASSWORD" -e POSTGRES_DB=numou_test \
   -p "127.0.0.1:${PORT}:5432" postgres:16-alpine >/dev/null
 for _ in $(seq 1 60); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null 2>&1; then break; fi
+  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
-docker exec "$CONTAINER_NAME" pg_isready -U postgres -d syirkah_test >/dev/null
+docker exec "$CONTAINER_NAME" pg_isready -U postgres -d numou_test >/dev/null
 
 for migration in "$(dirname "$0")"/../db/migration/*.sql; do
   echo "Applying $(basename "$migration")"
-  docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d syirkah_test < "$migration"
+  docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d numou_test < "$migration"
 done
 
-docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d syirkah_test <<'SQL'
+docker exec -i "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U postgres -d numou_test <<'SQL'
 CREATE TABLE test_live_boq (
   tenant_id TEXT NOT NULL,
   boq_id UUID NOT NULL,

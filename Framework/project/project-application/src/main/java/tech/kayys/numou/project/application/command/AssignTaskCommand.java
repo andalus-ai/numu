@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.command;
+package tech.kayys.numou.project.application.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
-import tech.kayys.syirkah.project.domain.task.ProjectTaskId;
-import tech.kayys.syirkah.project.domain.task.ResourceType;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.project.domain.project.ProjectId;
+import tech.kayys.numou.project.domain.task.ProjectTaskId;
+import tech.kayys.numou.project.domain.task.ResourceType;
 
 import java.util.Objects;
 import java.util.UUID;

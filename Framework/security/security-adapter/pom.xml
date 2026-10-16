@@ -4,28 +4,28 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-security</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-security</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-security-adapter</artifactId>
+    <artifactId>numou-security-adapter</artifactId>
     <name>Numou Security - Adapter</name>
     <description>Quarkus filters: token to verified tenant, rate limiting, security headers, safe error mapping.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-security-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-security-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-cache-adapter</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-cache-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

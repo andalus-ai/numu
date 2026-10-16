@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.application.risk.query;
+package tech.kayys.numou.project.application.risk.query;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.application.query.QueryHandler;
-import tech.kayys.syirkah.project.spi.port.ProjectRiskQueryRepository;
-import tech.kayys.syirkah.project.spi.port.RiskRegisterRow;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
+import tech.kayys.numou.project.spi.port.ProjectRiskQueryRepository;
+import tech.kayys.numou.project.spi.port.RiskRegisterRow;
 
 import java.util.List;
 import java.util.Objects;

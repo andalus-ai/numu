@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.construction.application.quality.handler;
+package tech.kayys.numou.construction.application.quality.handler;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.construction.application.quality.command.CreateQualityPlanCommand;
-import tech.kayys.syirkah.construction.domain.quality.QualityPlan;
-import tech.kayys.syirkah.construction.spi.quality.QualityPlanRepository;
-import tech.kayys.syirkah.foundation.application.command.CommandHandler;
-import tech.kayys.syirkah.foundation.application.event.EventPublisher;
+import tech.kayys.numou.construction.application.quality.command.CreateQualityPlanCommand;
+import tech.kayys.numou.construction.domain.quality.QualityPlan;
+import tech.kayys.numou.construction.spi.quality.QualityPlanRepository;
+import tech.kayys.numou.foundation.application.command.CommandHandler;
+import tech.kayys.numou.foundation.application.event.EventPublisher;
 import java.util.Objects;
 
 public final class CreateQualityPlanHandler implements CommandHandler<CreateQualityPlanCommand, QualityPlan> {

@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.company.domain.model;
+package tech.kayys.numou.company.domain.model;
 
-import tech.kayys.syirkah.foundation.domain.entity.AbstractAggregateRoot;
-import tech.kayys.syirkah.company.domain.identifier.CompanyId;
-import tech.kayys.syirkah.company.domain.identifier.DepartmentId;
+import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.company.domain.identifier.CompanyId;
+import tech.kayys.numou.company.domain.identifier.DepartmentId;
 
 import java.time.Instant;
 import java.util.ArrayList;

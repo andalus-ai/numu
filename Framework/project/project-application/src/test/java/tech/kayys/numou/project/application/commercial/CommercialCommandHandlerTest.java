@@ -1,16 +1,16 @@
-package tech.kayys.syirkah.project.application.commercial;
+package tech.kayys.numou.project.application.commercial;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.valueobject.DateRange;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
-import tech.kayys.syirkah.project.application.commercial.command.*;
-import tech.kayys.syirkah.project.application.commercial.handler.*;
-import tech.kayys.syirkah.project.application.support.*;
-import tech.kayys.syirkah.project.domain.commercial.ChangeImpact;
-import tech.kayys.syirkah.project.domain.commercial.ClaimType;
-import tech.kayys.syirkah.project.domain.commercial.ContractType;
-import tech.kayys.syirkah.project.domain.project.ProjectId;
+import tech.kayys.numou.foundation.domain.valueobject.DateRange;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.project.application.commercial.command.*;
+import tech.kayys.numou.project.application.commercial.handler.*;
+import tech.kayys.numou.project.application.support.*;
+import tech.kayys.numou.project.domain.commercial.ChangeImpact;
+import tech.kayys.numou.project.domain.commercial.ClaimType;
+import tech.kayys.numou.project.domain.commercial.ContractType;
+import tech.kayys.numou.project.domain.project.ProjectId;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

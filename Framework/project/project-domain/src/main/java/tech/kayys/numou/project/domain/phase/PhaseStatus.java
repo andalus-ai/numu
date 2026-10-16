@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.project.domain.phase;
+package tech.kayys.numou.project.domain.phase;
 
 /** Lifecycle status of a project phase. */
 public enum PhaseStatus {

@@ -1,14 +1,14 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.validation.ConstraintViolationException;
-import tech.kayys.syirkah.restaurant.kernel.domain.ConcurrencyConflictException;
-import tech.kayys.syirkah.restaurant.kernel.domain.NotFoundException;
-import tech.kayys.syirkah.reservation.application.SlotUnavailableException;
-import tech.kayys.syirkah.reliability.application.idempotency.DuplicateRequestException;
-import tech.kayys.syirkah.security.adapter.ProblemRuleContributor;
-import tech.kayys.syirkah.security.application.problem.Problem;
-import tech.kayys.syirkah.security.application.problem.ProblemMapper;
+import tech.kayys.numou.restaurant.kernel.domain.ConcurrencyConflictException;
+import tech.kayys.numou.restaurant.kernel.domain.NotFoundException;
+import tech.kayys.numou.reservation.application.SlotUnavailableException;
+import tech.kayys.numou.reliability.application.idempotency.DuplicateRequestException;
+import tech.kayys.numou.security.adapter.ProblemRuleContributor;
+import tech.kayys.numou.security.application.problem.Problem;
+import tech.kayys.numou.security.application.problem.ProblemMapper;
 
 import java.util.Map;
 import java.util.stream.Collectors;

@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.security.application.problem;
+package tech.kayys.numou.security.application.problem;
 
 import java.util.Map;
 

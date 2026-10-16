@@ -1,11 +1,11 @@
-package tech.kayys.syirkah.organization.adapter.memory;
+package tech.kayys.numou.organization.adapter.memory;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.organization.domain.Organization;
-import tech.kayys.syirkah.organization.domain.OrganizationId;
-import tech.kayys.syirkah.organization.domain.OrganizationUnit;
-import tech.kayys.syirkah.organization.domain.OrganizationUnitId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.organization.domain.Organization;
+import tech.kayys.numou.organization.domain.OrganizationId;
+import tech.kayys.numou.organization.domain.OrganizationUnit;
+import tech.kayys.numou.organization.domain.OrganizationUnitId;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;

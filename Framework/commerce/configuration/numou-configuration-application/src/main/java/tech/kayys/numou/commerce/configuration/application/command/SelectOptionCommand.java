@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.configuration.application.command;
+package tech.kayys.numou.commerce.configuration.application.command;
 
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfigurationId;
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.product.domain.specification.OptionGroupId;
-import tech.kayys.syirkah.product.domain.specification.OptionId;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfigurationId;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.product.domain.specification.OptionGroupId;
+import tech.kayys.numou.product.domain.specification.OptionId;
 
 import java.util.Objects;
 

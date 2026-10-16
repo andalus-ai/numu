@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.legal;
+package tech.kayys.numou.accounting.domain.legal;
 
 import java.time.LocalDate;
 import java.util.Objects;

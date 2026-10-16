@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.identity.adapter.inbound.rest.dto;
+package tech.kayys.numou.identity.adapter.inbound.rest.dto;
 
 public record ChangeEmailRequest(String newEmail) {
 }

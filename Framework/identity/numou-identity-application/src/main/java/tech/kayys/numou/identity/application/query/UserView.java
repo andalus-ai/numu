@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.identity.application.query;
+package tech.kayys.numou.identity.application.query;
 
-import tech.kayys.syirkah.identity.domain.user.UserStatus;
+import tech.kayys.numou.identity.domain.user.UserStatus;
 
 import java.util.UUID;
 

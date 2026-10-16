@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.inventory.adapter.memory;
+package tech.kayys.numou.inventory.adapter.memory;
 
-import tech.kayys.syirkah.inventory.domain.inventory.*;
-import tech.kayys.syirkah.inventory.spi.InventoryRepository;
+import tech.kayys.numou.inventory.domain.inventory.*;
+import tech.kayys.numou.inventory.spi.InventoryRepository;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;

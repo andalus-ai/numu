@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.project.spi.port;
+package tech.kayys.numou.project.spi.port;
 
-import tech.kayys.syirkah.foundation.domain.repository.Repository;
-import tech.kayys.syirkah.project.domain.task.ProjectTaskId;
-import tech.kayys.syirkah.project.domain.task.TaskAssignment;
-import tech.kayys.syirkah.project.domain.task.TaskAssignmentId;
+import tech.kayys.numou.foundation.domain.repository.Repository;
+import tech.kayys.numou.project.domain.task.ProjectTaskId;
+import tech.kayys.numou.project.domain.task.TaskAssignment;
+import tech.kayys.numou.project.domain.task.TaskAssignmentId;
 
 import java.util.List;
 import java.util.concurrent.CompletionStage;

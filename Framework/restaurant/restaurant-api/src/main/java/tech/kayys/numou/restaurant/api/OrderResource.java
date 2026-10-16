@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.api;
+package tech.kayys.numou.restaurant.api;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -12,18 +12,18 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import tech.kayys.syirkah.reliability.application.idempotency.IdempotentExecutor;
-import tech.kayys.syirkah.restaurant.order.application.OrderService;
-import tech.kayys.syirkah.restaurant.order.application.OrderView;
-import tech.kayys.syirkah.security.domain.valueobject.ActionType;
+import tech.kayys.numou.reliability.application.idempotency.IdempotentExecutor;
+import tech.kayys.numou.restaurant.order.application.OrderService;
+import tech.kayys.numou.restaurant.order.application.OrderView;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.ORDER;
-import static tech.kayys.syirkah.security.application.authz.RolePermissionMatrix.Resources.ORDER_VOID;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.ORDER;
+import static tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.ORDER_VOID;
 
 /**
  * Dine-in orders. The client never sends a price: items are priced from the published menu on the server.
@@ -137,9 +137,9 @@ public class OrderResource {
     }
 
     @Inject
-    tech.kayys.syirkah.security.application.authz.AuthorizationService authz;
+    tech.kayys.numou.security.application.authz.AuthorizationService authz;
 
-    private Uni<Void> audit(tech.kayys.syirkah.security.application.context.SecurityContext ctx, String action, UUID orderId, String detail) {
+    private Uni<Void> audit(tech.kayys.numou.security.application.context.SecurityContext ctx, String action, UUID orderId, String detail) {
         return authz.auditPerformed(ctx, action, ORDER, orderId.toString(), detail);
     }
 }

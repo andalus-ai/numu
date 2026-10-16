@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.ecosystem.application.api.command;
+package tech.kayys.numou.ecosystem.application.api.command;
 
-import tech.kayys.syirkah.foundation.application.command.Command;
-import tech.kayys.syirkah.ecosystem.domain.valueobject.ParticipantType;
+import tech.kayys.numou.foundation.application.command.Command;
+import tech.kayys.numou.ecosystem.domain.valueobject.ParticipantType;
 
 import java.util.Objects;
 import java.util.UUID;

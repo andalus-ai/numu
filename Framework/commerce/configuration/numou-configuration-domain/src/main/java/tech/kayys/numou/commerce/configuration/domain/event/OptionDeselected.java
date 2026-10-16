@@ -1,9 +1,9 @@
-package tech.kayys.syirkah.commerce.configuration.domain.event;
+package tech.kayys.numou.commerce.configuration.domain.event;
 
-import tech.kayys.syirkah.commerce.configuration.domain.ProductConfigurationId;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
-import tech.kayys.syirkah.product.domain.specification.OptionGroupId;
-import tech.kayys.syirkah.product.domain.specification.OptionId;
+import tech.kayys.numou.commerce.configuration.domain.ProductConfigurationId;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.product.domain.specification.OptionGroupId;
+import tech.kayys.numou.product.domain.specification.OptionId;
 
 import java.time.Instant;
 import java.util.UUID;

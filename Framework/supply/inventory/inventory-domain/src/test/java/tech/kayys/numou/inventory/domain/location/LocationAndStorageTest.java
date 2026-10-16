@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.inventory.domain.location;
+package tech.kayys.numou.inventory.domain.location;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.inventory.domain.inventory.Warehouse;
-import tech.kayys.syirkah.inventory.domain.inventory.WarehouseId;
+import tech.kayys.numou.inventory.domain.inventory.Warehouse;
+import tech.kayys.numou.inventory.domain.inventory.WarehouseId;
 
 import java.math.BigDecimal;
 

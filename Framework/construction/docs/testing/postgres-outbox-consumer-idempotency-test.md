@@ -1,6 +1,6 @@
 # Outbox consumer idempotency and duplicate-delivery acceptance
 
-Run the SQL protocol test from the `syirkah-phase1` directory:
+Run the SQL protocol test from the `numou-phase1` directory:
 
 ```bash
 bash scripts/postgres-outbox-consumer-idempotency-test.sh

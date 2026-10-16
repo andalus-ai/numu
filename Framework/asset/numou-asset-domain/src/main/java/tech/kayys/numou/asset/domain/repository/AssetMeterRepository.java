@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.asset.domain.repository;
+package tech.kayys.numou.asset.domain.repository;
 
-import tech.kayys.syirkah.asset.domain.meter.AssetMeter;
-import tech.kayys.syirkah.asset.domain.meter.AssetMeterId;
+import tech.kayys.numou.asset.domain.meter.AssetMeter;
+import tech.kayys.numou.asset.domain.meter.AssetMeterId;
 
 import java.util.List;
 import java.util.Optional;

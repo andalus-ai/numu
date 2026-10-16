@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.organization.application.command;
+package tech.kayys.numou.organization.application.command;
 
-import tech.kayys.syirkah.foundation.domain.tenant.TenantId;
-import tech.kayys.syirkah.identity.domain.user.UserId;
-import tech.kayys.syirkah.organization.domain.OrganizationId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.organization.domain.OrganizationId;
 
 import java.util.Objects;
 

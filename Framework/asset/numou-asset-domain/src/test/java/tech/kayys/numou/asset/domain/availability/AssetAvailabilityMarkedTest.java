@@ -1,8 +1,8 @@
-package tech.kayys.syirkah.asset.domain.availability;
+package tech.kayys.numou.asset.domain.availability;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.asset.domain.event.AssetAvailabilityMarked;
+import tech.kayys.numou.asset.domain.event.AssetAvailabilityMarked;
 
 import java.time.Instant;
 import java.util.UUID;

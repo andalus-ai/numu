@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.observability.adapter;
+package tech.kayys.numou.observability.adapter;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
@@ -8,7 +8,7 @@ import io.opentelemetry.context.Scope;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.observability.TracingPort;
+import tech.kayys.numou.observability.TracingPort;
 
 import java.util.Map;
 import java.util.function.Supplier;

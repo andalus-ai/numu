@@ -1,17 +1,17 @@
 
-package tech.kayys.syirkah.accounting.application.consolidation;
+package tech.kayys.numou.accounting.application.consolidation;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tech.kayys.syirkah.accounting.application.consolidation.EliminationEngine;
-import tech.kayys.syirkah.accounting.domain.consolidation.ConsolidationRun;
-import tech.kayys.syirkah.accounting.domain.consolidation.ConsolidationRunStatus;
-import tech.kayys.syirkah.accounting.domain.consolidation.GroupHierarchy;
-import tech.kayys.syirkah.accounting.domain.consolidation.GroupMember;
-import tech.kayys.syirkah.accounting.domain.identifier.AccountId;
-import tech.kayys.syirkah.accounting.domain.ledger.LedgerId;
-import tech.kayys.syirkah.accounting.domain.multitenancy.TenantRef;
-import tech.kayys.syirkah.foundation.domain.valueobject.Money;
+import tech.kayys.numou.accounting.application.consolidation.EliminationEngine;
+import tech.kayys.numou.accounting.domain.consolidation.ConsolidationRun;
+import tech.kayys.numou.accounting.domain.consolidation.ConsolidationRunStatus;
+import tech.kayys.numou.accounting.domain.consolidation.GroupHierarchy;
+import tech.kayys.numou.accounting.domain.consolidation.GroupMember;
+import tech.kayys.numou.accounting.domain.identifier.AccountId;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

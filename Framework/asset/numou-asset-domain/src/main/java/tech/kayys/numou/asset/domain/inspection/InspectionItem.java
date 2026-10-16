@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.inspection;
+package tech.kayys.numou.asset.domain.inspection;
 
 import java.util.Objects;
 

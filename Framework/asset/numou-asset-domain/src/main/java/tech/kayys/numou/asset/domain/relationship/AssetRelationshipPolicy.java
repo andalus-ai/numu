@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.asset.domain.relationship;
+package tech.kayys.numou.asset.domain.relationship;
 
 import java.util.Objects;
 import java.util.UUID;

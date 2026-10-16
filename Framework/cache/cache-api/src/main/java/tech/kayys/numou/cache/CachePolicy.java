@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.cache;
+package tech.kayys.numou.cache;
 
 import java.time.Duration;
 import java.util.Objects;

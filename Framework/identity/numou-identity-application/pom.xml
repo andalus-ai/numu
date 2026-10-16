@@ -8,35 +8,35 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-identity</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-identity</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-identity-application</artifactId>
+    <artifactId>numou-identity-application</artifactId>
 
     <name>ERP Identity - Application</name>
     <description>
         CQRS use cases for the Identity bounded context: RegisterUser,
         ChangeUserEmail, DeactivateUser commands; GetUserById,
         ListUsers queries. Defines the UserRepository and
-        PasswordHasher ports that syirkah-identity-adapter implements.
-        Depends on syirkah-identity-domain and syirkah-foundation-application
+        PasswordHasher ports that numou-identity-adapter implements.
+        Depends on numou-identity-domain and numou-foundation-application
         only.
     </description>
 
     <dependencies>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-identity-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-identity-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -53,8 +53,8 @@
         </dependency>
 
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-testing</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-testing</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

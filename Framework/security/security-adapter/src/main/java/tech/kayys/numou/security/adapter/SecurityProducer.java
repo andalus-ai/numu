@@ -1,20 +1,20 @@
-package tech.kayys.syirkah.security.adapter;
+package tech.kayys.numou.security.adapter;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Any;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
-import tech.kayys.syirkah.cache.CachePolicy;
-import tech.kayys.syirkah.cache.adapter.CaffeineCache;
-import tech.kayys.syirkah.security.application.authz.AuthorizationService;
-import tech.kayys.syirkah.security.application.authz.CachingGrantResolver;
-import tech.kayys.syirkah.security.application.authz.GrantResolver;
-import tech.kayys.syirkah.security.application.authz.RoleGrantResolver;
-import tech.kayys.syirkah.security.application.authz.RolePermissionMatrix;
-import tech.kayys.syirkah.security.application.problem.ProblemMapper;
-import tech.kayys.syirkah.security.application.ratelimit.TokenBucketRateLimiter;
-import tech.kayys.syirkah.security.spi.port.AuditPort;
+import tech.kayys.numou.cache.CachePolicy;
+import tech.kayys.numou.cache.adapter.CaffeineCache;
+import tech.kayys.numou.security.application.authz.AuthorizationService;
+import tech.kayys.numou.security.application.authz.CachingGrantResolver;
+import tech.kayys.numou.security.application.authz.GrantResolver;
+import tech.kayys.numou.security.application.authz.RoleGrantResolver;
+import tech.kayys.numou.security.application.authz.RolePermissionMatrix;
+import tech.kayys.numou.security.application.problem.ProblemMapper;
+import tech.kayys.numou.security.application.ratelimit.TokenBucketRateLimiter;
+import tech.kayys.numou.security.spi.port.AuditPort;
 
 import java.time.Duration;
 
@@ -43,7 +43,7 @@ public class SecurityProducer {
     @ApplicationScoped
     GrantResolver grantResolver(RolePermissionMatrix matrix) {
         // Short TTL: a revoked role stays effective for at most 30 seconds.
-        final var cache = new CaffeineCache<java.util.Set<tech.kayys.syirkah.security.domain.authorization.Permission>>(
+        final var cache = new CaffeineCache<java.util.Set<tech.kayys.numou.security.domain.authorization.Permission>>(
                 CachingGrantResolver.NAMESPACE, new CachePolicy(Duration.ofSeconds(30), Duration.ZERO, 50_000));
         return new CachingGrantResolver(new RoleGrantResolver(matrix), cache);
     }

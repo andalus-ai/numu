@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.warranty;
+package tech.kayys.numou.construction.domain.warranty;
 
 public enum WarrantyStatus {
     ACTIVE,

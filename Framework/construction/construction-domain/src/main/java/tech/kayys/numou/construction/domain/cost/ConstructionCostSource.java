@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.construction.domain.cost;
+package tech.kayys.numou.construction.domain.cost;
 
 public enum ConstructionCostSource {
     BOQ,

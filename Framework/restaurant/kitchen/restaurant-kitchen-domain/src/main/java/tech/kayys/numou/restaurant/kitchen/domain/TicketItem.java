@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.restaurant.kitchen.domain;
+package tech.kayys.numou.restaurant.kitchen.domain;
 
 import java.time.Duration;
 import java.util.List;

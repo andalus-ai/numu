@@ -1,4 +1,4 @@
-package tech.kayys.syirkah.accounting.domain.cost;
+package tech.kayys.numou.accounting.domain.cost;
 
 /** Business origin of a recorded cost entry. */
 public enum CostSource {

@@ -1,7 +1,7 @@
-package tech.kayys.syirkah.restaurant.kernel.spi;
+package tech.kayys.numou.restaurant.kernel.spi;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.syirkah.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
 import java.util.List;
 import java.util.UUID;

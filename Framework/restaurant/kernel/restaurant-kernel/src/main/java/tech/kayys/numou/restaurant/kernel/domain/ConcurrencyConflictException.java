@@ -1,6 +1,6 @@
-package tech.kayys.syirkah.restaurant.kernel.domain;
+package tech.kayys.numou.restaurant.kernel.domain;
 
-import tech.kayys.syirkah.foundation.domain.exception.DomainException;
+import tech.kayys.numou.foundation.domain.exception.DomainException;
 
 /**
  * Another writer changed the aggregate since it was loaded (HTTP 409). Safe to retry the whole
