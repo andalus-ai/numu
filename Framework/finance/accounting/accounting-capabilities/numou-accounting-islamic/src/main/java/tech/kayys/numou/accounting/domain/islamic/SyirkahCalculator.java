@@ -67,7 +67,7 @@ public final class SyirkahCalculator {
                     "Loss policy for " + contract.type() + " requires an explicitly approved Sharia policy");
             default -> throw new IllegalStateException("Unhandled Syirkah type: " + contract.type());
         }
-        if (weights.values().stream().mapToBigDecimal().reduce(BigDecimal.ZERO, BigDecimal::add).signum() <= 0) {
+        if (weights.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add).signum() <= 0) {
             throw new IllegalArgumentException("no positive capital base exists for loss allocation");
         }
         return allocateByWeights(contract, loss, weights, basis);
