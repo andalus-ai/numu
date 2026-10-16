@@ -31,6 +31,18 @@ public final class SyirkahApplicationService {
         repository.createContract(contract, actor);
     }
 
+    public void createContractVersion(SyirkahContractVersion contract, String tenantId, String actor) {
+        requireText(tenantId, "tenantId");
+        requireText(actor, "actor");
+        if (!contract.tenantId().equals(tenantId)) {
+            throw new SecurityException("Contract tenant does not match authenticated tenant");
+        }
+        if (!repository.isContractActive(tenantId, contract.companyId(), contract.contractId())) {
+            throw new IllegalStateException("Only an active contract can be amended");
+        }
+        repository.createContractVersion(contract, actor);
+    }
+
     public void activateContract(String tenantId, String companyId, String contractId,
                                  int version, String actor, String signedEvidenceReference) {
         requireText(actor, "actor");
@@ -47,6 +59,9 @@ public final class SyirkahApplicationService {
         SyirkahContractVersion contract = repository.findContract(tenantId, companyId,
                 result.contractId(), result.contractVersion())
                 .orElseThrow(() -> new IllegalArgumentException("Contract version not found in this tenant/company"));
+        if (!repository.isContractVersionActivated(tenantId, companyId, result.contractId(), result.contractVersion())) {
+            throw new IllegalStateException("A draft contract version cannot be used for business results");
+        }
         if (!contract.tenantId().equals(tenantId) || !contract.companyId().equals(companyId)) {
             throw new SecurityException("Contract scope mismatch");
         }
@@ -72,6 +87,9 @@ public final class SyirkahApplicationService {
         SyirkahContractVersion contract = repository.findContract(tenantId, companyId,
                 result.contractId(), result.contractVersion())
                 .orElseThrow(() -> new IllegalArgumentException("Contract version not found"));
+        if (!repository.isContractVersionActivated(tenantId, companyId, result.contractId(), result.contractVersion())) {
+            throw new IllegalStateException("A draft contract version cannot be calculated");
+        }
         SyirkahCalculation calculation = calculator.calculate(contract, result);
         int version = repository.saveCalculation(tenantId, companyId, calculation, actor);
         return repository.findCalculation(tenantId, companyId, resultId, version)
