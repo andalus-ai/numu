@@ -81,9 +81,8 @@ public final class SyirkahApplicationService {
         requireText(actor, "actor");
         SyirkahBusinessResult result = repository.findBusinessResult(tenantId, companyId, resultId)
                 .orElseThrow(() -> new IllegalArgumentException("Business result not found"));
-        if (!repository.isContractActive(tenantId, companyId, result.contractId())) {
-            throw new IllegalStateException("Syirkah contract is not active");
-        }
+        // Historical period results remain calculable after a contract is superseded,
+        // suspended, or terminated; the effective-dated activated version is authoritative.
         SyirkahContractVersion contract = repository.findContract(tenantId, companyId,
                 result.contractId(), result.contractVersion())
                 .orElseThrow(() -> new IllegalArgumentException("Contract version not found"));
