@@ -22,7 +22,7 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
-            <artifactId>billing-core</artifactId>
+            <artifactId>numou-billing-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
