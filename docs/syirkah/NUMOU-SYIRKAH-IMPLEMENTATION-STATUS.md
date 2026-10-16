@@ -26,9 +26,13 @@ not approved for live accounting or payment processing.
 - PostgreSQL adapter with transaction-scoped contract/result/calculation writes.
 - Idempotent calculation persistence keyed by result and calculation hash.
 - Distribution obligation rows created from immutable allocations.
+- Immutable contract amendment workflow with draft, active, superseded, and rejected version states.
+  Activation/rejection is maker-checker guarded, only the latest draft can activate, and only one open draft
+  amendment is allowed at a time.
+- Mufawadah is represented as a contract type; loss allocation remains fail-closed pending an approved policy.
 - Settlement repository method is idempotency-keyed, locks the obligation row, caps cumulative settlement,
   and refuses settlement unless the calculation is already marked POSTED.
-- Audit-event rows for contract, result, calculation, approval, and settlement transitions.
+- Audit-event rows for contract, result, calculation, approval, rejection, and settlement transitions.
 - API skeleton uses `RequestContextHolder` and refuses requests without a verified tenant and actor.
 - Tests expanded for large monetary values.
 
@@ -42,10 +46,12 @@ not approved for live accounting or payment processing.
 3. **Journal posting is not integrated.** There is no production-safe posting gateway or atomic transaction joining
    the distribution state and the general ledger. The REST API intentionally does not expose settlement. The
    repository settlement method will reject obligations whose calculation is not marked POSTED.
-4. **Version lifecycle is incomplete.** Initial contract creation/activation is implemented; safe amendment,
-   supersession, termination, and effective-version activation need a dedicated lifecycle implementation.
-5. **No real database test has been run.** PostgreSQL migration behavior, transaction rollback, locking, uniqueness,
-   retries, and concurrent settlement need Testcontainers tests.
+4. **Contract lifecycle is partial.** Drafting, maker-checker activation/rejection, and version supersession are
+   implemented. Suspension, termination/closure commands, effective-date overlap validation, and policy-governed
+   migration of legacy contracts still need dedicated workflows.
+5. **Database integration tests remain missing.** CI successfully applied the migration set through V12 on an earlier
+   hardening commit, but V13 and the final code head still need a fresh green run. PostgreSQL repository behavior,
+   transaction rollback, locking, uniqueness, retries, and concurrent settlement need Testcontainers tests.
 6. **API hardening remains.** Add bean validation, safe exception-to-HTTP mapping, rate limits, actor/correlation
    audit context, OpenAPI request/response schemas, and authorization tests.
 7. **Existing Numou GL has architectural risks.** The current journal handler mutates account balances one by one
