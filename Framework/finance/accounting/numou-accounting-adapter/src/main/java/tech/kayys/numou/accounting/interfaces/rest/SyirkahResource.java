@@ -48,8 +48,6 @@ public class SyirkahResource {
                                         BigDecimal directCosts, BigDecimal operatingCosts, BigDecimal otherCosts,
                                         String currencyCode, String evidenceReference) {}
     public record ApprovalRequest(String companyId) {}
-    public record SettlementRequest(String companyId, int calculationVersion, String partyId,
-                                    BigDecimal amount, String currencyCode, String idempotencyKey) {}
 
     @POST
     @Path("/contracts")
@@ -104,9 +102,7 @@ public class SyirkahResource {
     @Operation(summary = "Retrieve a persisted calculation snapshot")
     public Response getCalculation(@PathParam("id") String id, @PathParam("version") int version,
                                    @jakarta.ws.rs.QueryParam("companyId") String companyId) {
-        // Reload through the repository-backed application service is intentionally added in the next API increment.
-        return Response.status(Response.Status.NOT_IMPLEMENTED)
-                .entity(java.util.Map.of("message", "Use the calculate endpoint until read-by-version API is enabled")).build();
+        return Response.ok(service.findCalculation(requireTenant(), companyId, id, version)).build();
     }
 
     @POST
@@ -117,15 +113,8 @@ public class SyirkahResource {
         return Response.ok(service.approveCalculation(requireTenant(), request.companyId(), id, version, requireActor())).build();
     }
 
-    @POST
-    @Path("/results/{id}/calculations/{version}/settlements")
-    @Blocking
-    @Operation(summary = "Record an idempotent settlement against a posted distribution obligation")
-    public Response settle(@PathParam("id") String id, SettlementRequest request) {
-        service.settleDistribution(requireTenant(), request.companyId(), id, request.calculationVersion(),
-                request.partyId(), request.amount(), request.currencyCode(), request.idempotencyKey(), requireActor());
-        return Response.accepted(java.util.Map.of("status", "RECORDED", "idempotencyKey", request.idempotencyKey())).build();
-    }
+    // Cash settlement is intentionally not exposed here until a production journal-posting
+    // gateway can atomically post and reconcile the distribution obligation.
 
     private String requireTenant() {
         if (!requestContext.tenantVerified() || requestContext.tenantId() == null || requestContext.tenantId().isBlank()) {
