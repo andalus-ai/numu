@@ -216,6 +216,18 @@ public class PostgresSyirkahRepository implements SyirkahRepository {
     }
 
     @Override
+    public boolean isContractVersionActivated(String tenant, String company, String contractId, int version) {
+        try (Connection con = dataSource.getConnection(); PreparedStatement s = con.prepareStatement("""
+            SELECT 1 FROM accounting.syirkah_contract_version
+            WHERE tenant_id=? AND company_id=? AND contract_id=? AND version=?
+              AND version_status IN ('ACTIVE','SUPERSEDED')
+            """)) {
+            s.setString(1, tenant); s.setString(2, company); s.setString(3, contractId); s.setInt(4, version);
+            try (ResultSet r = s.executeQuery()) { return r.next(); }
+        } catch (SQLException e) { throw translate("check Syirkah contract version status", e); }
+    }
+
+    @Override
     public Optional<SyirkahContractVersion> findContract(String tenant, String company, String contractId, int version) {
         String sql = """
             SELECT currency_code, syirkah_type, effective_from, effective_until, sharia_policy_version
@@ -484,6 +496,36 @@ public class PostgresSyirkahRepository implements SyirkahRepository {
                 throw translate("settle Syirkah distribution", e);
             }
         } catch (SQLException e) { throw translate("settle Syirkah distribution", e); }
+    }
+
+    private static void insertVersionAndParties(Connection con, SyirkahContractVersion c,
+                                                  String actor, String termsHash) throws SQLException {
+        try (PreparedStatement s = con.prepareStatement("""
+            INSERT INTO accounting.syirkah_contract_version
+              (tenant_id, company_id, contract_id, version, currency_code, syirkah_type,
+               effective_from, effective_until, sharia_policy_version, terms_hash, created_by, version_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT')
+            """)) {
+            s.setString(1, c.tenantId()); s.setString(2, c.companyId()); s.setString(3, c.contractId());
+            s.setInt(4, c.version()); s.setString(5, c.currencyCode()); s.setString(6, c.type().name());
+            s.setDate(7, Date.valueOf(c.effectiveFrom())); s.setDate(8, Date.valueOf(c.effectiveUntil()));
+            s.setString(9, c.shariaPolicyVersion()); s.setString(10, termsHash); s.setString(11, actor);
+            s.executeUpdate();
+        }
+        try (PreparedStatement s = con.prepareStatement("""
+            INSERT INTO accounting.syirkah_contract_party
+              (tenant_id, company_id, contract_id, contract_version, party_id, display_name,
+               party_role, capital_contribution, profit_nisbah_percent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """)) {
+            for (SyirkahParty p : c.parties()) {
+                s.setString(1, c.tenantId()); s.setString(2, c.companyId()); s.setString(3, c.contractId());
+                s.setInt(4, c.version()); s.setString(5, p.partyId()); s.setString(6, p.displayName());
+                s.setString(7, p.role().name()); s.setBigDecimal(8, p.capitalContribution());
+                s.setBigDecimal(9, p.profitNisbahPercent()); s.addBatch();
+            }
+            s.executeBatch();
+        }
     }
 
     private static void audit(Connection con, String tenant, String company, String type, String id, Integer version,
