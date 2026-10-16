@@ -50,6 +50,13 @@ public final class SyirkahApplicationService {
         repository.activateContract(tenantId, companyId, contractId, version, actor, signedEvidenceReference);
     }
 
+    public void rejectContractVersion(String tenantId, String companyId, String contractId,
+                                      int version, String actor, String reason) {
+        requireText(actor, "actor");
+        requireText(reason, "reason");
+        repository.rejectContractVersion(tenantId, companyId, contractId, version, actor, reason);
+    }
+
     public void registerBusinessResult(String tenantId, String companyId,
                                        SyirkahBusinessResult result, String actor) {
         requireText(actor, "actor");
