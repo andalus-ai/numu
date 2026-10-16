@@ -65,7 +65,7 @@ class SyirkahCalculatorTest {
 
     @Test
     void rejectsNisbahThatDoesNotTotalOneHundred() {
-        assertThrows(IllegalArgumentException.class, () -> new SyirkahContractVersion("c", 1, "t", "co", "USD,
+        assertThrows(IllegalArgumentException.class, () -> new SyirkahContractVersion("c", 1, "t", "co", "USD",
                 SyirkahType.MUDHARABAH, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), "policy-1",
                 List.of(party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "100", "50"),
                         party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "40"))));
@@ -78,7 +78,7 @@ class SyirkahCalculatorTest {
                 party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "50"));
         SyirkahBusinessResult result = new SyirkahBusinessResult("r", "contract-1", 2,
                 LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
-                bd("100"), bd("0"), bd("0"), bd("0"), "IDR", "evidence-1");
+                bd("100"), bd("0"), bd("0"), bd("0"), "USD", "evidence-1");
         assertThrows(IllegalArgumentException.class, () -> calculator.calculate(contract, result));
     }
 
@@ -87,7 +87,7 @@ class SyirkahCalculatorTest {
     }
 
     private static SyirkahContractVersion contract(SyirkahType type, SyirkahParty... parties) {
-        return new SyirkahContractVersion("contract-1", 1, "tenant-1", "company-1", "IDR", type,
+        return new SyirkahContractVersion("contract-1", 1, "tenant-1", "company-1", "USD", type,
                 LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), "policy-2026-1", List.of(parties));
     }
 
@@ -98,7 +98,7 @@ class SyirkahCalculatorTest {
     private static SyirkahBusinessResult result(String revenue, String direct, String operating, String other) {
         return new SyirkahBusinessResult("result-1", "contract-1", 1,
                 LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
-                bd(revenue), bd(direct), bd(operating), bd(other), "IDR", "evidence-1");
+                bd(revenue), bd(direct), bd(operating), bd(other), "USD", "evidence-1");
     }
 
     private static BigDecimal bd(String value) { return new BigDecimal(value); }
