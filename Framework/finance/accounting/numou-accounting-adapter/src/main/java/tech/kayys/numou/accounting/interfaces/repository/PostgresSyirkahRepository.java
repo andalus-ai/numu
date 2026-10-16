@@ -105,13 +105,16 @@ public class PostgresSyirkahRepository implements SyirkahRepository {
                 }
                 if (!"ACTIVE".equals(status)) throw new IllegalStateException("Only active contracts can be amended");
                 int latest;
+                int drafts;
                 try (PreparedStatement q = con.prepareStatement("""
-                    SELECT COALESCE(MAX(version), 0) FROM accounting.syirkah_contract_version
+                    SELECT COALESCE(MAX(version), 0), COUNT(*) FILTER (WHERE version_status='DRAFT')
+                    FROM accounting.syirkah_contract_version
                     WHERE tenant_id=? AND company_id=? AND contract_id=?
                     """)) {
                     q.setString(1, c.tenantId()); q.setString(2, c.companyId()); q.setString(3, c.contractId());
-                    try (ResultSet r = q.executeQuery()) { r.next(); latest = r.getInt(1); }
+                    try (ResultSet r = q.executeQuery()) { r.next(); latest = r.getInt(1); drafts = r.getInt(2); }
                 }
+                if (drafts != 0) throw new IllegalStateException("Resolve the existing draft amendment before creating another");
                 if (c.version() != latest + 1) {
                     throw new IllegalArgumentException("Contract amendment version must be latest version + 1");
                 }
