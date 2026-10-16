@@ -34,6 +34,11 @@ public final class SyirkahCalculator {
         BigDecimal net = result.netResult();
         List<SyirkahAllocation> allocations;
         if (net.signum() > 0) {
+            if (contract.type() == SyirkahType.ABDAN || contract.type() == SyirkahType.WUJUH
+                    || contract.type() == SyirkahType.MUFAWADHAH) {
+                throw new UnsupportedOperationException("Profit policy for " + contract.type()
+                        + " requires an explicitly approved Sharia policy");
+            }
             allocations = allocateByWeights(contract, net, contract.parties().stream()
                     .collect(java.util.stream.Collectors.toMap(SyirkahParty::partyId,
                             SyirkahParty::profitNisbahPercent, (a,b) -> a, LinkedHashMap::new)), "AGREED_NISBAH");
@@ -60,11 +65,11 @@ public final class SyirkahCalculator {
                 }
                 basis = "MUDHARABAH_CAPITAL_PROVIDER_CAPITAL_RISK";
             }
-            case MUSYARAKAH -> {
+            case MUSYARAKAH, INAN -> {
                 for (SyirkahParty p : contract.parties()) weights.put(p.partyId(), p.capitalContribution());
                 basis = "MUSYARAKAH_CAPITAL_CONTRIBUTION";
             }
-            case INAN, ABDAN, WUJUH, MUFAWADHAH -> throw new UnsupportedOperationException(
+            case ABDAN, WUJUH, MUFAWADHAH -> throw new UnsupportedOperationException(
                     "Loss policy for " + contract.type() + " requires an explicitly approved Sharia policy");
             default -> throw new IllegalStateException("Unhandled Syirkah type: " + contract.type());
         }
