@@ -82,15 +82,20 @@ public final class SyirkahCalculator {
         BigDecimal roundedTotal = total.setScale(scale, RoundingMode.UNNECESSARY);
         BigInteger totalMinor = roundedTotal.movePointRight(scale).toBigIntegerExact();
 
-        record Part(String partyId, BigInteger minorUnits, BigDecimal remainder, int order) {}
+        int weightScale = weights.values().stream().mapToInt(BigDecimal::scale).max().orElse(0);
+        Map<String, BigInteger> integerWeights = new LinkedHashMap<>();
+        weights.forEach((id, weight) -> integerWeights.put(id, weight.movePointRight(weightScale).toBigIntegerExact()));
+        BigInteger integerWeightTotal = integerWeights.values().stream().reduce(BigInteger.ZERO, BigInteger::add);
+
+        // Exact quotient/remainder arithmetic avoids precision loss for large NUMERIC values.
+        record Part(String partyId, BigInteger minorUnits, BigInteger remainder, int order) {}
         List<Part> parts = new ArrayList<>();
         BigInteger assigned = BigInteger.ZERO;
         int order = 0;
-        for (Map.Entry<String, BigDecimal> entry : weights.entrySet()) {
-            BigDecimal exactMinor = new BigDecimal(totalMinor).multiply(entry.getValue())
-                    .divide(weightTotal, 16, RoundingMode.DOWN);
-            BigInteger floor = exactMinor.setScale(0, RoundingMode.DOWN).toBigIntegerExact();
-            parts.add(new Part(entry.getKey(), floor, exactMinor.subtract(new BigDecimal(floor)), order++));
+        for (Map.Entry<String, BigInteger> entry : integerWeights.entrySet()) {
+            BigInteger[] qr = totalMinor.multiply(entry.getValue()).divideAndRemainder(integerWeightTotal);
+            BigInteger floor = qr[0];
+            parts.add(new Part(entry.getKey(), floor, qr[1], order++));
             assigned = assigned.add(floor);
         }
         int residual = totalMinor.subtract(assigned).intValueExact();
