@@ -87,41 +87,112 @@ public class PostgresSyirkahRepository implements SyirkahRepository {
     }
 
     @Override
+    public void createContractVersion(SyirkahContractVersion c, String actor) {
+        String termsHash = sha256(c.toString());
+        try (Connection con = dataSource.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                String status;
+                try (PreparedStatement lock = con.prepareStatement("""
+                    SELECT lifecycle_status FROM accounting.syirkah_contract
+                    WHERE tenant_id=? AND company_id=? AND contract_id=? FOR UPDATE
+                    """)) {
+                    lock.setString(1, c.tenantId()); lock.setString(2, c.companyId()); lock.setString(3, c.contractId());
+                    try (ResultSet r = lock.executeQuery()) {
+                        if (!r.next()) throw new IllegalArgumentException("Contract not found");
+                        status = r.getString(1);
+                    }
+                }
+                if (!"ACTIVE".equals(status)) throw new IllegalStateException("Only active contracts can be amended");
+                int latest;
+                try (PreparedStatement q = con.prepareStatement("""
+                    SELECT COALESCE(MAX(version), 0) FROM accounting.syirkah_contract_version
+                    WHERE tenant_id=? AND company_id=? AND contract_id=?
+                    """)) {
+                    q.setString(1, c.tenantId()); q.setString(2, c.companyId()); q.setString(3, c.contractId());
+                    try (ResultSet r = q.executeQuery()) { r.next(); latest = r.getInt(1); }
+                }
+                if (c.version() != latest + 1) {
+                    throw new IllegalArgumentException("Contract amendment version must be latest version + 1");
+                }
+                insertVersionAndParties(con, c, actor, termsHash);
+                audit(con, c.tenantId(), c.companyId(), "CONTRACT", c.contractId(), c.version(),
+                        "CONTRACT_VERSION_DRAFTED", actor, "{\"termsHash\":\"" + termsHash + "\"}");
+                con.commit();
+            } catch (Exception e) {
+                rollback(con, e);
+                throw translate("create Syirkah contract version", e);
+            }
+        } catch (SQLException e) {
+            throw translate("create Syirkah contract version", e);
+        }
+    }
+
+    @Override
     public void activateContract(String tenant, String company, String contractId, int version,
                                  String actor, String evidence) {
         try (Connection con = dataSource.getConnection()) {
             con.setAutoCommit(false);
             try {
                 String creator;
+                String contractStatus;
+                String versionStatus;
                 try (PreparedStatement s = con.prepareStatement("""
-                    SELECT created_by FROM accounting.syirkah_contract
-                    WHERE tenant_id=? AND company_id=? AND contract_id=? AND lifecycle_status='DRAFT'
-                    FOR UPDATE
+                    SELECT v.created_by, c.lifecycle_status, v.version_status
+                    FROM accounting.syirkah_contract c
+                    JOIN accounting.syirkah_contract_version v
+                      ON v.tenant_id=c.tenant_id AND v.company_id=c.company_id AND v.contract_id=c.contract_id
+                    WHERE c.tenant_id=? AND c.company_id=? AND c.contract_id=? AND v.version=?
+                    FOR UPDATE OF c, v
                     """)) {
-                    s.setString(1, tenant); s.setString(2, company); s.setString(3, contractId);
+                    s.setString(1, tenant); s.setString(2, company); s.setString(3, contractId); s.setInt(4, version);
                     try (ResultSet r = s.executeQuery()) {
-                        if (!r.next()) throw new IllegalStateException("Contract not found or not in DRAFT state");
+                        if (!r.next()) throw new IllegalStateException("Contract version not found");
                         creator = r.getString(1);
+                        contractStatus = r.getString(2);
+                        versionStatus = r.getString(3);
                     }
                 }
-                if (creator.equals(actor)) throw new SecurityException("Contract maker cannot approve their own contract");
-                try (PreparedStatement s = con.prepareStatement("""
-                    UPDATE accounting.syirkah_contract_version SET signed_evidence_reference=?
-                    WHERE tenant_id=? AND company_id=? AND contract_id=? AND version=?
-                      AND signed_evidence_reference IS NULL
+                if (!"DRAFT".equals(versionStatus)) throw new IllegalStateException("Only a draft version can be activated");
+                if (!"DRAFT".equals(contractStatus) && !"ACTIVE".equals(contractStatus)) {
+                    throw new IllegalStateException("Contract is not in an amendable lifecycle state");
+                }
+                if (creator.equals(actor)) throw new SecurityException("Contract maker cannot approve their own version");
+                int latest;
+                try (PreparedStatement q = con.prepareStatement("""
+                    SELECT MAX(version) FROM accounting.syirkah_contract_version
+                    WHERE tenant_id=? AND company_id=? AND contract_id=?
                     """)) {
-                    s.setString(1, evidence); s.setString(2, tenant); s.setString(3, company);
-                    s.setString(4, contractId); s.setInt(5, version);
-                    if (s.executeUpdate() != 1) throw new IllegalStateException("Contract version missing or already activated");
+                    q.setString(1, tenant); q.setString(2, company); q.setString(3, contractId);
+                    try (ResultSet r = q.executeQuery()) { r.next(); latest = r.getInt(1); }
+                }
+                if (version != latest) throw new IllegalStateException("Only the latest contract version can be activated");
+
+                try (PreparedStatement s = con.prepareStatement("""
+                    UPDATE accounting.syirkah_contract_version
+                    SET version_status='SUPERSEDED', superseded_at=NOW()
+                    WHERE tenant_id=? AND company_id=? AND contract_id=? AND version_status='ACTIVE' AND version<>?
+                    """)) {
+                    s.setString(1, tenant); s.setString(2, company); s.setString(3, contractId); s.setInt(4, version);
+                    s.executeUpdate();
                 }
                 try (PreparedStatement s = con.prepareStatement("""
-                    UPDATE accounting.syirkah_contract SET lifecycle_status='ACTIVE'
-                    WHERE tenant_id=? AND company_id=? AND contract_id=? AND lifecycle_status='DRAFT'
+                    UPDATE accounting.syirkah_contract_version
+                    SET signed_evidence_reference=?, version_status='ACTIVE', activated_at=NOW(), activated_by=?
+                    WHERE tenant_id=? AND company_id=? AND contract_id=? AND version=? AND version_status='DRAFT'
                     """)) {
-                    s.setString(1, tenant); s.setString(2, company); s.setString(3, contractId);
+                    s.setString(1, evidence); s.setString(2, actor); s.setString(3, tenant);
+                    s.setString(4, company); s.setString(5, contractId); s.setInt(6, version);
+                    if (s.executeUpdate() != 1) throw new IllegalStateException("Contract version activation race detected");
+                }
+                try (PreparedStatement s = con.prepareStatement("""
+                    UPDATE accounting.syirkah_contract SET lifecycle_status='ACTIVE', current_version=?
+                    WHERE tenant_id=? AND company_id=? AND contract_id=? AND lifecycle_status IN ('DRAFT','ACTIVE')
+                    """)) {
+                    s.setInt(1, version); s.setString(2, tenant); s.setString(3, company); s.setString(4, contractId);
                     if (s.executeUpdate() != 1) throw new IllegalStateException("Contract activation race detected");
                 }
-                audit(con, tenant, company, "CONTRACT", contractId, version, "CONTRACT_ACTIVATED", actor,
+                audit(con, tenant, company, "CONTRACT", contractId, version, "CONTRACT_VERSION_ACTIVATED", actor,
                         "{\"signedEvidenceReference\":\"" + jsonEscape(evidence) + "\"}");
                 con.commit();
             } catch (Exception e) {
