@@ -16,7 +16,7 @@ not approved for live accounting or payment processing.
 - Deterministic largest-remainder allocation using exact integer arithmetic in currency minor units.
 - Mudharabah ordinary-loss allocation to capital providers by capital risk.
 - Musyarakah ordinary-loss allocation by contributed capital.
-- Unsupported Inan, Abdan, and Wujuh loss rules fail closed.
+- Inan ordinary losses are allocated by contributed capital; Abdan, Wujuh, and Mufawadah profit/loss calculations fail closed pending approved structure-specific policies.
 - Calculation fingerprint and policy/version references.
 
 ### Application and persistence
@@ -29,7 +29,7 @@ not approved for live accounting or payment processing.
 - Immutable contract amendment workflow with draft, active, superseded, and rejected version states.
   Activation/rejection is maker-checker guarded, only the latest draft can activate, and only one open draft
   amendment is allowed at a time.
-- Mufawadah is represented as a contract type; loss allocation remains fail-closed pending an approved policy.
+- Mufawadah is represented as a contract type; its profit and loss calculations fail closed pending an approved policy.
 - Settlement repository method is idempotency-keyed, locks the obligation row, caps cumulative settlement,
   and refuses settlement unless the calculation is already marked POSTED.
 - Audit-event rows for contract, result, calculation, approval, rejection, and settlement transitions.
@@ -49,8 +49,8 @@ not approved for live accounting or payment processing.
 4. **Contract lifecycle is partial.** Drafting, maker-checker activation/rejection, and version supersession are
    implemented. Suspension, termination/closure commands, effective-date overlap validation, and policy-governed
    migration of legacy contracts still need dedicated workflows.
-5. **Database integration tests remain missing.** CI successfully applied the migration set through V12 on an earlier
-   hardening commit, but V13 and the final code head still need a fresh green run. PostgreSQL repository behavior,
+5. **Database integration tests remain missing.** CI successfully applied the migration set through V13 on an earlier
+   hardening commit, but the final code head still needs a fresh green run. PostgreSQL repository behavior,
    transaction rollback, locking, uniqueness, retries, and concurrent settlement need Testcontainers tests.
 6. **API hardening remains.** Add bean validation, safe exception-to-HTTP mapping, rate limits, actor/correlation
    audit context, OpenAPI request/response schemas, and authorization tests.
