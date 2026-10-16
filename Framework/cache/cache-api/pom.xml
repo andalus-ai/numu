@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-cache-api</artifactId>
-    <name>Syirkah Cache - API</name>
+    <name>Numou Cache - API</name>
     <description>Tenant-safe reactive cache port: CacheKey, CachePolicy, Cache, CachedQueryHandler.</description>
     <dependencies>
         <dependency>

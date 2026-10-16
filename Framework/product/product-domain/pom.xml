@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-product-domain</artifactId>
-    <name>Syirkah Product - Domain</name>
+    <name>Numou Product - Domain</name>
     <description>Product aggregates (Product, Variant, Specification, SKU) and product value objects.</description>
     <dependencies>
         <dependency>

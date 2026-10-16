@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-cache-adapter</artifactId>
-    <name>Syirkah Cache - Caffeine Adapter</name>
+    <name>Numou Cache - Caffeine Adapter</name>
     <description>In-process Caffeine implementation of the Cache port.</description>
     <dependencies>
         <dependency>

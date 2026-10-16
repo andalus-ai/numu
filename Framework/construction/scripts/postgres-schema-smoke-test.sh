@@ -126,7 +126,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
-SELECT 'Syirkah PostgreSQL schema smoke test PASSED' AS result;
+SELECT 'Numou PostgreSQL schema smoke test PASSED' AS result;
 SQL
 
 echo "PASS: migrations and database-level smoke assertions succeeded."

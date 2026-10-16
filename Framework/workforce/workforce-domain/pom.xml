@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-workforce-domain</artifactId>
-    <name>Syirkah Workforce - Domain</name>
+    <name>Numou Workforce - Domain</name>
     <description>Workforce core aggregates, employment, position, skills, organization, scheduling and leave.</description>
     <dependencies>
         <dependency>

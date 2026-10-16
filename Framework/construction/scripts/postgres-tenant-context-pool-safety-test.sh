@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Disposable PostgreSQL test for transaction-local tenant context on reused connections.
-# This proves the fixture protocol, not the actual Syirkah pool/runtime wiring.
+# This proves the fixture protocol, not the actual Numou pool/runtime wiring.
 CONTAINER_NAME="syirkah-pg-tenant-context-pool-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55445}"
 PASSWORD="syirkah_test_only"
@@ -102,4 +102,4 @@ B="$(psql -Atc "SET ROLE syirkah_tenant_context_test; BEGIN; SELECT set_config('
 
 echo 'PASS: transaction-local tenant context does not leak across commits or rollbacks on a reused session.'
 echo 'PASS: independent sessions see only their own tenant rows.'
-echo 'NOTE: isolated fixture only; verify the actual Syirkah authentication-to-transaction context propagation and connection-pool integration separately.'
+echo 'NOTE: isolated fixture only; verify the actual Numou authentication-to-transaction context propagation and connection-pool integration separately.'

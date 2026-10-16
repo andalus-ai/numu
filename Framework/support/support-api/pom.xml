@@ -4,27 +4,27 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-support</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-support</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-support-api</artifactId>
-    <name>Syirkah Support - API</name>
+    <artifactId>numou-support-api</artifactId>
+    <name>Numou Support - API</name>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-support-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-support-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-support-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-support-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!-- RESTEasy JAX-RS -->

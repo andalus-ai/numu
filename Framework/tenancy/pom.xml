@@ -14,7 +14,7 @@
 
     <artifactId>syirkah-tenancy</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Tenancy</name>
+    <name>Numou Tenancy</name>
     <description>
         Platform-level Tenancy bounded context (T-01 through T-06).
         Tenant lifecycle, membership, settings, and provisioning workflow.

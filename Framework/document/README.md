@@ -1,4 +1,4 @@
-# Syirkah Document Storage
+# Numou Document Storage
 
 `DocumentStoragePort` has a local filesystem implementation for development and
 tests and an S3-compatible implementation for production deployments.

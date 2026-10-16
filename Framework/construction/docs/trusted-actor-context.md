@@ -22,7 +22,7 @@ The current `BoqRevisionWorkflow` SPI does not accept a tenant ID directly. The 
 
 ## Compatibility note
 
-This is a source-breaking change for code constructing the three command records or creating the handlers. Update call sites and dependency-injection wiring in the full Syirkah checkout. The supplied source bundle has no Maven/Gradle build descriptor and omits some foundation types, so compilation cannot be established from this bundle alone.
+This is a source-breaking change for code constructing the three command records or creating the handlers. Update call sites and dependency-injection wiring in the full Numou checkout. The supplied source bundle has no Maven/Gradle build descriptor and omits some foundation types, so compilation cannot be established from this bundle alone.
 
 ## Verification
 

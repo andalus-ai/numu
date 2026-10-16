@@ -1,11 +1,11 @@
 # Prometheus alert rules. Metric names follow Micrometer's Prometheus naming.
 groups:
-  - name: syirkah-restaurant-slo
+  - name: numou-restaurant-slo
     rules:
       - alert: HighErrorRate
         expr: |
-          sum(rate(http_server_requests_seconds_count{job="syirkah-restaurant",status=~"5.."}[5m]))
-            / sum(rate(http_server_requests_seconds_count{job="syirkah-restaurant"}[5m])) > 0.02
+          sum(rate(http_server_requests_seconds_count{job="numou-restaurant",status=~"5.."}[5m]))
+            / sum(rate(http_server_requests_seconds_count{job="numou-restaurant"}[5m])) > 0.02
         for: 5m
         labels: { severity: page }
         annotations:
@@ -13,39 +13,39 @@ groups:
           runbook: "docs/PRODUCTION.md#runbook-high-error-rate"
       - alert: SlowRequests
         expr: |
-          histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job="syirkah-restaurant",uri!~"/q/.*"}[5m]))) > 1.5
+          histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job="numou-restaurant",uri!~"/q/.*"}[5m]))) > 1.5
         for: 10m
         labels: { severity: ticket }
         annotations: { summary: "p99 API latency above 1.5s for 10 minutes" }
       - alert: RateLimitingSpike
-        expr: sum(rate(http_server_requests_seconds_count{job="syirkah-restaurant",status="429"}[5m])) > 5
+        expr: sum(rate(http_server_requests_seconds_count{job="numou-restaurant",status="429"}[5m])) > 5
         for: 10m
         labels: { severity: ticket }
         annotations: { summary: "Sustained 429s: a client is hammering the API or limits are too low" }
 
-  - name: syirkah-outbox
+  - name: numou-outbox
     rules:
       - alert: OutboxLagging
-        expr: max(outbox_oldest_pending_age_seconds{job="syirkah-restaurant"}) > 60
+        expr: max(outbox_oldest_pending_age_seconds{job="numou-restaurant"}) > 60
         for: 5m
         labels: { severity: page }
         annotations:
           summary: "Events have been waiting in the outbox for over a minute (kitchen tickets and order updates are delayed)"
           runbook: "docs/PRODUCTION.md#runbook-outbox-lag"
       - alert: OutboxDeadLetters
-        expr: max(outbox_dead_letters{job="syirkah-restaurant"}) > 0
+        expr: max(outbox_dead_letters{job="numou-restaurant"}) > 0
         for: 1m
         labels: { severity: page }
         annotations:
           summary: "Outbox entries exhausted their retries"
           runbook: "docs/PRODUCTION.md#runbook-outbox-dead-letters"
       - alert: OutboxMetricsMissing
-        expr: absent(outbox_pending{job="syirkah-restaurant"})
+        expr: absent(outbox_pending{job="numou-restaurant"})
         for: 10m
         labels: { severity: ticket }
         annotations: { summary: "Outbox gauges are not being scraped: the lag alert above cannot fire" }
 
-  - name: syirkah-business
+  - name: numou-business
     rules:
       - alert: NoShowSpike
         expr: sum(increase(domain_events_published_total{type="restaurant.reservation.no-show"}[1h])) > 10
@@ -60,9 +60,9 @@ groups:
         labels: { severity: page }
         annotations: { summary: "Courses are being fired but no tickets are being bumped" }
 
-  - name: syirkah-platform
+  - name: numou-platform
     rules:
       - alert: PodRestarting
-        expr: increase(kube_pod_container_status_restarts_total{container="app",pod=~"syirkah-restaurant-.*"}[15m]) > 2
+        expr: increase(kube_pod_container_status_restarts_total{container="app",pod=~"numou-restaurant-.*"}[15m]) > 2
         labels: { severity: ticket }
-        annotations: { summary: "syirkah-restaurant pod restarting repeatedly" }
+        annotations: { summary: "numou-restaurant pod restarting repeatedly" }

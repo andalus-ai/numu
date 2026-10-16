@@ -5,13 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-workflow</artifactId>
+    <artifactId>numou-workflow</artifactId>
     <name>Kayys ERP Framework - Workflow Platform</name>
     <description>
         DAG-based business workflow orchestration powered by Gamelan engine.
@@ -19,8 +19,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-kernel</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-kernel</artifactId>
             <version>${project.version}</version>
         </dependency>
 

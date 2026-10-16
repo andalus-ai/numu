@@ -16,7 +16,7 @@
     <artifactId>syirkah-security</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Security - Aggregator</name>
+    <name>Numou Security - Aggregator</name>
     <description>
         Phase 1 security layer (Docs/Plan/base01.md §16, §P1-17, §P1-18).
 

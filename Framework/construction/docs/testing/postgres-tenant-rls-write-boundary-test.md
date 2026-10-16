@@ -25,4 +25,4 @@ Requires Docker and uses `SYIRKAH_TEST_PG_PORT` (default `55446`) on loopback. T
 
 ## Limits
 
-This proves PostgreSQL fixture behavior only. It does not prove the Syirkah authentication layer supplies the trusted tenant ID, that the production connection pool installs it transaction-locally, or that canonical production roles and migrations use equivalent policies. Those must be checked in the actual repository and deployment configuration.
+This proves PostgreSQL fixture behavior only. It does not prove the Numou authentication layer supplies the trusted tenant ID, that the production connection pool installs it transaction-locally, or that canonical production roles and migrations use equivalent policies. Those must be checked in the actual repository and deployment configuration.

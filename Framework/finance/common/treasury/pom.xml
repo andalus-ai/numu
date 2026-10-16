@@ -4,18 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-finance-common</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-finance-common</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-treasury</artifactId>
+    <artifactId>numou-treasury</artifactId>
     <packaging>pom</packaging>
     <name>Finance - Treasury &amp; Cash Drawer</name>
     <description>Cash drawer, shift management, and cash reconciliation for POS &amp; Cashiers</description>
     <modules>
-        <module>syirkah-treasury-domain</module>
-        <module>syirkah-treasury-application</module>
-        <module>syirkah-treasury-adapter</module>
+        <module>numou-treasury-domain</module>
+        <module>numou-treasury-application</module>
+        <module>numou-treasury-adapter</module>
     </modules>
 </project>

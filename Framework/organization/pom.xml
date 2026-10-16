@@ -14,7 +14,7 @@
 
     <artifactId>syirkah-organization</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Organization</name>
+    <name>Numou Organization</name>
     <description>Standalone organization bounded context — org chart, units, hierarchy. Reusable across any use case.</description>
 
     <modules>

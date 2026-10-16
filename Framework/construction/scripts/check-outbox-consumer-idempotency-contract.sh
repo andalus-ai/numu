@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SQL="$ROOT/scripts/postgres-outbox-consumer-idempotency-test.sh"
-DOC="$ROOT/db/test/postgres-outbox-consumer-idempotency-test.md"
+DOC="$ROOT/docs/testing/postgres-outbox-consumer-idempotency-test.md"
 [[ -f "$SQL" && -f "$DOC" ]]
 grep -q 'locked_until=now()-interval' "$SQL"
 grep -q "attempts=attempts+1" "$SQL"

@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SQL="$ROOT/scripts/postgres-tenant-isolation-test.sh"
-DOC="$ROOT/db/test/postgres-tenant-isolation-test.md"
+DOC="$ROOT/docs/testing/postgres-tenant-isolation-test.md"
 [[ -f "$SQL" && -f "$DOC" ]]
 grep -q 'test_revision_snapshot' "$SQL"
 grep -q 'test_revision_item' "$SQL"

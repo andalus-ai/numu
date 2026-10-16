@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-product-spi</artifactId>
-    <name>Syirkah Product - SPI</name>
+    <name>Numou Product - SPI</name>
     <description>Ports for product persistence and integrations.</description>
     <dependencies>
         <dependency>

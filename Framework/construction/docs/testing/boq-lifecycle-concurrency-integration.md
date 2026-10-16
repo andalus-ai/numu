@@ -19,5 +19,5 @@ After capturing revision 1, attempt to submit revision 2. The operation must fai
 
 - Apply all bundle migrations through `V20261014_01__tenant_scope_boq_revision_storage.sql` before running the Quarkus tests.
 - Configure the host application's PostgreSQL test datasource and Java dependencies.
-- `it_live_boq` and `it_live_boq_item` are test fixtures, not claims about the production Syirkah schema.
+- `it_live_boq` and `it_live_boq_item` are test fixtures, not claims about the production Numou schema.
 - These tests were added to the source bundle but have not been compiled or executed in this environment. Static contract checks do not substitute for a live test run.

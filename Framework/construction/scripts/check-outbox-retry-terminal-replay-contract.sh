@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SQL="$ROOT/scripts/postgres-outbox-retry-terminal-replay-test.sh"
-DOC="$ROOT/db/test/postgres-outbox-retry-terminal-replay-test.md"
+DOC="$ROOT/docs/testing/postgres-outbox-retry-terminal-replay-test.md"
 [[ -f "$SQL" && -f "$DOC" ]]
 grep -q 'make_interval' "$SQL"
 grep -q 'power(2' "$SQL"

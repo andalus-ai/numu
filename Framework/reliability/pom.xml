@@ -7,16 +7,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-reliability</artifactId>
+    <artifactId>numou-reliability</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Reliability - Aggregator</name>
+    <name>Numou Reliability - Aggregator</name>
     <description>
         Phase 1 reliability (Docs/Plan/base00.md §"Reliability should be
         designed around business events", base01.md §P1-14, §P1-15, §P1-20):

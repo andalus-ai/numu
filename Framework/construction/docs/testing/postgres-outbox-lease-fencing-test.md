@@ -19,4 +19,4 @@ Run `scripts/postgres-outbox-lease-fencing-test.sh` directly, or include it in `
 
 ## Scope limitation
 
-This is a SQL-protocol test of the starter schema and predicates. It does not invoke or validate the production Syirkah relay adapter, broker, or actual application migrations. Confirm that every production ack/fail/renew statement predicates on tenant, event ID, expected status, and the current lease token (or equivalent fencing generation) before relying on this behavior.
+This is a SQL-protocol test of the starter schema and predicates. It does not invoke or validate the production Numou relay adapter, broker, or actual application migrations. Confirm that every production ack/fail/renew statement predicates on tenant, event ID, expected status, and the current lease token (or equivalent fencing generation) before relying on this behavior.

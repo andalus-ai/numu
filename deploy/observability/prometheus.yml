@@ -1,6 +1,6 @@
 global: { scrape_interval: 15s }
 rule_files: ["/etc/prometheus/alerts.yaml"]
 scrape_configs:
-  - job_name: syirkah-restaurant
+  - job_name: numou-restaurant
     metrics_path: /q/metrics
     static_configs: [{ targets: ["host.docker.internal:9000"] }]

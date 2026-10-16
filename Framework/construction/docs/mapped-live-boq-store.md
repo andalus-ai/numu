@@ -17,7 +17,7 @@ scales, and timestamp column from the live migration/entity mapping first. Then 
 `PgLiveBoqSqlMapping` once from those verified identifiers and pass the factory to
 `DefaultPgBoqRevisionOperationsFactory`.
 
-Example shape (placeholders only; these are **not** asserted Syirkah table names):
+Example shape (placeholders only; these are **not** asserted Numou table names):
 
 ```java
 var mapping = new PgLiveBoqSqlMapping(
@@ -47,7 +47,7 @@ at the application boundary.
 
 The revision snapshot and counter starter tables are keyed by `boq_id` rather than
 `(tenant_id, boq_id)`. This therefore assumes BOQ UUIDs are globally unique across tenants.
-If the actual Syirkah schema does not guarantee global uniqueness, the snapshot header/item
+If the actual Numou schema does not guarantee global uniqueness, the snapshot header/item
 schema, repository queries, and revision counter must all be migrated to carry tenant scope
 before use. Tenant predicates on the live table do not compensate for colliding BOQ IDs in
 those globally keyed support tables.

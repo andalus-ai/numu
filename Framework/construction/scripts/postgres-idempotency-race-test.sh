@@ -134,7 +134,7 @@ BEGIN
     RAISE EXCEPTION 'conflicting request executed business effect';
   END IF;
 END $$;
-SELECT 'Syirkah PostgreSQL idempotency race test PASSED' AS result;
+SELECT 'Numou PostgreSQL idempotency race test PASSED' AS result;
 SQL
 
 echo "PASS: same-key concurrent reservation, single business effect, completed response, and conflicting-fingerprint invariants hold."

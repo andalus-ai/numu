@@ -16,11 +16,11 @@
     <artifactId>syirkah-ecosystem</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Ecosystem - Aggregator</name>
+    <name>Numou Ecosystem - Aggregator</name>
     <description>
         Phase 1 ecosystem layer (Docs/Plan/base00.md §2/§13, base01.md §P1-06..P1-09).
 
-        Syirkah is not an ERP with an FMS attached - it is a business
+        Numou is not an ERP with an FMS attached - it is a business
         ecosystem platform. This module owns the ecosystem vocabulary:
 
             participant   an entity taking part in the ecosystem
@@ -30,7 +30,7 @@
             contract      the agreed terms of a relationship
 
         The critical abstraction is NOT FleetService. It is "transportation
-        capability", satisfiable by an internal fleet, a Syirkah-hosted
+        capability", satisfiable by an internal fleet, a Numou-hosted
         fleet, a 3PL, a carrier, a courier, an independent driver, or an
         external logistics platform - all first-class participants.
     </description>

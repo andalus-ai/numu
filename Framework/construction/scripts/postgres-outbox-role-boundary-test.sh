@@ -71,4 +71,4 @@ BYPASS="$(psql -Atc "SELECT rolbypassrls OR rolsuper FROM pg_roles WHERE rolname
 echo 'PASS: relay role sees and updates only its tenant rows under RLS.'
 echo 'PASS: relay role cannot change tenant ownership or delete rows; command writer cannot mutate relay state.'
 echo 'PASS: relay role is neither superuser nor BYPASSRLS.'
-echo 'NOTE: isolated permission fixture only; reconcile roles, RLS policies, and grants with canonical Syirkah migrations before production use.'
+echo 'NOTE: isolated permission fixture only; reconcile roles, RLS policies, and grants with canonical Numou migrations before production use.'

@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-security-adapter</artifactId>
-    <name>Syirkah Security - Adapter</name>
+    <name>Numou Security - Adapter</name>
     <description>Quarkus filters: token to verified tenant, rate limiting, security headers, safe error mapping.</description>
     <dependencies>
         <dependency>

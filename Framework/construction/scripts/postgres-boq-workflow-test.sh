@@ -151,7 +151,7 @@ DO $$ BEGIN
     RAISE EXCEPTION 'rollback left an outbox event';
   END IF;
 END $$;
-SELECT 'Syirkah BOQ workflow protocol test PASSED' AS result;
+SELECT 'Numou BOQ workflow protocol test PASSED' AS result;
 SQL
 
 echo "PASS: BOQ capture/review/approval protocol assertions succeeded."

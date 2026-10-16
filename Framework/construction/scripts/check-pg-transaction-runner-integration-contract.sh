@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TEST="$ROOT/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandRunnerIntegrationTest.java"
-CONTEXT="$ROOT/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandContext.java"
-RUNNER="$ROOT/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandRunner.java"
+TEST="$ROOT/construction-adapter/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandRunnerIntegrationTest.java"
+CONTEXT="$ROOT/construction-adapter/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandContext.java"
+RUNNER="$ROOT/construction-adapter/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/idempotency/PgTransactionalCommandRunner.java"
 for file in "$TEST" "$CONTEXT" "$RUNNER"; do
   test -s "$file" || { echo "FAIL: missing $file" >&2; exit 1; }
 done

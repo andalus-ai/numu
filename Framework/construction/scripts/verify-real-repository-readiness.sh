@@ -6,7 +6,7 @@ found_build=0
 found_migrations=0
 found_runtime_config=0
 
-printf '%s\n' 'Syirkah real-repository integration preflight'
+printf '%s\n' 'Numou real-repository integration preflight'
 printf 'Root: %s\n\n' "$ROOT"
 
 for descriptor in pom.xml build.gradle build.gradle.kts settings.gradle settings.gradle.kts; do
@@ -47,7 +47,7 @@ else
 fi
 
 if [[ "$missing" -ne 0 ]]; then
-  printf '\n%s\n' 'BLOCKED: this bundle is not sufficient to validate integration against the real Syirkah repository.'
+  printf '\n%s\n' 'BLOCKED: this bundle is not sufficient to validate integration against the real Numou repository.'
   printf '%s\n' 'Run this preflight from the root of the complete repository, then execute its supported build and PostgreSQL integration suite.'
   exit 2
 fi

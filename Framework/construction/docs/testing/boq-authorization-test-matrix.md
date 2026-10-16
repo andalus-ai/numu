@@ -1,6 +1,6 @@
 # BOQ revision authorization test matrix
 
-This matrix defines the integration tests required when Syirkah's real identity/permission adapter is wired. The source bundle does not identify the production role schema, so this document deliberately does not invent role names or grant policy.
+This matrix defines the integration tests required when Numou's real identity/permission adapter is wired. The source bundle does not identify the production role schema, so this document deliberately does not invent role names or grant policy.
 
 | Scenario | Setup | Expected result | Must remain unchanged |
 |---|---|---|---|

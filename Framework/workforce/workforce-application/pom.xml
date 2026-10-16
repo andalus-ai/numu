@@ -5,28 +5,28 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-workforce</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-workforce</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-workforce-application</artifactId>
-    <name>Syirkah Workforce - Application</name>
+    <artifactId>numou-workforce-application</artifactId>
+    <name>Numou Workforce - Application</name>
     <description>Workforce orchestration, commands, queries, policies and application services.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-workforce-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-workforce-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-workforce-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-workforce-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

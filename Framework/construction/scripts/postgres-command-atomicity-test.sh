@@ -110,7 +110,7 @@ BEGIN
   IF (SELECT count(*) FROM construction_outbox_event WHERE tenant_id='tenant-atomicity' AND event_type='BoqRevisionCaptured') <> 1 THEN RAISE EXCEPTION 'retry duplicated outbox event'; END IF;
   IF (SELECT current_revision FROM test_live_boq WHERE tenant_id='tenant-atomicity' AND boq_id='61000000-0000-0000-0000-000000000001') <> 1 THEN RAISE EXCEPTION 'successful live BOQ revision not persisted'; END IF;
 END $$;
-SELECT 'Syirkah command atomicity protocol test PASSED' AS result;
+SELECT 'Numou command atomicity protocol test PASSED' AS result;
 SQL
 
 echo "PASS: command atomicity and retry protocol assertions succeeded."

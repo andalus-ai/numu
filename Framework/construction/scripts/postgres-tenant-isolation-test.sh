@@ -105,7 +105,7 @@ BEGIN
     NULL; -- expected composite tenant-scoped FK rejection
   END;
 END $$;
-SELECT 'Syirkah tenant isolation SQL protocol test PASSED' AS result;
+SELECT 'Numou tenant isolation SQL protocol test PASSED' AS result;
 SQL
 
 echo "PASS: tenant-scoped snapshot/item/counter reads and writes, composite FK, and outbox filtering behaved as expected."

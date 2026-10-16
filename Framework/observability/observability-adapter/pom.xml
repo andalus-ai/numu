@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-observability-adapter</artifactId>
-    <name>Syirkah Observability - Adapter</name>
+    <name>Numou Observability - Adapter</name>
     <description>Request correlation/MDC filter, Micrometer MetricsPort, OpenTelemetry TracingPort.</description>
     <dependencies>
         <dependency>

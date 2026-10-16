@@ -1,6 +1,6 @@
 
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   syirkah-foundation-domain                            │
+│                   numou-foundation-domain                            │
 │  DomainId, TenantId, AuditMeta, PersonRef, ResourceRef, Money, DateRange│
 └────────────────────────────────────────────────────────────────────────┘
           ▲                   ▲                   ▲                   ▲
@@ -30,7 +30,7 @@
   * **Supply Chain / Logistics**: Purchasing organizations, distribution plants, warehouses.
   * **CRM / Commerce**: Partner organizations, customer accounts.
   * **Projects**: Delivering org vs. customer org.
-* **Verdict**: **Should NOT be inside `workforce`**. It belongs either in a dedicated top-level module (`Framework/organization` or consolidated with [`corporate/syirkah-company`](file:///Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/Projects/Syirkah/Syirkah-Platform/Framework/corporate/syirkah-company/)). Workforce should merely reference `OrganizationRef` (as we did in `Employment.organization()`).
+* **Verdict**: **Should NOT be inside `workforce`**. It belongs either in a dedicated top-level module (`Framework/organization` or consolidated with [`corporate/numou-company`](file:///Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/Projects/Numou/Numou-Platform/Framework/corporate/numou-company/)). Workforce should merely reference `OrganizationRef` (as we did in `Employment.organization()`).
 
 ---
 

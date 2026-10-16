@@ -16,7 +16,7 @@
     <artifactId>syirkah-commerce</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Commerce - Aggregator</name>
+    <name>Numou Commerce - Aggregator</name>
     <description>
         Phase 2 commerce channel applications (Docs/Plan/base01.md Phase 2,
         §2.18 "POS becomes an application, not a domain").

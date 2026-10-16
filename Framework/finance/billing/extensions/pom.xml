@@ -4,22 +4,22 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
+        <groupId>tech.kayys.numou</groupId>
         <artifactId>finance-billing</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     
-    <artifactId>syirkah-billing-extensions</artifactId>
+    <artifactId>numou-billing-extensions</artifactId>
     <packaging>pom</packaging>
 
     <name>Kayys ERP Billing - Domain Extensions Aggregator</name>
     <description>Pluggable industry domain extensions for billing</description>
 
     <modules>
-        <module>syirkah-billing-saas</module>
-        <module>syirkah-billing-fnb</module>
-        <module>syirkah-billing-retail</module>
-        <module>syirkah-billing-grocery</module>
+        <module>numou-billing-saas</module>
+        <module>numou-billing-fnb</module>
+        <module>numou-billing-retail</module>
+        <module>numou-billing-grocery</module>
     </modules>
 </project>

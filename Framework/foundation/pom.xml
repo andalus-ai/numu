@@ -7,22 +7,22 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-foundation-modules</artifactId>
+    <artifactId>numou-foundation-modules</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Foundation - Aggregator</name>
+    <name>Numou Foundation - Aggregator</name>
     <description>
         Phase 1 platform kernel (Docs/Plan/base01.md §18, §P1-01):
 
           foundation-kernel       id, time, result, error, lifecycle, value
-          foundation-domain       pure Java DDD kit (artifact syirkah-foundation)
-          foundation-application  CQRS kit, Mutiny (artifact syirkah-foundation-application)
+          foundation-domain       pure Java DDD kit (artifact numou-foundation)
+          foundation-application  CQRS kit, Mutiny (artifact numou-foundation-application)
           foundation-testing      shared test doubles + ArchUnit rules
           foundation-adapter      replaceable infrastructure adapters
 
@@ -32,11 +32,11 @@
     </description>
 
     <modules>
-        <module>syirkah-foundation-kernel</module>
-        <module>syirkah-foundation-domain</module>
-        <module>syirkah-foundation-application</module>
-        <module>syirkah-foundation-testing</module>
-        <module>syirkah-foundation-adapter</module>
+        <module>numou-foundation-kernel</module>
+        <module>numou-foundation-domain</module>
+        <module>numou-foundation-application</module>
+        <module>numou-foundation-testing</module>
+        <module>numou-foundation-adapter</module>
     </modules>
 
 </project>

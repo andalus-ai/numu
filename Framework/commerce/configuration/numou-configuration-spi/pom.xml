@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>tech.kayys.syirkah</groupId>
+        <artifactId>syirkah-configuration-modules</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>syirkah-configuration-spi</artifactId>
+
+    <name>Numou Commerce Configuration - SPI</name>
+    <description>Read ports for configuration validation (specification lookup by product)</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-configuration-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-product-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+</project>

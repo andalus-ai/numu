@@ -20,4 +20,4 @@ Review the connection target and schema before running. The SQL uses `public` de
 
 ## What this does not prove
 
-The report is read-only and intentionally does not infer ownership, test authorization, or validate the host application's physical BOQ/project tables. It must be followed by a schema reconciliation and reviewed migration plan in the real Syirkah repository. Never run this as a substitute for backup, staging rehearsal, or change approval.
+The report is read-only and intentionally does not infer ownership, test authorization, or validate the host application's physical BOQ/project tables. It must be followed by a schema reconciliation and reviewed migration plan in the real Numou repository. Never run this as a substitute for backup, staging rehearsal, or change approval.

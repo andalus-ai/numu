@@ -7,25 +7,25 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-event</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-event</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-event-domain</artifactId>
+    <artifactId>numou-event-domain</artifactId>
 
-    <name>Syirkah Event - Domain</name>
+    <name>Numou Event - Domain</name>
     <description>
         Transport-neutral business event contracts: BusinessEvent,
         EventEnvelope, EventMetadata, EventVersion, EventId,
-        CorrelationId, CausationId. Depends only on syirkah-foundation.
+        CorrelationId, CausationId. Depends only on numou-foundation.
     </description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -39,8 +39,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-testing</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-testing</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

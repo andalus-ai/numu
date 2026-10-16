@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-organization-spi</artifactId>
-    <name>Syirkah Organization - SPI</name>
+    <name>Numou Organization - SPI</name>
     <description>Repository and outbound port interfaces for the organization bounded context.</description>
     <dependencies>
         <dependency>

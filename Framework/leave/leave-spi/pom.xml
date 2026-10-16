@@ -5,18 +5,18 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-leave</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-leave</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-leave-spi</artifactId>
-    <name>Syirkah Leave - SPI</name>
+    <artifactId>numou-leave-spi</artifactId>
+    <name>Numou Leave - SPI</name>
     <description>Repository port interfaces for the leave bounded context.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-leave-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-leave-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

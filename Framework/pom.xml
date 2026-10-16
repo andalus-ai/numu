@@ -7,8 +7,8 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>tech.kayys.syirkah</groupId>
-    <artifactId>syirkah-framework</artifactId>
+    <groupId>tech.kayys.numou</groupId>
+    <artifactId>numou-framework</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
@@ -124,175 +124,175 @@
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-foundation</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-foundation</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-foundation-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-foundation-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-foundation-testing</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-foundation-testing</artifactId>
                 <version>${project.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-foundation-adapter</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-foundation-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-project-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-project-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-project-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-project-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-project-spi</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-project-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-project-adapter</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-project-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-construction-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-construction-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-construction-spi</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-construction-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-construction-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-construction-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-construction-adapter</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-construction-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-budget-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-budget-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-budget-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-budget-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-budget-spi</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-budget-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-budget-adapter</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-budget-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <!-- Phase 1 - platform foundation (see Docs/Plan/base01.md §18) -->
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-foundation-kernel</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-foundation-kernel</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-ecosystem-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-ecosystem-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-ecosystem-application</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-event-domain</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-event-application</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-event-spi</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-event-adapter</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-ecosystem-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-integration-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-event-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-integration-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-event-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-integration-spi</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-security-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-event-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-security-spi</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-security-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-event-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-observability-api</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-integration-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-reliability-api</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-integration-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-reliability-spi</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-integration-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-observability-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-reliability-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-reliability-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -318,14 +318,14 @@
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-plugin</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-plugin</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-workflow</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-workflow</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -336,54 +336,54 @@
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-survey-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-survey-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-survey-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-survey-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-survey-adapter-memory</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-survey-adapter-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-survey-adapter-rest</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-survey-adapter-rest</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-survey-bootstrap</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-survey-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-survey-demo</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-survey-demo</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-reservation-domain</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-reservation-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-reservation-spi</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-reservation-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-reservation-application</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-reservation-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>tech.kayys.syirkah</groupId>
-                <artifactId>syirkah-reservation-adapter</artifactId>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-reservation-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

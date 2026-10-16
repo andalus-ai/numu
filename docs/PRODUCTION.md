@@ -1,4 +1,4 @@
-# Syirkah – production hardening + restaurant suite
+# Numou – production hardening + restaurant suite
 
 This overlay adds production capabilities (security, tenancy, caching, observability, reliability, deployment) and a
 restaurant domain (venue/menu/tables, dine-in orders, kitchen, reservations/waitlist). It follows your existing
@@ -33,7 +33,7 @@ Copy this tree over the repository root. **Nine existing files are replaced** (a
 
 * `pom.xml` (+modules `cache`, `restaurant`), `bom/pom.xml` (+27 managed artifacts)
 * `security/pom.xml`, `observability/pom.xml`, `reliability/pom.xml` (+ new child modules)
-* `foundation/syirkah-foundation-adapter/pom.xml` (+`quarkus-arc`, provided)
+* `foundation/numou-foundation-adapter/pom.xml` (+`quarkus-arc`, provided)
 * `foundation/.../context/TenantContext.java`, `CorrelationContext.java` (same static API, now request-scoped; §3.2)
 * `reliability/reliability-spi/.../IdempotencyStorePort.java` (+`release(...)`; nothing else in the repo implements it)
 
@@ -58,7 +58,7 @@ and `restaurant/` (kernel, 4 contexts × 4 layers, integration, persistence, api
    (8-session race test: exactly one winner), failures propagate, and a failed first attempt now releases its claim.
 5. **Error bodies leak internals.** `ApiExceptionMapper` echoes `cause.getMessage()` on 500s (SQL, hostnames).
    *Fix:* `ProblemMapper`: 5xx are generic with a correlation id, 4xx messages are PII-redacted.
-6. **Reactor cannot build as supplied:** modules/artifacts `document`, `syirkah-foundation-testing` (referenced from
+6. **Reactor cannot build as supplied:** modules/artifacts `document`, `numou-foundation-testing` (referenced from
    `pom.xml`, `foundation/pom.xml`, many poms) and `billing-core` (finance reporting) do not exist in the dump.
    Not touched; `tools/check-reactor.py` reports them.
 7. No authentication enforcement, rate limiting, security headers, caching, metrics, tracing, health, migrations, or
@@ -131,7 +131,7 @@ Postgres connectivity first.
 
 <a id="runbook-outbox-lag"></a>**Outbox lag.** Symptoms: kitchen tickets or order-line updates late. Check
 `outbox_oldest_pending_age_seconds`, Kafka reachability, relay logs. Rows are claimed with a 30 s lease, so a crashed relay
-self-heals. Backlog drains in batches of 50 (up to 20 batches/tick); raise `syirkah.outbox.batch-size` if needed.
+self-heals. Backlog drains in batches of 50 (up to 20 batches/tick); raise `numou.outbox.batch-size` if needed.
 
 <a id="runbook-outbox-dead-letters"></a>**Dead letters** (`attempts >= 10`, unpublished). Inspect, fix the cause, then replay:
 ```sql
@@ -171,5 +171,5 @@ BEGIN; SELECT set_config('app.tenant_id','<tenant-uuid>',true); SELECT count(*) 
    (token A cannot reach tenant B with any header), RLS with the real app role, outbox → Kafka → consumer → inbox round trip,
    and that MDC fields / tenant context survive Mutiny thread hops.
 3. Create the app DB role `NOSUPERUSER NOBYPASSRLS`; give the maintenance job a separate role.
-4. Add the token claims `syirkah_tenant_id`, `syirkah_tenants`, `syirkah_user_id` and `groups` in your IdP.
+4. Add the token claims `numou_tenant_id`, `numou_tenants`, `numou_user_id` and `groups` in your IdP.
 5. Load-test reservations (hot day, one venue) and tune ledger retry count / pool sizes.

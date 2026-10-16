@@ -16,7 +16,7 @@
     <artifactId>syirkah-document-modules</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Document</name>
+    <name>Numou Document</name>
     <description>
         Document capability: document identity, metadata, versions,
         classification and links to other capabilities.

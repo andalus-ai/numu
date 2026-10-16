@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-integration-spi</artifactId>
 
-    <name>Syirkah Integration - SPI</name>
+    <name>Numou Integration - SPI</name>
     <description>
         OutboundWebhookPort, InboundConnectorPort, CredentialResolverPort -
         the replaceable HTTP/credential machinery behind the integration

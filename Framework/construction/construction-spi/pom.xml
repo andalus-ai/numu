@@ -13,7 +13,7 @@
     </parent>
 
     <artifactId>syirkah-construction-spi</artifactId>
-    <name>Syirkah Construction - SPI</name>
+    <name>Numou Construction - SPI</name>
     <description>
         Service Provider Interfaces (SPI) and repository ports for the Construction domain.
     </description>

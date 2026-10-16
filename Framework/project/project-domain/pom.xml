@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-project-domain</artifactId>
-    <name>Syirkah Project - Domain</name>
+    <name>Numou Project - Domain</name>
     <description>Project aggregates, lifecycle, cost and revenue value objects.</description>
     <dependencies>
         <dependency>
@@ -37,4 +37,3 @@
         </dependency>
     </dependencies>
 </project>
-

@@ -33,4 +33,4 @@ Before production, refactor to a transaction-aware adapter constructed with or p
 
 ## Verification boundary
 
-This bundle has not been compiled against the real Syirkah Maven modules and the adapter has not been exercised against PostgreSQL. In particular, the transaction-aware version and integration tests are still required before production use.
+This bundle has not been compiled against the real Numou Maven modules and the adapter has not been exercised against PostgreSQL. In particular, the transaction-aware version and integration tests are still required before production use.

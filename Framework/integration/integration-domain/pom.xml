@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-integration-domain</artifactId>
 
-    <name>Syirkah Integration - Domain</name>
+    <name>Numou Integration - Domain</name>
     <description>
         ExternalSystem, WebhookSubscription, ApiCredential and their value
         objects. Pure Java ecosystem-integration model.

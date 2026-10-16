@@ -16,7 +16,7 @@
     <artifactId>syirkah-supply</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Supply - Aggregator</name>
+    <name>Numou Supply - Aggregator</name>
     <description>
         Phase 4 supply and procurement (Docs/Plan/base01.md Phase 4):
         supplier, sourcing, replenishment, procurement, internal transfer.

@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-project-spi</artifactId>
-    <name>Syirkah Project - SPI</name>
+    <name>Numou Project - SPI</name>
     <description>Ports for project persistence and integrations.</description>
     <dependencies>
         <dependency>

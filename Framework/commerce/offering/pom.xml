@@ -16,7 +16,7 @@
     <artifactId>syirkah-offering-modules</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Commerce - Offering Aggregator</name>
+    <name>Numou Commerce - Offering Aggregator</name>
     <description>
         Commerce Offering Capability: manages commercial availability, channels,
         and validity of products in commerce (Phase C).

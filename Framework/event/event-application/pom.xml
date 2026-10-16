@@ -7,40 +7,40 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-event</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-event</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-event-application</artifactId>
+    <artifactId>numou-event-application</artifactId>
 
-    <name>Syirkah Event - Application</name>
+    <name>Numou Event - Application</name>
     <description>
         Event orchestration: envelope construction, outbound event store
         and publisher ports, inbound subscription registration and
-        dispatch. Depends on event-domain and syirkah-foundation-application.
+        dispatch. Depends on event-domain and numou-foundation-application.
     </description>
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-event-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-event-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-event-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-event-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-ecosystem-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-ecosystem-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-application</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -54,8 +54,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-testing</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-testing</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

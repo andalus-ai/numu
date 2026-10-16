@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-inventory-application</artifactId>
-    <name>Syirkah Inventory - Application</name>
+    <name>Numou Inventory - Application</name>
     <dependencies>
         <dependency>
             <groupId>tech.kayys.syirkah</groupId>

@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-security-application</artifactId>
 
-    <name>Syirkah Security - Application</name>
+    <name>Numou Security - Application</name>
     <description>
         Application-layer security services: AuthorizationService, TenantResolver,
         and SecurityContextProvider.

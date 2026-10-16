@@ -9,7 +9,7 @@ It checks two database-level properties:
 
 ## Run
 
-Run this test in the actual Syirkah Quarkus test profile with PostgreSQL available and the project's normal test configuration:
+Run this test in the actual Numou Quarkus test profile with PostgreSQL available and the project's normal test configuration:
 
 ```bash
 ./mvnw -Dtest=PgTenantContextTransactionIntegrationTest test

@@ -5,23 +5,23 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-project</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-project</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-project-adapter</artifactId>
-    <name>Syirkah Project - Adapter</name>
+    <artifactId>numou-project-adapter</artifactId>
+    <name>Numou Project - Adapter</name>
     <description>In-memory adapter for project persistence ports.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-project-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-project-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-project-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-project-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

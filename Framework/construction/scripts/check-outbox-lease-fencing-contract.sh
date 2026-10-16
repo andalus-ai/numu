@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SQL="$ROOT/scripts/postgres-outbox-lease-fencing-test.sh"
-DOC="$ROOT/db/test/postgres-outbox-lease-fencing-test.md"
+DOC="$ROOT/docs/testing/postgres-outbox-lease-fencing-test.md"
 [[ -f "$SQL" && -f "$DOC" ]]
 grep -q 'lease_token' "$SQL"
 grep -q 'locked_until=now()-interval' "$SQL"

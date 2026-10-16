@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-integration-application</artifactId>
 
-    <name>Syirkah Integration - Application</name>
+    <name>Numou Integration - Application</name>
     <description>
         Registration of external systems and webhook subscriptions, plus the
         outbound ports adapters implement.

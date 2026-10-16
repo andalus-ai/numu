@@ -9,7 +9,7 @@
     </parent>
     <artifactId>syirkah-product</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Product Capability</name>
+    <name>Numou Product Capability</name>
     <modules>
         <module>product-domain</module>
         <module>product-spi</module>

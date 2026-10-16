@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-ecosystem-application</artifactId>
 
-    <name>Syirkah Ecosystem - Application</name>
+    <name>Numou Ecosystem - Application</name>
     <description>
         CQRS use cases over the ecosystem domain: register a participant,
         publish a capability, declare a provider capability, establish a

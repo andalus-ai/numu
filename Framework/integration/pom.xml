@@ -16,21 +16,21 @@
     <artifactId>syirkah-integration</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Integration - Aggregator</name>
+    <name>Numou Integration - Aggregator</name>
     <description>
         Phase 1 integration layer (Docs/Plan/base01.md §12, §13, §P1-16).
 
         The whole point of this layer, from base00.md:
 
-            "Syirkah can consume VehicleLocationUpdated, DeliveryCompleted,
+            "Numou can consume VehicleLocationUpdated, DeliveryCompleted,
              VehicleBreakdownReported without forcing PT ABC to migrate to
-             Syirkah FMS."
+             Numou FMS."
 
         That requires the platform to model other systems as first-class
         participants-with-endpoints, not as ad-hoc HTTP calls buried in a
         domain service:
 
-            api             outbound API contracts Syirkah offers
+            api             outbound API contracts Numou offers
             webhook         inbound/outbound push subscriptions
             connector       named integrations (external FMS, ERP, PSP, 3PL)
             external-system a partner's system, its endpoints, auth and scope

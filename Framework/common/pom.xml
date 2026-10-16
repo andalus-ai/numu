@@ -16,7 +16,7 @@
     <artifactId>syirkah-common</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Common - Aggregator</name>
+    <name>Numou Common - Aggregator</name>
     <description>
         Cross-cutting capabilities that are not a Phase of their own.
 

@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-security-domain</artifactId>
 
-    <name>Syirkah Security - Domain</name>
+    <name>Numou Security - Domain</name>
     <description>
         Contextual authorization model (Principal, Permission, AccessRequest,
         AccessDecision) and the append-only AuditTrail aggregate. Pure Java,

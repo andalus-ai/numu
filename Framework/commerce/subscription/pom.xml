@@ -16,7 +16,7 @@
     <artifactId>syirkah-subscription-modules</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Commerce - Subscription Aggregator</name>
+    <name>Numou Commerce - Subscription Aggregator</name>
     <description>
         Commerce Subscription Capability (product01.md Phase G):
         Subscription / Usage / Entitlement. Product -&gt; Offering -&gt;

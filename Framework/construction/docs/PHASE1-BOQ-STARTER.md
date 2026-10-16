@@ -1,4 +1,4 @@
-# Syirkah Phase 1 — BOQ foundation implementation starter
+# Numou Phase 1 — BOQ foundation implementation starter
 
 ## P0 audit findings from `syirkah-framework.txt`
 
@@ -164,13 +164,13 @@ Added three Docker-based test scripts:
 - `scripts/postgres-concurrency-test.sh` races revision-counter allocation and idempotency reservations across independent sessions.
 - `scripts/postgres-outbox-recovery-test.sh` checks `SKIP LOCKED` claim exclusivity, expired-lease reclamation, stale-token fencing, and terminal-event exclusion.
 
-Run them from the bundle root. They require Docker and do not connect to an existing database. See `db/test/` for scope and environment variables.
+Run them from the bundle root. They require Docker and do not connect to an existing database. See `docs/testing/` for scope and environment variables.
 
 **Validation boundary:** shell syntax and archive integrity are checked when this ZIP is built. The PostgreSQL scripts still need to be run in an environment with Docker. They exercise SQL/schema behavior, not the Java adapter or broker end to end; the project-specific `PgLiveBoqRevisionStoreFactory` remains an integration seam because the source dump does not establish live BOQ table mappings.
 
 ## Latest slice: BOQ workflow protocol regression test
 
-Added `scripts/postgres-boq-workflow-test.sh` and `db/test/boq-workflow-test.md`. Against a disposable PostgreSQL instance, it checks the intended capture -> review -> approval sequence, snapshot/live-state compare-and-set behavior, one tenant-tagged outbox event per successful transition, stale-transition rejection, and rollback of snapshot/outbox writes together.
+Added `scripts/postgres-boq-workflow-test.sh` and `docs/testing/boq-workflow-test.md`. Against a disposable PostgreSQL instance, it checks the intended capture -> review -> approval sequence, snapshot/live-state compare-and-set behavior, one tenant-tagged outbox event per successful transition, stale-transition rejection, and rollback of snapshot/outbox writes together.
 
 Because the source dump does not define the physical live BOQ schema, the test uses a test-only `test_live_boq` table and SQL protocol equivalent. It does **not** call the Java operations factory or prove the live adapter implementation. The remaining integration step is still to implement `PgLiveBoqRevisionStoreFactory` against the real project mapping and run the actual Java/PostgreSQL integration suite.
 
@@ -183,7 +183,7 @@ bound connection. SQL values are parameterized and mapping identifiers are valid
 and quoted. See `docs/mapped-live-boq-store.md`.
 
 **Important boundary:** the source dump still does not establish the actual physical
-BOQ/item schema. This is a configurable adapter, not a claim that Syirkah's real schema
+BOQ/item schema. This is a configurable adapter, not a claim that Numou's real schema
 has been discovered or wired. Do not configure it with guessed identifiers. Also, the
 current SPI lacks an expected-tenant argument, so tenant ownership must be enforced at
 a trusted command boundary or the SPI must be extended before multi-tenant exposure.
@@ -211,13 +211,13 @@ Added `V20261014_01__tenant_scope_boq_revision_storage.sql`. Snapshot, item, and
 
 - `BoqRevisionAuthorization` is a required fail-closed port for capture, submission, and approval. The PostgreSQL operations factory has no permissive default; application wiring must provide the real authorization policy.
 - The immutable snapshot domain rejects approval by the same actor who submitted the revision. The transactional operation also rejects this before writing the approved snapshot/live state/outbox event.
-- The starter does not define Syirkah's actual role model or permission store. Implement the port using the project's trusted authenticated principal and tenant membership; do not trust actor IDs or roles supplied in a request body.
+- The starter does not define Numou's actual role model or permission store. Implement the port using the project's trusted authenticated principal and tenant membership; do not trust actor IDs or roles supplied in a request body.
 - See `docs/boq-revision-authorization.md` for the contract and integration checklist.
 
 ### Authorization contract checks
 
 - `scripts/check-boq-authorization-contract.sh` statically checks authorization-before-resource-access for capture, submission, and approval; mandatory authorization injection; and self-approval guards.
-- `db/test/boq-authorization-test-matrix.md` defines the integration scenarios that must be executed against the real identity adapter and transaction runner. The static check does not prove runtime authorization or rollback behavior.
+- `docs/testing/boq-authorization-test-matrix.md` defines the integration scenarios that must be executed against the real identity adapter and transaction runner. The static check does not prove runtime authorization or rollback behavior.
 
 ## Trusted actor identity (latest slice)
 
@@ -227,45 +227,45 @@ Static check: `scripts/check-boq-authorization-contract.sh`. This starter bundle
 
 ## Trusted context runtime unit tests (latest slice)
 
-Added `src/test/java/tech/kayys/syirkah/construction/application/boq/handler/TrustedCommandContextTest.java`. It verifies trusted actor/tenant propagation for all three commands, fail-closed behavior when actor or tenant context is missing, fixed-clock propagation, and that command records do not expose actor/tenant fields. See `db/test/trusted-context-runtime-tests.md`.
+Added `construction-application/src/test/java/tech/kayys/syirkah/construction/application/boq/handler/TrustedCommandContextTest.java`. It verifies trusted actor/tenant propagation for all three commands, fail-closed behavior when actor or tenant context is missing, fixed-clock propagation, and that command records do not expose actor/tenant fields. See `docs/testing/trusted-context-runtime-tests.md`.
 
 These Java tests were added but not compiled or executed in this source-only bundle because the host project's build descriptor and exact dependencies are not present. They test the handler boundary, not the full authorization/database transaction path.
 
 ## Latest slice: command transaction atomicity and retry protocol
 
-Added `scripts/postgres-command-atomicity-test.sh` and `db/test/command-atomicity-test.md`. The disposable PostgreSQL protocol test injects a failure after the idempotency reservation, revision snapshot/item writes, test-only live BOQ update, and outbox insert, then asserts those writes do not survive. It also checks that a successful command persists a completed idempotency response with the snapshot and outbox event, and that a retry with the same tenant/key does not overwrite the result or duplicate the event.
+Added `scripts/postgres-command-atomicity-test.sh` and `docs/testing/command-atomicity-test.md`. The disposable PostgreSQL protocol test injects a failure after the idempotency reservation, revision snapshot/item writes, test-only live BOQ update, and outbox insert, then asserts those writes do not survive. It also checks that a successful command persists a completed idempotency response with the snapshot and outbox event, and that a retry with the same tenant/key does not overwrite the result or duplicate the event.
 
-**Validation boundary:** this script's shell syntax and ZIP integrity can be checked here, but Docker is not available in this environment, so the SQL was not executed against live PostgreSQL. It is still a SQL-level protocol test and does not invoke `IdempotentCommandExecutor`, `PgTransactionalCommandRunner`, CDI wiring, or the actual Syirkah live BOQ adapter. Those require integration tests in the real project build.
+**Validation boundary:** this script's shell syntax and ZIP integrity can be checked here, but Docker is not available in this environment, so the SQL was not executed against live PostgreSQL. It is still a SQL-level protocol test and does not invoke `IdempotentCommandExecutor`, `PgTransactionalCommandRunner`, CDI wiring, or the actual Numou live BOQ adapter. Those require integration tests in the real project build.
 
 ## Latest slice: Java idempotency executor unit tests
 
-Added `src/test/java/tech/kayys/syirkah/construction/application/idempotency/IdempotentCommandExecutorTest.java` with seven cases for reservation success, cached completed retries, key reuse conflicts, incomplete reservations, action failure, failed completion, and input validation. Run `scripts/check-idempotency-test-contract.sh` for a lightweight source-presence check; details and limits are in `db/test/java-idempotency-test-notes.md`.
+Added `construction-application/src/test/java/tech/kayys/syirkah/construction/application/idempotency/IdempotentCommandExecutorTest.java` with seven cases for reservation success, cached completed retries, key reuse conflicts, incomplete reservations, action failure, failed completion, and input validation. Run `scripts/check-idempotency-test-contract.sh` for a lightweight source-presence check; details and limits are in `docs/testing/java-idempotency-test-notes.md`.
 
-**Validation boundary:** the source-contract script verifies that the seven test cases are present; it does not compile or execute Java. The fake runner used by these unit tests does not simulate database transactions. Because this starter contains no Maven/Gradle build descriptor and lacks the host dependency graph, Java execution and PostgreSQL integration remain unverified. The next acceptance gate is to run these tests in the actual Syirkah build and add integration tests against the real PostgreSQL adapters and transaction runner.
+**Validation boundary:** the source-contract script verifies that the seven test cases are present; it does not compile or execute Java. The fake runner used by these unit tests does not simulate database transactions. Because this starter contains no Maven/Gradle build descriptor and lacks the host dependency graph, Java execution and PostgreSQL integration remain unverified. The next acceptance gate is to run these tests in the actual Numou build and add integration tests against the real PostgreSQL adapters and transaction runner.
 
 ### Same-key idempotency race test
 
-`scripts/postgres-idempotency-race-test.sh` races two independent PostgreSQL sessions against the same tenant/key and verifies one reservation, one simulated business effect, a preserved completed response, and no overwrite from a conflicting fingerprint. It requires Docker and `psql`; it is a SQL-level protocol test, not a Java adapter integration test. See `db/test/postgres-idempotency-race-test.md`.
+`scripts/postgres-idempotency-race-test.sh` races two independent PostgreSQL sessions against the same tenant/key and verifies one reservation, one simulated business effect, a preserved completed response, and no overwrite from a conflicting fingerprint. It requires Docker and `psql`; it is a SQL-level protocol test, not a Java adapter integration test. See `docs/testing/postgres-idempotency-race-test.md`.
 
 ## Java transaction-runner integration tests (next slice)
 
-Added `PgTransactionalCommandRunnerIntegrationTest.java` to exercise the actual transaction runner/context and idempotent executor against PostgreSQL: callback failure should roll back both the reservation and outbox insert, and concurrent same-key calls should execute the callback once. See `db/test/pg-transaction-runner-integration.md` for prerequisites. This test source has not been compiled or run in the starter environment; wire it into the actual Quarkus module and configured test database before relying on it.
+Added `PgTransactionalCommandRunnerIntegrationTest.java` to exercise the actual transaction runner/context and idempotent executor against PostgreSQL: callback failure should roll back both the reservation and outbox insert, and concurrent same-key calls should execute the callback once. See `docs/testing/pg-transaction-runner-integration.md` for prerequisites. This test source has not been compiled or run in the starter environment; wire it into the actual Quarkus module and configured test database before relying on it.
 
 ## Live BOQ revision operations integration tests
 
-`src/test/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java` exercises the actual revision operations factory against PostgreSQL using explicitly test-only live BOQ tables. It verifies capture writes and rollback of snapshot, item, revision counter, live state, and outbox event. See `db/test/default-pg-boq-revision-operations-integration.md` for prerequisites and limitations. Run `scripts/check-default-pg-boq-operations-integration-contract.sh` for the static contract check; this is not a substitute for compiling/running the Java integration test.
+`construction-adapter/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java` exercises the actual revision operations factory against PostgreSQL using explicitly test-only live BOQ tables. It verifies capture writes and rollback of snapshot, item, revision counter, live state, and outbox event. See `docs/testing/default-pg-boq-revision-operations-integration.md` for prerequisites and limitations. Run `scripts/check-default-pg-boq-operations-integration-contract.sh` for the static contract check; this is not a substitute for compiling/running the Java integration test.
 
 ### BOQ lifecycle concurrency tests
 
-The BOQ operations integration test also covers concurrent approval and stale-revision submission. Run `scripts/check-boq-lifecycle-concurrency-contract.sh` for a static source-contract check; see `db/test/boq-lifecycle-concurrency-integration.md` for live PostgreSQL test setup and limitations.
+The BOQ operations integration test also covers concurrent approval and stale-revision submission. Run `scripts/check-boq-lifecycle-concurrency-contract.sh` for a static source-contract check; see `docs/testing/boq-lifecycle-concurrency-integration.md` for live PostgreSQL test setup and limitations.
 
 ### BOQ full lifecycle verification increment
 
-Added a PostgreSQL-backed integration scenario for capture → submit for review → independent approval. It asserts one outbox event per successful transition and verifies that the submitter cannot approve their own revision. `scripts/run-phase1-static-checks.sh` provides one entry point for all static contract checks and shell syntax validation; see `db/test/boq-full-lifecycle-integration.md`. Java compilation and live PostgreSQL test execution still require the full Syirkah build and migrated test database.
+Added a PostgreSQL-backed integration scenario for capture → submit for review → independent approval. It asserts one outbox event per successful transition and verifies that the submitter cannot approve their own revision. `scripts/run-phase1-static-checks.sh` provides one entry point for all static contract checks and shell syntax validation; see `docs/testing/boq-full-lifecycle-integration.md`. Java compilation and live PostgreSQL test execution still require the full Numou build and migrated test database.
 
 ### Unified Phase 1 validation runner
 
-Use `./scripts/run-phase1-validation.sh --static-only` for fast source-contract and shell-syntax checks, or `./scripts/run-phase1-validation.sh --all` to add disposable PostgreSQL protocol tests (requires Docker and local `psql`). See `docs/phase1-validation-runbook.md` for scope, prerequisites, and evidence limits. SQL tests do not invoke Java adapters; full build and Java/PostgreSQL integration must be verified in the actual Syirkah checkout.
+Use `./scripts/run-phase1-validation.sh --static-only` for fast source-contract and shell-syntax checks, or `./scripts/run-phase1-validation.sh --all` to add disposable PostgreSQL protocol tests (requires Docker and local `psql`). See `docs/phase1-validation-runbook.md` for scope, prerequisites, and evidence limits. SQL tests do not invoke Java adapters; full build and Java/PostgreSQL integration must be verified in the actual Numou checkout.
 
 ## Tenant-scope migration preflight
 
@@ -277,57 +277,57 @@ After the reviewed tenant-scope migration completes, run `db/postflight/V2026101
 
 ## Tenant-isolation SQL acceptance slice
 
-Expanded `scripts/postgres-tenant-isolation-test.sh` to cover tenant-scoped snapshot/item/counter storage, composite item-to-snapshot integrity, no-op cross-tenant writes, and tenant-filtered outbox polling. Run `scripts/check-tenant-isolation-contract.sh` for the source-contract check or `scripts/run-phase1-validation.sh --postgres-only` for disposable PostgreSQL protocol tests. These fixtures are not production-adapter tests and do not prove that all application queries enforce tenant scope; execute equivalent tests in the full Syirkah build before relying on isolation guarantees.
+Expanded `scripts/postgres-tenant-isolation-test.sh` to cover tenant-scoped snapshot/item/counter storage, composite item-to-snapshot integrity, no-op cross-tenant writes, and tenant-filtered outbox polling. Run `scripts/check-tenant-isolation-contract.sh` for the source-contract check or `scripts/run-phase1-validation.sh --postgres-only` for disposable PostgreSQL protocol tests. These fixtures are not production-adapter tests and do not prove that all application queries enforce tenant scope; execute equivalent tests in the full Numou build before relying on isolation guarantees.
 
 
 ## Outbox tenant-safety acceptance slice
 
-Added `scripts/postgres-outbox-tenant-safety-test.sh` to check tenant-filtered claims, cross-tenant acknowledgement fencing, retry availability/attempt increments, and exclusion of legacy events with null tenant ownership. Run `scripts/check-outbox-tenant-safety-contract.sh` for static assertions or `scripts/run-phase1-validation.sh --postgres-only` for the disposable PostgreSQL SQL-protocol suite. This is not a production-adapter or broker test; align the claim predicates with the actual adapter and backfill legacy ownership from authoritative data before enabling delivery. See `db/test/postgres-outbox-tenant-safety-test.md`.
+Added `scripts/postgres-outbox-tenant-safety-test.sh` to check tenant-filtered claims, cross-tenant acknowledgement fencing, retry availability/attempt increments, and exclusion of legacy events with null tenant ownership. Run `scripts/check-outbox-tenant-safety-contract.sh` for static assertions or `scripts/run-phase1-validation.sh --postgres-only` for the disposable PostgreSQL SQL-protocol suite. This is not a production-adapter or broker test; align the claim predicates with the actual adapter and backfill legacy ownership from authoritative data before enabling delivery. See `docs/testing/postgres-outbox-tenant-safety-test.md`.
 
 
 ## Outbox consumer duplicate-delivery acceptance
 
-Added `scripts/postgres-outbox-consumer-idempotency-test.sh` to simulate broker acceptance followed by a lost database acknowledgement, lease expiry, and redelivery. A test-only consumer inbox keyed by `(tenant_id, event_id)` ensures that two deliveries create one recorded business effect when inbox insertion and the effect share a transaction. Run `scripts/check-outbox-consumer-idempotency-contract.sh` for static assertions or include it in `scripts/run-phase1-validation.sh --postgres-only` for the disposable PostgreSQL protocol test. This is an at-least-once delivery/idempotent-consumer pattern, not an exactly-once transport guarantee or a production broker/adapter test. See `db/test/postgres-outbox-consumer-idempotency-test.md`.
+Added `scripts/postgres-outbox-consumer-idempotency-test.sh` to simulate broker acceptance followed by a lost database acknowledgement, lease expiry, and redelivery. A test-only consumer inbox keyed by `(tenant_id, event_id)` ensures that two deliveries create one recorded business effect when inbox insertion and the effect share a transaction. Run `scripts/check-outbox-consumer-idempotency-contract.sh` for static assertions or include it in `scripts/run-phase1-validation.sh --postgres-only` for the disposable PostgreSQL protocol test. This is an at-least-once delivery/idempotent-consumer pattern, not an exactly-once transport guarantee or a production broker/adapter test. See `docs/testing/postgres-outbox-consumer-idempotency-test.md`.
 
 
 ## Outbox lease-fencing acceptance
 
-Added `scripts/postgres-outbox-lease-fencing-test.sh` to simulate an expired lease reclaimed by a second worker and verify that the stale worker cannot acknowledge, reschedule, or renew the newer claim. The current lease holder must still be able to acknowledge the event. Run `scripts/check-outbox-lease-fencing-contract.sh` for static assertions or include it in `scripts/run-phase1-validation.sh --postgres-only` for disposable PostgreSQL protocol testing. This tests starter SQL predicates, not the production relay adapter; verify tenant/event/status/lease-token fencing in the actual Syirkah implementation. See `db/test/postgres-outbox-lease-fencing-test.md`.
+Added `scripts/postgres-outbox-lease-fencing-test.sh` to simulate an expired lease reclaimed by a second worker and verify that the stale worker cannot acknowledge, reschedule, or renew the newer claim. The current lease holder must still be able to acknowledge the event. Run `scripts/check-outbox-lease-fencing-contract.sh` for static assertions or include it in `scripts/run-phase1-validation.sh --postgres-only` for disposable PostgreSQL protocol testing. This tests starter SQL predicates, not the production relay adapter; verify tenant/event/status/lease-token fencing in the actual Numou implementation. See `docs/testing/postgres-outbox-lease-fencing-test.md`.
 
 
 ### Outbox retry, terminal failure, and operator replay acceptance
 
-The retry/terminal/replay scenario is documented in `db/test/postgres-outbox-retry-terminal-replay-test.md`. Run `scripts/check-outbox-retry-terminal-replay-contract.sh` for static checks, or `scripts/run-phase1-validation.sh --all` for the disposable PostgreSQL suite. The replay audit table is test-only; production relay/admin integration remains unverified.
+The retry/terminal/replay scenario is documented in `docs/testing/postgres-outbox-retry-terminal-replay-test.md`. Run `scripts/check-outbox-retry-terminal-replay-contract.sh` for static checks, or `scripts/run-phase1-validation.sh --all` for the disposable PostgreSQL suite. The replay audit table is test-only; production relay/admin integration remains unverified.
 
 ## Outbox relay service unit-test increment
 
-Added `OutboxRelayServiceTest.java` for deterministic application-layer tests of empty batches, lease-token acknowledgement, retry scheduling and error bounds, terminal attempts, per-event failure isolation, and constructor validation. Run `scripts/check-outbox-relay-service-test-contract.sh` for a static source-presence check. The Java tests are not claimed as compiled or executed because this starter bundle does not include the actual Syirkah build descriptor/dependency graph; they must be run in the real module. See `db/test/outbox-relay-service-unit-tests.md`.
+Added `OutboxRelayServiceTest.java` for deterministic application-layer tests of empty batches, lease-token acknowledgement, retry scheduling and error bounds, terminal attempts, per-event failure isolation, and constructor validation. Run `scripts/check-outbox-relay-service-test-contract.sh` for a static source-presence check. The Java tests are not claimed as compiled or executed because this starter bundle does not include the actual Numou build descriptor/dependency graph; they must be run in the real module. See `docs/testing/outbox-relay-service-unit-tests.md`.
 
-Added `PgOutboxRelayStoreIntegrationTest.java` to exercise the real PostgreSQL relay adapter for eligible claiming, persisted lease identity, stale-token fencing after reclaim, bounded failure recording, and invalid-argument handling. Run `scripts/check-pg-outbox-relay-store-integration-contract.sh` for static presence checks. The Java integration test is not claimed as compiled or executed; run it inside the actual Syirkah module against an isolated PostgreSQL test database after reconciling fixture DDL with the canonical migrations. See `db/test/pg-outbox-relay-store-integration.md`.
+Added `PgOutboxRelayStoreIntegrationTest.java` to exercise the real PostgreSQL relay adapter for eligible claiming, persisted lease identity, stale-token fencing after reclaim, bounded failure recording, and invalid-argument handling. Run `scripts/check-pg-outbox-relay-store-integration-contract.sh` for static presence checks. The Java integration test is not claimed as compiled or executed; run it inside the actual Numou module against an isolated PostgreSQL test database after reconciling fixture DDL with the canonical migrations. See `docs/testing/pg-outbox-relay-store-integration.md`.
 
 
 ## Outbox database-role boundary (latest slice)
 
-Added `scripts/postgres-outbox-role-boundary-test.sh` and `db/test/postgres-outbox-role-boundary-test.md`. The disposable PostgreSQL fixture checks tenant RLS, least-privilege relay column grants, command-writer separation, and the absence of `BYPASSRLS`/superuser privileges. Run it with the full validation runner or directly when Docker is available. This is a test fixture only: map its policy and roles to the actual Syirkah migrations and trusted tenant-context setup before treating database isolation as verified.
+Added `scripts/postgres-outbox-role-boundary-test.sh` and `docs/testing/postgres-outbox-role-boundary-test.md`. The disposable PostgreSQL fixture checks tenant RLS, least-privilege relay column grants, command-writer separation, and the absence of `BYPASSRLS`/superuser privileges. Run it with the full validation runner or directly when Docker is available. This is a test fixture only: map its policy and roles to the actual Numou migrations and trusted tenant-context setup before treating database isolation as verified.
 
 
 ## Tenant-context propagation and pooled connection safety
 
-Added `scripts/postgres-tenant-context-pool-safety-test.sh` to verify transaction-local `app.tenant_id` context does not leak across commits or rollbacks when a PostgreSQL session is reused, and that independent sessions remain tenant-scoped under forced RLS. The test is included in `scripts/run-phase1-validation.sh --postgres-only`. Run `scripts/check-tenant-context-pool-safety-contract.sh` for its static contract check. This fixture does not exercise Syirkah's real authentication/request context or reactive connection pool; add concurrent application-level tests in the full repository before treating runtime context propagation as verified. See `db/test/postgres-tenant-context-pool-safety-test.md`.
+Added `scripts/postgres-tenant-context-pool-safety-test.sh` to verify transaction-local `app.tenant_id` context does not leak across commits or rollbacks when a PostgreSQL session is reused, and that independent sessions remain tenant-scoped under forced RLS. The test is included in `scripts/run-phase1-validation.sh --postgres-only`. Run `scripts/check-tenant-context-pool-safety-contract.sh` for its static contract check. This fixture does not exercise Numou's real authentication/request context or reactive connection pool; add concurrent application-level tests in the full repository before treating runtime context propagation as verified. See `docs/testing/postgres-tenant-context-pool-safety-test.md`.
 
 ### Application tenant-context concurrency
 
-The `TrustedCommandContextTest` suite now includes a concurrent two-tenant handler-boundary scenario. Run `scripts/check-application-tenant-context-concurrency-contract.sh` for its static source contract. This test harness does not substitute for exercising the production authentication/context bean and connection pool in the full Syirkah repository; see `db/test/application-tenant-context-concurrency.md`.
+The `TrustedCommandContextTest` suite now includes a concurrent two-tenant handler-boundary scenario. Run `scripts/check-application-tenant-context-concurrency-contract.sh` for its static source contract. This test harness does not substitute for exercising the production authentication/context bean and connection pool in the full Numou repository; see `docs/testing/application-tenant-context-concurrency.md`.
 
 ### Tenant-context transaction integration
 
-`PgTenantContextTransactionIntegrationTest` verifies that a transaction-local PostgreSQL tenant setting does not survive commit or rollback when the same pooled connection is reused. See `db/test/pg-tenant-context-transaction-integration.md`. This is a database primitive check, not proof of end-to-end authentication or production RLS enforcement.
+`PgTenantContextTransactionIntegrationTest` verifies that a transaction-local PostgreSQL tenant setting does not survive commit or rollback when the same pooled connection is reused. See `docs/testing/pg-tenant-context-transaction-integration.md`. This is a database primitive check, not proof of end-to-end authentication or production RLS enforcement.
 
 
 ### Tenant RLS write-boundary acceptance
 
-The disposable PostgreSQL test `scripts/postgres-tenant-rls-write-boundary-test.sh` checks fail-closed behavior without tenant context, RLS `WITH CHECK` rejection of cross-tenant inserts and ownership changes, and same-tenant update behavior. It is included in `scripts/run-phase1-validation.sh --all`. The fixture is not evidence that production Syirkah roles or migrations enforce the same policies; reconcile those with the canonical repository before relying on this boundary.
+The disposable PostgreSQL test `scripts/postgres-tenant-rls-write-boundary-test.sh` checks fail-closed behavior without tenant context, RLS `WITH CHECK` rejection of cross-tenant inserts and ownership changes, and same-tenant update behavior. It is included in `scripts/run-phase1-validation.sh --all`. The fixture is not evidence that production Numou roles or migrations enforce the same policies; reconcile those with the canonical repository before relying on this boundary.
 
 ## Real-repository integration gate
 
-Before treating the starter as integrated, run `scripts/verify-real-repository-readiness.sh` from the complete Syirkah repository root. See `docs/phase1-production-integration-gate.md` for the required build, canonical migration, trusted tenant context, database-role, and runtime acceptance sequence. The preflight is a presence check only; it does not replace compilation or integration testing. It is expected to report `BLOCKED` when run from this starter bundle alone.
+Before treating the starter as integrated, run `scripts/verify-real-repository-readiness.sh` from the complete Numou repository root. See `docs/phase1-production-integration-gate.md` for the required build, canonical migration, trusted tenant context, database-role, and runtime acceptance sequence. The preflight is a presence check only; it does not replace compilation or integration testing. It is expected to report `BLOCKED` when run from this starter bundle alone.

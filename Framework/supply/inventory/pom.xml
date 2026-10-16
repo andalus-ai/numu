@@ -11,7 +11,7 @@
     </parent>
     <artifactId>syirkah-inventory</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Inventory</name>
+    <name>Numou Inventory</name>
     <description>Inventory catalog, stock movement, valuation, and warehouse capabilities.</description>
     <modules>
         <module>inventory-domain</module>

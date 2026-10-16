@@ -7,16 +7,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-event</artifactId>
+    <artifactId>numou-event</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Event - Aggregator</name>
+    <name>Numou Event - Aggregator</name>
     <description>
         Phase 1 event layer (Docs/Plan/base00.md §"Event != integration
         implementation", base01.md §7-§15 and §P1-10..P1-15).

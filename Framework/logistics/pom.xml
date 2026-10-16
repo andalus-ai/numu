@@ -4,16 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-fms</artifactId>
+    <artifactId>numou-fms</artifactId>
     <packaging>pom</packaging>
     <name>ERP FMS</name>
     <description>Fleet Management System Bounded Context</description>
     <modules>
-        <module>syirkah-fleet</module>
+        <module>numou-fleet</module>
     </modules>
 </project>

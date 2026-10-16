@@ -16,7 +16,7 @@
     <artifactId>syirkah-pricing-modules</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Commerce - Pricing Aggregator</name>
+    <name>Numou Commerce - Pricing Aggregator</name>
     <description>
         Commerce Pricing Capability (product01.md Phase D):
         storefront price resolution over an offering + validated

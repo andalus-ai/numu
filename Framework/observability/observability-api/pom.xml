@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-observability-api</artifactId>
 
-    <name>Syirkah Observability - API</name>
+    <name>Numou Observability - API</name>
     <description>
         TelemetryContext, MetricName, HealthStatus and HealthProbe. Pure
         contracts an application can use without pulling in an observability

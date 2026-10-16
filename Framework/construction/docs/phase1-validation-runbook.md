@@ -1,4 +1,4 @@
-# Syirkah Phase 1 validation runbook
+# Numou Phase 1 validation runbook
 
 This starter has two distinct validation layers. Keep their evidence separate:
 
@@ -26,7 +26,7 @@ The default mode is `--all`. The PostgreSQL scripts create their own named, disp
 
 Record separately which stages were actually run and their output. A successful static stage is not a successful PostgreSQL stage. A successful SQL protocol stage is not a successful Java integration test.
 
-Before treating Phase 1 as integrated, run the Java tests within the actual Syirkah checkout and its supported build command, using the real dependency graph and PostgreSQL migrations. Review and reconcile the starter's illustrative/test-only live BOQ tables with the application's real persistence schema. No claim of a full application build, Java test pass, or production readiness should be made from this starter suite alone.
+Before treating Phase 1 as integrated, run the Java tests within the actual Numou checkout and its supported build command, using the real dependency graph and PostgreSQL migrations. Review and reconcile the starter's illustrative/test-only live BOQ tables with the application's real persistence schema. No claim of a full application build, Java test pass, or production readiness should be made from this starter suite alone.
 
 ## Troubleshooting
 

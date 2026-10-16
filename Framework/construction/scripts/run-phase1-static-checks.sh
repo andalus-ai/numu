@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-printf '%s\n' '== Syirkah Phase 1 static contract checks =='
+printf '%s\n' '== Numou Phase 1 static contract checks =='
 for check in "$ROOT"/scripts/check-*.sh; do
   [[ -f "$check" ]] || continue
   printf '\n-- %s --\n' "$(basename "$check")"

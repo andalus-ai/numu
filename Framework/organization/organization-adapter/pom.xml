@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-organization-adapter</artifactId>
-    <name>Syirkah Organization - Adapter</name>
+    <name>Numou Organization - Adapter</name>
     <description>In-memory and other secondary adapter implementations for the organization bounded context.</description>
     <dependencies>
         <dependency>

@@ -1,8 +1,0 @@
-package tech.kayys.syirkah.survey.domain.analytics;
-
-import tech.kayys.syirkah.survey.domain.id.SurveyId;
-
-import java.util.List;
-import java.util.Optional;
-
-public record SurveyResults(SurveyId surveyId, int totalSubmitted, List<QuestionResult> questions, Optional<QuizStats> quiz) {}

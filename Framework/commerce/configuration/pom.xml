@@ -16,7 +16,7 @@
     <artifactId>syirkah-configuration-modules</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Commerce - Configuration Aggregator</name>
+    <name>Numou Commerce - Configuration Aggregator</name>
     <description>
         Commerce Configuration Capability (product01.md Phase E + product02.md):
         transient customer selections with status (DRAFT/VALID/INVALID/

@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-ecosystem-domain</artifactId>
 
-    <name>Syirkah Ecosystem - Domain</name>
+    <name>Numou Ecosystem - Domain</name>
     <description>
         Pure Java ecosystem model: Participant, Capability,
         ProviderCapability, ParticipantRelationship, EcosystemContract.

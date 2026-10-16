@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST="$ROOT/src/test/java/tech/kayys/syirkah/construction/application/boq/handler/TrustedCommandContextTest.java"
+TEST="$ROOT/construction-application/src/test/java/tech/kayys/syirkah/construction/application/boq/handler/TrustedCommandContextTest.java"
 for pattern in \
   'concurrentRequestsResolveTenantAndActorBeforeAsyncWorkflowBoundary' \
   'ThreadLocal<String> requestTenant' \

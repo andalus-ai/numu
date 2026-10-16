@@ -13,7 +13,7 @@ jobs:
     services:
       postgres:
         image: postgres:16
-        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: syirkah }
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: numou }
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
@@ -26,7 +26,7 @@ jobs:
       - name: Migrations apply on a clean database (V100, V200, V201)
         run: |
           for f in $(find . -path '*db/migration*' -name 'V*.sql' | sort -t/ -k5 -V); do
-            PGPASSWORD=postgres psql -h localhost -U postgres -d syirkah -v ON_ERROR_STOP=1 -q -f "$f"
+            PGPASSWORD=postgres psql -h localhost -U postgres -d numou -v ON_ERROR_STOP=1 -q -f "$f"
           done
       - name: Build and test
         run: mvn -B -ntp verify

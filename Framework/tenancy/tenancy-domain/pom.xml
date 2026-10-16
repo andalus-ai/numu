@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-tenancy-domain</artifactId>
-    <name>Syirkah Tenancy - Domain</name>
+    <name>Numou Tenancy - Domain</name>
     <description>Pure domain model: Tenant, TenantMembership, TenantSettings, TenantProvisioning aggregates + events.</description>
     <dependencies>
         <dependency>

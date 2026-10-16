@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-security-spi</artifactId>
 
-    <name>Syirkah Security - SPI</name>
+    <name>Numou Security - SPI</name>
     <description>
         Replaceable security infrastructure: AuthenticationPort, PolicyPort,
         AuditPort. The domain asks "may this principal do this?"; the

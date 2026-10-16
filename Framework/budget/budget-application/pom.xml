@@ -5,23 +5,23 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-budget</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-budget</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-budget-application</artifactId>
-    <name>Syirkah Budget - Application</name>
+    <artifactId>numou-budget-application</artifactId>
+    <name>Numou Budget - Application</name>
     <description>Budget planning, control, commitment and forecast use cases.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-budget-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-budget-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-budget-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-budget-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

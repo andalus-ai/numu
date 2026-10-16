@@ -15,9 +15,9 @@
     <artifactId>syirkah-bom</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Platform BOM</name>
+    <name>Numou Platform BOM</name>
     <description>
-        Version alignment for the Syirkah Foundation and composable
+        Version alignment for the Numou Foundation and composable
         bounded-context modules. Import this BOM in products instead of
         repeating platform and module versions.
     </description>

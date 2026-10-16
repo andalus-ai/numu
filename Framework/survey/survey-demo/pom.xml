@@ -3,19 +3,19 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>tech.kayys.syirkah</groupId>
-    <artifactId>syirkah-survey</artifactId>
+    <groupId>tech.kayys.numou</groupId>
+    <artifactId>numou-survey</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>syirkah-survey-demo</artifactId>
-  <name>Syirkah Survey - Demo</name>
+  <artifactId>numou-survey-demo</artifactId>
+  <name>Numou Survey - Demo</name>
   <description>Framework-free walkthrough / smoke test of the core.</description>
 
   <dependencies>
     <dependency>
-      <groupId>tech.kayys.syirkah</groupId>
-      <artifactId>syirkah-survey-adapter-memory</artifactId>
+      <groupId>tech.kayys.numou</groupId>
+      <artifactId>numou-survey-adapter-memory</artifactId>
     </dependency>
   </dependencies>
 
@@ -26,7 +26,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.5.0</version>
         <configuration>
-          <mainClass>tech.kayys.syirkah.survey.demo.DemoApp</mainClass>
+          <mainClass>tech.kayys.numou.survey.demo.DemoApp</mainClass>
         </configuration>
       </plugin>
     </plugins>

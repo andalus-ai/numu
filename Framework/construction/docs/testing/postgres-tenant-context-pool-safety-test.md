@@ -23,4 +23,4 @@ scripts/run-phase1-validation.sh --postgres-only
 
 ## Limits
 
-This test validates PostgreSQL transaction-local setting and RLS behavior in an isolated fixture. It does **not** prove the real Syirkah request context, authentication filter, reactive transaction runner, pool checkout/return hooks, or application adapters propagate context correctly. Add an application-level integration test in the full repository that runs tenant A and tenant B requests concurrently through the real connection pool and verifies both commit and rollback paths.
+This test validates PostgreSQL transaction-local setting and RLS behavior in an isolated fixture. It does **not** prove the real Numou request context, authentication filter, reactive transaction runner, pool checkout/return hooks, or application adapters propagate context correctly. Add an application-level integration test in the full repository that runs tenant A and tenant B requests concurrently through the real connection pool and verifies both commit and rollback paths.

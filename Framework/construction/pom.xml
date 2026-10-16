@@ -14,7 +14,7 @@
 
     <artifactId>syirkah-construction</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Construction</name>
+    <name>Numou Construction</name>
     <description>
         Construction Management specialization bounded context extending Project domain.
         Covers C10.1 through C10.27: Profile, Site, WBS, BOQ, Progress, Variations, Contracts,

@@ -7,13 +7,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-finance</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-finance</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-finance-common</artifactId>
+    <artifactId>numou-finance-common</artifactId>
     <packaging>pom</packaging>
 
     <name>Kayys ERP Finance - Common</name>
@@ -23,13 +23,13 @@
     </description>
 
     <modules>
-        <module>syirkah-finance-currency</module>
+        <module>numou-finance-currency</module>
         <module>treasury</module>
         <!--
             finance-reporting is intentionally NOT in the reactor yet.
             It still imports tech.kayys.billing.domain.{BillingAccount,
             Invoice, Payment}, an API that no longer exists: today's billing
-            domain is tech.kayys.syirkah.billing.domain.model and there is
+            domain is tech.kayys.numou.billing.domain.model and there is
             no BillingAccount at all. Adding it back is a small migration
             task, not a structural one - see Framework/README.md,
             "Parked legacy modules".

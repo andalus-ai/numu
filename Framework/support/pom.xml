@@ -4,14 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-support</artifactId>
+    <artifactId>numou-support</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Support</name>
+    <name>Numou Support</name>
     <description>Reusable support and ticketing bounded context.</description>
     <modules>
         <module>support-domain</module>

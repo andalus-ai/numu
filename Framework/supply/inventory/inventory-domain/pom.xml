@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-inventory-domain</artifactId>
-    <name>Syirkah Inventory - Domain</name>
+    <name>Numou Inventory - Domain</name>
     <dependencies>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

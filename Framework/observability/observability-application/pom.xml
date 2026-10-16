@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-observability-application</artifactId>
-    <name>Syirkah Observability - Application</name>
+    <name>Numou Observability - Application</name>
     <description>Handler/use-case decorators: span + duration + outcome metrics with a tag-cardinality guard.</description>
     <dependencies>
         <dependency>

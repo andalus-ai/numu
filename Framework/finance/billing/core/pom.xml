@@ -4,23 +4,23 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
+        <groupId>tech.kayys.numou</groupId>
         <artifactId>finance-billing</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     
-    <artifactId>syirkah-billing-services</artifactId>
+    <artifactId>numou-billing-services</artifactId>
     <packaging>pom</packaging>
 
     <name>Kayys ERP Billing - Services Aggregator</name>
     <description>Core and extension services for agnostic, multi-domain billing</description>
 
     <modules>
-        <module>syirkah-billing-domain</module>
-        <module>syirkah-billing-application</module>
-        <module>syirkah-billing-adapter</module>
-        <module>syirkah-billing-pricing</module>
-        <module>syirkah-billing-dunning</module>
+        <module>numou-billing-domain</module>
+        <module>numou-billing-application</module>
+        <module>numou-billing-adapter</module>
+        <module>numou-billing-pricing</module>
+        <module>numou-billing-dunning</module>
     </modules>
 </project>

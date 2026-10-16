@@ -8,7 +8,7 @@
 - retry/terminal updates, bounded error text, and lease clearing;
 - rejection of invalid claim arguments before SQL execution.
 
-## Run in the real Syirkah module
+## Run in the real Numou module
 
 Run the module's normal test command with the PostgreSQL test service configured, for example `./mvnw test -Dtest=PgOutboxRelayStoreIntegrationTest` if that module uses Maven. This starter source dump does not include a build descriptor, so the command and dependency versions must be confirmed in the real repository.
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Disposable PostgreSQL acceptance test for tenant RLS read/write boundaries.
-# The fixture demonstrates PostgreSQL policy behavior, not Syirkah production wiring.
+# The fixture demonstrates PostgreSQL policy behavior, not Numou production wiring.
 CONTAINER_NAME="syirkah-pg-tenant-rls-write-$$"
 PORT="${SYIRKAH_TEST_PG_PORT:-55446}"
 PASSWORD="syirkah_test_only"
@@ -65,4 +65,4 @@ BYPASS="$(psql -Atc "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname
 echo 'PASS: missing tenant context fails closed for reads and writes.'
 echo 'PASS: RLS WITH CHECK rejects cross-tenant inserts and tenant ownership changes.'
 echo 'PASS: same-tenant updates work and the role cannot bypass RLS.'
-echo 'NOTE: isolated fixture only; verify equivalent policies and grants against canonical Syirkah migrations and application roles.'
+echo 'NOTE: isolated fixture only; verify equivalent policies and grants against canonical Numou migrations and application roles.'

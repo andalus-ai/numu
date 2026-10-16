@@ -2,9 +2,9 @@
 
 ## Why this gate exists
 
-This starter contains source-contract checks and test proposals, but it is not a complete checkout of the Syirkah application. Static assertions and disposable SQL fixtures cannot establish that the production adapters compile, that migrations match the canonical schema, or that tenant isolation works through the deployed connection pool.
+This starter contains source-contract checks and test proposals, but it is not a complete checkout of the Numou application. Static assertions and disposable SQL fixtures cannot establish that the production adapters compile, that migrations match the canonical schema, or that tenant isolation works through the deployed connection pool.
 
-Run `scripts/verify-real-repository-readiness.sh` from the root of the complete Syirkah repository before claiming integration readiness. It checks for conventional build, migration, runtime-configuration, and Java source entry points. Nonstandard layouts require manual review; a pass is not a runtime verification.
+Run `scripts/verify-real-repository-readiness.sh` from the root of the complete Numou repository before claiming integration readiness. It checks for conventional build, migration, runtime-configuration, and Java source entry points. Nonstandard layouts require manual review; a pass is not a runtime verification.
 
 ## Required integration sequence
 

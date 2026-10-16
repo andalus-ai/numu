@@ -16,7 +16,7 @@
     <artifactId>syirkah-observability</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Observability - Aggregator</name>
+    <name>Numou Observability - Aggregator</name>
     <description>
         Phase 1 observability (Docs/Plan/base01.md §17, §P1-19): logging,
         tracing, metrics and health.

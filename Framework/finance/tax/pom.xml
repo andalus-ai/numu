@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-finance</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-finance</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
@@ -15,7 +15,7 @@
     <name>Finance - Tax Engine</name>
 
     <modules>
-        <module>syirkah-tax-core</module>
-        <module>syirkah-tax</module>
+        <module>numou-tax-core</module>
+        <module>numou-tax</module>
     </modules>
 </project>

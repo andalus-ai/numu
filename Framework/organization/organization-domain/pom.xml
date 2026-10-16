@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-organization-domain</artifactId>
-    <name>Syirkah Organization - Domain</name>
+    <name>Numou Organization - Domain</name>
     <description>Organization and OrganizationUnit aggregates, events, and value objects.</description>
     <dependencies>
         <dependency>

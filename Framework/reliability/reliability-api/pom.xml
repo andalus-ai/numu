@@ -7,15 +7,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-reliability</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-reliability</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-reliability-api</artifactId>
+    <artifactId>numou-reliability-api</artifactId>
 
-    <name>Syirkah Reliability - API</name>
+    <name>Numou Reliability - API</name>
     <description>
         OutboxEntry, InboxEntry, IdempotencyStorePort, RetryPolicy and
         FailureClassification. Contracts every event-consuming module
@@ -24,13 +24,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-event-domain</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-event-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -44,8 +44,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation-testing</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation-testing</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

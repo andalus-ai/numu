@@ -6,15 +6,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-scheduling</artifactId>
+    <artifactId>numou-scheduling</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Scheduling</name>
+    <name>Numou Scheduling</name>
     <description>Standalone scheduling bounded context — work patterns, schedules, shifts, availability. Resource-agnostic (workers, vehicles, rooms).</description>
 
     <modules>

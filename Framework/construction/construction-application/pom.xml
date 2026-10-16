@@ -13,7 +13,7 @@
     </parent>
 
     <artifactId>syirkah-construction-application</artifactId>
-    <name>Syirkah Construction - Application</name>
+    <name>Numou Construction - Application</name>
     <description>
         Application service layer, use cases, command and query handlers for Construction domain.
     </description>

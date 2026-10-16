@@ -17,4 +17,4 @@ Run the static source-presence check with:
 bash scripts/check-outbox-relay-service-test-contract.sh
 ```
 
-Run these tests through the actual Syirkah Java test task once the source is placed in the real module. This source bundle has no Maven/Gradle descriptor or complete dependency graph, so these tests have **not** been compiled or executed here. They use fakes and do not verify PostgreSQL SQL, scheduler registration, broker integration, metrics, or production CDI wiring.
+Run these tests through the actual Numou Java test task once the source is placed in the real module. This source bundle has no Maven/Gradle descriptor or complete dependency graph, so these tests have **not** been compiled or executed here. They use fakes and do not verify PostgreSQL SQL, scheduler registration, broker integration, metrics, or production CDI wiring.

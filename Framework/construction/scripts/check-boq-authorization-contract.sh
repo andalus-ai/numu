@@ -5,10 +5,10 @@ python3 - "$ROOT" <<'PY'
 from pathlib import Path
 import sys
 root = Path(sys.argv[1])
-factory = (root / 'src/main/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactory.java').read_text()
-port = (root / 'src/main/java/tech/kayys/syirkah/construction/spi/boq/BoqRevisionAuthorization.java').read_text()
-domain = (root / 'src/main/java/tech/kayys/syirkah/construction/domain/boq/BoqRevisionSnapshot.java').read_text()
-actor_port = (root / 'src/main/java/tech/kayys/syirkah/construction/spi/boq/BoqRevisionActorContext.java').read_text()
+factory = (root / 'construction-adapter/src/main/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactory.java').read_text()
+port = (root / 'construction-spi/src/main/java/tech/kayys/syirkah/construction/spi/boq/BoqRevisionAuthorization.java').read_text()
+domain = (root / 'construction-domain/src/main/java/tech/kayys/syirkah/construction/domain/boq/BoqRevisionSnapshot.java').read_text()
+actor_port = (root / 'construction-spi/src/main/java/tech/kayys/syirkah/construction/spi/boq/BoqRevisionActorContext.java').read_text()
 
 def method_body(name, next_name):
     start = factory.index('public Uni<BoqRevisionSnapshot> ' + name + '(')
@@ -39,8 +39,8 @@ if 'if (actorId.equals(before.submittedBy()))' not in factory:
 print('PASS: authorization is mandatory and receives tenant/actor/resource/action')
 print('PASS: self-approval is rejected in domain and workflow')
 
-commands = root / 'src/main/java/tech/kayys/syirkah/construction/application/boq/command'
-handlers = root / 'src/main/java/tech/kayys/syirkah/construction/application/boq/handler'
+commands = root / 'construction-application/src/main/java/tech/kayys/syirkah/construction/application/boq/command'
+handlers = root / 'construction-application/src/main/java/tech/kayys/syirkah/construction/application/boq/handler'
 for name in ['CaptureBoqRevisionCommand.java', 'SubmitBoqRevisionForReviewCommand.java', 'ApproveBoqRevisionCommand.java']:
     source = (commands / name).read_text()
     if 'actorId' in source:

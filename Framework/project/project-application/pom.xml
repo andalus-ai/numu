@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-project-application</artifactId>
-    <name>Syirkah Project - Application</name>
+    <name>Numou Project - Application</name>
     <description>Project use cases and orchestration.</description>
     <dependencies>
         <dependency>

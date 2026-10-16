@@ -5,18 +5,18 @@
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-scheduling</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-scheduling</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-scheduling-domain</artifactId>
-    <name>Syirkah Scheduling - Domain</name>
+    <artifactId>numou-scheduling-domain</artifactId>
+    <name>Numou Scheduling - Domain</name>
     <description>WorkPattern, Schedule, Shift, and ResourceAvailability aggregates.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-foundation</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

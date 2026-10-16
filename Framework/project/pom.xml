@@ -15,7 +15,7 @@
 
     <artifactId>syirkah-project</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Project</name>
+    <name>Numou Project</name>
     <description>Project capability following domain, application, SPI and adapter boundaries.</description>
 
     <modules>

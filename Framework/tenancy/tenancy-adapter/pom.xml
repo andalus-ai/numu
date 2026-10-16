@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-tenancy-adapter</artifactId>
-    <name>Syirkah Tenancy - Adapter</name>
+    <name>Numou Tenancy - Adapter</name>
     <description>In-memory adapter implementations (repositories and provisioners) for dev and test.</description>
     <dependencies>
         <dependency>

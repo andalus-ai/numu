@@ -4,15 +4,15 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>tech.kayys.syirkah</groupId>
-    <artifactId>syirkah-framework</artifactId>
+    <groupId>tech.kayys.numou</groupId>
+    <artifactId>numou-framework</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>syirkah-survey</artifactId>
+  <artifactId>numou-survey</artifactId>
   <packaging>pom</packaging>
-  <name>Syirkah Survey - Aggregator</name>
+  <name>Numou Survey - Aggregator</name>
   <description>
     Survey &amp; Quiz bounded context: authoring (11 question formats, branching logic,
     scoring), versioned lifecycle, respondent session collection, and results analytics.
@@ -30,23 +30,23 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-survey-domain</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-survey-domain</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-survey-application</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-survey-application</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-survey-adapter-memory</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-survey-adapter-memory</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-survey-adapter-rest</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-survey-adapter-rest</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

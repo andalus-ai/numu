@@ -13,7 +13,7 @@
     </parent>
 
     <artifactId>syirkah-construction-domain</artifactId>
-    <name>Syirkah Construction - Domain</name>
+    <name>Numou Construction - Domain</name>
     <description>
         Construction Management Domain Model (C10.1 - C10.27):
         Profile, Site, WBS, BOQ, Progress, Variations, Contracts,

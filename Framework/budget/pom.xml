@@ -7,15 +7,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-budget</artifactId>
+    <artifactId>numou-budget</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Budget</name>
+    <name>Numou Budget</name>
     <description>Budget capability following domain, application, SPI and adapter boundaries.</description>
 
     <modules>

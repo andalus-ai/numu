@@ -11,7 +11,7 @@
 
 - Run the bundle migrations through `V20261014_01__tenant_scope_boq_revision_storage.sql` before the Quarkus test suite.
 - Provide a working Quarkus PostgreSQL test datasource and the host project's dependencies.
-- The test creates `it_live_boq` and `it_live_boq_item` fixture tables. These are deliberately test-only tables; they do not assert that Syirkah's production live BOQ tables have these names or columns.
+- The test creates `it_live_boq` and `it_live_boq_item` fixture tables. These are deliberately test-only tables; they do not assert that Numou's production live BOQ tables have these names or columns.
 - The database used for tests should be disposable. The test uses unique tenant/BOQ identifiers and leaves fixture rows behind for diagnosis.
 
 ## What this does not prove

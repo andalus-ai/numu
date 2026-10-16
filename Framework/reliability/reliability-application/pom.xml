@@ -4,28 +4,28 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-reliability</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-reliability</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-reliability-application</artifactId>
-    <name>Syirkah Reliability - Application</name>
+    <artifactId>numou-reliability-application</artifactId>
+    <name>Numou Reliability - Application</name>
     <description>Outbox relay, idempotent executor, inbox processor.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reliability-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reliability-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-reliability-api</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-reliability-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.syirkah</groupId>
-            <artifactId>syirkah-event-spi</artifactId>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-event-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SQL="$ROOT/scripts/postgres-outbox-tenant-safety-test.sh"
-DOC="$ROOT/db/test/postgres-outbox-tenant-safety-test.md"
+DOC="$ROOT/docs/testing/postgres-outbox-tenant-safety-test.md"
 [[ -f "$SQL" && -f "$DOC" ]]
 grep -q "WHERE tenant_id='tenant-a'" "$SQL"
 grep -q "WHERE tenant_id='tenant-b'" "$SQL"

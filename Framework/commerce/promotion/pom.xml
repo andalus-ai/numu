@@ -16,7 +16,7 @@
     <artifactId>syirkah-promotion-modules</artifactId>
     <packaging>pom</packaging>
 
-    <name>Syirkah Commerce - Promotion Aggregator</name>
+    <name>Numou Commerce - Promotion Aggregator</name>
     <description>
         Commerce Promotion Capability (product01.md Phase F + product03.md):
         Promotion / PromotionRule / conditions / actions / stacking policy /

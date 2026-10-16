@@ -10,7 +10,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-inventory-spi</artifactId>
-    <name>Syirkah Inventory - SPI</name>
+    <name>Numou Inventory - SPI</name>
     <dependencies>
         <dependency>
             <groupId>tech.kayys.syirkah</groupId>

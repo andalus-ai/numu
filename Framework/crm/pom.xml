@@ -4,18 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>syirkah-crm</artifactId>
+    <artifactId>numou-crm</artifactId>
     <packaging>pom</packaging>
     <name>ERP CRM</name>
     <description>CRM Bounded Context</description>
     <modules>
-        <module>syirkah-crm-domain</module>
-        <module>syirkah-crm-application</module>
-        <module>syirkah-crm-adapter</module>
+        <module>numou-crm-domain</module>
+        <module>numou-crm-application</module>
+        <module>numou-crm-adapter</module>
     </modules>
 </project>

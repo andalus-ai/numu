@@ -17,6 +17,6 @@ Use a reviewed target connection. A successful result should include `tenant_sco
 
 ## Acceptance boundary
 
-A passing postflight establishes only the checked PostgreSQL structure. It does **not** prove that existing rows were assigned to the correct tenant, that the application propagates authenticated tenant context, that outbox polling is tenant-filtered, or that authorization and cross-tenant isolation work end-to-end. Those require data reconciliation plus application-level and adversarial integration tests in the real Syirkah repository.
+A passing postflight establishes only the checked PostgreSQL structure. It does **not** prove that existing rows were assigned to the correct tenant, that the application propagates authenticated tenant context, that outbox polling is tenant-filtered, or that authorization and cross-tenant isolation work end-to-end. Those require data reconciliation plus application-level and adversarial integration tests in the real Numou repository.
 
 Do not treat this postflight as approval to bypass a failed preflight or to apply the migration to non-empty tables without a reviewed authoritative tenant backfill plan. The preflight and migration safety guard remain separate mandatory steps.

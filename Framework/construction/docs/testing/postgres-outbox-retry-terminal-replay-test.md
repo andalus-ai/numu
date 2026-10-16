@@ -15,5 +15,5 @@ It never connects to an existing database.
 
 The audit table is test-only. This harness specifies desired behavior; it does not
 add a production operator API, prove that the relay uses the same backoff expression,
-or verify authorization/audit durability in the real Syirkah service. Confirm the
+or verify authorization/audit durability in the real Numou service. Confirm the
 actual relay's retry policy, migration order, and admin authorization before adoption.

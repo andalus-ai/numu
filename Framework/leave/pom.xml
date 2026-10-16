@@ -6,15 +6,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>tech.kayys.syirkah</groupId>
-        <artifactId>syirkah-framework</artifactId>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>syirkah-leave</artifactId>
+    <artifactId>numou-leave</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Leave</name>
+    <name>Numou Leave</name>
     <description>Standalone leave/time-off bounded context. Reusable across any HR or people-management use case.</description>
 
     <modules>

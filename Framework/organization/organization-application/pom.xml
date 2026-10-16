@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-organization-application</artifactId>
-    <name>Syirkah Organization - Application</name>
+    <name>Numou Organization - Application</name>
     <description>Use-case command handlers for the organization bounded context.</description>
     <dependencies>
         <dependency>

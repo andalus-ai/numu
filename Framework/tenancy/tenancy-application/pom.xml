@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>syirkah-tenancy-application</artifactId>
-    <name>Syirkah Tenancy - Application</name>
+    <name>Numou Tenancy - Application</name>
     <description>Use cases / command handlers for Tenant, Membership, Settings, and Provisioning.</description>
     <dependencies>
         <dependency>

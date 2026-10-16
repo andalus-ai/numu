@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST="$ROOT/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java"
+TEST="$ROOT/construction-adapter/src/test/java/tech/kayys/syirkah/construction/adapter/postgres/boq/DefaultPgBoqRevisionOperationsFactoryIntegrationTest.java"
 [[ -f "$TEST" ]] || { echo "Missing BOQ operations integration test: $TEST" >&2; exit 1; }
 checks=(
   'concurrentApprovalsAllowExactlyOneWinnerAndEmitOneApprovalEvent'

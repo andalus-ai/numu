@@ -11,7 +11,7 @@
     </parent>
     <artifactId>syirkah-cache</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Cache - Aggregator</name>
+    <name>Numou Cache - Aggregator</name>
     <description>Cross-cutting caching: a tenant-safe Cache port and replaceable adapters.</description>
     <modules>
         <module>cache-api</module>

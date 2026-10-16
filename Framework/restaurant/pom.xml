@@ -11,7 +11,7 @@
     </parent>
     <artifactId>syirkah-restaurant</artifactId>
     <packaging>pom</packaging>
-    <name>Syirkah Restaurant Suite - Aggregator</name>
+    <name>Numou Restaurant Suite - Aggregator</name>
     <description>Restaurant, kitchen, reservation and order bounded contexts with persistence and a Quarkus API.</description>
     <modules>
         <module>kernel/restaurant-kernel</module>
