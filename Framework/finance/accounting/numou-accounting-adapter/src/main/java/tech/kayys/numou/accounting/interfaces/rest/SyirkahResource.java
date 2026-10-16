@@ -44,6 +44,7 @@ public class SyirkahResource {
                                         SyirkahType type, LocalDate effectiveFrom, LocalDate effectiveUntil,
                                         String shariaPolicyVersion, List<PartyRequest> parties) {}
     public record ActivateContractRequest(String signedEvidenceReference) {}
+    public record RejectContractVersionRequest(String companyId, String reason) {}
     public record BusinessResultRequest(String companyId, String resultId, String contractId, int contractVersion,
                                         LocalDate periodStart, LocalDate periodEnd, BigDecimal totalRevenue,
                                         BigDecimal directCosts, BigDecimal operatingCosts, BigDecimal otherCosts,
@@ -93,6 +94,17 @@ public class SyirkahResource {
                                      ActivateContractRequest request, @jakarta.ws.rs.QueryParam("companyId") String companyId) {
         service.activateContract(requireTenant(), companyId, id, version, requireActor(), request.signedEvidenceReference());
         return Response.ok(java.util.Map.of("contractId", id, "version", version, "status", "ACTIVE")).build();
+    }
+
+    @POST
+    @Path("/contracts/{id}/versions/{version}/reject")
+    @Blocking
+    @Operation(summary = "Reject a draft contract version using maker-checker separation")
+    public Response rejectContractVersion(@PathParam("id") String id, @PathParam("version") int version,
+                                          RejectContractVersionRequest request) {
+        service.rejectContractVersion(requireTenant(), request.companyId(), id, version,
+                requireActor(), request.reason());
+        return Response.ok(java.util.Map.of("contractId", id, "version", version, "status", "REJECTED")).build();
     }
 
     @POST
