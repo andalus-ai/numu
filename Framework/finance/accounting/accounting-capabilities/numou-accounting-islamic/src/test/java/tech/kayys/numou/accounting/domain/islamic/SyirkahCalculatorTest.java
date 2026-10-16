@@ -17,8 +17,8 @@ class SyirkahCalculatorTest {
                 party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "60"),
                 party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "40"));
         SyirkahCalculation result = calculator.calculate(contract, result("101", "0", "0", "0"));
-        assertEquals(new BigDecimal("61"), allocation(result, "capital"));
-        assertEquals(new BigDecimal("40"), allocation(result, "manager"));
+        assertEquals(new BigDecimal("60.60"), allocation(result, "capital"));
+        assertEquals(new BigDecimal("40.40"), allocation(result, "manager"));
         assertEquals(new BigDecimal("101"), result.allocations().stream().map(SyirkahAllocation::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
@@ -65,7 +65,7 @@ class SyirkahCalculatorTest {
 
     @Test
     void rejectsNisbahThatDoesNotTotalOneHundred() {
-        assertThrows(IllegalArgumentException.class, () -> new SyirkahContractVersion("c", 1, "t", "co", "IDR",
+        assertThrows(IllegalArgumentException.class, () -> new SyirkahContractVersion("c", 1, "t", "co", "USD,
                 SyirkahType.MUDHARABAH, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), "policy-1",
                 List.of(party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "100", "50"),
                         party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "40"))));
