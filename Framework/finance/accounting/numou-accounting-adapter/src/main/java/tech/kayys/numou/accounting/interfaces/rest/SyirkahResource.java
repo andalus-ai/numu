@@ -67,6 +67,25 @@ public class SyirkahResource {
     }
 
     @POST
+    @Path("/contracts/{id}/versions")
+    @Blocking
+    @Operation(summary = "Draft an immutable amendment to an active Syirkah contract")
+    public Response createContractVersion(@PathParam("id") String id, CreateContractRequest request) {
+        if (!id.equals(request.contractId())) {
+            throw new jakarta.ws.rs.BadRequestException("Path contract id must match request contract id");
+        }
+        String tenant = requireTenant();
+        String actor = requireActor();
+        List<SyirkahParty> parties = request.parties().stream().map(p -> new SyirkahParty(
+                p.partyId(), p.displayName(), p.role(), p.capitalContribution(), p.profitNisbahPercent())).toList();
+        var contract = new SyirkahContractVersion(request.contractId(), request.version(), tenant,
+                request.companyId(), request.currencyCode(), request.type(), request.effectiveFrom(),
+                request.effectiveUntil(), request.shariaPolicyVersion(), parties);
+        service.createContractVersion(contract, tenant, actor);
+        return Response.status(Response.Status.CREATED).entity(contract).build();
+    }
+
+    @POST
     @Path("/contracts/{id}/versions/{version}/activate")
     @Blocking
     @Operation(summary = "Activate a contract after independent signed-evidence review")
