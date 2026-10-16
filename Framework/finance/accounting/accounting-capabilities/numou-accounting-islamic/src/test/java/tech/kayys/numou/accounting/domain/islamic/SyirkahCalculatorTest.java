@@ -64,6 +64,17 @@ class SyirkahCalculatorTest {
     }
 
     @Test
+    void allocatesLargeAmountsWithoutLongOverflow() {
+        SyirkahContractVersion contract = contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "60"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "40"));
+        SyirkahCalculation result = calculator.calculate(contract,
+                result("1000000000000000000.00", "0", "0", "0"));
+        assertEquals(new BigDecimal("600000000000000000.00"), allocation(result, "capital"));
+        assertEquals(new BigDecimal("400000000000000000.00"), allocation(result, "manager"));
+    }
+
+    @Test
     void rejectsNisbahThatDoesNotTotalOneHundred() {
         assertThrows(IllegalArgumentException.class, () -> new SyirkahContractVersion("c", 1, "t", "co", "USD",
                 SyirkahType.MUDHARABAH, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), "policy-1",
