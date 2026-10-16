@@ -64,7 +64,7 @@ public final class SyirkahCalculator {
                 for (SyirkahParty p : contract.parties()) weights.put(p.partyId(), p.capitalContribution());
                 basis = "MUSYARAKAH_CAPITAL_CONTRIBUTION";
             }
-            case INAN, ABDAN, WUJUH -> throw new UnsupportedOperationException(
+            case INAN, ABDAN, WUJUH, MUFAWADHAH -> throw new UnsupportedOperationException(
                     "Loss policy for " + contract.type() + " requires an explicitly approved Sharia policy");
             default -> throw new IllegalStateException("Unhandled Syirkah type: " + contract.type());
         }
