@@ -16,6 +16,8 @@ public interface SyirkahRepository {
     void createContractVersion(SyirkahContractVersion contract, String createdBy);
     void activateContract(String tenantId, String companyId, String contractId, int version,
                           String actor, String signedEvidenceReference);
+    void rejectContractVersion(String tenantId, String companyId, String contractId, int version,
+                               String actor, String reason);
     boolean isContractActive(String tenantId, String companyId, String contractId);
     boolean isContractVersionActivated(String tenantId, String companyId, String contractId, int version);
     Optional<SyirkahContractVersion> findContract(String tenantId, String companyId,
