@@ -19,8 +19,8 @@ class SyirkahCalculatorTest {
         SyirkahCalculation result = calculator.calculate(contract, result("101", "0", "0", "0"));
         assertEquals(new BigDecimal("60.60"), allocation(result, "capital"));
         assertEquals(new BigDecimal("40.40"), allocation(result, "manager"));
-        assertEquals(new BigDecimal("101"), result.allocations().stream().map(SyirkahAllocation::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        assertEquals(0, result.allocations().stream().map(SyirkahAllocation::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add).compareTo(new BigDecimal("101")));
     }
 
     @Test
