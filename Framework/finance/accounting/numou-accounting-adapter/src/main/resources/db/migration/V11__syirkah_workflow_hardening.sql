@@ -45,6 +45,6 @@ CREATE TABLE IF NOT EXISTS syirkah_audit_event (
 CREATE INDEX IF NOT EXISTS idx_syirkah_audit_aggregate
     ON syirkah_audit_event (tenant_id, company_id, aggregate_type, aggregate_id, occurred_at);
 
--- Exact duplicate business periods are almost always a double-counting error.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_syirkah_business_result_period
-    ON syirkah_business_result (tenant_id, company_id, contract_id, period_start, period_end);
+-- Business-result uniqueness remains keyed by result_id. Some partnerships legitimately
+-- register multiple evidenced segments for one accounting period; period-level uniqueness
+-- is enforced by the application workflow rather than an unsafe blanket index.
