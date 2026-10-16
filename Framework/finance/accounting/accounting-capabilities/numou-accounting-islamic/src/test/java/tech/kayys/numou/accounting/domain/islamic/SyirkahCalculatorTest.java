@@ -64,6 +64,25 @@ class SyirkahCalculatorTest {
     }
 
     @Test
+    void largestRemainderAllocationIsDeterministicForOneMinorUnit() {
+        SyirkahContractVersion contract = contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "100", "33.34"),
+                party("manager-a", SyirkahPartyRole.MANAGING_PARTNER, "0", "33.33"),
+                party("manager-b", SyirkahPartyRole.MANAGING_PARTNER, "0", "33.33"));
+        SyirkahCalculation result = calculator.calculate(contract, result("0.01", "0", "0", "0"));
+        assertEquals(new BigDecimal("0.01"), allocation(result, "capital"));
+        assertEquals(new BigDecimal("0.00"), allocation(result, "manager-a"));
+        assertEquals(new BigDecimal("0.00"), allocation(result, "manager-b"));
+    }
+
+    @Test
+    void rejectsMudharabahWithoutPositiveProviderCapital() {
+        assertThrows(IllegalArgumentException.class, () -> contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "0", "50"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "50")));
+    }
+
+    @Test
     void allocatesLargeAmountsWithoutLongOverflow() {
         SyirkahContractVersion contract = contract(SyirkahType.MUDHARABAH,
                 party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "60"),
