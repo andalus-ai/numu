@@ -41,12 +41,14 @@ public record SyirkahContractVersion(
         Set<String> ids = new HashSet<>();
         BigDecimal totalNisbah = BigDecimal.ZERO;
         boolean hasCapitalProvider = false;
+        boolean hasPositiveCapitalProvider = false;
         boolean hasPositiveCapital = false;
         for (SyirkahParty party : parties) {
             Objects.requireNonNull(party, "party");
             if (!ids.add(party.partyId())) throw new IllegalArgumentException("duplicate partyId: " + party.partyId());
             totalNisbah = totalNisbah.add(party.profitNisbahPercent());
             hasCapitalProvider |= party.providesCapital();
+            hasPositiveCapitalProvider |= party.providesCapital() && party.capitalContribution().signum() > 0;
             hasPositiveCapital |= party.capitalContribution().signum() > 0;
         }
         if (totalNisbah.compareTo(new BigDecimal("100")) != 0) {
@@ -54,6 +56,9 @@ public record SyirkahContractVersion(
         }
         if (type == SyirkahType.MUDHARABAH && !hasCapitalProvider) {
             throw new IllegalArgumentException("Mudharabah requires at least one capital provider");
+        }
+        if (type == SyirkahType.MUDHARABAH && !hasPositiveCapitalProvider) {
+            throw new IllegalArgumentException("Mudharabah requires positive capital from a capital provider");
         }
         if ((type == SyirkahType.MUSYARAKAH || type == SyirkahType.INAN) && !hasPositiveCapital) {
             throw new IllegalArgumentException("capital-based partnership requires positive contributed capital");
