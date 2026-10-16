@@ -208,6 +208,51 @@ public class PostgresSyirkahRepository implements SyirkahRepository {
     }
 
     @Override
+    public void rejectContractVersion(String tenant, String company, String contractId, int version,
+                                      String actor, String reason) {
+        try (Connection con = dataSource.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                String creator;
+                String contractStatus;
+                String versionStatus;
+                try (PreparedStatement s = con.prepareStatement("""
+                    SELECT v.created_by, c.lifecycle_status, v.version_status
+                    FROM accounting.syirkah_contract c
+                    JOIN accounting.syirkah_contract_version v
+                      ON v.tenant_id=c.tenant_id AND v.company_id=c.company_id AND v.contract_id=c.contract_id
+                    WHERE c.tenant_id=? AND c.company_id=? AND c.contract_id=? AND v.version=?
+                    FOR UPDATE OF c, v
+                    """)) {
+                    s.setString(1, tenant); s.setString(2, company); s.setString(3, contractId); s.setInt(4, version);
+                    try (ResultSet r = s.executeQuery()) {
+                        if (!r.next()) throw new IllegalArgumentException("Contract version not found");
+                        creator = r.getString(1); contractStatus = r.getString(2); versionStatus = r.getString(3);
+                    }
+                }
+                if (!"ACTIVE".equals(contractStatus)) throw new IllegalStateException("Only a draft amendment on an active contract can be rejected");
+                if (!"DRAFT".equals(versionStatus)) throw new IllegalStateException("Only a draft contract version can be rejected");
+                if (creator.equals(actor)) throw new SecurityException("Contract maker cannot reject their own version");
+                try (PreparedStatement s = con.prepareStatement("""
+                    UPDATE accounting.syirkah_contract_version SET version_status='REJECTED'
+                    WHERE tenant_id=? AND company_id=? AND contract_id=? AND version=? AND version_status='DRAFT'
+                    """)) {
+                    s.setString(1, tenant); s.setString(2, company); s.setString(3, contractId); s.setInt(4, version);
+                    if (s.executeUpdate() != 1) throw new IllegalStateException("Contract version rejection race detected");
+                }
+                audit(con, tenant, company, "CONTRACT", contractId, version, "CONTRACT_VERSION_REJECTED", actor,
+                        "{\"reason\":\"" + jsonEscape(reason) + "\"}");
+                con.commit();
+            } catch (Exception e) {
+                rollback(con, e);
+                throw translate("reject Syirkah contract version", e);
+            }
+        } catch (SQLException e) {
+            throw translate("reject Syirkah contract version", e);
+        }
+    }
+
+    @Override
     public boolean isContractActive(String tenant, String company, String contractId) {
         try (Connection con = dataSource.getConnection(); PreparedStatement s = con.prepareStatement("""
             SELECT 1 FROM accounting.syirkah_contract
