@@ -125,13 +125,21 @@ def main() -> int:
     for path in sorted(graph):
         visit(path, [])
 
-    for path in ROOT.rglob("src/main/java/**/*.java"):
-        if "target" in path.parts or ".git" in path.parts:
+    for path in ROOT.rglob("*.java"):
+        if "target" in path.parts or ".git" in path.parts or "src" not in path.parts:
             continue
-        module_pom = path
-        while module_pom != ROOT and module_pom.name != "pom.xml":
-            module_pom = module_pom.parent
-        if module_pom == ROOT or module_pom not in coordinates_by_path:
+        src_index = path.parts.index("src")
+        if path.parts[src_index:src_index + 3] != ("src", "main", "java"):
+            continue
+        module_dir = path.parent
+        module_pom = None
+        while module_dir != ROOT and module_dir.is_relative_to(ROOT):
+            candidate = module_dir / "pom.xml"
+            if candidate in coordinates_by_path:
+                module_pom = candidate
+                break
+            module_dir = module_dir.parent
+        if module_pom is None:
             continue
         artifact = coordinates_by_path[module_pom][1]
         if not artifact.endswith("-domain"):
