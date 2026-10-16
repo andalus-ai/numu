@@ -7,6 +7,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -118,14 +119,14 @@ public class SyirkahResource {
 
     private String requireTenant() {
         if (!requestContext.tenantVerified() || requestContext.tenantId() == null || requestContext.tenantId().isBlank()) {
-            throw new SecurityException("Authenticated tenant context is required");
+            throw new NotAuthorizedException("Authenticated tenant context is required");
         }
         return requestContext.tenantId();
     }
 
     private String requireActor() {
         String actor = requestContext.actor();
-        if (actor == null || actor.isBlank()) throw new SecurityException("Authenticated actor context is required");
+        if (actor == null || actor.isBlank()) throw new NotAuthorizedException("Authenticated actor context is required");
         return actor;
     }
 }
