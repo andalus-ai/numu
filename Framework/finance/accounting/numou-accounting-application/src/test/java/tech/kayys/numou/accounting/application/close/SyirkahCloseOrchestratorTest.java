@@ -31,7 +31,9 @@ class SyirkahCloseOrchestratorTest {
         assertEquals(CloseTaskStatus.COMPLETED, task(SyirkahCloseTaskCodes.RESULT).status());
         assertEquals("allocation-snapshot", orchestrator.allocateResult(cycleId, "maker"));
         assertEquals(CloseTaskStatus.COMPLETED, task(SyirkahCloseTaskCodes.ALLOCATION).status());
-        assertEquals("journal-123", orchestrator.approveAndPostDistribution(cycleId, "checker"));
+        assertEquals("approval-123", orchestrator.approveDistribution(cycleId, "checker"));
+        assertEquals(CloseTaskStatus.PENDING, task(SyirkahCloseTaskCodes.DISTRIBUTION).status());
+        assertEquals("journal-123", orchestrator.postDistribution(cycleId, "poster"));
         assertEquals(CloseTaskStatus.COMPLETED, task(SyirkahCloseTaskCodes.DISTRIBUTION).status());
         assertTrue(operations.posted);
     }
@@ -42,7 +44,7 @@ class SyirkahCloseOrchestratorTest {
         orchestrator.allocateResult(cycleId, "maker");
         operations.failPosting = true;
         assertThrows(IllegalStateException.class,
-                () -> orchestrator.approveAndPostDistribution(cycleId, "checker"));
+                () -> orchestrator.postDistribution(cycleId, "poster"));
         assertEquals(CloseTaskStatus.PENDING, task(SyirkahCloseTaskCodes.DISTRIBUTION).status());
     }
 
@@ -76,7 +78,13 @@ class SyirkahCloseOrchestratorTest {
         }
 
         @Override
-        public String approveAndPostDistribution(CloseCycleId cycleId, String actor) {
+        public String approveDistribution(CloseCycleId cycleId, String approver) {
+            if (!allocationPersisted) throw new IllegalStateException("allocation missing");
+            return "approval-123";
+        }
+
+        @Override
+        public String postApprovedDistribution(CloseCycleId cycleId, String poster) {
             if (!allocationPersisted) throw new IllegalStateException("allocation missing");
             if (failPosting) throw new IllegalStateException("journal posting failed");
             posted = true;
