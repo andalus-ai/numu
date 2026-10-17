@@ -135,12 +135,12 @@ class SyirkahCalculatorTest {
     }
 
     @Test
-    void unsupportedPartnershipProfitPolicyFailsClosed() {
-        SyirkahContractVersion contract = contract(SyirkahType.ABDAN,
-                party("a", SyirkahPartyRole.WORKING_PARTNER, "0", "50"),
-                party("b", SyirkahPartyRole.WORKING_PARTNER, "0", "50"));
+    void mufawadahCompositeLossPolicyFailsClosed() {
+        SyirkahContractVersion contract = contract(SyirkahType.MUFAWADHAH,
+                party("a", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "600", "50"),
+                party("b", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "400", "50"));
         assertThrows(UnsupportedOperationException.class,
-                () -> calculator.calculate(contract, result("100", "0", "0", "0")));
+                () -> calculator.calculate(contract, result("0", "0", "0", "100")));
     }
 
     @Test
