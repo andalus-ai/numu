@@ -224,6 +224,21 @@
             </dependency>
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-syirkah-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-syirkah-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-syirkah-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-accounting-islamic</artifactId>
                 <version>${project.version}</version>
             </dependency>

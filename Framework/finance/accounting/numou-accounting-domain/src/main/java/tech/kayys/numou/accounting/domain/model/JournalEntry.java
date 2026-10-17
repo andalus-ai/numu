@@ -171,7 +171,8 @@ public final class JournalEntry extends AbstractAggregateRoot<JournalEntryId> im
             }
         }
 
-        if (totalDebit == null || !totalDebit.equals(totalCredit)) {
+        // Compare numerically: Money/BigDecimal equals() is scale-sensitive (100 vs 100.00).
+        if (totalDebit == null || totalDebit.compareTo(totalCredit) != 0) {
             throw new IllegalStateException(
                     "Double-entry balance violation: Total debits (" + totalDebit + 
                     ") must equal total credits (" + totalCredit + ")");
