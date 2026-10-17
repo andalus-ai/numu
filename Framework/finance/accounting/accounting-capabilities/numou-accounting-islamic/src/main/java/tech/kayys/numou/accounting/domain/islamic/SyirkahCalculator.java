@@ -1,6 +1,7 @@
 package tech.kayys.numou.accounting.domain.islamic;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -33,6 +34,11 @@ public final class SyirkahCalculator {
         BigDecimal net = result.netResult();
         List<SyirkahAllocation> allocations;
         if (net.signum() > 0) {
+            if (contract.type() == SyirkahType.ABDAN || contract.type() == SyirkahType.WUJUH
+                    || contract.type() == SyirkahType.MUFAWADHAH) {
+                throw new UnsupportedOperationException("Profit policy for " + contract.type()
+                        + " requires an explicitly approved Sharia policy");
+            }
             allocations = allocateByWeights(contract, net, contract.parties().stream()
                     .collect(java.util.stream.Collectors.toMap(SyirkahParty::partyId,
                             SyirkahParty::profitNisbahPercent, (a,b) -> a, LinkedHashMap::new)), "AGREED_NISBAH");
@@ -59,11 +65,11 @@ public final class SyirkahCalculator {
                 }
                 basis = "MUDHARABAH_CAPITAL_PROVIDER_CAPITAL_RISK";
             }
-            case MUSYARAKAH -> {
+            case MUSYARAKAH, INAN -> {
                 for (SyirkahParty p : contract.parties()) weights.put(p.partyId(), p.capitalContribution());
                 basis = "MUSYARAKAH_CAPITAL_CONTRIBUTION";
             }
-            case INAN, ABDAN, WUJUH -> throw new UnsupportedOperationException(
+            case ABDAN, WUJUH, MUFAWADHAH -> throw new UnsupportedOperationException(
                     "Loss policy for " + contract.type() + " requires an explicitly approved Sharia policy");
             default -> throw new IllegalStateException("Unhandled Syirkah type: " + contract.type());
         }
@@ -79,30 +85,35 @@ public final class SyirkahCalculator {
         if (weightTotal.signum() <= 0) throw new IllegalArgumentException("allocation weights must sum to a positive value");
         int scale = currencyScale(contract.currencyCode());
         BigDecimal roundedTotal = total.setScale(scale, RoundingMode.UNNECESSARY);
-        long totalMinor = roundedTotal.movePointRight(scale).longValueExact();
+        BigInteger totalMinor = roundedTotal.movePointRight(scale).toBigIntegerExact();
 
-        record Part(String partyId, long minorUnits, BigDecimal remainder, int order) {}
+        int weightScale = weights.values().stream().mapToInt(BigDecimal::scale).max().orElse(0);
+        Map<String, BigInteger> integerWeights = new LinkedHashMap<>();
+        weights.forEach((id, weight) -> integerWeights.put(id, weight.movePointRight(weightScale).toBigIntegerExact()));
+        BigInteger integerWeightTotal = integerWeights.values().stream().reduce(BigInteger.ZERO, BigInteger::add);
+
+        // Exact quotient/remainder arithmetic avoids precision loss for large NUMERIC values.
+        record Part(String partyId, BigInteger minorUnits, BigInteger remainder, int order) {}
         List<Part> parts = new ArrayList<>();
-        long assigned = 0;
+        BigInteger assigned = BigInteger.ZERO;
         int order = 0;
-        for (Map.Entry<String, BigDecimal> entry : weights.entrySet()) {
-            BigDecimal exactMinor = BigDecimal.valueOf(totalMinor).multiply(entry.getValue())
-                    .divide(weightTotal, 16, RoundingMode.DOWN);
-            long floor = exactMinor.setScale(0, RoundingMode.DOWN).longValueExact();
-            parts.add(new Part(entry.getKey(), floor, exactMinor.subtract(BigDecimal.valueOf(floor)), order++));
-            assigned += floor;
+        for (Map.Entry<String, BigInteger> entry : integerWeights.entrySet()) {
+            BigInteger[] qr = totalMinor.multiply(entry.getValue()).divideAndRemainder(integerWeightTotal);
+            BigInteger floor = qr[0];
+            parts.add(new Part(entry.getKey(), floor, qr[1], order++));
+            assigned = assigned.add(floor);
         }
-        long residual = totalMinor - assigned;
+        int residual = totalMinor.subtract(assigned).intValueExact();
         List<Part> ranked = new ArrayList<>(parts);
         ranked.sort(Comparator.comparing(Part::remainder).reversed().thenComparingInt(Part::order));
-        Map<String, Long> finalMinor = new LinkedHashMap<>();
+        Map<String, BigInteger> finalMinor = new LinkedHashMap<>();
         for (Part part : parts) finalMinor.put(part.partyId(), part.minorUnits());
         for (int i = 0; i < residual; i++) {
             Part p = ranked.get(i % ranked.size());
-            finalMinor.put(p.partyId(), finalMinor.get(p.partyId()) + 1);
+            finalMinor.put(p.partyId(), finalMinor.get(p.partyId()).add(BigInteger.ONE));
         }
         return weights.keySet().stream()
-                .map(id -> new SyirkahAllocation(id, BigDecimal.valueOf(finalMinor.get(id), scale),
+                .map(id -> new SyirkahAllocation(id, new BigDecimal(finalMinor.get(id), scale),
                         contract.currencyCode(), basis))
                 .toList();
     }

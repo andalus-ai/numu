@@ -19,8 +19,8 @@ class SyirkahCalculatorTest {
         SyirkahCalculation result = calculator.calculate(contract, result("101", "0", "0", "0"));
         assertEquals(new BigDecimal("60.60"), allocation(result, "capital"));
         assertEquals(new BigDecimal("40.40"), allocation(result, "manager"));
-        assertEquals(new BigDecimal("101"), result.allocations().stream().map(SyirkahAllocation::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        assertEquals(0, result.allocations().stream().map(SyirkahAllocation::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add).compareTo(new BigDecimal("101")));
     }
 
     @Test
@@ -61,6 +61,55 @@ class SyirkahCalculatorTest {
                 party("b", SyirkahPartyRole.WORKING_PARTNER, "0", "50"));
         assertThrows(UnsupportedOperationException.class,
                 () -> calculator.calculate(contract, result("0", "0", "10", "0")));
+    }
+
+    @Test
+    void largestRemainderAllocationIsDeterministicForOneMinorUnit() {
+        SyirkahContractVersion contract = contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "100", "33.34"),
+                party("manager-a", SyirkahPartyRole.MANAGING_PARTNER, "0", "33.33"),
+                party("manager-b", SyirkahPartyRole.MANAGING_PARTNER, "0", "33.33"));
+        SyirkahCalculation result = calculator.calculate(contract, result("0.01", "0", "0", "0"));
+        assertEquals(new BigDecimal("0.01"), allocation(result, "capital"));
+        assertEquals(new BigDecimal("0.00"), allocation(result, "manager-a"));
+        assertEquals(new BigDecimal("0.00"), allocation(result, "manager-b"));
+    }
+
+    @Test
+    void rejectsMudharabahWithoutPositiveProviderCapital() {
+        assertThrows(IllegalArgumentException.class, () -> contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "0", "50"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "50")));
+    }
+
+    @Test
+    void allocatesLargeAmountsWithoutLongOverflow() {
+        SyirkahContractVersion contract = contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "60"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "40"));
+        SyirkahCalculation result = calculator.calculate(contract,
+                result("1000000000000000000.00", "0", "0", "0"));
+        assertEquals(new BigDecimal("600000000000000000.00"), allocation(result, "capital"));
+        assertEquals(new BigDecimal("400000000000000000.00"), allocation(result, "manager"));
+    }
+
+    @Test
+    void unsupportedPartnershipProfitPolicyFailsClosed() {
+        SyirkahContractVersion contract = contract(SyirkahType.ABDAN,
+                party("a", SyirkahPartyRole.WORKING_PARTNER, "0", "50"),
+                party("b", SyirkahPartyRole.WORKING_PARTNER, "0", "50"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> calculator.calculate(contract, result("100", "0", "0", "0")));
+    }
+
+    @Test
+    void inanOrdinaryLossUsesCapitalContributionWeights() {
+        SyirkahContractVersion contract = contract(SyirkahType.INAN,
+                party("a", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "700", "50"),
+                party("b", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "300", "50"));
+        SyirkahCalculation result = calculator.calculate(contract, result("0", "100", "0", "0"));
+        assertEquals(new BigDecimal("70.00"), allocation(result, "a"));
+        assertEquals(new BigDecimal("30.00"), allocation(result, "b"));
     }
 
     @Test

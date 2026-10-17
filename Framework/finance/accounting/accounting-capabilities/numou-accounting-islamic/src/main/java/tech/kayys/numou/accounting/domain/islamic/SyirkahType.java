@@ -11,5 +11,6 @@ public enum SyirkahType {
     MUSYARAKAH,
     INAN,
     ABDAN,
-    WUJUH
+    WUJUH,
+    MUFAWADHAH
 }
