@@ -40,6 +40,24 @@ not approved for live accounting or payment processing.
 - Syirkah-aware close-cycle option adds mandatory result, allocation, and distribution tasks; an orchestrator gates task completion on persisted operation references and does not complete distribution until a posted journal reference is returned.
 - Tests cover deterministic rounding, all-party allocations, profit nisbah across partnership types, responsibility approvals/settlement caps, and close-stage ordering.
 
+## Source-to-rule traceability (initial, not exhaustive)
+
+The rules below are traced to the uploaded `Hukum-muamalah.docx`, Chapter XV, sections on the named Syirkah forms. This is an implementation trace, not a fatwa or independent Sharia approval. The source's terminology and structure are retained; ambiguous mixed structures must not be inferred by the software.
+
+| Source topic | Rule supported by the source | Current implementation | Remaining control / test |
+|---|---|---|---|
+| Syirkah Inan (Chapter XV, section C) | Profit follows agreement; ordinary loss follows each partner's capital proportion. | Positive net result uses agreed nisbah; Inan loss uses capital-contribution weights. | Add source-linked rule IDs to policy metadata and golden examples from the source's worked cases. |
+| Syirkah Abdan (section D) | Partners contribute work without capital; profit share is by agreement and may be unequal. | Positive net result uses agreed nisbah. Monetary-loss calculation fails closed. | The source excerpt describes profit and work contributions but does not provide a general numeric monetary-loss allocation rule. Require approved policy before enabling such allocation. |
+| Syirkah Mudharabah (section E) | Profit follows agreement; ordinary capital loss belongs to capital provider(s); manager bears loss caused by negligence/intent or breach of investor conditions. | Profit follows nisbah; ordinary loss is allocated to capital providers. Evidence-backed loss-responsibility workflow is separate from ordinary calculation. | Ensure evidence, independent determination, checker identity, approved liability basis, and recovery posting are durable and authorization-protected. |
+| Syirkah Wujuh (section F), model I | The source treats the work-partner arrangement with an outside capital provider as substantively Mudharabah. | Current calculator represents Wujuh as one type for profit; Wujuh loss fails closed. | Contract must distinguish model I and model II. Model I should resolve to an approved Mudharabah-like policy only after explicit model metadata and review. |
+| Syirkah Wujuh (section F), model II | Partners acquire goods on credit without their own capital contribution; profit follows agreement, while loss follows each partner's share of the goods owned. | Current calculator represents Wujuh as one type for profit; Wujuh loss fails closed. | Add goods-ownership proportions and model-specific golden tests before calculating loss. Capital-contribution weights are not a substitute for goods ownership. |
+| Syirkah Mufawadah (section G) | The source describes a combination of Syirkah forms; the applicable profit/loss rules depend on the component forms present. | Profit follows agreed nisbah; monetary loss fails closed. | Model component agreements explicitly and calculate only when every component's policy is represented, approved, and tested. Do not treat a composite as a single generic capital-weight rule. |
+| Net business result and break-even (worked contract examples) | Net profit is revenue less direct, operating, and other costs; break-even yields neither profit distribution nor loss allocation. | Business result computes these categories; calculator returns zero allocations for break-even. | Add golden tests matching source examples in IDR and document rounding assumptions separately from source rules. |
+
+### Source interpretation boundary
+
+The document supports the high-level rules above. It does not by itself specify production database isolation, tenant authorization, journal idempotency, payment settlement semantics, or a universal monetary-loss policy for every contract variant. Those are engineering controls or require an explicitly approved accounting/Sharia policy; they must not be represented as source-derived rulings.
+
 ## Known limitations — do not use for live financial transactions yet
 
 1. **Authentication context is not wired end-to-end.** The resource requires `RequestContextHolder.tenantVerified()`
