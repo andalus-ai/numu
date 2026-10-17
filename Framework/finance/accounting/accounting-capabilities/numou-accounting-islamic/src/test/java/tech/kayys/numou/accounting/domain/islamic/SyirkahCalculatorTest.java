@@ -36,6 +36,47 @@ class SyirkahCalculatorTest {
     }
 
     @Test
+    void ordinaryMudharabahLossIncludesZeroAllocationForManagingPartner() {
+        SyirkahContractVersion contract = contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "60"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "40"));
+        SyirkahCalculation result = calculator.calculate(contract, result("0", "0", "0", "100"));
+        assertEquals(2, result.allocations().size());
+        assertEquals(new BigDecimal("100.00"), allocation(result, "capital"));
+        assertEquals(new BigDecimal("0.00"), allocation(result, "manager"));
+    }
+
+    @Test
+    void abdanProfitUsesAgreedNisbah() {
+        SyirkahContractVersion contract = contract(SyirkahType.ABDAN,
+                party("a", SyirkahPartyRole.WORKING_PARTNER, "0", "40"),
+                party("b", SyirkahPartyRole.WORKING_PARTNER, "0", "60"));
+        SyirkahCalculation result = calculator.calculate(contract, result("100", "0", "0", "0"));
+        assertEquals(new BigDecimal("40.00"), allocation(result, "a"));
+        assertEquals(new BigDecimal("60.00"), allocation(result, "b"));
+    }
+
+    @Test
+    void wujuhProfitUsesAgreedNisbah() {
+        SyirkahContractVersion contract = contract(SyirkahType.WUJUH,
+                party("a", SyirkahPartyRole.WORKING_PARTNER, "0", "25"),
+                party("b", SyirkahPartyRole.WORKING_PARTNER, "0", "75"));
+        SyirkahCalculation result = calculator.calculate(contract, result("100", "0", "0", "0"));
+        assertEquals(new BigDecimal("25.00"), allocation(result, "a"));
+        assertEquals(new BigDecimal("75.00"), allocation(result, "b"));
+    }
+
+    @Test
+    void mufawadahProfitUsesAgreedNisbah() {
+        SyirkahContractVersion contract = contract(SyirkahType.MUFAWADHAH,
+                party("a", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "600", "65"),
+                party("b", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "400", "35"));
+        SyirkahCalculation result = calculator.calculate(contract, result("100", "0", "0", "0"));
+        assertEquals(new BigDecimal("65.00"), allocation(result, "a"));
+        assertEquals(new BigDecimal("35.00"), allocation(result, "b"));
+    }
+
+    @Test
     void musyarakahLossUsesCapitalContributions() {
         SyirkahContractVersion contract = contract(SyirkahType.MUSYARAKAH,
                 party("a", SyirkahPartyRole.CAPITAL_AND_MANAGING_PARTNER, "600", "50"),
