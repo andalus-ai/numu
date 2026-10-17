@@ -9,5 +9,6 @@ import tech.kayys.numou.accounting.domain.close.CloseCycleId;
 public interface SyirkahCloseOperations {
     String calculateAndPersistResult(CloseCycleId cycleId, String actor);
     String allocateAndPersistResult(CloseCycleId cycleId, String actor);
-    String approveAndPostDistribution(CloseCycleId cycleId, String actor);
+    String approveDistribution(CloseCycleId cycleId, String approver);
+    String postApprovedDistribution(CloseCycleId cycleId, String poster);
 }
