@@ -38,6 +38,7 @@ public record SyirkahContractVersion(
         if (effectiveUntil.isBefore(effectiveFrom)) throw new IllegalArgumentException("effectiveUntil precedes effectiveFrom");
         parties = List.copyOf(Objects.requireNonNull(parties, "parties"));
         if (parties.size() < 2) throw new IllegalArgumentException("Syirkah requires at least two parties");
+        int currencyScale = java.util.Currency.getInstance(currencyCode).getDefaultFractionDigits();
         Set<String> ids = new HashSet<>();
         BigDecimal totalNisbah = BigDecimal.ZERO;
         boolean hasCapitalProvider = false;
@@ -46,6 +47,12 @@ public record SyirkahContractVersion(
         for (SyirkahParty party : parties) {
             Objects.requireNonNull(party, "party");
             if (!ids.add(party.partyId())) throw new IllegalArgumentException("duplicate partyId: " + party.partyId());
+            try {
+                party.capitalContribution().setScale(currencyScale, java.math.RoundingMode.UNNECESSARY);
+            } catch (ArithmeticException ex) {
+                throw new IllegalArgumentException("capital contribution for " + party.partyId()
+                        + " exceeds the contract currency's minor-unit precision", ex);
+            }
             totalNisbah = totalNisbah.add(party.profitNisbahPercent());
             hasCapitalProvider |= party.providesCapital();
             hasPositiveCapitalProvider |= party.providesCapital() && party.capitalContribution().signum() > 0;

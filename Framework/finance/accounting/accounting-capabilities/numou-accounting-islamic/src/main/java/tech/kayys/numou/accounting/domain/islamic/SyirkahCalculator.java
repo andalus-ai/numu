@@ -34,11 +34,9 @@ public final class SyirkahCalculator {
         BigDecimal net = result.netResult();
         List<SyirkahAllocation> allocations;
         if (net.signum() > 0) {
-            if (contract.type() == SyirkahType.ABDAN || contract.type() == SyirkahType.WUJUH
-                    || contract.type() == SyirkahType.MUFAWADHAH) {
-                throw new UnsupportedOperationException("Profit policy for " + contract.type()
-                        + " requires an explicitly approved Sharia policy");
-            }
+            // Hukum-muamalah source: profit is distributed by the agreed nisbah
+            // for Abdan, Wujuh and Mufawadah as well; structure-specific loss
+            // policies are handled separately below.
             allocations = allocateByWeights(contract, net, contract.parties().stream()
                     .collect(java.util.stream.Collectors.toMap(SyirkahParty::partyId,
                             SyirkahParty::profitNisbahPercent, (a,b) -> a, LinkedHashMap::new)), "AGREED_NISBAH");
@@ -76,7 +74,18 @@ public final class SyirkahCalculator {
         if (weights.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add).signum() <= 0) {
             throw new IllegalArgumentException("no positive capital base exists for loss allocation");
         }
-        return allocateByWeights(contract, loss, weights, basis);
+        List<SyirkahAllocation> calculated = allocateByWeights(contract, loss, weights, basis);
+        Map<String, SyirkahAllocation> byParty = new LinkedHashMap<>();
+        calculated.forEach(a -> byParty.put(a.partyId(), a));
+        int scale = currencyScale(contract.currencyCode());
+        for (SyirkahParty party : contract.parties()) {
+            byParty.putIfAbsent(party.partyId(), new SyirkahAllocation(
+                    party.partyId(), BigDecimal.ZERO.setScale(scale), contract.currencyCode(),
+                    contract.type() == SyirkahType.MUDHARABAH
+                            ? "NOT_BEARING_ORDINARY_MUDHARABAH_LOSS"
+                            : "ZERO_CAPITAL_WEIGHT"));
+        }
+        return contract.parties().stream().map(p -> byParty.get(p.partyId())).toList();
     }
 
     private List<SyirkahAllocation> allocateByWeights(
@@ -134,6 +143,9 @@ public final class SyirkahCalculator {
                 .append(r.totalRevenue().toPlainString()).append('|').append(r.directCosts().toPlainString()).append('|')
                 .append(r.operatingCosts().toPlainString()).append('|').append(r.otherCosts().toPlainString()).append('|')
                 .append(r.evidenceReference()).append('|').append(net.toPlainString());
+        c.parties().forEach(p -> b.append("|PARTY:").append(p.partyId()).append(':').append(p.role())
+                .append(':').append(p.capitalContribution().toPlainString())
+                .append(':').append(p.profitNisbahPercent().toPlainString()));
         allocations.forEach(a -> b.append('|').append(a.partyId()).append(':').append(a.amount().toPlainString())
                 .append(':').append(a.basis()));
         return b.toString();
