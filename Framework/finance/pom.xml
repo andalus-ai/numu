@@ -23,6 +23,7 @@
         <module>common</module>
         <module>payment</module>
         <module>subscription</module>
+        <module>syirkah</module>
         <module>tax</module>
     </modules>
 
