@@ -85,6 +85,13 @@ public final class SyirkahLossResponsibility {
     /** A second person approves the determination; approval still does not post a receivable. */
     public void approve(String approver) {
         requireStatus(SyirkahLossResponsibilityStatus.DETERMINED);
+        if (cause != SyirkahLossCause.NEGLIGENCE && cause != SyirkahLossCause.MISCONDUCT
+                && cause != SyirkahLossCause.BREACH_OF_CONTRACT) {
+            throw new IllegalStateException("Only an independently determined negligence, misconduct, or breach may create a recovery posting");
+        }
+        if (responsiblePartyId == null || responsiblePartyId.isBlank()) {
+            throw new IllegalStateException("A responsible party must be established before approval");
+        }
         String checked = requireText(approver, "approver");
         if (checked.equals(reportedBy) || checked.equals(determinedBy)) {
             throw new SecurityException("Reporter and determiner cannot approve the responsibility assessment");
