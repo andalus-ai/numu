@@ -16,7 +16,9 @@ not approved for live accounting or payment processing.
 - Deterministic largest-remainder allocation using exact integer arithmetic in currency minor units.
 - Mudharabah ordinary-loss allocation to capital providers by capital risk.
 - Musyarakah ordinary-loss allocation by contributed capital.
-- Inan ordinary losses are allocated by contributed capital; Abdan, Wujuh, and Mufawadah profit/loss calculations fail closed pending approved structure-specific policies.
+- Profit uses agreed nisbah for Mudharabah, Musyarakah, Inan, Abdan, Wujuh, and Mufawadah.
+- Inan and Musyarakah ordinary losses are allocated by contributed capital; Mudharabah ordinary losses are allocated to capital providers only, with explicit zero allocations for non-capital partners.
+- Abdan monetary loss, Wujuh loss (whose policy differs between its two models), and Mufawadah composite loss remain fail-closed until the contract records the exact approved structure/policy for that period.
 - Calculation fingerprint and policy/version references.
 
 ### Application and persistence
@@ -29,12 +31,14 @@ not approved for live accounting or payment processing.
 - Immutable contract amendment workflow with draft, active, superseded, and rejected version states.
   Activation/rejection is maker-checker guarded, only the latest draft can activate, and only one open draft
   amendment is allowed at a time.
-- Mufawadah is represented as a contract type; its profit and loss calculations fail closed pending an approved policy.
+- Mufawadah is represented as a contract type; profit follows agreed nisbah, while loss calculation remains fail-closed because the source describes it as a composite of Inan, Abdan, Mudharabah, and Wujuh whose loss rules differ by component.
 - Settlement repository method is idempotency-keyed, locks the obligation row, caps cumulative settlement,
   and refuses settlement unless the calculation is already marked POSTED.
 - Audit-event rows for contract, result, calculation, approval, rejection, and settlement transitions.
 - API skeleton uses `RequestContextHolder` and refuses requests without a verified tenant and actor.
-- Tests expanded for large monetary values.
+- Evidence-backed loss responsibility aggregate separates reported loss, independent determination, maker-checker approval, journal reference, and reconciled recovery; ordinary loss and force majeure cannot be approved as partner recovery.
+- Syirkah-aware close-cycle option adds mandatory result, allocation, and distribution tasks; an orchestrator gates task completion on persisted operation references and does not complete distribution until a posted journal reference is returned.
+- Tests cover deterministic rounding, all-party allocations, profit nisbah across partnership types, responsibility approvals/settlement caps, and close-stage ordering.
 
 ## Known limitations — do not use for live financial transactions yet
 
@@ -60,6 +64,10 @@ not approved for live accounting or payment processing.
 8. Run the Maven reactor and CI; review all results before merge.
 9. Qualified Sharia advisers and accounting/legal professionals must approve supported structures, loss policies,
    evidence standards, and jurisdiction-specific rules.
+
+## Additional close integration boundary
+
+The close orchestrator expects a concrete SyirkahCloseOperations adapter to resolve the authoritative period result, persist the immutable calculation, allocate obligations, and return a confirmed posted journal reference. The current close aggregate is in-memory, so a crash between a domain operation and close-task completion is not atomic. Do not enable this workflow for live close until the adapter and durable close repository/transactional coordination are implemented.
 
 ## Accounting safety boundary
 
