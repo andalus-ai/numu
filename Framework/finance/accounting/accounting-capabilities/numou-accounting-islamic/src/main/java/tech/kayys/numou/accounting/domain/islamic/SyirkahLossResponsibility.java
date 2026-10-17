@@ -64,20 +64,27 @@ public final class SyirkahLossResponsibility {
     public void determine(SyirkahLossCause cause, String responsiblePartyId, List<String> evidenceReferences,
                           String determinationReference, String reviewer) {
         requireStatus(SyirkahLossResponsibilityStatus.REPORTED);
-        this.cause = Objects.requireNonNull(cause, "cause");
-        this.evidenceReferences = List.copyOf(Objects.requireNonNull(evidenceReferences, "evidenceReferences"));
-        if (this.evidenceReferences.isEmpty() || this.evidenceReferences.stream().anyMatch(e -> e == null || e.isBlank())) {
+        SyirkahLossCause checkedCause = Objects.requireNonNull(cause, "cause");
+        List<String> checkedEvidence = List.copyOf(Objects.requireNonNull(evidenceReferences, "evidenceReferences"));
+        if (checkedEvidence.isEmpty() || checkedEvidence.stream().anyMatch(e -> e == null || e.isBlank())) {
             throw new IllegalArgumentException("at least one valid evidence reference is required");
         }
-        this.determinationReference = requireText(determinationReference, "determinationReference");
-        this.determinedBy = requireText(reviewer, "reviewer");
-        if (reportedBy.equals(reviewer)) throw new SecurityException("Reporter cannot determine their own loss responsibility");
-        if (cause == SyirkahLossCause.NEGLIGENCE || cause == SyirkahLossCause.MISCONDUCT
-                || cause == SyirkahLossCause.BREACH_OF_CONTRACT) {
-            this.responsiblePartyId = requireText(responsiblePartyId, "responsiblePartyId");
-        } else {
-            this.responsiblePartyId = null;
+        String checkedDecision = requireText(determinationReference, "determinationReference");
+        String checkedReviewer = requireText(reviewer, "reviewer");
+        if (reportedBy.equals(checkedReviewer)) {
+            throw new SecurityException("Reporter cannot determine their own loss responsibility");
         }
+        String checkedResponsibleParty = null;
+        if (checkedCause == SyirkahLossCause.NEGLIGENCE || checkedCause == SyirkahLossCause.MISCONDUCT
+                || checkedCause == SyirkahLossCause.BREACH_OF_CONTRACT) {
+            checkedResponsibleParty = requireText(responsiblePartyId, "responsiblePartyId");
+        }
+        // Mutate only after every validation succeeds, so a rejected command is atomic in memory.
+        this.cause = checkedCause;
+        this.evidenceReferences = checkedEvidence;
+        this.determinationReference = checkedDecision;
+        this.determinedBy = checkedReviewer;
+        this.responsiblePartyId = checkedResponsibleParty;
         this.determinedAt = Instant.now();
         this.status = SyirkahLossResponsibilityStatus.DETERMINED;
     }
