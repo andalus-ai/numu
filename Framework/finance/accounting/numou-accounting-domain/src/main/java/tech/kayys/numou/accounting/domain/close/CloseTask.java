@@ -14,6 +14,7 @@ public final class CloseTask {
     private CloseTaskStatus status;
     private String completedBy;
     private Instant completedAt;
+    private String completionReference;
 
     public CloseTask(String taskCode, String name, CloseTaskKind kind, boolean mandatory) {
         this.taskCode = Objects.requireNonNull(taskCode, "taskCode must not be null");
@@ -31,7 +32,19 @@ public final class CloseTask {
     }
 
     public void complete(String user) {
+        complete(user, null);
+    }
+
+    /** Completes a task with an immutable result/journal reference where required. */
+    public void complete(String user, String reference) {
+        if (status != CloseTaskStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Task must be IN_PROGRESS before completion: " + taskCode);
+        }
         this.completedBy = Objects.requireNonNull(user, "completedBy user must not be null");
+        if (reference != null && reference.isBlank()) {
+            throw new IllegalArgumentException("completion reference must not be blank");
+        }
+        this.completionReference = reference;
         this.completedAt = Instant.now();
         this.status = CloseTaskStatus.COMPLETED;
     }
@@ -47,4 +60,5 @@ public final class CloseTask {
     public CloseTaskStatus status() { return status; }
     public String completedBy() { return completedBy; }
     public Instant completedAt() { return completedAt; }
+    public String completionReference() { return completionReference; }
 }
