@@ -143,6 +143,9 @@ public final class SyirkahCalculator {
                 .append(r.totalRevenue().toPlainString()).append('|').append(r.directCosts().toPlainString()).append('|')
                 .append(r.operatingCosts().toPlainString()).append('|').append(r.otherCosts().toPlainString()).append('|')
                 .append(r.evidenceReference()).append('|').append(net.toPlainString());
+        c.parties().forEach(p -> b.append("|PARTY:").append(p.partyId()).append(':').append(p.role())
+                .append(':').append(p.capitalContribution().toPlainString())
+                .append(':').append(p.profitNisbahPercent().toPlainString()));
         allocations.forEach(a -> b.append('|').append(a.partyId()).append(':').append(a.amount().toPlainString())
                 .append(':').append(a.basis()));
         return b.toString();
