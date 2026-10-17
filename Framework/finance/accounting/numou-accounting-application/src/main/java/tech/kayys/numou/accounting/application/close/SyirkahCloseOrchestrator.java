@@ -26,6 +26,7 @@ public final class SyirkahCloseOrchestrator {
 
     public String calculateResult(CloseCycleId cycleId, String actor) {
         requireOpenSyirkahCycle(cycleId);
+        requireTaskNotCompleted(cycleId, SyirkahCloseTaskCodes.RESULT);
         String snapshot = requireReference(operations.calculateAndPersistResult(cycleId, actor), "result snapshot");
         closeService.completeSyirkahTask(cycleId, SyirkahCloseTaskCodes.RESULT, actor, snapshot);
         return snapshot;
@@ -33,6 +34,7 @@ public final class SyirkahCloseOrchestrator {
 
     public String allocateResult(CloseCycleId cycleId, String actor) {
         requireTaskCompleted(cycleId, SyirkahCloseTaskCodes.RESULT);
+        requireTaskNotCompleted(cycleId, SyirkahCloseTaskCodes.ALLOCATION);
         String allocation = requireReference(operations.allocateAndPersistResult(cycleId, actor), "allocation snapshot");
         closeService.completeSyirkahTask(cycleId, SyirkahCloseTaskCodes.ALLOCATION, actor, allocation);
         return allocation;
@@ -41,6 +43,7 @@ public final class SyirkahCloseOrchestrator {
     public String approveAndPostDistribution(CloseCycleId cycleId, String actor) {
         requireTaskCompleted(cycleId, SyirkahCloseTaskCodes.RESULT);
         requireTaskCompleted(cycleId, SyirkahCloseTaskCodes.ALLOCATION);
+        requireTaskNotCompleted(cycleId, SyirkahCloseTaskCodes.DISTRIBUTION);
         String journal = requireReference(operations.approveAndPostDistribution(cycleId, actor), "posted journal reference");
         closeService.completeSyirkahTask(cycleId, SyirkahCloseTaskCodes.DISTRIBUTION, actor, journal);
         return journal;
@@ -67,6 +70,16 @@ public final class SyirkahCloseOrchestrator {
                 .orElseThrow(() -> new IllegalStateException("Syirkah-enabled close task missing: " + taskCode));
         if (task.status() != tech.kayys.numou.accounting.domain.close.CloseTaskStatus.COMPLETED) {
             throw new IllegalStateException("Prerequisite close task is incomplete: " + taskCode);
+        }
+    }
+
+    private void requireTaskNotCompleted(CloseCycleId id, String taskCode) {
+        CloseCycle cycle = closeService.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("CloseCycle not found: " + id.value()));
+        var task = cycle.findTask(taskCode)
+                .orElseThrow(() -> new IllegalStateException("Syirkah-enabled close task missing: " + taskCode));
+        if (task.status() == tech.kayys.numou.accounting.domain.close.CloseTaskStatus.COMPLETED) {
+            throw new IllegalStateException("Syirkah close task is already completed: " + taskCode);
         }
     }
 
