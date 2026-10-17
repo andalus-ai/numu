@@ -4,7 +4,7 @@
 -- database re-verifies on insert. Every table is tenant-scoped with fail-closed RLS (transaction-local
 -- app.tenant_id). The application role must be NOSUPERUSER NOBYPASSRLS.
 
-CREATE TABLE IF NOT EXISTS syirkah (
+CREATE TABLE IF NOT EXISTS syirkah_ledger (
     syirkah_id            uuid        PRIMARY KEY,
     tenant_id             uuid        NOT NULL,
     syirkah_type          text        NOT NULL CHECK (syirkah_type IN ('INAN','ABDAN','MUDHARABAH','WUJUH','MUFAWADHAH')),
@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS syirkah (
     created_at            timestamptz NOT NULL,
     updated_at            timestamptz NOT NULL
 );
-CREATE INDEX IF NOT EXISTS syirkah_tenant_idx ON syirkah (tenant_id, status);
+CREATE INDEX IF NOT EXISTS syirkah_ledger_tenant_idx ON syirkah_ledger (tenant_id, status);
 
-CREATE TABLE IF NOT EXISTS syirkah_contract (
-    syirkah_id     uuid    NOT NULL REFERENCES syirkah (syirkah_id),
+CREATE TABLE IF NOT EXISTS syirkah_ledger_contract (
+    syirkah_id     uuid    NOT NULL REFERENCES syirkah_ledger (syirkah_id),
     version        integer NOT NULL CHECK (version >= 1),
     tenant_id      uuid    NOT NULL,
     effective_from date    NOT NULL,
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS syirkah_contract (
     PRIMARY KEY (syirkah_id, version)
 );
 
-CREATE TABLE IF NOT EXISTS syirkah_partner_movement (
-    syirkah_id   uuid        NOT NULL REFERENCES syirkah (syirkah_id),
+CREATE TABLE IF NOT EXISTS syirkah_ledger_movement (
+    syirkah_id   uuid        NOT NULL REFERENCES syirkah_ledger (syirkah_id),
     sequence     bigint      NOT NULL CHECK (sequence >= 1),
     tenant_id    uuid        NOT NULL,
     movement_id  uuid        NOT NULL,
@@ -46,12 +46,12 @@ CREATE TABLE IF NOT EXISTS syirkah_partner_movement (
     prev_hash    char(64)    NOT NULL,
     hash         char(64)    NOT NULL,
     PRIMARY KEY (syirkah_id, sequence),
-    CONSTRAINT syirkah_movement_idem_uq UNIQUE (syirkah_id, partner_id, type, reference)  -- replay is a no-op
+    CONSTRAINT syirkah_ledger_movement_idem_uq UNIQUE (syirkah_id, partner_id, type, reference)  -- replay is a no-op
 );
-CREATE INDEX IF NOT EXISTS syirkah_movement_partner_idx ON syirkah_partner_movement (syirkah_id, partner_id);
+CREATE INDEX IF NOT EXISTS syirkah_ledger_movement_partner_idx ON syirkah_ledger_movement (syirkah_id, partner_id);
 
-CREATE TABLE IF NOT EXISTS syirkah_close (
-    syirkah_id        uuid        NOT NULL REFERENCES syirkah (syirkah_id),
+CREATE TABLE IF NOT EXISTS syirkah_ledger_close (
+    syirkah_id        uuid        NOT NULL REFERENCES syirkah_ledger (syirkah_id),
     close_id          uuid        NOT NULL,
     sequence          integer     NOT NULL CHECK (sequence >= 1),
     tenant_id         uuid        NOT NULL,
@@ -67,12 +67,12 @@ CREATE TABLE IF NOT EXISTS syirkah_close (
     prev_hash         char(64)    NOT NULL,
     hash              char(64)    NOT NULL,
     PRIMARY KEY (syirkah_id, close_id),
-    CONSTRAINT syirkah_close_seq_uq UNIQUE (syirkah_id, sequence),
-    FOREIGN KEY (syirkah_id, contract_version) REFERENCES syirkah_contract (syirkah_id, version)
+    CONSTRAINT syirkah_ledger_close_seq_uq UNIQUE (syirkah_id, sequence),
+    FOREIGN KEY (syirkah_id, contract_version) REFERENCES syirkah_ledger_contract (syirkah_id, version)
 );
 
 -- Journal idempotency: one journal entry per source movement, even under retries / replays.
-CREATE TABLE IF NOT EXISTS syirkah_journal_posting (
+CREATE TABLE IF NOT EXISTS syirkah_ledger_journal_posting (
     tenant_id        uuid        NOT NULL,
     source_key       text        NOT NULL,
     journal_entry_id uuid        NOT NULL,
@@ -88,21 +88,21 @@ BEGIN
     RAISE EXCEPTION '% is append-only (% rejected)', TG_TABLE_NAME, TG_OP USING ERRCODE = 'restrict_violation';
 END; $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS syirkah_contract_immutable ON syirkah_contract;
-CREATE TRIGGER syirkah_contract_immutable BEFORE UPDATE OR DELETE ON syirkah_contract
+DROP TRIGGER IF EXISTS syirkah_ledger_contract_immutable ON syirkah_ledger_contract;
+CREATE TRIGGER syirkah_ledger_contract_immutable BEFORE UPDATE OR DELETE ON syirkah_ledger_contract
     FOR EACH ROW EXECUTE FUNCTION syirkah_append_only();
-DROP TRIGGER IF EXISTS syirkah_movement_immutable ON syirkah_partner_movement;
-CREATE TRIGGER syirkah_movement_immutable BEFORE UPDATE OR DELETE ON syirkah_partner_movement
+DROP TRIGGER IF EXISTS syirkah_movement_immutable ON syirkah_ledger_movement;
+CREATE TRIGGER syirkah_movement_immutable BEFORE UPDATE OR DELETE ON syirkah_ledger_movement
     FOR EACH ROW EXECUTE FUNCTION syirkah_append_only();
-DROP TRIGGER IF EXISTS syirkah_movement_no_truncate ON syirkah_partner_movement;
-CREATE TRIGGER syirkah_movement_no_truncate BEFORE TRUNCATE ON syirkah_partner_movement
+DROP TRIGGER IF EXISTS syirkah_movement_no_truncate ON syirkah_ledger_movement;
+CREATE TRIGGER syirkah_movement_no_truncate BEFORE TRUNCATE ON syirkah_ledger_movement
     FOR EACH STATEMENT EXECUTE FUNCTION syirkah_append_only();
 
 -- A close may only change status ACTIVE -> REVERSED; everything else is frozen.
-CREATE OR REPLACE FUNCTION syirkah_close_guard() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION syirkah_ledger_close_guard() RETURNS trigger AS $$
 BEGIN
     IF TG_OP = 'DELETE' THEN
-        RAISE EXCEPTION 'syirkah_close is append-only (DELETE rejected)' USING ERRCODE = 'restrict_violation';
+        RAISE EXCEPTION 'syirkah_ledger_close is append-only (DELETE rejected)' USING ERRCODE = 'restrict_violation';
     END IF;
     IF (OLD.syirkah_id, OLD.close_id, OLD.sequence, OLD.tenant_id, OLD.period_start, OLD.period_end,
         OLD.contract_version, OLD.supersedes, OLD.snapshot, OLD.first_movement, OLD.last_movement, OLD.closed_at,
@@ -112,13 +112,13 @@ BEGIN
         NEW.contract_version, NEW.supersedes, NEW.snapshot, NEW.first_movement, NEW.last_movement, NEW.closed_at,
         NEW.prev_hash, NEW.hash)
        OR NOT (OLD.status = 'ACTIVE' AND NEW.status IN ('ACTIVE','REVERSED')) THEN
-        RAISE EXCEPTION 'syirkah_close is frozen except ACTIVE -> REVERSED' USING ERRCODE = 'restrict_violation';
+        RAISE EXCEPTION 'syirkah_ledger_close is frozen except ACTIVE -> REVERSED' USING ERRCODE = 'restrict_violation';
     END IF;
     RETURN NEW;
 END; $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS syirkah_close_guard_trg ON syirkah_close;
-CREATE TRIGGER syirkah_close_guard_trg BEFORE UPDATE OR DELETE ON syirkah_close
-    FOR EACH ROW EXECUTE FUNCTION syirkah_close_guard();
+DROP TRIGGER IF EXISTS syirkah_ledger_close_guard_trg ON syirkah_ledger_close;
+CREATE TRIGGER syirkah_ledger_close_guard_trg BEFORE UPDATE OR DELETE ON syirkah_ledger_close
+    FOR EACH ROW EXECUTE FUNCTION syirkah_ledger_close_guard();
 
 -- ---------------------------------------------------------------------------
 -- Hash-chain enforcement on insert: gapless sequence and prev_hash = hash of the previous movement/close.
@@ -127,7 +127,7 @@ CREATE TRIGGER syirkah_close_guard_trg BEFORE UPDATE OR DELETE ON syirkah_close
 CREATE OR REPLACE FUNCTION syirkah_movement_chain() RETURNS trigger AS $$
 DECLARE last_seq bigint; last_hash char(64);
 BEGIN
-    SELECT sequence, hash INTO last_seq, last_hash FROM syirkah_partner_movement
+    SELECT sequence, hash INTO last_seq, last_hash FROM syirkah_ledger_movement
      WHERE syirkah_id = NEW.syirkah_id ORDER BY sequence DESC LIMIT 1;
     IF last_seq IS NULL THEN
         IF NEW.sequence <> 1 OR NEW.prev_hash <> repeat('0', 64) THEN
@@ -138,14 +138,14 @@ BEGIN
     END IF;
     RETURN NEW;
 END; $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS syirkah_movement_chain_trg ON syirkah_partner_movement;
-CREATE TRIGGER syirkah_movement_chain_trg BEFORE INSERT ON syirkah_partner_movement
+DROP TRIGGER IF EXISTS syirkah_movement_chain_trg ON syirkah_ledger_movement;
+CREATE TRIGGER syirkah_movement_chain_trg BEFORE INSERT ON syirkah_ledger_movement
     FOR EACH ROW EXECUTE FUNCTION syirkah_movement_chain();
 
-CREATE OR REPLACE FUNCTION syirkah_close_chain() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION syirkah_ledger_close_chain() RETURNS trigger AS $$
 DECLARE last_seq integer; last_hash char(64);
 BEGIN
-    SELECT sequence, hash INTO last_seq, last_hash FROM syirkah_close
+    SELECT sequence, hash INTO last_seq, last_hash FROM syirkah_ledger_close
      WHERE syirkah_id = NEW.syirkah_id ORDER BY sequence DESC LIMIT 1;
     IF last_seq IS NULL THEN
         IF NEW.sequence <> 1 OR NEW.prev_hash <> repeat('0', 64) THEN
@@ -156,14 +156,14 @@ BEGIN
     END IF;
     RETURN NEW;
 END; $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS syirkah_close_chain_trg ON syirkah_close;
-CREATE TRIGGER syirkah_close_chain_trg BEFORE INSERT ON syirkah_close
-    FOR EACH ROW EXECUTE FUNCTION syirkah_close_chain();
+DROP TRIGGER IF EXISTS syirkah_ledger_close_chain_trg ON syirkah_ledger_close;
+CREATE TRIGGER syirkah_ledger_close_chain_trg BEFORE INSERT ON syirkah_ledger_close
+    FOR EACH ROW EXECUTE FUNCTION syirkah_ledger_close_chain();
 
 -- ---------------------------------------------------------------------------
 -- Derived partner positions (never stored): fold of the movement ledger. Reconciliation source of truth.
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW syirkah_partner_position WITH (security_invoker = true) AS
+CREATE OR REPLACE VIEW syirkah_ledger_position WITH (security_invoker = true) AS
 SELECT syirkah_id, tenant_id, partner_id, currency,
        sum(amount * CASE type WHEN 'CONTRIBUTION' THEN 1 WHEN 'CAPITAL_RETURN' THEN -1 WHEN 'PROFIT_RETAINED' THEN 1
                               WHEN 'BASIS_CLOSED' THEN -1 ELSE 0 END)                                   AS capital_basis,
@@ -174,7 +174,7 @@ SELECT syirkah_id, tenant_id, partner_id, currency,
                               WHEN 'PROFIT_DISTRIBUTED' THEN -1 ELSE 0 END)                             AS profit_payable,
        sum(amount * CASE type WHEN 'MANAGER_LOSS_LIABILITY' THEN 1 WHEN 'DEFICIT_TO_LIABILITY' THEN 1
                               WHEN 'LIABILITY_SETTLED' THEN -1 ELSE 0 END)                              AS liability
-  FROM syirkah_partner_movement
+  FROM syirkah_ledger_movement
  GROUP BY syirkah_id, tenant_id, partner_id, currency;
 
 -- ---------------------------------------------------------------------------
@@ -183,8 +183,8 @@ SELECT syirkah_id, tenant_id, partner_id, currency,
 DO $$
 DECLARE t text;
 BEGIN
-    FOREACH t IN ARRAY ARRAY['syirkah','syirkah_contract','syirkah_partner_movement','syirkah_close',
-                             'syirkah_journal_posting']
+    FOREACH t IN ARRAY ARRAY['syirkah_ledger','syirkah_ledger_contract','syirkah_ledger_movement','syirkah_ledger_close',
+                             'syirkah_ledger_journal_posting']
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);

@@ -34,7 +34,7 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 
 ## Known limits (be aware before production)
 
-* No JDBC/Panache repository yet: only the schema (`V300`, verified on PostgreSQL 16 as a non-superuser) and the in-memory adapter. A repository maps `Syirkah.Snapshot` ⇄ tables; contracts/closes are stored as JSONB.
+* No JDBC/Panache repository yet: only the schema (`V300`, tables prefixed `syirkah_ledger_` so they coexist with the accounting module's own `syirkah_*` tables; verified on PostgreSQL 16 as a non-superuser) and the in-memory adapter. A repository maps `Syirkah.Snapshot` ⇄ tables; contracts/closes are stored as JSONB.
 * Correcting a close after distribution, or an older (non-latest) close, is intentionally unsupported; use an explicit adjusting close.
 * Liquidation treats all assets as already converted to cash (`LiquidationInput`); asset-by-asset sale/syuf'ah bookkeeping is out of scope.
 * Mufawadhah conditions follow the Hanafi rule (equal capital and work); other madhhab variants would need a policy switch.
