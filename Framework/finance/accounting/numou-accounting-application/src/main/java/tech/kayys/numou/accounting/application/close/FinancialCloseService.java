@@ -24,7 +24,12 @@ public final class FinancialCloseService {
     }
 
     public CloseCycle openCycle(CloseCycleId id, String tenantId, String ledgerId, String fiscalPeriodId) {
-        CloseCycle cycle = CloseCycle.open(id, tenantId, ledgerId, fiscalPeriodId);
+        return openCycle(id, tenantId, ledgerId, fiscalPeriodId, false);
+    }
+
+    public CloseCycle openCycle(CloseCycleId id, String tenantId, String ledgerId,
+                                String fiscalPeriodId, boolean syirkahEnabled) {
+        CloseCycle cycle = CloseCycle.open(id, tenantId, ledgerId, fiscalPeriodId, syirkahEnabled);
         closeCycles.put(cycle.id(), cycle);
         return cycle;
     }
@@ -33,7 +38,33 @@ public final class FinancialCloseService {
         CloseCycle cycle = load(cycleId);
         CloseTask task = cycle.findTask(taskCode)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskCode));
+        if (isSyirkahTask(task)) {
+            throw new IllegalStateException("Syirkah close tasks may only be completed by the Syirkah close orchestrator");
+        }
+        task.start();
         task.complete(user);
+    }
+
+    void completeSyirkahTask(CloseCycleId cycleId, String taskCode, String user,
+                             String operationEvidenceReference) {
+        if (operationEvidenceReference == null || operationEvidenceReference.isBlank()) {
+            throw new IllegalArgumentException("operationEvidenceReference must not be blank");
+        }
+        CloseCycle cycle = load(cycleId);
+        if (cycle.status() != tech.kayys.numou.accounting.domain.close.CloseStatus.OPEN) {
+            throw new IllegalStateException("Syirkah tasks can only complete while close cycle is OPEN");
+        }
+        CloseTask task = cycle.findTask(taskCode)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskCode));
+        if (!isSyirkahTask(task)) throw new IllegalArgumentException("Not a Syirkah close task: " + taskCode);
+        task.start();
+        task.complete(user);
+    }
+
+    private static boolean isSyirkahTask(CloseTask task) {
+        return task.kind() == tech.kayys.numou.accounting.domain.close.CloseTaskKind.SYIRKAH_RESULT
+                || task.kind() == tech.kayys.numou.accounting.domain.close.CloseTaskKind.SYIRKAH_ALLOCATION
+                || task.kind() == tech.kayys.numou.accounting.domain.close.CloseTaskKind.SYIRKAH_DISTRIBUTION;
     }
 
     public CloseValidationEngine.ValidationResult beginValidation(CloseCycleId cycleId) {
