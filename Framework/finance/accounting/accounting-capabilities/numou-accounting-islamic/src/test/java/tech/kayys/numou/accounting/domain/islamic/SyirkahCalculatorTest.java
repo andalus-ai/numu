@@ -154,6 +154,19 @@ class SyirkahCalculatorTest {
     }
 
     @Test
+    void rejectsBusinessAmountsBeyondCurrencyMinorUnitPrecision() {
+        assertThrows(IllegalArgumentException.class,
+                () -> result("1.001", "0", "0", "0"));
+    }
+
+    @Test
+    void rejectsCapitalContributionBeyondCurrencyMinorUnitPrecision() {
+        assertThrows(IllegalArgumentException.class, () -> contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "100.001", "50"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "50")));
+    }
+
+    @Test
     void calculationFingerprintIncludesPartyTerms() {
         SyirkahContractVersion first = contract(SyirkahType.MUDHARABAH,
                 party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "60"),
