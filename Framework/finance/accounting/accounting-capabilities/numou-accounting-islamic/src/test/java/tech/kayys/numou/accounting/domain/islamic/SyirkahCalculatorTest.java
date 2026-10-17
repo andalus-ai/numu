@@ -154,6 +154,18 @@ class SyirkahCalculatorTest {
     }
 
     @Test
+    void calculationFingerprintIncludesPartyTerms() {
+        SyirkahContractVersion first = contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "60"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "40"));
+        SyirkahContractVersion changedTerms = contract(SyirkahType.MUDHARABAH,
+                party("capital", SyirkahPartyRole.CAPITAL_PROVIDER, "1000", "70"),
+                party("manager", SyirkahPartyRole.MANAGING_PARTNER, "0", "30"));
+        assertNotEquals(calculator.calculate(first, result("100", "0", "0", "0")).calculationHash(),
+                calculator.calculate(changedTerms, result("100", "0", "0", "0")).calculationHash());
+    }
+
+    @Test
     void rejectsNisbahThatDoesNotTotalOneHundred() {
         assertThrows(IllegalArgumentException.class, () -> new SyirkahContractVersion("c", 1, "t", "co", "USD",
                 SyirkahType.MUDHARABAH, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), "policy-1",
