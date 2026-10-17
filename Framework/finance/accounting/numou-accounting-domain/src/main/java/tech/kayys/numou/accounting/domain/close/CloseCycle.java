@@ -30,14 +30,31 @@ public final class CloseCycle {
     }
 
     public static CloseCycle open(CloseCycleId id, String tenantId, String ledgerId, String fiscalPeriodId) {
-        List<CloseTask> defaultTasks = List.of(
+        return open(id, tenantId, ledgerId, fiscalPeriodId, false);
+    }
+
+    /**
+     * Opens a close cycle with Syirkah tasks only when the ledger/company is configured
+     * for Syirkah accounting. The existing API remains backward compatible.
+     */
+    public static CloseCycle open(CloseCycleId id, String tenantId, String ledgerId,
+                                  String fiscalPeriodId, boolean syirkahEnabled) {
+        List<CloseTask> defaultTasks = new ArrayList<>(List.of(
                 new CloseTask("TASK_SUBLEDGER_CUTOFF", "Subledger Cut-off", CloseTaskKind.SUBLEDGER_CUTOFF, true),
                 new CloseTask("TASK_ACCRUALS", "Post Accruals", CloseTaskKind.ACCRUALS, true),
                 new CloseTask("TASK_DEPRECIATION", "Fixed Assets Depreciation", CloseTaskKind.DEPRECIATION, true),
                 new CloseTask("TASK_FX_REVALUATION", "Multi-Currency FX Revaluation", CloseTaskKind.FX_REVALUATION, false),
-                new CloseTask("TASK_RECONCILIATION", "Subledger & Bank Reconciliation", CloseTaskKind.RECONCILIATION, true),
-                new CloseTask("TASK_LOCK", "General Ledger Hard Lock", CloseTaskKind.LOCK, true)
-        );
+                new CloseTask("TASK_RECONCILIATION", "Subledger & Bank Reconciliation", CloseTaskKind.RECONCILIATION, true)
+        ));
+        if (syirkahEnabled) {
+            defaultTasks.add(new CloseTask(SyirkahCloseTaskCodes.RESULT,
+                    "Calculate Syirkah Financial Result", CloseTaskKind.SYIRKAH_RESULT, true));
+            defaultTasks.add(new CloseTask(SyirkahCloseTaskCodes.ALLOCATION,
+                    "Allocate Syirkah Result", CloseTaskKind.SYIRKAH_ALLOCATION, true));
+            defaultTasks.add(new CloseTask(SyirkahCloseTaskCodes.DISTRIBUTION,
+                    "Approve and post Syirkah Distribution", CloseTaskKind.SYIRKAH_DISTRIBUTION, true));
+        }
+        defaultTasks.add(new CloseTask("TASK_LOCK", "General Ledger Hard Lock", CloseTaskKind.LOCK, true));
         return new CloseCycle(id, tenantId, ledgerId, fiscalPeriodId, defaultTasks);
     }
 
