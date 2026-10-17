@@ -40,12 +40,21 @@ public final class SyirkahCloseOrchestrator {
         return allocation;
     }
 
-    public String approveAndPostDistribution(CloseCycleId cycleId, String actor) {
+    /** Maker-checker approval is a separate durable operation and never completes the distribution task. */
+    public String approveDistribution(CloseCycleId cycleId, String approver) {
         requireTaskCompleted(cycleId, SyirkahCloseTaskCodes.RESULT);
         requireTaskCompleted(cycleId, SyirkahCloseTaskCodes.ALLOCATION);
         requireTaskNotCompleted(cycleId, SyirkahCloseTaskCodes.DISTRIBUTION);
-        String journal = requireReference(operations.approveAndPostDistribution(cycleId, actor), "posted journal reference");
-        closeService.completeSyirkahTask(cycleId, SyirkahCloseTaskCodes.DISTRIBUTION, actor, journal);
+        return requireReference(operations.approveDistribution(cycleId, approver), "distribution approval reference");
+    }
+
+    /** Completes the close task only after the adapter confirms a committed GL journal reference. */
+    public String postDistribution(CloseCycleId cycleId, String poster) {
+        requireTaskCompleted(cycleId, SyirkahCloseTaskCodes.RESULT);
+        requireTaskCompleted(cycleId, SyirkahCloseTaskCodes.ALLOCATION);
+        requireTaskNotCompleted(cycleId, SyirkahCloseTaskCodes.DISTRIBUTION);
+        String journal = requireReference(operations.postApprovedDistribution(cycleId, poster), "posted journal reference");
+        closeService.completeSyirkahTask(cycleId, SyirkahCloseTaskCodes.DISTRIBUTION, poster, journal);
         return journal;
     }
 
