@@ -58,7 +58,7 @@ public final class FinancialCloseService {
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskCode));
         if (!isSyirkahTask(task)) throw new IllegalArgumentException("Not a Syirkah close task: " + taskCode);
         task.start();
-        task.complete(user);
+        task.complete(user, operationEvidenceReference);
     }
 
     private static boolean isSyirkahTask(CloseTask task) {
