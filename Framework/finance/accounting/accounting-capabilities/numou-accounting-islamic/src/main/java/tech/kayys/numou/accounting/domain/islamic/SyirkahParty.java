@@ -1,6 +1,7 @@
 package tech.kayys.numou.accounting.domain.islamic;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 
 /**
@@ -25,6 +26,11 @@ public record SyirkahParty(
         }
         if (profitNisbahPercent.signum() < 0 || profitNisbahPercent.compareTo(new BigDecimal("100")) > 0) {
             throw new IllegalArgumentException("profitNisbahPercent must be between 0 and 100");
+        }
+        try {
+            profitNisbahPercent = profitNisbahPercent.setScale(4, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("profitNisbahPercent supports at most four decimal places", ex);
         }
     }
 
