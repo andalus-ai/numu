@@ -790,7 +790,7 @@ class SyirkahTest {
         close(s, JAN1, JAN31, profit(10_000), ProfitDisposition.DISTRIBUTE);
         s.startLiquidation(NOW);
 
-        assertThrows(InvalidStateException.class,
+        assertThrows(tech.kayys.numou.foundation.domain.exception.InvalidStateException.class,
                 () -> s.distributeProfit(A, idr(1_000), "after-liquidation-start", NOW));
     }
 
@@ -1025,5 +1025,26 @@ class SyirkahTest {
                 close.previousHash(), close.hash());
 
         assertFalse(tampered.hashIsValid(), "changing a material fault finding must invalidate the audit hash");
+    }
+
+
+    @Test
+    void restoreRejectsCloseMovementRangeTampering() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+
+        CloseSnapshot tamperedClose = new CloseSnapshot(original.id(), original.sequence(),
+                original.periodStart(), original.periodEnd(), original.contractVersion(),
+                original.contractCanonical(), original.result(), original.disposition(), original.fault(),
+                original.lines(), original.supersedes(), original.status(),
+                original.firstMovementSequence() + 1, original.lastMovementSequence(),
+                original.closedAt(), original.previousHash(), original.hash());
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                List.of(tamperedClose), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
     }
 }
