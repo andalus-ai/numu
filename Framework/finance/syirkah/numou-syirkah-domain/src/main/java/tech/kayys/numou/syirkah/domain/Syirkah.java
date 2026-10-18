@@ -368,7 +368,13 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             lossBorne = lossBorne.add(line.lossBorne());
             managerLiability = managerLiability.add(line.managerLiability());
             retained = retained.add(line.retained());
-            if (line.retained().isNegative() || line.retained().compareTo(line.profitShare()) > 0) {
+            if (line.capitalRestored().isNegative() || line.profitShare().isNegative()
+                    || line.lossBorne().isNegative() || line.managerLiability().isNegative()
+                    || line.retained().isNegative()) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " contains a negative allocation component");
+            }
+            if (line.retained().compareTo(line.profitShare()) > 0) {
                 throw new IllegalStateException("stored close " + close.id().value()
                         + " retains more than the partner profit share");
             }
