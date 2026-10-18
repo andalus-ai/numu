@@ -295,6 +295,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
         }
         if (st.liquidation() != null) {
+            if (st.liquidation().completedAt().isBefore(st.createdAt())
+                    || st.liquidation().completedAt().isAfter(st.updatedAt())) {
+                throw new IllegalStateException("stored liquidation completion timestamp falls outside snapshot lifetime");
+            }
             validateRestoredLiquidation(st.liquidation(), st.scale(),
                     st.contracts().get(st.contracts().size() - 1).currency(),
                     st.contracts().get(st.contracts().size() - 1).partnerIds(),
