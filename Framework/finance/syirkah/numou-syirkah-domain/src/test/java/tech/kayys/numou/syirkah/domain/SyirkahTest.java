@@ -370,6 +370,43 @@ class SyirkahTest {
 
 
     @Test
+    void restoreRejectsCloseStartingBeforeItsAkadEffectiveDateEvenWhenRehashed() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(1_000_000), ProfitDisposition.RETAIN);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        SyirkahContract originalContract = snapshot.contracts().get(0);
+        SyirkahContract forgedContract = new SyirkahContract(originalContract.version(),
+                originalContract.type(), originalContract.currency(), originalContract.partners(),
+                originalContract.capital(), originalContract.nisbah(), originalContract.profitBasis(),
+                originalContract.lossSharing(), originalContract.declaredClauses(), originalContract.witnesses(),
+                originalContract.ijabQabulRecorded(), FEB1);
+        List<SyirkahContract> forgedContracts = new ArrayList<>(snapshot.contracts());
+        forgedContracts.set(0, forgedContract);
+
+        CloseSnapshot originalClose = snapshot.closes().get(0);
+        String forgedCanonical = forgedContract.canonical();
+        String forgedHash = CloseSnapshot.computeHashV3(originalClose.id(), originalClose.sequence(),
+                originalClose.periodStart(), originalClose.periodEnd(), originalClose.contractVersion(),
+                forgedCanonical, originalClose.result(), originalClose.disposition(), originalClose.fault(),
+                originalClose.lines(), originalClose.supersedes(), originalClose.previousHash(),
+                originalClose.firstMovementSequence(), originalClose.lastMovementSequence());
+        CloseSnapshot forgedClose = new CloseSnapshot(originalClose.id(), originalClose.sequence(),
+                originalClose.periodStart(), originalClose.periodEnd(), originalClose.contractVersion(),
+                forgedCanonical, originalClose.result(), originalClose.disposition(), originalClose.fault(),
+                originalClose.lines(), originalClose.supersedes(), originalClose.status(),
+                originalClose.firstMovementSequence(), originalClose.lastMovementSequence(),
+                originalClose.closedAt(), originalClose.previousHash(), forgedHash);
+        List<CloseSnapshot> forgedCloses = new ArrayList<>(snapshot.closes());
+        forgedCloses.set(0, forgedClose);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), forgedContracts, snapshot.movements(),
+                forgedCloses, snapshot.liquidation(), snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("starts before its akad effective date"));
+    }
+
+    @Test
     void restoreRejectsContractHistoryWithNonIncreasingEffectiveDates() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(1_000_000), ProfitDisposition.RETAIN);
