@@ -601,6 +601,18 @@ class SyirkahTest {
     }
 
     @Test
+    void liquidationRejectsManagerFaultLiabilityInWrongCurrency() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.startLiquidation(NOW);
+        var usd = tech.kayys.numou.foundation.domain.valueobject.Currency.of("USD");
+        Money wrongCurrency = Money.of(BigDecimal.ONE, usd);
+
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(
+                new LiquidationInput(idr(0), idr(0), true, FEB28),
+                ManagerFault.of(wrongCurrency, "documented breach"), NOW));
+    }
+
+    @Test
     void liquidationAuditHashBindsPayoutsAndAllocationLines() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
