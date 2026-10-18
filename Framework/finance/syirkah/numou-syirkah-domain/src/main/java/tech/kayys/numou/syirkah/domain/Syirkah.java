@@ -145,6 +145,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 || st.createdAt() == null || st.updatedAt() == null) {
             throw new IllegalStateException("stored syirkah snapshot is missing required state");
         }
+        if (st.updatedAt().isBefore(st.createdAt())) {
+            throw new IllegalStateException("stored syirkah snapshot updatedAt precedes createdAt");
+        }
         if (st.version() < 0) {
             throw new IllegalStateException("stored syirkah snapshot has negative aggregate version "
                     + st.version());
