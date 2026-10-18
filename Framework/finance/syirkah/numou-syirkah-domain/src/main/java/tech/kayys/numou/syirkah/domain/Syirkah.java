@@ -316,6 +316,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                     || st.liquidation().completedAt().isAfter(st.updatedAt())) {
                 throw new IllegalStateException("stored liquidation completion timestamp falls outside snapshot lifetime");
             }
+            LocalDate latestCloseEnd = st.closes().stream()
+                    .filter(close -> close.status() == CloseStatus.ACTIVE)
+                    .map(CloseSnapshot::periodEnd)
+                    .max(LocalDate::compareTo)
+                    .orElse(st.contracts().get(st.contracts().size() - 1).effectiveFrom());
+            if (st.liquidation().input().liquidationDate().isBefore(latestCloseEnd)) {
+                throw new IllegalStateException("stored liquidation date precedes the latest active close or current akad effective date");
+            }
             validateRestoredLiquidation(st.liquidation(), st.scale(),
                     st.contracts().get(st.contracts().size() - 1).currency(),
                     st.contracts().get(st.contracts().size() - 1).partnerIds(),
@@ -931,6 +939,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         if (!input.shufahOffered()) {
             throw new BusinessRuleViolation("hak syuf'ah: partners must be offered the assets before sale to outsiders");
+        }
+        LocalDate latestCloseEnd = closes.stream()
+                .filter(close -> close.status() == CloseStatus.ACTIVE)
+                .map(CloseSnapshot::periodEnd)
+                .max(LocalDate::compareTo)
+                .orElse(contract().effectiveFrom());
+        if (input.liquidationDate().isBefore(latestCloseEnd)) {
+            throw new BusinessRuleViolation("liquidation date precedes the latest active close or current akad effective date");
         }
         // A prior close may have recorded a manager-fault liability. Do not terminate the
         // partnership while such a receivable is still open: otherwise the liability would
