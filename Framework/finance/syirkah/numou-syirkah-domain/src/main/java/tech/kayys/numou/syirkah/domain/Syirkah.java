@@ -541,8 +541,20 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (liquidation != null) {
             result += unitsOf(liquidation.netResult());
         }
+        // Unallocated losses remain at entity level; they are not partner liabilities.
+        // Subtract them from the reconciliation difference so losses beyond capital are
+        // represented without inventing negative partner equity or manager debt.
+        long entityDeficit = 0;
+        for (CloseSnapshot c : closes) {
+            if (c.status() == CloseStatus.ACTIVE) {
+                entityDeficit += unitsOf(c.unallocatedLoss());
+            }
+        }
+        if (liquidation != null) {
+            entityDeficit += unitsOf(liquidation.unallocatedLoss());
+        }
         return new EquityReconciliation(units(equity, cur), units(cash, cur), units(result, cur),
-                units(equity - cash - result, cur));
+                units(equity - cash - result - entityDeficit, cur));
     }
 
     // ------------------------------------------------------------------ integrity
