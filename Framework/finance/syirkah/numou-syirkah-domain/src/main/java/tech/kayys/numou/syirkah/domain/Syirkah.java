@@ -377,6 +377,23 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (closes.stream().anyMatch(c -> c.id().equals(replacementId))) {
             throw new BusinessRuleViolation("replacement close id already used");
         }
+        // Validate all caller-controlled accounting inputs before reversing any existing
+        // movements. doClose validates the same rules, but doing it after reversal would
+        // leave the aggregate partially mutated if the replacement close is rejected.
+        FinancialResult normalizedCorrected = normalize(corrected);
+        ManagerFault normalizedFault = normalizeFault(fault);
+        Money correctedNet = normalizedCorrected.netResult();
+        if (normalizedFault.negligentOrBreach()) {
+            if (contract().type() != SyirkahType.MUDHARABAH) {
+                throw new BusinessRuleViolation("manager fault applies only to mudharabah");
+            }
+            if (!correctedNet.isNegative()) {
+                throw new BusinessRuleViolation("manager fault requires a loss in the period");
+            }
+            if (normalizedFault.attributableLoss().compareTo(correctedNet.negate()) > 0) {
+                throw new BusinessRuleViolation("attributable loss exceeds the period loss");
+            }
+        }
         for (PartnerMovement m : movements) {
             if (m.sequence() > last.lastMovementSequence() && m.type() != MovementType.PROFIT_DISTRIBUTED) {
                 throw new BusinessRuleViolation("only profit distributions may follow a close that is corrected; found "
@@ -395,8 +412,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             append(m.partner(), m.type(), m.amount().negate(), m.closeId(), "reversal:" + m.sequence(), now);
         }
         replaceClose(last.withStatus(CloseStatus.REVERSED));
-        CloseSnapshot snap = doClose(replacementId, last.periodStart(), last.periodEnd(), corrected, fault,
-                disposition, target, now);
+        CloseSnapshot snap = doClose(replacementId, last.periodStart(), last.periodEnd(),
+                normalizedCorrected, normalizedFault, disposition, target, now);
         // Profit already paid beyond the corrected entitlement is owed back (no negative payables).
         for (Partner p : contract().partners()) {
             Money payable = position(p.id()).payable();

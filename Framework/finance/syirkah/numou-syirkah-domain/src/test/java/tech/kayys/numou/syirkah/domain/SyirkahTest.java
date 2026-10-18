@@ -414,6 +414,27 @@ class SyirkahTest {
     }
 
     @Test
+    void invalidCorrectionDoesNotReverseTheExistingCloseOrMutateMovements() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        CloseSnapshot original = s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+        int movementCount = s.movements().size();
+        Money capitalA = s.position(A).balance();
+        Money capitalB = s.position(B).balance();
+
+        assertThrows(BusinessRuleViolation.class, () -> s.correctLatestClose(
+                original.id(), CloseId.generate(), loss(2_000_000),
+                ManagerFault.of(idr(3_000_000), "attribution exceeds corrected loss"),
+                ProfitDisposition.DISTRIBUTE, NOW));
+
+        assertEquals(CloseStatus.ACTIVE, s.close(original.id()).status());
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(0, capitalA.compareTo(s.position(A).balance()));
+        assertEquals(0, capitalB.compareTo(s.position(B).balance()));
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void correctionAfterDistributionTurnsOverpaymentIntoLiability() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
         CloseSnapshot c = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
