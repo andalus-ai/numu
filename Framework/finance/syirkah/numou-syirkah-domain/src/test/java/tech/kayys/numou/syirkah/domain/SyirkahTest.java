@@ -1426,6 +1426,27 @@ class SyirkahTest {
 
 
     @Test
+    void restoreRejectsCloseTimestampOutsideSnapshotLifetimeEvenWhenHashRemainsValid() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        Instant forgedClosedAt = Instant.parse("2025-12-31T23:59:59Z");
+        CloseSnapshot forgedClose = new CloseSnapshot(original.id(), original.sequence(), original.periodStart(),
+                original.periodEnd(), original.contractVersion(), original.contractCanonical(), original.result(),
+                original.disposition(), original.fault(), original.lines(), original.supersedes(), original.status(),
+                original.firstMovementSequence(), original.lastMovementSequence(), forgedClosedAt,
+                original.previousHash(), original.hash());
+        List<CloseSnapshot> forgedCloses = new ArrayList<>(snapshot.closes());
+        forgedCloses.set(0, forgedClose);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                forgedCloses, snapshot.liquidation(), snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("timestamp falls outside snapshot lifetime"));
+    }
+
+    @Test
     void restoreRejectsCloseAmountsWithExcessAccountingPrecisionEvenWhenRehashed() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         CloseSnapshot original = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
