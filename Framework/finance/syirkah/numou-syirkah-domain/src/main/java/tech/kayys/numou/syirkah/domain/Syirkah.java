@@ -433,6 +433,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 || result.completedAt() == null || result.hash() == null) {
             throw new IllegalStateException("stored liquidation result has missing required metadata");
         }
+        if (!result.input().shufahOffered()) {
+            throw new IllegalStateException("stored liquidation does not confirm that partners were offered hak syuf'ah");
+        }
         List<Money> amounts = new ArrayList<>();
         amounts.add(result.input().assetProceeds());
         amounts.add(result.input().externalDebts());
