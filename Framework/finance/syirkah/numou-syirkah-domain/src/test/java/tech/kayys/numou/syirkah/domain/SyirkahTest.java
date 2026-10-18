@@ -1479,6 +1479,33 @@ class SyirkahTest {
     }
 
     @Test
+    void restoreRejectsManagerFaultEvidenceWithoutFindingEvenWhenRehashed() {
+        Syirkah s = open(mudarabah(100, 100, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        ManagerFault unsupportedEvidence = new ManagerFault(false,
+                Money.of(new BigDecimal("5.00"), IDR), "unsubstantiated allegation");
+        String forgedHash = CloseSnapshot.computeHashV3(original.id(), original.sequence(),
+                original.periodStart(), original.periodEnd(), original.contractVersion(),
+                original.contractCanonical(), original.result(), original.disposition(), unsupportedEvidence,
+                original.lines(), original.supersedes(), original.previousHash(),
+                original.firstMovementSequence(), original.lastMovementSequence());
+        CloseSnapshot forgedClose = new CloseSnapshot(original.id(), original.sequence(), original.periodStart(),
+                original.periodEnd(), original.contractVersion(), original.contractCanonical(), original.result(),
+                original.disposition(), unsupportedEvidence, original.lines(), original.supersedes(), original.status(),
+                original.firstMovementSequence(), original.lastMovementSequence(), original.closedAt(),
+                original.previousHash(), forgedHash);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                List.of(forgedClose), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("manager-fault evidence without a finding"));
+    }
+
+
+    @Test
     void restoreRejectsCloseAllocationThatDoesNotReconcileEvenWhenRehashed() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         CloseSnapshot original = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);

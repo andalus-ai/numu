@@ -330,6 +330,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         + " has incomplete manager-fault evidence");
             }
             amounts.add(fault.attributableLoss());
+        } else if (fault != null && (fault.attributableLoss() != null || fault.reason() != null)) {
+            throw new IllegalStateException("stored close " + close.id().value()
+                    + " contains manager-fault evidence without a finding of negligence or breach");
         }
         Set<PartnerId> allocatedPartners = new java.util.HashSet<>();
         for (AllocationLine line : close.lines()) {
