@@ -377,6 +377,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
      * difference is contributed or returned; impaired capital is reset to the balance.
      */
     public void reviseContract(SyirkahContract next, Set<PartnerId> approvals, Instant now) {
+        Objects.requireNonNull(now, "now");
         requireActive();
         SyirkahContract cur = contract();
         next.requireValid();
