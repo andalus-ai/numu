@@ -1700,4 +1700,30 @@ class SyirkahTest {
         assertTrue(error.getMessage().contains("liquidation allocation contains a negative component"));
     }
 
+    @Test
+    void restoreRejectsLiquidationManagerLiabilityOutsideMudharabahEvenWhenRehashed() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        s.startLiquidation(Instant.parse("2026-02-01T00:00:00Z"));
+        s.liquidate(new LiquidationInput(Money.of(new BigDecimal("190.00"), IDR),
+                Money.of(new BigDecimal("0.00"), IDR), true, LocalDate.parse("2026-02-01")),
+                ManagerFault.none(), Instant.parse("2026-02-01T01:00:00Z"));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        LiquidationResult original = snapshot.liquidation();
+        List<AllocationLine> forgedLines = new ArrayList<>(original.lines());
+        AllocationLine first = forgedLines.get(0);
+        forgedLines.set(0, new AllocationLine(first.partner(), first.capitalRestored(), first.profitShare(),
+                first.lossBorne().subtract(Money.of(new BigDecimal("1.00"), IDR)),
+                Money.of(new BigDecimal("1.00"), IDR), first.retained()));
+        String forgedHash = LiquidationResult.computeHash(original.input(), original.residual(),
+                original.netResult(), forgedLines, original.payouts(), original.completedAt());
+        LiquidationResult forgedResult = new LiquidationResult(original.input(), original.residual(),
+                original.netResult(), forgedLines, original.payouts(), original.completedAt(), forgedHash);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                snapshot.closes(), forgedResult, snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("manager liability outside a mudharabah contract"));
+    }
+
 }
