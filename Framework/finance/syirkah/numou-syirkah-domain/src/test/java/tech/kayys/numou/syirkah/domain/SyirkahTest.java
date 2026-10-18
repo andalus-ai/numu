@@ -807,6 +807,24 @@ class SyirkahTest {
     }
 
     @Test
+    void liquidationRejectsNullInputsBeforeChangingStateOrAudit() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        List<PartnerMovement> movementsBefore = List.copyOf(s.movements());
+        List<String> integrityBefore = s.verifyIntegrity();
+
+        assertThrows(NullPointerException.class, () -> s.liquidate(null, ManagerFault.none(), NOW));
+        assertThrows(NullPointerException.class, () -> s.liquidate(
+                new LiquidationInput(idr(200_000_000), idr(0), true, FEB28), ManagerFault.none(), null));
+
+        assertEquals(SyirkahStatus.LIQUIDATING, s.status());
+        assertEquals(movementsBefore, s.movements());
+        assertNull(s.liquidation());
+        assertEquals(integrityBefore, s.verifyIntegrity());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void terminatedAggregateRejectsLiabilitySettlementWithoutBreakingLiquidationAudit() {
         Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         s.startLiquidation(NOW);

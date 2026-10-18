@@ -533,6 +533,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
      * the remainder is profit (by nisbah) or loss (by capital).
      */
     public LiquidationResult liquidate(LiquidationInput input, ManagerFault fault, Instant now) {
+        Objects.requireNonNull(input, "input");
+        Objects.requireNonNull(now, "now");
         requireStatusNot(SyirkahStatus.TERMINATED);
         if (status != SyirkahStatus.LIQUIDATING) {
             throw new InvalidStateException("liquidation must be started first");
