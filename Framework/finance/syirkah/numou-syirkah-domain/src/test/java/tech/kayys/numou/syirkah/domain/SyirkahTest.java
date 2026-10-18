@@ -1134,6 +1134,27 @@ class SyirkahTest {
     }
 
 
+
+    @Test
+    void restoreRejectsMovementForPartnerAbsentFromContractHistory() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        PartnerMovement originalFirst = snapshot.movements().get(0);
+        PartnerMovement originalSecond = snapshot.movements().get(1);
+        PartnerMovement forgedFirst = PartnerMovement.create(1, C, originalFirst.type(), originalFirst.amount(),
+                originalFirst.closeId(), originalFirst.reference(), originalFirst.occurredAt(), AuditHash.GENESIS);
+        PartnerMovement forgedSecond = PartnerMovement.create(2, originalSecond.partner(), originalSecond.type(),
+                originalSecond.amount(), originalSecond.closeId(), originalSecond.reference(),
+                originalSecond.occurredAt(), forgedFirst.hash());
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(),
+                List.of(forgedFirst, forgedSecond), snapshot.closes(), snapshot.liquidation(),
+                snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("movement references a partner absent from contract history"));
+    }
+
     @Test
     void restoreRejectsCloseMovementRangeTampering() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));

@@ -151,6 +151,15 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         + " is invalid: " + invalid.getMessage(), invalid);
             }
         }
+        Set<PartnerId> knownPartners = new java.util.HashSet<>();
+        for (SyirkahContract contract : st.contracts()) {
+            knownPartners.addAll(contract.partnerIds());
+        }
+        for (PartnerMovement movement : st.movements()) {
+            if (movement == null || movement.partner() == null || !knownPartners.contains(movement.partner())) {
+                throw new IllegalStateException("stored movement references a partner absent from contract history");
+            }
+        }
         for (int i = 0; i < st.closes().size(); i++) {
             CloseSnapshot close = st.closes().get(i);
             if (close == null || close.sequence() != i + 1) {
