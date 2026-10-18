@@ -749,17 +749,17 @@ class SyirkahTest {
 
     @Test
     void idempotentProfitDistributionReplayDoesNotRaiseDuplicateDomainEvent() {
-        Syirkah s = open(inan(100, 0, ratio(A, 100, B, 0)));
+        Syirkah s = open(inan(100, 0, ratio(A, 40, B, 60)));
         close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
         s.pullDomainEvents();
 
-        s.distributeProfit(A, idr(4), "same-payment", NOW);
+        s.distributeProfit(A, idr(1), "same-payment", NOW);
         assertEquals(1, s.pullDomainEvents().size());
 
         s.distributeProfit(A, idr(4), "same-payment", NOW);
         assertTrue(s.pullDomainEvents().isEmpty(),
                 "an idempotent replay must not emit a second payment event");
-        eq(6, s.position(A).payable());
+        eq(3, s.position(A).payable());
         assertTrue(s.verifyIntegrity().isEmpty());
     }
 
