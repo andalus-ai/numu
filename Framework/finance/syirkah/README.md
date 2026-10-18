@@ -23,6 +23,10 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 | Retain vs distribute profit at close | `ProfitDisposition` (`PROFIT_RETAINED` moves payable → capital) |
 | Liquidation: sell assets (hak syuf'ah offered), pay all debts, then claims; remainder − capital = profit by nisbah or loss by capital; undistributed profit covers later loss | `Syirkah.liquidate` |
 
+## Governance (maker-checker)
+
+`GovernedSyirkahService` puts four-eyes control on the irreversible operations — akad revision, close correction, start of liquidation and liquidation. A maker proposes; a different checker approves (which executes the exact stored command, once) or rejects with a reason. A failed execution leaves the request pending. Routine operations (close, distribute, settle) stay on `SyirkahApplicationService`. Authentication/authorization of the maker and checker identities is the caller's responsibility; `ApprovalPort` is tenant-scoped and has an in-memory adapter (no SQL table yet).
+
 ## Testing
 
 `SyirkahPropertyTest` runs 1,500 seeded random lifecycles (2–5 partners, random nisbah and capital, random close/distribute/correct/settle/liquidate sequences) and checks: exact apportionment, reconciliation, hash chains, no negative payable/liability, closed positions after liquidation, and `restore(snapshot)` equality.
