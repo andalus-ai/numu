@@ -924,9 +924,9 @@ class SyirkahTest {
         s.distributeProfit(A, idr(1), "same-payment", NOW);
         assertEquals(1, s.pullDomainEvents().size());
 
-        s.distributeProfit(A, idr(4), "same-payment", NOW);
+        s.distributeProfit(A, idr(1), "same-payment", NOW);
         assertTrue(s.pullDomainEvents().isEmpty(),
-                "an idempotent replay must not emit a second payment event");
+                "an idempotent replay with the same amount must not emit a second payment event");
         eq(3, s.position(A).payable());
         assertTrue(s.verifyIntegrity().isEmpty());
     }

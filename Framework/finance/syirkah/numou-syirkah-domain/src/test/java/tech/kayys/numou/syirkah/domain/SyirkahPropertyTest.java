@@ -143,6 +143,17 @@ class SyirkahPropertyTest {
             check(s);
         }
         if (r.nextInt(3) == 0) {
+            // Liquidation is intentionally blocked while any partner still owes a
+            // manager-fault liability. Settle those receivables explicitly first;
+            // do not weaken the domain rule merely to make randomized tests pass.
+            int liabilitySettlement = 0;
+            for (PartnerId p : s.positions().keySet()) {
+                Money liability = s.position(p).liability();
+                if (liability.isPositive()) {
+                    s.settleLiability(p, liability, "liquidation-liability-" + liabilitySettlement++, NOW);
+                }
+            }
+            check(s);
             s.startLiquidation(NOW);
             long proceeds = r.nextInt(3_000_000);
             s.liquidate(new LiquidationInput(idr(proceeds), idr(r.nextInt(1_000_000)), true, day), ManagerFault.none(),
