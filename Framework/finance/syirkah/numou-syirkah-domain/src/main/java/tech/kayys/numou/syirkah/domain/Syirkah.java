@@ -255,17 +255,19 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     /** Pays out allocated profit. Idempotent per {@code reference}. */
     public void distributeProfit(PartnerId partner, Money amount, String reference, Instant now) {
         requireActive();
-        settle(partner, amount, reference, MovementType.PROFIT_DISTRIBUTED, now);
-        raise(new SyirkahEvents.ProfitDistributed(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        if (settle(partner, amount, reference, MovementType.PROFIT_DISTRIBUTED, now)) {
+            raise(new SyirkahEvents.ProfitDistributed(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        }
     }
 
     /** Records that a partner paid back what he owes (manager fault / deficit). Idempotent per reference. */
     public void settleLiability(PartnerId partner, Money amount, String reference, Instant now) {
-        settle(partner, amount, reference, MovementType.LIABILITY_SETTLED, now);
-        raise(new SyirkahEvents.LiabilitySettled(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        if (settle(partner, amount, reference, MovementType.LIABILITY_SETTLED, now)) {
+            raise(new SyirkahEvents.LiabilitySettled(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        }
     }
 
-    private void settle(PartnerId partner, Money amount, String reference, MovementType type, Instant now) {
+    private boolean settle(PartnerId partner, Money amount, String reference, MovementType type, Instant now) {
         if (reference == null || reference.isBlank()) {
             throw new BusinessRuleViolation("a settlement needs an idempotency reference");
         }
@@ -277,7 +279,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         for (PartnerMovement m : movements) {
             if (m.type() == type && m.partner().equals(partner) && key.equals(m.reference())) {
                 if (m.amount().compareTo(a) == 0) {
-                    return; // replay
+                    return false; // idempotent replay: no new movement or domain event
                 }
                 throw new BusinessRuleViolation("reference " + reference + " already used with a different amount");
             }
@@ -289,6 +291,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         append(partner, type, a, null, key, now);
         touch(now);
+        return true;
     }
 
     // ------------------------------------------------------------------ revision of akad
