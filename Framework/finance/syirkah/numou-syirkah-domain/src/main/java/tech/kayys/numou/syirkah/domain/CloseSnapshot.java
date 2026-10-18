@@ -33,7 +33,7 @@ public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, Loc
      * from fields already bound by the close audit hash.
      */
     public Money unallocatedLoss() {
-        Money zero = Money.zero(result.currency());
+        Money zero = Money.zero(netResult().currency());
         if (!netResult().isNegative()) {
             return zero;
         }
