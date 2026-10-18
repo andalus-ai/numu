@@ -601,6 +601,13 @@ class SyirkahTest {
     }
 
     @Test
+    void profitDistributionIsFrozenAfterLiquidationStarts() {
+        Syirkah s = open(inan(100_000, 100_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000), ProfitDisposition.DISTRIBUTE);
+        s.startLiquidation(NOW);
+
+        assertThrows(InvalidStateException.class,
+                () -> s.distributeProfit(A, idr(1_000), "after-liquidation-start", NOW));
     void liquidationRejectsManagerFaultLiabilityInWrongCurrency() {
         Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         s.startLiquidation(NOW);

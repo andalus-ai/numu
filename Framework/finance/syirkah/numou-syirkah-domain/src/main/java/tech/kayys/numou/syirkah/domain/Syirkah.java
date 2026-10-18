@@ -254,7 +254,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     /** Pays out allocated profit. Idempotent per {@code reference}. */
     public void distributeProfit(PartnerId partner, Money amount, String reference, Instant now) {
-        requireStatusNot(SyirkahStatus.TERMINATED);
+        requireActive();
         settle(partner, amount, reference, MovementType.PROFIT_DISTRIBUTED, now);
         raise(new SyirkahEvents.ProfitDistributed(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
     }
