@@ -580,6 +580,16 @@ class SyirkahTest {
                 result.lines(), tamperedPayouts, result.completedAt(), result.hash());
 
         assertFalse(tampered.hashIsValid(), "changing a liquidation payout must invalidate its audit hash");
+
+        AllocationLine originalLine = result.lines().get(0);
+        List<AllocationLine> tamperedLines = new ArrayList<>(result.lines());
+        tamperedLines.set(0, new AllocationLine(originalLine.partner(),
+                originalLine.capitalRestored().add(idr(1)), originalLine.profitShare(), originalLine.lossBorne(),
+                originalLine.managerLiability(), originalLine.retained()));
+        LiquidationResult tamperedAllocation = new LiquidationResult(result.input(), result.residual(),
+                result.netResult(), tamperedLines, result.payouts(), result.completedAt(), result.hash());
+        assertFalse(tamperedAllocation.hashIsValid(),
+                "changing a liquidation allocation must invalidate its audit hash");
     }
 
     @Test
