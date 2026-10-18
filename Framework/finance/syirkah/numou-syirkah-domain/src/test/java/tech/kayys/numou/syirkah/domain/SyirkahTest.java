@@ -807,6 +807,21 @@ class SyirkahTest {
     }
 
     @Test
+    void terminatedAggregateRejectsLiabilitySettlementWithoutBreakingLiquidationAudit() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.startLiquidation(NOW);
+        s.liquidate(new LiquidationInput(idr(0), idr(150_000_000), true, FEB28),
+                ManagerFault.of(idr(20_000_000), "documented breach"), NOW);
+
+        assertTrue(s.position(B).liability().isPositive(),
+                "liquidation may report a manager-fault receivable to recover outside the terminated aggregate");
+        assertThrows(tech.kayys.numou.foundation.domain.exception.InvalidStateException.class,
+                () -> s.settleLiability(B, idr(1), "late-recovery", NOW));
+        assertTrue(s.verifyIntegrity().isEmpty(),
+                "a rejected post-termination settlement must preserve the liquidation audit hash");
+    }
+
+    @Test
     void liquidationAuditHashBindsPayoutsAndAllocationLines() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
