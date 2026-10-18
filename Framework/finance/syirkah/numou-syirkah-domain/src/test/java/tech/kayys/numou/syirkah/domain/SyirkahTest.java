@@ -369,6 +369,27 @@ class SyirkahTest {
         assertEquals(1, s.closes().get(0).contractVersion());
     }
 
+
+    @Test
+    void contractRevisionRejectsNullTimestampWithoutChangingAggregate() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(1_000_000), ProfitDisposition.RETAIN);
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.INAN, IDR,
+                s.contract().partners(), s.contract().capital(), ratio(A, 50, B, 50),
+                ProfitBasis.NET_PROFIT, null, Set.of(), List.of("W1", "W2"), true, FEB1);
+        int movementCount = s.movements().size();
+        int contractCount = s.contractHistory().size();
+        String movementHead = s.movements().get(s.movements().size() - 1).hash();
+
+        assertThrows(NullPointerException.class, () -> s.reviseContract(next, Set.of(A, B), null));
+
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(contractCount, s.contractHistory().size());
+        assertEquals(1, s.contract().version());
+        assertEquals(movementHead, s.movements().get(s.movements().size() - 1).hash());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
     @Test
     void capitalAdditionAndPartnerReplacementProduceMovements() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
