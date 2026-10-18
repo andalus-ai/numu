@@ -219,8 +219,16 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             if (!knownPartners.contains(movement.partner())) {
                 throw new IllegalStateException("stored movement references a partner absent from contract history");
             }
-            if (movement.closeId() != null && !knownCloseIds.contains(movement.closeId())) {
-                throw new IllegalStateException("stored movement references a close absent from close history");
+            if (movement.closeId() != null) {
+                Integer closeIndex = closeIndexes.get(movement.closeId());
+                if (closeIndex == null) {
+                    throw new IllegalStateException("stored movement references a close absent from close history");
+                }
+                CloseSnapshot linkedClose = st.closes().get(closeIndex);
+                if (movement.sequence() < linkedClose.firstMovementSequence()
+                        || movement.sequence() > linkedClose.lastMovementSequence()) {
+                    throw new IllegalStateException("stored movement references a close outside its recorded movement range");
+                }
             }
         }
         Map<CloseId, Integer> supersededByCount = new LinkedHashMap<>();
