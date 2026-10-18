@@ -82,6 +82,7 @@
         <module>restaurant</module>
         <module>asset</module>
         <module>project</module>
+        <module>scope</module>
         <module>construction</module>
         <module>budget</module>
 
@@ -148,6 +149,11 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-scope-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-project-domain</artifactId>
