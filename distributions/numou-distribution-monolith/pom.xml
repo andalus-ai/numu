@@ -27,7 +27,7 @@
 
         <dependency>
             <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-commerce-domain</artifactId>
+            <artifactId>numou-commerce</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -39,7 +39,7 @@
 
         <dependency>
             <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-supply-domain</artifactId>
+            <artifactId>numou-supply</artifactId>
             <version>${project.version}</version>
         </dependency>
 
