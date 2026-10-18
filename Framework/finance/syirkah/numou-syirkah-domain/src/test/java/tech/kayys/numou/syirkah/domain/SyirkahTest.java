@@ -608,6 +608,15 @@ class SyirkahTest {
 
         assertThrows(InvalidStateException.class,
                 () -> s.distributeProfit(A, idr(1_000), "after-liquidation-start", NOW));
+    void liquidationRejectsManagerFaultLiabilityInWrongCurrency() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.startLiquidation(NOW);
+        var usd = tech.kayys.numou.foundation.domain.valueobject.Currency.of("USD");
+        Money wrongCurrency = Money.of(BigDecimal.ONE, usd);
+
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(
+                new LiquidationInput(idr(0), idr(0), true, FEB28),
+                ManagerFault.of(wrongCurrency, "documented breach"), NOW));
     }
 
     @Test

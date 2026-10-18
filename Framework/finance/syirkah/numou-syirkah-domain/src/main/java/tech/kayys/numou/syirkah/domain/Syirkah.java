@@ -446,7 +446,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             claims = claims.add(cl);
         }
         Money net = residual.subtract(claims);
-        ManagerFault f = fault == null ? ManagerFault.none() : fault;
+        ManagerFault f = normalizeFault(fault);
         if (f.negligentOrBreach() && (c.type() != SyirkahType.MUDHARABAH || !net.isNegative()
                 || f.attributableLoss().compareTo(net.negate()) > 0)) {
             throw new BusinessRuleViolation("invalid manager fault for this liquidation");
