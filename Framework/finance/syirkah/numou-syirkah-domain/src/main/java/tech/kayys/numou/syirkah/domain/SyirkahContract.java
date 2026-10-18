@@ -115,7 +115,7 @@ public record SyirkahContract(
 
         partners.stream().sorted(java.util.Comparator.comparing(p -> p.id().value())).forEach(p -> {
             appendCanonical(sb, "partner");
-            appendCanonical(sb, p.id().value());
+            appendCanonical(sb, p.id().value().toString());
             appendCanonical(sb, p.name());
             appendCanonical(sb, p.role().name());
             appendCanonical(sb, Boolean.toString(p.contributesWork()));
@@ -128,7 +128,7 @@ public record SyirkahContract(
                         .thenComparing(c -> c.valuationNote() == null ? "" : c.valuationNote()))
                 .forEach(c -> {
                     appendCanonical(sb, "capital");
-                    appendCanonical(sb, c.partner().value());
+                    appendCanonical(sb, c.partner().value().toString());
                     appendCanonical(sb, c.kind().name());
                     appendCanonical(sb, c.amount().currency().code());
                     appendCanonical(sb, c.amount().amount().stripTrailingZeros().toPlainString());
@@ -137,7 +137,7 @@ public record SyirkahContract(
 
         lossSharing.forEach((partner, share) -> {
             appendCanonical(sb, "loss-share");
-            appendCanonical(sb, partner.value());
+            appendCanonical(sb, partner.value().toString());
             appendCanonical(sb, share.stripTrailingZeros().toPlainString());
         });
         declaredClauses.stream().map(Enum::name).sorted().forEach(clause -> {
