@@ -387,6 +387,42 @@ class SyirkahTest {
     }
 
     @Test
+    void partnerExitWithUnpaidProfitIsRejectedAtomicallyUntilPayableIsSettled() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.INAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(C, "C", PartnerRole.PARTNER, true)),
+                List.of(CapitalContribution.cash(A, idr(100_000_000)),
+                        CapitalContribution.cash(C, idr(50_000_000))),
+                ratio(A, 50, C, 50), ProfitBasis.NET_PROFIT, null, Set.of(),
+                List.of("W1", "W2"), true, FEB1);
+        int movementCount = s.movements().size();
+        int contractCount = s.contractHistory().size();
+        Money capitalB = s.position(B).balance();
+        Money payableB = s.position(B).payable();
+
+        assertThrows(BusinessRuleViolation.class, () -> s.reviseContract(next, Set.of(A, B, C), NOW));
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(contractCount, s.contractHistory().size());
+        assertEquals(0, capitalB.compareTo(s.position(B).balance()));
+        assertEquals(0, payableB.compareTo(s.position(B).payable()));
+        assertEquals(1, s.contract().version());
+        assertTrue(s.verifyIntegrity().isEmpty());
+
+        s.distributeProfit(A, idr(5_000_000), "exit-a-profit", NOW);
+        s.distributeProfit(B, idr(5_000_000), "exit-b-profit", NOW);
+        s.reviseContract(next, Set.of(A, B, C), NOW);
+
+        eq(100_000_000, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        eq(0, s.position(B).basis());
+        eq(50_000_000, s.position(C).balance());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void rejectedPartnerExitDoesNotPartiallyApplyEarlierCapitalAdjustments() {
         Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
