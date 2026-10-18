@@ -338,7 +338,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             Money balance = pos == null ? Money.zero(cur.currency()) : pos.balance();
             Money target = stays ? norm(next.capitalOf(p)) : Money.zero(cur.currency());
             if (pos != null && pos.basis().compareTo(pos.balance()) > 0) {
-                append(p, MovementType.BASIS_CLOSED, pos.basis().subtract(pos.balance()).negate(), null,
+                append(p, MovementType.BASIS_CLOSED, pos.basis().subtract(pos.balance()), null,
                         ref + ":reset:" + p.value(), now);
             }
             Money diff = target.subtract(balance);
@@ -477,7 +477,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
             PartnerPosition after = position(p);
             if (!after.basis().isZero()) {
-                append(p, MovementType.BASIS_CLOSED, after.basis().negate(), null, ref + ":basis", now);
+                append(p, MovementType.BASIS_CLOSED, after.basis(), null, ref + ":basis", now);
             }
             owed = owed.add(l.managerLiability());
             payouts.add(new LiquidationResult.Payout(p, cash, owed));
@@ -490,6 +490,59 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         raise(new SyirkahEvents.LiquidationCompleted(UUID.randomUUID(), now, id(), net));
         touch(now);
         return liquidation;
+    }
+
+    // ------------------------------------------------------------------ reports
+
+    /** Statement of one partner with running capital balance, payable and liability after each movement. */
+    public PartnerStatement statement(PartnerId partner) {
+        var cur = contract().currency();
+        long[] run = new long[4];
+        List<StatementLine> lines = new ArrayList<>();
+        for (PartnerMovement m : movements) {
+            if (!m.partner().equals(partner)) {
+                continue;
+            }
+            long u = unitsOf(m.amount());
+            run[0] += u * m.type().basisSign();
+            run[1] += u * m.type().capitalSign();
+            run[2] += u * m.type().payableSign();
+            run[3] += u * m.type().liabilitySign();
+            lines.add(new StatementLine(m.sequence(), m.occurredAt(), m.type(), m.reference(), m.amount(),
+                    units(run[1], cur), units(run[2], cur), units(run[3], cur)));
+        }
+        return new PartnerStatement(partner, partnerNames.get(partner), lines, position(partner));
+    }
+
+    /** See {@link EquityReconciliation}. */
+    public EquityReconciliation reconcile() {
+        var cur = contract().currency();
+        long equity = 0;
+        for (long[] b : buckets.values()) {
+            if (b.length == 4) {
+                equity += b[1] + b[2] - b[3];
+            }
+        }
+        long cash = 0;
+        for (PartnerMovement m : movements) {
+            long u = unitsOf(m.amount());
+            switch (m.type()) {
+                case CONTRIBUTION, LIABILITY_SETTLED -> cash += u;
+                case CAPITAL_RETURN, PROFIT_DISTRIBUTED -> cash -= u;
+                default -> { }
+            }
+        }
+        long result = 0;
+        for (CloseSnapshot c : closes) {
+            if (c.status() == CloseStatus.ACTIVE) {
+                result += unitsOf(c.netResult());
+            }
+        }
+        if (liquidation != null) {
+            result += unitsOf(liquidation.netResult());
+        }
+        return new EquityReconciliation(units(equity, cur), units(cash, cur), units(result, cur),
+                units(equity - cash - result, cur));
     }
 
     // ------------------------------------------------------------------ integrity
@@ -520,6 +573,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 problems.add("close hash mismatch at " + c.sequence());
             }
             prevClose = c.hash();
+        }
+        EquityReconciliation rec = reconcile();
+        if (!rec.balanced()) {
+            problems.add("equity reconciliation off by " + rec.difference().amount().toPlainString());
         }
         long[] total = new long[4];
         for (PartnerMovement m : movements) {

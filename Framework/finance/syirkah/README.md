@@ -23,12 +23,17 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 | Retain vs distribute profit at close | `ProfitDisposition` (`PROFIT_RETAINED` moves payable → capital) |
 | Liquidation: sell assets (hak syuf'ah offered), pay all debts, then claims; remainder − capital = profit by nisbah or loss by capital; undistributed profit covers later loss | `Syirkah.liquidate` |
 
+## Testing
+
+`SyirkahPropertyTest` runs 1,500 seeded random lifecycles (2–5 partners, random nisbah and capital, random close/distribute/correct/settle/liquidate sequences) and checks: exact apportionment, reconciliation, hash chains, no negative payable/liability, closed positions after liquidation, and `restore(snapshot)` equality.
+
 ## Accounting guarantees
 
 * Exact money: largest-remainder apportionment, deterministic tie-break; parts always sum to the total (no "remainder to last partner").
 * Partner positions are **derived** by folding append-only movements; reversals are negative movements, never edits.
 * Movements and closes are SHA-256 hash chained; `verifyIntegrity()` and `Syirkah.restore()` re-verify; the DB trigger re-checks the chain on insert.
 * Every movement maps to a balanced journal (`SyirkahPostingPlan`); journals are idempotent per `syirkah:<id>:movement:<seq>`. `PERIOD_RESULT` nets to each close's net result.
+* `Syirkah.reconcile()` cross-checks the ledger: `sum(capital balance + payable − liability)` must equal net cash contributed plus the net results of effective closes (and liquidation). `verifyIntegrity()` includes it, so a lost, duplicated or forged movement is detected. `statement(partner)` gives a running-balance partner statement.
 * Correction = reverse the latest close's movements + recompute. Allowed after profit distributions: payments beyond the corrected entitlement become a liability of that partner (`OVERPAYMENT_TO_LIABILITY`); refused after any other later movement (e.g. a liability settlement).
 * The syirkah ledger records **partner capital/profit flows**. Operating revenue/costs are posted by the business's own ledger; the syirkah accounts reflect cash only for contributions, distributions and returns.
 
