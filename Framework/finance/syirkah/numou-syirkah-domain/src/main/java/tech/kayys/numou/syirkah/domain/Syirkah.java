@@ -43,9 +43,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     private boolean closedSinceRevision;
     private LiquidationResult liquidation;
 
+    private static final int MAX_AMOUNT_SCALE = 18;
+
     private Syirkah(SyirkahId id, TenantId tenantId, int scale) {
         super(id);
         this.tenantId = Objects.requireNonNull(tenantId, "tenantId");
+        if (scale < 0 || scale > MAX_AMOUNT_SCALE) {
+            throw new IllegalArgumentException("amount scale must be between 0 and " + MAX_AMOUNT_SCALE);
+        }
         this.scale = scale;
     }
 
@@ -138,6 +143,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 || st.contracts() == null || st.contracts().isEmpty()
                 || st.movements() == null || st.closes() == null) {
             throw new IllegalStateException("stored syirkah snapshot is missing required state");
+        }
+        if (st.scale() < 0 || st.scale() > MAX_AMOUNT_SCALE) {
+            throw new IllegalStateException("stored syirkah snapshot has unsupported amount scale " + st.scale());
         }
         for (int i = 0; i < st.contracts().size(); i++) {
             SyirkahContract contract = st.contracts().get(i);
