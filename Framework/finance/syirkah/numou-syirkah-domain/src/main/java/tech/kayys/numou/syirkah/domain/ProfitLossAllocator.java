@@ -147,10 +147,11 @@ public final class ProfitLossAllocator {
                 weights.put(p.id(), weight);
                 availableCapital = availableCapital.add(weight);
             }
-            if (availableCapital.compareTo(remaining) < 0) {
-                throw new BusinessRuleViolation(
-                        "loss exceeds remaining eligible partner capital; record the excess as an entity-level deficit "
-                                + "or liability rather than allocating it beyond capital");
+            // Allocate only the loss that eligible capital can absorb. Any remainder is an
+            // entity-level deficit, not a partner debt or negative partner equity.
+            remaining = remaining.min(availableCapital);
+            if (remaining.signum() == 0) {
+                return;
             }
         }
         Apportionment.apportion(remaining, weights, scale).forEach((k, v) -> loss.put(k, Money.of(v, cur)));

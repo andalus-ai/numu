@@ -100,22 +100,53 @@ class SyirkahTest {
     }
 
     @Test
-    void lossesCannotExceedRemainingCapitalOrCreateNegativePartnerEquity() {
+    void lossesBeyondCapitalBecomeEntityDeficitWithoutNegativeEquity() {
         Syirkah s = open(inan(100, 0, ratio(A, 50, B, 50)));
-        assertThrows(BusinessRuleViolation.class,
-                () -> close(s, JAN1, JAN31, loss(101), ProfitDisposition.DISTRIBUTE));
+        CloseSnapshot close = close(s, JAN1, JAN31, loss(101), ProfitDisposition.DISTRIBUTE);
+        eq(1, close.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        assertTrue(s.reconcile().balanced());
         assertTrue(s.verifyIntegrity().isEmpty());
-        eq(100, s.position(A).balance());
     }
 
     @Test
-    void exhaustedMudharabahCapitalDoesNotShiftOrdinaryLossToManager() {
+    void excessLossIsRecordedAsEntityDeficitNotPartnerLiability() {
+        Syirkah s = open(inan(100, 0, ratio(A, 50, B, 50)));
+        CloseSnapshot close = close(s, JAN1, JAN31, loss(125), ProfitDisposition.DISTRIBUTE);
+
+        eq(25, close.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+        assertTrue(close.hashIsValid());
+    }
+
+    @Test
+    void exhaustedMudharabahRecordsUncoveredLossWithoutChargingManager() {
+        Syirkah s = open(mudharabah(100, ratio(A, 70, B, 30)));
+        CloseSnapshot first = close(s, JAN1, JAN31, loss(100), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot second = close(s, FEB1, FEB28, loss(10), ProfitDisposition.DISTRIBUTE);
+
+        eq(0, first.unallocatedLoss());
+        eq(10, second.unallocatedLoss());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void exhaustedMudharabahCapitalLeavesFurtherOrdinaryLossAtEntityLevel() {
         Syirkah s = open(mudharabah(100, ratio(A, 70, B, 30)));
         close(s, JAN1, JAN31, loss(100), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot second = close(s, FEB1, FEB28, loss(1), ProfitDisposition.DISTRIBUTE);
         eq(0, s.position(A).balance());
-        assertThrows(BusinessRuleViolation.class,
-                () -> close(s, FEB1, FEB28, loss(1), ProfitDisposition.DISTRIBUTE));
+        eq(1, second.unallocatedLoss());
         eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
         assertTrue(s.verifyIntegrity().isEmpty());
     }
 
@@ -391,16 +422,19 @@ class SyirkahTest {
     }
 
     @Test
-    void liquidationBeyondCapitalLeavesPartnerDeficit() {
+    void liquidationBeyondCapitalRecordsEntityDeficitNotPartnerDebt() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
         LiquidationResult r = s.liquidate(new LiquidationInput(idr(0), idr(30_000_000), true, FEB28),
                 ManagerFault.none(), NOW);
-        // residual -30M, claims 150M => loss 180M; A bears 120M of 100M capital => owes 20M; B 60M of 50M => owes 10M
-        eq(20_000_000, r.payouts().get(0).owed());
-        eq(10_000_000, r.payouts().get(1).owed());
-        eq(20_000_000, s.position(A).liability());
-        eq(0, s.position(A).balance());
+        // 30M external debt remains unfunded after all 150M partner capital is exhausted.
+        eq(30_000_000, r.unallocatedLoss());
+        eq(0, r.payouts().get(0).owed());
+        eq(0, r.payouts().get(1).owed());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
     }
 
     @Test

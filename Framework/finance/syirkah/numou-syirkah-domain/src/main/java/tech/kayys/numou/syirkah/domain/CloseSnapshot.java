@@ -27,6 +27,24 @@ public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, Loc
         return result.netResult();
     }
 
+    /**
+     * Loss not allocated to partner capital or an evidenced manager-fault liability.
+     * This is an entity-level deficit, not a claim against a partner. It is derived
+     * from fields already bound by the close audit hash.
+     */
+    public Money unallocatedLoss() {
+        Money zero = Money.zero(netResult().currency());
+        if (!netResult().isNegative()) {
+            return zero;
+        }
+        Money allocated = zero;
+        for (AllocationLine line : lines) {
+            allocated = allocated.add(line.lossBorne()).add(line.managerLiability());
+        }
+        Money excess = netResult().negate().subtract(allocated);
+        return excess.isPositive() ? excess : zero;
+    }
+
     public static String computeHash(CloseId id, int sequence, LocalDate start, LocalDate end, int contractVersion,
                                      String contractCanonical, FinancialResult result, ProfitDisposition disposition,
                                      List<AllocationLine> lines, CloseId supersedes, String previousHash) {
