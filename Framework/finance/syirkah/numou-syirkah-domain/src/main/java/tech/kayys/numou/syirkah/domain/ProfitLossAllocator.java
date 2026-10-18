@@ -159,6 +159,15 @@ public final class ProfitLossAllocator {
         if (remaining.signum() == 0) {
             return;
         }
-        Apportionment.apportion(remaining, weights, scale).forEach((k, v) -> loss.put(k, Money.of(v, cur)));
+        Map<PartnerId, BigDecimal> allocated = Apportionment.apportion(remaining, weights, scale);
+        for (Partner p : contract.partners()) {
+            PartnerCapitalState st = capital.get(p.id());
+            BigDecimal available = st == null ? BigDecimal.ZERO : st.balance().amount().max(BigDecimal.ZERO);
+            BigDecimal proposed = allocated.getOrDefault(p.id(), BigDecimal.ZERO);
+            // Contractual loss weights cannot create a negative partner capital balance.
+            // Any capped remainder stays an entity-level deficit rather than being shifted
+            // to another partner contrary to the agreed loss-sharing weights.
+            loss.put(p.id(), Money.of(proposed.min(available), cur));
+        }
     }
 }

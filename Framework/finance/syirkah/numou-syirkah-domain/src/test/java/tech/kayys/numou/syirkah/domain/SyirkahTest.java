@@ -101,6 +101,30 @@ class SyirkahTest {
     }
 
     @Test
+    void explicitLossSharingCannotImpairMoreCapitalThanPartnerHas() {
+        SyirkahContract contract = new SyirkahContract(1, SyirkahType.ABDAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(B, "B", PartnerRole.PARTNER, true)),
+                List.of(), ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT,
+                Map.of(A, new BigDecimal("0.9"), B, new BigDecimal("0.1")),
+                Set.of(), List.of("W1", "W2"), true, JAN1);
+        Syirkah s = open(contract);
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.RETAIN);
+
+        CloseSnapshot lossClose = close(s, FEB1, FEB28, loss(10_000_000), ProfitDisposition.DISTRIBUTE);
+
+        // The 90% contractual share would be 9M, but A has only 5M capital.
+        // The excess 4M remains an entity deficit; it is not charged to B or A as debt.
+        eq(0, s.position(A).balance());
+        eq(4_000_000, s.position(B).balance());
+        eq(4_000_000, lossClose.unallocatedLoss());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void lossesBeyondCapitalBecomeEntityDeficitWithoutNegativeEquity() {
         Syirkah s = open(inan(100, 0, ratio(A, 50, B, 50)));
         CloseSnapshot close = close(s, JAN1, JAN31, loss(101), ProfitDisposition.DISTRIBUTE);
