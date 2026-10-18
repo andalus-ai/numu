@@ -430,6 +430,15 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (!input.shufahOffered()) {
             throw new BusinessRuleViolation("hak syuf'ah: partners must be offered the assets before sale to outsiders");
         }
+        // A prior close may have recorded a manager-fault liability. Do not terminate the
+        // partnership while such a receivable is still open: otherwise the liability would
+        // remain on a terminated aggregate without being recovered or explicitly carried forward.
+        for (Partner p : contract().partners()) {
+            if (position(p.id()).liability().isPositive()) {
+                throw new BusinessRuleViolation("outstanding partner liability must be settled before liquidation: "
+                        + p.id().value());
+            }
+        }
         SyirkahContract c = contract();
         Money proceeds = norm(input.assetProceeds());
         Money debts = norm(input.externalDebts());
