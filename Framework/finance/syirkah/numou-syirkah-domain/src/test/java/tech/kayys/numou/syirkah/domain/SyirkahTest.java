@@ -419,16 +419,19 @@ class SyirkahTest {
     }
 
     @Test
-    void liquidationBeyondCapitalLeavesPartnerDeficit() {
+    void liquidationBeyondCapitalRecordsEntityDeficitNotPartnerDebt() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
         LiquidationResult r = s.liquidate(new LiquidationInput(idr(0), idr(30_000_000), true, FEB28),
                 ManagerFault.none(), NOW);
-        // residual -30M, claims 150M => loss 180M; A bears 120M of 100M capital => owes 20M; B 60M of 50M => owes 10M
-        eq(20_000_000, r.payouts().get(0).owed());
-        eq(10_000_000, r.payouts().get(1).owed());
-        eq(20_000_000, s.position(A).liability());
-        eq(0, s.position(A).balance());
+        // 30M external debt remains unfunded after all 150M partner capital is exhausted.
+        eq(30_000_000, r.unallocatedLoss());
+        eq(0, r.payouts().get(0).owed());
+        eq(0, r.payouts().get(1).owed());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
     }
 
     @Test
