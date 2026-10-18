@@ -898,6 +898,19 @@ class SyirkahTest {
     }
 
     @Test
+    void restoreRejectsClosedSinceRevisionFlagThatContradictsCloseHistory() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), false, snapshot.contracts(), snapshot.movements(), snapshot.closes(),
+                snapshot.liquidation(), snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("closedSinceRevision flag disagrees with current akad close history"));
+    }
+
+    @Test
     void restoreRejectsContractHistoryThatNoLongerMatchesAHashedClose() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);

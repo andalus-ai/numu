@@ -180,6 +180,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 }
             }
         }
+        boolean hasCloseSinceCurrentAkad = st.closes().stream()
+                .anyMatch(close -> close.contractVersion() == st.contracts().get(st.contracts().size() - 1).version());
+        if (st.closedSinceRevision() != hasCloseSinceCurrentAkad) {
+            throw new IllegalStateException("stored closedSinceRevision flag disagrees with current akad close history");
+        }
         if (st.status() == SyirkahStatus.TERMINATED && st.liquidation() == null) {
             throw new IllegalStateException("terminated syirkah is missing its liquidation result");
         }
