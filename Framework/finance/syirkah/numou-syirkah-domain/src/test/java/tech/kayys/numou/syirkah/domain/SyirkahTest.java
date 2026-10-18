@@ -1367,4 +1367,18 @@ class SyirkahTest {
         assertTrue(error.getMessage().contains("id does not match its canonical identity"));
     }
 
+
+    @Test
+    void restoreRejectsSnapshotUpdatedBeforeCreation() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), Instant.parse("2026-01-02T00:00:00Z"),
+                Instant.parse("2026-01-01T00:00:00Z"));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("updatedAt precedes createdAt"));
+    }
+
 }
