@@ -271,6 +271,28 @@ class SyirkahTest {
         assertTrue(s.verifyIntegrity().isEmpty());
     }
 
+    @Test
+    void explicitAbdanLossWeightsCannotCreateNegativePartnerCapital() {
+        SyirkahContract c = new SyirkahContract(1, SyirkahType.ABDAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(B, "B", PartnerRole.PARTNER, true)),
+                List.of(), ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT,
+                Map.of(A, new BigDecimal("0.8"), B, new BigDecimal("0.2")),
+                Set.of(), List.of("W1", "W2"), true, JAN1);
+        assertTrue(c.validate().isEmpty());
+
+        Syirkah s = open(c);
+        CloseSnapshot close = close(s, JAN1, JAN31, loss(1_000), ProfitDisposition.DISTRIBUTE);
+
+        eq(1_000, close.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
     // ---------------------------------------------------------------- distribution
 
     @Test
