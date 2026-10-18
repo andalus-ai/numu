@@ -330,6 +330,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     /** Records that a partner paid back what he owes (manager fault / deficit). Idempotent per reference. */
     public void settleLiability(PartnerId partner, Money amount, String reference, Instant now) {
+        requireStatusNot(SyirkahStatus.TERMINATED);
         if (settle(partner, amount, reference, MovementType.LIABILITY_SETTLED, now)) {
             raise(new SyirkahEvents.LiabilitySettled(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
         }
