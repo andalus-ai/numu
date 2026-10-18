@@ -584,8 +584,12 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
             prevClose = c.hash();
         }
-        if (liquidation != null && !liquidation.hashIsValid()) {
-            problems.add("liquidation hash mismatch");
+        if (liquidation != null) {
+            String movementHead = movements.isEmpty() ? AuditHash.GENESIS
+                    : movements.get(movements.size() - 1).hash();
+            if (!liquidation.hashIsValid(movementHead)) {
+                problems.add("liquidation hash mismatch");
+            }
         }
         EquityReconciliation rec = reconcile();
         if (!rec.balanced()) {
