@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL test for transaction-local tenant context on reused connections.
 # This proves the fixture protocol, not the actual Numou pool/runtime wiring.
 CONTAINER_NAME="numou-pg-tenant-context-pool-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55445}"
+PORT="${NUMOU_TEST_PG_PORT:-55445}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

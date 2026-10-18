@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL protocol test for stale-worker fencing.
 # This verifies SQL predicates, not the production relay implementation.
 CONTAINER_NAME="numou-pg-outbox-fencing-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55445}"
+PORT="${NUMOU_TEST_PG_PORT:-55445}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

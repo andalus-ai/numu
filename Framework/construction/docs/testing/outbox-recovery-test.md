@@ -9,4 +9,4 @@ Run `./scripts/postgres-outbox-recovery-test.sh`. It starts a disposable Postgre
 
 The test only validates PostgreSQL-level claim/fencing behavior using SQL shaped like `PgOutboxRelayStore`. It does not invoke the Java adapter, run a broker, or establish end-to-end delivery guarantees. Delivery remains at-least-once; consumers should be idempotent. The script does not connect to an existing database.
 
-Requires Docker. Optional port override: `SYIRKAH_TEST_PG_PORT` (default `55441`).
+Requires Docker. Optional port override: `NUMOU_TEST_PG_PORT` (default `55441`).

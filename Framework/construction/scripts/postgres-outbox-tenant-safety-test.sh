@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL test for tenant-filtered outbox claims, ownership fencing,
 # retry scheduling, and tenantless legacy-row exclusion. SQL protocol only.
 CONTAINER_NAME="numou-pg-outbox-tenant-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55443}"
+PORT="${NUMOU_TEST_PG_PORT:-55443}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

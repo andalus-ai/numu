@@ -6,7 +6,7 @@ set -euo pipefail
 # the physical live BOQ schema. This validates SQL constraints/transaction shape,
 # not invocation of the Java workflow adapter.
 CONTAINER_NAME="numou-pg-boq-workflow-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55442}"
+PORT="${NUMOU_TEST_PG_PORT:-55442}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

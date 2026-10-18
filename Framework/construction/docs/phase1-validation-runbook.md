@@ -20,7 +20,7 @@ From the `numou-phase1` directory:
 ./scripts/run-phase1-validation.sh --postgres-only
 ```
 
-The default mode is `--all`. The PostgreSQL scripts create their own named, disposable containers and remove them on exit. They use local loopback ports, configurable with `SYIRKAH_TEST_PG_PORT` for scripts that share a default port. Do not run multiple copies of the suite concurrently with the same port settings.
+The default mode is `--all`. The PostgreSQL scripts create their own named, disposable containers and remove them on exit. They use local loopback ports, configurable with `NUMOU_TEST_PG_PORT` for scripts that share a default port. Do not run multiple copies of the suite concurrently with the same port settings.
 
 ## Acceptance evidence and limits
 
@@ -33,5 +33,5 @@ Before treating Phase 1 as integrated, run the Java tests within the actual Numo
 - `Docker CLI is required`: install Docker or run `--static-only`.
 - `Docker daemon is not reachable`: start the daemon and retry.
 - `local psql client is required`: install a PostgreSQL client compatible with the test containers.
-- Port already in use: set `SYIRKAH_TEST_PG_PORT` to a free port for the individual script; avoid parallel runs with overlapping port assignments.
+- Port already in use: set `NUMOU_TEST_PG_PORT` to a free port for the individual script; avoid parallel runs with overlapping port assignments.
 - A SQL test fails: retain the failing script's output and inspect the migration and assertion before changing expected results.

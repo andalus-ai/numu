@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL acceptance test for tenant RLS read/write boundaries.
 # The fixture demonstrates PostgreSQL policy behavior, not Numou production wiring.
 CONTAINER_NAME="numou-pg-tenant-rls-write-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55446}"
+PORT="${NUMOU_TEST_PG_PORT:-55446}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

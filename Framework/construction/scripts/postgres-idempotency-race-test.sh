@@ -5,7 +5,7 @@ set -euo pipefail
 # Uses the project's actual migration schema, but simulates the command body in SQL;
 # it does not invoke the Java executor or PgTransactionalCommandRunner.
 CONTAINER_NAME="numou-pg-idempotency-race-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55448}"
+PORT="${NUMOU_TEST_PG_PORT:-55448}"
 PASSWORD="numou_test_only"
 TMP_DIR="$(mktemp -d)"
 cleanup() {

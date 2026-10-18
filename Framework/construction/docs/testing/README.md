@@ -8,7 +8,7 @@ Run from any directory:
 
 Requirements: Docker with permission to start a container. The script starts a disposable `postgres:16-alpine` container, applies all SQL migrations in lexical order, checks basic snapshot/item/outbox/idempotency constraints, and verifies that a transaction rollback removes counter, snapshot, and outbox writes together. It removes its container on exit and does not connect to a configured application database.
 
-To change the host port, set `SYIRKAH_TEST_PG_PORT` (default `55439`). If that port is occupied, choose another free port.
+To change the host port, set `NUMOU_TEST_PG_PORT` (default `55439`). If that port is occupied, choose another free port.
 
 ## Scope limits
 

@@ -8,7 +8,7 @@ From the `numou-phase1` directory:
 bash scripts/postgres-outbox-tenant-safety-test.sh
 ```
 
-Requirements: Docker CLI, a reachable Docker daemon, and permission to bind the local test port (default `55443`; override with `SYIRKAH_TEST_PG_PORT`). The script starts a disposable PostgreSQL 16 container, applies the starter migrations, and removes the container on exit. It does not connect to an existing database.
+Requirements: Docker CLI, a reachable Docker daemon, and permission to bind the local test port (default `55443`; override with `NUMOU_TEST_PG_PORT`). The script starts a disposable PostgreSQL 16 container, applies the starter migrations, and removes the container on exit. It does not connect to an existing database.
 
 ## Assertions
 

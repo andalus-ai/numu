@@ -5,7 +5,7 @@ set -euo pipefail
 # Simulates broker acceptance followed by a lost DB acknowledgement, lease expiry,
 # redelivery, and an idempotent consumer transaction. It does not invoke a real broker.
 CONTAINER_NAME="numou-pg-outbox-consumer-idem-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55444}"
+PORT="${NUMOU_TEST_PG_PORT:-55444}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

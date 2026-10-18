@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL smoke test for the migration starter.
 # Requires Docker. Does not connect to or mutate an existing database.
 CONTAINER_NAME="numou-pg-smoke-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55439}"
+PORT="${NUMOU_TEST_PG_PORT:-55439}"
 PASSWORD="numou_test_only"
 cleanup() {
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
