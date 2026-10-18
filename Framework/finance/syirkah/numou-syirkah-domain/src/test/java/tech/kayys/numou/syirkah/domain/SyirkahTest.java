@@ -741,6 +741,9 @@ class SyirkahTest {
 
         assertThrows(InvalidStateException.class,
                 () -> s.distributeProfit(A, idr(1_000), "after-liquidation-start", NOW));
+    }
+
+    @Test
     void liquidationRejectsManagerFaultLiabilityInWrongCurrency() {
         Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         s.startLiquidation(NOW);
