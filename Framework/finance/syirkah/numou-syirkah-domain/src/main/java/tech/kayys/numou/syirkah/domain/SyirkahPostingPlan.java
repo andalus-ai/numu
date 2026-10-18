@@ -35,6 +35,7 @@ public final class SyirkahPostingPlan {
             case MANAGER_LOSS_LIABILITY -> { debit = AccountRole.PARTNER_RECEIVABLE; credit = AccountRole.PERIOD_RESULT; }
             case LIABILITY_SETTLED -> { debit = AccountRole.CASH; credit = AccountRole.PARTNER_RECEIVABLE; }
             case DEFICIT_TO_LIABILITY -> { debit = AccountRole.PARTNER_RECEIVABLE; credit = AccountRole.PARTNER_CAPITAL; }
+            case OVERPAYMENT_TO_LIABILITY -> { debit = AccountRole.PARTNER_RECEIVABLE; credit = AccountRole.PROFIT_PAYABLE; }
             case BASIS_CLOSED -> { return List.of(); }
             default -> throw new IllegalStateException("unmapped movement " + m.type());
         }
