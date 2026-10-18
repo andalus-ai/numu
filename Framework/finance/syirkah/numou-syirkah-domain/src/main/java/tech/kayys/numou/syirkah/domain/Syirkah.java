@@ -297,7 +297,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (st.liquidation() != null) {
             validateRestoredLiquidation(st.liquidation(), st.scale(),
                     st.contracts().get(st.contracts().size() - 1).currency(),
-                    st.contracts().get(st.contracts().size() - 1).partnerIds());
+                    st.contracts().get(st.contracts().size() - 1).partnerIds(),
+                    st.contracts().get(st.contracts().size() - 1).type());
         }
         boolean hasCloseSinceCurrentAkad = st.closes().stream()
                 .anyMatch(close -> close.contractVersion() == st.contracts().get(st.contracts().size() - 1).version());
@@ -443,7 +444,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     private static void validateRestoredLiquidation(LiquidationResult result, int scale,
                                                        tech.kayys.numou.foundation.domain.valueobject.Currency currency,
-                                                       Set<PartnerId> knownPartners) {
+                                                       Set<PartnerId> knownPartners, SyirkahType contractType) {
         if (result.input() == null || result.residual() == null || result.netResult() == null
                 || result.lines() == null || result.payouts() == null
                 || result.completedAt() == null || result.hash() == null) {
@@ -475,6 +476,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                     || line.lossBorne().isNegative() || line.managerLiability().isNegative()
                     || line.retained().isNegative()) {
                 throw new IllegalStateException("stored liquidation allocation contains a negative component");
+            }
+            if (contractType != SyirkahType.MUDHARABAH && line.managerLiability().isPositive()) {
+                throw new IllegalStateException("stored liquidation records manager liability outside a mudharabah contract");
             }
             amounts.add(line.capitalRestored());
             amounts.add(line.profitShare());
