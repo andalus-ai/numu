@@ -55,7 +55,7 @@ class BoqRevisionSnapshotTest {
         assertEquals(1, schedule.lines().size());
         assertEquals(itemId, schedule.lines().get(0).id());
         assertEquals(wbsNodeId, schedule.lines().get(0).breakdownNodeId());
-        assertEquals("ex-001", schedule.lines().get(0).code());
+        assertEquals("EX-001", schedule.lines().get(0).code());
         assertEquals(new BigDecimal("2.50"), schedule.total(new tech.kayys.numou.quantity.domain.UnitOfMeasure("m3")).value());
         assertEquals(BoqRevisionSnapshot.RevisionStatus.DRAFT, draft.status());
         assertEquals(new BigDecimal("250.00"), draft.totalAmount());
