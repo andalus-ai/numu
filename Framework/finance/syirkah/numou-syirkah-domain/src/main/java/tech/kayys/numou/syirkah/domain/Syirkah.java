@@ -238,6 +238,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                                      Instant now) {
         requireActive();
         Objects.requireNonNull(closeId, "closeId");
+        Objects.requireNonNull(periodStart, "periodStart");
+        Objects.requireNonNull(periodEnd, "periodEnd");
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(disposition, "disposition");
+        Objects.requireNonNull(now, "now");
         if (periodEnd.isBefore(periodStart)) {
             throw new BusinessRuleViolation("period end before start");
         }
@@ -432,6 +437,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     public CloseSnapshot correctLatestClose(CloseId target, CloseId replacementId, FinancialResult corrected,
                                             ManagerFault fault, ProfitDisposition disposition, Instant now) {
         requireActive();
+        Objects.requireNonNull(replacementId, "replacementId");
+        Objects.requireNonNull(disposition, "disposition");
+        Objects.requireNonNull(now, "now");
         CloseSnapshot last = lastActiveClose();
         if (last == null || !last.id().equals(target)) {
             throw new BusinessRuleViolation("only the latest effective close can be corrected");
