@@ -808,6 +808,24 @@ class SyirkahTest {
                 ManagerFault.of(wrongCurrency, "documented breach"), NOW));
     }
 
+
+    @Test
+    void startingLiquidationRejectsNullTimestampWithoutChangingAggregate() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        List<PartnerMovement> before = List.copyOf(s.movements());
+        String beforeIntegrity = s.movements().isEmpty() ? AuditHash.GENESIS
+                : s.movements().get(s.movements().size() - 1).hash();
+
+        assertThrows(NullPointerException.class, () -> s.startLiquidation(null));
+
+        assertEquals(SyirkahStatus.ACTIVE, s.status());
+        assertEquals(before, s.movements());
+        assertEquals(beforeIntegrity, s.movements().isEmpty() ? AuditHash.GENESIS
+                : s.movements().get(s.movements().size() - 1).hash());
+        assertNull(s.liquidation());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
     @Test
     void liquidationRejectsNullInputsBeforeChangingStateOrAudit() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));

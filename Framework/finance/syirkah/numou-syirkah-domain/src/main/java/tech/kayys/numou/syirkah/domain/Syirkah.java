@@ -528,6 +528,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     // ------------------------------------------------------------------ liquidation
 
     public void startLiquidation(Instant now) {
+        Objects.requireNonNull(now, "now");
         requireActive();
         status = SyirkahStatus.LIQUIDATING;
         touch(now);
