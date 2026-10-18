@@ -187,6 +187,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("stored syirkah close " + close.id().value()
                         + " has period end before period start");
             }
+            if (close.closedAt().isBefore(st.createdAt()) || close.closedAt().isAfter(st.updatedAt())) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " timestamp falls outside snapshot lifetime");
+            }
             if (!knownCloseIds.add(close.id())) {
                 throw new IllegalStateException("stored syirkah close history contains duplicate close id "
                         + close.id().value());
