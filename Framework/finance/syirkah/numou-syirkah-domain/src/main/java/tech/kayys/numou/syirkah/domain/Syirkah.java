@@ -436,6 +436,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         invalidScale);
             }
         }
+        Money expectedResidual = result.input().assetProceeds().subtract(result.input().externalDebts());
+        if (result.residual().compareTo(expectedResidual) != 0) {
+            throw new IllegalStateException("stored liquidation residual does not equal asset proceeds minus external debts");
+        }
     }
 
     // ------------------------------------------------------------------ queries
