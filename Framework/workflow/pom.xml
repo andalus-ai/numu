@@ -14,7 +14,7 @@
     <artifactId>numou-workflow</artifactId>
     <name>Kayys ERP Framework - Workflow Platform</name>
     <description>
-        DAG-based business workflow orchestration powered by Gamelan engine.
+        DAG-based business workflow orchestration for the ERP platform.
     </description>
 
     <dependencies>
@@ -22,18 +22,6 @@
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-foundation-kernel</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>tech.kayys.gamelan</groupId>
-            <artifactId>gamelan-engine-spi</artifactId>
-            <version>0.1.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>tech.kayys.gamelan</groupId>
-            <artifactId>gamelan-dag</artifactId>
-            <version>0.1.1</version>
         </dependency>
 
         <dependency>

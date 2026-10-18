@@ -3,7 +3,6 @@ package tech.kayys.numou.workflow.engine;
 import io.smallrye.mutiny.Uni;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.gamelan.dag.DagScheduler;
 import tech.kayys.numou.workflow.api.*;
 
 import java.time.Instant;
@@ -11,7 +10,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Enterprise workflow engine adapter powered by Gamelan DAG scheduler.
+ * DAG-based workflow engine adapter.
+ *
+ * The scheduler is implemented in this module so the framework can build
+ * without requiring Gamelan artifacts from an authenticated package registry.
  */
 public class GamelanWorkflowEngineAdapter implements NumouWorkflowEngine {
 
@@ -40,36 +42,40 @@ public class GamelanWorkflowEngineAdapter implements NumouWorkflowEngine {
             Instant now = Instant.now();
             WorkflowContext ctx = WorkflowContext.of(input);
 
-            // Build DAG adjacency from steps
-            Map<String, Set<String>> adjacency = new HashMap<>();
+            Map<String, Set<String>> adjacency = new LinkedHashMap<>();
             List<String> nodes = new ArrayList<>();
+            Map<String, NumouWorkflowDefinition.WorkflowStep> stepsById = new HashMap<>();
             for (NumouWorkflowDefinition.WorkflowStep step : def.steps()) {
+                if (stepsById.putIfAbsent(step.stepId(), step) != null) {
+                    throw new IllegalArgumentException("Duplicate workflow step id: " + step.stepId());
+                }
                 nodes.add(step.stepId());
-                adjacency.put(step.stepId(), new HashSet<>(step.nextStepIds()));
+                adjacency.put(step.stepId(), new LinkedHashSet<>(step.nextStepIds()));
             }
 
-            DagScheduler scheduler = new DagScheduler(adjacency, nodes);
+            WorkflowDagScheduler scheduler = new WorkflowDagScheduler(adjacency, nodes);
             log.info("Started workflow instance {} for definition {}", instanceId, definitionId);
 
-            // Step through DAG ready nodes
+            int completedSteps = 0;
             String nextNode = scheduler.nextReady();
             boolean suspendedForHumanTask = false;
 
             while (nextNode != null) {
-                final String current = nextNode;
-                NumouWorkflowDefinition.WorkflowStep step = def.steps().stream()
-                        .filter(s -> s.stepId().equals(current))
-                        .findFirst()
-                        .orElse(null);
-
-                if (step != null && "HUMAN_APPROVAL".equalsIgnoreCase(step.stepType())) {
+                NumouWorkflowDefinition.WorkflowStep step = stepsById.get(nextNode);
+                if ("HUMAN_APPROVAL".equalsIgnoreCase(step.stepType())) {
                     suspendedForHumanTask = true;
-                    log.info("Workflow {} suspended at step {} awaiting human approval signal", instanceId, current);
+                    log.info("Workflow {} suspended at step {} awaiting human approval signal", instanceId, nextNode);
                     break;
                 }
 
-                scheduler.onNodeCompleted(current, adjacency);
+                scheduler.onNodeCompleted(nextNode);
+                completedSteps++;
                 nextNode = scheduler.nextReady();
+            }
+
+            if (!suspendedForHumanTask && completedSteps != nodes.size()) {
+                throw new IllegalArgumentException(
+                        "Workflow definition contains a cycle or cannot reach all steps: " + definitionId);
             }
 
             WorkflowState finalState = suspendedForHumanTask ? WorkflowState.SUSPENDED : WorkflowState.COMPLETED;
