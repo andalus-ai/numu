@@ -21,10 +21,14 @@ public class GamelanWorkflowEngineAdapter implements NumouWorkflowEngine {
 
     private final Map<String, NumouWorkflowDefinition> definitions = new ConcurrentHashMap<>();
     private final Map<String, WorkflowExecution> executions = new ConcurrentHashMap<>();
+    private final Map<String, RuntimeState> runtimeStates = new ConcurrentHashMap<>();
 
     @Override
     public void registerDefinition(NumouWorkflowDefinition definition) {
         if (definition != null) {
+            if (definition.id().isBlank()) {
+                throw new IllegalArgumentException("Workflow definition ID must not be blank");
+            }
             definitions.put(definition.id(), definition);
             log.info("Registered workflow definition: {} (version {})", definition.id(), definition.version());
         }
@@ -40,56 +44,38 @@ public class GamelanWorkflowEngineAdapter implements NumouWorkflowEngine {
 
             String instanceId = UUID.randomUUID().toString();
             Instant now = Instant.now();
-            WorkflowContext ctx = WorkflowContext.of(input);
+            WorkflowContext context = WorkflowContext.of(input);
 
             Map<String, Set<String>> adjacency = new LinkedHashMap<>();
             List<String> nodes = new ArrayList<>();
-            Map<String, NumouWorkflowDefinition.WorkflowStep> stepsById = new HashMap<>();
+            Map<String, NumouWorkflowDefinition.WorkflowStep> stepsById = new LinkedHashMap<>();
             for (NumouWorkflowDefinition.WorkflowStep step : def.steps()) {
+                if (step == null) {
+                    throw new IllegalArgumentException("Workflow steps must not contain null");
+                }
+                if (step.stepId() == null || step.stepId().isBlank()) {
+                    throw new IllegalArgumentException("Workflow step ID must not be blank");
+                }
                 if (stepsById.putIfAbsent(step.stepId(), step) != null) {
                     throw new IllegalArgumentException("Duplicate workflow step id: " + step.stepId());
                 }
                 nodes.add(step.stepId());
-                adjacency.put(step.stepId(), new LinkedHashSet<>(step.nextStepIds()));
+                adjacency.put(step.stepId(), step.nextStepIds() == null
+                        ? Set.of()
+                        : new LinkedHashSet<>(step.nextStepIds()));
             }
 
             WorkflowDagScheduler scheduler = new WorkflowDagScheduler(adjacency, nodes);
+            RuntimeState runtime = new RuntimeState(definitionId, scheduler, stepsById, context, now);
+            runtimeStates.put(instanceId, runtime);
+
             log.info("Started workflow instance {} for definition {}", instanceId, definitionId);
-
-            int completedSteps = 0;
-            String nextNode = scheduler.nextReady();
-            boolean suspendedForHumanTask = false;
-
-            while (nextNode != null) {
-                NumouWorkflowDefinition.WorkflowStep step = stepsById.get(nextNode);
-                if ("HUMAN_APPROVAL".equalsIgnoreCase(step.stepType())) {
-                    suspendedForHumanTask = true;
-                    log.info("Workflow {} suspended at step {} awaiting human approval signal", instanceId, nextNode);
-                    break;
-                }
-
-                scheduler.onNodeCompleted(nextNode);
-                completedSteps++;
-                nextNode = scheduler.nextReady();
+            WorkflowExecution execution = advance(instanceId, runtime);
+            executions.put(instanceId, execution);
+            if (execution.state() == WorkflowState.COMPLETED || execution.state() == WorkflowState.FAILED) {
+                runtimeStates.remove(instanceId, runtime);
             }
-
-            if (!suspendedForHumanTask && completedSteps != nodes.size()) {
-                throw new IllegalArgumentException(
-                        "Workflow definition contains a cycle or cannot reach all steps: " + definitionId);
-            }
-
-            WorkflowState finalState = suspendedForHumanTask ? WorkflowState.SUSPENDED : WorkflowState.COMPLETED;
-            WorkflowExecution exec = new WorkflowExecution(
-                    instanceId,
-                    definitionId,
-                    finalState,
-                    ctx,
-                    now,
-                    finalState == WorkflowState.COMPLETED ? Instant.now() : null
-            );
-
-            executions.put(instanceId, exec);
-            return exec;
+            return execution;
         });
     }
 
@@ -104,31 +90,138 @@ public class GamelanWorkflowEngineAdapter implements NumouWorkflowEngine {
                 throw new IllegalStateException("Workflow instance " + instanceId + " is not suspended");
             }
 
-            log.info("Resuming workflow instance {} with signal {}", instanceId, signal);
-            WorkflowContext updatedContext = current.context();
-            if (payload != null) {
-                for (Map.Entry<String, Object> e : payload.entrySet()) {
-                    updatedContext = updatedContext.with(e.getKey(), e.getValue());
-                }
+            RuntimeState runtime = runtimeStates.get(instanceId);
+            if (runtime == null) {
+                throw new IllegalStateException("Workflow runtime state is unavailable for instance " + instanceId);
             }
 
-            WorkflowExecution completed = new WorkflowExecution(
-                    current.instanceId(),
-                    current.definitionId(),
-                    WorkflowState.COMPLETED,
-                    updatedContext,
-                    current.startedAt(),
-                    Instant.now()
-            );
+            synchronized (runtime) {
+                // Recheck after acquiring the runtime lock so concurrent signals cannot
+                // approve the same human task twice.
+                current = executions.get(instanceId);
+                if (current == null || current.state() != WorkflowState.SUSPENDED) {
+                    throw new IllegalStateException("Workflow instance " + instanceId + " is not suspended");
+                }
+                if (runtime.pendingApprovalStepId == null) {
+                    throw new IllegalStateException("Suspended workflow has no pending approval step: " + instanceId);
+                }
 
-            executions.put(instanceId, completed);
-            return completed;
+                String normalizedSignal = normalizeSignal(signal);
+                if (!"APPROVE".equals(normalizedSignal) && !"REJECT".equals(normalizedSignal)) {
+                    throw new IllegalArgumentException(
+                            "Unsupported workflow signal '" + signal + "'. Expected APPROVE or REJECT");
+                }
+
+                WorkflowContext updatedContext = runtime.context;
+                if (payload != null) {
+                    for (Map.Entry<String, Object> entry : payload.entrySet()) {
+                        updatedContext = updatedContext.with(entry.getKey(), entry.getValue());
+                    }
+                }
+                runtime.context = updatedContext;
+
+                if ("REJECT".equals(normalizedSignal)) {
+                    WorkflowExecution failed = new WorkflowExecution(
+                            current.instanceId(),
+                            current.definitionId(),
+                            WorkflowState.FAILED,
+                            updatedContext,
+                            current.startedAt(),
+                            Instant.now());
+                    executions.put(instanceId, failed);
+                    runtimeStates.remove(instanceId, runtime);
+                    return failed;
+                }
+
+                String approvedStepId = runtime.pendingApprovalStepId;
+                runtime.scheduler.onNodeCompleted(approvedStepId);
+                runtime.pendingApprovalStepId = null;
+
+                WorkflowExecution resumed = advance(instanceId, runtime);
+                executions.put(instanceId, resumed);
+                if (resumed.state() == WorkflowState.COMPLETED || resumed.state() == WorkflowState.FAILED) {
+                    runtimeStates.remove(instanceId, runtime);
+                }
+                return resumed;
+            }
         });
+    }
+
+    private WorkflowExecution advance(String instanceId, RuntimeState runtime) {
+        String nextNode;
+        while ((nextNode = runtime.scheduler.nextReady()) != null) {
+            NumouWorkflowDefinition.WorkflowStep step = runtime.stepsById.get(nextNode);
+            if ("HUMAN_APPROVAL".equalsIgnoreCase(step.stepType())) {
+                runtime.pendingApprovalStepId = nextNode;
+                log.info("Workflow {} suspended at step {} awaiting human approval signal", instanceId, nextNode);
+                return new WorkflowExecution(
+                        instanceId,
+                        runtime.definitionId,
+                        WorkflowState.SUSPENDED,
+                        runtime.context,
+                        runtime.startedAt,
+                        null);
+            }
+            runtime.scheduler.onNodeCompleted(nextNode);
+        }
+
+        if (!runtime.scheduler.isComplete()) {
+            return new WorkflowExecution(
+                    instanceId,
+                    runtime.definitionId,
+                    WorkflowState.FAILED,
+                    runtime.context,
+                    runtime.startedAt,
+                    Instant.now());
+        }
+
+        return new WorkflowExecution(
+                instanceId,
+                runtime.definitionId,
+                WorkflowState.COMPLETED,
+                runtime.context,
+                runtime.startedAt,
+                Instant.now());
+    }
+
+    private static String normalizeSignal(String signal) {
+        if (signal == null || signal.isBlank()) {
+            return "";
+        }
+        return switch (signal.trim().toUpperCase(Locale.ROOT)) {
+            case "APPROVE", "APPROVED" -> "APPROVE";
+            case "REJECT", "REJECTED" -> "REJECT";
+            default -> "";
+        };
     }
 
     @Override
     public Optional<WorkflowExecution> getExecution(String instanceId) {
-        if (instanceId == null) return Optional.empty();
+        if (instanceId == null) {
+            return Optional.empty();
+        }
         return Optional.ofNullable(executions.get(instanceId));
+    }
+
+    private static final class RuntimeState {
+        private final String definitionId;
+        private final WorkflowDagScheduler scheduler;
+        private final Map<String, NumouWorkflowDefinition.WorkflowStep> stepsById;
+        private final Instant startedAt;
+        private WorkflowContext context;
+        private String pendingApprovalStepId;
+
+        private RuntimeState(
+                String definitionId,
+                WorkflowDagScheduler scheduler,
+                Map<String, NumouWorkflowDefinition.WorkflowStep> stepsById,
+                WorkflowContext context,
+                Instant startedAt) {
+            this.definitionId = definitionId;
+            this.scheduler = scheduler;
+            this.stepsById = Map.copyOf(stepsById);
+            this.context = context;
+            this.startedAt = startedAt;
+        }
     }
 }
