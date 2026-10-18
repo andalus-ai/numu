@@ -193,4 +193,40 @@ class SyirkahServiceFlowTest {
         // because the 20M profit was earned in the business outside this ledger's cash account
         assertEquals(0, new BigDecimal("-20000000").compareTo(net("1100")));
     }
+
+    @Test
+    void concurrentDistributionsNeverOverpayAndReplaysApplyOnce() throws Exception {
+        SyirkahId id = openOne();
+        service.closePeriod(new Commands.ClosePeriod(tenant, id, CloseId.generate(), LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-31"), FinancialResult.of(idr(10_000_000), idr(0), idr(0), idr(0)),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE)); // A is owed 4,000,000
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(8);
+        java.util.List<java.util.concurrent.Future<Boolean>> futures = new ArrayList<>();
+        for (int i = 0; i < 24; i++) {
+            final int n = i;
+            // 12 distinct payments of 1,000,000 (only 4 can succeed) + 12 replays of one shared reference
+            final String ref = n < 12 ? "unique-" + n : "shared";
+            futures.add(pool.submit(() -> {
+                try {
+                    service.distributeProfit(new Commands.DistributeProfit(tenant, id, A, idr(1_000_000), ref));
+                    return true;
+                } catch (BusinessRuleViolation e) {
+                    return false;
+                }
+            }));
+        }
+        for (java.util.concurrent.Future<Boolean> f : futures) {
+            f.get();
+        }
+        pool.shutdown();
+        Syirkah s = service.get(tenant, id);
+        BigDecimal paid = new BigDecimal("4000000").subtract(s.position(A).payable().amount());
+        assertEquals(0, new BigDecimal("4000000").compareTo(paid)); // exactly the entitlement, never more
+        assertTrue(s.position(A).payable().amount().signum() >= 0);
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+        long sharedApplied = s.movements().stream()
+                .filter(m -> "pay:shared".equals(m.reference())).count();
+        assertTrue(sharedApplied <= 1);
+    }
 }

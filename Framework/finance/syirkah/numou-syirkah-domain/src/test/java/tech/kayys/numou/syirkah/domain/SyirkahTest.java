@@ -446,4 +446,56 @@ class SyirkahTest {
         FinancialResult r = FinancialResult.of(Money.of(new BigDecimal("10.5"), IDR), idr(0), idr(0), idr(0));
         assertThrows(BusinessRuleViolation.class, () -> close(s, JAN1, JAN31, r, ProfitDisposition.DISTRIBUTE));
     }
+
+    // ---------------------------------------------------------------- reports / reconciliation
+
+    @Test
+    void reconciliationHoldsThroughTheWholeLifecycle() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        assertTrue(s.reconcile().balanced());
+        CloseSnapshot c1 = close(s, JAN1, JAN31, loss(9_000_000), ProfitDisposition.DISTRIBUTE);
+        assertTrue(s.reconcile().balanced());
+        CloseSnapshot c2 = close(s, FEB1, FEB28, profit(30_000_000), ProfitDisposition.RETAIN);
+        assertTrue(s.reconcile().balanced());
+        s.correctLatestClose(c2.id(), CloseId.generate(), profit(12_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        assertTrue(s.reconcile().balanced());
+        s.distributeProfit(A, idr(1_000_000), "p", NOW);
+        assertTrue(s.reconcile().balanced());
+        s.startLiquidation(NOW);
+        s.liquidate(new LiquidationInput(idr(10_000_000), idr(40_000_000), true, FEB28), ManagerFault.none(), NOW);
+        EquityReconciliation r = s.reconcile();
+        assertTrue(r.balanced(), "difference " + r.difference().amount());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void reconciliationHoldsForMudharabahFaultAndOverpayment() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "breach"), ProfitDisposition.DISTRIBUTE, NOW);
+        assertTrue(s.reconcile().balanced());
+        s.settleLiability(B, idr(3_000_000), "s", NOW);
+        CloseSnapshot c = close(s, FEB1, FEB28, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(1_500_000), "d1", NOW);
+        s.distributeProfit(B, idr(1_500_000), "d2", NOW);
+        assertTrue(s.reconcile().balanced());
+        s.correctLatestClose(c.id(), CloseId.generate(), profit(2_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        assertTrue(s.reconcile().balanced());
+    }
+
+    @Test
+    void statementShowsRunningBalances() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(1_000_000), "p", NOW);
+        PartnerStatement st = s.statement(A);
+        assertEquals(3, st.lines().size()); // contribution, profit allocated, distribution
+        eq(100_000_000, st.lines().get(0).capitalBalance());
+        eq(4_000_000, st.lines().get(1).profitPayable());
+        eq(3_000_000, st.lines().get(2).profitPayable());
+        eq(3_000_000, st.closing().payable());
+        assertEquals("A", st.name());
+    }
 }
