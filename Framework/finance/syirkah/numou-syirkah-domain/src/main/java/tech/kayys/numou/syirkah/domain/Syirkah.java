@@ -208,7 +208,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         SyirkahContract c = contract();
         result = normalize(result);
         Money net = result.netResult();
-        ManagerFault f = fault == null ? ManagerFault.none() : fault;
+        ManagerFault f = normalizeFault(fault);
         if (f.negligentOrBreach()) {
             if (c.type() != SyirkahType.MUDHARABAH) {
                 throw new BusinessRuleViolation("manager fault applies only to mudharabah");
@@ -647,11 +647,23 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     }
 
     private Money norm(Money m) {
+        if (!m.currency().equals(contract().currency())) {
+            throw new BusinessRuleViolation("amount currency " + m.currency().code()
+                    + " does not match akad currency " + contract().currency().code());
+        }
         try {
             return Money.of(m.amount().setScale(scale, RoundingMode.UNNECESSARY), m.currency());
         } catch (ArithmeticException e) {
             throw new BusinessRuleViolation("amount " + m.amount() + " has more than " + scale + " decimals");
         }
+    }
+
+    private ManagerFault normalizeFault(ManagerFault fault) {
+        ManagerFault f = fault == null ? ManagerFault.none() : fault;
+        if (!f.negligentOrBreach()) {
+            return f;
+        }
+        return ManagerFault.of(norm(f.attributableLoss()), f.reason());
     }
 
     private FinancialResult normalize(FinancialResult r) {
