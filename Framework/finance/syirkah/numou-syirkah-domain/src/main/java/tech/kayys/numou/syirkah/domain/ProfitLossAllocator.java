@@ -150,6 +150,9 @@ public final class ProfitLossAllocator {
             // Allocate only the loss that eligible capital can absorb. Any remainder is an
             // entity-level deficit, not a partner debt or negative partner equity.
             remaining = remaining.min(availableCapital);
+            if (remaining.signum() == 0) {
+                return;
+            }
         }
         Apportionment.apportion(remaining, weights, scale).forEach((k, v) -> loss.put(k, Money.of(v, cur)));
     }
