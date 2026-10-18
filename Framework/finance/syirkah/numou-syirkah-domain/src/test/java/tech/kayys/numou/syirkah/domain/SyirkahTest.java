@@ -517,4 +517,22 @@ class SyirkahTest {
         eq(5_000_000, s.position(B).payable());
         assertTrue(s.reconcile().balanced());
     }
+
+    @Test
+    void closeAuditHashBindsManagerFaultFinding() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        CloseSnapshot close = s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "ignored agreed purchase limit"),
+                ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertTrue(close.hashIsValid());
+        CloseSnapshot tampered = new CloseSnapshot(
+                close.id(), close.sequence(), close.periodStart(), close.periodEnd(), close.contractVersion(),
+                close.contractCanonical(), close.result(), close.disposition(),
+                ManagerFault.of(idr(3_000_000), "different fault finding"), close.lines(), close.supersedes(),
+                close.status(), close.firstMovementSequence(), close.lastMovementSequence(), close.closedAt(),
+                close.previousHash(), close.hash());
+
+        assertFalse(tampered.hashIsValid(), "changing a material fault finding must invalidate the audit hash");
+    }
 }
