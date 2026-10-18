@@ -782,6 +782,54 @@ class SyirkahTest {
     }
 
     @Test
+    void snapshotRestorePreservesContractHistoryDepartedPartnersAndPositions() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(5_000_000), "restore-a", NOW);
+        s.distributeProfit(B, idr(5_000_000), "restore-b", NOW);
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.INAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(C, "C", PartnerRole.PARTNER, true)),
+                List.of(CapitalContribution.cash(A, idr(100_000_000)),
+                        CapitalContribution.cash(C, idr(50_000_000))),
+                ratio(A, 50, C, 50), ProfitBasis.NET_PROFIT, null, Set.of(),
+                List.of("W1", "W2"), true, FEB1);
+        s.reviseContract(next, Set.of(A, B, C), NOW);
+
+        Syirkah restored = Syirkah.restore(s.snapshot());
+
+        assertEquals(2, restored.contractHistory().size());
+        assertEquals(2, restored.contract().version());
+        assertEquals("B", restored.statement(B).name(), "departed partner identity must remain reportable");
+        eq(0, restored.position(B).balance());
+        eq(0, restored.position(B).basis());
+        eq(100_000_000, restored.position(A).balance());
+        eq(50_000_000, restored.position(C).balance());
+        assertEquals(s.movements(), restored.movements());
+        assertEquals(s.closes(), restored.closes());
+        assertTrue(restored.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void restoreRejectsContractHistoryThatNoLongerMatchesAHashedClose() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        SyirkahContract original = snapshot.contracts().get(0);
+        SyirkahContract substituted = new SyirkahContract(original.version(), original.type(), original.currency(),
+                original.partners(), original.capital(), ratio(A, 45, B, 55), original.profitBasis(),
+                original.lossSharing(), original.declaredClauses(), original.witnesses(),
+                original.ijabQabulRecorded(), original.effectiveFrom());
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), List.of(substituted), snapshot.movements(),
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("contract terms do not match stored contract history"));
+    }
+
+    @Test
     void restoreRejectsTamperedLiquidationAuditSnapshot() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
