@@ -170,6 +170,21 @@ class SyirkahTest {
     }
 
     @Test
+    void periodCloseRejectsAmountsAndManagerFaultInWrongCurrency() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        var usd = tech.kayys.numou.foundation.domain.valueobject.Currency.of("USD");
+        Money usdAmount = Money.of(BigDecimal.ONE, usd);
+        FinancialResult wrongCurrency = FinancialResult.of(usdAmount, Money.zero(usd),
+                Money.zero(usd), Money.zero(usd));
+
+        assertThrows(BusinessRuleViolation.class, () -> s.closePeriod(CloseId.generate(), JAN1, JAN31,
+                wrongCurrency, ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW));
+        assertThrows(BusinessRuleViolation.class, () -> s.closePeriod(CloseId.generate(), JAN1, JAN31,
+                loss(1_000), ManagerFault.of(usdAmount, "documented breach"),
+                ProfitDisposition.DISTRIBUTE, NOW));
+    }
+
+    @Test
     void faultWithoutLossOrOutsideMudharabahIsRejected() {
         Syirkah m = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         assertThrows(BusinessRuleViolation.class, () -> m.closePeriod(CloseId.generate(), JAN1, JAN31,
