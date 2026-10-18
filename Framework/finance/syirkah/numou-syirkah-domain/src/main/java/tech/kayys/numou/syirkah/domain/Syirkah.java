@@ -172,13 +172,23 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         Map<CloseId, Integer> closeIndexes = new LinkedHashMap<>();
         for (int i = 0; i < st.closes().size(); i++) {
             CloseSnapshot close = st.closes().get(i);
-            if (close != null) {
-                if (!knownCloseIds.add(close.id())) {
-                    throw new IllegalStateException("stored syirkah close history contains duplicate close id "
-                            + close.id().value());
-                }
-                closeIndexes.put(close.id(), i);
+            if (close == null || close.id() == null || close.status() == null
+                    || close.periodStart() == null || close.periodEnd() == null || close.closedAt() == null
+                    || close.contractCanonical() == null || close.result() == null
+                    || close.disposition() == null || close.lines() == null
+                    || close.previousHash() == null || close.hash() == null) {
+                throw new IllegalStateException("stored syirkah close history has missing required metadata at index "
+                        + i);
             }
+            if (close.periodEnd().isBefore(close.periodStart())) {
+                throw new IllegalStateException("stored syirkah close " + close.id().value()
+                        + " has period end before period start");
+            }
+            if (!knownCloseIds.add(close.id())) {
+                throw new IllegalStateException("stored syirkah close history contains duplicate close id "
+                        + close.id().value());
+            }
+            closeIndexes.put(close.id(), i);
         }
         for (PartnerMovement movement : st.movements()) {
             if (movement == null || movement.partner() == null || !knownPartners.contains(movement.partner())) {
