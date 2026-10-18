@@ -468,8 +468,13 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
         }
         for (PartnerMovement m : movements) {
-            if (m.sequence() > last.lastMovementSequence() && m.type() != MovementType.PROFIT_DISTRIBUTED) {
-                throw new BusinessRuleViolation("only profit distributions may follow a close that is corrected; found "
+            boolean correctionGeneratedLiability = m.type() == MovementType.OVERPAYMENT_TO_LIABILITY
+                    && last.id().equals(m.closeId());
+            if (m.sequence() > last.lastMovementSequence()
+                    && m.type() != MovementType.PROFIT_DISTRIBUTED
+                    && !correctionGeneratedLiability) {
+                throw new BusinessRuleViolation("only profit distributions or correction-generated overpayment "
+                        + "liabilities may follow a close that is corrected; found "
                         + m.type() + " at " + m.sequence());
             }
         }
