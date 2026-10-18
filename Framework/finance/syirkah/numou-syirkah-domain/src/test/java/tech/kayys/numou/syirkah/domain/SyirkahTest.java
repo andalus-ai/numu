@@ -564,6 +564,25 @@ class SyirkahTest {
     }
 
     @Test
+    void liquidationAuditHashBindsPayoutsAndAllocationLines() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(200_000_000), idr(20_000_000), true, FEB28),
+                ManagerFault.none(), NOW);
+
+        assertTrue(result.hashIsValid());
+        LiquidationResult.Payout original = result.payouts().get(0);
+        List<LiquidationResult.Payout> tamperedPayouts = new ArrayList<>(result.payouts());
+        tamperedPayouts.set(0, new LiquidationResult.Payout(original.partner(),
+                original.cashReceived().add(idr(1)), original.owed()));
+        LiquidationResult tampered = new LiquidationResult(result.input(), result.residual(), result.netResult(),
+                result.lines(), tamperedPayouts, result.completedAt(), result.hash());
+
+        assertFalse(tampered.hashIsValid(), "changing a liquidation payout must invalidate its audit hash");
+    }
+
+    @Test
     void domainEventsAreRaised() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
