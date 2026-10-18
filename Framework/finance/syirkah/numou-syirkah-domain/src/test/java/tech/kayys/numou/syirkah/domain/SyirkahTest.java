@@ -100,6 +100,26 @@ class SyirkahTest {
     }
 
     @Test
+    void lossesCannotExceedRemainingCapitalOrCreateNegativePartnerEquity() {
+        Syirkah s = open(inan(100, 0, ratio(A, 50, B, 50)));
+        assertThrows(BusinessRuleViolation.class,
+                () -> close(s, JAN1, JAN31, loss(101), ProfitDisposition.DISTRIBUTE));
+        assertTrue(s.verifyIntegrity().isEmpty());
+        eq(100, s.position(A).balance());
+    }
+
+    @Test
+    void exhaustedMudharabahCapitalDoesNotShiftOrdinaryLossToManager() {
+        Syirkah s = open(mudharabah(100, ratio(A, 70, B, 30)));
+        close(s, JAN1, JAN31, loss(100), ProfitDisposition.DISTRIBUTE);
+        eq(0, s.position(A).balance());
+        assertThrows(BusinessRuleViolation.class,
+                () -> close(s, FEB1, FEB28, loss(1), ProfitDisposition.DISTRIBUTE));
+        eq(0, s.position(B).liability());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void mudharabahLossFallsOnCapitalProviderOnly() {
         Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         close(s, JAN1, JAN31, loss(8_000_000), ProfitDisposition.DISTRIBUTE);
