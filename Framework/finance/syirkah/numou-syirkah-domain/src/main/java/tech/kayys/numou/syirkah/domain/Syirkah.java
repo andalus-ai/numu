@@ -160,6 +160,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             if (contract == null || contract.version() != i + 1) {
                 throw new IllegalStateException("stored syirkah contract history has a version gap at index " + i);
             }
+            if (i > 0 && !contract.effectiveFrom().isAfter(st.contracts().get(i - 1).effectiveFrom())) {
+                throw new IllegalStateException("stored syirkah contract effective dates are not strictly increasing at version "
+                        + contract.version());
+            }
             try {
                 contract.requireValid();
             } catch (RuntimeException invalid) {
