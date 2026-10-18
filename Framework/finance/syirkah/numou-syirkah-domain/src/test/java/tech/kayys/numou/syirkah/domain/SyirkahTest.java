@@ -387,6 +387,36 @@ class SyirkahTest {
     }
 
     @Test
+    void rejectedPartnerExitDoesNotPartiallyApplyEarlierCapitalAdjustments() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "documented breach"), ProfitDisposition.DISTRIBUTE, NOW);
+
+        // A would receive a capital return under the proposed contract, but B is leaving
+        // with an unsettled manager-fault liability. The whole revision must be rejected
+        // before any movement or contract history is changed.
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.MUDHARABAH, IDR,
+                List.of(new Partner(A, "A", PartnerRole.CAPITAL_PROVIDER, false),
+                        new Partner(C, "C", PartnerRole.MANAGER, true)),
+                List.of(CapitalContribution.cash(A, idr(90_000_000))),
+                ratio(A, 70, C, 30), ProfitBasis.NET_PROFIT, null, Set.of(),
+                List.of("W1", "W2"), true, FEB1);
+        int movementCount = s.movements().size();
+        int contractCount = s.contractHistory().size();
+        Money capitalA = s.position(A).balance();
+        Money liabilityB = s.position(B).liability();
+
+        assertThrows(BusinessRuleViolation.class, () -> s.reviseContract(next, Set.of(A, B, C), NOW));
+
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(contractCount, s.contractHistory().size());
+        assertEquals(0, capitalA.compareTo(s.position(A).balance()));
+        assertEquals(0, liabilityB.compareTo(s.position(B).liability()));
+        assertEquals(1, s.contract().version());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void typeCannotChangeByRevision() {
         Syirkah s = open(inan(10, 10, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
