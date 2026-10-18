@@ -276,6 +276,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         + " references missing contract version " + close.contractVersion());
             }
             SyirkahContract contract = st.contracts().get(close.contractVersion() - 1);
+            if (close.periodStart().isBefore(contract.effectiveFrom())) {
+                throw new IllegalStateException("close " + close.id().value()
+                        + " starts before its akad effective date");
+            }
             if (!contract.canonical().equals(close.contractCanonical())) {
                 throw new IllegalStateException("close " + close.id().value()
                         + " contract terms do not match stored contract history");
