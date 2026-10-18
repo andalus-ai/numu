@@ -1431,6 +1431,32 @@ class SyirkahTest {
     }
 
     @Test
+    void restoreRejectsCloseWithDuplicateAllocationPartnerEvenWhenRehashed() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        List<AllocationLine> duplicateLines = new ArrayList<>(original.lines());
+        duplicateLines.set(1, duplicateLines.get(0));
+        String alteredHash = CloseSnapshot.computeHashV3(original.id(), original.sequence(),
+                original.periodStart(), original.periodEnd(), original.contractVersion(),
+                original.contractCanonical(), original.result(), original.disposition(), original.fault(),
+                duplicateLines, original.supersedes(), original.previousHash(),
+                original.firstMovementSequence(), original.lastMovementSequence());
+        CloseSnapshot altered = new CloseSnapshot(original.id(), original.sequence(), original.periodStart(),
+                original.periodEnd(), original.contractVersion(), original.contractCanonical(), original.result(),
+                original.disposition(), original.fault(), duplicateLines, original.supersedes(), original.status(),
+                original.firstMovementSequence(), original.lastMovementSequence(), original.closedAt(),
+                original.previousHash(), alteredHash);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                List.of(altered), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("duplicate allocation lines for partner"));
+    }
+
+    @Test
     void restoreRejectsLiquidationAmountsWithExcessAccountingPrecision() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         s.startLiquidation(Instant.parse("2026-02-01T00:00:00Z"));
