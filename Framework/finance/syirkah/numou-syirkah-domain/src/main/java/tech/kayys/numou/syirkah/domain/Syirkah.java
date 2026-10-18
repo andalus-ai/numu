@@ -190,8 +190,17 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
             closeIndexes.put(close.id(), i);
         }
-        for (PartnerMovement movement : st.movements()) {
-            if (movement == null || movement.partner() == null || !knownPartners.contains(movement.partner())) {
+        for (int i = 0; i < st.movements().size(); i++) {
+            PartnerMovement movement = st.movements().get(i);
+            if (movement == null || movement.id() == null || movement.partner() == null
+                    || movement.type() == null || movement.amount() == null || movement.reference() == null
+                    || movement.occurredAt() == null || movement.previousHash() == null || movement.hash() == null) {
+                throw new IllegalStateException("stored movement has missing required metadata at index " + i);
+            }
+            if (movement.sequence() < 1) {
+                throw new IllegalStateException("stored movement has invalid sequence " + movement.sequence());
+            }
+            if (!knownPartners.contains(movement.partner())) {
                 throw new IllegalStateException("stored movement references a partner absent from contract history");
             }
             if (movement.closeId() != null && !knownCloseIds.contains(movement.closeId())) {
