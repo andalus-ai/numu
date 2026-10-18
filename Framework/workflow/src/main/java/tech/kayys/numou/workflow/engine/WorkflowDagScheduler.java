@@ -6,8 +6,7 @@ import java.util.*;
  * Deterministic in-memory scheduler for a workflow DAG.
  *
  * Nodes become ready when all of their predecessors have completed. Unknown
- * edges, duplicate node IDs, and cycles are rejected instead of silently
- * completing an invalid workflow.
+ * edges, duplicate node IDs, and cycles are rejected before execution starts.
  */
 final class WorkflowDagScheduler {
     private final Map<String, Set<String>> successors = new LinkedHashMap<>();
@@ -35,7 +34,7 @@ final class WorkflowDagScheduler {
                 throw new IllegalArgumentException("Missing adjacency entry for workflow node: " + node);
             }
             for (String target : outgoing) {
-                if (!knownNodes.contains(target)) {
+                if (target == null || !knownNodes.contains(target)) {
                     throw new IllegalArgumentException("Workflow node " + node
                             + " references unknown next step: " + target);
                 }
@@ -47,6 +46,8 @@ final class WorkflowDagScheduler {
                 }
             }
         }
+
+        validateAcyclicGraph();
         remainingPredecessors.forEach((node, count) -> {
             if (count == 0) {
                 ready.add(node);
@@ -56,6 +57,10 @@ final class WorkflowDagScheduler {
 
     String nextReady() {
         return ready.peek();
+    }
+
+    boolean isComplete() {
+        return completed.size() == knownNodes.size();
     }
 
     void onNodeCompleted(String node) {
@@ -74,6 +79,31 @@ final class WorkflowDagScheduler {
             if (remaining == 0) {
                 ready.add(successor);
             }
+        }
+    }
+
+    private void validateAcyclicGraph() {
+        Map<String, Integer> inDegree = new LinkedHashMap<>(remainingPredecessors);
+        PriorityQueue<String> readyNodes = new PriorityQueue<>();
+        inDegree.forEach((node, count) -> {
+            if (count == 0) {
+                readyNodes.add(node);
+            }
+        });
+
+        int visited = 0;
+        while (!readyNodes.isEmpty()) {
+            String node = readyNodes.remove();
+            visited++;
+            for (String successor : successors.get(node)) {
+                int remaining = inDegree.compute(successor, (key, count) -> count - 1);
+                if (remaining == 0) {
+                    readyNodes.add(successor);
+                }
+            }
+        }
+        if (visited != knownNodes.size()) {
+            throw new IllegalArgumentException("Workflow definition contains a cycle");
         }
     }
 }
