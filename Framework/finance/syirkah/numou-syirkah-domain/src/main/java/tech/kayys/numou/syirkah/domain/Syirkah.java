@@ -200,6 +200,13 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             if (movement.sequence() < 1) {
                 throw new IllegalStateException("stored movement has invalid sequence " + movement.sequence());
             }
+            java.util.UUID expectedMovementId = java.util.UUID.nameUUIDFromBytes(
+                    (movement.sequence() + "|" + movement.partner().value() + "|" + movement.type() + "|"
+                            + movement.reference()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            if (!expectedMovementId.equals(movement.id())) {
+                throw new IllegalStateException("stored movement id does not match its canonical identity at sequence "
+                        + movement.sequence());
+            }
             if (!knownPartners.contains(movement.partner())) {
                 throw new IllegalStateException("stored movement references a partner absent from contract history");
             }
