@@ -285,6 +285,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         + " cannot be superseded by another close");
             }
         }
+        if (st.liquidation() != null) {
+            validateRestoredLiquidation(st.liquidation(), st.scale(),
+                    st.contracts().get(st.contracts().size() - 1).currency(), knownPartners);
+        }
         boolean hasCloseSinceCurrentAkad = st.closes().stream()
                 .anyMatch(close -> close.contractVersion() == st.contracts().get(st.contracts().size() - 1).version());
         if (st.closedSinceRevision() != hasCloseSinceCurrentAkad) {
@@ -295,6 +299,58 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         if (st.status() != SyirkahStatus.TERMINATED && st.liquidation() != null) {
             throw new IllegalStateException("non-terminated syirkah contains a liquidation result");
+        }
+    }
+
+
+    private static void validateRestoredLiquidation(LiquidationResult result, int scale,
+                                                       tech.kayys.numou.foundation.domain.valueobject.Currency currency,
+                                                       Set<PartnerId> knownPartners) {
+        if (result.input() == null || result.residual() == null || result.netResult() == null
+                || result.lines() == null || result.payouts() == null
+                || result.completedAt() == null || result.hash() == null) {
+            throw new IllegalStateException("stored liquidation result has missing required metadata");
+        }
+        List<Money> amounts = new ArrayList<>();
+        amounts.add(result.input().assetProceeds());
+        amounts.add(result.input().externalDebts());
+        amounts.add(result.residual());
+        amounts.add(result.netResult());
+        for (AllocationLine line : result.lines()) {
+            if (line == null || line.partner() == null || line.capitalRestored() == null
+                    || line.profitShare() == null || line.lossBorne() == null
+                    || line.managerLiability() == null || line.retained() == null) {
+                throw new IllegalStateException("stored liquidation result has incomplete allocation line");
+            }
+            if (!knownPartners.contains(line.partner())) {
+                throw new IllegalStateException("stored liquidation allocation references an unknown partner");
+            }
+            amounts.add(line.capitalRestored());
+            amounts.add(line.profitShare());
+            amounts.add(line.lossBorne());
+            amounts.add(line.managerLiability());
+            amounts.add(line.retained());
+        }
+        for (LiquidationResult.Payout payout : result.payouts()) {
+            if (payout == null || payout.partner() == null || payout.cashReceived() == null || payout.owed() == null) {
+                throw new IllegalStateException("stored liquidation result has incomplete payout");
+            }
+            if (!knownPartners.contains(payout.partner())) {
+                throw new IllegalStateException("stored liquidation payout references an unknown partner");
+            }
+            amounts.add(payout.cashReceived());
+            amounts.add(payout.owed());
+        }
+        for (Money amount : amounts) {
+            if (!amount.currency().equals(currency)) {
+                throw new IllegalStateException("stored liquidation amount currency does not match current akad");
+            }
+            try {
+                amount.amount().setScale(scale, RoundingMode.UNNECESSARY);
+            } catch (ArithmeticException invalidScale) {
+                throw new IllegalStateException("stored liquidation amount exceeds the aggregate accounting scale",
+                        invalidScale);
+            }
         }
     }
 
