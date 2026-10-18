@@ -109,6 +109,34 @@ class SyirkahTest {
     }
 
     @Test
+    void excessLossIsRecordedAsEntityDeficitNotPartnerLiability() {
+        Syirkah s = open(inan(100, 0, ratio(A, 50, B, 50)));
+        CloseSnapshot close = close(s, JAN1, JAN31, loss(125), ProfitDisposition.DISTRIBUTE);
+
+        eq(25, close.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+        assertTrue(close.hashIsValid());
+    }
+
+    @Test
+    void exhaustedMudharabahRecordsUncoveredLossWithoutChargingManager() {
+        Syirkah s = open(mudharabah(100, ratio(A, 70, B, 30)));
+        CloseSnapshot first = close(s, JAN1, JAN31, loss(100), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot second = close(s, FEB1, FEB28, loss(10), ProfitDisposition.DISTRIBUTE);
+
+        eq(0, first.unallocatedLoss());
+        eq(10, second.unallocatedLoss());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void exhaustedMudharabahCapitalDoesNotShiftOrdinaryLossToManager() {
         Syirkah s = open(mudharabah(100, ratio(A, 70, B, 30)));
         close(s, JAN1, JAN31, loss(100), ProfitDisposition.DISTRIBUTE);
