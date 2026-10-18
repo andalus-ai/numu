@@ -1501,6 +1501,28 @@ class SyirkahTest {
     }
 
     @Test
+    void restoreRejectsLiquidationAllocationThatDoesNotReconcileEvenWhenRehashed() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        s.startLiquidation(Instant.parse("2026-02-01T00:00:00Z"));
+        s.liquidate(new LiquidationInput(Money.of(new BigDecimal("200.00"), IDR),
+                Money.of(new BigDecimal("10.00"), IDR), true, LocalDate.parse("2026-02-01")),
+                ManagerFault.none(), Instant.parse("2026-02-01T01:00:00Z"));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        LiquidationResult original = snapshot.liquidation();
+        Money forgedNetResult = Money.of(new BigDecimal("-9.00"), IDR);
+        String forgedHash = LiquidationResult.computeHash(original.input(), original.residual(), forgedNetResult,
+                original.lines(), original.payouts(), original.completedAt());
+        LiquidationResult forgedResult = new LiquidationResult(original.input(), original.residual(),
+                forgedNetResult, original.lines(), original.payouts(), original.completedAt(), forgedHash);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                snapshot.closes(), forgedResult, snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("loss allocation does not reconcile to net result"));
+    }
+
+    @Test
     void restoreRejectsLiquidationAmountsWithExcessAccountingPrecision() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         s.startLiquidation(Instant.parse("2026-02-01T00:00:00Z"));
