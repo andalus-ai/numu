@@ -288,7 +288,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         if (st.liquidation() != null) {
             validateRestoredLiquidation(st.liquidation(), st.scale(),
-                    st.contracts().get(st.contracts().size() - 1).currency(), knownPartners);
+                    st.contracts().get(st.contracts().size() - 1).currency(),
+                    st.contracts().get(st.contracts().size() - 1).partnerIds());
         }
         boolean hasCloseSinceCurrentAkad = st.closes().stream()
                 .anyMatch(close -> close.contractVersion() == st.contracts().get(st.contracts().size() - 1).version());
@@ -322,6 +323,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
             amounts.add(fault.attributableLoss());
         }
+        Set<PartnerId> allocatedPartners = new java.util.HashSet<>();
         for (AllocationLine line : close.lines()) {
             if (line == null || line.partner() == null || line.capitalRestored() == null
                     || line.profitShare() == null || line.lossBorne() == null
@@ -333,11 +335,19 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("stored close " + close.id().value()
                         + " allocation references a partner absent from its contract version");
             }
+            if (!allocatedPartners.add(line.partner())) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " contains duplicate allocation lines for partner " + line.partner().value());
+            }
             amounts.add(line.capitalRestored());
             amounts.add(line.profitShare());
             amounts.add(line.lossBorne());
             amounts.add(line.managerLiability());
             amounts.add(line.retained());
+        }
+        if (!allocatedPartners.equals(contractPartners)) {
+            throw new IllegalStateException("stored close " + close.id().value()
+                    + " allocation lines do not cover every partner in its contract version");
         }
         for (Money amount : amounts) {
             if (!amount.currency().equals(currency)) {
@@ -366,6 +376,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         amounts.add(result.input().externalDebts());
         amounts.add(result.residual());
         amounts.add(result.netResult());
+        Set<PartnerId> allocatedPartners = new java.util.HashSet<>();
         for (AllocationLine line : result.lines()) {
             if (line == null || line.partner() == null || line.capitalRestored() == null
                     || line.profitShare() == null || line.lossBorne() == null
@@ -373,7 +384,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("stored liquidation result has incomplete allocation line");
             }
             if (!knownPartners.contains(line.partner())) {
-                throw new IllegalStateException("stored liquidation allocation references an unknown partner");
+                throw new IllegalStateException("stored liquidation allocation references a partner absent from current akad");
+            }
+            if (!allocatedPartners.add(line.partner())) {
+                throw new IllegalStateException("stored liquidation result contains duplicate allocation lines for partner "
+                        + line.partner().value());
             }
             amounts.add(line.capitalRestored());
             amounts.add(line.profitShare());
@@ -381,15 +396,26 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             amounts.add(line.managerLiability());
             amounts.add(line.retained());
         }
+        if (!allocatedPartners.equals(knownPartners)) {
+            throw new IllegalStateException("stored liquidation allocation lines do not cover every partner in current akad");
+        }
+        Set<PartnerId> payoutPartners = new java.util.HashSet<>();
         for (LiquidationResult.Payout payout : result.payouts()) {
             if (payout == null || payout.partner() == null || payout.cashReceived() == null || payout.owed() == null) {
                 throw new IllegalStateException("stored liquidation result has incomplete payout");
             }
             if (!knownPartners.contains(payout.partner())) {
-                throw new IllegalStateException("stored liquidation payout references an unknown partner");
+                throw new IllegalStateException("stored liquidation payout references a partner absent from current akad");
+            }
+            if (!payoutPartners.add(payout.partner())) {
+                throw new IllegalStateException("stored liquidation result contains duplicate payouts for partner "
+                        + payout.partner().value());
             }
             amounts.add(payout.cashReceived());
             amounts.add(payout.owed());
+        }
+        if (!payoutPartners.equals(knownPartners)) {
+            throw new IllegalStateException("stored liquidation payouts do not cover every partner in current akad");
         }
         for (Money amount : amounts) {
             if (!amount.currency().equals(currency)) {
