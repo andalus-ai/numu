@@ -95,6 +95,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
      * both hash chains are verified: a tampered or inconsistent store fails loudly instead of loading.
      */
     public static Syirkah restore(Snapshot st) {
+        validateSnapshotStructure(st);
         Syirkah s = new Syirkah(st.id(), st.tenantId(), st.scale());
         s.status = st.status();
         s.closedSinceRevision = st.closedSinceRevision();
@@ -123,6 +124,54 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             throw new IllegalStateException("stored syirkah " + st.id().value() + " failed integrity: " + problems);
         }
         return s;
+    }
+
+    /**
+     * Checks cross-record invariants that individual movement/close hashes cannot prove alone.
+     * A valid close hash is not enough if the stored contract history was substituted independently.
+     */
+    private static void validateSnapshotStructure(Snapshot st) {
+        if (st == null) {
+            throw new IllegalStateException("stored syirkah snapshot is null");
+        }
+        if (st.id() == null || st.tenantId() == null || st.status() == null
+                || st.contracts() == null || st.contracts().isEmpty()
+                || st.movements() == null || st.closes() == null) {
+            throw new IllegalStateException("stored syirkah snapshot is missing required state");
+        }
+        for (int i = 0; i < st.contracts().size(); i++) {
+            SyirkahContract contract = st.contracts().get(i);
+            if (contract == null || contract.version() != i + 1) {
+                throw new IllegalStateException("stored syirkah contract history has a version gap at index " + i);
+            }
+            try {
+                contract.requireValid();
+            } catch (RuntimeException invalid) {
+                throw new IllegalStateException("stored syirkah contract v" + contract.version()
+                        + " is invalid: " + invalid.getMessage(), invalid);
+            }
+        }
+        for (int i = 0; i < st.closes().size(); i++) {
+            CloseSnapshot close = st.closes().get(i);
+            if (close == null || close.sequence() != i + 1) {
+                throw new IllegalStateException("stored syirkah close history has a sequence gap at index " + i);
+            }
+            if (close.contractVersion() < 1 || close.contractVersion() > st.contracts().size()) {
+                throw new IllegalStateException("close " + close.id().value()
+                        + " references missing contract version " + close.contractVersion());
+            }
+            SyirkahContract contract = st.contracts().get(close.contractVersion() - 1);
+            if (!contract.canonical().equals(close.contractCanonical())) {
+                throw new IllegalStateException("close " + close.id().value()
+                        + " contract terms do not match stored contract history");
+            }
+        }
+        if (st.status() == SyirkahStatus.TERMINATED && st.liquidation() == null) {
+            throw new IllegalStateException("terminated syirkah is missing its liquidation result");
+        }
+        if (st.status() != SyirkahStatus.TERMINATED && st.liquidation() != null) {
+            throw new IllegalStateException("non-terminated syirkah contains a liquidation result");
+        }
     }
 
     // ------------------------------------------------------------------ queries
