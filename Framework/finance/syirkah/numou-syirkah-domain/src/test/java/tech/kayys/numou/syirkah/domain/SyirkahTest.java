@@ -1327,4 +1327,24 @@ class SyirkahTest {
         assertTrue(periodError.getMessage().contains("period end before period start"));
     }
 
+
+    @Test
+    void restoreRejectsMovementWithMissingMetadataBeforeHashVerification() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        PartnerMovement original = snapshot.movements().get(0);
+        PartnerMovement missingType = new PartnerMovement(original.id(), original.sequence(), original.partner(),
+                null, original.amount(), original.closeId(), original.reference(), original.occurredAt(),
+                original.previousHash(), original.hash());
+        List<PartnerMovement> forgedMovements = new ArrayList<>(snapshot.movements());
+        forgedMovements.set(0, missingType);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), forgedMovements,
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("movement has missing required metadata"));
+    }
+
 }
