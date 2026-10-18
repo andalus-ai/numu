@@ -525,6 +525,32 @@ class SyirkahTest {
     }
 
     @Test
+    void invalidCloseInputsAreRejectedBeforeAnyAccountingMutation() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        int movementCount = s.movements().size();
+        int closeCount = s.closes().size();
+
+        assertThrows(NullPointerException.class, () -> s.correctLatestClose(original.id(), null,
+                profit(5_000_000), ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW));
+        assertThrows(NullPointerException.class, () -> s.correctLatestClose(original.id(), CloseId.generate(),
+                profit(5_000_000), ManagerFault.none(), null, NOW));
+
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(closeCount, s.closes().size());
+        assertEquals(CloseStatus.ACTIVE, s.close(original.id()).status());
+        assertTrue(s.verifyIntegrity().isEmpty());
+
+        Syirkah fresh = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        int freshMovementCount = fresh.movements().size();
+        assertThrows(NullPointerException.class, () -> fresh.closePeriod(CloseId.generate(), JAN1, JAN31,
+                profit(5_000_000), ManagerFault.none(), null, NOW));
+        assertEquals(freshMovementCount, fresh.movements().size());
+        assertTrue(fresh.closes().isEmpty());
+        assertTrue(fresh.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void correctionAfterDistributionTurnsOverpaymentIntoLiability() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
         CloseSnapshot c = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
