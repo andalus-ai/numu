@@ -1136,6 +1136,28 @@ class SyirkahTest {
 
 
     @Test
+    void accountingScaleMustBeSupportedWhenOpeningAndRestoring() {
+        SyirkahContract contract = inan(100, 100, ratio(A, 50, B, 50));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> Syirkah.open(SyirkahId.generate(), tech.kayys.numou.foundation.domain.tenant.TenantId.generate(),
+                        contract, -1, NOW));
+        assertThrows(IllegalArgumentException.class,
+                () -> Syirkah.open(SyirkahId.generate(), tech.kayys.numou.foundation.domain.tenant.TenantId.generate(),
+                        contract, 19, NOW));
+
+        Syirkah s = open(contract);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), 19,
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("unsupported amount scale 19"));
+    }
+
+    @Test
     void restoreRejectsMovementForPartnerAbsentFromContractHistory() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         Syirkah.Snapshot snapshot = s.snapshot();
