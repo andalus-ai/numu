@@ -357,6 +357,49 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             throw new IllegalStateException("stored close " + close.id().value()
                     + " allocation lines do not cover every partner in its contract version");
         }
+        Money capitalRestored = Money.zero(currency);
+        Money profitShare = Money.zero(currency);
+        Money lossBorne = Money.zero(currency);
+        Money managerLiability = Money.zero(currency);
+        Money retained = Money.zero(currency);
+        for (AllocationLine line : close.lines()) {
+            capitalRestored = capitalRestored.add(line.capitalRestored());
+            profitShare = profitShare.add(line.profitShare());
+            lossBorne = lossBorne.add(line.lossBorne());
+            managerLiability = managerLiability.add(line.managerLiability());
+            retained = retained.add(line.retained());
+            if (line.retained().isNegative() || line.retained().compareTo(line.profitShare()) > 0) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " retains more than the partner profit share");
+            }
+            if (close.disposition() == ProfitDisposition.RETAIN
+                    && line.retained().compareTo(line.profitShare()) != 0) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " retained disposition does not retain each partner's profit share");
+            }
+            if (close.disposition() == ProfitDisposition.DISTRIBUTE && !line.retained().isZero()) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " distributes profit but contains retained amounts");
+            }
+        }
+        Money netResult = result.netResult();
+        if (netResult.isPositive()) {
+            if (lossBorne.isPositive() || managerLiability.isPositive()
+                    || capitalRestored.add(profitShare).compareTo(netResult) != 0) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " profit allocation does not reconcile to net result");
+            }
+        } else if (netResult.isNegative()) {
+            if (capitalRestored.isPositive() || profitShare.isPositive() || retained.isPositive()
+                    || lossBorne.add(managerLiability).compareTo(netResult.negate()) > 0) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " loss allocation does not reconcile to net result");
+            }
+        } else if (!capitalRestored.isZero() || !profitShare.isZero() || !lossBorne.isZero()
+                || !managerLiability.isZero() || !retained.isZero()) {
+            throw new IllegalStateException("stored close " + close.id().value()
+                    + " zero-result close contains non-zero allocations");
+        }
         for (Money amount : amounts) {
             if (!amount.currency().equals(currency)) {
                 throw new IllegalStateException("stored close " + close.id().value()
