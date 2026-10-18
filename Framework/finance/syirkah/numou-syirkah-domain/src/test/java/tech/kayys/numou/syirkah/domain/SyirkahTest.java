@@ -7,6 +7,7 @@ import tech.kayys.numou.foundation.domain.valueobject.Money;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -611,6 +612,30 @@ class SyirkahTest {
                 result.netResult(), tamperedLines, result.payouts(), result.completedAt(), result.hash());
         assertFalse(tamperedAllocation.hashIsValid(),
                 "changing a liquidation allocation must invalidate its audit hash");
+    }
+
+    @Test
+    void restoreRejectsTamperedLiquidationAuditSnapshot() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(200_000_000), idr(20_000_000), true, FEB28),
+                ManagerFault.none(), NOW);
+
+        LiquidationResult.Payout payout = result.payouts().get(0);
+        List<LiquidationResult.Payout> tamperedPayouts = new ArrayList<>(result.payouts());
+        tamperedPayouts.set(0, new LiquidationResult.Payout(payout.partner(),
+                payout.cashReceived().add(idr(1)), payout.owed()));
+        LiquidationResult tampered = new LiquidationResult(result.input(), result.residual(), result.netResult(),
+                result.lines(), tamperedPayouts, result.completedAt(), result.hash());
+
+        Syirkah.Snapshot snapshot = s.snapshot();
+        Syirkah.Snapshot forgedSnapshot = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                snapshot.closes(), tampered, snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forgedSnapshot));
+        assertTrue(error.getMessage().contains("liquidation hash mismatch"));
     }
 
     @Test
