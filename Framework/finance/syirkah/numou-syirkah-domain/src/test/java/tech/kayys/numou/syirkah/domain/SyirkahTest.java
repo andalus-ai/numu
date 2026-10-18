@@ -580,15 +580,15 @@ class SyirkahTest {
         eq(2_000_000, s.position(A).liability());
         eq(3_000_000, s.position(B).liability());
 
-        CloseSnapshot second = s.correctLatestClose(first.id(), CloseId.generate(), profit(8_000_000),
+        CloseSnapshot second = s.correctLatestClose(first.id(), CloseId.generate(), profit(12_000_000),
                 ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
 
         assertEquals(CloseStatus.REVERSED, s.close(first.id()).status());
         assertEquals(first.id(), second.supersedes());
         eq(0, s.position(A).liability());
         eq(0, s.position(B).liability());
-        eq(1_200_000, s.position(A).payable());
-        eq(2_800_000, s.position(B).payable());
+        eq(800_000, s.position(A).payable());
+        eq(1_200_000, s.position(B).payable());
         assertTrue(s.reconcile().balanced());
         assertTrue(s.verifyIntegrity().isEmpty());
     }
