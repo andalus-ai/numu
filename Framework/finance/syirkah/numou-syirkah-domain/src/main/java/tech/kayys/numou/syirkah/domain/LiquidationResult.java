@@ -4,7 +4,6 @@ import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.io.Serializable;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -50,6 +49,19 @@ public record LiquidationResult(LiquidationInput input, Money residual, Money ne
 
     public boolean hashIsValid() {
         return hash.equals(computeHash(input, residual, netResult, lines, payouts, completedAt));
+    }
+
+    /**
+     * Also verifies legacy persisted results whose original hash only bound the final movement
+     * hash, residual and net result. New results always use the complete liquidation-v2 fingerprint.
+     */
+    public boolean hashIsValid(String movementHeadHash) {
+        if (hashIsValid()) {
+            return true;
+        }
+        String legacy = "liq|" + residual.amount().toPlainString() + "|"
+                + netResult.amount().toPlainString() + "|" + movementHeadHash;
+        return hash.equals(AuditHash.sha256(legacy));
     }
 
     /**
