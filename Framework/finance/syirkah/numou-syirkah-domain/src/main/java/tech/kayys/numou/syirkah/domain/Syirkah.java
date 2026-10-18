@@ -514,6 +514,65 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         return new PartnerStatement(partner, partnerNames.get(partner), lines, position(partner));
     }
 
+    /** Report of one close (any status), including per-partner outcome. */
+    public CloseReport closeReport(CloseId id) {
+        CloseSnapshot c = close(id);
+        var cur = contract().currency();
+        Money zero = Money.zero(cur);
+        Money profit = zero;
+        Money restored = zero;
+        Money loss = zero;
+        Money liability = zero;
+        List<CloseReport.Row> rows = new ArrayList<>();
+        for (AllocationLine l : c.lines()) {
+            profit = profit.add(l.profitShare());
+            restored = restored.add(l.capitalRestored());
+            loss = loss.add(l.lossBorne());
+            liability = liability.add(l.managerLiability());
+            rows.add(new CloseReport.Row(l.partner(), partnerNames.get(l.partner()), l.capitalRestored(),
+                    l.profitShare(), l.retained(), l.payable(), l.lossBorne(), l.managerLiability()));
+        }
+        return new CloseReport(c.id(), c.sequence(), c.periodStart(), c.periodEnd(), c.contractVersion(), c.status(),
+                c.result(), c.netResult(), c.disposition(), rows, profit, restored, loss, liability);
+    }
+
+    /** Capital roll-forward per partner for movements in (from, to]; opening is the balance at {@code from}. */
+    public CapitalRollForward capitalRollForward(Instant from, Instant to) {
+        var cur = contract().currency();
+        Map<PartnerId, long[]> acc = new LinkedHashMap<>(); // opening, contrib, returns, retained, restored, loss, deficit
+        for (PartnerId p : buckets.keySet()) {
+            acc.put(p, new long[7]);
+        }
+        for (PartnerMovement m : movements) {
+            long u = unitsOf(m.amount());
+            long[] a = acc.get(m.partner());
+            boolean before = !m.occurredAt().isAfter(from);
+            boolean inside = !before && !m.occurredAt().isAfter(to);
+            if (before) {
+                a[0] += u * m.type().capitalSign();
+            } else if (inside) {
+                switch (m.type()) {
+                    case CONTRIBUTION -> a[1] += u;
+                    case CAPITAL_RETURN -> a[2] += u;
+                    case PROFIT_RETAINED -> a[3] += u;
+                    case CAPITAL_RESTORED -> a[4] += u;
+                    case LOSS_ALLOCATED -> a[5] += u;
+                    case DEFICIT_TO_LIABILITY -> a[6] += u;
+                    default -> { }
+                }
+            }
+        }
+        List<CapitalRollForward.Row> rows = new ArrayList<>();
+        for (Map.Entry<PartnerId, long[]> e : acc.entrySet()) {
+            long[] a = e.getValue();
+            long closing = a[0] + a[1] - a[2] + a[3] + a[4] - a[5] + a[6];
+            rows.add(new CapitalRollForward.Row(e.getKey(), partnerNames.get(e.getKey()), units(a[0], cur),
+                    units(a[1], cur), units(a[2], cur), units(a[3], cur), units(a[4], cur), units(a[5], cur),
+                    units(a[6], cur), units(closing, cur)));
+        }
+        return new CapitalRollForward(from, to, rows);
+    }
+
     /** See {@link EquityReconciliation}. */
     public EquityReconciliation reconcile() {
         var cur = contract().currency();

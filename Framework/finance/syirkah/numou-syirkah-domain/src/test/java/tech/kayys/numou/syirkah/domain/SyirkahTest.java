@@ -517,4 +517,57 @@ class SyirkahTest {
         eq(5_000_000, s.position(B).payable());
         assertTrue(s.reconcile().balanced());
     }
+
+    // ---------------------------------------------------------------- reports / export
+
+    @Test
+    void closeReportTotalsMatchTheSnapshot() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        CloseSnapshot c = close(s, JAN1, JAN31, result(20_000_000, 6_000_000, 3_500_000, 1_000_000),
+                ProfitDisposition.RETAIN);
+        CloseReport r = s.closeReport(c.id());
+        eq(9_500_000, r.netResult());
+        eq(9_500_000, r.totalProfitShare());
+        eq(3_800_000, r.rows().get(0).profitShare());
+        eq(3_800_000, r.rows().get(0).retained());
+        eq(0, r.rows().get(0).payable());
+        assertEquals("A", r.rows().get(0).name());
+        assertEquals(CloseStatus.ACTIVE, r.status());
+    }
+
+    @Test
+    void capitalRollForwardFoldsOpeningToClosing() {
+        Syirkah s = Syirkah.open(SyirkahId.generate(), tech.kayys.numou.foundation.domain.tenant.TenantId.generate(),
+                inan(60_000_000, 40_000_000, ratio(A, 50, B, 50)), 0, Instant.parse("2026-01-01T00:00:00Z"));
+        s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(10_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, Instant.parse("2026-02-01T00:00:00Z"));
+        s.closePeriod(CloseId.generate(), FEB1, FEB28, profit(14_000_000), ManagerFault.none(),
+                ProfitDisposition.RETAIN, Instant.parse("2026-03-01T00:00:00Z"));
+        CapitalRollForward rf = s.capitalRollForward(Instant.parse("2026-01-15T00:00:00Z"),
+                Instant.parse("2026-03-15T00:00:00Z"));
+        CapitalRollForward.Row a = rf.rows().get(0);
+        eq(60_000_000, a.opening());       // contribution happened before the window
+        eq(0, a.contributions());
+        eq(6_000_000, a.lossesAllocated());
+        eq(6_000_000, a.capitalRestored()); // 14M profit repairs 10M impairment first (A 6M, B 4M)
+        eq(2_000_000, a.retainedProfit());  // remaining 4M split 50/50
+        eq(62_000_000, a.closing());
+        eq(s.position(A).balance().amount().longValue(), a.closing());
+    }
+
+    @Test
+    void csvIsQuotedAndNeutralisesFormulaInjection() {
+        assertEquals("'=SUM(A1)", CsvExport.text("=SUM(A1)"));
+        assertEquals("'@cmd", CsvExport.text("@cmd"));
+        assertEquals("plain", CsvExport.text("plain"));
+        Syirkah s = open(inan(100, 0, ratio(A, 40, B, 60)));
+        close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(1), "=cmd|' /C calc'!A0, \"x\"", NOW);
+        String csv = CsvExport.statement(s.statement(A));
+        assertTrue(csv.startsWith("sequence,occurred_at,type,reference,amount"));
+        assertTrue(csv.contains("\"'pay:=cmd") || csv.contains("pay:=cmd")); // reference is prefixed by "pay:"
+        assertFalse(csv.contains(",=cmd"));
+        assertTrue(csv.contains("\"\"x\"\""));
+        assertEquals(4, csv.split("\r\n").length); // header + contribution + allocation + distribution
+    }
 }
