@@ -83,6 +83,7 @@
         <module>asset</module>
         <module>project</module>
         <module>scope</module>
+        <module>quantity</module>
         <module>construction</module>
         <module>budget</module>
 
@@ -152,6 +153,11 @@
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-scope-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-quantity-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
