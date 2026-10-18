@@ -1722,6 +1722,25 @@ class SyirkahTest {
     }
 
     @Test
+    void restoreRejectsMovementOccurredBeforeSnapshotCreationEvenWhenRehashed() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        List<PartnerMovement> forgedMovements = new ArrayList<>(snapshot.movements());
+        PartnerMovement original = forgedMovements.get(0);
+        Instant forgedOccurredAt = snapshot.createdAt().minusSeconds(1);
+        forgedMovements.set(0, PartnerMovement.create(original.sequence(), original.partner(), original.type(),
+                original.amount(), original.closeId(), original.reference(), forgedOccurredAt,
+                original.previousHash()));
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), forgedMovements,
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("timestamp falls outside snapshot lifetime"));
+    }
+
+    @Test
     void restoreRejectsLiquidationCompletedBeforeSnapshotCreationEvenWhenRehashed() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         s.startLiquidation(Instant.parse("2026-02-01T00:00:00Z"));
