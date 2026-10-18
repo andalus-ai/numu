@@ -33,4 +33,32 @@ class BoqRevisionSnapshotTest {
         assertThrows(IllegalStateException.class, () -> approved.submit(reviewer, created.plusSeconds(180)));
         assertThrows(UnsupportedOperationException.class, () -> approved.items().add(item));
     }
+
+    @Test void quantityScheduleProjectsSnapshotMeasurementsWithoutChangingCommercialRevision() {
+        UUID boqId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID creator = UUID.randomUUID();
+        UUID wbsNodeId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        Instant created = Instant.parse("2026-01-01T00:00:00Z");
+        var item = new BoqRevisionSnapshot.ItemSnapshot(itemId, wbsNodeId,
+                "EX-001", "Excavation", BoqItemType.WORK,
+                new BigDecimal("2.50"), " M3 ", new BigDecimal("100.00"), "m3", "IDR",
+                new BigDecimal("250.00"));
+        var draft = BoqRevisionSnapshot.draft(boqId, projectId, 3, "Main BOQ", List.of(item),
+                "boq-calc-v1", creator, created);
+        UUID scheduleId = UUID.randomUUID();
+
+        var schedule = draft.quantitySchedule(scheduleId);
+
+        assertEquals(scheduleId, schedule.id());
+        assertEquals(1, schedule.lines().size());
+        assertEquals(itemId, schedule.lines().get(0).id());
+        assertEquals(wbsNodeId, schedule.lines().get(0).breakdownNodeId());
+        assertEquals("ex-001", schedule.lines().get(0).code());
+        assertEquals(new BigDecimal("2.50"), schedule.total(new tech.kayys.numou.quantity.domain.UnitOfMeasure("m3")).value());
+        assertEquals(BoqRevisionSnapshot.RevisionStatus.DRAFT, draft.status());
+        assertEquals(new BigDecimal("250.00"), draft.totalAmount());
+        assertEquals("boq-calc-v1", draft.calculationPolicyVersion());
+    }
 }
