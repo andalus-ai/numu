@@ -748,6 +748,22 @@ class SyirkahTest {
     }
 
     @Test
+    void idempotentProfitDistributionReplayDoesNotRaiseDuplicateDomainEvent() {
+        Syirkah s = open(inan(100, 0, ratio(A, 100, B, 0)));
+        close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        s.pullDomainEvents();
+
+        s.distributeProfit(A, idr(4), "same-payment", NOW);
+        assertEquals(1, s.pullDomainEvents().size());
+
+        s.distributeProfit(A, idr(4), "same-payment", NOW);
+        assertTrue(s.pullDomainEvents().isEmpty(),
+                "an idempotent replay must not emit a second payment event");
+        eq(6, s.position(A).payable());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void amountsWithTooManyDecimalsAreRejected() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         FinancialResult r = FinancialResult.of(Money.of(new BigDecimal("10.5"), IDR), idr(0), idr(0), idr(0));
