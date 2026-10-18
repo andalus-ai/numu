@@ -425,6 +425,34 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (!payoutPartners.equals(knownPartners)) {
             throw new IllegalStateException("stored liquidation payouts do not cover every partner in current akad");
         }
+        Money allocatedCapitalRestored = Money.zero(currency);
+        Money allocatedProfit = Money.zero(currency);
+        Money allocatedLoss = Money.zero(currency);
+        Money allocatedManagerLiability = Money.zero(currency);
+        for (AllocationLine line : result.lines()) {
+            allocatedCapitalRestored = allocatedCapitalRestored.add(line.capitalRestored());
+            allocatedProfit = allocatedProfit.add(line.profitShare());
+            allocatedLoss = allocatedLoss.add(line.lossBorne());
+            allocatedManagerLiability = allocatedManagerLiability.add(line.managerLiability());
+            if (!line.retained().isZero()) {
+                throw new IllegalStateException("stored liquidation cannot retain partner profit");
+            }
+        }
+        if (result.netResult().isPositive()) {
+            if (allocatedLoss.isPositive() || allocatedManagerLiability.isPositive()
+                    || allocatedCapitalRestored.add(allocatedProfit).compareTo(result.netResult()) != 0) {
+                throw new IllegalStateException("stored liquidation profit allocation does not reconcile to net result");
+            }
+        } else if (result.netResult().isNegative()) {
+            if (allocatedCapitalRestored.isPositive() || allocatedProfit.isPositive()
+                    || allocatedLoss.add(allocatedManagerLiability).add(result.unallocatedLoss())
+                            .compareTo(result.netResult().negate()) != 0) {
+                throw new IllegalStateException("stored liquidation loss allocation does not reconcile to net result");
+            }
+        } else if (!allocatedCapitalRestored.isZero() || !allocatedProfit.isZero()
+                || !allocatedLoss.isZero() || !allocatedManagerLiability.isZero()) {
+            throw new IllegalStateException("stored zero-result liquidation contains non-zero allocations");
+        }
         for (Money amount : amounts) {
             if (!amount.currency().equals(currency)) {
                 throw new IllegalStateException("stored liquidation amount currency does not match current akad");
