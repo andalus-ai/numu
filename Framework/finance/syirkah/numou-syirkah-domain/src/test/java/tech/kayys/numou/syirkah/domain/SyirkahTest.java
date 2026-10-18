@@ -1347,4 +1347,24 @@ class SyirkahTest {
         assertTrue(error.getMessage().contains("movement has missing required metadata"));
     }
 
+
+    @Test
+    void restoreRejectsMovementWithTamperedIdentityEvenWhenHashChainRemainsValid() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        PartnerMovement original = snapshot.movements().get(0);
+        PartnerMovement tampered = new PartnerMovement(java.util.UUID.randomUUID(), original.sequence(),
+                original.partner(), original.type(), original.amount(), original.closeId(), original.reference(),
+                original.occurredAt(), original.previousHash(), original.hash());
+        List<PartnerMovement> movements = new ArrayList<>(snapshot.movements());
+        movements.set(0, tampered);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), movements,
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("id does not match its canonical identity"));
+    }
+
 }
