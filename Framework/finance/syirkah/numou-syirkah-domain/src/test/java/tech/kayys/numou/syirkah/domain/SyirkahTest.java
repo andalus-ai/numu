@@ -270,12 +270,43 @@ class SyirkahTest {
     }
 
     @Test
-    void correctionRefusedAfterMoneyMoved() {
+    void correctionAfterDistributionTurnsOverpaymentIntoLiability() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
-        CloseSnapshot c = close(s, JAN1, JAN31, profit(9_500_000), ProfitDisposition.DISTRIBUTE);
-        s.distributeProfit(A, idr(1), "p", NOW);
+        CloseSnapshot c = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(4_000_000), "pa", NOW);
+        s.distributeProfit(B, idr(6_000_000), "pb", NOW);
+        // the profit was really 5M: A entitled 2M (paid 4M), B entitled 3M (paid 6M)
+        s.correctLatestClose(c.id(), CloseId.generate(), profit(5_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        eq(0, s.position(A).payable());
+        eq(0, s.position(B).payable());
+        eq(2_000_000, s.position(A).liability());
+        eq(3_000_000, s.position(B).liability());
+        s.settleLiability(A, idr(2_000_000), "back-a", NOW);
+        eq(0, s.position(A).liability());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void correctionUpwardAfterPartialDistributionLeavesRemainderPayable() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        CloseSnapshot c = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(1_000_000), "pa", NOW);
+        s.correctLatestClose(c.id(), CloseId.generate(), profit(20_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        eq(7_000_000, s.position(A).payable()); // 8M entitled - 1M paid
+        eq(12_000_000, s.position(B).payable());
+        eq(0, s.position(A).liability());
+    }
+
+    @Test
+    void correctionRefusedAfterLiabilitySettlement() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        CloseSnapshot c = s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "breach"), ProfitDisposition.DISTRIBUTE, NOW);
+        s.settleLiability(B, idr(1_000_000), "s1", NOW);
         assertThrows(BusinessRuleViolation.class, () -> s.correctLatestClose(c.id(), CloseId.generate(),
-                profit(1), ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW));
+                loss(8_000_000), ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW));
     }
 
     @Test

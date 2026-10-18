@@ -361,7 +361,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     /**
      * Corrects the latest effective close: reverses its movements and recomputes with the corrected
-     * result. Refused once money was distributed after that close (use an explicit adjustment then).
+     * result. Allowed after distributions: profit paid beyond the corrected entitlement becomes a liability of that partner
+     * ({@link MovementType#OVERPAYMENT_TO_LIABILITY}); any other later movement (e.g. a settlement) refuses it.
      */
     public CloseSnapshot correctLatestClose(CloseId target, CloseId replacementId, FinancialResult corrected,
                                             ManagerFault fault, ProfitDisposition disposition, Instant now) {
@@ -377,8 +378,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             throw new BusinessRuleViolation("replacement close id already used");
         }
         for (PartnerMovement m : movements) {
-            if (m.sequence() > last.lastMovementSequence() && m.type() != MovementType.CONTRIBUTION) {
-                throw new BusinessRuleViolation("money moved after that close; cannot correct in place");
+            if (m.sequence() > last.lastMovementSequence() && m.type() != MovementType.PROFIT_DISTRIBUTED) {
+                throw new BusinessRuleViolation("only profit distributions may follow a close that is corrected; found "
+                        + m.type() + " at " + m.sequence());
             }
         }
         Money oldNet = last.netResult();
@@ -395,6 +397,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         replaceClose(last.withStatus(CloseStatus.REVERSED));
         CloseSnapshot snap = doClose(replacementId, last.periodStart(), last.periodEnd(), corrected, fault,
                 disposition, target, now);
+        // Profit already paid beyond the corrected entitlement is owed back (no negative payables).
+        for (Partner p : contract().partners()) {
+            Money payable = position(p.id()).payable();
+            if (payable.isNegative()) {
+                append(p.id(), MovementType.OVERPAYMENT_TO_LIABILITY, payable.negate(), replacementId,
+                        "overpayment:" + replacementId.value(), now);
+            }
+        }
         raise(new SyirkahEvents.CloseCorrected(UUID.randomUUID(), now, id(), target, replacementId,
                 snap.netResult().subtract(oldNet)));
         return snap;
