@@ -971,6 +971,51 @@ class SyirkahTest {
     }
 
     @Test
+    void restoreRejectsDuplicateCloseIdsEvenWhenCloseHashesWouldAlsoFail() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot replacement = s.correctLatestClose(original.id(), CloseId.generate(), profit(9_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        CloseSnapshot duplicate = new CloseSnapshot(original.id(), replacement.sequence(),
+                replacement.periodStart(), replacement.periodEnd(), replacement.contractVersion(),
+                replacement.contractCanonical(), replacement.result(), replacement.disposition(), replacement.fault(),
+                replacement.lines(), replacement.supersedes(), replacement.status(),
+                replacement.firstMovementSequence(), replacement.lastMovementSequence(), replacement.closedAt(),
+                replacement.previousHash(), replacement.hash());
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                List.of(snapshot.closes().get(0), duplicate), snapshot.liquidation(), snapshot.version(),
+                snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("duplicate close id"));
+    }
+
+    @Test
+    void restoreRejectsCloseCorrectionWithMissingSupersededClose() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.correctLatestClose(original.id(), CloseId.generate(), profit(9_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        CloseSnapshot replacement = snapshot.closes().get(1);
+        CloseSnapshot forgedReplacement = new CloseSnapshot(replacement.id(), replacement.sequence(),
+                replacement.periodStart(), replacement.periodEnd(), replacement.contractVersion(),
+                replacement.contractCanonical(), replacement.result(), replacement.disposition(), replacement.fault(),
+                replacement.lines(), CloseId.generate(), replacement.status(),
+                replacement.firstMovementSequence(), replacement.lastMovementSequence(), replacement.closedAt(),
+                replacement.previousHash(), replacement.hash());
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                List.of(snapshot.closes().get(0), forgedReplacement), snapshot.liquidation(), snapshot.version(),
+                snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("supersedes a close that is missing"));
+    }
+
+    @Test
     void restoreRejectsContractHistoryThatNoLongerMatchesAHashedClose() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
