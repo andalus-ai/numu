@@ -259,6 +259,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("close " + close.id().value()
                         + " contract terms do not match stored contract history");
             }
+            validateRestoredCloseAccounting(close, st.scale(), contract.currency(), contract.partnerIds());
             long firstMovement = close.firstMovementSequence();
             long lastMovement = close.lastMovementSequence();
             if (firstMovement < 1 || lastMovement < 0 || lastMovement > st.movements().size()
@@ -302,6 +303,55 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
     }
 
+
+    private static void validateRestoredCloseAccounting(CloseSnapshot close, int scale,
+            tech.kayys.numou.foundation.domain.valueobject.Currency currency, Set<PartnerId> contractPartners) {
+        FinancialResult result = close.result();
+        if (result.revenue() == null || result.directCosts() == null || result.operatingCosts() == null
+                || result.otherCosts() == null) {
+            throw new IllegalStateException("stored close " + close.id().value()
+                    + " has incomplete financial result");
+        }
+        List<Money> amounts = new ArrayList<>(List.of(result.revenue(), result.directCosts(),
+                result.operatingCosts(), result.otherCosts()));
+        ManagerFault fault = close.fault();
+        if (fault != null && fault.negligentOrBreach()) {
+            if (fault.attributableLoss() == null || fault.reason() == null || fault.reason().isBlank()) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " has incomplete manager-fault evidence");
+            }
+            amounts.add(fault.attributableLoss());
+        }
+        for (AllocationLine line : close.lines()) {
+            if (line == null || line.partner() == null || line.capitalRestored() == null
+                    || line.profitShare() == null || line.lossBorne() == null
+                    || line.managerLiability() == null || line.retained() == null) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " has incomplete allocation line");
+            }
+            if (!contractPartners.contains(line.partner())) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " allocation references a partner absent from its contract version");
+            }
+            amounts.add(line.capitalRestored());
+            amounts.add(line.profitShare());
+            amounts.add(line.lossBorne());
+            amounts.add(line.managerLiability());
+            amounts.add(line.retained());
+        }
+        for (Money amount : amounts) {
+            if (!amount.currency().equals(currency)) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " amount currency does not match its contract version");
+            }
+            try {
+                amount.amount().setScale(scale, RoundingMode.UNNECESSARY);
+            } catch (ArithmeticException invalidScale) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " amount exceeds the aggregate accounting scale", invalidScale);
+            }
+        }
+    }
 
     private static void validateRestoredLiquidation(LiquidationResult result, int scale,
                                                        tech.kayys.numou.foundation.domain.valueobject.Currency currency,
