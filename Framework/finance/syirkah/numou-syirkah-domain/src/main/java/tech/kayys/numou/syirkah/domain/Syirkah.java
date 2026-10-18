@@ -204,6 +204,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                     || movement.occurredAt() == null || movement.previousHash() == null || movement.hash() == null) {
                 throw new IllegalStateException("stored movement has missing required metadata at index " + i);
             }
+            if (movement.occurredAt().isBefore(st.createdAt())
+                    || movement.occurredAt().isAfter(st.updatedAt())) {
+                throw new IllegalStateException("stored movement " + movement.sequence()
+                        + " timestamp falls outside snapshot lifetime");
+            }
             if (movement.sequence() < 1) {
                 throw new IllegalStateException("stored movement has invalid sequence " + movement.sequence());
             }
