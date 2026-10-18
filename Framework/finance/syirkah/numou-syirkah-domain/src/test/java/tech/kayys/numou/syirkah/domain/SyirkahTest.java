@@ -569,6 +569,31 @@ class SyirkahTest {
     }
 
     @Test
+    void correctedCloseCanBeCorrectedAgainBeforeItsLiabilityIsSettled() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(4_000_000), "repeat-a", NOW);
+        s.distributeProfit(B, idr(6_000_000), "repeat-b", NOW);
+
+        CloseSnapshot first = s.correctLatestClose(original.id(), CloseId.generate(), profit(5_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+        eq(2_000_000, s.position(A).liability());
+        eq(3_000_000, s.position(B).liability());
+
+        CloseSnapshot second = s.correctLatestClose(first.id(), CloseId.generate(), profit(12_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertEquals(CloseStatus.REVERSED, s.close(first.id()).status());
+        assertEquals(first.id(), second.supersedes());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        eq(800_000, s.position(A).payable());
+        eq(1_200_000, s.position(B).payable());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void correctionUpwardAfterPartialDistributionLeavesRemainderPayable() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
         CloseSnapshot c = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
@@ -765,7 +790,7 @@ class SyirkahTest {
         close(s, JAN1, JAN31, profit(10_000), ProfitDisposition.DISTRIBUTE);
         s.startLiquidation(NOW);
 
-        assertThrows(InvalidStateException.class,
+        assertThrows(tech.kayys.numou.foundation.domain.exception.InvalidStateException.class,
                 () -> s.distributeProfit(A, idr(1_000), "after-liquidation-start", NOW));
     }
 
