@@ -482,10 +482,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             owed = owed.add(l.managerLiability());
             payouts.add(new LiquidationResult.Payout(p, cash, owed));
         }
-        StringBuilder sb = new StringBuilder("liq|").append(residual.amount().toPlainString()).append('|')
-                .append(net.amount().toPlainString()).append('|')
-                .append(movements.isEmpty() ? AuditHash.GENESIS : movements.get(movements.size() - 1).hash());
-        liquidation = new LiquidationResult(input, residual, net, lines, payouts, now, AuditHash.sha256(sb.toString()));
+        String liquidationHash = LiquidationResult.computeHash(input, residual, net, lines, payouts, now);
+        liquidation = new LiquidationResult(input, residual, net, lines, payouts, now, liquidationHash);
         status = SyirkahStatus.TERMINATED;
         raise(new SyirkahEvents.LiquidationCompleted(UUID.randomUUID(), now, id(), net));
         touch(now);
@@ -585,6 +583,13 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 problems.add("close hash mismatch at " + c.sequence());
             }
             prevClose = c.hash();
+        }
+        if (liquidation != null) {
+            String movementHead = movements.isEmpty() ? AuditHash.GENESIS
+                    : movements.get(movements.size() - 1).hash();
+            if (!liquidation.hashIsValid(movementHead)) {
+                problems.add("liquidation hash mismatch");
+            }
         }
         EquityReconciliation rec = reconcile();
         if (!rec.balanced()) {
