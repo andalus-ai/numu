@@ -330,16 +330,29 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         String ref = "akad:v" + next.version();
         Set<PartnerId> all = new java.util.LinkedHashSet<>(buckets.keySet());
         all.addAll(next.partnerIds());
+
+        // Preflight the entire revision before appending any movement. A departing partner
+        // may still have an open payable/liability even when earlier partners in iteration
+        // order would otherwise receive capital adjustments. Rejecting halfway through the
+        // loop would leave the aggregate partially revised despite the akad not changing.
+        Map<PartnerId, Money> balances = new LinkedHashMap<>();
+        Map<PartnerId, Money> targets = new LinkedHashMap<>();
         for (PartnerId p : all) {
             boolean stays = next.hasPartner(p);
             PartnerPosition pos = buckets.containsKey(p) ? position(p) : null;
-            if (!stays) {
-                if (pos != null && (pos.payable().isPositive() || pos.liability().isPositive())) {
-                    throw new BusinessRuleViolation("departing partner has open payable/liability; settle first");
-                }
+            if (!stays && pos != null && (pos.payable().isPositive() || pos.liability().isPositive())) {
+                throw new BusinessRuleViolation("departing partner has open payable/liability; settle first");
             }
-            Money balance = pos == null ? Money.zero(cur.currency()) : pos.balance();
-            Money target = stays ? norm(next.capitalOf(p)) : Money.zero(cur.currency());
+            balances.put(p, pos == null ? Money.zero(cur.currency()) : pos.balance());
+            targets.put(p, stays ? norm(next.capitalOf(p)) : Money.zero(cur.currency()));
+        }
+
+        // All caller-controlled business-rule checks are complete; now apply the planned
+        // capital/basis movements and only then publish the new contract version.
+        for (PartnerId p : all) {
+            PartnerPosition pos = buckets.containsKey(p) ? position(p) : null;
+            Money balance = balances.get(p);
+            Money target = targets.get(p);
             if (pos != null && pos.basis().compareTo(pos.balance()) > 0) {
                 append(p, MovementType.BASIS_CLOSED, pos.basis().subtract(pos.balance()), null,
                         ref + ":reset:" + p.value(), now);
