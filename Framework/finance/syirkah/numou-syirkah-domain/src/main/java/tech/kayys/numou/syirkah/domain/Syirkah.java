@@ -267,7 +267,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("close " + close.id().value()
                         + " contract terms do not match stored contract history");
             }
-            validateRestoredCloseAccounting(close, st.scale(), contract.currency(), contract.partnerIds());
+            validateRestoredCloseAccounting(close, st.scale(), contract.currency(), contract.partnerIds(), contract.type());
             long firstMovement = close.firstMovementSequence();
             long lastMovement = close.lastMovementSequence();
             if (firstMovement < 1 || lastMovement < 0 || lastMovement > st.movements().size()
@@ -314,7 +314,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
 
     private static void validateRestoredCloseAccounting(CloseSnapshot close, int scale,
-            tech.kayys.numou.foundation.domain.valueobject.Currency currency, Set<PartnerId> contractPartners) {
+            tech.kayys.numou.foundation.domain.valueobject.Currency currency, Set<PartnerId> contractPartners,
+            SyirkahType contractType) {
         FinancialResult result = close.result();
         if (result.revenue() == null || result.directCosts() == null || result.operatingCosts() == null
                 || result.otherCosts() == null) {
@@ -325,9 +326,21 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 result.operatingCosts(), result.otherCosts()));
         ManagerFault fault = close.fault();
         if (fault != null && fault.negligentOrBreach()) {
+            if (contractType != SyirkahType.MUDHARABAH) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " records manager fault outside a mudharabah contract");
+            }
+            if (!result.netResult().isNegative()) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " records manager fault without a period loss");
+            }
             if (fault.attributableLoss() == null || fault.reason() == null || fault.reason().isBlank()) {
                 throw new IllegalStateException("stored close " + close.id().value()
                         + " has incomplete manager-fault evidence");
+            }
+            if (fault.attributableLoss().compareTo(result.netResult().negate()) > 0) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " manager-fault attributable loss exceeds the period loss");
             }
             amounts.add(fault.attributableLoss());
         } else if (fault != null && (fault.attributableLoss() != null || fault.reason() != null)) {
