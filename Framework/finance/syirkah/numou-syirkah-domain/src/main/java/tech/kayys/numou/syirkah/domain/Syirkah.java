@@ -338,7 +338,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             Money balance = pos == null ? Money.zero(cur.currency()) : pos.balance();
             Money target = stays ? norm(next.capitalOf(p)) : Money.zero(cur.currency());
             if (pos != null && pos.basis().compareTo(pos.balance()) > 0) {
-                append(p, MovementType.BASIS_CLOSED, pos.basis().subtract(pos.balance()).negate(), null,
+                append(p, MovementType.BASIS_CLOSED, pos.basis().subtract(pos.balance()), null,
                         ref + ":reset:" + p.value(), now);
             }
             Money diff = target.subtract(balance);
@@ -477,7 +477,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
             PartnerPosition after = position(p);
             if (!after.basis().isZero()) {
-                append(p, MovementType.BASIS_CLOSED, after.basis().negate(), null, ref + ":basis", now);
+                append(p, MovementType.BASIS_CLOSED, after.basis(), null, ref + ":basis", now);
             }
             owed = owed.add(l.managerLiability());
             payouts.add(new LiquidationResult.Payout(p, cash, owed));

@@ -498,4 +498,23 @@ class SyirkahTest {
         eq(3_000_000, st.closing().payable());
         assertEquals("A", st.name());
     }
+
+    @Test
+    void revisionResetsImpairedCapitalBasisToTheBalance() {
+        // regression: BASIS_CLOSED once had the wrong sign and inflated the basis instead of resetting it
+        Syirkah s = open(inan(60_000_000, 40_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, loss(10_000_000), ProfitDisposition.DISTRIBUTE); // A 54M, B 36M of 60M/40M
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.INAN, IDR, s.contract().partners(),
+                List.of(CapitalContribution.cash(A, idr(54_000_000)), CapitalContribution.cash(B, idr(36_000_000))),
+                ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT, null, Set.of(), List.of("W1", "W2"), true, FEB1);
+        s.reviseContract(next, Set.of(A, B), NOW);
+        eq(54_000_000, s.position(A).balance());
+        eq(54_000_000, s.position(A).basis());
+        eq(36_000_000, s.position(B).basis());
+        // new baseline: a later profit has nothing to repair, it is all distributable by nisbah
+        close(s, FEB1, FEB28, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        eq(5_000_000, s.position(A).payable());
+        eq(5_000_000, s.position(B).payable());
+        assertTrue(s.reconcile().balanced());
+    }
 }
