@@ -645,6 +645,25 @@ class SyirkahTest {
         assertThrows(BusinessRuleViolation.class, () -> close(s, JAN31, FEB28, profit(10), ProfitDisposition.DISTRIBUTE));
     }
 
+
+    @Test
+    void explicitLossWeightsOnExhaustedPartnersRemainEntityDeficit() {
+        SyirkahContract contract = new SyirkahContract(1, SyirkahType.ABDAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(B, "B", PartnerRole.PARTNER, true)),
+                List.of(), ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT,
+                Map.of(A, BigDecimal.ZERO, B, BigDecimal.ONE), Set.of(), List.of("W1", "W2"), true, JAN1);
+        Map<PartnerId, PartnerCapitalState> capital = Map.of(
+                A, new PartnerCapitalState(A, idr(10), idr(10)),
+                B, new PartnerCapitalState(B, idr(0), idr(0)));
+
+        List<AllocationLine> lines = ProfitLossAllocator.allocate(contract, capital, idr(-5),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, 0);
+
+        eq(0, lines.stream().map(AllocationLine::lossBorne).reduce(idr(0), Money::add));
+        eq(0, lines.stream().map(AllocationLine::managerLiability).reduce(idr(0), Money::add));
+    }
+
     // ---------------------------------------------------------------- liquidation
 
     @Test
