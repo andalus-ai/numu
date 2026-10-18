@@ -7,6 +7,7 @@ import tech.kayys.numou.foundation.domain.valueobject.Money;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -100,6 +101,81 @@ class SyirkahTest {
     }
 
     @Test
+    void explicitLossSharingCannotImpairMoreCapitalThanPartnerHas() {
+        SyirkahContract contract = new SyirkahContract(1, SyirkahType.ABDAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(B, "B", PartnerRole.PARTNER, true)),
+                List.of(), ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT,
+                Map.of(A, new BigDecimal("0.9"), B, new BigDecimal("0.1")),
+                Set.of(), List.of("W1", "W2"), true, JAN1);
+        Syirkah s = open(contract);
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.RETAIN);
+
+        CloseSnapshot lossClose = close(s, FEB1, FEB28, loss(10_000_000), ProfitDisposition.DISTRIBUTE);
+
+        // The 90% contractual share would be 9M, but A has only 5M capital.
+        // The excess 4M remains an entity deficit; it is not charged to B or A as debt.
+        eq(0, s.position(A).balance());
+        eq(4_000_000, s.position(B).balance());
+        eq(4_000_000, lossClose.unallocatedLoss());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void lossesBeyondCapitalBecomeEntityDeficitWithoutNegativeEquity() {
+        Syirkah s = open(inan(100, 0, ratio(A, 50, B, 50)));
+        CloseSnapshot close = close(s, JAN1, JAN31, loss(101), ProfitDisposition.DISTRIBUTE);
+        eq(1, close.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void excessLossIsRecordedAsEntityDeficitNotPartnerLiability() {
+        Syirkah s = open(inan(100, 0, ratio(A, 50, B, 50)));
+        CloseSnapshot close = close(s, JAN1, JAN31, loss(125), ProfitDisposition.DISTRIBUTE);
+
+        eq(25, close.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+        assertTrue(close.hashIsValid());
+    }
+
+    @Test
+    void exhaustedMudharabahRecordsUncoveredLossWithoutChargingManager() {
+        Syirkah s = open(mudharabah(100, ratio(A, 70, B, 30)));
+        CloseSnapshot first = close(s, JAN1, JAN31, loss(100), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot second = close(s, FEB1, FEB28, loss(10), ProfitDisposition.DISTRIBUTE);
+
+        eq(0, first.unallocatedLoss());
+        eq(10, second.unallocatedLoss());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void exhaustedMudharabahCapitalLeavesFurtherOrdinaryLossAtEntityLevel() {
+        Syirkah s = open(mudharabah(100, ratio(A, 70, B, 30)));
+        close(s, JAN1, JAN31, loss(100), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot second = close(s, FEB1, FEB28, loss(1), ProfitDisposition.DISTRIBUTE);
+        eq(0, s.position(A).balance());
+        eq(1, second.unallocatedLoss());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void mudharabahLossFallsOnCapitalProviderOnly() {
         Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         close(s, JAN1, JAN31, loss(8_000_000), ProfitDisposition.DISTRIBUTE);
@@ -119,6 +195,21 @@ class SyirkahTest {
     }
 
     @Test
+    void periodCloseRejectsAmountsAndManagerFaultInWrongCurrency() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        var usd = tech.kayys.numou.foundation.domain.valueobject.Currency.of("USD");
+        Money usdAmount = Money.of(BigDecimal.ONE, usd);
+        FinancialResult wrongCurrency = FinancialResult.of(usdAmount, Money.zero(usd),
+                Money.zero(usd), Money.zero(usd));
+
+        assertThrows(BusinessRuleViolation.class, () -> s.closePeriod(CloseId.generate(), JAN1, JAN31,
+                wrongCurrency, ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW));
+        assertThrows(BusinessRuleViolation.class, () -> s.closePeriod(CloseId.generate(), JAN1, JAN31,
+                loss(1_000), ManagerFault.of(usdAmount, "documented breach"),
+                ProfitDisposition.DISTRIBUTE, NOW));
+    }
+
+    @Test
     void faultWithoutLossOrOutsideMudharabahIsRejected() {
         Syirkah m = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
         assertThrows(BusinessRuleViolation.class, () -> m.closePeriod(CloseId.generate(), JAN1, JAN31,
@@ -129,6 +220,32 @@ class SyirkahTest {
     }
 
     // ---------------------------------------------------------------- contract validity
+
+    @Test
+    void contractCanonicalBindsAccountingAndAkadTerms() {
+        SyirkahContract base = inan(10, 10, ratio(A, 50, B, 50));
+        SyirkahContract withForbiddenClause = new SyirkahContract(base.version(), base.type(), base.currency(),
+                base.partners(), base.capital(), base.nisbah(), base.profitBasis(), base.lossSharing(),
+                Set.of(ForbiddenClause.CAPITAL_GUARANTEE), base.witnesses(), base.ijabQabulRecorded(),
+                base.effectiveFrom());
+        assertFalse(base.canonical().equals(withForbiddenClause.canonical()),
+                "a declared forbidden clause must be bound into the contract fingerprint");
+
+        SyirkahContract changedPartnerRole = new SyirkahContract(base.version(), base.type(), base.currency(),
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, false), base.partners().get(1)),
+                base.capital(), base.nisbah(), base.profitBasis(), base.lossSharing(), base.declaredClauses(),
+                base.witnesses(), base.ijabQabulRecorded(), base.effectiveFrom());
+        assertFalse(base.canonical().equals(changedPartnerRole.canonical()),
+                "partner role/work terms must be bound into the contract fingerprint");
+
+        SyirkahContract reordered = new SyirkahContract(base.version(), base.type(), base.currency(),
+                List.of(base.partners().get(1), base.partners().get(0)),
+                List.of(base.capital().get(1), base.capital().get(0)), base.nisbah(), base.profitBasis(),
+                base.lossSharing(), base.declaredClauses(), List.of("W2", "W1"),
+                base.ijabQabulRecorded(), base.effectiveFrom());
+        assertEquals(base.canonical(), reordered.canonical(),
+                "canonical contract fingerprint must not depend on collection ordering");
+    }
 
     @Test
     void revenueBasedProfitIsInvalid() {
@@ -186,7 +303,34 @@ class SyirkahTest {
         assertTrue(c.validate().isEmpty());
         Syirkah s = open(c);
         close(s, JAN1, JAN31, loss(1_000), ProfitDisposition.DISTRIBUTE);
-        eq(500, s.position(A).balance().negate()); // no capital: loss weights fall back to nisbah
+        eq(0, s.position(A).balance()); // ABDAN has no cash capital to impair
+        eq(1_000, s.closes().get(0).unallocatedLoss()); // uncovered loss remains at entity level
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void explicitAbdanLossWeightsCannotCreateNegativePartnerCapital() {
+        SyirkahContract c = new SyirkahContract(1, SyirkahType.ABDAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(B, "B", PartnerRole.PARTNER, true)),
+                List.of(), ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT,
+                Map.of(A, new BigDecimal("0.8"), B, new BigDecimal("0.2")),
+                Set.of(), List.of("W1", "W2"), true, JAN1);
+        assertTrue(c.validate().isEmpty());
+
+        Syirkah s = open(c);
+        CloseSnapshot close = close(s, JAN1, JAN31, loss(1_000), ProfitDisposition.DISTRIBUTE);
+
+        eq(1_000, close.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
     }
 
     // ---------------------------------------------------------------- distribution
@@ -243,6 +387,72 @@ class SyirkahTest {
     }
 
     @Test
+    void partnerExitWithUnpaidProfitIsRejectedAtomicallyUntilPayableIsSettled() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.INAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(C, "C", PartnerRole.PARTNER, true)),
+                List.of(CapitalContribution.cash(A, idr(100_000_000)),
+                        CapitalContribution.cash(C, idr(50_000_000))),
+                ratio(A, 50, C, 50), ProfitBasis.NET_PROFIT, null, Set.of(),
+                List.of("W1", "W2"), true, FEB1);
+        int movementCount = s.movements().size();
+        int contractCount = s.contractHistory().size();
+        Money capitalB = s.position(B).balance();
+        Money payableB = s.position(B).payable();
+
+        assertThrows(BusinessRuleViolation.class, () -> s.reviseContract(next, Set.of(A, B, C), NOW));
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(contractCount, s.contractHistory().size());
+        assertEquals(0, capitalB.compareTo(s.position(B).balance()));
+        assertEquals(0, payableB.compareTo(s.position(B).payable()));
+        assertEquals(1, s.contract().version());
+        assertTrue(s.verifyIntegrity().isEmpty());
+
+        s.distributeProfit(A, idr(5_000_000), "exit-a-profit", NOW);
+        s.distributeProfit(B, idr(5_000_000), "exit-b-profit", NOW);
+        s.reviseContract(next, Set.of(A, B, C), NOW);
+
+        eq(100_000_000, s.position(A).balance());
+        eq(0, s.position(B).balance());
+        eq(0, s.position(B).basis());
+        eq(50_000_000, s.position(C).balance());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void rejectedPartnerExitDoesNotPartiallyApplyEarlierCapitalAdjustments() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "documented breach"), ProfitDisposition.DISTRIBUTE, NOW);
+
+        // A would receive a capital return under the proposed contract, but B is leaving
+        // with an unsettled manager-fault liability. The whole revision must be rejected
+        // before any movement or contract history is changed.
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.MUDHARABAH, IDR,
+                List.of(new Partner(A, "A", PartnerRole.CAPITAL_PROVIDER, false),
+                        new Partner(C, "C", PartnerRole.MANAGER, true)),
+                List.of(CapitalContribution.cash(A, idr(90_000_000))),
+                ratio(A, 70, C, 30), ProfitBasis.NET_PROFIT, null, Set.of(),
+                List.of("W1", "W2"), true, FEB1);
+        int movementCount = s.movements().size();
+        int contractCount = s.contractHistory().size();
+        Money capitalA = s.position(A).balance();
+        Money liabilityB = s.position(B).liability();
+
+        assertThrows(BusinessRuleViolation.class, () -> s.reviseContract(next, Set.of(A, B, C), NOW));
+
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(contractCount, s.contractHistory().size());
+        assertEquals(0, capitalA.compareTo(s.position(A).balance()));
+        assertEquals(0, liabilityB.compareTo(s.position(B).liability()));
+        assertEquals(1, s.contract().version());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void typeCannotChangeByRevision() {
         Syirkah s = open(inan(10, 10, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
@@ -270,6 +480,77 @@ class SyirkahTest {
     }
 
     @Test
+    void correctingAnUnallocatedLossReplacesTheEntityDeficitInsteadOfAccumulatingIt() {
+        SyirkahContract contract = new SyirkahContract(1, SyirkahType.ABDAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(B, "B", PartnerRole.PARTNER, true)),
+                List.of(), ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT,
+                Map.of(A, new BigDecimal("0.5"), B, new BigDecimal("0.5")),
+                Set.of(), List.of("W1", "W2"), true, JAN1);
+        Syirkah s = open(contract);
+        CloseSnapshot original = close(s, JAN1, JAN31, loss(1_000), ProfitDisposition.DISTRIBUTE);
+
+        eq(1_000, original.unallocatedLoss());
+        assertTrue(s.reconcile().balanced());
+
+        CloseSnapshot corrected = s.correctLatestClose(original.id(), CloseId.generate(), loss(2_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertEquals(CloseStatus.REVERSED, s.close(original.id()).status());
+        eq(2_000, corrected.unallocatedLoss());
+        assertEquals(original.id(), corrected.supersedes());
+        assertTrue(s.reconcile().balanced(), "reconciliation must use only the active corrected deficit");
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void invalidCorrectionDoesNotReverseTheExistingCloseOrMutateMovements() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        CloseSnapshot original = s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+        int movementCount = s.movements().size();
+        Money capitalA = s.position(A).balance();
+        Money capitalB = s.position(B).balance();
+
+        assertThrows(BusinessRuleViolation.class, () -> s.correctLatestClose(
+                original.id(), CloseId.generate(), loss(2_000_000),
+                ManagerFault.of(idr(3_000_000), "attribution exceeds corrected loss"),
+                ProfitDisposition.DISTRIBUTE, NOW));
+
+        assertEquals(CloseStatus.ACTIVE, s.close(original.id()).status());
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(0, capitalA.compareTo(s.position(A).balance()));
+        assertEquals(0, capitalB.compareTo(s.position(B).balance()));
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void invalidCloseInputsAreRejectedBeforeAnyAccountingMutation() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        int movementCount = s.movements().size();
+        int closeCount = s.closes().size();
+
+        assertThrows(NullPointerException.class, () -> s.correctLatestClose(original.id(), null,
+                profit(5_000_000), ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW));
+        assertThrows(NullPointerException.class, () -> s.correctLatestClose(original.id(), CloseId.generate(),
+                profit(5_000_000), ManagerFault.none(), null, NOW));
+
+        assertEquals(movementCount, s.movements().size());
+        assertEquals(closeCount, s.closes().size());
+        assertEquals(CloseStatus.ACTIVE, s.close(original.id()).status());
+        assertTrue(s.verifyIntegrity().isEmpty());
+
+        Syirkah fresh = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        int freshMovementCount = fresh.movements().size();
+        assertThrows(NullPointerException.class, () -> fresh.closePeriod(CloseId.generate(), JAN1, JAN31,
+                profit(5_000_000), ManagerFault.none(), null, NOW));
+        assertEquals(freshMovementCount, fresh.movements().size());
+        assertTrue(fresh.closes().isEmpty());
+        assertTrue(fresh.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void correctionAfterDistributionTurnsOverpaymentIntoLiability() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
         CloseSnapshot c = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
@@ -284,6 +565,31 @@ class SyirkahTest {
         eq(3_000_000, s.position(B).liability());
         s.settleLiability(A, idr(2_000_000), "back-a", NOW);
         eq(0, s.position(A).liability());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void correctedCloseCanBeCorrectedAgainBeforeItsLiabilityIsSettled() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(4_000_000), "repeat-a", NOW);
+        s.distributeProfit(B, idr(6_000_000), "repeat-b", NOW);
+
+        CloseSnapshot first = s.correctLatestClose(original.id(), CloseId.generate(), profit(5_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+        eq(2_000_000, s.position(A).liability());
+        eq(3_000_000, s.position(B).liability());
+
+        CloseSnapshot second = s.correctLatestClose(first.id(), CloseId.generate(), profit(12_000_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertEquals(CloseStatus.REVERSED, s.close(first.id()).status());
+        assertEquals(first.id(), second.supersedes());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        eq(800_000, s.position(A).payable());
+        eq(1_200_000, s.position(B).payable());
+        assertTrue(s.reconcile().balanced());
         assertTrue(s.verifyIntegrity().isEmpty());
     }
 
@@ -319,6 +625,28 @@ class SyirkahTest {
     // ---------------------------------------------------------------- liquidation
 
     @Test
+    void liquidationIsRejectedWhileEarlierPartnerLiabilityRemainsOpen() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "documented breach"), ProfitDisposition.DISTRIBUTE, NOW);
+        s.startLiquidation(NOW);
+
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(
+                new LiquidationInput(idr(100_000_000), idr(0), true, FEB28),
+                ManagerFault.none(), NOW));
+        assertEquals(SyirkahStatus.LIQUIDATING, s.status());
+        eq(3_000_000, s.position(B).liability());
+
+        s.settleLiability(B, idr(3_000_000), "before-liquidation", NOW);
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(100_000_000), idr(0), true, FEB28),
+                ManagerFault.none(), NOW);
+        assertEquals(SyirkahStatus.TERMINATED, s.status());
+        assertTrue(result.hashIsValid());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void liquidationProfitPaysDebtsFirstThenCapitalPlusNisbahProfit() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
@@ -345,16 +673,40 @@ class SyirkahTest {
     }
 
     @Test
-    void liquidationBeyondCapitalLeavesPartnerDeficit() {
+    void liquidationBeyondCapitalRecordsEntityDeficitNotPartnerDebt() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
         LiquidationResult r = s.liquidate(new LiquidationInput(idr(0), idr(30_000_000), true, FEB28),
                 ManagerFault.none(), NOW);
-        // residual -30M, claims 150M => loss 180M; A bears 120M of 100M capital => owes 20M; B 60M of 50M => owes 10M
-        eq(20_000_000, r.payouts().get(0).owed());
-        eq(10_000_000, r.payouts().get(1).owed());
-        eq(20_000_000, s.position(A).liability());
+        // 30M external debt remains unfunded after all 150M partner capital is exhausted.
+        eq(30_000_000, r.unallocatedLoss());
+        eq(0, r.payouts().get(0).owed());
+        eq(0, r.payouts().get(1).owed());
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void liquidationManagerFaultLiabilityIsSeparateFromUnfundedEntityDeficit() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.startLiquidation(NOW);
+
+        // No assets remain against 150M external debt and 100M capital claim.
+        // The manager is liable for 20M of the loss; the remaining 130M is still unfunded.
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(0), idr(150_000_000), true, FEB28),
+                ManagerFault.of(idr(20_000_000), "documented breach"), NOW);
+
+        eq(-250_000_000, result.netResult());
+        eq(20_000_000, result.payouts().stream()
+                .filter(p -> p.partner().equals(B)).findFirst().orElseThrow().owed());
+        eq(130_000_000, result.unallocatedLoss());
         eq(0, s.position(A).balance());
+        eq(20_000_000, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
     }
 
     @Test
@@ -433,11 +785,150 @@ class SyirkahTest {
     }
 
     @Test
+    void profitDistributionIsFrozenAfterLiquidationStarts() {
+        Syirkah s = open(inan(100_000, 100_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000), ProfitDisposition.DISTRIBUTE);
+        s.startLiquidation(NOW);
+
+        assertThrows(tech.kayys.numou.foundation.domain.exception.InvalidStateException.class,
+                () -> s.distributeProfit(A, idr(1_000), "after-liquidation-start", NOW));
+    }
+
+    @Test
+    void liquidationRejectsManagerFaultLiabilityInWrongCurrency() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.startLiquidation(NOW);
+        var usd = tech.kayys.numou.foundation.domain.valueobject.Currency.of("USD");
+        Money wrongCurrency = Money.of(BigDecimal.ONE, usd);
+
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(
+                new LiquidationInput(idr(0), idr(0), true, FEB28),
+                ManagerFault.of(wrongCurrency, "documented breach"), NOW));
+    }
+
+    @Test
+    void liquidationAuditHashBindsPayoutsAndAllocationLines() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(200_000_000), idr(20_000_000), true, FEB28),
+                ManagerFault.none(), NOW);
+
+        assertTrue(result.hashIsValid());
+        LiquidationResult.Payout original = result.payouts().get(0);
+        List<LiquidationResult.Payout> tamperedPayouts = new ArrayList<>(result.payouts());
+        tamperedPayouts.set(0, new LiquidationResult.Payout(original.partner(),
+                original.cashReceived().add(idr(1)), original.owed()));
+        LiquidationResult tampered = new LiquidationResult(result.input(), result.residual(), result.netResult(),
+                result.lines(), tamperedPayouts, result.completedAt(), result.hash());
+
+        assertFalse(tampered.hashIsValid(), "changing a liquidation payout must invalidate its audit hash");
+
+        AllocationLine originalLine = result.lines().get(0);
+        List<AllocationLine> tamperedLines = new ArrayList<>(result.lines());
+        tamperedLines.set(0, new AllocationLine(originalLine.partner(),
+                originalLine.capitalRestored().add(idr(1)), originalLine.profitShare(), originalLine.lossBorne(),
+                originalLine.managerLiability(), originalLine.retained()));
+        LiquidationResult tamperedAllocation = new LiquidationResult(result.input(), result.residual(),
+                result.netResult(), tamperedLines, result.payouts(), result.completedAt(), result.hash());
+        assertFalse(tamperedAllocation.hashIsValid(),
+                "changing a liquidation allocation must invalidate its audit hash");
+    }
+
+    @Test
+    void snapshotRestorePreservesContractHistoryDepartedPartnersAndPositions() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(5_000_000), "restore-a", NOW);
+        s.distributeProfit(B, idr(5_000_000), "restore-b", NOW);
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.INAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(C, "C", PartnerRole.PARTNER, true)),
+                List.of(CapitalContribution.cash(A, idr(100_000_000)),
+                        CapitalContribution.cash(C, idr(50_000_000))),
+                ratio(A, 50, C, 50), ProfitBasis.NET_PROFIT, null, Set.of(),
+                List.of("W1", "W2"), true, FEB1);
+        s.reviseContract(next, Set.of(A, B, C), NOW);
+
+        Syirkah restored = Syirkah.restore(s.snapshot());
+
+        assertEquals(2, restored.contractHistory().size());
+        assertEquals(2, restored.contract().version());
+        assertEquals("B", restored.statement(B).name(), "departed partner identity must remain reportable");
+        eq(0, restored.position(B).balance());
+        eq(0, restored.position(B).basis());
+        eq(100_000_000, restored.position(A).balance());
+        eq(50_000_000, restored.position(C).balance());
+        assertEquals(s.movements(), restored.movements());
+        assertEquals(s.closes(), restored.closes());
+        assertTrue(restored.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void restoreRejectsContractHistoryThatNoLongerMatchesAHashedClose() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        SyirkahContract original = snapshot.contracts().get(0);
+        SyirkahContract substituted = new SyirkahContract(original.version(), original.type(), original.currency(),
+                original.partners(), original.capital(), ratio(A, 45, B, 55), original.profitBasis(),
+                original.lossSharing(), original.declaredClauses(), original.witnesses(),
+                original.ijabQabulRecorded(), original.effectiveFrom());
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), List.of(substituted), snapshot.movements(),
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("contract terms do not match stored contract history"));
+    }
+
+    @Test
+    void restoreRejectsTamperedLiquidationAuditSnapshot() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(200_000_000), idr(20_000_000), true, FEB28),
+                ManagerFault.none(), NOW);
+
+        LiquidationResult.Payout payout = result.payouts().get(0);
+        List<LiquidationResult.Payout> tamperedPayouts = new ArrayList<>(result.payouts());
+        tamperedPayouts.set(0, new LiquidationResult.Payout(payout.partner(),
+                payout.cashReceived().add(idr(1)), payout.owed()));
+        LiquidationResult tampered = new LiquidationResult(result.input(), result.residual(), result.netResult(),
+                result.lines(), tamperedPayouts, result.completedAt(), result.hash());
+
+        Syirkah.Snapshot snapshot = s.snapshot();
+        Syirkah.Snapshot forgedSnapshot = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                snapshot.closes(), tampered, snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forgedSnapshot));
+        assertTrue(error.getMessage().contains("liquidation hash mismatch"));
+    }
+
+    @Test
     void domainEventsAreRaised() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
         assertEquals(2, s.pullDomainEvents().size());
         assertEquals(0, s.pullDomainEvents().size());
+    }
+
+    @Test
+    void idempotentProfitDistributionReplayDoesNotRaiseDuplicateDomainEvent() {
+        Syirkah s = open(inan(100, 0, ratio(A, 40, B, 60)));
+        close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        s.pullDomainEvents();
+
+        s.distributeProfit(A, idr(1), "same-payment", NOW);
+        assertEquals(1, s.pullDomainEvents().size());
+
+        s.distributeProfit(A, idr(4), "same-payment", NOW);
+        assertTrue(s.pullDomainEvents().isEmpty(),
+                "an idempotent replay must not emit a second payment event");
+        eq(3, s.position(A).payable());
+        assertTrue(s.verifyIntegrity().isEmpty());
     }
 
     @Test
@@ -518,56 +1009,42 @@ class SyirkahTest {
         assertTrue(s.reconcile().balanced());
     }
 
-    // ---------------------------------------------------------------- reports / export
-
     @Test
-    void closeReportTotalsMatchTheSnapshot() {
-        Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
-        CloseSnapshot c = close(s, JAN1, JAN31, result(20_000_000, 6_000_000, 3_500_000, 1_000_000),
-                ProfitDisposition.RETAIN);
-        CloseReport r = s.closeReport(c.id());
-        eq(9_500_000, r.netResult());
-        eq(9_500_000, r.totalProfitShare());
-        eq(3_800_000, r.rows().get(0).profitShare());
-        eq(3_800_000, r.rows().get(0).retained());
-        eq(0, r.rows().get(0).payable());
-        assertEquals("A", r.rows().get(0).name());
-        assertEquals(CloseStatus.ACTIVE, r.status());
+    void closeAuditHashBindsManagerFaultFinding() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        CloseSnapshot close = s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "ignored agreed purchase limit"),
+                ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertTrue(close.hashIsValid());
+        CloseSnapshot tampered = new CloseSnapshot(
+                close.id(), close.sequence(), close.periodStart(), close.periodEnd(), close.contractVersion(),
+                close.contractCanonical(), close.result(), close.disposition(),
+                ManagerFault.of(idr(3_000_000), "different fault finding"), close.lines(), close.supersedes(),
+                close.status(), close.firstMovementSequence(), close.lastMovementSequence(), close.closedAt(),
+                close.previousHash(), close.hash());
+
+        assertFalse(tampered.hashIsValid(), "changing a material fault finding must invalidate the audit hash");
     }
 
-    @Test
-    void capitalRollForwardFoldsOpeningToClosing() {
-        Syirkah s = Syirkah.open(SyirkahId.generate(), tech.kayys.numou.foundation.domain.tenant.TenantId.generate(),
-                inan(60_000_000, 40_000_000, ratio(A, 50, B, 50)), 0, Instant.parse("2026-01-01T00:00:00Z"));
-        s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(10_000_000), ManagerFault.none(),
-                ProfitDisposition.DISTRIBUTE, Instant.parse("2026-02-01T00:00:00Z"));
-        s.closePeriod(CloseId.generate(), FEB1, FEB28, profit(14_000_000), ManagerFault.none(),
-                ProfitDisposition.RETAIN, Instant.parse("2026-03-01T00:00:00Z"));
-        CapitalRollForward rf = s.capitalRollForward(Instant.parse("2026-01-15T00:00:00Z"),
-                Instant.parse("2026-03-15T00:00:00Z"));
-        CapitalRollForward.Row a = rf.rows().get(0);
-        eq(60_000_000, a.opening());       // contribution happened before the window
-        eq(0, a.contributions());
-        eq(6_000_000, a.lossesAllocated());
-        eq(6_000_000, a.capitalRestored()); // 14M profit repairs 10M impairment first (A 6M, B 4M)
-        eq(2_000_000, a.retainedProfit());  // remaining 4M split 50/50
-        eq(62_000_000, a.closing());
-        eq(s.position(A).balance().amount().longValue(), a.closing());
-    }
 
     @Test
-    void csvIsQuotedAndNeutralisesFormulaInjection() {
-        assertEquals("'=SUM(A1)", CsvExport.text("=SUM(A1)"));
-        assertEquals("'@cmd", CsvExport.text("@cmd"));
-        assertEquals("plain", CsvExport.text("plain"));
-        Syirkah s = open(inan(100, 0, ratio(A, 40, B, 60)));
-        close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
-        s.distributeProfit(A, idr(1), "=cmd|' /C calc'!A0, \"x\"", NOW);
-        String csv = CsvExport.statement(s.statement(A));
-        assertTrue(csv.startsWith("sequence,occurred_at,type,reference,amount"));
-        assertTrue(csv.contains("\"'pay:=cmd") || csv.contains("pay:=cmd")); // reference is prefixed by "pay:"
-        assertFalse(csv.contains(",=cmd"));
-        assertTrue(csv.contains("\"\"x\"\""));
-        assertEquals(4, csv.split("\r\n").length); // header + contribution + allocation + distribution
+    void restoreRejectsCloseMovementRangeTampering() {
+        Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+
+        CloseSnapshot tamperedClose = new CloseSnapshot(original.id(), original.sequence(),
+                original.periodStart(), original.periodEnd(), original.contractVersion(),
+                original.contractCanonical(), original.result(), original.disposition(), original.fault(),
+                original.lines(), original.supersedes(), original.status(),
+                original.firstMovementSequence() + 1, original.lastMovementSequence(),
+                original.closedAt(), original.previousHash(), original.hash());
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                List.of(tamperedClose), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
     }
 }

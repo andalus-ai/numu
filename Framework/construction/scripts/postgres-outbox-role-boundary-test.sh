@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL test of least-privilege role grants and tenant RLS.
 # This uses an isolated fixture table; it is not a claim about production grants.
 CONTAINER_NAME="numou-pg-outbox-role-boundary-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55444}"
+PORT="${NUMOU_TEST_PG_PORT:-55444}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

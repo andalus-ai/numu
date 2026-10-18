@@ -10,7 +10,7 @@ The script creates a disposable PostgreSQL 16 container, applies the bundle migr
 
 Environment variables:
 
-- `SYIRKAH_TEST_PG_PORT` — host port, default `55440`.
-- `SYIRKAH_CONCURRENCY_WORKERS` — number of competing sessions, default `16`, allowed `2..100`.
+- `NUMOU_TEST_PG_PORT` — host port, default `55440`.
+- `NUMOU_CONCURRENCY_WORKERS` — number of competing sessions, default `16`, allowed `2..100`.
 
 This is a schema-level concurrency test. It does **not** prove that the Java revision allocator uses this exact upsert, that snapshot + live BOQ writes share a transaction, or that the production schema matches these starter migrations. Those require the real repository checkout and adapter integration tests.

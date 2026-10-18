@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL test for tenant-scoped BOQ revision storage and outbox predicates.
 # Requires Docker. Does not touch an existing database and does not execute Java code.
 CONTAINER_NAME="numou-pg-tenant-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55442}"
+PORT="${NUMOU_TEST_PG_PORT:-55442}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

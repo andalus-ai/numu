@@ -98,17 +98,62 @@ public record SyirkahContract(
         return lossSharing.isEmpty() ? null : lossSharing;
     }
 
-    /** Canonical text used in hashes of snapshots. */
+    /**
+     * Canonical, unambiguous representation of every akad term that can affect
+     * validity or accounting. Keep ordering deterministic so equivalent contract
+     * instances hash identically regardless of collection iteration order.
+     */
     public String canonical() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("v").append(version).append('|').append(type).append('|').append(currency.code()).append('|')
-                .append(profitBasis).append('|').append(nisbah.canonical()).append('|');
-        Map<PartnerId, BigDecimal> cap = new TreeMap<>();
-        for (Partner p : partners) {
-            cap.put(p.id(), capitalOf(p.id()).amount());
-        }
-        cap.forEach((k, v) -> sb.append(k.value()).append(':').append(v.stripTrailingZeros().toPlainString()).append(','));
+        StringBuilder sb = new StringBuilder("syirkah-contract-v2|");
+        appendCanonical(sb, Integer.toString(version));
+        appendCanonical(sb, type.name());
+        appendCanonical(sb, currency.code());
+        appendCanonical(sb, profitBasis.name());
+        appendCanonical(sb, effectiveFrom.toString());
+        appendCanonical(sb, Boolean.toString(ijabQabulRecorded));
+        appendCanonical(sb, nisbah.canonical());
+
+        partners.stream().sorted(java.util.Comparator.comparing(p -> p.id().value())).forEach(p -> {
+            appendCanonical(sb, "partner");
+            appendCanonical(sb, p.id().value().toString());
+            appendCanonical(sb, p.name());
+            appendCanonical(sb, p.role().name());
+            appendCanonical(sb, Boolean.toString(p.contributesWork()));
+        });
+
+        capital.stream()
+                .sorted(java.util.Comparator.comparing((CapitalContribution c) -> c.partner().value())
+                        .thenComparing(c -> c.kind().name())
+                        .thenComparing(c -> c.amount().amount())
+                        .thenComparing(c -> c.valuationNote() == null ? "" : c.valuationNote()))
+                .forEach(c -> {
+                    appendCanonical(sb, "capital");
+                    appendCanonical(sb, c.partner().value().toString());
+                    appendCanonical(sb, c.kind().name());
+                    appendCanonical(sb, c.amount().currency().code());
+                    appendCanonical(sb, c.amount().amount().stripTrailingZeros().toPlainString());
+                    appendCanonical(sb, c.valuationNote() == null ? "" : c.valuationNote());
+                });
+
+        lossSharing.forEach((partner, share) -> {
+            appendCanonical(sb, "loss-share");
+            appendCanonical(sb, partner.value().toString());
+            appendCanonical(sb, share.stripTrailingZeros().toPlainString());
+        });
+        declaredClauses.stream().map(Enum::name).sorted().forEach(clause -> {
+            appendCanonical(sb, "declared-clause");
+            appendCanonical(sb, clause);
+        });
+        witnesses.stream().sorted().forEach(witness -> {
+            appendCanonical(sb, "witness");
+            appendCanonical(sb, witness);
+        });
         return sb.toString();
+    }
+
+    /** Length-prefix fields so delimiters inside names/reasons cannot collide. */
+    private static void appendCanonical(StringBuilder target, String value) {
+        target.append(value.length()).append(':').append(value).append('|');
     }
 
     public List<ContractViolation> validate() {

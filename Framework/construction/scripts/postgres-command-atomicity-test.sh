@@ -5,7 +5,7 @@ set -euo pipefail
 # This validates database transaction semantics using a test-only live BOQ table;
 # it does not invoke the Java workflow or PgTransactionalCommandRunner.
 CONTAINER_NAME="numou-pg-command-atomicity-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55447}"
+PORT="${NUMOU_TEST_PG_PORT:-55447}"
 PASSWORD="numou_test_only"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT

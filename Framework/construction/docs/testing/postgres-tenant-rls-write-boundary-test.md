@@ -12,7 +12,7 @@ From the `numou-phase1` directory:
 bash scripts/postgres-tenant-rls-write-boundary-test.sh
 ```
 
-Requires Docker and uses `SYIRKAH_TEST_PG_PORT` (default `55446`) on loopback. The script removes its disposable container on exit. Do not point this test at an existing application database.
+Requires Docker and uses `NUMOU_TEST_PG_PORT` (default `55446`) on loopback. The script removes its disposable container on exit. Do not point this test at an existing application database.
 
 ## Acceptance criteria
 

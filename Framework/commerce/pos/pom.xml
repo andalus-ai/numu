@@ -15,7 +15,7 @@
     <description> POS Bounded Context</description>
     <modules>
         <module>numou-pos-domain</module>
-        <module>syrikah-post-application</module>
+        <module>numou-pos-application</module>
         <module>numou-pos-adapter</module>
     </modules>
 </project>

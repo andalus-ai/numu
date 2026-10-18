@@ -133,20 +133,41 @@ public final class ProfitLossAllocator {
         }
 
         Map<PartnerId, BigDecimal> weights = new TreeMap<>();
-        if (contract.explicitLossWeights() != null) {
-            weights.putAll(contract.explicitLossWeights());
-        } else {
-            for (Partner p : contract.partners()) {
-                PartnerCapitalState st = capital.get(p.id());
-                BigDecimal basis = st == null ? BigDecimal.ZERO : st.basis().amount();
-                boolean bearsLoss = contract.type() != SyirkahType.MUDHARABAH || p.role() != PartnerRole.MANAGER;
-                weights.put(p.id(), bearsLoss ? basis : BigDecimal.ZERO);
+        BigDecimal availableCapital = BigDecimal.ZERO;
+        for (Partner p : contract.partners()) {
+            PartnerCapitalState st = capital.get(p.id());
+            BigDecimal available = st == null ? BigDecimal.ZERO : st.balance().amount().max(BigDecimal.ZERO);
+            boolean bearsLoss = contract.type() != SyirkahType.MUDHARABAH
+                    || p.role() == PartnerRole.CAPITAL_PROVIDER;
+            BigDecimal weight;
+            if (contract.explicitLossWeights() != null) {
+                // Agreed ABDAN/WUJUH weights govern allocation, but cannot manufacture
+                // partner equity: a loss can only impair capital that actually exists.
+                weight = bearsLoss ? contract.explicitLossWeights().getOrDefault(p.id(), BigDecimal.ZERO)
+                        .multiply(available.signum() > 0 ? BigDecimal.ONE : BigDecimal.ZERO) : BigDecimal.ZERO;
+            } else {
+                weight = bearsLoss ? available : BigDecimal.ZERO;
             }
-            if (weights.values().stream().allMatch(b -> b.signum() == 0)) {
-                weights.clear();
-                weights.putAll(contract.nisbah().shares());
+            weights.put(p.id(), weight);
+            if (bearsLoss) {
+                availableCapital = availableCapital.add(available);
             }
         }
-        Apportionment.apportion(remaining, weights, scale).forEach((k, v) -> loss.put(k, Money.of(v, cur)));
+        // Allocate only the loss that eligible capital can absorb. Any remainder is an
+        // entity-level deficit, not a partner debt or negative partner equity.
+        remaining = remaining.min(availableCapital);
+        if (remaining.signum() == 0) {
+            return;
+        }
+        Map<PartnerId, BigDecimal> allocated = Apportionment.apportion(remaining, weights, scale);
+        for (Partner p : contract.partners()) {
+            PartnerCapitalState st = capital.get(p.id());
+            BigDecimal available = st == null ? BigDecimal.ZERO : st.balance().amount().max(BigDecimal.ZERO);
+            BigDecimal proposed = allocated.getOrDefault(p.id(), BigDecimal.ZERO);
+            // Contractual loss weights cannot create a negative partner capital balance.
+            // Any capped remainder stays an entity-level deficit rather than being shifted
+            // to another partner contrary to the agreed loss-sharing weights.
+            loss.put(p.id(), Money.of(proposed.min(available), cur));
+        }
     }
 }

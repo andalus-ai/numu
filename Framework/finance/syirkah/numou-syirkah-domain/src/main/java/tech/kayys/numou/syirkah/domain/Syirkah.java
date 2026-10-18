@@ -95,6 +95,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
      * both hash chains are verified: a tampered or inconsistent store fails loudly instead of loading.
      */
     public static Syirkah restore(Snapshot st) {
+        validateSnapshotStructure(st);
         Syirkah s = new Syirkah(st.id(), st.tenantId(), st.scale());
         s.status = st.status();
         s.closedSinceRevision = st.closedSinceRevision();
@@ -123,6 +124,68 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             throw new IllegalStateException("stored syirkah " + st.id().value() + " failed integrity: " + problems);
         }
         return s;
+    }
+
+    /**
+     * Checks cross-record invariants that individual movement/close hashes cannot prove alone.
+     * A valid close hash is not enough if the stored contract history was substituted independently.
+     */
+    private static void validateSnapshotStructure(Snapshot st) {
+        if (st == null) {
+            throw new IllegalStateException("stored syirkah snapshot is null");
+        }
+        if (st.id() == null || st.tenantId() == null || st.status() == null
+                || st.contracts() == null || st.contracts().isEmpty()
+                || st.movements() == null || st.closes() == null) {
+            throw new IllegalStateException("stored syirkah snapshot is missing required state");
+        }
+        for (int i = 0; i < st.contracts().size(); i++) {
+            SyirkahContract contract = st.contracts().get(i);
+            if (contract == null || contract.version() != i + 1) {
+                throw new IllegalStateException("stored syirkah contract history has a version gap at index " + i);
+            }
+            try {
+                contract.requireValid();
+            } catch (RuntimeException invalid) {
+                throw new IllegalStateException("stored syirkah contract v" + contract.version()
+                        + " is invalid: " + invalid.getMessage(), invalid);
+            }
+        }
+        for (int i = 0; i < st.closes().size(); i++) {
+            CloseSnapshot close = st.closes().get(i);
+            if (close == null || close.sequence() != i + 1) {
+                throw new IllegalStateException("stored syirkah close history has a sequence gap at index " + i);
+            }
+            if (close.contractVersion() < 1 || close.contractVersion() > st.contracts().size()) {
+                throw new IllegalStateException("close " + close.id().value()
+                        + " references missing contract version " + close.contractVersion());
+            }
+            SyirkahContract contract = st.contracts().get(close.contractVersion() - 1);
+            if (!contract.canonical().equals(close.contractCanonical())) {
+                throw new IllegalStateException("close " + close.id().value()
+                        + " contract terms do not match stored contract history");
+            }
+            long firstMovement = close.firstMovementSequence();
+            long lastMovement = close.lastMovementSequence();
+            if (firstMovement < 1 || lastMovement < 0 || lastMovement > st.movements().size()
+                    || firstMovement > st.movements().size() + 1L || firstMovement > lastMovement + 1L) {
+                throw new IllegalStateException("close " + close.id().value()
+                        + " has an invalid movement sequence range");
+            }
+            for (long movementSequence = firstMovement; movementSequence <= lastMovement; movementSequence++) {
+                PartnerMovement movement = st.movements().get(Math.toIntExact(movementSequence - 1));
+                if (!close.id().equals(movement.closeId())) {
+                    throw new IllegalStateException("close " + close.id().value()
+                            + " movement range contains unrelated movement " + movementSequence);
+                }
+            }
+        }
+        if (st.status() == SyirkahStatus.TERMINATED && st.liquidation() == null) {
+            throw new IllegalStateException("terminated syirkah is missing its liquidation result");
+        }
+        if (st.status() != SyirkahStatus.TERMINATED && st.liquidation() != null) {
+            throw new IllegalStateException("non-terminated syirkah contains a liquidation result");
+        }
     }
 
     // ------------------------------------------------------------------ queries
@@ -189,6 +252,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                                      Instant now) {
         requireActive();
         Objects.requireNonNull(closeId, "closeId");
+        Objects.requireNonNull(periodStart, "periodStart");
+        Objects.requireNonNull(periodEnd, "periodEnd");
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(disposition, "disposition");
+        Objects.requireNonNull(now, "now");
         if (periodEnd.isBefore(periodStart)) {
             throw new BusinessRuleViolation("period end before start");
         }
@@ -208,7 +276,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         SyirkahContract c = contract();
         result = normalize(result);
         Money net = result.netResult();
-        ManagerFault f = fault == null ? ManagerFault.none() : fault;
+        ManagerFault f = normalizeFault(fault);
         if (f.negligentOrBreach()) {
             if (c.type() != SyirkahType.MUDHARABAH) {
                 throw new BusinessRuleViolation("manager fault applies only to mudharabah");
@@ -239,8 +307,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         long lastSeq = movements.size();
         int seq = closes.size() + 1;
         String prevHash = prev == null ? AuditHash.GENESIS : prev.hash();
-        String hash = CloseSnapshot.computeHash(closeId, seq, start, end, c.version(), c.canonical(), result,
-                disposition, lines, supersedes, prevHash);
+        String hash = CloseSnapshot.computeHashV3(closeId, seq, start, end, c.version(), c.canonical(), result,
+                disposition, f, lines, supersedes, prevHash, first, lastSeq);
         CloseSnapshot snap = new CloseSnapshot(closeId, seq, start, end, c.version(), c.canonical(), result,
                 disposition, f, lines, supersedes, CloseStatus.ACTIVE, first, lastSeq, now, prevHash, hash);
         closes.add(snap);
@@ -254,18 +322,20 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     /** Pays out allocated profit. Idempotent per {@code reference}. */
     public void distributeProfit(PartnerId partner, Money amount, String reference, Instant now) {
-        requireStatusNot(SyirkahStatus.TERMINATED);
-        settle(partner, amount, reference, MovementType.PROFIT_DISTRIBUTED, now);
-        raise(new SyirkahEvents.ProfitDistributed(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        requireActive();
+        if (settle(partner, amount, reference, MovementType.PROFIT_DISTRIBUTED, now)) {
+            raise(new SyirkahEvents.ProfitDistributed(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        }
     }
 
     /** Records that a partner paid back what he owes (manager fault / deficit). Idempotent per reference. */
     public void settleLiability(PartnerId partner, Money amount, String reference, Instant now) {
-        settle(partner, amount, reference, MovementType.LIABILITY_SETTLED, now);
-        raise(new SyirkahEvents.LiabilitySettled(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        if (settle(partner, amount, reference, MovementType.LIABILITY_SETTLED, now)) {
+            raise(new SyirkahEvents.LiabilitySettled(UUID.randomUUID(), now, id(), partner, norm(amount), reference));
+        }
     }
 
-    private void settle(PartnerId partner, Money amount, String reference, MovementType type, Instant now) {
+    private boolean settle(PartnerId partner, Money amount, String reference, MovementType type, Instant now) {
         if (reference == null || reference.isBlank()) {
             throw new BusinessRuleViolation("a settlement needs an idempotency reference");
         }
@@ -277,7 +347,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         for (PartnerMovement m : movements) {
             if (m.type() == type && m.partner().equals(partner) && key.equals(m.reference())) {
                 if (m.amount().compareTo(a) == 0) {
-                    return; // replay
+                    return false; // idempotent replay: no new movement or domain event
                 }
                 throw new BusinessRuleViolation("reference " + reference + " already used with a different amount");
             }
@@ -289,6 +359,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         append(partner, type, a, null, key, now);
         touch(now);
+        return true;
     }
 
     // ------------------------------------------------------------------ revision of akad
@@ -327,16 +398,29 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         String ref = "akad:v" + next.version();
         Set<PartnerId> all = new java.util.LinkedHashSet<>(buckets.keySet());
         all.addAll(next.partnerIds());
+
+        // Preflight the entire revision before appending any movement. A departing partner
+        // may still have an open payable/liability even when earlier partners in iteration
+        // order would otherwise receive capital adjustments. Rejecting halfway through the
+        // loop would leave the aggregate partially revised despite the akad not changing.
+        Map<PartnerId, Money> balances = new LinkedHashMap<>();
+        Map<PartnerId, Money> targets = new LinkedHashMap<>();
         for (PartnerId p : all) {
             boolean stays = next.hasPartner(p);
             PartnerPosition pos = buckets.containsKey(p) ? position(p) : null;
-            if (!stays) {
-                if (pos != null && (pos.payable().isPositive() || pos.liability().isPositive())) {
-                    throw new BusinessRuleViolation("departing partner has open payable/liability; settle first");
-                }
+            if (!stays && pos != null && (pos.payable().isPositive() || pos.liability().isPositive())) {
+                throw new BusinessRuleViolation("departing partner has open payable/liability; settle first");
             }
-            Money balance = pos == null ? Money.zero(cur.currency()) : pos.balance();
-            Money target = stays ? norm(next.capitalOf(p)) : Money.zero(cur.currency());
+            balances.put(p, pos == null ? Money.zero(cur.currency()) : pos.balance());
+            targets.put(p, stays ? norm(next.capitalOf(p)) : Money.zero(cur.currency()));
+        }
+
+        // All caller-controlled business-rule checks are complete; now apply the planned
+        // capital/basis movements and only then publish the new contract version.
+        for (PartnerId p : all) {
+            PartnerPosition pos = buckets.containsKey(p) ? position(p) : null;
+            Money balance = balances.get(p);
+            Money target = targets.get(p);
             if (pos != null && pos.basis().compareTo(pos.balance()) > 0) {
                 append(p, MovementType.BASIS_CLOSED, pos.basis().subtract(pos.balance()), null,
                         ref + ":reset:" + p.value(), now);
@@ -367,6 +451,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     public CloseSnapshot correctLatestClose(CloseId target, CloseId replacementId, FinancialResult corrected,
                                             ManagerFault fault, ProfitDisposition disposition, Instant now) {
         requireActive();
+        Objects.requireNonNull(replacementId, "replacementId");
+        Objects.requireNonNull(disposition, "disposition");
+        Objects.requireNonNull(now, "now");
         CloseSnapshot last = lastActiveClose();
         if (last == null || !last.id().equals(target)) {
             throw new BusinessRuleViolation("only the latest effective close can be corrected");
@@ -377,9 +464,31 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (closes.stream().anyMatch(c -> c.id().equals(replacementId))) {
             throw new BusinessRuleViolation("replacement close id already used");
         }
+        // Validate all caller-controlled accounting inputs before reversing any existing
+        // movements. doClose validates the same rules, but doing it after reversal would
+        // leave the aggregate partially mutated if the replacement close is rejected.
+        FinancialResult normalizedCorrected = normalize(corrected);
+        ManagerFault normalizedFault = normalizeFault(fault);
+        Money correctedNet = normalizedCorrected.netResult();
+        if (normalizedFault.negligentOrBreach()) {
+            if (contract().type() != SyirkahType.MUDHARABAH) {
+                throw new BusinessRuleViolation("manager fault applies only to mudharabah");
+            }
+            if (!correctedNet.isNegative()) {
+                throw new BusinessRuleViolation("manager fault requires a loss in the period");
+            }
+            if (normalizedFault.attributableLoss().compareTo(correctedNet.negate()) > 0) {
+                throw new BusinessRuleViolation("attributable loss exceeds the period loss");
+            }
+        }
         for (PartnerMovement m : movements) {
-            if (m.sequence() > last.lastMovementSequence() && m.type() != MovementType.PROFIT_DISTRIBUTED) {
-                throw new BusinessRuleViolation("only profit distributions may follow a close that is corrected; found "
+            boolean correctionGeneratedLiability = m.type() == MovementType.OVERPAYMENT_TO_LIABILITY
+                    && last.id().equals(m.closeId());
+            if (m.sequence() > last.lastMovementSequence()
+                    && m.type() != MovementType.PROFIT_DISTRIBUTED
+                    && !correctionGeneratedLiability) {
+                throw new BusinessRuleViolation("only profit distributions or correction-generated overpayment "
+                        + "liabilities may follow a close that is corrected; found "
                         + m.type() + " at " + m.sequence());
             }
         }
@@ -395,8 +504,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             append(m.partner(), m.type(), m.amount().negate(), m.closeId(), "reversal:" + m.sequence(), now);
         }
         replaceClose(last.withStatus(CloseStatus.REVERSED));
-        CloseSnapshot snap = doClose(replacementId, last.periodStart(), last.periodEnd(), corrected, fault,
-                disposition, target, now);
+        CloseSnapshot snap = doClose(replacementId, last.periodStart(), last.periodEnd(),
+                normalizedCorrected, normalizedFault, disposition, target, now);
         // Profit already paid beyond the corrected entitlement is owed back (no negative payables).
         for (Partner p : contract().partners()) {
             Money payable = position(p.id()).payable();
@@ -430,6 +539,15 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (!input.shufahOffered()) {
             throw new BusinessRuleViolation("hak syuf'ah: partners must be offered the assets before sale to outsiders");
         }
+        // A prior close may have recorded a manager-fault liability. Do not terminate the
+        // partnership while such a receivable is still open: otherwise the liability would
+        // remain on a terminated aggregate without being recovered or explicitly carried forward.
+        for (Partner p : contract().partners()) {
+            if (position(p.id()).liability().isPositive()) {
+                throw new BusinessRuleViolation("outstanding partner liability must be settled before liquidation: "
+                        + p.id().value());
+            }
+        }
         SyirkahContract c = contract();
         Money proceeds = norm(input.assetProceeds());
         Money debts = norm(input.externalDebts());
@@ -446,7 +564,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             claims = claims.add(cl);
         }
         Money net = residual.subtract(claims);
-        ManagerFault f = fault == null ? ManagerFault.none() : fault;
+        ManagerFault f = normalizeFault(fault);
         if (f.negligentOrBreach() && (c.type() != SyirkahType.MUDHARABAH || !net.isNegative()
                 || f.attributableLoss().compareTo(net.negate()) > 0)) {
             throw new BusinessRuleViolation("invalid manager fault for this liquidation");
@@ -482,10 +600,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             owed = owed.add(l.managerLiability());
             payouts.add(new LiquidationResult.Payout(p, cash, owed));
         }
-        StringBuilder sb = new StringBuilder("liq|").append(residual.amount().toPlainString()).append('|')
-                .append(net.amount().toPlainString()).append('|')
-                .append(movements.isEmpty() ? AuditHash.GENESIS : movements.get(movements.size() - 1).hash());
-        liquidation = new LiquidationResult(input, residual, net, lines, payouts, now, AuditHash.sha256(sb.toString()));
+        String liquidationHash = LiquidationResult.computeHash(input, residual, net, lines, payouts, now);
+        liquidation = new LiquidationResult(input, residual, net, lines, payouts, now, liquidationHash);
         status = SyirkahStatus.TERMINATED;
         raise(new SyirkahEvents.LiquidationCompleted(UUID.randomUUID(), now, id(), net));
         touch(now);
@@ -600,8 +716,20 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (liquidation != null) {
             result += unitsOf(liquidation.netResult());
         }
+        // Unallocated losses remain at entity level; they are not partner liabilities.
+        // Subtract them from the reconciliation difference so losses beyond capital are
+        // represented without inventing negative partner equity or manager debt.
+        long entityDeficit = 0;
+        for (CloseSnapshot c : closes) {
+            if (c.status() == CloseStatus.ACTIVE) {
+                entityDeficit += unitsOf(c.unallocatedLoss());
+            }
+        }
+        if (liquidation != null) {
+            entityDeficit += unitsOf(liquidation.unallocatedLoss());
+        }
         return new EquityReconciliation(units(equity, cur), units(cash, cur), units(result, cur),
-                units(equity - cash - result, cur));
+                units(equity - cash - result - entityDeficit, cur));
     }
 
     // ------------------------------------------------------------------ integrity
@@ -632,6 +760,13 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 problems.add("close hash mismatch at " + c.sequence());
             }
             prevClose = c.hash();
+        }
+        if (liquidation != null) {
+            String movementHead = movements.isEmpty() ? AuditHash.GENESIS
+                    : movements.get(movements.size() - 1).hash();
+            if (!liquidation.hashIsValid(movementHead)) {
+                problems.add("liquidation hash mismatch");
+            }
         }
         EquityReconciliation rec = reconcile();
         if (!rec.balanced()) {
@@ -689,11 +824,23 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     }
 
     private Money norm(Money m) {
+        if (!m.currency().equals(contract().currency())) {
+            throw new BusinessRuleViolation("amount currency " + m.currency().code()
+                    + " does not match akad currency " + contract().currency().code());
+        }
         try {
             return Money.of(m.amount().setScale(scale, RoundingMode.UNNECESSARY), m.currency());
         } catch (ArithmeticException e) {
             throw new BusinessRuleViolation("amount " + m.amount() + " has more than " + scale + " decimals");
         }
+    }
+
+    private ManagerFault normalizeFault(ManagerFault fault) {
+        ManagerFault f = fault == null ? ManagerFault.none() : fault;
+        if (!f.negligentOrBreach()) {
+            return f;
+        }
+        return ManagerFault.of(norm(f.attributableLoss()), f.reason());
     }
 
     private FinancialResult normalize(FinancialResult r) {

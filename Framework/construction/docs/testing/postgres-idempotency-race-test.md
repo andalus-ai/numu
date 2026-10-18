@@ -13,4 +13,4 @@ Assertions cover:
 
 This is a database concurrency/protocol test. The business effect is a test-only table insert; it does not instantiate `IdempotentCommandExecutor`, `PgTransactionalCommandRunner`, or `PgTransactionalCommandContext`. It also does not prove the application correctly compares operation and fingerprint after loading an existing row. Run this alongside Java tests and an integration test against the host application's actual dependency graph before release.
 
-Override `SYIRKAH_TEST_PG_PORT` if port `55448` is already occupied. The script removes its disposable container and temporary output directory on exit.
+Override `NUMOU_TEST_PG_PORT` if port `55448` is already occupied. The script removes its disposable container and temporary output directory on exit.

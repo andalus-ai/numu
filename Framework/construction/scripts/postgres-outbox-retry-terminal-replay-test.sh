@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL acceptance test for bounded retry scheduling, terminal
 # failures, and audited operator replay. Never connects to an existing database.
 CONTAINER_NAME="numou-pg-outbox-retry-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55442}"
+PORT="${NUMOU_TEST_PG_PORT:-55442}"
 PASSWORD="numou_test_only"
 TMP_DIR="$(mktemp -d)"
 cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; rm -rf "$TMP_DIR"; }

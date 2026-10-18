@@ -1,5 +1,6 @@
 package tech.kayys.numou.construction.domain.boq;
 
+import tech.kayys.numou.quantity.domain.UnitOfMeasure;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
@@ -31,8 +32,8 @@ public record BoqCalculationPolicy(
         Objects.requireNonNull(quantity, "Quantity cannot be null");
         Objects.requireNonNull(rate, "Rate cannot be null");
 
-        String quantityUnit = normalizeUnit(quantity.unit());
-        String rateUnit = normalizeUnit(rate.unit());
+        String quantityUnit = quantity.toQuantity().unit().code();
+        String rateUnit = new UnitOfMeasure(rate.unit()).code();
         if (!quantityUnit.equals(rateUnit)) {
             throw new IllegalArgumentException(
                     "Quantity unit '" + quantity.unit() + "' does not match rate unit '" + rate.unit() + "'"
@@ -62,9 +63,6 @@ public record BoqCalculationPolicy(
     }
 
     private static String normalizeUnit(String unit) {
-        if (unit == null || unit.isBlank()) {
-            throw new IllegalArgumentException("Unit cannot be blank");
-        }
-        return unit.trim().toLowerCase(java.util.Locale.ROOT);
+        return new UnitOfMeasure(unit).code();
     }
 }

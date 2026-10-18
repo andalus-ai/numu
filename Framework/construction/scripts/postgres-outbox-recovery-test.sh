@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL test for outbox claim exclusivity, lease expiry and token fencing.
 # Requires Docker; does not connect to or mutate an existing database.
 CONTAINER_NAME="numou-pg-outbox-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55441}"
+PORT="${NUMOU_TEST_PG_PORT:-55441}"
 PASSWORD="numou_test_only"
 TMP_DIR="$(mktemp -d)"
 cleanup() {

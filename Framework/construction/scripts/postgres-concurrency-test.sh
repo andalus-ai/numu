@@ -4,7 +4,7 @@ set -euo pipefail
 # Disposable PostgreSQL concurrency test for schema-level guarantees.
 # Requires Docker, psql inside the container, and GNU sort/coreutils locally.
 CONTAINER_NAME="numou-pg-concurrency-$$"
-PORT="${SYIRKAH_TEST_PG_PORT:-55440}"
+PORT="${NUMOU_TEST_PG_PORT:-55440}"
 PASSWORD="numou_test_only"
 TMP_DIR="$(mktemp -d)"
 cleanup() {
@@ -28,9 +28,9 @@ done
 # Race N independent sessions to allocate revisions for one BOQ. The upsert
 # lock should serialize increments and produce each number exactly once.
 BOQ_ID='61000000-0000-0000-0000-000000000001'
-N="${SYIRKAH_CONCURRENCY_WORKERS:-16}"
+N="${NUMOU_CONCURRENCY_WORKERS:-16}"
 if ! [[ "$N" =~ ^[0-9]+$ ]] || (( N < 2 || N > 100 )); then
-  echo "SYIRKAH_CONCURRENCY_WORKERS must be between 2 and 100" >&2; exit 2
+  echo "NUMOU_CONCURRENCY_WORKERS must be between 2 and 100" >&2; exit 2
 fi
 for i in $(seq 1 "$N"); do
   (
