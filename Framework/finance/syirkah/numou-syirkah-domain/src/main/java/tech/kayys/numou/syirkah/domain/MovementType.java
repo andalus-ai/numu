@@ -17,6 +17,8 @@ public enum MovementType {
     LIABILITY_SETTLED(0, 0, 0, -1),
     /** Liquidation: capital deficit a partner owes becomes a liability (capital reset to zero). */
     DEFICIT_TO_LIABILITY(0, 1, 0, 1),
+    /** Correction after distribution: profit paid out in excess of the corrected entitlement becomes owed back. */
+    OVERPAYMENT_TO_LIABILITY(0, 0, 1, 1),
     /** Memo movement that zeroes the remaining capital basis at liquidation / revision. */
     BASIS_CLOSED(-1, 0, 0, 0);
 
