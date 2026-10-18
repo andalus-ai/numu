@@ -20,6 +20,23 @@ public record LiquidationResult(LiquidationInput input, Money residual, Money ne
         payouts = List.copyOf(payouts);
     }
 
+    /**
+     * Unfunded liquidation loss remaining after eligible partner capital and
+     * any evidenced manager-fault liability have been accounted for.
+     */
+    public Money unallocatedLoss() {
+        Money zero = Money.zero(netResult.currency());
+        if (!netResult.isNegative()) {
+            return zero;
+        }
+        Money allocated = zero;
+        for (AllocationLine line : lines) {
+            allocated = allocated.add(line.lossBorne()).add(line.managerLiability());
+        }
+        Money excess = netResult.negate().subtract(allocated);
+        return excess.isPositive() ? excess : zero;
+    }
+
     public record Payout(PartnerId partner, Money cashReceived, Money owed) implements Serializable {
     }
 }
