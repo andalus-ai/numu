@@ -370,6 +370,31 @@ class SyirkahTest {
 
 
     @Test
+    void restoreRejectsContractHistoryWithNonIncreasingEffectiveDates() {
+        Syirkah s = open(inan(100_000_000, 0, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(1_000_000), ProfitDisposition.RETAIN);
+        SyirkahContract current = s.contract();
+        SyirkahContract next = new SyirkahContract(2, SyirkahType.INAN, IDR,
+                current.partners(), current.capital(), ratio(A, 50, B, 50),
+                ProfitBasis.NET_PROFIT, null, Set.of(), List.of("W1", "W2"), true, FEB1);
+        s.reviseContract(next, Set.of(A, B), NOW);
+        Syirkah.Snapshot snapshot = s.snapshot();
+
+        SyirkahContract forgedCurrent = new SyirkahContract(2, SyirkahType.INAN, IDR,
+                next.partners(), next.capital(), next.nisbah(), next.profitBasis(), next.lossSharing(),
+                next.declaredClauses(), next.witnesses(), next.ijabQabulRecorded(), JAN1);
+        List<SyirkahContract> forgedContracts = new ArrayList<>(snapshot.contracts());
+        forgedContracts.set(1, forgedCurrent);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), forgedContracts, snapshot.movements(),
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("effective dates are not strictly increasing"));
+    }
+
+    @Test
     void contractRevisionRejectsNullTimestampWithoutChangingAggregate() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(1_000_000), ProfitDisposition.RETAIN);
