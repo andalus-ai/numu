@@ -141,8 +141,13 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         if (st.id() == null || st.tenantId() == null || st.status() == null
                 || st.contracts() == null || st.contracts().isEmpty()
-                || st.movements() == null || st.closes() == null) {
+                || st.movements() == null || st.closes() == null
+                || st.createdAt() == null || st.updatedAt() == null) {
             throw new IllegalStateException("stored syirkah snapshot is missing required state");
+        }
+        if (st.version() < 0) {
+            throw new IllegalStateException("stored syirkah snapshot has negative aggregate version "
+                    + st.version());
         }
         if (st.scale() < 0 || st.scale() > MAX_AMOUNT_SCALE) {
             throw new IllegalStateException("stored syirkah snapshot has unsupported amount scale " + st.scale());
