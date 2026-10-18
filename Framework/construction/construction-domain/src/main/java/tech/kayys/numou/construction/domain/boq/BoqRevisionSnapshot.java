@@ -1,5 +1,9 @@
 package tech.kayys.numou.construction.domain.boq;
 
+import tech.kayys.numou.quantity.domain.Quantity;
+import tech.kayys.numou.quantity.domain.QuantitySchedule;
+import tech.kayys.numou.quantity.domain.QuantityScheduleLine;
+import tech.kayys.numou.quantity.domain.UnitOfMeasure;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -103,6 +107,28 @@ public record BoqRevisionSnapshot(
                 RevisionStatus.APPROVED, items, calculationPolicyVersion, createdBy, createdAt,
                 submittedBy, submittedAt,
                 actorId, Objects.requireNonNull(now, "Approval time cannot be null"));
+    }
+
+    /**
+     * Projects this immutable revision's measured quantities into the shared,
+     * commercially neutral schedule model. The caller supplies a schedule ID
+     * so revisions can have distinct identities without changing BOQ identity.
+     * Rates, currency, amounts, and workflow metadata are intentionally omitted.
+     */
+    public QuantitySchedule quantitySchedule(UUID scheduleId) {
+        Objects.requireNonNull(scheduleId, "Quantity schedule id cannot be null");
+        List<QuantityScheduleLine> lines = new java.util.ArrayList<>(items.size());
+        for (int position = 0; position < items.size(); position++) {
+            ItemSnapshot item = items.get(position);
+            lines.add(new QuantityScheduleLine(
+                    item.itemId(),
+                    item.wbsNodeId(),
+                    item.itemCode(),
+                    item.description(),
+                    new Quantity(item.quantity(), new UnitOfMeasure(item.quantityUnit())),
+                    position));
+        }
+        return new QuantitySchedule(scheduleId, lines);
     }
 
     public BigDecimal totalAmount() {
