@@ -43,9 +43,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     private boolean closedSinceRevision;
     private LiquidationResult liquidation;
 
+    private static final int MAX_AMOUNT_SCALE = 18;
+
     private Syirkah(SyirkahId id, TenantId tenantId, int scale) {
         super(id);
         this.tenantId = Objects.requireNonNull(tenantId, "tenantId");
+        if (scale < 0 || scale > MAX_AMOUNT_SCALE) {
+            throw new IllegalArgumentException("amount scale must be between 0 and " + MAX_AMOUNT_SCALE);
+        }
         this.scale = scale;
     }
 
@@ -139,6 +144,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 || st.movements() == null || st.closes() == null) {
             throw new IllegalStateException("stored syirkah snapshot is missing required state");
         }
+        if (st.scale() < 0 || st.scale() > MAX_AMOUNT_SCALE) {
+            throw new IllegalStateException("stored syirkah snapshot has unsupported amount scale " + st.scale());
+        }
         for (int i = 0; i < st.contracts().size(); i++) {
             SyirkahContract contract = st.contracts().get(i);
             if (contract == null || contract.version() != i + 1) {
@@ -155,9 +163,18 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         for (SyirkahContract contract : st.contracts()) {
             knownPartners.addAll(contract.partnerIds());
         }
+        Set<CloseId> knownCloseIds = new java.util.HashSet<>();
+        for (CloseSnapshot close : st.closes()) {
+            if (close != null) {
+                knownCloseIds.add(close.id());
+            }
+        }
         for (PartnerMovement movement : st.movements()) {
             if (movement == null || movement.partner() == null || !knownPartners.contains(movement.partner())) {
                 throw new IllegalStateException("stored movement references a partner absent from contract history");
+            }
+            if (movement.closeId() != null && !knownCloseIds.contains(movement.closeId())) {
+                throw new IllegalStateException("stored movement references a close absent from close history");
             }
         }
         for (int i = 0; i < st.closes().size(); i++) {
