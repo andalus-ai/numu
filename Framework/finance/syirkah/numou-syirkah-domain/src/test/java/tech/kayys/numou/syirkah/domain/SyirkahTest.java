@@ -1381,4 +1381,25 @@ class SyirkahTest {
         assertTrue(error.getMessage().contains("updatedAt precedes createdAt"));
     }
 
+
+    @Test
+    void restoreRejectsMovementAmountWithExcessAccountingPrecision() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        Syirkah.Snapshot snapshot = s.snapshot();
+        PartnerMovement original = snapshot.movements().get(0);
+        Money excessivePrecision = Money.of(new BigDecimal("100.001"), original.amount().currency());
+        PartnerMovement tampered = PartnerMovement.create(original.sequence(), original.partner(), original.type(),
+                excessivePrecision, original.closeId(), original.reference(), original.occurredAt(),
+                original.previousHash());
+        List<PartnerMovement> movements = new ArrayList<>(snapshot.movements());
+        movements.set(0, tampered);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), movements,
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("exceeds the aggregate accounting scale"));
+    }
+
 }
