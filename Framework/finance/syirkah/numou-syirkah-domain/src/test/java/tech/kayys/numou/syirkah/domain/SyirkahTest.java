@@ -1407,13 +1407,13 @@ class SyirkahTest {
     void restoreRejectsLiquidationAmountsWithExcessAccountingPrecision() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         s.startLiquidation(Instant.parse("2026-02-01T00:00:00Z"));
-        s.liquidate(new LiquidationInput(Money.of(new BigDecimal("200.00"), USD),
-                Money.of(new BigDecimal("0.00"), USD), true, LocalDate.parse("2026-02-01")),
-                Instant.parse("2026-02-01T01:00:00Z"));
+        s.liquidate(new LiquidationInput(Money.of(new BigDecimal("200.00"), IDR),
+                Money.of(new BigDecimal("0.00"), IDR), true, LocalDate.parse("2026-02-01")),
+                ManagerFault.none(), Instant.parse("2026-02-01T01:00:00Z"));
         Syirkah.Snapshot snapshot = s.snapshot();
         LiquidationResult original = snapshot.liquidation();
         LiquidationResult forgedResult = new LiquidationResult(original.input(),
-                Money.of(new BigDecimal("200.001"), USD), original.netResult(), original.lines(),
+                Money.of(new BigDecimal("200.001"), IDR), original.netResult(), original.lines(),
                 original.payouts(), original.completedAt(), original.hash());
         Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
                 snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
