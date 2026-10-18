@@ -131,6 +131,32 @@ class SyirkahTest {
     // ---------------------------------------------------------------- contract validity
 
     @Test
+    void contractCanonicalBindsAccountingAndAkadTerms() {
+        SyirkahContract base = inan(10, 10, ratio(A, 50, B, 50));
+        SyirkahContract withForbiddenClause = new SyirkahContract(base.version(), base.type(), base.currency(),
+                base.partners(), base.capital(), base.nisbah(), base.profitBasis(), base.lossSharing(),
+                Set.of(ForbiddenClause.CAPITAL_GUARANTEE), base.witnesses(), base.ijabQabulRecorded(),
+                base.effectiveFrom());
+        assertFalse(base.canonical().equals(withForbiddenClause.canonical()),
+                "a declared forbidden clause must be bound into the contract fingerprint");
+
+        SyirkahContract changedPartnerRole = new SyirkahContract(base.version(), base.type(), base.currency(),
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, false), base.partners().get(1)),
+                base.capital(), base.nisbah(), base.profitBasis(), base.lossSharing(), base.declaredClauses(),
+                base.witnesses(), base.ijabQabulRecorded(), base.effectiveFrom());
+        assertFalse(base.canonical().equals(changedPartnerRole.canonical()),
+                "partner role/work terms must be bound into the contract fingerprint");
+
+        SyirkahContract reordered = new SyirkahContract(base.version(), base.type(), base.currency(),
+                List.of(base.partners().get(1), base.partners().get(0)),
+                List.of(base.capital().get(1), base.capital().get(0)), base.nisbah(), base.profitBasis(),
+                base.lossSharing(), base.declaredClauses(), List.of("W2", "W1"),
+                base.ijabQabulRecorded(), base.effectiveFrom());
+        assertEquals(base.canonical(), reordered.canonical(),
+                "canonical contract fingerprint must not depend on collection ordering");
+    }
+
+    @Test
     void revenueBasedProfitIsInvalid() {
         SyirkahContract c = inan(1, 1, ratio(A, 50, B, 50));
         SyirkahContract bad = new SyirkahContract(1, c.type(), c.currency(), c.partners(), c.capital(), c.nisbah(),
