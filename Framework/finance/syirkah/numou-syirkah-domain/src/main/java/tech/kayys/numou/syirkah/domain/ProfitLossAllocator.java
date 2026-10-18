@@ -134,17 +134,23 @@ public final class ProfitLossAllocator {
 
         Map<PartnerId, BigDecimal> weights = new TreeMap<>();
         if (contract.explicitLossWeights() != null) {
+            // Abdan/wujuh have no cash capital; their agreed loss weights apply.
             weights.putAll(contract.explicitLossWeights());
         } else {
+            BigDecimal availableCapital = BigDecimal.ZERO;
             for (Partner p : contract.partners()) {
                 PartnerCapitalState st = capital.get(p.id());
-                BigDecimal basis = st == null ? BigDecimal.ZERO : st.basis().amount();
-                boolean bearsLoss = contract.type() != SyirkahType.MUDHARABAH || p.role() != PartnerRole.MANAGER;
-                weights.put(p.id(), bearsLoss ? basis : BigDecimal.ZERO);
+                BigDecimal available = st == null ? BigDecimal.ZERO : st.balance().amount().max(BigDecimal.ZERO);
+                boolean bearsLoss = contract.type() != SyirkahType.MUDHARABAH
+                        || p.role() == PartnerRole.CAPITAL_PROVIDER;
+                BigDecimal weight = bearsLoss ? available : BigDecimal.ZERO;
+                weights.put(p.id(), weight);
+                availableCapital = availableCapital.add(weight);
             }
-            if (weights.values().stream().allMatch(b -> b.signum() == 0)) {
-                weights.clear();
-                weights.putAll(contract.nisbah().shares());
+            if (availableCapital.compareTo(remaining) < 0) {
+                throw new BusinessRuleViolation(
+                        "loss exceeds remaining eligible partner capital; record the excess as an entity-level deficit "
+                                + "or liability rather than allocating it beyond capital");
             }
         }
         Apportionment.apportion(remaining, weights, scale).forEach((k, v) -> loss.put(k, Money.of(v, cur)));
