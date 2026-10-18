@@ -350,7 +350,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             if (line.capitalRestored().isNegative() || line.profitShare().isNegative()
                     || line.lossBorne().isNegative() || line.managerLiability().isNegative()
                     || line.retained().isNegative()) {
-                throw new IllegalStateException("stored liquidation allocation contains a negative component");
+                throw new IllegalStateException("stored close " + close.id().value() + " allocation contains a negative component");
             }
             amounts.add(line.capitalRestored());
             amounts.add(line.profitShare());
@@ -451,6 +451,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             if (!allocatedPartners.add(line.partner())) {
                 throw new IllegalStateException("stored liquidation result contains duplicate allocation lines for partner "
                         + line.partner().value());
+            }
+            if (line.capitalRestored().isNegative() || line.profitShare().isNegative()
+                    || line.lossBorne().isNegative() || line.managerLiability().isNegative()
+                    || line.retained().isNegative()) {
+                throw new IllegalStateException("stored liquidation allocation contains a negative component");
             }
             amounts.add(line.capitalRestored());
             amounts.add(line.profitShare());
