@@ -203,6 +203,12 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             if (movement.sequence() < 1) {
                 throw new IllegalStateException("stored movement has invalid sequence " + movement.sequence());
             }
+            try {
+                movement.amount().amount().setScale(st.scale(), RoundingMode.UNNECESSARY);
+            } catch (ArithmeticException invalidScale) {
+                throw new IllegalStateException("stored movement amount exceeds the aggregate accounting scale at sequence "
+                        + movement.sequence(), invalidScale);
+            }
             java.util.UUID expectedMovementId = java.util.UUID.nameUUIDFromBytes(
                     (movement.sequence() + "|" + movement.partner().value() + "|" + movement.type() + "|"
                             + movement.reference()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
