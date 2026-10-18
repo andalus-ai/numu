@@ -240,7 +240,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         int seq = closes.size() + 1;
         String prevHash = prev == null ? AuditHash.GENESIS : prev.hash();
         String hash = CloseSnapshot.computeHash(closeId, seq, start, end, c.version(), c.canonical(), result,
-                disposition, lines, supersedes, prevHash);
+                disposition, f, lines, supersedes, prevHash);
         CloseSnapshot snap = new CloseSnapshot(closeId, seq, start, end, c.version(), c.canonical(), result,
                 disposition, f, lines, supersedes, CloseStatus.ACTIVE, first, lastSeq, now, prevHash, hash);
         closes.add(snap);
