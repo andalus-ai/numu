@@ -165,6 +165,20 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("close " + close.id().value()
                         + " contract terms do not match stored contract history");
             }
+            long firstMovement = close.firstMovementSequence();
+            long lastMovement = close.lastMovementSequence();
+            if (firstMovement < 1 || lastMovement < 0 || lastMovement > st.movements().size()
+                    || firstMovement > st.movements().size() + 1L || firstMovement > lastMovement + 1L) {
+                throw new IllegalStateException("close " + close.id().value()
+                        + " has an invalid movement sequence range");
+            }
+            for (long movementSequence = firstMovement; movementSequence <= lastMovement; movementSequence++) {
+                PartnerMovement movement = st.movements().get(Math.toIntExact(movementSequence - 1));
+                if (!close.id().equals(movement.closeId())) {
+                    throw new IllegalStateException("close " + close.id().value()
+                            + " movement range contains unrelated movement " + movementSequence);
+                }
+            }
         }
         if (st.status() == SyirkahStatus.TERMINATED && st.liquidation() == null) {
             throw new IllegalStateException("terminated syirkah is missing its liquidation result");
@@ -293,8 +307,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         long lastSeq = movements.size();
         int seq = closes.size() + 1;
         String prevHash = prev == null ? AuditHash.GENESIS : prev.hash();
-        String hash = CloseSnapshot.computeHash(closeId, seq, start, end, c.version(), c.canonical(), result,
-                disposition, f, lines, supersedes, prevHash);
+        String hash = CloseSnapshot.computeHashV3(closeId, seq, start, end, c.version(), c.canonical(), result,
+                disposition, f, lines, supersedes, prevHash, first, lastSeq);
         CloseSnapshot snap = new CloseSnapshot(closeId, seq, start, end, c.version(), c.canonical(), result,
                 disposition, f, lines, supersedes, CloseStatus.ACTIVE, first, lastSeq, now, prevHash, hash);
         closes.add(snap);
