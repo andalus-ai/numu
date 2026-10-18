@@ -813,6 +813,44 @@ class SyirkahTest {
     }
 
     @Test
+    void liquidationDateCannotPrecedeLatestActiveCloseAndRejectionIsAtomic() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        s.startLiquidation(NOW);
+        List<PartnerMovement> movementsBefore = List.copyOf(s.movements());
+        SyirkahStatus statusBefore = s.status();
+
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(
+                new LiquidationInput(idr(200), idr(0), true, JAN1), ManagerFault.none(), NOW));
+
+        assertEquals(statusBefore, s.status());
+        assertEquals(movementsBefore, s.movements());
+        assertNull(s.liquidation());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
+    void restoreRejectsLiquidationDateBeforeCurrentAkadEffectiveDateEvenWithRecomputedHash() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        LiquidationResult original = s.liquidate(
+                new LiquidationInput(idr(200), idr(0), true, FEB28), ManagerFault.none(), NOW);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        LiquidationInput forgedInput = new LiquidationInput(original.input().assetProceeds(),
+                original.input().externalDebts(), original.input().shufahOffered(), LocalDate.parse("2025-12-31"));
+        String forgedHash = LiquidationResult.computeHash(forgedInput, original.residual(), original.netResult(),
+                original.lines(), original.payouts(), original.completedAt());
+        LiquidationResult forgedLiquidation = new LiquidationResult(forgedInput, original.residual(),
+                original.netResult(), original.lines(), original.payouts(), original.completedAt(), forgedHash);
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), snapshot.movements(),
+                snapshot.closes(), forgedLiquidation, snapshot.version(), snapshot.createdAt(), snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("liquidation date precedes the latest active close or current akad effective date"));
+    }
+
+    @Test
     void liquidationRequiresStartShufahAndIsFinal() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         LiquidationInput in = new LiquidationInput(idr(200), idr(0), true, FEB28);
