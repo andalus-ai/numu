@@ -145,6 +145,7 @@ public class SyirkahApplicationService {
     }
 
     private Instant now() {
-        return clock.instant();
+        // microsecond precision: the persisted timestamps (and the audit hashes over them) must survive a store
+        return clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 }

@@ -60,3 +60,18 @@ distribution, revision, correction, liquidation, journals). `adapter.bridge.Busi
 `SyirkahBusinessResult` to a `ClosePeriod` command with deterministic UUIDs (syirkah, partner, close), so one business
 result can only ever close one period and retries are safe. The ledger's own contract (capital, witnesses, ijab-qabul) is
 still opened with `Commands.Open`; the front end's contract versions do not carry that data yet.
+
+## PostgreSQL persistence
+
+`JdbcSyirkahRepository` + `JdbcUnitOfWork` (package `adapter.persistence`, plain `java.sql`) persist the ledger into
+`V300__syirkah.sql`:
+
+- Contract versions, closes and the liquidation result are jsonb via `SyirkahJsonCodec` (lossless: amounts keep their
+  scale); movements are rows. Only new rows are inserted; the one allowed update is a close going ACTIVE → REVERSED.
+- `save` is optimistic (`UPDATE … WHERE version = expected`, which also takes the row lock). A failed save restores the
+  aggregate's in-memory version.
+- Every call sets `app.tenant_id` transaction-locally, so RLS applies; a foreign tenant finds nothing.
+- `find` rebuilds the aggregate with `Syirkah.restore`, re-verifying every hash chain.
+- The application clock is truncated to microseconds so timestamps (and the hashes over them) survive `timestamptz`.
+- `JdbcSyirkahRepositoryIT` runs against a real database when `SYIRKAH_PG_URL`, `SYIRKAH_PG_USER` and
+  `SYIRKAH_PG_PASSWORD` are set (role must not be superuser/BYPASSRLS).
