@@ -463,6 +463,28 @@ class SyirkahTest {
     // ---------------------------------------------------------------- liquidation
 
     @Test
+    void liquidationIsRejectedWhileEarlierPartnerLiabilityRemainsOpen() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.closePeriod(CloseId.generate(), JAN1, JAN31, loss(8_000_000),
+                ManagerFault.of(idr(3_000_000), "documented breach"), ProfitDisposition.DISTRIBUTE, NOW);
+        s.startLiquidation(NOW);
+
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(
+                new LiquidationInput(idr(100_000_000), idr(0), true, FEB28),
+                ManagerFault.none(), NOW));
+        assertEquals(SyirkahStatus.LIQUIDATING, s.status());
+        eq(3_000_000, s.position(B).liability());
+
+        s.settleLiability(B, idr(3_000_000), "before-liquidation", NOW);
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(100_000_000), idr(0), true, FEB28),
+                ManagerFault.none(), NOW);
+        assertEquals(SyirkahStatus.TERMINATED, s.status());
+        assertTrue(result.hashIsValid());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void liquidationProfitPaysDebtsFirstThenCapitalPlusNisbahProfit() {
         Syirkah s = open(inan(100_000_000, 50_000_000, ratio(A, 50, B, 50)));
         s.startLiquidation(NOW);
