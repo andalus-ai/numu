@@ -263,7 +263,12 @@ class SyirkahTest {
         assertTrue(c.validate().isEmpty());
         Syirkah s = open(c);
         close(s, JAN1, JAN31, loss(1_000), ProfitDisposition.DISTRIBUTE);
-        eq(500, s.position(A).balance().negate()); // no capital: loss weights fall back to nisbah
+        eq(0, s.position(A).balance()); // ABDAN has no cash capital to impair
+        eq(1_000, s.closes().get(0).unallocatedLoss()); // uncovered loss remains at entity level
+        eq(0, s.position(A).liability());
+        eq(0, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
     }
 
     // ---------------------------------------------------------------- distribution
