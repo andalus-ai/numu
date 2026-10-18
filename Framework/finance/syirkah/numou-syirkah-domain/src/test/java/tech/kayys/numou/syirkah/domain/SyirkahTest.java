@@ -374,6 +374,30 @@ class SyirkahTest {
     }
 
     @Test
+    void correctingAnUnallocatedLossReplacesTheEntityDeficitInsteadOfAccumulatingIt() {
+        SyirkahContract contract = new SyirkahContract(1, SyirkahType.ABDAN, IDR,
+                List.of(new Partner(A, "A", PartnerRole.PARTNER, true),
+                        new Partner(B, "B", PartnerRole.PARTNER, true)),
+                List.of(), ratio(A, 50, B, 50), ProfitBasis.NET_PROFIT,
+                Map.of(A, new BigDecimal("0.5"), B, new BigDecimal("0.5")),
+                Set.of(), List.of("W1", "W2"), true, JAN1);
+        Syirkah s = open(contract);
+        CloseSnapshot original = close(s, JAN1, JAN31, loss(1_000), ProfitDisposition.DISTRIBUTE);
+
+        eq(1_000, original.unallocatedLoss());
+        assertTrue(s.reconcile().balanced());
+
+        CloseSnapshot corrected = s.correctLatestClose(original.id(), CloseId.generate(), loss(2_000),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertEquals(CloseStatus.REVERSED, s.close(original.id()).status());
+        eq(2_000, corrected.unallocatedLoss());
+        assertEquals(original.id(), corrected.supersedes());
+        assertTrue(s.reconcile().balanced(), "reconciliation must use only the active corrected deficit");
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void correctionAfterDistributionTurnsOverpaymentIntoLiability() {
         Syirkah s = open(inan(100_000_000, 0, ratio(A, 40, B, 60)));
         CloseSnapshot c = close(s, JAN1, JAN31, profit(10_000_000), ProfitDisposition.DISTRIBUTE);
