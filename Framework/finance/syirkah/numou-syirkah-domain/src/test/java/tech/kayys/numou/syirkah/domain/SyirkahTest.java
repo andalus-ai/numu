@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static tech.kayys.numou.syirkah.domain.Fixtures.*;
 
@@ -1252,6 +1251,29 @@ class SyirkahTest {
 
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
         assertTrue(error.getMessage().contains("movement references a close absent from close history"));
+    }
+
+    @Test
+    void restoreRejectsMovementLinkedToCloseOutsideItsRangeEvenWhenRehashed() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        CloseSnapshot close = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+        List<PartnerMovement> forgedMovements = new ArrayList<>();
+        String previousHash = AuditHash.GENESIS;
+        for (PartnerMovement movement : snapshot.movements()) {
+            CloseId closeId = movement.sequence() == 1 ? close.id() : movement.closeId();
+            PartnerMovement rebuilt = PartnerMovement.create(movement.sequence(), movement.partner(), movement.type(),
+                    movement.amount(), closeId, movement.reference(), movement.occurredAt(), previousHash);
+            forgedMovements.add(rebuilt);
+            previousHash = rebuilt.hash();
+        }
+        Syirkah.Snapshot forged = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(), snapshot.scale(),
+                snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(), forgedMovements,
+                snapshot.closes(), snapshot.liquidation(), snapshot.version(), snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
+        assertTrue(error.getMessage().contains("movement references a close outside its recorded movement range"));
     }
 
     @Test
