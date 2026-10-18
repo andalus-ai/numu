@@ -163,9 +163,18 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         for (SyirkahContract contract : st.contracts()) {
             knownPartners.addAll(contract.partnerIds());
         }
+        Set<CloseId> knownCloseIds = new java.util.HashSet<>();
+        for (CloseSnapshot close : st.closes()) {
+            if (close != null) {
+                knownCloseIds.add(close.id());
+            }
+        }
         for (PartnerMovement movement : st.movements()) {
             if (movement == null || movement.partner() == null || !knownPartners.contains(movement.partner())) {
                 throw new IllegalStateException("stored movement references a partner absent from contract history");
+            }
+            if (movement.closeId() != null && !knownCloseIds.contains(movement.closeId())) {
+                throw new IllegalStateException("stored movement references a close absent from close history");
             }
         }
         for (int i = 0; i < st.closes().size(); i++) {
