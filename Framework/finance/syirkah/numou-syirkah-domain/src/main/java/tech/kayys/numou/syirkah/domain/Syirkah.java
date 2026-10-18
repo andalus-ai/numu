@@ -43,9 +43,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     private boolean closedSinceRevision;
     private LiquidationResult liquidation;
 
+    private static final int MAX_AMOUNT_SCALE = 18;
+
     private Syirkah(SyirkahId id, TenantId tenantId, int scale) {
         super(id);
         this.tenantId = Objects.requireNonNull(tenantId, "tenantId");
+        if (scale < 0 || scale > MAX_AMOUNT_SCALE) {
+            throw new IllegalArgumentException("amount scale must be between 0 and " + MAX_AMOUNT_SCALE);
+        }
         this.scale = scale;
     }
 
@@ -136,8 +141,16 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         if (st.id() == null || st.tenantId() == null || st.status() == null
                 || st.contracts() == null || st.contracts().isEmpty()
-                || st.movements() == null || st.closes() == null) {
+                || st.movements() == null || st.closes() == null
+                || st.createdAt() == null || st.updatedAt() == null) {
             throw new IllegalStateException("stored syirkah snapshot is missing required state");
+        }
+        if (st.version() < 0) {
+            throw new IllegalStateException("stored syirkah snapshot has negative aggregate version "
+                    + st.version());
+        }
+        if (st.scale() < 0 || st.scale() > MAX_AMOUNT_SCALE) {
+            throw new IllegalStateException("stored syirkah snapshot has unsupported amount scale " + st.scale());
         }
         for (int i = 0; i < st.contracts().size(); i++) {
             SyirkahContract contract = st.contracts().get(i);
@@ -151,10 +164,56 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         + " is invalid: " + invalid.getMessage(), invalid);
             }
         }
+        Set<PartnerId> knownPartners = new java.util.HashSet<>();
+        for (SyirkahContract contract : st.contracts()) {
+            knownPartners.addAll(contract.partnerIds());
+        }
+        Set<CloseId> knownCloseIds = new java.util.HashSet<>();
+        Map<CloseId, Integer> closeIndexes = new LinkedHashMap<>();
+        for (int i = 0; i < st.closes().size(); i++) {
+            CloseSnapshot close = st.closes().get(i);
+            if (close != null) {
+                if (!knownCloseIds.add(close.id())) {
+                    throw new IllegalStateException("stored syirkah close history contains duplicate close id "
+                            + close.id().value());
+                }
+                closeIndexes.put(close.id(), i);
+            }
+        }
+        for (PartnerMovement movement : st.movements()) {
+            if (movement == null || movement.partner() == null || !knownPartners.contains(movement.partner())) {
+                throw new IllegalStateException("stored movement references a partner absent from contract history");
+            }
+            if (movement.closeId() != null && !knownCloseIds.contains(movement.closeId())) {
+                throw new IllegalStateException("stored movement references a close absent from close history");
+            }
+        }
+        Map<CloseId, Integer> supersededByCount = new LinkedHashMap<>();
+        CloseSnapshot previousActiveClose = null;
         for (int i = 0; i < st.closes().size(); i++) {
             CloseSnapshot close = st.closes().get(i);
             if (close == null || close.sequence() != i + 1) {
                 throw new IllegalStateException("stored syirkah close history has a sequence gap at index " + i);
+            }
+            if (close.supersedes() != null) {
+                Integer supersededIndex = closeIndexes.get(close.supersedes());
+                if (supersededIndex == null || supersededIndex >= i) {
+                    throw new IllegalStateException("close " + close.id().value()
+                            + " supersedes a close that is missing or not earlier in history");
+                }
+                CloseSnapshot superseded = st.closes().get(supersededIndex);
+                if (superseded.status() != CloseStatus.REVERSED) {
+                    throw new IllegalStateException("close " + close.id().value()
+                            + " supersedes a close that is not marked reversed");
+                }
+                supersededByCount.merge(superseded.id(), 1, Integer::sum);
+            }
+            if (close.status() == CloseStatus.ACTIVE) {
+                if (previousActiveClose != null && !close.periodStart().isAfter(previousActiveClose.periodEnd())) {
+                    throw new IllegalStateException("active close periods overlap or are out of order at close "
+                            + close.id().value());
+                }
+                previousActiveClose = close;
             }
             if (close.contractVersion() < 1 || close.contractVersion() > st.contracts().size()) {
                 throw new IllegalStateException("close " + close.id().value()
@@ -178,6 +237,17 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                     throw new IllegalStateException("close " + close.id().value()
                             + " movement range contains unrelated movement " + movementSequence);
                 }
+            }
+        }
+        for (CloseSnapshot close : st.closes()) {
+            int replacementCount = supersededByCount.getOrDefault(close.id(), 0);
+            if (close.status() == CloseStatus.REVERSED && replacementCount != 1) {
+                throw new IllegalStateException("reversed close " + close.id().value()
+                        + " must have exactly one replacement close");
+            }
+            if (close.status() == CloseStatus.ACTIVE && replacementCount != 0) {
+                throw new IllegalStateException("active close " + close.id().value()
+                        + " cannot be superseded by another close");
             }
         }
         boolean hasCloseSinceCurrentAkad = st.closes().stream()

@@ -116,4 +116,7 @@ Thumbs.db
 # Generated sources
 gen/
 generated/
-```path/to/large-file
+```
+# stray build/download artifacts
+*.whl
+

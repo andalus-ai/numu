@@ -159,6 +159,12 @@ public final class ProfitLossAllocator {
         if (remaining.signum() == 0) {
             return;
         }
+        // Explicit ABDAN/WUJUH weights may all belong to partners whose current capital
+        // is already exhausted. In that case no eligible partner can absorb this loss;
+        // keep it at entity level instead of passing zero weights to Apportionment.
+        if (weights.values().stream().noneMatch(weight -> weight.signum() > 0)) {
+            return;
+        }
         Map<PartnerId, BigDecimal> allocated = Apportionment.apportion(remaining, weights, scale);
         for (Partner p : contract.partners()) {
             PartnerCapitalState st = capital.get(p.id());
