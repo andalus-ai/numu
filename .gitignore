@@ -117,3 +117,5 @@ Thumbs.db
 gen/
 generated/
 ```
+# stray build/download artifacts
+*.whl
