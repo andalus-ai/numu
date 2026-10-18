@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS syirkah_ledger_movement (
     partner_id   uuid        NOT NULL,
     type         text        NOT NULL CHECK (type IN ('CONTRIBUTION','CAPITAL_RETURN','LOSS_ALLOCATED','CAPITAL_RESTORED',
                      'PROFIT_ALLOCATED','PROFIT_RETAINED','PROFIT_DISTRIBUTED','MANAGER_LOSS_LIABILITY',
-                     'LIABILITY_SETTLED','DEFICIT_TO_LIABILITY','BASIS_CLOSED')),
+                     'LIABILITY_SETTLED','DEFICIT_TO_LIABILITY','OVERPAYMENT_TO_LIABILITY','BASIS_CLOSED')),
     amount       numeric     NOT NULL,      -- signed: reversals are negative amounts of the same type
     currency     char(3)     NOT NULL,
     close_id     uuid,
@@ -171,9 +171,9 @@ SELECT syirkah_id, tenant_id, partner_id, currency,
                               WHEN 'CAPITAL_RESTORED' THEN 1 WHEN 'PROFIT_RETAINED' THEN 1
                               WHEN 'DEFICIT_TO_LIABILITY' THEN 1 ELSE 0 END)                            AS capital_balance,
        sum(amount * CASE type WHEN 'PROFIT_ALLOCATED' THEN 1 WHEN 'PROFIT_RETAINED' THEN -1
-                              WHEN 'PROFIT_DISTRIBUTED' THEN -1 ELSE 0 END)                             AS profit_payable,
+                              WHEN 'PROFIT_DISTRIBUTED' THEN -1 WHEN 'OVERPAYMENT_TO_LIABILITY' THEN 1 ELSE 0 END) AS profit_payable,
        sum(amount * CASE type WHEN 'MANAGER_LOSS_LIABILITY' THEN 1 WHEN 'DEFICIT_TO_LIABILITY' THEN 1
-                              WHEN 'LIABILITY_SETTLED' THEN -1 ELSE 0 END)                              AS liability
+                              WHEN 'OVERPAYMENT_TO_LIABILITY' THEN 1 WHEN 'LIABILITY_SETTLED' THEN -1 ELSE 0 END) AS liability
   FROM syirkah_ledger_movement
  GROUP BY syirkah_id, tenant_id, partner_id, currency;
 
