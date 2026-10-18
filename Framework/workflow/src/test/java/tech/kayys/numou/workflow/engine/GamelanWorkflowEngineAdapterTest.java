@@ -7,6 +7,8 @@ import tech.kayys.numou.workflow.api.WorkflowState;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -92,6 +94,24 @@ class GamelanWorkflowEngineAdapterTest {
         assertThatThrownBy(() -> engine.startWorkflow("cyclic-flow", Map.of()).await().indefinitely())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cycle");
+    }
+
+    @Test
+    void joinNodeIsNotReadyUntilEveryPredecessorCompletes() {
+        Map<String, Set<String>> adjacency = new LinkedHashMap<>();
+        adjacency.put("left", Set.of("join"));
+        adjacency.put("right", Set.of("join"));
+        adjacency.put("join", Set.of());
+        WorkflowDagScheduler scheduler = new WorkflowDagScheduler(adjacency, List.of("left", "right", "join"));
+
+        assertThat(scheduler.nextReady()).isEqualTo("left");
+        scheduler.onNodeCompleted("left");
+        assertThat(scheduler.nextReady()).isEqualTo("right");
+
+        scheduler.onNodeCompleted("right");
+        assertThat(scheduler.nextReady()).isEqualTo("join");
+        scheduler.onNodeCompleted("join");
+        assertThat(scheduler.isComplete()).isTrue();
     }
 
     private static GamelanWorkflowEngineAdapter engineWith(NumouWorkflowDefinition definition) {
