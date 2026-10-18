@@ -1293,4 +1293,38 @@ class SyirkahTest {
 
         assertThrows(IllegalStateException.class, () -> Syirkah.restore(forged));
     }
+
+    @Test
+    void restoreRejectsCloseSnapshotWithMissingMetadataOrInvalidPeriod() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        CloseSnapshot original = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot snapshot = s.snapshot();
+
+        CloseSnapshot missingStatus = new CloseSnapshot(original.id(), original.sequence(),
+                original.periodStart(), original.periodEnd(), original.contractVersion(),
+                original.contractCanonical(), original.result(), original.disposition(), original.fault(),
+                original.lines(), original.supersedes(), null, original.firstMovementSequence(),
+                original.lastMovementSequence(), original.closedAt(), original.previousHash(), original.hash());
+        Syirkah.Snapshot missingStatusSnapshot = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(),
+                snapshot.scale(), snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(),
+                snapshot.movements(), List.of(missingStatus), snapshot.liquidation(), snapshot.version(),
+                snapshot.createdAt(), snapshot.updatedAt());
+        IllegalStateException statusError = assertThrows(IllegalStateException.class,
+                () -> Syirkah.restore(missingStatusSnapshot));
+        assertTrue(statusError.getMessage().contains("missing required metadata"));
+
+        CloseSnapshot invalidPeriod = new CloseSnapshot(original.id(), original.sequence(),
+                original.periodEnd(), original.periodStart(), original.contractVersion(),
+                original.contractCanonical(), original.result(), original.disposition(), original.fault(),
+                original.lines(), original.supersedes(), original.status(), original.firstMovementSequence(),
+                original.lastMovementSequence(), original.closedAt(), original.previousHash(), original.hash());
+        Syirkah.Snapshot invalidPeriodSnapshot = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(),
+                snapshot.scale(), snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(),
+                snapshot.movements(), List.of(invalidPeriod), snapshot.liquidation(), snapshot.version(),
+                snapshot.createdAt(), snapshot.updatedAt());
+        IllegalStateException periodError = assertThrows(IllegalStateException.class,
+                () -> Syirkah.restore(invalidPeriodSnapshot));
+        assertTrue(periodError.getMessage().contains("period end before period start"));
+    }
+
 }
