@@ -489,6 +489,27 @@ class SyirkahTest {
     }
 
     @Test
+    void liquidationManagerFaultLiabilityIsSeparateFromUnfundedEntityDeficit() {
+        Syirkah s = open(mudharabah(100_000_000, ratio(A, 70, B, 30)));
+        s.startLiquidation(NOW);
+
+        // No assets remain against 150M external debt and 100M capital claim.
+        // The manager is liable for 20M of the loss; the remaining 130M is still unfunded.
+        LiquidationResult result = s.liquidate(
+                new LiquidationInput(idr(0), idr(150_000_000), true, FEB28),
+                ManagerFault.of(idr(20_000_000), "documented breach"), NOW);
+
+        eq(-250_000_000, result.netResult());
+        eq(20_000_000, result.payouts().stream()
+                .filter(p -> p.partner().equals(B)).findFirst().orElseThrow().owed());
+        eq(130_000_000, result.unallocatedLoss());
+        eq(0, s.position(A).balance());
+        eq(20_000_000, s.position(B).liability());
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+    }
+
+    @Test
     void liquidationRequiresStartShufahAndIsFinal() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         LiquidationInput in = new LiquidationInput(idr(200), idr(0), true, FEB28);
