@@ -1203,6 +1203,34 @@ class SyirkahTest {
     }
 
     @Test
+    void restoreRejectsMissingSnapshotTimestampsAndNegativeAggregateVersion() {
+        Syirkah.Snapshot snapshot = open(inan(100, 100, ratio(A, 50, B, 50))).snapshot();
+
+        Syirkah.Snapshot missingCreatedAt = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(),
+                snapshot.scale(), snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(),
+                snapshot.movements(), snapshot.closes(), snapshot.liquidation(), snapshot.version(), null,
+                snapshot.updatedAt());
+        Syirkah.Snapshot missingUpdatedAt = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(),
+                snapshot.scale(), snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(),
+                snapshot.movements(), snapshot.closes(), snapshot.liquidation(), snapshot.version(),
+                snapshot.createdAt(), null);
+        Syirkah.Snapshot negativeVersion = new Syirkah.Snapshot(snapshot.id(), snapshot.tenantId(),
+                snapshot.scale(), snapshot.status(), snapshot.closedSinceRevision(), snapshot.contracts(),
+                snapshot.movements(), snapshot.closes(), snapshot.liquidation(), -1, snapshot.createdAt(),
+                snapshot.updatedAt());
+
+        IllegalStateException missingCreatedError = assertThrows(IllegalStateException.class,
+                () -> Syirkah.restore(missingCreatedAt));
+        assertTrue(missingCreatedError.getMessage().contains("missing required state"));
+        IllegalStateException missingUpdatedError = assertThrows(IllegalStateException.class,
+                () -> Syirkah.restore(missingUpdatedAt));
+        assertTrue(missingUpdatedError.getMessage().contains("missing required state"));
+        IllegalStateException versionError = assertThrows(IllegalStateException.class,
+                () -> Syirkah.restore(negativeVersion));
+        assertTrue(versionError.getMessage().contains("negative aggregate version -1"));
+    }
+
+    @Test
     void restoreRejectsMovementReferencingUnknownCloseEvenWhenMovementChainIsRehashed() {
         Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
         close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
