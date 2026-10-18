@@ -38,3 +38,12 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 * Correcting a close after distribution, or an older (non-latest) close, is intentionally unsupported; use an explicit adjusting close.
 * Liquidation treats all assets as already converted to cash (`LiquidationInput`); asset-by-asset sale/syuf'ah bookkeeping is out of scope.
 * Mufawadhah conditions follow the Hanafi rule (equal capital and work); other madhhab variants would need a policy switch.
+
+## Relation to the accounting module's syirkah front end
+
+`numou-accounting-*` already provides contract versions with an approval lifecycle, business results, calculation
+snapshots, a REST API and Postgres tables. This module is the **ledger behind it** (capital accounts, retained profit,
+distribution, revision, correction, liquidation, journals). `adapter.bridge.BusinessResultBridge` is the seam: it maps a
+`SyirkahBusinessResult` to a `ClosePeriod` command with deterministic UUIDs (syirkah, partner, close), so one business
+result can only ever close one period and retries are safe. The ledger's own contract (capital, witnesses, ijab-qabul) is
+still opened with `Commands.Open`; the front end's contract versions do not carry that data yet.
