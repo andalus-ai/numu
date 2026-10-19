@@ -63,7 +63,12 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (contract.version() != 1) {
             throw new BusinessRuleViolation("first contract version must be 1");
         }
+        Objects.requireNonNull(now, "now");
         Syirkah s = new Syirkah(id, tenantId, amountScale);
+        // the base class stamps the wall clock; the aggregate's lifetime must follow the injected clock instead,
+        // otherwise its own first movement predates createdAt and restore() rejects it
+        s.setCreatedAt(now);
+        s.setUpdatedAt(now);
         s.contracts.add(contract);
         for (Partner p : contract.partners()) {
             s.partnerNames.put(p.id(), p.name());
@@ -238,9 +243,22 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                     throw new IllegalStateException("stored movement references a close absent from close history");
                 }
                 CloseSnapshot linkedClose = st.closes().get(closeIndex);
-                if (movement.sequence() < linkedClose.firstMovementSequence()
-                        || movement.sequence() > linkedClose.lastMovementSequence()) {
-                    throw new IllegalStateException("stored movement references a close outside its recorded movement range");
+                boolean inRange = movement.sequence() >= linkedClose.firstMovementSequence()
+                        && movement.sequence() <= linkedClose.lastMovementSequence();
+                // a correction appends, after the original range: reversals of the corrected close (still tagged with
+                // it), and the overpayment liability tagged with the replacement close
+                boolean afterRange = movement.sequence() > linkedClose.lastMovementSequence();
+                boolean reversalTail = afterRange && linkedClose.status() == CloseStatus.REVERSED
+                        && movement.reference().startsWith("reversal:");
+                boolean overpaymentTail = afterRange && movement.type() == MovementType.OVERPAYMENT_TO_LIABILITY
+                        && movement.reference().startsWith("overpayment:")
+                        && (linkedClose.supersedes() != null || linkedClose.status() == CloseStatus.REVERSED);
+                boolean correctionTail = reversalTail || overpaymentTail;
+                if (!inRange && !correctionTail) {
+                    throw new IllegalStateException("stored movement references a close outside its recorded movement range: sequence "
+                            + movement.sequence() + " " + movement.type() + " " + movement.reference() + " close status "
+                            + linkedClose.status() + " range " + linkedClose.firstMovementSequence() + ".."
+                            + linkedClose.lastMovementSequence());
                 }
             }
         }
@@ -439,6 +457,18 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         + " distributes profit but contains retained amounts");
             }
         }
+        for (Money amount : amounts) {
+            if (!amount.currency().equals(currency)) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " amount currency does not match its contract version");
+            }
+            try {
+                amount.amount().setScale(scale, RoundingMode.UNNECESSARY);
+            } catch (ArithmeticException invalidScale) {
+                throw new IllegalStateException("stored close " + close.id().value()
+                        + " amount exceeds the aggregate accounting scale", invalidScale);
+            }
+        }
         Money netResult = result.netResult();
         if (netResult.isPositive()) {
             if (lossBorne.isPositive() || managerLiability.isPositive()
@@ -456,18 +486,6 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 || !managerLiability.isZero() || !retained.isZero()) {
             throw new IllegalStateException("stored close " + close.id().value()
                     + " zero-result close contains non-zero allocations");
-        }
-        for (Money amount : amounts) {
-            if (!amount.currency().equals(currency)) {
-                throw new IllegalStateException("stored close " + close.id().value()
-                        + " amount currency does not match its contract version");
-            }
-            try {
-                amount.amount().setScale(scale, RoundingMode.UNNECESSARY);
-            } catch (ArithmeticException invalidScale) {
-                throw new IllegalStateException("stored close " + close.id().value()
-                        + " amount exceeds the aggregate accounting scale", invalidScale);
-            }
         }
     }
 

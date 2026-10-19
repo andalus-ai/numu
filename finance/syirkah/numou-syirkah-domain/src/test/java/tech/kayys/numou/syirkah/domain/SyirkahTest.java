@@ -1627,7 +1627,7 @@ class SyirkahTest {
 
     @Test
     void restoreRejectsManagerFaultEvidenceWithoutFindingEvenWhenRehashed() {
-        Syirkah s = open(mudarabah(100, 100, ratio(A, 50, B, 50)));
+        Syirkah s = open(mudharabah(100, ratio(A, 50, B, 50)));
         CloseSnapshot original = close(s, JAN1, JAN31, profit(10), ProfitDisposition.DISTRIBUTE);
         Syirkah.Snapshot snapshot = s.snapshot();
         ManagerFault unsupportedEvidence = new ManagerFault(false,
@@ -1888,4 +1888,12 @@ class SyirkahTest {
         assertTrue(error.getMessage().contains("manager liability outside a mudharabah contract"));
     }
 
+
+    @Test
+    void lifetimeFollowsTheInjectedClockSoAFreshAggregateRestores() {
+        Syirkah s = open(inan(100, 100, ratio(A, 50, B, 50)));
+        assertEquals(NOW, s.getCreatedAt());
+        assertEquals(NOW, s.getUpdatedAt());
+        assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
+    }
 }
