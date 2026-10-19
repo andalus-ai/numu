@@ -30,6 +30,13 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <!-- integration test only (SYIRKAH_PG_URL); the adapter itself depends on java.sql alone -->
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
