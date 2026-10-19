@@ -16,5 +16,6 @@
     <modules>
         <module>scope-domain</module>
         <module>scope-spi</module>
+        <module>scope-application</module>
     </modules>
 </project>
