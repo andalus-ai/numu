@@ -212,4 +212,43 @@ class JdbcSyirkahRepositoryIT {
             }
         }));
     }
+
+    @Test
+    void catalogAndOutboxRelayWorkAgainstPostgres() {
+        var ops = new JdbcOperationsSupport(uow);
+        TenantId t = TenantId.generate();
+        Syirkah a = open(t);
+        Syirkah b = open(t);
+        repo.save(a, -1);
+        repo.save(b, -1);
+        var all = ops.page(t, Optional.empty(), Optional.empty(), 10);
+        assertEquals(2, all.size());
+        assertEquals(1, ops.page(t, Optional.empty(), Optional.of(all.get(0).id()), 10).size());
+        assertTrue(ops.page(TenantId.generate(), Optional.empty(), Optional.empty(), 10).isEmpty());
+
+        var outbox = new JdbcOutboxEventPublisher(uow);
+        var e1 = new SyirkahEvents.SyirkahOpened(UUID.randomUUID(), T0, a.id(), SyirkahType.INAN, 1);
+        var e2 = new SyirkahEvents.SyirkahOpened(UUID.randomUUID(), T0.plusSeconds(1), b.id(), SyirkahType.INAN, 1);
+        outbox.publish(t, List.of(e1, e2));
+        var relay = new tech.kayys.numou.syirkah.application.ops.OutboxRelay(ops, uow, java.time.Clock.systemUTC());
+        List<tech.kayys.numou.syirkah.application.ops.OutboxRecord> got = new ArrayList<>();
+        assertEquals(2, relay.drain(t, 10, got::add));
+        assertEquals(List.of(e1.eventId(), e2.eventId()), got.stream().map(r -> r.eventId()).toList());
+        assertEquals(0, relay.drain(t, 10, got::add));
+    }
+
+    @Test
+    void auditorAcceptsAHealthyPersistedLedger() {
+        var ops = new JdbcOperationsSupport(uow);
+        TenantId t = TenantId.generate();
+        Syirkah s = open(t);
+        repo.save(s, -1);
+        Syirkah loaded = repo.find(t, s.id()).orElseThrow();
+        int v = loaded.getVersion();
+        close(loaded, 5_000_000, 0);
+        repo.save(loaded, v);
+        var report = new tech.kayys.numou.syirkah.application.ops.SyirkahIntegrityAuditor(repo, ops).audit(t);
+        assertTrue(report.ok(), report.toString());
+        assertEquals(1, report.checked());
+    }
 }

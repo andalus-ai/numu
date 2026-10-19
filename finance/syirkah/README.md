@@ -80,3 +80,15 @@ still opened with `Commands.Open`; the front end's contract versions do not carr
 `JdbcOutboxEventPublisher` (events written in the ledger's transaction; `published_at` stamped once by an external
 relay) use `V301__syirkah_governance_outbox.sql`. Note: V300/V301 sort *before* the date-style `V2026…` migrations
 already in this repository; enable Flyway `outOfOrder` (or renumber) when applying to a database that already has them.
+
+## Operations
+
+- `SyirkahCatalogPort` / `SyirkahSummary`: keyset-paged listing (id order, optional status filter) for dashboards and
+  APIs; PostgreSQL version in `JdbcOperationsSupport`, in-memory version on `InMemorySyirkahRepository`.
+- `SyirkahIntegrityAuditor`: re-loads every syirkah of a tenant (re-verifying all hash chains and structural checks) and
+  the equity identity; a ledger that cannot be restored is reported as a finding and never hides the others. Intended
+  for a scheduled job.
+- `OutboxRelay` + `OutboxPort`: at-least-once shipping of the transactional outbox. Rows are claimed with
+  `FOR UPDATE SKIP LOCKED`, delivered to a sink, and marked published in the same transaction; a failing sink keeps
+  order and resumes at the failed event. Consumers must de-duplicate on `eventId`; use one relay per tenant when strict
+  order matters. The relay runs per tenant because the outbox is row-level-secured per tenant.
