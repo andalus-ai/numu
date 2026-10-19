@@ -7,21 +7,36 @@ import tech.kayys.numou.construction.domain.wbs.WbsNode;
 import tech.kayys.numou.construction.spi.wbs.WbsNodeRepository;
 import tech.kayys.numou.foundation.application.command.CommandHandler;
 import tech.kayys.numou.foundation.application.event.EventPublisher;
+import tech.kayys.numou.scope.domain.BreakdownStructureId;
+import tech.kayys.numou.scope.spi.BreakdownStructureWriteLock;
 
 import java.util.Objects;
 
 public final class CreateWbsNodeHandler implements CommandHandler<CreateWbsNodeCommand, WbsNode> {
     private final WbsNodeRepository repository;
     private final EventPublisher eventPublisher;
+    private final BreakdownStructureWriteLock writeLock;
 
-    public CreateWbsNodeHandler(WbsNodeRepository repository, EventPublisher eventPublisher) {
+    public CreateWbsNodeHandler(
+            WbsNodeRepository repository,
+            EventPublisher eventPublisher,
+            BreakdownStructureWriteLock writeLock) {
         this.repository = Objects.requireNonNull(repository);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
+        this.writeLock = Objects.requireNonNull(writeLock);
     }
 
     @Override
     public Uni<WbsNode> handle(CreateWbsNodeCommand command) {
-        var node = WbsNode.create(command.projectId(), command.parentNodeId(), command.code(), command.name(), command.type());
+        Objects.requireNonNull(command, "command");
+        var structureId = new BreakdownStructureId(command.projectId());
+        return Uni.createFrom().completionStage(writeLock.withLock(structureId, () ->
+                validateAndSave(command).subscribeAsCompletionStage()));
+    }
+
+    private Uni<WbsNode> validateAndSave(CreateWbsNodeCommand command) {
+        var node = WbsNode.create(
+                command.projectId(), command.parentNodeId(), command.code(), command.name(), command.type());
         return Uni.createFrom()
                 .completionStage(repository.findByProjectId(command.projectId()))
                 .onItem().transformToUni(existing -> {
