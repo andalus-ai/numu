@@ -9,6 +9,8 @@ import tech.kayys.numou.construction.domain.wbs.WbsNodeType;
 import tech.kayys.numou.construction.spi.wbs.WbsNodeRepository;
 import tech.kayys.numou.foundation.application.event.EventPublisher;
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.scope.domain.BreakdownStructureId;
+import tech.kayys.numou.scope.spi.BreakdownStructureWriteLock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +30,7 @@ class CreateWbsNodeHandlerTest {
         var projectId = UUID.randomUUID();
         var repository = new InMemoryWbsNodeRepository();
         var publisher = new RecordingEventPublisher();
-        var handler = new CreateWbsNodeHandler(repository, publisher);
+        var handler = new CreateWbsNodeHandler(repository, publisher, new TestWriteLock());
 
         var created = handler.handle(new CreateWbsNodeCommand(
                 projectId, null, "1", "Project scope", WbsNodeType.PROJECT))
@@ -76,6 +78,19 @@ class CreateWbsNodeHandlerTest {
         assertTrue(rootCause(failure).getMessage().contains("MISSING_PARENT"));
         assertTrue(repository.saved.isEmpty(), "orphan WBS must not be persisted");
         assertTrue(publisher.published.isEmpty(), "orphan WBS must not publish events");
+    }
+
+    private static final class TestWriteLock implements BreakdownStructureWriteLock {
+        @Override
+        public <T> CompletionStage<T> withLock(
+                BreakdownStructureId structureId,
+                java.util.function.Supplier<CompletionStage<T>> operation) {
+            try {
+                return operation.get();
+            } catch (Throwable failure) {
+                return CompletableFuture.failedFuture(failure);
+            }
+        }
     }
 
     private static Throwable rootCause(Throwable failure) {
