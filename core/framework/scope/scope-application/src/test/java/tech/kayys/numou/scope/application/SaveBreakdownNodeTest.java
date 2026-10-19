@@ -24,7 +24,7 @@ class SaveBreakdownNodeTest {
         var structure = structure();
         var root = BreakdownNode.create(structure.id(), null, "EPIC-1", "Epic", "EPIC", 0);
         var repository = new FakeNodes(List.of(root));
-        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository);
+        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository, new InProcessBreakdownStructureWriteLock());
         var child = BreakdownNode.create(structure.id(), root.id(), "STORY-1", "Story", "STORY", 0);
 
         var saved = useCase.execute(child).toCompletableFuture().join();
@@ -38,7 +38,7 @@ class SaveBreakdownNodeTest {
         var structure = structure();
         var existing = BreakdownNode.create(structure.id(), null, "EPIC-1", "First", "EPIC", 0);
         var repository = new FakeNodes(List.of(existing));
-        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository);
+        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository, new InProcessBreakdownStructureWriteLock());
         var duplicate = BreakdownNode.create(structure.id(), null, "epic-1", "Duplicate", "EPIC", 1);
 
         var error = assertThrows(CompletionException.class,
@@ -52,7 +52,7 @@ class SaveBreakdownNodeTest {
     void rejectsMissingParentBeforePersistence() {
         var structure = structure();
         var repository = new FakeNodes(List.of());
-        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository);
+        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository, new InProcessBreakdownStructureWriteLock());
         var orphan = BreakdownNode.create(
                 structure.id(), BreakdownNodeId.generate(), "STORY-1", "Orphan", "STORY", 0);
 
@@ -66,7 +66,7 @@ class SaveBreakdownNodeTest {
     @Test
     void rejectsUnknownStructureBeforeReadingOrSavingNodes() {
         var repository = new FakeNodes(List.of());
-        var useCase = new SaveBreakdownNode(new FakeStructures(null), repository);
+        var useCase = new SaveBreakdownNode(new FakeStructures(null), repository, new InProcessBreakdownStructureWriteLock());
         var candidate = BreakdownNode.create(
                 BreakdownStructureId.generate(), null, "ROOT", "Root", "ROOT", 0);
 
@@ -82,7 +82,7 @@ class SaveBreakdownNodeTest {
         var repository = new FakeNodes(List.of());
         var saveGate = new CompletableFuture<Void>();
         repository.nextSaveGate.set(saveGate);
-        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository);
+        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository, new InProcessBreakdownStructureWriteLock());
         var first = BreakdownNode.create(structure.id(), null, "ROOT", "First", "ROOT", 0);
         var duplicate = BreakdownNode.create(structure.id(), null, "root", "Second", "ROOT", 1);
 
