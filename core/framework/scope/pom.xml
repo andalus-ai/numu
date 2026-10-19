@@ -15,5 +15,6 @@
     <description>Reusable scope and breakdown-structure capability.</description>
     <modules>
         <module>scope-domain</module>
+        <module>scope-spi</module>
     </modules>
 </project>
