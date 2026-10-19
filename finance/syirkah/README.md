@@ -75,7 +75,6 @@ still opened with `Commands.Open`; the front end's contract versions do not carr
 - The application clock is truncated to microseconds so timestamps (and the hashes over them) survive `timestamptz`.
 - `JdbcSyirkahRepositoryIT` runs against a real database when `SYIRKAH_PG_URL`, `SYIRKAH_PG_USER` and
   `SYIRKAH_PG_PASSWORD` are set (role must not be superuser/BYPASSRLS).
-
 `JdbcApprovalPort` (maker-checker requests; payload = the exact command, decided once, frozen by trigger) and
 `JdbcOutboxEventPublisher` (events written in the ledger's transaction; `published_at` stamped once by an external
 relay) use `V301__syirkah_governance_outbox.sql`. Note: V300/V301 sort *before* the date-style `V2026…` migrations
