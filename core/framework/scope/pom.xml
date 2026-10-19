@@ -17,5 +17,6 @@
         <module>scope-domain</module>
         <module>scope-spi</module>
         <module>scope-application</module>
+        <module>scope-postgres-adapter</module>
     </modules>
 </project>
