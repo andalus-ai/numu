@@ -120,3 +120,4 @@ generated/
 # stray build/download artifacts
 *.whl
 
+path/to/large-file
