@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,7 +30,7 @@ class SaveBreakdownNodeTest {
         var saved = useCase.execute(child).toCompletableFuture().join();
 
         assertEquals(child, saved);
-        assertEquals(2, repository.saved.size());
+        assertEquals(1, repository.saved.size());
     }
 
     @Test
@@ -75,6 +76,29 @@ class SaveBreakdownNodeTest {
         assertEquals(0, repository.reads);
     }
 
+    @Test
+    void serializesConcurrentWritesForTheSameStructure() {
+        var structure = structure();
+        var repository = new FakeNodes(List.of());
+        var saveGate = new CompletableFuture<Void>();
+        repository.nextSaveGate.set(saveGate);
+        var useCase = new SaveBreakdownNode(new FakeStructures(structure), repository);
+        var first = BreakdownNode.create(structure.id(), null, "ROOT", "First", "ROOT", 0);
+        var duplicate = BreakdownNode.create(structure.id(), null, "root", "Second", "ROOT", 1);
+
+        var firstWrite = useCase.execute(first).toCompletableFuture();
+        var secondWrite = useCase.execute(duplicate).toCompletableFuture();
+
+        assertEquals(1, repository.reads, "Second write should wait for first persistence to complete");
+        saveGate.complete(null);
+        assertEquals(first, firstWrite.join());
+        var error = assertThrows(CompletionException.class, secondWrite::join);
+
+        assertInstanceOf(SaveBreakdownNode.InvalidBreakdownTreeException.class, error.getCause());
+        assertEquals(2, repository.reads);
+        assertEquals(List.of(first), repository.saved);
+    }
+
     private static BreakdownStructure structure() {
         return BreakdownStructure.create(
                 BreakdownStructureType.of("WBS"), "PROJECT-WBS", "Project WBS", "project-123");
@@ -109,10 +133,11 @@ class SaveBreakdownNodeTest {
     private static final class FakeNodes implements BreakdownNodeRepository {
         private final List<BreakdownNode> current;
         private final List<BreakdownNode> saved = new ArrayList<>();
+        private final AtomicReference<CompletableFuture<Void>> nextSaveGate = new AtomicReference<>();
         private int reads;
 
         private FakeNodes(List<BreakdownNode> current) {
-            this.current = List.copyOf(current);
+            this.current = new ArrayList<>(current);
         }
 
         @Override
@@ -139,8 +164,21 @@ class SaveBreakdownNodeTest {
 
         @Override
         public java.util.concurrent.CompletionStage<BreakdownNode> save(BreakdownNode node) {
+            CompletableFuture<Void> gate = nextSaveGate.getAndSet(null);
+            if (gate == null) {
+                persist(node);
+                return CompletableFuture.completedFuture(node);
+            }
+            return gate.thenApply(ignored -> {
+                persist(node);
+                return node;
+            });
+        }
+
+        private synchronized void persist(BreakdownNode node) {
+            current.removeIf(existing -> existing.id().equals(node.id()));
+            current.add(node);
             saved.add(node);
-            return CompletableFuture.completedFuture(node);
         }
 
         @Override
