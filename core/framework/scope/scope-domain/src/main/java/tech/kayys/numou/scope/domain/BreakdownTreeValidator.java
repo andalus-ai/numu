@@ -14,8 +14,9 @@ import java.util.Set;
  * Validates invariants that cannot be checked by an individual immutable node.
  *
  * <p>Call this at the application/repository boundary with the complete set of
- * nodes for a structure before persisting a structural change. Codes are
- * compared case-insensitively among siblings.</p>
+ * nodes for exactly one structure before persisting a structural change. Codes
+ * are compared case-insensitively among siblings. Validation is linear in the
+ * number of nodes plus parent edges, including for deeply nested trees.</p>
  */
 public final class BreakdownTreeValidator {
     private BreakdownTreeValidator() {
@@ -32,6 +33,18 @@ public final class BreakdownTreeValidator {
             if (previous != null) {
                 violations.add(new Violation(Code.DUPLICATE_NODE_ID, node.id(),
                         "Node id occurs more than once in the supplied tree"));
+            }
+        }
+
+        if (byId.isEmpty()) {
+            return List.of();
+        }
+
+        BreakdownStructureId expectedStructure = byId.values().iterator().next().structureId();
+        for (var node : byId.values()) {
+            if (!expectedStructure.equals(node.structureId())) {
+                violations.add(new Violation(Code.MIXED_STRUCTURES, node.id(),
+                        "All nodes in one validation pass must belong to the same breakdown structure"));
             }
         }
 
@@ -57,34 +70,43 @@ public final class BreakdownTreeValidator {
             }
         }
 
-        for (var node : byId.values()) {
-            detectCycle(node, byId, violations);
-        }
+        detectCycles(byId, violations);
         return List.copyOf(violations);
     }
 
-    private static void detectCycle(
-            BreakdownNode start,
+    /**
+     * Walks each parent chain at most once. The prior per-node ancestor walk was
+     * quadratic for a degenerate tree (a long chain), which is a common shape
+     * for imported project plans.
+     */
+    private static void detectCycles(
             Map<BreakdownNodeId, BreakdownNode> byId,
             List<Violation> violations) {
-        var path = new HashSet<BreakdownNodeId>();
-        var current = start;
-        while (current != null && current.parentId() != null) {
-            if (!path.add(current.id())) {
-                violations.add(new Violation(Code.CYCLE, start.id(),
-                        "Parent references form a cycle"));
-                return;
+        Set<BreakdownNodeId> completed = new HashSet<>();
+        for (BreakdownNode start : byId.values()) {
+            if (completed.contains(start.id())) {
+                continue;
             }
-            current = byId.get(current.parentId());
-        }
-        if (current != null && !path.add(current.id())) {
-            violations.add(new Violation(Code.CYCLE, start.id(),
-                    "Parent references form a cycle"));
+
+            List<BreakdownNodeId> path = new ArrayList<>();
+            Set<BreakdownNodeId> pathIds = new HashSet<>();
+            BreakdownNode current = start;
+            while (current != null && !completed.contains(current.id())) {
+                if (!pathIds.add(current.id())) {
+                    violations.add(new Violation(Code.CYCLE, start.id(),
+                            "Parent references form a cycle"));
+                    break;
+                }
+                path.add(current.id());
+                current = current.parentId() == null ? null : byId.get(current.parentId());
+            }
+            completed.addAll(path);
         }
     }
 
     public enum Code {
         DUPLICATE_NODE_ID,
+        MIXED_STRUCTURES,
         MISSING_PARENT,
         PARENT_IN_DIFFERENT_STRUCTURE,
         DUPLICATE_SIBLING_CODE,

@@ -51,6 +51,11 @@
             <artifactId>numou-foundation-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-scope-postgres-adapter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!--
             Postgres adapter stack (phase1 BOQ revision / idempotency / outbox).
             Dependencies only, deliberately NO quarkus-maven-plugin: this module
