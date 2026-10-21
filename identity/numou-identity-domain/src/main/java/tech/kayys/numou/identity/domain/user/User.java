@@ -5,6 +5,7 @@ import tech.kayys.numou.identity.domain.event.UserActivated;
 import tech.kayys.numou.identity.domain.event.UserDeactivated;
 import tech.kayys.numou.identity.domain.event.UserEmailChanged;
 import tech.kayys.numou.identity.domain.event.UserRegistered;
+import tech.kayys.numou.identity.domain.event.UserRenamed;
 import tech.kayys.numou.identity.domain.exception.UserAlreadyActiveException;
 import tech.kayys.numou.identity.domain.exception.UserAlreadyDeactivatedException;
 import tech.kayys.numou.identity.domain.valueobject.DisplayName;
@@ -135,6 +136,30 @@ public final class User extends AbstractAggregateRoot<UserId> {
         status = UserStatus.DEACTIVATED;
 
         raise(new UserDeactivated(UUID.randomUUID(), occurredAt, id, reason));
+    }
+
+    /**
+     * Changes the display name. A no-op when the name is unchanged, so idempotent
+     * synchronizations (SCIM replace-everything updates) do not spam the event stream.
+     */
+    public void rename(DisplayName newDisplayName, Instant occurredAt) {
+        Objects.requireNonNull(newDisplayName, "newDisplayName cannot be null");
+        Objects.requireNonNull(occurredAt, "occurredAt cannot be null");
+
+        if (displayName.equals(newDisplayName)) {
+            return;
+        }
+
+        var previous = displayName;
+        displayName = newDisplayName;
+
+        raise(new UserRenamed(
+                UUID.randomUUID(),
+                occurredAt,
+                id,
+                previous.value(),
+                newDisplayName.value()
+        ));
     }
 
     @Override

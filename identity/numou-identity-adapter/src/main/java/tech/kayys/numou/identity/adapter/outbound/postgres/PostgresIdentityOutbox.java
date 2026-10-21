@@ -24,7 +24,9 @@ public class PostgresIdentityOutbox implements IdentityOutboxPort {
 
     @Override
     public Uni<Void> append(TenantId tenantId, List<DomainEvent> events) {
-        var tenantUuid = tenantId.value();
+        // Most identity events are raised without a tenant (single-tenant/system flows),
+        // so a null tenant is legal and stored as such - it must not NPE here.
+        var tenantUuid = tenantId != null ? tenantId.value() : null;
         Uni<Void> writes = Uni.createFrom().voidItem();
         for (var event : List.copyOf(events)) {
             writes = writes.chain(() -> appendOne(tenantUuid, event));

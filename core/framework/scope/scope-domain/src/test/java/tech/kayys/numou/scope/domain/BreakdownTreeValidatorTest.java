@@ -2,6 +2,7 @@ package tech.kayys.numou.scope.domain;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,6 +48,7 @@ class BreakdownTreeValidatorTest {
         var codes = violations.stream().map(BreakdownTreeValidator.Violation::code).toList();
 
         assertTrue(codes.contains(BreakdownTreeValidator.Code.PARENT_IN_DIFFERENT_STRUCTURE));
+        assertTrue(codes.contains(BreakdownTreeValidator.Code.MIXED_STRUCTURES));
         assertTrue(codes.contains(BreakdownTreeValidator.Code.CYCLE));
     }
 
@@ -59,5 +61,30 @@ class BreakdownTreeValidatorTest {
 
         assertTrue(BreakdownTreeValidator.validate(List.of(first, duplicate)).stream()
                 .anyMatch(v -> v.code() == BreakdownTreeValidator.Code.DUPLICATE_NODE_ID));
+    }
+
+    @Test
+    void rejectsUnrelatedNodesFromMultipleStructures() {
+        var first = BreakdownNode.create(
+                BreakdownStructureId.generate(), null, "ROOT", "First", "GROUP", 0);
+        var second = BreakdownNode.create(
+                BreakdownStructureId.generate(), null, "ROOT", "Second", "GROUP", 0);
+
+        assertTrue(BreakdownTreeValidator.validate(List.of(first, second)).stream()
+                .anyMatch(v -> v.code() == BreakdownTreeValidator.Code.MIXED_STRUCTURES));
+    }
+
+    @Test
+    void validatesDeepImportedTreeWithoutRecursiveTraversal() {
+        var structure = BreakdownStructureId.generate();
+        var nodes = new ArrayList<BreakdownNode>();
+        BreakdownNodeId parentId = null;
+        for (int i = 0; i < 10_000; i++) {
+            var node = BreakdownNode.create(structure, parentId, "N-" + i, "Node " + i, "ITEM", i);
+            nodes.add(node);
+            parentId = node.id();
+        }
+
+        assertTrue(BreakdownTreeValidator.validate(nodes).isEmpty());
     }
 }

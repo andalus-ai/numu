@@ -13,6 +13,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * produced by the aggregates themselves (the Foundation
  * AbstractAggregateRoot does the same), so Mutiny must not leak in
  * here.
+ *
+ * <p>Project management is a reusable capability. Industry-specific
+ * modules may depend on Project, but Project must not depend on them.</p>
  */
 class ProjectDomainArchitectureTest {
 
@@ -52,6 +55,20 @@ class ProjectDomainArchitectureTest {
                         "tech.kayys.numou.project.adapter.."
                 )
                 .because("dependency direction is Adapter -> Application -> Domain, never the reverse")
+                .check(DOMAIN_CLASSES);
+    }
+
+    @Test
+    void neutralProjectDomainMustNotDependOnIndustryExtensions() {
+        noClasses()
+                .that().resideInAPackage(DOMAIN_PACKAGE)
+                .should().dependOnClassesThat()
+                .resideInAnyPackage(
+                        "tech.kayys.numou.construction..",
+                        "tech.kayys.numou.software..",
+                        "tech.kayys.numou.manufacturing.."
+                )
+                .because("industry extensions depend on project management; the neutral project domain must not depend on an industry extension")
                 .check(DOMAIN_CLASSES);
     }
 }
