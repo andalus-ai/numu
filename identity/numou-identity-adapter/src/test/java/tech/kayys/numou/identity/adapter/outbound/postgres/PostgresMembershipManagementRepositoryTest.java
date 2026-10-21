@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.time.Instant;
@@ -20,6 +21,7 @@ import tech.kayys.numou.identity.domain.user.UserId;
  * datasource and the actual Flyway schema/query, rather than a mocked port.
  */
 @QuarkusTest
+@QuarkusTestResource(IdentityPostgresTestResource.class)
 class PostgresMembershipManagementRepositoryTest {
 
     @Inject
