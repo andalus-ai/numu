@@ -27,7 +27,7 @@ public final class InventoryService {
     public InventoryMovement receive(ItemId itemId, WarehouseId warehouseId,
                                      BigDecimal quantity, BigDecimal unitCost,
                                      String currency, String ref) {
-        if (quantity.signum() <= 0) throw new IllegalArgumentException("Received quantity must be positive");
+        requirePositive(quantity, "Received quantity");
         InventoryMovement movement = new InventoryMovement(
                 MovementId.generate(), itemId, warehouseId, MovementType.RECEIPT,
                 quantity, unitCost, currency, ref, Instant.now());
@@ -35,15 +35,11 @@ public final class InventoryService {
         return movement;
     }
 
-    /** Outward movement: checks available stock and issues stock. */
+    /** Outward movement: atomically checks on-hand stock and appends the issue. */
     public InventoryMovement issue(ItemId itemId, WarehouseId warehouseId,
                                    BigDecimal quantity, String currency, String ref) {
-        if (quantity.signum() <= 0) throw new IllegalArgumentException("Issued quantity must be positive");
+        requirePositive(quantity, "Issued quantity");
         StockBalance current = getStockBalance(itemId, warehouseId);
-        if (current.available().compareTo(quantity) < 0) {
-            throw new IllegalStateException("Insufficient stock: available=" + current.available() + ", requested=" + quantity);
-        }
-
         BigDecimal unitCost = current.onHand().signum() > 0
                 ? current.totalValue().divide(current.onHand(), 4, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
@@ -51,19 +47,33 @@ public final class InventoryService {
         InventoryMovement movement = new InventoryMovement(
                 MovementId.generate(), itemId, warehouseId, MovementType.ISSUE,
                 quantity.negate(), unitCost, currency, ref, Instant.now());
-        repository.saveMovement(movement);
+        repository.postIssueIfAvailable(movement, quantity);
         return movement;
     }
 
-    /** Inter-warehouse stock transfer. */
+    /** Atomically posts both sides of an inter-warehouse stock transfer. */
     public void transfer(ItemId itemId, WarehouseId fromWarehouse, WarehouseId toWarehouse,
                          BigDecimal quantity, String currency, String ref) {
-        issue(itemId, fromWarehouse, quantity, currency, ref + "-OUT");
-        StockBalance fromBal = getStockBalance(itemId, fromWarehouse);
-        BigDecimal cost = fromBal.onHand().signum() > 0
-                ? fromBal.totalValue().divide(fromBal.onHand(), 4, RoundingMode.HALF_UP)
+        requirePositive(quantity, "Transfer quantity");
+        Objects.requireNonNull(fromWarehouse, "Source warehouse is required");
+        Objects.requireNonNull(toWarehouse, "Destination warehouse is required");
+        if (fromWarehouse.equals(toWarehouse)) {
+            throw new IllegalArgumentException("Transfer source and destination must differ");
+        }
+
+        StockBalance source = getStockBalance(itemId, fromWarehouse);
+        BigDecimal unitCost = source.onHand().signum() > 0
+                ? source.totalValue().divide(source.onHand(), 4, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
-        receive(itemId, toWarehouse, quantity, cost, currency, ref + "-IN");
+
+        Instant now = Instant.now();
+        InventoryMovement outbound = new InventoryMovement(
+                MovementId.generate(), itemId, fromWarehouse, MovementType.ISSUE,
+                quantity.negate(), unitCost, currency, ref + "-OUT", now);
+        InventoryMovement inbound = new InventoryMovement(
+                MovementId.generate(), itemId, toWarehouse, MovementType.RECEIPT,
+                quantity, unitCost, currency, ref + "-IN", now);
+        repository.postTransferIfAvailable(outbound, inbound, quantity);
     }
 
     /** Real-time stock balance projection derived from the movement log. */
@@ -73,9 +83,9 @@ public final class InventoryService {
 
         for (InventoryMovement m : repository.findByItemAndWarehouse(itemId, warehouseId)) {
             onHand = onHand.add(m.quantity());
-            if (m.type() == MovementType.RECEIPT) {
+            if (m.type() == MovementType.RECEIPT || m.type() == MovementType.TRANSFER_IN) {
                 totalValue = totalValue.add(m.totalCost());
-            } else if (m.type() == MovementType.ISSUE) {
+            } else if (m.type() == MovementType.ISSUE || m.type() == MovementType.TRANSFER_OUT) {
                 totalValue = totalValue.subtract(m.totalCost());
             }
         }
@@ -85,5 +95,12 @@ public final class InventoryService {
 
     public List<InventoryMovement> getMovements(ItemId itemId) {
         return repository.findByItem(itemId);
+    }
+
+    private static void requirePositive(BigDecimal quantity, String label) {
+        Objects.requireNonNull(quantity, label + " is required");
+        if (quantity.signum() <= 0) {
+            throw new IllegalArgumentException(label + " must be positive");
+        }
     }
 }
