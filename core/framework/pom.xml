@@ -56,6 +56,7 @@
         <module>asset</module>
         <module>project</module>
         <module>scope</module>
+        <module>planning</module>
         <module>quantity</module>
         <module>construction</module>
         <module>budget</module>
