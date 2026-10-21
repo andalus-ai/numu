@@ -4,9 +4,9 @@ import tech.kayys.numou.inventory.domain.inventory.*;
 import tech.kayys.numou.inventory.spi.InventoryRepository;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Single-process reference adapter. Synchronization here does not provide
@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class InMemoryInventoryRepository implements InventoryRepository {
     private final ConcurrentHashMap<ItemId, InventoryItem> items = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<WarehouseId, Warehouse> warehouses = new ConcurrentHashMap<>();
-    private final CopyOnWriteArrayList<InventoryMovement> movements = new CopyOnWriteArrayList<>();
+    private final List<InventoryMovement> movements = new ArrayList<>();
 
     @Override
     public void registerItem(InventoryItem item) {
@@ -48,6 +48,9 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
                                                      InventoryMovement inbound,
                                                      BigDecimal requiredQuantity) {
         validateIssue(outbound, requiredQuantity);
+        if (inbound == null || inbound.type() != MovementType.RECEIPT) {
+            throw new IllegalArgumentException("Inbound transfer movement must be a receipt");
+        }
         if (!outbound.itemId().equals(inbound.itemId())) {
             throw new IllegalArgumentException("Transfer movements must reference the same item");
         }
@@ -57,8 +60,9 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
         if (inbound.quantity().compareTo(requiredQuantity) != 0) {
             throw new IllegalArgumentException("Inbound quantity must equal transfer quantity");
         }
-        if (!outbound.currency().equals(inbound.currency())) {
-            throw new IllegalArgumentException("Transfer currencies must match");
+        if (!outbound.currency().equals(inbound.currency())
+                || outbound.unitCost().compareTo(inbound.unitCost()) != 0) {
+            throw new IllegalArgumentException("Transfer valuation and currencies must match");
         }
         BigDecimal onHand = onHand(outbound.itemId(), outbound.warehouseId());
         if (onHand.compareTo(requiredQuantity) < 0) {
@@ -66,14 +70,15 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
                     + ", requested=" + requiredQuantity);
         }
 
-        // Validate the complete operation before mutating the ledger.
+        // Both movements are appended while holding the same lock used by reads and issues.
         movements.add(outbound);
         movements.add(inbound);
     }
 
     private static void validateIssue(InventoryMovement movement, BigDecimal requiredQuantity) {
-        if (movement == null || requiredQuantity == null || requiredQuantity.signum() <= 0) {
-            throw new IllegalArgumentException("Movement and positive required quantity are required");
+        if (movement == null || movement.type() != MovementType.ISSUE
+                || requiredQuantity == null || requiredQuantity.signum() <= 0) {
+            throw new IllegalArgumentException("Issue movement and positive required quantity are required");
         }
         if (movement.quantity().compareTo(requiredQuantity.negate()) != 0) {
             throw new IllegalArgumentException("Issue movement quantity must be the negative requested quantity");
@@ -89,7 +94,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
     }
 
     @Override
-    public List<InventoryMovement> findByItemAndWarehouse(ItemId itemId, WarehouseId warehouseId) {
+    public synchronized List<InventoryMovement> findByItemAndWarehouse(ItemId itemId, WarehouseId warehouseId) {
         return movements.stream()
                 .filter(movement -> movement.itemId().equals(itemId)
                         && movement.warehouseId().equals(warehouseId))
@@ -97,7 +102,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
     }
 
     @Override
-    public List<InventoryMovement> findByItem(ItemId itemId) {
+    public synchronized List<InventoryMovement> findByItem(ItemId itemId) {
         return movements.stream()
                 .filter(movement -> movement.itemId().equals(itemId))
                 .toList();
