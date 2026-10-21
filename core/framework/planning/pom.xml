@@ -16,5 +16,6 @@
     <modules>
         <module>planning-domain</module>
         <module>planning-application</module>
+        <module>planning-postgres-adapter</module>
     </modules>
 </project>
