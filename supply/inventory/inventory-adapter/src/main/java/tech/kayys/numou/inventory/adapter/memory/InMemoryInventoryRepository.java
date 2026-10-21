@@ -141,7 +141,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
         }
         if (!reservation.itemId().equals(movement.itemId())
                 || !reservation.warehouseId().equals(movement.warehouseId())
-                || reservation.quantity().compareTo(requiredQuantity) < 0) {
+                || reservation.quantity().compareTo(requiredQuantity) != 0) {
             throw new IllegalArgumentException("Issue does not match reservation");
         }
         if (onHand(movement.itemId(), movement.warehouseId()).compareTo(requiredQuantity) < 0) {
