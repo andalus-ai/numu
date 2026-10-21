@@ -114,8 +114,14 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
         }
         if (!current.tenantId().equals(updated.tenantId()) || !current.itemId().equals(updated.itemId())
                 || !current.warehouseId().equals(updated.warehouseId())
-                || current.quantity().compareTo(updated.quantity()) != 0) {
+                || current.quantity().compareTo(updated.quantity()) != 0
+                || !current.uom().equals(updated.uom())
+                || !current.sourceReference().equals(updated.sourceReference())) {
             throw new IllegalArgumentException("Reservation identity and quantity are immutable");
+        }
+        if (current.status() != ReservationStatus.ACTIVE
+                || (updated.status() != ReservationStatus.RELEASED && updated.status() != ReservationStatus.EXPIRED)) {
+            throw new IllegalStateException("Only ACTIVE reservations may be released or expired through this operation");
         }
         reservations.put(updated.id(), updated);
         return updated;
