@@ -40,6 +40,14 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- L1 caching port (Caffeine-backed in the adapter): effective-permission
+             and PAT validation caches live on the hot authorization path. -->
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-cache-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
