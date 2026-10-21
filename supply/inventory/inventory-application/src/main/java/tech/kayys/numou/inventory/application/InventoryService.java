@@ -2,6 +2,7 @@ package tech.kayys.numou.inventory.application;
 
 import tech.kayys.numou.inventory.domain.inventory.*;
 import tech.kayys.numou.inventory.spi.InventoryRepository;
+import tech.kayys.numou.inventory.domain.reservation.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -113,6 +114,39 @@ public final class InventoryService {
         repository.postTransferIfAvailable(key, outbound, inbound, quantity);
     }
 
+    public InventoryReservation reserve(String tenantId, ItemId itemId, WarehouseId warehouseId,
+                                        BigDecimal quantity, String uom, String sourceReference, Instant expiresAt) {
+        requirePositive(quantity, "Reserved quantity");
+        Objects.requireNonNull(tenantId, "Tenant id is required");
+        if (tenantId.isBlank()) throw new IllegalArgumentException("Tenant id must not be blank");
+        return repository.reserveIfAvailable(InventoryReservation.create(
+                tenantId, itemId, warehouseId, quantity, uom, sourceReference, expiresAt));
+    }
+
+    public InventoryReservation releaseReservation(ReservationId id) {
+        InventoryReservation current = repository.findReservation(id);
+        return repository.updateReservation(current.release());
+    }
+
+    public InventoryReservation expireReservation(ReservationId id) {
+        InventoryReservation current = repository.findReservation(id);
+        if (current.expiresAt() == null || current.expiresAt().isAfter(Instant.now())) {
+            throw new IllegalStateException("Reservation has not expired");
+        }
+        return repository.updateReservation(current.expire());
+    }
+
+    public InventoryMovement issueReserved(ReservationId reservationId, ItemId itemId, WarehouseId warehouseId,
+                                           BigDecimal quantity, String currency, String ref) {
+        requirePositive(quantity, "Issued quantity");
+        StockBalance current = getStockBalance(itemId, warehouseId);
+        BigDecimal unitCost = current.onHand().signum() > 0
+                ? current.totalValue().divide(current.onHand(), 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        InventoryMovement movement = new InventoryMovement(MovementId.generate(), itemId, warehouseId,
+                MovementType.ISSUE, quantity.negate(), unitCost, currency, ref, Instant.now());
+        return repository.postReservedIssue(reservationId, movement, quantity);
+    }
+
     /** Real-time stock balance projection derived from the movement log. */
     public StockBalance getStockBalance(ItemId itemId, WarehouseId warehouseId) {
         BigDecimal onHand = BigDecimal.ZERO;
@@ -127,7 +161,12 @@ public final class InventoryService {
             }
         }
         if (totalValue.signum() < 0) totalValue = BigDecimal.ZERO;
-        return new StockBalance(itemId, warehouseId, onHand, BigDecimal.ZERO, onHand, totalValue);
+        BigDecimal reserved = repository.findReservations(itemId, warehouseId).stream()
+                .filter(r -> r.status() == ReservationStatus.ACTIVE)
+                .filter(r -> r.expiresAt() == null || r.expiresAt().isAfter(Instant.now()))
+                .map(InventoryReservation::quantity).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal available = onHand.subtract(reserved).max(BigDecimal.ZERO);
+        return new StockBalance(itemId, warehouseId, onHand, reserved, available, totalValue);
     }
 
     public List<InventoryMovement> getMovements(ItemId itemId) {

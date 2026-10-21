@@ -28,10 +28,12 @@ public record InventoryReservation(
     public InventoryReservation {
         Objects.requireNonNull(id, "id cannot be null");
         Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        if (tenantId.isBlank()) throw new IllegalArgumentException("tenantId cannot be blank");
         Objects.requireNonNull(itemId, "itemId cannot be null");
         Objects.requireNonNull(warehouseId, "warehouseId cannot be null");
         Objects.requireNonNull(quantity, "quantity cannot be null");
         Objects.requireNonNull(uom, "uom cannot be null");
+        if (uom.isBlank()) throw new IllegalArgumentException("uom cannot be blank");
         Objects.requireNonNull(status, "status cannot be null");
         Objects.requireNonNull(sourceReference, "sourceReference cannot be null");
         Objects.requireNonNull(createdAt, "createdAt cannot be null");
@@ -39,6 +41,8 @@ public record InventoryReservation(
         if (quantity.signum() <= 0) {
             throw new IllegalArgumentException("Reservation quantity must be positive: " + quantity);
         }
+
+        if (expiresAt != null && expiresAt.isBefore(createdAt)) throw new IllegalArgumentException("expiresAt cannot precede createdAt");
 
         if (version < 1) {
             throw new IllegalArgumentException("Version must be at least 1");

@@ -2,6 +2,7 @@ package tech.kayys.numou.inventory.adapter.memory;
 
 import tech.kayys.numou.inventory.domain.inventory.*;
 import tech.kayys.numou.inventory.spi.InventoryRepository;
+import tech.kayys.numou.inventory.domain.reservation.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
     private final ConcurrentHashMap<WarehouseId, Warehouse> warehouses = new ConcurrentHashMap<>();
     private final List<InventoryMovement> movements = new ArrayList<>();
     private final Map<InventoryCommandKey, List<InventoryMovement>> commandMovements = new HashMap<>();
+    private final Map<ReservationId, InventoryReservation> reservations = new HashMap<>();
 
     @Override
     public void registerItem(InventoryItem item) {
@@ -68,6 +70,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
             InventoryMovement a = existing.get(i), b = requested.get(i);
             if (!a.itemId().equals(b.itemId()) || !a.warehouseId().equals(b.warehouseId())
                     || a.type() != b.type() || a.quantity().compareTo(b.quantity()) != 0
+                    || a.unitCost().compareTo(b.unitCost()) != 0
                     || !a.currency().equals(b.currency())
                     || !java.util.Objects.equals(a.referenceNumber(), b.referenceNumber()))
                 throw new IllegalArgumentException("Idempotency key payload mismatch");
@@ -75,12 +78,98 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
         return existing;
     }
 
+
+    @Override
+    public synchronized InventoryReservation reserveIfAvailable(InventoryReservation reservation) {
+        if (reservation == null || reservation.status() != ReservationStatus.ACTIVE) {
+            throw new IllegalArgumentException("An active reservation is required");
+        }
+        if (reservations.containsKey(reservation.id())) {
+            throw new IllegalArgumentException("Reservation already exists: " + reservation.id().value());
+        }
+        BigDecimal onHand = onHand(reservation.itemId(), reservation.warehouseId());
+        BigDecimal reserved = activeReserved(reservation.itemId(), reservation.warehouseId());
+        BigDecimal available = onHand.subtract(reserved);
+        if (available.compareTo(reservation.quantity()) < 0) {
+            throw new IllegalStateException("Insufficient available stock: available=" + available
+                    + ", requested=" + reservation.quantity());
+        }
+        reservations.put(reservation.id(), reservation);
+        return reservation;
+    }
+
+    @Override
+    public synchronized InventoryReservation findReservation(ReservationId id) {
+        InventoryReservation reservation = reservations.get(id);
+        if (reservation == null) throw new IllegalArgumentException("Unknown reservation: " + id.value());
+        return reservation;
+    }
+
+    @Override
+    public synchronized InventoryReservation updateReservation(InventoryReservation updated) {
+        InventoryReservation current = reservations.get(updated.id());
+        if (current == null) throw new IllegalArgumentException("Unknown reservation: " + updated.id().value());
+        if (current.version() != updated.version() - 1) {
+            throw new IllegalStateException("Reservation version conflict: expected " + (updated.version() - 1)
+                    + " but was " + current.version());
+        }
+        if (!current.tenantId().equals(updated.tenantId()) || !current.itemId().equals(updated.itemId())
+                || !current.warehouseId().equals(updated.warehouseId())
+                || current.quantity().compareTo(updated.quantity()) != 0) {
+            throw new IllegalArgumentException("Reservation identity and quantity are immutable");
+        }
+        reservations.put(updated.id(), updated);
+        return updated;
+    }
+
+    @Override
+    public synchronized List<InventoryReservation> findReservations(ItemId itemId, WarehouseId warehouseId) {
+        return reservations.values().stream()
+                .filter(r -> r.itemId().equals(itemId) && r.warehouseId().equals(warehouseId))
+                .toList();
+    }
+
+    @Override
+    public synchronized InventoryMovement postReservedIssue(ReservationId reservationId, InventoryMovement movement,
+                                                            BigDecimal requiredQuantity) {
+        validateIssue(movement, requiredQuantity);
+        InventoryReservation reservation = reservations.get(reservationId);
+        if (reservation == null) throw new IllegalArgumentException("Unknown reservation: " + reservationId.value());
+        if (reservation.status() != ReservationStatus.ACTIVE
+                || (reservation.expiresAt() != null && !reservation.expiresAt().isAfter(java.time.Instant.now()))) {
+            throw new IllegalStateException("Reservation is not active");
+        }
+        if (!reservation.itemId().equals(movement.itemId())
+                || !reservation.warehouseId().equals(movement.warehouseId())
+                || reservation.quantity().compareTo(requiredQuantity) < 0) {
+            throw new IllegalArgumentException("Issue does not match reservation");
+        }
+        if (onHand(movement.itemId(), movement.warehouseId()).compareTo(requiredQuantity) < 0) {
+            throw new IllegalStateException("Insufficient on-hand stock for reserved issue");
+        }
+        // The issue and reservation transition share the same adapter lock.
+        movements.add(movement);
+        reservations.put(reservationId, reservation.commit());
+        return movement;
+    }
+
+    private BigDecimal activeReserved(ItemId itemId, WarehouseId warehouseId) {
+        java.time.Instant now = java.time.Instant.now();
+        return reservations.values().stream()
+                .filter(r -> r.itemId().equals(itemId) && r.warehouseId().equals(warehouseId))
+                .filter(r -> r.status() == ReservationStatus.ACTIVE)
+                .filter(r -> r.expiresAt() == null || r.expiresAt().isAfter(now))
+                .map(InventoryReservation::quantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     @Override
     public synchronized void postIssueIfAvailable(InventoryMovement movement, BigDecimal requiredQuantity) {
         validateIssue(movement, requiredQuantity);
         BigDecimal onHand = onHand(movement.itemId(), movement.warehouseId());
-        if (onHand.compareTo(requiredQuantity) < 0) {
-            throw new IllegalStateException("Insufficient stock: available=" + onHand
+        BigDecimal available = onHand.subtract(activeReserved(movement.itemId(), movement.warehouseId()));
+        if (available.compareTo(requiredQuantity) < 0) {
+            throw new IllegalStateException("Insufficient available stock: available=" + available
                     + ", requested=" + requiredQuantity);
         }
         movements.add(movement);
@@ -108,8 +197,9 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
             throw new IllegalArgumentException("Transfer valuation and currencies must match");
         }
         BigDecimal onHand = onHand(outbound.itemId(), outbound.warehouseId());
-        if (onHand.compareTo(requiredQuantity) < 0) {
-            throw new IllegalStateException("Insufficient stock for transfer: available=" + onHand
+        BigDecimal available = onHand.subtract(activeReserved(outbound.itemId(), outbound.warehouseId()));
+        if (available.compareTo(requiredQuantity) < 0) {
+            throw new IllegalStateException("Insufficient available stock for transfer: available=" + available
                     + ", requested=" + requiredQuantity);
         }
 
