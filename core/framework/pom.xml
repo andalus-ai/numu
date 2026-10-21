@@ -24,49 +24,18 @@
     <modules>
         <module>bom</module>
 
-        <!-- framework -->
+        <!-- Technical Platform Chassis -->
         <module>foundation</module>
         <module>ecosystem</module>
         <module>event</module>
         <module>integration</module>
-        <module>security</module>
         <module>observability</module>
         <module>reliability</module>
         <module>cache</module>
-
-        <!-- Core -->
-        <module>identity</module>
-        <module>corporate</module>
-        <module>organization</module>
-        <module>tenancy</module>
-
-        <!--  -->
-        <module>commerce</module>
-        <module>crm</module>
-        <module>support</module>
-        <module>product</module>
-        <module>supply</module>
-        <module>finance</module>
-        <module>workforce</module>
-        <module>scheduling</module>
-        <module>reservation</module>
-        <module>leave</module>
-        <module>logistics</module>
-        <module>restaurant</module>
-        <module>asset</module>
-        <module>project</module>
-        <module>scope</module>
-        <module>planning</module>
-        <module>quantity</module>
-        <module>construction</module>
-        <module>budget</module>
-
-        <!-- Cross-cutting & Platform Services -->
-        <module>common</module>
-        <module>document</module>
         <module>plugin</module>
         <module>workflow</module>
-        <module>survey</module>
+        <module>scope</module>
+        <module>planning</module>
     </modules>
 
     <properties>

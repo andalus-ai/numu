@@ -70,7 +70,7 @@ public final class PgAdvisoryBreakdownStructureWriteLock implements BreakdownStr
 
     private Uni<Void> release(SqlConnection connection, String lockKey) {
         return connection.preparedQuery(UNLOCK_SQL)
-                .execute(Tuple.of(lockKey))
-                .onItem().ignore().and().continueWithNull();
+            .execute(Tuple.of(lockKey))
+            .replaceWithVoid();
     }
 }
