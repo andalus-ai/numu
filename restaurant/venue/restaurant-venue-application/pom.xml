@@ -4,33 +4,33 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.numou</groupId>
-        <artifactId>numou-restaurant</artifactId>
+        <groupId>tech.kayys.syirkah</groupId>
+        <artifactId>syirkah-restaurant</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-    <artifactId>numou-restaurant-venue-application</artifactId>
+    <artifactId>syirkah-restaurant-venue-application</artifactId>
     <name>Restaurant venue - Application</name>
     <description>venue use cases.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-kernel</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-kernel</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-venue-domain</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-venue-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-venue-spi</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-venue-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-foundation-application</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -38,8 +38,8 @@
             <artifactId>mutiny</artifactId>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-cache-api</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-cache-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -53,8 +53,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-cache-adapter</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-cache-adapter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

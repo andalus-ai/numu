@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.application.port;
+package tech.kayys.numou.numouapplication.port;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
@@ -7,7 +7,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Posting port to the general ledger. Must be idempotent on {@code sourceKey}: posting the same key twice
+ * Posting port to the general ledger. Must be idempotent on {@code sourceKey}:
+ * posting the same key twice
  * creates one journal entry.
  */
 public interface JournalPostingPort {

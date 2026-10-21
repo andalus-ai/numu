@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 public enum CloseStatus {
     /** Effective close. */

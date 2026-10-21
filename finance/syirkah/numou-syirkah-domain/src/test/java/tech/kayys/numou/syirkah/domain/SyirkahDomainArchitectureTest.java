@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -12,18 +12,18 @@ class SyirkahDomainArchitectureTest {
 
     private static final JavaClasses DOMAIN = new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
-            .importPackages("tech.kayys.numou.syirkah.domain");
+            .importPackages("tech.kayys.numou.numoudomain");
 
     private static final String[] FORBIDDEN = {
             "io.quarkus..", "org.hibernate..", "jakarta..", "io.smallrye..", "org.apache.kafka..",
-            "com.fasterxml.jackson..", "tech.kayys.numou.syirkah.application..", "tech.kayys.numou.syirkah.adapter..",
+            "com.fasterxml.jackson..", "tech.kayys.numou.numouapplication..", "tech.kayys.numou.numouadapter..",
             "tech.kayys.numou.accounting.."
     };
 
     @Test
     void domainMustNotDependOnFrameworksOrOuterLayers() {
         for (String pkg : FORBIDDEN) {
-            noClasses().that().resideInAPackage("tech.kayys.numou.syirkah.domain..")
+            noClasses().that().resideInAPackage("tech.kayys.numou.numoudomain..")
                     .should().dependOnClassesThat().resideInAPackage(pkg)
                     .check(DOMAIN);
         }

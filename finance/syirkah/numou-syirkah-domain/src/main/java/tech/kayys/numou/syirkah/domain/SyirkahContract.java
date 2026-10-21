@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
@@ -20,10 +20,13 @@ import java.util.TreeMap;
 
 /**
  * One immutable version of the akad. Any change of nisbah, capital, or partners
- * produces a <em>new</em> version (after the books are closed) instead of mutating
- * this one, so every historical close can be traced to the exact terms in force.
+ * produces a <em>new</em> version (after the books are closed) instead of
+ * mutating
+ * this one, so every historical close can be traced to the exact terms in
+ * force.
  *
- * @param lossSharing explicit loss fractions; only allowed for ABDAN/WUJUH (no cash capital).
+ * @param lossSharing explicit loss fractions; only allowed for ABDAN/WUJUH (no
+ *                    cash capital).
  *                    Empty means loss follows capital (the fiqh default).
  */
 public record SyirkahContract(
@@ -55,7 +58,8 @@ public record SyirkahContract(
         capital = List.copyOf(capital == null ? List.of() : capital);
         lossSharing = lossSharing == null ? Map.of() : Collections.unmodifiableMap(new TreeMap<>(lossSharing));
         declaredClauses = declaredClauses == null || declaredClauses.isEmpty()
-                ? Set.of() : Collections.unmodifiableSet(EnumSet.copyOf(declaredClauses));
+                ? Set.of()
+                : Collections.unmodifiableSet(EnumSet.copyOf(declaredClauses));
         witnesses = List.copyOf(witnesses == null ? List.of() : witnesses);
     }
 
@@ -93,7 +97,10 @@ public record SyirkahContract(
         return total;
     }
 
-    /** Loss weights when loss is not strictly by capital (abdan/wujuh); null means "by capital". */
+    /**
+     * Loss weights when loss is not strictly by capital (abdan/wujuh); null means
+     * "by capital".
+     */
     public Map<PartnerId, BigDecimal> explicitLossWeights() {
         return lossSharing.isEmpty() ? null : lossSharing;
     }
@@ -187,7 +194,8 @@ public record SyirkahContract(
         Set<PartnerId> seenCapital = new HashSet<>();
         for (CapitalContribution c : capital) {
             if (!ids.contains(c.partner())) {
-                v.add(new ContractViolation("CAPITAL_UNKNOWN_PARTNER", "capital from non-partner " + c.partner().value()));
+                v.add(new ContractViolation("CAPITAL_UNKNOWN_PARTNER",
+                        "capital from non-partner " + c.partner().value()));
             }
             if (!c.amount().currency().equals(currency)) {
                 v.add(new ContractViolation("CAPITAL_CURRENCY", "capital must be in " + currency.code()));
@@ -244,7 +252,8 @@ public record SyirkahContract(
                             "mudharabah needs at least one capital provider and one manager"));
                 }
                 if (!total.isPositive()) {
-                    v.add(new ContractViolation("CAPITAL_REQUIRED", "mudharabah needs money capital from the provider"));
+                    v.add(new ContractViolation("CAPITAL_REQUIRED",
+                            "mudharabah needs money capital from the provider"));
                 }
                 for (Partner p : partners) {
                     boolean hasCap = capitalOf(p.id()).isPositive();

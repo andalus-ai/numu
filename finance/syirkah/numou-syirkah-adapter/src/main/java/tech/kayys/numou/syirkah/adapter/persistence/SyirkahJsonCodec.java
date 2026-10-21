@@ -1,11 +1,11 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.application.governance.PendingApproval;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.governance.PendingApproval;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.domain.*;
+import tech.kayys.numou.numoudomain.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -13,9 +13,12 @@ import java.time.LocalDate;
 import java.util.*;
 
 /**
- * Lossless JSON mapping for the documents stored as jsonb: contract versions, closes, liquidation. Amounts are
- * written as plain decimals (scale preserved) and read as BigDecimal. Decoding is strict: a missing or mistyped
- * field fails loudly, and the aggregate's own hash/integrity checks run afterwards in {@code Syirkah.restore}.
+ * Lossless JSON mapping for the documents stored as jsonb: contract versions,
+ * closes, liquidation. Amounts are
+ * written as plain decimals (scale preserved) and read as BigDecimal. Decoding
+ * is strict: a missing or mistyped
+ * field fails loudly, and the aggregate's own hash/integrity checks run
+ * afterwards in {@code Syirkah.restore}.
  */
 public final class SyirkahJsonCodec {
 
@@ -324,9 +327,13 @@ public final class SyirkahJsonCodec {
                 Instant.parse(str(o, "completedAt")), str(o, "hash"));
     }
 
-    // ------------------------------------------------------------ approval payloads (maker-checker)
+    // ------------------------------------------------------------ approval
+    // payloads (maker-checker)
 
-    /** Encodes the command held by a pending approval; what the checker approves is exactly what is replayed. */
+    /**
+     * Encodes the command held by a pending approval; what the checker approves is
+     * exactly what is replayed.
+     */
     public static String encodePayload(PendingApproval.Kind kind, Object payload) {
         Map<String, Object> o = new LinkedHashMap<>();
         switch (kind) {

@@ -1,1 +1,0 @@
-# Islamic/Madrasah School Management System

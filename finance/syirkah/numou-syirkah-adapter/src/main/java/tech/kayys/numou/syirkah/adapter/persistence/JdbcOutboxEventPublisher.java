@@ -1,10 +1,10 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
 import tech.kayys.numou.foundation.domain.identifier.DomainId;
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.application.port.EventPublisherPort;
+import tech.kayys.numou.numouapplication.port.EventPublisherPort;
 
 import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
@@ -12,11 +12,15 @@ import java.sql.PreparedStatement;
 import java.util.*;
 
 /**
- * Transactional outbox writer (V301): events are inserted on the unit-of-work connection, so they commit or roll
- * back with the ledger change. A relay (not part of this module) ships rows with {@code published_at IS NULL} in
+ * Transactional outbox writer (V301): events are inserted on the unit-of-work
+ * connection, so they commit or roll
+ * back with the ledger change. A relay (not part of this module) ships rows
+ * with {@code published_at IS NULL} in
  * {@code seq} order. Re-publishing the same event id is a no-op.
  *
- * <p>Event records are serialised generically from their components: ids as strings, {@link Money} as
+ * <p>
+ * Event records are serialised generically from their components: ids as
+ * strings, {@link Money} as
  * {amount, currency}, enums by name, instants/dates ISO-8601.
  */
 public class JdbcOutboxEventPublisher implements EventPublisherPort {

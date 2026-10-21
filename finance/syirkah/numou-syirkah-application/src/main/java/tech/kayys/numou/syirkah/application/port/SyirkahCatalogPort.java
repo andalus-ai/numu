@@ -1,14 +1,17 @@
-package tech.kayys.numou.syirkah.application.port;
+package tech.kayys.numou.numouapplication.port;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.query.SyirkahSummary;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
-import tech.kayys.numou.syirkah.domain.SyirkahStatus;
+import tech.kayys.numou.numouapplication.query.SyirkahSummary;
+import tech.kayys.numou.numoudomain.SyirkahId;
+import tech.kayys.numou.numoudomain.SyirkahStatus;
 
 import java.util.List;
 import java.util.Optional;
 
-/** Read-only listing of a tenant's syirkah, keyset-paged by id (ascending, compared as lowercase uuid text). */
+/**
+ * Read-only listing of a tenant's syirkah, keyset-paged by id (ascending,
+ * compared as lowercase uuid text).
+ */
 public interface SyirkahCatalogPort {
 
     /**

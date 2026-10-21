@@ -1,11 +1,13 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
-/** SHA-256 helper for the tamper-evident chain of movements and close snapshots. */
+/**
+ * SHA-256 helper for the tamper-evident chain of movements and close snapshots.
+ */
 public final class AuditHash {
 
     public static final String GENESIS = "0".repeat(64);

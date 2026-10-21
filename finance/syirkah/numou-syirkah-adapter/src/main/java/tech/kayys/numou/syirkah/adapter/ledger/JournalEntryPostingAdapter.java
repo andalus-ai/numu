@@ -1,18 +1,19 @@
-package tech.kayys.numou.syirkah.adapter.ledger;
+package tech.kayys.numou.numouadapter.ledger;
 
 import tech.kayys.numou.accounting.domain.identifier.AccountId;
 import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
 import tech.kayys.numou.accounting.domain.model.JournalEntry;
 import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 import tech.kayys.numou.accounting.domain.ledger.LedgerId;
-import tech.kayys.numou.syirkah.application.port.JournalPostingPort;
+import tech.kayys.numou.numouapplication.port.JournalPostingPort;
 
 import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * Posts syirkah movements as numou {@link JournalEntry} aggregates (balance invariant enforced by the
+ * Posts syirkah movements as numou {@link JournalEntry} aggregates (balance
+ * invariant enforced by the
  * entry itself). Idempotent per source key through {@link Sink#exists}.
  */
 public class JournalEntryPostingAdapter implements JournalPostingPort {

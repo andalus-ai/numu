@@ -1,12 +1,12 @@
-package tech.kayys.numou.syirkah.adapter;
+package tech.kayys.numou.numouadapter;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.accounting.domain.islamic.SyirkahBusinessResult;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.adapter.bridge.BusinessResultBridge;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.domain.FinancialResult;
-import tech.kayys.numou.syirkah.domain.ProfitDisposition;
+import tech.kayys.numou.numouadapter.bridge.BusinessResultBridge;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numoudomain.FinancialResult;
+import tech.kayys.numou.numoudomain.ProfitDisposition;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

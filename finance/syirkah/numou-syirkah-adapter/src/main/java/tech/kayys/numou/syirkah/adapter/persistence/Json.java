@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -7,9 +7,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Minimal, strict JSON reader/writer for the persisted syirkah documents (no external dependency, so the
- * adapter stays free of a JSON library choice). Values: Map (insertion ordered), List, String, BigDecimal,
- * Boolean, null. Numbers are parsed as {@link BigDecimal} so amounts never lose scale or precision.
+ * Minimal, strict JSON reader/writer for the persisted syirkah documents (no
+ * external dependency, so the
+ * adapter stays free of a JSON library choice). Values: Map (insertion
+ * ordered), List, String, BigDecimal,
+ * Boolean, null. Numbers are parsed as {@link BigDecimal} so amounts never lose
+ * scale or precision.
  */
 final class Json {
 

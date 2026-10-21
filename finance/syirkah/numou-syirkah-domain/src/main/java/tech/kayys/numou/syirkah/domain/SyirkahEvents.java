@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
@@ -13,7 +13,7 @@ public final class SyirkahEvents {
     }
 
     public record SyirkahOpened(UUID eventId, Instant occurredAt, SyirkahId syirkahId, SyirkahType type,
-                                int contractVersion) implements DomainEvent {
+            int contractVersion) implements DomainEvent {
         @Override
         public String eventType() {
             return "syirkah.opened";
@@ -21,7 +21,7 @@ public final class SyirkahEvents {
     }
 
     public record PeriodClosed(UUID eventId, Instant occurredAt, SyirkahId syirkahId, CloseId closeId,
-                               Money netResult, ProfitDisposition disposition, String hash) implements DomainEvent {
+            Money netResult, ProfitDisposition disposition, String hash) implements DomainEvent {
         @Override
         public String eventType() {
             return "syirkah.period-closed";
@@ -29,7 +29,7 @@ public final class SyirkahEvents {
     }
 
     public record ProfitDistributed(UUID eventId, Instant occurredAt, SyirkahId syirkahId, PartnerId partner,
-                                    Money amount, String reference) implements DomainEvent {
+            Money amount, String reference) implements DomainEvent {
         @Override
         public String eventType() {
             return "syirkah.profit-distributed";
@@ -37,7 +37,7 @@ public final class SyirkahEvents {
     }
 
     public record LiabilitySettled(UUID eventId, Instant occurredAt, SyirkahId syirkahId, PartnerId partner,
-                                   Money amount, String reference) implements DomainEvent {
+            Money amount, String reference) implements DomainEvent {
         @Override
         public String eventType() {
             return "syirkah.liability-settled";
@@ -53,7 +53,7 @@ public final class SyirkahEvents {
     }
 
     public record CloseCorrected(UUID eventId, Instant occurredAt, SyirkahId syirkahId, CloseId reversed,
-                                 CloseId replacement, Money delta) implements DomainEvent {
+            CloseId replacement, Money delta) implements DomainEvent {
         @Override
         public String eventType() {
             return "syirkah.close-corrected";

@@ -1,12 +1,12 @@
-package tech.kayys.numou.syirkah.adapter.memory;
+package tech.kayys.numou.numouadapter.memory;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.port.SyirkahCatalogPort;
-import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
-import tech.kayys.numou.syirkah.application.query.SyirkahSummary;
-import tech.kayys.numou.syirkah.domain.SyirkahStatus;
-import tech.kayys.numou.syirkah.domain.Syirkah;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
+import tech.kayys.numou.numouapplication.port.SyirkahCatalogPort;
+import tech.kayys.numou.numouapplication.port.SyirkahRepository;
+import tech.kayys.numou.numouapplication.query.SyirkahSummary;
+import tech.kayys.numou.numoudomain.SyirkahStatus;
+import tech.kayys.numou.numoudomain.Syirkah;
+import tech.kayys.numou.numoudomain.SyirkahId;
 
 import java.util.Comparator;
 import java.util.List;
@@ -15,8 +15,10 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Reference repository for tests and single-node use. Stores immutable snapshots (never the live aggregate),
- * enforces optimistic locking and tenant isolation, and re-verifies hash chains on every load.
+ * Reference repository for tests and single-node use. Stores immutable
+ * snapshots (never the live aggregate),
+ * enforces optimistic locking and tenant isolation, and re-verifies hash chains
+ * on every load.
  */
 public class InMemorySyirkahRepository implements SyirkahRepository, SyirkahCatalogPort {
 
@@ -48,7 +50,7 @@ public class InMemorySyirkahRepository implements SyirkahRepository, SyirkahCata
 
     @Override
     public List<SyirkahSummary> page(TenantId tenant, Optional<SyirkahStatus> status, Optional<SyirkahId> after,
-                                     int limit) {
+            int limit) {
         if (limit < 1 || limit > 500) {
             throw new IllegalArgumentException("limit must be 1..500");
         }

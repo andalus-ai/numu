@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.adapter;
+package tech.kayys.numou.numouadapter;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.accounting.domain.identifier.AccountId;
@@ -7,16 +7,16 @@ import tech.kayys.numou.accounting.domain.model.JournalEntry;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.adapter.ledger.JournalEntryPostingAdapter;
-import tech.kayys.numou.syirkah.adapter.memory.CollectingEventPublisher;
-import tech.kayys.numou.syirkah.adapter.memory.InMemoryJournalPostingPort;
-import tech.kayys.numou.syirkah.adapter.memory.InMemorySyirkahRepository;
-import tech.kayys.numou.syirkah.adapter.memory.LocalTransactionPort;
-import tech.kayys.numou.syirkah.application.SyirkahAccountMap;
-import tech.kayys.numou.syirkah.application.SyirkahApplicationService;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
-import tech.kayys.numou.syirkah.domain.*;
+import tech.kayys.numou.numouadapter.ledger.JournalEntryPostingAdapter;
+import tech.kayys.numou.numouadapter.memory.CollectingEventPublisher;
+import tech.kayys.numou.numouadapter.memory.InMemoryJournalPostingPort;
+import tech.kayys.numou.numouadapter.memory.InMemorySyirkahRepository;
+import tech.kayys.numou.numouadapter.memory.LocalTransactionPort;
+import tech.kayys.numou.numouapplication.SyirkahAccountMap;
+import tech.kayys.numou.numouapplication.SyirkahApplicationService;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.port.SyirkahRepository;
+import tech.kayys.numou.numoudomain.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,8 +39,8 @@ class SyirkahServiceFlowTest {
             SyirkahPostingPlan.AccountRole.PROFIT_PAYABLE, "2300",
             SyirkahPostingPlan.AccountRole.PERIOD_RESULT, "3900",
             SyirkahPostingPlan.AccountRole.PARTNER_RECEIVABLE, "1300"));
-    private final SyirkahApplicationService service =
-            new SyirkahApplicationService(repo, journal, events, new LocalTransactionPort(), accounts);
+    private final SyirkahApplicationService service = new SyirkahApplicationService(repo, journal, events,
+            new LocalTransactionPort(), accounts);
 
     private static Money idr(long v) {
         return Money.of(BigDecimal.valueOf(v), "IDR");
@@ -50,7 +50,8 @@ class SyirkahServiceFlowTest {
         Map<PartnerId, BigDecimal> n = new TreeMap<>();
         n.put(A, new BigDecimal("40"));
         n.put(B, new BigDecimal("60"));
-        return new SyirkahContract(1, SyirkahType.INAN, tech.kayys.numou.foundation.domain.valueobject.Currency.of("IDR"),
+        return new SyirkahContract(1, SyirkahType.INAN,
+                tech.kayys.numou.foundation.domain.valueobject.Currency.of("IDR"),
                 List.of(new Partner(A, "A", PartnerRole.PARTNER, true), new Partner(B, "B", PartnerRole.PARTNER, true)),
                 List.of(CapitalContribution.cash(A, idr(100_000_000))), ProfitSharingRatio.ofPercent(n),
                 ProfitBasis.NET_PROFIT, null, Set.of(), List.of("W1", "W2"), true, LocalDate.parse("2026-01-01"));
@@ -79,7 +80,8 @@ class SyirkahServiceFlowTest {
 
         Syirkah s = service.get(tenant, id);
         assertEquals(0, BigDecimal.ZERO.compareTo(s.position(A).payable().amount()));
-        // cash: +100M contribution - 9.5M distributed ; capital 100M ; payable settled ; period result -9.5M profit
+        // cash: +100M contribution - 9.5M distributed ; capital 100M ; payable settled
+        // ; period result -9.5M profit
         assertEquals(0, new BigDecimal("90500000").compareTo(net("1100")));
         assertEquals(0, new BigDecimal("-100000000").compareTo(net("3100")));
         assertEquals(0, BigDecimal.ZERO.compareTo(net("2300")));
@@ -172,7 +174,7 @@ class SyirkahServiceFlowTest {
         int n = saved.size();
         Syirkah s = svc.get(tenant, id);
         SyirkahPostingPlan.forMovement(s.movements().get(0));
-        adapter.post(new tech.kayys.numou.syirkah.application.port.JournalPostingPort.Request(tenant,
+        adapter.post(new tech.kayys.numou.numouapplication.port.JournalPostingPort.Request(tenant,
                 SyirkahPostingPlan.sourceKey(id, s.movements().get(0)), LocalDate.parse("2026-01-01"), "dup",
                 List.of()));
         assertEquals(n, saved.size());
@@ -189,8 +191,10 @@ class SyirkahServiceFlowTest {
         assertEquals(0, new BigDecimal("108000000").compareTo(r.payouts().get(0).cashReceived().amount()));
         assertEquals(0, new BigDecimal("12000000").compareTo(r.payouts().get(1).cashReceived().amount()));
         assertEquals(SyirkahStatus.TERMINATED, service.get(tenant, id).status());
-        // cash after liquidation: 100M in - 120M out + 20M... = contributions 100M - payouts 120M = -20M here
-        // because the 20M profit was earned in the business outside this ledger's cash account
+        // cash after liquidation: 100M in - 120M out + 20M... = contributions 100M -
+        // payouts 120M = -20M here
+        // because the 20M profit was earned in the business outside this ledger's cash
+        // account
         assertEquals(0, new BigDecimal("-20000000").compareTo(net("1100")));
     }
 
@@ -204,7 +208,8 @@ class SyirkahServiceFlowTest {
         java.util.List<java.util.concurrent.Future<Boolean>> futures = new ArrayList<>();
         for (int i = 0; i < 24; i++) {
             final int n = i;
-            // 12 distinct payments of 1,000,000 (only 4 can succeed) + 12 replays of one shared reference
+            // 12 distinct payments of 1,000,000 (only 4 can succeed) + 12 replays of one
+            // shared reference
             final String ref = n < 12 ? "unique-" + n : "shared";
             futures.add(pool.submit(() -> {
                 try {

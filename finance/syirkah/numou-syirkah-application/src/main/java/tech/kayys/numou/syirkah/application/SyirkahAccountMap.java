@@ -1,6 +1,6 @@
-package tech.kayys.numou.syirkah.application;
+package tech.kayys.numou.numouapplication;
 
-import tech.kayys.numou.syirkah.domain.SyirkahPostingPlan.AccountRole;
+import tech.kayys.numou.numoudomain.SyirkahPostingPlan.AccountRole;
 
 import java.util.EnumMap;
 import java.util.Map;

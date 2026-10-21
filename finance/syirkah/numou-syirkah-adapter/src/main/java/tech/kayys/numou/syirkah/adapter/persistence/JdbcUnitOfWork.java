@@ -1,6 +1,6 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
-import tech.kayys.numou.syirkah.application.port.TransactionPort;
+import tech.kayys.numou.numouapplication.port.TransactionPort;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -9,9 +9,12 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * JDBC {@link TransactionPort}: binds one connection (autocommit off) to the current thread so the repository,
- * approvals store and outbox writer of a unit of work commit or roll back together. Repositories called outside
- * a unit of work open their own short transaction. Nested calls join the outer transaction.
+ * JDBC {@link TransactionPort}: binds one connection (autocommit off) to the
+ * current thread so the repository,
+ * approvals store and outbox writer of a unit of work commit or roll back
+ * together. Repositories called outside
+ * a unit of work open their own short transaction. Nested calls join the outer
+ * transaction.
  */
 public class JdbcUnitOfWork implements TransactionPort {
 
@@ -26,7 +29,10 @@ public class JdbcUnitOfWork implements TransactionPort {
         return dataSource;
     }
 
-    /** The connection of the running unit of work, or {@code null} when none is active on this thread. */
+    /**
+     * The connection of the running unit of work, or {@code null} when none is
+     * active on this thread.
+     */
     Connection current() {
         return current.get();
     }

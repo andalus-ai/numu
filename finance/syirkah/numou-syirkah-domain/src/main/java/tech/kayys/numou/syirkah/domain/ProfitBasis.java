@@ -1,6 +1,8 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
-/** What profit is computed on. Only {@link #NET_PROFIT} is permitted by fiqh. */
+/**
+ * What profit is computed on. Only {@link #NET_PROFIT} is permitted by fiqh.
+ */
 public enum ProfitBasis {
     /** Revenue minus direct, operating and other costs (laba bersih). */
     NET_PROFIT,

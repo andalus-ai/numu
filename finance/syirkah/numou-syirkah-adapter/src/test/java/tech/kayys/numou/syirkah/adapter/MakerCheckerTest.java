@@ -1,17 +1,17 @@
-package tech.kayys.numou.syirkah.adapter;
+package tech.kayys.numou.numouadapter;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.adapter.memory.*;
-import tech.kayys.numou.syirkah.application.SyirkahAccountMap;
-import tech.kayys.numou.syirkah.application.SyirkahApplicationService;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.application.governance.GovernedSyirkahService;
-import tech.kayys.numou.syirkah.application.governance.PendingApproval;
-import tech.kayys.numou.syirkah.domain.*;
+import tech.kayys.numou.numouadapter.memory.*;
+import tech.kayys.numou.numouapplication.SyirkahAccountMap;
+import tech.kayys.numou.numouapplication.SyirkahApplicationService;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
+import tech.kayys.numou.numouapplication.governance.PendingApproval;
+import tech.kayys.numou.numoudomain.*;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -29,11 +29,12 @@ class MakerCheckerTest {
     private final LocalTransactionPort tx = new LocalTransactionPort();
     private final SyirkahApplicationService service = new SyirkahApplicationService(new InMemorySyirkahRepository(),
             new InMemoryJournalPostingPort(), new CollectingEventPublisher(), tx, new SyirkahAccountMap(Map.of(
-            SyirkahPostingPlan.AccountRole.CASH, "1100", SyirkahPostingPlan.AccountRole.PARTNER_CAPITAL, "3100",
-            SyirkahPostingPlan.AccountRole.PROFIT_PAYABLE, "2300", SyirkahPostingPlan.AccountRole.PERIOD_RESULT, "3900",
-            SyirkahPostingPlan.AccountRole.PARTNER_RECEIVABLE, "1300")));
-    private final GovernedSyirkahService governed =
-            new GovernedSyirkahService(service, new InMemoryApprovalPort(), tx, Clock.systemUTC());
+                    SyirkahPostingPlan.AccountRole.CASH, "1100", SyirkahPostingPlan.AccountRole.PARTNER_CAPITAL, "3100",
+                    SyirkahPostingPlan.AccountRole.PROFIT_PAYABLE, "2300", SyirkahPostingPlan.AccountRole.PERIOD_RESULT,
+                    "3900",
+                    SyirkahPostingPlan.AccountRole.PARTNER_RECEIVABLE, "1300")));
+    private final GovernedSyirkahService governed = new GovernedSyirkahService(service, new InMemoryApprovalPort(), tx,
+            Clock.systemUTC());
 
     private static Money idr(long v) {
         return Money.of(BigDecimal.valueOf(v), "IDR");
@@ -88,9 +89,11 @@ class MakerCheckerTest {
     @Test
     void liquidationGoesThroughTwoApprovalsAndSettles() {
         SyirkahId id = open();
-        governed.approve(tenant, governed.proposeStartLiquidation(new Commands.StartLiquidation(tenant, id), "Alice").id(), "Bob");
+        governed.approve(tenant,
+                governed.proposeStartLiquidation(new Commands.StartLiquidation(tenant, id), "Alice").id(), "Bob");
         PendingApproval liq = governed.proposeLiquidation(new Commands.Liquidate(tenant, id,
-                new LiquidationInput(idr(260), idr(20), true, LocalDate.parse("2026-12-31")), ManagerFault.none()), "Alice");
+                new LiquidationInput(idr(260), idr(20), true, LocalDate.parse("2026-12-31")), ManagerFault.none()),
+                "Alice");
         governed.approve(tenant, liq.id(), "Bob");
         Syirkah s = service.get(tenant, id);
         assertEquals(SyirkahStatus.TERMINATED, s.status());
@@ -114,7 +117,8 @@ class MakerCheckerTest {
         SyirkahId id = open();
         // liquidating an ACTIVE syirkah without starting it fails at execution time
         PendingApproval p = governed.proposeLiquidation(new Commands.Liquidate(tenant, id,
-                new LiquidationInput(idr(10), idr(0), true, LocalDate.parse("2026-12-31")), ManagerFault.none()), "Alice");
+                new LiquidationInput(idr(10), idr(0), true, LocalDate.parse("2026-12-31")), ManagerFault.none()),
+                "Alice");
         assertThrows(RuntimeException.class, () -> governed.approve(tenant, p.id(), "Bob"));
         assertEquals(PendingApproval.Status.PENDING, governed.pending(tenant).get(0).status());
     }

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-education</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>numou-madrasah</artifactId>
+    <packaging>pom</packaging>
+    <name>Numou Education - Madrasah Extension</name>
+    <description>Madrasah (Kemenag) extension: NSM profile, PAI subject group, daily ibadah log, Hijri calendar helpers.</description>
+
+    <modules>
+        <module>madrasah-domain</module>
+        <module>madrasah-spi</module>
+        <module>madrasah-application</module>
+        <module>madrasah-adapter</module>
+    </modules>
+</project>

@@ -1,22 +1,27 @@
-package tech.kayys.numou.syirkah.application.governance;
+package tech.kayys.numou.numouapplication.governance;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
+import tech.kayys.numou.numoudomain.SyirkahId;
 
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * A sensitive command waiting for a second person. The payload is the original command object, so what the
+ * A sensitive command waiting for a second person. The payload is the original
+ * command object, so what the
  * checker approves is exactly what is executed.
  */
 public record PendingApproval(UUID id, TenantId tenant, SyirkahId syirkahId, Kind kind, Object payload, String maker,
-                              Instant proposedAt, Status status, String checker, Instant decidedAt, String note) {
+        Instant proposedAt, Status status, String checker, Instant decidedAt, String note) {
 
-    public enum Kind { REVISE_CONTRACT, CORRECT_CLOSE, START_LIQUIDATION, LIQUIDATE }
+    public enum Kind {
+        REVISE_CONTRACT, CORRECT_CLOSE, START_LIQUIDATION, LIQUIDATE
+    }
 
-    public enum Status { PENDING, APPROVED, REJECTED }
+    public enum Status {
+        PENDING, APPROVED, REJECTED
+    }
 
     public PendingApproval {
         Objects.requireNonNull(id);

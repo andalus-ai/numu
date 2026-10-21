@@ -1,11 +1,11 @@
-package tech.kayys.numou.syirkah.application.governance;
+package tech.kayys.numou.numouapplication.governance;
 
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.SyirkahApplicationService;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.application.port.ApprovalPort;
-import tech.kayys.numou.syirkah.application.port.TransactionPort;
+import tech.kayys.numou.numouapplication.SyirkahApplicationService;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.port.ApprovalPort;
+import tech.kayys.numou.numouapplication.port.TransactionPort;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -14,9 +14,12 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Four-eyes control for the irreversible operations: akad revision, close correction and liquidation.
- * A maker proposes; a different checker approves (which executes the exact stored command) or rejects.
- * Routine operations (close, distribute, settle) stay on {@link SyirkahApplicationService}.
+ * Four-eyes control for the irreversible operations: akad revision, close
+ * correction and liquidation.
+ * A maker proposes; a different checker approves (which executes the exact
+ * stored command) or rejects.
+ * Routine operations (close, distribute, settle) stay on
+ * {@link SyirkahApplicationService}.
  */
 public class GovernedSyirkahService {
 
@@ -26,7 +29,7 @@ public class GovernedSyirkahService {
     private final Clock clock;
 
     public GovernedSyirkahService(SyirkahApplicationService service, ApprovalPort approvals, TransactionPort tx,
-                                  Clock clock) {
+            Clock clock) {
         this.service = Objects.requireNonNull(service);
         this.approvals = Objects.requireNonNull(approvals);
         this.tx = Objects.requireNonNull(tx);
@@ -53,7 +56,10 @@ public class GovernedSyirkahService {
         return approvals.pending(tenant);
     }
 
-    /** Approves and executes. The checker must differ from the maker (case-insensitive). */
+    /**
+     * Approves and executes. The checker must differ from the maker
+     * (case-insensitive).
+     */
     public PendingApproval approve(TenantId tenant, UUID id, String checker) {
         return tx.inTransaction(() -> {
             PendingApproval p = load(tenant, id);
@@ -85,8 +91,8 @@ public class GovernedSyirkahService {
         });
     }
 
-    private PendingApproval propose(TenantId tenant, tech.kayys.numou.syirkah.domain.SyirkahId syirkah,
-                                    PendingApproval.Kind kind, Object payload, String maker) {
+    private PendingApproval propose(TenantId tenant, tech.kayys.numou.numoudomain.SyirkahId syirkah,
+            PendingApproval.Kind kind, Object payload, String maker) {
         Instant now = clock.instant();
         PendingApproval p = new PendingApproval(UUID.randomUUID(), tenant, syirkah, kind, payload, maker, now,
                 PendingApproval.Status.PENDING, null, null, null);

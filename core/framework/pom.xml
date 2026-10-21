@@ -36,6 +36,7 @@
         <module>workflow</module>
         <module>scope</module>
         <module>planning</module>
+        <module>aggregate</module>
     </modules>
 
     <properties>

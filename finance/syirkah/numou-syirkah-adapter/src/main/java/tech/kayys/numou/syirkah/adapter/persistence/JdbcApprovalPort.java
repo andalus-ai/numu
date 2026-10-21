@@ -1,9 +1,9 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.governance.PendingApproval;
-import tech.kayys.numou.syirkah.application.port.ApprovalPort;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
+import tech.kayys.numou.numouapplication.governance.PendingApproval;
+import tech.kayys.numou.numouapplication.port.ApprovalPort;
+import tech.kayys.numou.numoudomain.SyirkahId;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -15,8 +15,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * PostgreSQL maker-checker store (V301). Tenant-scoped through RLS. A request can be inserted once and decided
- * once: the trigger freezes it after PENDING, and {@link #save} turns an attempt to re-decide into an error.
+ * PostgreSQL maker-checker store (V301). Tenant-scoped through RLS. A request
+ * can be inserted once and decided
+ * once: the trigger freezes it after PENDING, and {@link #save} turns an
+ * attempt to re-decide into an error.
  */
 public class JdbcApprovalPort implements ApprovalPort {
 

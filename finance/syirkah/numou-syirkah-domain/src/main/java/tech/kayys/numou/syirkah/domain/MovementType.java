@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 /**
  * Kinds of append-only partner movements and their signed effect on the four
@@ -15,11 +15,20 @@ public enum MovementType {
     PROFIT_DISTRIBUTED(0, 0, -1, 0),
     MANAGER_LOSS_LIABILITY(0, 0, 0, 1),
     LIABILITY_SETTLED(0, 0, 0, -1),
-    /** Liquidation: capital deficit a partner owes becomes a liability (capital reset to zero). */
+    /**
+     * Liquidation: capital deficit a partner owes becomes a liability (capital
+     * reset to zero).
+     */
     DEFICIT_TO_LIABILITY(0, 1, 0, 1),
-    /** Correction after distribution: profit paid out in excess of the corrected entitlement becomes owed back. */
+    /**
+     * Correction after distribution: profit paid out in excess of the corrected
+     * entitlement becomes owed back.
+     */
     OVERPAYMENT_TO_LIABILITY(0, 0, 1, 1),
-    /** Memo movement that zeroes the remaining capital basis at liquidation / revision. */
+    /**
+     * Memo movement that zeroes the remaining capital basis at liquidation /
+     * revision.
+     */
     BASIS_CLOSED(-1, 0, 0, 0);
 
     private final int basis;

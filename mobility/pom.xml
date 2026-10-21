@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>numou-mobility</artifactId>
+    <packaging>pom</packaging>
+    <name>Numou Mobility Suite - Aggregator</name>
+    <description>Ride-hailing: pricing, drivers, rides, dispatch, wallets and settlement.</description>
+    <modules>
+        <module>mobility-kernel</module>
+        <module>mobility-pricing</module>
+        <module>wallet/mobility-wallet-domain</module>
+        <module>wallet/mobility-wallet-spi</module>
+        <module>wallet/mobility-wallet-application</module>
+        <module>wallet/mobility-wallet-adapter</module>
+        <module>driver/mobility-driver-domain</module>
+        <module>driver/mobility-driver-spi</module>
+        <module>driver/mobility-driver-application</module>
+        <module>driver/mobility-driver-adapter</module>
+        <module>ride/mobility-ride-domain</module>
+        <module>ride/mobility-ride-spi</module>
+        <module>ride/mobility-ride-application</module>
+        <module>ride/mobility-ride-adapter</module>
+        <module>integration/mobility-integration</module>
+        <module>mobility-persistence</module>
+        <module>mobility-api</module>
+    </modules>
+</project>

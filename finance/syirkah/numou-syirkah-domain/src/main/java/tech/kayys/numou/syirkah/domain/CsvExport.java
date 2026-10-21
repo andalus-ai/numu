@@ -1,12 +1,15 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * RFC 4180 CSV for statements and reports. Text cells that start with a formula trigger (= + - @ tab CR) are
- * prefixed with an apostrophe so that opening the file in a spreadsheet cannot execute a formula
- * (partner names and references are user-supplied). Numeric cells are written as plain decimals.
+ * RFC 4180 CSV for statements and reports. Text cells that start with a formula
+ * trigger (= + - @ tab CR) are
+ * prefixed with an apostrophe so that opening the file in a spreadsheet cannot
+ * execute a formula
+ * (partner names and references are user-supplied). Numeric cells are written
+ * as plain decimals.
  */
 public final class CsvExport {
 

@@ -34,6 +34,16 @@ public final class RolePermissionMatrix {
         return Set.copyOf(out);
     }
 
+    /** Union of two matrices: a role present in both gets the permissions of both. */
+    public RolePermissionMatrix merge(RolePermissionMatrix other) {
+        final var out = new LinkedHashMap<String, Set<Permission>>();
+        byRole.forEach((k, v) -> out.put(k, new HashSet<>(v)));
+        other.byRole.forEach((k, v) -> out.computeIfAbsent(k, x -> new HashSet<>()).addAll(v));
+        final var frozen = new LinkedHashMap<String, Set<Permission>>();
+        out.forEach((k, v) -> frozen.put(k, Set.copyOf(v)));
+        return new RolePermissionMatrix(Map.copyOf(frozen));
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -91,6 +101,34 @@ public final class RolePermissionMatrix {
                 .build();
     }
 
+    /**
+     * Default matrix for the ride-hailing suite. Four disjoint roles: riders book and manage their own rides; drivers run the
+     * driver app; {@code ops-admin} approves drivers and intervenes in rides; {@code payment-gateway} is a service account that can
+     * do exactly one thing, credit wallets. Ownership (a rider only sees their own rides) is enforced in the application layer.
+     */
+    public static RolePermissionMatrix mobilityDefaults() {
+        return builder()
+                .grantAll("rider", Set.of(CREATE, READ, UPDATE), Resources.RIDE)
+                .grant("rider", READ, Resources.WALLET)
+                .grant("rider", CREATE, Resources.WALLET)                 // request a top-up
+                .grant("driver", CREATE, Resources.DRIVER_APP)
+                .grantAll("driver", Set.of(READ, UPDATE, PERFORM), Resources.DRIVER_APP)
+                .grant("driver", UPDATE, Resources.DRIVER_LOCATION)
+                .grantAll("driver", Set.of(READ, UPDATE, PERFORM), Resources.RIDE)
+                .grant("driver", READ, Resources.WALLET)
+                .grant("driver", PERFORM, Resources.WALLET_PAYOUT)
+                .grant("ops-admin", PERFORM, Resources.DRIVER_APPROVAL, Resources.RIDE_OPS, Resources.PAYOUT_OPS)
+                .grant("ops-admin", READ, Resources.PAYOUT_OPS)
+                .grant("ops-admin", READ, Resources.RIDE_OPS, Resources.WALLET, Resources.DRIVER_APP)
+                .grant("payment-gateway", PERFORM, Resources.WALLET_TOPUP)
+                .build();
+    }
+
+    /** Everything this platform ships: restaurant and mobility roles together. */
+    public static RolePermissionMatrix platformDefaults() {
+        return restaurantDefaults().merge(mobilityDefaults());
+    }
+
     /** Resource-type names shared by REST resources and the matrix. */
     public static final class Resources {
         public static final String VENUE = "Venue";
@@ -103,6 +141,15 @@ public final class RolePermissionMatrix {
         public static final String RESERVATION = "Reservation";
         public static final String RESERVATION_WAIVER = "ReservationWaiver";
         public static final String WAITLIST = "Waitlist";
+        public static final String RIDE = "Ride";
+        public static final String RIDE_OPS = "RideOps";
+        public static final String DRIVER_APP = "DriverApp";
+        public static final String DRIVER_LOCATION = "DriverLocation";
+        public static final String DRIVER_APPROVAL = "DriverApproval";
+        public static final String WALLET = "Wallet";
+        public static final String WALLET_PAYOUT = "WalletPayout";
+        public static final String WALLET_TOPUP = "WalletTopUp";
+        public static final String PAYOUT_OPS = "PayoutOps";
 
         private Resources() { }
     }

@@ -1,8 +1,8 @@
-package tech.kayys.numou.syirkah.adapter.memory;
+package tech.kayys.numou.numouadapter.memory;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.governance.PendingApproval;
-import tech.kayys.numou.syirkah.application.port.ApprovalPort;
+import tech.kayys.numou.numouapplication.governance.PendingApproval;
+import tech.kayys.numou.numouapplication.port.ApprovalPort;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

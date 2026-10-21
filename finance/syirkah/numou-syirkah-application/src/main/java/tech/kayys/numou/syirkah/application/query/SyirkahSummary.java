@@ -1,22 +1,23 @@
-package tech.kayys.numou.syirkah.application.query;
+package tech.kayys.numou.numouapplication.query;
 
-import tech.kayys.numou.syirkah.domain.CloseSnapshot;
-import tech.kayys.numou.syirkah.domain.CloseStatus;
-import tech.kayys.numou.syirkah.domain.Syirkah;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
-import tech.kayys.numou.syirkah.domain.SyirkahStatus;
-import tech.kayys.numou.syirkah.domain.SyirkahType;
+import tech.kayys.numou.numoudomain.CloseSnapshot;
+import tech.kayys.numou.numoudomain.CloseStatus;
+import tech.kayys.numou.numoudomain.Syirkah;
+import tech.kayys.numou.numoudomain.SyirkahId;
+import tech.kayys.numou.numoudomain.SyirkahStatus;
+import tech.kayys.numou.numoudomain.SyirkahType;
 
 import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * Light read model for listings and dashboards. {@code closeCount} and {@code latestCloseEnd} consider only ACTIVE
+ * Light read model for listings and dashboards. {@code closeCount} and
+ * {@code latestCloseEnd} consider only ACTIVE
  * closes (reversed ones were replaced by a correction).
  */
 public record SyirkahSummary(SyirkahId id, SyirkahType type, String currency, SyirkahStatus status,
-                             int contractVersion, int partnerCount, int closeCount, LocalDate latestCloseEnd,
-                             int version, Instant createdAt, Instant updatedAt) {
+        int contractVersion, int partnerCount, int closeCount, LocalDate latestCloseEnd,
+        int version, Instant createdAt, Instant updatedAt) {
 
     public static SyirkahSummary of(Syirkah s) {
         LocalDate latest = null;

@@ -1,9 +1,12 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import java.io.Serializable;
 import java.util.List;
 
-/** Chronological statement of one partner: every movement with running balances, and the closing position. */
+/**
+ * Chronological statement of one partner: every movement with running balances,
+ * and the closing position.
+ */
 public record PartnerStatement(PartnerId partner, String name, List<StatementLine> lines, PartnerPosition closing)
         implements Serializable {
     public PartnerStatement {

@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.identifier.DomainId;
 

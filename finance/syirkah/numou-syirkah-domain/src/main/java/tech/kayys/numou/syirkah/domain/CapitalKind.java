@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 /** How a capital contribution was made. */
 public enum CapitalKind {

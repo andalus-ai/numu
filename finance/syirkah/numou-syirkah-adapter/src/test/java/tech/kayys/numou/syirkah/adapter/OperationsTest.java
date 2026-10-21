@@ -1,22 +1,22 @@
-package tech.kayys.numou.syirkah.adapter;
+package tech.kayys.numou.numouadapter;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.adapter.memory.InMemoryJournalPostingPort;
-import tech.kayys.numou.syirkah.adapter.memory.InMemoryOutbox;
-import tech.kayys.numou.syirkah.adapter.memory.InMemorySyirkahRepository;
-import tech.kayys.numou.syirkah.adapter.memory.LocalTransactionPort;
-import tech.kayys.numou.syirkah.application.SyirkahAccountMap;
-import tech.kayys.numou.syirkah.application.SyirkahApplicationService;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.application.ops.OutboxRecord;
-import tech.kayys.numou.syirkah.application.ops.OutboxRelay;
-import tech.kayys.numou.syirkah.application.ops.SyirkahIntegrityAuditor;
-import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
-import tech.kayys.numou.syirkah.application.query.SyirkahSummary;
-import tech.kayys.numou.syirkah.domain.*;
+import tech.kayys.numou.numouadapter.memory.InMemoryJournalPostingPort;
+import tech.kayys.numou.numouadapter.memory.InMemoryOutbox;
+import tech.kayys.numou.numouadapter.memory.InMemorySyirkahRepository;
+import tech.kayys.numou.numouadapter.memory.LocalTransactionPort;
+import tech.kayys.numou.numouapplication.SyirkahAccountMap;
+import tech.kayys.numou.numouapplication.SyirkahApplicationService;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.ops.OutboxRecord;
+import tech.kayys.numou.numouapplication.ops.OutboxRelay;
+import tech.kayys.numou.numouapplication.ops.SyirkahIntegrityAuditor;
+import tech.kayys.numou.numouapplication.port.SyirkahRepository;
+import tech.kayys.numou.numouapplication.query.SyirkahSummary;
+import tech.kayys.numou.numoudomain.*;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -36,11 +36,11 @@ class OperationsTest {
     private final InMemoryOutbox outbox = new InMemoryOutbox();
     private final SyirkahApplicationService service = new SyirkahApplicationService(repo,
             new InMemoryJournalPostingPort(), outbox, new LocalTransactionPort(), new SyirkahAccountMap(Map.of(
-            SyirkahPostingPlan.AccountRole.CASH, "1100",
-            SyirkahPostingPlan.AccountRole.PARTNER_CAPITAL, "3100",
-            SyirkahPostingPlan.AccountRole.PROFIT_PAYABLE, "2300",
-            SyirkahPostingPlan.AccountRole.PERIOD_RESULT, "3900",
-            SyirkahPostingPlan.AccountRole.PARTNER_RECEIVABLE, "1300")));
+                    SyirkahPostingPlan.AccountRole.CASH, "1100",
+                    SyirkahPostingPlan.AccountRole.PARTNER_CAPITAL, "3100",
+                    SyirkahPostingPlan.AccountRole.PROFIT_PAYABLE, "2300",
+                    SyirkahPostingPlan.AccountRole.PERIOD_RESULT, "3900",
+                    SyirkahPostingPlan.AccountRole.PARTNER_RECEIVABLE, "1300")));
 
     private static Money idr(long v) {
         return Money.of(BigDecimal.valueOf(v), "IDR");
@@ -142,7 +142,8 @@ class OperationsTest {
         assertTrue(report.findings().get(0).problems().get(0).contains("hash mismatch"));
     }
 
-    // ------------------------------------------------------------------ outbox relay
+    // ------------------------------------------------------------------ outbox
+    // relay
 
     private OutboxRelay relay() {
         return new OutboxRelay(outbox, new LocalTransactionPort(), Clock.systemUTC());
@@ -175,7 +176,7 @@ class OperationsTest {
         assertTrue(pending >= 3);
 
         List<OutboxRecord> shipped = new ArrayList<>();
-        int[] calls = {0};
+        int[] calls = { 0 };
         RuntimeException boom = assertThrows(RuntimeException.class, () -> relay().drain(tenant, 10, r -> {
             if (++calls[0] == 3) {
                 throw new IllegalStateException("broker down");
@@ -183,8 +184,8 @@ class OperationsTest {
             shipped.add(r);
         }));
         assertEquals("broker down", boom.getMessage());
-        assertEquals(2, shipped.size());                                  // delivered before the failure are kept
-        assertEquals(pending - 2, outbox.unpublishedCount(tenant));       // ... and marked published
+        assertEquals(2, shipped.size()); // delivered before the failure are kept
+        assertEquals(pending - 2, outbox.unpublishedCount(tenant)); // ... and marked published
 
         List<OutboxRecord> rest = new ArrayList<>();
         assertEquals(pending - 2, relay().drainAll(tenant, 10, 5, rest::add));
@@ -202,7 +203,8 @@ class OperationsTest {
         outbox.publish(tenant, List.of(new SyirkahEvents.SyirkahOpened(first.get(0).eventId(),
                 first.get(0).occurredAt(), first.get(0).syirkahId(), SyirkahType.INAN, 1)));
         assertEquals(before, outbox.unpublishedCount(tenant));
-        assertThrows(IllegalArgumentException.class, () -> relay().drain(tenant, 0, r -> { }));
+        assertThrows(IllegalArgumentException.class, () -> relay().drain(tenant, 0, r -> {
+        }));
         assertNotNull(again);
     }
 }

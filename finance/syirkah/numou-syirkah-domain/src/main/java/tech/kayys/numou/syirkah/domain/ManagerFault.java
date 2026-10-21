@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.valueobject.Money;
 
@@ -6,7 +6,8 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Finding that a mudharib acted negligently or breached the akad. Only then does
+ * Finding that a mudharib acted negligently or breached the akad. Only then
+ * does
  * (part of) a mudharabah loss move from the capital provider to the manager.
  *
  * @param attributableLoss the part of the period's loss caused by the fault

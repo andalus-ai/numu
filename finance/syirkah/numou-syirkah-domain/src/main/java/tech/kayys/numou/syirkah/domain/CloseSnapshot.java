@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.valueobject.Money;
 
@@ -9,14 +9,15 @@ import java.util.List;
 
 /**
  * Immutable snapshot of one period close: the frozen terms (contract version,
- * nisbah), the financial result, and the exact allocation. The hash chains to the
+ * nisbah), the financial result, and the exact allocation. The hash chains to
+ * the
  * previous close, so later tampering is detectable.
  */
 public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, LocalDate periodEnd,
-                            int contractVersion, String contractCanonical, FinancialResult result,
-                            ProfitDisposition disposition, ManagerFault fault, List<AllocationLine> lines,
-                            CloseId supersedes, CloseStatus status, long firstMovementSequence,
-                            long lastMovementSequence, Instant closedAt, String previousHash, String hash)
+        int contractVersion, String contractCanonical, FinancialResult result,
+        ProfitDisposition disposition, ManagerFault fault, List<AllocationLine> lines,
+        CloseId supersedes, CloseStatus status, long firstMovementSequence,
+        long lastMovementSequence, Instant closedAt, String previousHash, String hash)
         implements Serializable {
 
     public CloseSnapshot {
@@ -28,7 +29,8 @@ public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, Loc
     }
 
     /**
-     * Loss not allocated to partner capital or an evidenced manager-fault liability.
+     * Loss not allocated to partner capital or an evidenced manager-fault
+     * liability.
      * This is an entity-level deficit, not a claim against a partner. It is derived
      * from fields already bound by the close audit hash.
      */
@@ -46,8 +48,8 @@ public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, Loc
     }
 
     public static String computeHash(CloseId id, int sequence, LocalDate start, LocalDate end, int contractVersion,
-                                     String contractCanonical, FinancialResult result, ProfitDisposition disposition,
-                                     List<AllocationLine> lines, CloseId supersedes, String previousHash) {
+            String contractCanonical, FinancialResult result, ProfitDisposition disposition,
+            List<AllocationLine> lines, CloseId supersedes, String previousHash) {
         StringBuilder sb = new StringBuilder();
         sb.append(id.value()).append('|').append(sequence).append('|').append(start).append('|').append(end)
                 .append('|').append(contractVersion).append('|').append(contractCanonical).append('|')
@@ -63,9 +65,9 @@ public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, Loc
      * still be verified during migration.
      */
     public static String computeHash(CloseId id, int sequence, LocalDate start, LocalDate end, int contractVersion,
-                                     String contractCanonical, FinancialResult result, ProfitDisposition disposition,
-                                     ManagerFault fault, List<AllocationLine> lines, CloseId supersedes,
-                                     String previousHash) {
+            String contractCanonical, FinancialResult result, ProfitDisposition disposition,
+            ManagerFault fault, List<AllocationLine> lines, CloseId supersedes,
+            String previousHash) {
         StringBuilder sb = new StringBuilder();
         sb.append("close-v2|").append(id.value()).append('|').append(sequence).append('|')
                 .append(start).append('|').append(end).append('|').append(contractVersion).append('|')
@@ -87,13 +89,15 @@ public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, Loc
     }
 
     /**
-     * Current close hash binds the movement range as well as the financial allocation.
-     * This prevents persisted metadata from silently pointing at a different ledger slice.
+     * Current close hash binds the movement range as well as the financial
+     * allocation.
+     * This prevents persisted metadata from silently pointing at a different ledger
+     * slice.
      */
     public static String computeHashV3(CloseId id, int sequence, LocalDate start, LocalDate end, int contractVersion,
-                                       String contractCanonical, FinancialResult result, ProfitDisposition disposition,
-                                       ManagerFault fault, List<AllocationLine> lines, CloseId supersedes,
-                                       String previousHash, long firstMovementSequence, long lastMovementSequence) {
+            String contractCanonical, FinancialResult result, ProfitDisposition disposition,
+            ManagerFault fault, List<AllocationLine> lines, CloseId supersedes,
+            String previousHash, long firstMovementSequence, long lastMovementSequence) {
         StringBuilder sb = new StringBuilder();
         sb.append("close-v3|").append(id.value()).append('|').append(sequence).append('|')
                 .append(start).append('|').append(end).append('|').append(contractVersion).append('|')
@@ -119,11 +123,12 @@ public record CloseSnapshot(CloseId id, int sequence, LocalDate periodStart, Loc
 
     public boolean hashIsValid() {
         return hash.equals(computeHashV3(id, sequence, periodStart, periodEnd, contractVersion, contractCanonical,
-                result, disposition, fault, lines, supersedes, previousHash, firstMovementSequence, lastMovementSequence))
+                result, disposition, fault, lines, supersedes, previousHash, firstMovementSequence,
+                lastMovementSequence))
                 || hash.equals(computeHash(id, sequence, periodStart, periodEnd, contractVersion, contractCanonical,
-                result, disposition, fault, lines, supersedes, previousHash))
+                        result, disposition, fault, lines, supersedes, previousHash))
                 || hash.equals(computeHash(id, sequence, periodStart, periodEnd, contractVersion, contractCanonical,
-                result, disposition, lines, supersedes, previousHash));
+                        result, disposition, lines, supersedes, previousHash));
     }
 
     public CloseSnapshot withStatus(CloseStatus newStatus) {

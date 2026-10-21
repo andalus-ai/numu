@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
@@ -15,11 +15,15 @@ import java.util.TreeMap;
  * Pure allocation engine for a closed period.
  *
  * <ul>
- *   <li>Profit: first repairs impaired capital (profit exists only above intact capital),
- *       the rest is split by nisbah with exact largest-remainder rounding.</li>
- *   <li>Loss: borne by capital proportion. In mudharabah the whole loss is on the capital
- *       provider unless the manager is found negligent/in breach; then the attributable
- *       amount is the manager's liability. ABDAN/WUJUH follow explicit loss sharing or nisbah.</li>
+ * <li>Profit: first repairs impaired capital (profit exists only above intact
+ * capital),
+ * the rest is split by nisbah with exact largest-remainder rounding.</li>
+ * <li>Loss: borne by capital proportion. In mudharabah the whole loss is on the
+ * capital
+ * provider unless the manager is found negligent/in breach; then the
+ * attributable
+ * amount is the manager's liability. ABDAN/WUJUH follow explicit loss sharing
+ * or nisbah.</li>
  * </ul>
  */
 public final class ProfitLossAllocator {
@@ -28,11 +32,11 @@ public final class ProfitLossAllocator {
     }
 
     public static List<AllocationLine> allocate(SyirkahContract contract,
-                                                Map<PartnerId, PartnerCapitalState> capital,
-                                                Money netResult,
-                                                ManagerFault fault,
-                                                ProfitDisposition disposition,
-                                                int scale) {
+            Map<PartnerId, PartnerCapitalState> capital,
+            Money netResult,
+            ManagerFault fault,
+            ProfitDisposition disposition,
+            int scale) {
         Currency cur = contract.currency();
         if (!netResult.currency().equals(cur)) {
             throw new BusinessRuleViolation("result currency differs from contract currency");
@@ -67,8 +71,8 @@ public final class ProfitLossAllocator {
     }
 
     private static void allocateProfit(SyirkahContract contract, Map<PartnerId, PartnerCapitalState> capital,
-                                       Money net, Map<PartnerId, Money> restored,
-                                       Map<PartnerId, Money> profit, int scale) {
+            Money net, Map<PartnerId, Money> restored,
+            Map<PartnerId, Money> profit, int scale) {
         Currency cur = contract.currency();
         Map<PartnerId, BigDecimal> impairment = new TreeMap<>();
         BigDecimal totalImpairment = BigDecimal.ZERO;
@@ -100,8 +104,8 @@ public final class ProfitLossAllocator {
     }
 
     private static void allocateLoss(SyirkahContract contract, Map<PartnerId, PartnerCapitalState> capital,
-                                     Money lossAmount, ManagerFault fault,
-                                     Map<PartnerId, Money> loss, Map<PartnerId, Money> liability, int scale) {
+            Money lossAmount, ManagerFault fault,
+            Map<PartnerId, Money> loss, Map<PartnerId, Money> liability, int scale) {
         Currency cur = contract.currency();
         BigDecimal remaining = lossAmount.amount();
 

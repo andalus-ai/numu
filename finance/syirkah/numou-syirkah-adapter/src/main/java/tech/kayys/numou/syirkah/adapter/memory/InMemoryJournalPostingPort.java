@@ -1,7 +1,7 @@
-package tech.kayys.numou.syirkah.adapter.memory;
+package tech.kayys.numou.numouadapter.memory;
 
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.application.port.JournalPostingPort;
+import tech.kayys.numou.numouapplication.port.JournalPostingPort;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -9,7 +9,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Test double that records journals once per sourceKey and checks each balances. */
+/**
+ * Test double that records journals once per sourceKey and checks each
+ * balances.
+ */
 public class InMemoryJournalPostingPort implements JournalPostingPort {
 
     private final Map<String, Request> posted = new LinkedHashMap<>();

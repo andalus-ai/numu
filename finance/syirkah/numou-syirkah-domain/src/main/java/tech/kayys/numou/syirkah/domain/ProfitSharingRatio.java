@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -9,7 +9,8 @@ import java.util.TreeMap;
 
 /**
  * Nisbah: each partner's fraction of net profit. Fractions are exact decimals,
- * every share is in (0,1], and the shares sum to exactly 1 (compared numerically,
+ * every share is in (0,1], and the shares sum to exactly 1 (compared
+ * numerically,
  * never by BigDecimal.equals which is scale-sensitive).
  */
 public final class ProfitSharingRatio implements Serializable {

@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 /** What happens to distributable profit at a close. */
 public enum ProfitDisposition {

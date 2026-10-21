@@ -1,13 +1,13 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.ops.OutboxRecord;
-import tech.kayys.numou.syirkah.application.port.OutboxPort;
-import tech.kayys.numou.syirkah.application.port.SyirkahCatalogPort;
-import tech.kayys.numou.syirkah.application.query.SyirkahSummary;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
-import tech.kayys.numou.syirkah.domain.SyirkahStatus;
-import tech.kayys.numou.syirkah.domain.SyirkahType;
+import tech.kayys.numou.numouapplication.ops.OutboxRecord;
+import tech.kayys.numou.numouapplication.port.OutboxPort;
+import tech.kayys.numou.numouapplication.port.SyirkahCatalogPort;
+import tech.kayys.numou.numouapplication.query.SyirkahSummary;
+import tech.kayys.numou.numoudomain.SyirkahId;
+import tech.kayys.numou.numoudomain.SyirkahStatus;
+import tech.kayys.numou.numoudomain.SyirkahType;
 
 import java.sql.Array;
 import java.sql.PreparedStatement;
@@ -19,30 +19,30 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Operations-side PostgreSQL ports: catalog listing (read model) and the outbox relay queries. */
+/**
+ * Operations-side PostgreSQL ports: catalog listing (read model) and the outbox
+ * relay queries.
+ */
 public class JdbcOperationsSupport implements SyirkahCatalogPort, OutboxPort {
 
-    static final String PAGE_SQL =
-            "SELECT l.syirkah_id, l.syirkah_type, l.currency, l.status, l.version, l.created_at, l.updated_at,"
-                    + " k.version AS contract_version, jsonb_array_length(k.contract -> 'partners') AS partner_count,"
-                    + " (SELECT count(*) FROM syirkah_ledger_close c WHERE c.syirkah_id = l.syirkah_id"
-                    + "   AND c.status = 'ACTIVE') AS close_count,"
-                    + " (SELECT max(c.period_end) FROM syirkah_ledger_close c WHERE c.syirkah_id = l.syirkah_id"
-                    + "   AND c.status = 'ACTIVE') AS latest_close_end"
-                    + " FROM syirkah_ledger l"
-                    + " JOIN syirkah_ledger_contract k ON k.syirkah_id = l.syirkah_id AND k.version ="
-                    + "   (SELECT max(version) FROM syirkah_ledger_contract WHERE syirkah_id = l.syirkah_id)"
-                    + " WHERE l.tenant_id = ? AND (?::text IS NULL OR l.status = ?)"
-                    + " AND (?::uuid IS NULL OR l.syirkah_id > ?::uuid)"
-                    + " ORDER BY l.syirkah_id LIMIT ?";
+    static final String PAGE_SQL = "SELECT l.syirkah_id, l.syirkah_type, l.currency, l.status, l.version, l.created_at, l.updated_at,"
+            + " k.version AS contract_version, jsonb_array_length(k.contract -> 'partners') AS partner_count,"
+            + " (SELECT count(*) FROM syirkah_ledger_close c WHERE c.syirkah_id = l.syirkah_id"
+            + "   AND c.status = 'ACTIVE') AS close_count,"
+            + " (SELECT max(c.period_end) FROM syirkah_ledger_close c WHERE c.syirkah_id = l.syirkah_id"
+            + "   AND c.status = 'ACTIVE') AS latest_close_end"
+            + " FROM syirkah_ledger l"
+            + " JOIN syirkah_ledger_contract k ON k.syirkah_id = l.syirkah_id AND k.version ="
+            + "   (SELECT max(version) FROM syirkah_ledger_contract WHERE syirkah_id = l.syirkah_id)"
+            + " WHERE l.tenant_id = ? AND (?::text IS NULL OR l.status = ?)"
+            + " AND (?::uuid IS NULL OR l.syirkah_id > ?::uuid)"
+            + " ORDER BY l.syirkah_id LIMIT ?";
 
-    static final String CLAIM_SQL =
-            "SELECT seq, event_id, event_type, syirkah_id, occurred_at, payload::text FROM syirkah_ledger_outbox"
-                    + " WHERE tenant_id = ? AND published_at IS NULL ORDER BY seq LIMIT ? FOR UPDATE SKIP LOCKED";
+    static final String CLAIM_SQL = "SELECT seq, event_id, event_type, syirkah_id, occurred_at, payload::text FROM syirkah_ledger_outbox"
+            + " WHERE tenant_id = ? AND published_at IS NULL ORDER BY seq LIMIT ? FOR UPDATE SKIP LOCKED";
 
-    static final String MARK_SQL =
-            "UPDATE syirkah_ledger_outbox SET published_at = ? WHERE tenant_id = ? AND seq = ANY(?)"
-                    + " AND published_at IS NULL";
+    static final String MARK_SQL = "UPDATE syirkah_ledger_outbox SET published_at = ? WHERE tenant_id = ? AND seq = ANY(?)"
+            + " AND published_at IS NULL";
 
     private final JdbcUnitOfWork uow;
 
@@ -52,7 +52,7 @@ public class JdbcOperationsSupport implements SyirkahCatalogPort, OutboxPort {
 
     @Override
     public List<SyirkahSummary> page(TenantId tenant, Optional<SyirkahStatus> status, Optional<SyirkahId> after,
-                                     int limit) {
+            int limit) {
         if (limit < 1 || limit > 500) {
             throw new IllegalArgumentException("limit must be 1..500");
         }

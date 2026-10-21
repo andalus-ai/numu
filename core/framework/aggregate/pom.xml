@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-framework</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>numou-aggregate</artifactId>
+    <packaging>pom</packaging>
+    <name>Numou Aggregate Kernel - Aggregator</name>
+    <description>Shared kernel for event-sourced-style aggregate stores: versioned aggregates, repositories, outbox sink, Postgres document store.</description>
+    <modules>
+        <module>aggregate-kernel</module>
+        <module>aggregate-persistence</module>
+    </modules>
+</project>

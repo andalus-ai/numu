@@ -1,24 +1,26 @@
-package tech.kayys.numou.syirkah.adapter.bridge;
+package tech.kayys.numou.numouadapter.bridge;
 
 import tech.kayys.numou.accounting.domain.islamic.SyirkahBusinessResult;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.domain.CloseId;
-import tech.kayys.numou.syirkah.domain.FinancialResult;
-import tech.kayys.numou.syirkah.domain.ManagerFault;
-import tech.kayys.numou.syirkah.domain.PartnerId;
-import tech.kayys.numou.syirkah.domain.ProfitDisposition;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numoudomain.CloseId;
+import tech.kayys.numou.numoudomain.FinancialResult;
+import tech.kayys.numou.numoudomain.ManagerFault;
+import tech.kayys.numou.numoudomain.PartnerId;
+import tech.kayys.numou.numoudomain.ProfitDisposition;
+import tech.kayys.numou.numoudomain.SyirkahId;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Seam between the accounting module's contract/calculation front end (string ids, {@link SyirkahBusinessResult})
- * and the syirkah ledger (UUID ids, {@link Commands.ClosePeriod}). Mapping is deterministic, so retrying the
+ * Seam between the accounting module's contract/calculation front end (string
+ * ids, {@link SyirkahBusinessResult})
+ * and the syirkah ledger (UUID ids, {@link Commands.ClosePeriod}). Mapping is
+ * deterministic, so retrying the
  * same business result always addresses the same ledger identifiers.
  */
 public final class BusinessResultBridge {
@@ -36,7 +38,10 @@ public final class BusinessResultBridge {
         return new PartnerId(nameUuid("partner|" + contractId + "|" + partyId));
     }
 
-    /** One close per business result: the result id fixes the close id (retry-safe, double close impossible). */
+    /**
+     * One close per business result: the result id fixes the close id (retry-safe,
+     * double close impossible).
+     */
     public static CloseId closeId(SyirkahBusinessResult result) {
         return new CloseId(nameUuid("close|" + result.contractId() + "|" + result.resultId()));
     }
@@ -48,7 +53,7 @@ public final class BusinessResultBridge {
     }
 
     public static Commands.ClosePeriod toClosePeriod(TenantId tenant, String companyId, SyirkahBusinessResult r,
-                                                     ManagerFault fault, ProfitDisposition disposition) {
+            ManagerFault fault, ProfitDisposition disposition) {
         Objects.requireNonNull(disposition, "disposition");
         SyirkahId id = syirkahId(tenant.value().toString(), companyId, r.contractId());
         return new Commands.ClosePeriod(tenant, id, closeId(r), r.periodStart(), r.periodEnd(),

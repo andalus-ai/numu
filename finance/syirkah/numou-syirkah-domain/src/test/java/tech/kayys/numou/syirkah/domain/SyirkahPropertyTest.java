@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
@@ -12,12 +12,15 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static tech.kayys.numou.syirkah.domain.Fixtures.*;
+import static tech.kayys.numou.numoudomain.Fixtures.*;
 
 /**
- * Randomised (seeded, reproducible) checks of the ledger invariants over arbitrary partner sets, ratios and
- * operation sequences: allocations sum exactly, positions never go negative where the rules forbid it,
- * reconciliation balances, hash chains verify and a restored aggregate equals the live one.
+ * Randomised (seeded, reproducible) checks of the ledger invariants over
+ * arbitrary partner sets, ratios and
+ * operation sequences: allocations sum exactly, positions never go negative
+ * where the rules forbid it,
+ * reconciliation balances, hash chains verify and a restored aggregate equals
+ * the live one.
  */
 class SyirkahPropertyTest {
 
@@ -128,7 +131,8 @@ class SyirkahPropertyTest {
                 } else if (op == 3) {
                     long rev = r.nextInt(5_000_000);
                     last = s.correctLatestClose(last.id(), CloseId.generate(), result(rev, rev / 3, 0, 0),
-                            ManagerFault.none(), r.nextBoolean() ? ProfitDisposition.RETAIN : ProfitDisposition.DISTRIBUTE,
+                            ManagerFault.none(),
+                            r.nextBoolean() ? ProfitDisposition.RETAIN : ProfitDisposition.DISTRIBUTE,
                             NOW);
                 } else {
                     PartnerId p = pid(r.nextInt(n));
@@ -138,7 +142,8 @@ class SyirkahPropertyTest {
                     }
                 }
             } catch (BusinessRuleViolation expected) {
-                // rules may legitimately refuse (e.g. correction after a settlement); state must stay consistent
+                // rules may legitimately refuse (e.g. correction after a settlement); state
+                // must stay consistent
             }
             check(s);
         }

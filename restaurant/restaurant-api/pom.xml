@@ -4,78 +4,83 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>tech.kayys.numou</groupId>
-        <artifactId>numou-restaurant</artifactId>
+        <groupId>tech.kayys.syirkah</groupId>
+        <artifactId>syirkah-restaurant</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>numou-restaurant-api</artifactId>
+    <artifactId>syirkah-restaurant-api</artifactId>
     <name>Restaurant - API (Quarkus service)</name>
     <description>REST resources, event consumer and composition root for the restaurant suite.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-integration</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-aggregate-persistence</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-persistence</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-integration</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-venue-application</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-persistence</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-order-application</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-venue-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-restaurant-kitchen-application</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-order-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-reservation-application</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-kitchen-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-security-adapter</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-restaurant-reservation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-observability-application</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-security-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-observability-adapter</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-observability-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-reliability-adapter</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-observability-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-reliability-application</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-reliability-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-cache-adapter</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-reliability-application</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-foundation-adapter</artifactId>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-cache-adapter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.syirkah</groupId>
+            <artifactId>syirkah-foundation-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

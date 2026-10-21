@@ -1,18 +1,18 @@
-package tech.kayys.numou.syirkah.application;
+package tech.kayys.numou.numouapplication;
 
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.application.port.EventPublisherPort;
-import tech.kayys.numou.syirkah.application.port.JournalPostingPort;
-import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
-import tech.kayys.numou.syirkah.application.port.TransactionPort;
-import tech.kayys.numou.syirkah.domain.CloseSnapshot;
-import tech.kayys.numou.syirkah.domain.LiquidationResult;
-import tech.kayys.numou.syirkah.domain.PartnerMovement;
-import tech.kayys.numou.syirkah.domain.Syirkah;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
-import tech.kayys.numou.syirkah.domain.SyirkahPostingPlan;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.port.EventPublisherPort;
+import tech.kayys.numou.numouapplication.port.JournalPostingPort;
+import tech.kayys.numou.numouapplication.port.SyirkahRepository;
+import tech.kayys.numou.numouapplication.port.TransactionPort;
+import tech.kayys.numou.numoudomain.CloseSnapshot;
+import tech.kayys.numou.numoudomain.LiquidationResult;
+import tech.kayys.numou.numoudomain.PartnerMovement;
+import tech.kayys.numou.numoudomain.Syirkah;
+import tech.kayys.numou.numoudomain.SyirkahId;
+import tech.kayys.numou.numoudomain.SyirkahPostingPlan;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -23,8 +23,10 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * Use cases. Each command runs in one transaction: load -> mutate aggregate -> save with optimistic
- * version -> post journals (idempotent per movement) -> publish events (outbox).
+ * Use cases. Each command runs in one transaction: load -> mutate aggregate ->
+ * save with optimistic
+ * version -> post journals (idempotent per movement) -> publish events
+ * (outbox).
  */
 public class SyirkahApplicationService {
 
@@ -36,8 +38,8 @@ public class SyirkahApplicationService {
     private final Clock clock;
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
-                                     EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
-                                     Clock clock) {
+            EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
+            Clock clock) {
         this.repository = Objects.requireNonNull(repository);
         this.journal = Objects.requireNonNull(journal);
         this.events = Objects.requireNonNull(events);
@@ -47,7 +49,7 @@ public class SyirkahApplicationService {
     }
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
-                                     EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts) {
+            EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts) {
         this(repository, journal, events, tx, accounts, Clock.system(ZoneOffset.UTC));
     }
 
@@ -145,7 +147,8 @@ public class SyirkahApplicationService {
     }
 
     private Instant now() {
-        // microsecond precision: the persisted timestamps (and the audit hashes over them) must survive a store
+        // microsecond precision: the persisted timestamps (and the audit hashes over
+        // them) must survive a store
         return clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 }

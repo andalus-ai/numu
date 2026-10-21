@@ -1,8 +1,8 @@
-package tech.kayys.numou.syirkah.adapter.memory;
+package tech.kayys.numou.numouadapter.memory;
 
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.port.EventPublisherPort;
+import tech.kayys.numou.numouapplication.port.EventPublisherPort;
 
 import java.util.ArrayList;
 import java.util.List;

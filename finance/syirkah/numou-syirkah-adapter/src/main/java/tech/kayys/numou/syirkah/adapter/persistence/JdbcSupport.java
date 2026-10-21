@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
@@ -9,7 +9,10 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
-/** Shared plumbing: run work on the unit-of-work connection (or a short own transaction) under a tenant. */
+/**
+ * Shared plumbing: run work on the unit-of-work connection (or a short own
+ * transaction) under a tenant.
+ */
 final class JdbcSupport {
 
     private JdbcSupport() {

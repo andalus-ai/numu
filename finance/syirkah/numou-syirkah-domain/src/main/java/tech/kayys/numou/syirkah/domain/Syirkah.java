@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
@@ -21,12 +21,18 @@ import java.util.TreeMap;
 import java.util.UUID;
 
 /**
- * Syirkah aggregate: versioned akad, append-only partner movements and hashed period closes.
+ * Syirkah aggregate: versioned akad, append-only partner movements and hashed
+ * period closes.
  *
- * <p>Fiqh rules enforced here: contract validity (net-profit basis, nisbah, capital, witnesses),
- * profit only above intact capital, loss by capital proportion, mudharabah manager liability only on
- * fault, any change of terms only after a close and with unanimous approval (new akad version),
- * liquidation pays debts first, then capital + profit/loss.</p>
+ * <p>
+ * Fiqh rules enforced here: contract validity (net-profit basis, nisbah,
+ * capital, witnesses),
+ * profit only above intact capital, loss by capital proportion, mudharabah
+ * manager liability only on
+ * fault, any change of terms only after a close and with unanimous approval
+ * (new akad version),
+ * liquidation pays debts first, then capital + profit/loss.
+ * </p>
  */
 public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
@@ -56,16 +62,20 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     // ------------------------------------------------------------------ creation
 
-    /** Opens a syirkah from a valid akad; every promised capital is recorded as a contribution movement. */
+    /**
+     * Opens a syirkah from a valid akad; every promised capital is recorded as a
+     * contribution movement.
+     */
     public static Syirkah open(SyirkahId id, TenantId tenantId, SyirkahContract contract, int amountScale,
-                               Instant now) {
+            Instant now) {
         Objects.requireNonNull(contract, "contract").requireValid();
         if (contract.version() != 1) {
             throw new BusinessRuleViolation("first contract version must be 1");
         }
         Objects.requireNonNull(now, "now");
         Syirkah s = new Syirkah(id, tenantId, amountScale);
-        // the base class stamps the wall clock; the aggregate's lifetime must follow the injected clock instead,
+        // the base class stamps the wall clock; the aggregate's lifetime must follow
+        // the injected clock instead,
         // otherwise its own first movement predates createdAt and restore() rejects it
         s.setCreatedAt(now);
         s.setUpdatedAt(now);
@@ -81,13 +91,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         return s;
     }
 
-    // ------------------------------------------------------------------ persistence support
+    // ------------------------------------------------------------------
+    // persistence support
 
     /** Complete, immutable state of the aggregate for persistence adapters. */
     public record Snapshot(SyirkahId id, TenantId tenantId, int scale, SyirkahStatus status,
-                           boolean closedSinceRevision, List<SyirkahContract> contracts,
-                           List<PartnerMovement> movements, List<CloseSnapshot> closes,
-                           LiquidationResult liquidation, int version, Instant createdAt, Instant updatedAt) {
+            boolean closedSinceRevision, List<SyirkahContract> contracts,
+            List<PartnerMovement> movements, List<CloseSnapshot> closes,
+            LiquidationResult liquidation, int version, Instant createdAt, Instant updatedAt) {
         public Snapshot {
             contracts = List.copyOf(contracts);
             movements = List.copyOf(movements);
@@ -101,8 +112,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     }
 
     /**
-     * Rebuilds the aggregate from stored state. Partner positions are re-derived by folding the movements, and
-     * both hash chains are verified: a tampered or inconsistent store fails loudly instead of loading.
+     * Rebuilds the aggregate from stored state. Partner positions are re-derived by
+     * folding the movements, and
+     * both hash chains are verified: a tampered or inconsistent store fails loudly
+     * instead of loading.
      */
     public static Syirkah restore(Snapshot st) {
         validateSnapshotStructure(st);
@@ -137,8 +150,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     }
 
     /**
-     * Checks cross-record invariants that individual movement/close hashes cannot prove alone.
-     * A valid close hash is not enough if the stored contract history was substituted independently.
+     * Checks cross-record invariants that individual movement/close hashes cannot
+     * prove alone.
+     * A valid close hash is not enough if the stored contract history was
+     * substituted independently.
      */
     private static void validateSnapshotStructure(Snapshot st) {
         if (st == null) {
@@ -166,8 +181,9 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("stored syirkah contract history has a version gap at index " + i);
             }
             if (i > 0 && !contract.effectiveFrom().isAfter(st.contracts().get(i - 1).effectiveFrom())) {
-                throw new IllegalStateException("stored syirkah contract effective dates are not strictly increasing at version "
-                        + contract.version());
+                throw new IllegalStateException(
+                        "stored syirkah contract effective dates are not strictly increasing at version "
+                                + contract.version());
             }
             try {
                 contract.requireValid();
@@ -224,8 +240,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             try {
                 movement.amount().amount().setScale(st.scale(), RoundingMode.UNNECESSARY);
             } catch (ArithmeticException invalidScale) {
-                throw new IllegalStateException("stored movement amount exceeds the aggregate accounting scale at sequence "
-                        + movement.sequence(), invalidScale);
+                throw new IllegalStateException(
+                        "stored movement amount exceeds the aggregate accounting scale at sequence "
+                                + movement.sequence(),
+                        invalidScale);
             }
             java.util.UUID expectedMovementId = java.util.UUID.nameUUIDFromBytes(
                     (movement.sequence() + "|" + movement.partner().value() + "|" + movement.type() + "|"
@@ -245,7 +263,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 CloseSnapshot linkedClose = st.closes().get(closeIndex);
                 boolean inRange = movement.sequence() >= linkedClose.firstMovementSequence()
                         && movement.sequence() <= linkedClose.lastMovementSequence();
-                // a correction appends, after the original range: reversals of the corrected close (still tagged with
+                // a correction appends, after the original range: reversals of the corrected
+                // close (still tagged with
                 // it), and the overpayment liability tagged with the replacement close
                 boolean afterRange = movement.sequence() > linkedClose.lastMovementSequence();
                 boolean reversalTail = afterRange && linkedClose.status() == CloseStatus.REVERSED
@@ -255,10 +274,12 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                         && (linkedClose.supersedes() != null || linkedClose.status() == CloseStatus.REVERSED);
                 boolean correctionTail = reversalTail || overpaymentTail;
                 if (!inRange && !correctionTail) {
-                    throw new IllegalStateException("stored movement references a close outside its recorded movement range: sequence "
-                            + movement.sequence() + " " + movement.type() + " " + movement.reference() + " close status "
-                            + linkedClose.status() + " range " + linkedClose.firstMovementSequence() + ".."
-                            + linkedClose.lastMovementSequence());
+                    throw new IllegalStateException(
+                            "stored movement references a close outside its recorded movement range: sequence "
+                                    + movement.sequence() + " " + movement.type() + " " + movement.reference()
+                                    + " close status "
+                                    + linkedClose.status() + " range " + linkedClose.firstMovementSequence() + ".."
+                                    + linkedClose.lastMovementSequence());
                 }
             }
         }
@@ -302,7 +323,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("close " + close.id().value()
                         + " contract terms do not match stored contract history");
             }
-            validateRestoredCloseAccounting(close, st.scale(), contract.currency(), contract.partnerIds(), contract.type());
+            validateRestoredCloseAccounting(close, st.scale(), contract.currency(), contract.partnerIds(),
+                    contract.type());
             long firstMovement = close.firstMovementSequence();
             long lastMovement = close.lastMovementSequence();
             if (firstMovement < 1 || lastMovement < 0 || lastMovement > st.movements().size()
@@ -332,7 +354,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (st.liquidation() != null) {
             if (st.liquidation().completedAt().isBefore(st.createdAt())
                     || st.liquidation().completedAt().isAfter(st.updatedAt())) {
-                throw new IllegalStateException("stored liquidation completion timestamp falls outside snapshot lifetime");
+                throw new IllegalStateException(
+                        "stored liquidation completion timestamp falls outside snapshot lifetime");
             }
             LocalDate latestCloseEnd = st.closes().stream()
                     .filter(close -> close.status() == CloseStatus.ACTIVE)
@@ -340,7 +363,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                     .max(LocalDate::compareTo)
                     .orElse(st.contracts().get(st.contracts().size() - 1).effectiveFrom());
             if (st.liquidation().input().liquidationDate().isBefore(latestCloseEnd)) {
-                throw new IllegalStateException("stored liquidation date precedes the latest active close or current akad effective date");
+                throw new IllegalStateException(
+                        "stored liquidation date precedes the latest active close or current akad effective date");
             }
             validateRestoredLiquidation(st.liquidation(), st.scale(),
                     st.contracts().get(st.contracts().size() - 1).currency(),
@@ -350,7 +374,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         boolean hasCloseSinceCurrentAkad = st.closes().stream()
                 .anyMatch(close -> close.contractVersion() == st.contracts().get(st.contracts().size() - 1).version());
         if (st.closedSinceRevision() != hasCloseSinceCurrentAkad) {
-            throw new IllegalStateException("stored closedSinceRevision flag disagrees with current akad close history");
+            throw new IllegalStateException(
+                    "stored closedSinceRevision flag disagrees with current akad close history");
         }
         if (st.status() == SyirkahStatus.TERMINATED && st.liquidation() == null) {
             throw new IllegalStateException("terminated syirkah is missing its liquidation result");
@@ -359,7 +384,6 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             throw new IllegalStateException("non-terminated syirkah contains a liquidation result");
         }
     }
-
 
     private static void validateRestoredCloseAccounting(CloseSnapshot close, int scale,
             tech.kayys.numou.foundation.domain.valueobject.Currency currency, Set<PartnerId> contractPartners,
@@ -414,7 +438,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             if (line.capitalRestored().isNegative() || line.profitShare().isNegative()
                     || line.lossBorne().isNegative() || line.managerLiability().isNegative()
                     || line.retained().isNegative()) {
-                throw new IllegalStateException("stored close " + close.id().value() + " allocation contains a negative component");
+                throw new IllegalStateException(
+                        "stored close " + close.id().value() + " allocation contains a negative component");
             }
             amounts.add(line.capitalRestored());
             amounts.add(line.profitShare());
@@ -490,15 +515,16 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     }
 
     private static void validateRestoredLiquidation(LiquidationResult result, int scale,
-                                                       tech.kayys.numou.foundation.domain.valueobject.Currency currency,
-                                                       Set<PartnerId> knownPartners, SyirkahType contractType) {
+            tech.kayys.numou.foundation.domain.valueobject.Currency currency,
+            Set<PartnerId> knownPartners, SyirkahType contractType) {
         if (result.input() == null || result.residual() == null || result.netResult() == null
                 || result.lines() == null || result.payouts() == null
                 || result.completedAt() == null || result.hash() == null) {
             throw new IllegalStateException("stored liquidation result has missing required metadata");
         }
         if (!result.input().shufahOffered()) {
-            throw new IllegalStateException("stored liquidation does not confirm that partners were offered hak syuf'ah");
+            throw new IllegalStateException(
+                    "stored liquidation does not confirm that partners were offered hak syuf'ah");
         }
         List<Money> amounts = new ArrayList<>();
         amounts.add(result.input().assetProceeds());
@@ -513,11 +539,13 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("stored liquidation result has incomplete allocation line");
             }
             if (!knownPartners.contains(line.partner())) {
-                throw new IllegalStateException("stored liquidation allocation references a partner absent from current akad");
+                throw new IllegalStateException(
+                        "stored liquidation allocation references a partner absent from current akad");
             }
             if (!allocatedPartners.add(line.partner())) {
-                throw new IllegalStateException("stored liquidation result contains duplicate allocation lines for partner "
-                        + line.partner().value());
+                throw new IllegalStateException(
+                        "stored liquidation result contains duplicate allocation lines for partner "
+                                + line.partner().value());
             }
             if (line.capitalRestored().isNegative() || line.profitShare().isNegative()
                     || line.lossBorne().isNegative() || line.managerLiability().isNegative()
@@ -525,7 +553,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("stored liquidation allocation contains a negative component");
             }
             if (contractType != SyirkahType.MUDHARABAH && line.managerLiability().isPositive()) {
-                throw new IllegalStateException("stored liquidation records manager liability outside a mudharabah contract");
+                throw new IllegalStateException(
+                        "stored liquidation records manager liability outside a mudharabah contract");
             }
             amounts.add(line.capitalRestored());
             amounts.add(line.profitShare());
@@ -534,7 +563,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             amounts.add(line.retained());
         }
         if (!allocatedPartners.equals(knownPartners)) {
-            throw new IllegalStateException("stored liquidation allocation lines do not cover every partner in current akad");
+            throw new IllegalStateException(
+                    "stored liquidation allocation lines do not cover every partner in current akad");
         }
         Set<PartnerId> payoutPartners = new java.util.HashSet<>();
         for (LiquidationResult.Payout payout : result.payouts()) {
@@ -542,7 +572,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 throw new IllegalStateException("stored liquidation result has incomplete payout");
             }
             if (!knownPartners.contains(payout.partner())) {
-                throw new IllegalStateException("stored liquidation payout references a partner absent from current akad");
+                throw new IllegalStateException(
+                        "stored liquidation payout references a partner absent from current akad");
             }
             if (!payoutPartners.add(payout.partner())) {
                 throw new IllegalStateException("stored liquidation result contains duplicate payouts for partner "
@@ -573,7 +604,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (result.netResult().isPositive()) {
             if (allocatedLoss.isPositive() || allocatedManagerLiability.isPositive()
                     || allocatedCapitalRestored.add(allocatedProfit).compareTo(result.netResult()) != 0) {
-                throw new IllegalStateException("stored liquidation profit allocation does not reconcile to net result");
+                throw new IllegalStateException(
+                        "stored liquidation profit allocation does not reconcile to net result");
             }
         } else if (result.netResult().isNegative()) {
             if (allocatedCapitalRestored.isPositive() || allocatedProfit.isPositive()
@@ -598,7 +630,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         Money expectedResidual = result.input().assetProceeds().subtract(result.input().externalDebts());
         if (result.residual().compareTo(expectedResidual) != 0) {
-            throw new IllegalStateException("stored liquidation residual does not equal asset proceeds minus external debts");
+            throw new IllegalStateException(
+                    "stored liquidation residual does not equal asset proceeds minus external debts");
         }
     }
 
@@ -659,11 +692,12 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         return Money.of(BigDecimal.valueOf(unitsValue, scale), cur);
     }
 
-    // ------------------------------------------------------------------ period close
+    // ------------------------------------------------------------------ period
+    // close
 
     public CloseSnapshot closePeriod(CloseId closeId, LocalDate periodStart, LocalDate periodEnd,
-                                     FinancialResult result, ManagerFault fault, ProfitDisposition disposition,
-                                     Instant now) {
+            FinancialResult result, ManagerFault fault, ProfitDisposition disposition,
+            Instant now) {
         requireActive();
         Objects.requireNonNull(closeId, "closeId");
         Objects.requireNonNull(periodStart, "periodStart");
@@ -685,8 +719,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     }
 
     private CloseSnapshot doClose(CloseId closeId, LocalDate start, LocalDate end, FinancialResult result,
-                                  ManagerFault fault, ProfitDisposition disposition, CloseId supersedes,
-                                  Instant now) {
+            ManagerFault fault, ProfitDisposition disposition, CloseId supersedes,
+            Instant now) {
         SyirkahContract c = contract();
         result = normalize(result);
         Money net = result.netResult();
@@ -732,7 +766,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         return snap;
     }
 
-    // ------------------------------------------------------------------ distribution / settlement
+    // ------------------------------------------------------------------
+    // distribution / settlement
 
     /** Pays out allocated profit. Idempotent per {@code reference}. */
     public void distributeProfit(PartnerId partner, Money amount, String reference, Instant now) {
@@ -742,7 +777,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
     }
 
-    /** Records that a partner paid back what he owes (manager fault / deficit). Idempotent per reference. */
+    /**
+     * Records that a partner paid back what he owes (manager fault / deficit).
+     * Idempotent per reference.
+     */
     public void settleLiability(PartnerId partner, Money amount, String reference, Instant now) {
         requireStatusNot(SyirkahStatus.TERMINATED);
         if (settle(partner, amount, reference, MovementType.LIABILITY_SETTLED, now)) {
@@ -777,13 +815,18 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         return true;
     }
 
-    // ------------------------------------------------------------------ revision of akad
+    // ------------------------------------------------------------------ revision
+    // of akad
 
     /**
-     * New akad version (capital addition, new nisbah, partner replacement). Only after a close,
-     * with unanimous approval of old and new partners; retained profit is already partner capital.
-     * The new contract's capital per partner is compared with the current capital balance and the
-     * difference is contributed or returned; impaired capital is reset to the balance.
+     * New akad version (capital addition, new nisbah, partner replacement). Only
+     * after a close,
+     * with unanimous approval of old and new partners; retained profit is already
+     * partner capital.
+     * The new contract's capital per partner is compared with the current capital
+     * balance and the
+     * difference is contributed or returned; impaired capital is reset to the
+     * balance.
      */
     public void reviseContract(SyirkahContract next, Set<PartnerId> approvals, Instant now) {
         Objects.requireNonNull(now, "now");
@@ -815,10 +858,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         Set<PartnerId> all = new java.util.LinkedHashSet<>(buckets.keySet());
         all.addAll(next.partnerIds());
 
-        // Preflight the entire revision before appending any movement. A departing partner
-        // may still have an open payable/liability even when earlier partners in iteration
-        // order would otherwise receive capital adjustments. Rejecting halfway through the
-        // loop would leave the aggregate partially revised despite the akad not changing.
+        // Preflight the entire revision before appending any movement. A departing
+        // partner
+        // may still have an open payable/liability even when earlier partners in
+        // iteration
+        // order would otherwise receive capital adjustments. Rejecting halfway through
+        // the
+        // loop would leave the aggregate partially revised despite the akad not
+        // changing.
         Map<PartnerId, Money> balances = new LinkedHashMap<>();
         Map<PartnerId, Money> targets = new LinkedHashMap<>();
         for (PartnerId p : all) {
@@ -831,7 +878,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             targets.put(p, stays ? norm(next.capitalOf(p)) : Money.zero(cur.currency()));
         }
 
-        // All caller-controlled business-rule checks are complete; now apply the planned
+        // All caller-controlled business-rule checks are complete; now apply the
+        // planned
         // capital/basis movements and only then publish the new contract version.
         for (PartnerId p : all) {
             PartnerPosition pos = buckets.containsKey(p) ? position(p) : null;
@@ -860,12 +908,15 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     // ------------------------------------------------------------------ correction
 
     /**
-     * Corrects the latest effective close: reverses its movements and recomputes with the corrected
-     * result. Allowed after distributions: profit paid beyond the corrected entitlement becomes a liability of that partner
-     * ({@link MovementType#OVERPAYMENT_TO_LIABILITY}); any other later movement (e.g. a settlement) refuses it.
+     * Corrects the latest effective close: reverses its movements and recomputes
+     * with the corrected
+     * result. Allowed after distributions: profit paid beyond the corrected
+     * entitlement becomes a liability of that partner
+     * ({@link MovementType#OVERPAYMENT_TO_LIABILITY}); any other later movement
+     * (e.g. a settlement) refuses it.
      */
     public CloseSnapshot correctLatestClose(CloseId target, CloseId replacementId, FinancialResult corrected,
-                                            ManagerFault fault, ProfitDisposition disposition, Instant now) {
+            ManagerFault fault, ProfitDisposition disposition, Instant now) {
         requireActive();
         Objects.requireNonNull(replacementId, "replacementId");
         Objects.requireNonNull(disposition, "disposition");
@@ -880,8 +931,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (closes.stream().anyMatch(c -> c.id().equals(replacementId))) {
             throw new BusinessRuleViolation("replacement close id already used");
         }
-        // Validate all caller-controlled accounting inputs before reversing any existing
-        // movements. doClose validates the same rules, but doing it after reversal would
+        // Validate all caller-controlled accounting inputs before reversing any
+        // existing
+        // movements. doClose validates the same rules, but doing it after reversal
+        // would
         // leave the aggregate partially mutated if the replacement close is rejected.
         FinancialResult normalizedCorrected = normalize(corrected);
         ManagerFault normalizedFault = normalizeFault(fault);
@@ -922,7 +975,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         replaceClose(last.withStatus(CloseStatus.REVERSED));
         CloseSnapshot snap = doClose(replacementId, last.periodStart(), last.periodEnd(),
                 normalizedCorrected, normalizedFault, disposition, target, now);
-        // Profit already paid beyond the corrected entitlement is owed back (no negative payables).
+        // Profit already paid beyond the corrected entitlement is owed back (no
+        // negative payables).
         for (Partner p : contract().partners()) {
             Money payable = position(p.id()).payable();
             if (payable.isNegative()) {
@@ -935,7 +989,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         return snap;
     }
 
-    // ------------------------------------------------------------------ liquidation
+    // ------------------------------------------------------------------
+    // liquidation
 
     public void startLiquidation(Instant now) {
         Objects.requireNonNull(now, "now");
@@ -945,7 +1000,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
     }
 
     /**
-     * Completes liquidation: debts first, then partners' claims (capital + undistributed profit);
+     * Completes liquidation: debts first, then partners' claims (capital +
+     * undistributed profit);
      * the remainder is profit (by nisbah) or loss (by capital).
      */
     public LiquidationResult liquidate(LiquidationInput input, ManagerFault fault, Instant now) {
@@ -956,7 +1012,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             throw new InvalidStateException("liquidation must be started first");
         }
         if (!input.shufahOffered()) {
-            throw new BusinessRuleViolation("hak syuf'ah: partners must be offered the assets before sale to outsiders");
+            throw new BusinessRuleViolation(
+                    "hak syuf'ah: partners must be offered the assets before sale to outsiders");
         }
         LocalDate latestCloseEnd = closes.stream()
                 .filter(close -> close.status() == CloseStatus.ACTIVE)
@@ -964,11 +1021,15 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 .max(LocalDate::compareTo)
                 .orElse(contract().effectiveFrom());
         if (input.liquidationDate().isBefore(latestCloseEnd)) {
-            throw new BusinessRuleViolation("liquidation date precedes the latest active close or current akad effective date");
+            throw new BusinessRuleViolation(
+                    "liquidation date precedes the latest active close or current akad effective date");
         }
-        // A prior close may have recorded a manager-fault liability. Do not terminate the
-        // partnership while such a receivable is still open: otherwise the liability would
-        // remain on a terminated aggregate without being recovered or explicitly carried forward.
+        // A prior close may have recorded a manager-fault liability. Do not terminate
+        // the
+        // partnership while such a receivable is still open: otherwise the liability
+        // would
+        // remain on a terminated aggregate without being recovered or explicitly
+        // carried forward.
         for (Partner p : contract().partners()) {
             if (position(p.id()).liability().isPositive()) {
                 throw new BusinessRuleViolation("outstanding partner liability must be settled before liquidation: "
@@ -1037,7 +1098,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     // ------------------------------------------------------------------ reports
 
-    /** Statement of one partner with running capital balance, payable and liability after each movement. */
+    /**
+     * Statement of one partner with running capital balance, payable and liability
+     * after each movement.
+     */
     public PartnerStatement statement(PartnerId partner) {
         var cur = contract().currency();
         long[] run = new long[4];
@@ -1079,10 +1143,14 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                 c.result(), c.netResult(), c.disposition(), rows, profit, restored, loss, liability);
     }
 
-    /** Capital roll-forward per partner for movements in (from, to]; opening is the balance at {@code from}. */
+    /**
+     * Capital roll-forward per partner for movements in (from, to]; opening is the
+     * balance at {@code from}.
+     */
     public CapitalRollForward capitalRollForward(Instant from, Instant to) {
         var cur = contract().currency();
-        Map<PartnerId, long[]> acc = new LinkedHashMap<>(); // opening, contrib, returns, retained, restored, loss, deficit
+        Map<PartnerId, long[]> acc = new LinkedHashMap<>(); // opening, contrib, returns, retained, restored, loss,
+                                                            // deficit
         for (PartnerId p : buckets.keySet()) {
             acc.put(p, new long[7]);
         }
@@ -1101,7 +1169,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
                     case CAPITAL_RESTORED -> a[4] += u;
                     case LOSS_ALLOCATED -> a[5] += u;
                     case DEFICIT_TO_LIABILITY -> a[6] += u;
-                    default -> { }
+                    default -> {
+                    }
                 }
             }
         }
@@ -1131,7 +1200,8 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             switch (m.type()) {
                 case CONTRIBUTION, LIABILITY_SETTLED -> cash += u;
                 case CAPITAL_RETURN, PROFIT_DISTRIBUTED -> cash -= u;
-                default -> { }
+                default -> {
+                }
             }
         }
         long result = 0;
@@ -1161,7 +1231,10 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     // ------------------------------------------------------------------ integrity
 
-    /** Verifies the movement hash chain and close hash chain; returns problems found (empty = intact). */
+    /**
+     * Verifies the movement hash chain and close hash chain; returns problems found
+     * (empty = intact).
+     */
     public List<String> verifyIntegrity() {
         List<String> problems = new ArrayList<>();
         String prev = AuditHash.GENESIS;

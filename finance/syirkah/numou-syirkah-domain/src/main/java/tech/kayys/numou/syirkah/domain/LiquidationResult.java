@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.valueobject.Money;
 
@@ -7,13 +7,16 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Outcome of liquidation. {@code residual} = proceeds - debts; {@code netResult} = residual minus
- * all partner claims (capital + undistributed profit): positive is profit split by nisbah, negative is
- * loss split by capital. {@code payout} is what each partner finally receives (negative = owes).
+ * Outcome of liquidation. {@code residual} = proceeds - debts;
+ * {@code netResult} = residual minus
+ * all partner claims (capital + undistributed profit): positive is profit split
+ * by nisbah, negative is
+ * loss split by capital. {@code payout} is what each partner finally receives
+ * (negative = owes).
  */
 public record LiquidationResult(LiquidationInput input, Money residual, Money netResult,
-                                List<AllocationLine> lines, List<Payout> payouts, Instant completedAt,
-                                String hash) implements Serializable {
+        List<AllocationLine> lines, List<Payout> payouts, Instant completedAt,
+        String hash) implements Serializable {
 
     public LiquidationResult {
         lines = List.copyOf(lines);
@@ -21,11 +24,13 @@ public record LiquidationResult(LiquidationInput input, Money residual, Money ne
     }
 
     /**
-     * Versioned audit fingerprint over the complete liquidation outcome. Partner payouts and
-     * allocation lines are material: changing either must invalidate the recorded result.
+     * Versioned audit fingerprint over the complete liquidation outcome. Partner
+     * payouts and
+     * allocation lines are material: changing either must invalidate the recorded
+     * result.
      */
     public static String computeHash(LiquidationInput input, Money residual, Money netResult,
-                                     List<AllocationLine> lines, List<Payout> payouts, Instant completedAt) {
+            List<AllocationLine> lines, List<Payout> payouts, Instant completedAt) {
         StringBuilder canonical = new StringBuilder("liquidation-v2|")
                 .append(input.assetProceeds().currency().code()).append(':')
                 .append(input.assetProceeds().amount().stripTrailingZeros().toPlainString()).append('|')
@@ -52,8 +57,10 @@ public record LiquidationResult(LiquidationInput input, Money residual, Money ne
     }
 
     /**
-     * Also verifies legacy persisted results whose original hash only bound the final movement
-     * hash, residual and net result. New results always use the complete liquidation-v2 fingerprint.
+     * Also verifies legacy persisted results whose original hash only bound the
+     * final movement
+     * hash, residual and net result. New results always use the complete
+     * liquidation-v2 fingerprint.
      */
     public boolean hashIsValid(String movementHeadHash) {
         if (hashIsValid()) {

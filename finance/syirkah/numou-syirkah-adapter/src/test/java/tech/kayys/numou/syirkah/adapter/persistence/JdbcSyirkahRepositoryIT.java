@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.adapter.persistence;
+package tech.kayys.numou.numouadapter.persistence;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -6,8 +6,8 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
-import tech.kayys.numou.syirkah.domain.*;
+import tech.kayys.numou.numouapplication.port.SyirkahRepository;
+import tech.kayys.numou.numoudomain.*;
 
 import javax.sql.DataSource;
 import java.io.InputStream;
@@ -22,10 +22,14 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Runs against a real PostgreSQL. Enable with SYIRKAH_PG_URL=jdbc:postgresql://host/db plus SYIRKAH_PG_USER and
- * SYIRKAH_PG_PASSWORD. The user must NOT be a superuser and must not have BYPASSRLS, otherwise row-level security
- * is silently skipped and the tenant checks below prove nothing (the test asserts this).
- * The schema is created from db/migration/V300__syirkah.sql if absent (run once as the table owner).
+ * Runs against a real PostgreSQL. Enable with
+ * SYIRKAH_PG_URL=jdbc:postgresql://host/db plus SYIRKAH_PG_USER and
+ * SYIRKAH_PG_PASSWORD. The user must NOT be a superuser and must not have
+ * BYPASSRLS, otherwise row-level security
+ * is silently skipped and the tenant checks below prove nothing (the test
+ * asserts this).
+ * The schema is created from db/migration/V300__syirkah.sql if absent (run once
+ * as the table owner).
  */
 @EnabledIfEnvironmentVariable(named = "SYIRKAH_PG_URL", matches = ".+")
 class JdbcSyirkahRepositoryIT {
@@ -57,7 +61,8 @@ class JdbcSyirkahRepositoryIT {
             rs.next();
             if (!rs.getBoolean(1)) {
                 for (String script : List.of("V300__syirkah.sql", "V301__syirkah_governance_outbox.sql")) {
-                    try (InputStream in = JdbcSyirkahRepositoryIT.class.getResourceAsStream("/db/migration/" + script)) {
+                    try (InputStream in = JdbcSyirkahRepositoryIT.class
+                            .getResourceAsStream("/db/migration/" + script)) {
                         st.execute(new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8));
                     }
                 }
@@ -126,7 +131,8 @@ class JdbcSyirkahRepositoryIT {
         repo.save(a, v);
         close(b, 2_000_000, 0);
         assertThrows(SyirkahRepository.ConcurrentModificationException.class, () -> repo.save(b, v));
-        // the failed save must not leave the in-memory aggregate claiming the next version
+        // the failed save must not leave the in-memory aggregate claiming the next
+        // version
         assertEquals(v, b.getVersion());
         // and nothing of b was stored
         assertEquals(1, repo.find(tenant, s.id()).orElseThrow().closes().size());
@@ -144,7 +150,8 @@ class JdbcSyirkahRepositoryIT {
         Syirkah mine = repo.find(owner, s.id()).orElseThrow();
         int v = mine.getVersion();
         close(mine, 1_000_000, 0);
-        // pretend to be another tenant: same id, forged tenant -> RLS hides the row, so it reads as a conflict
+        // pretend to be another tenant: same id, forged tenant -> RLS hides the row, so
+        // it reads as a conflict
         Syirkah.Snapshot snap = mine.snapshot();
         Syirkah forged = Syirkah.restore(new Syirkah.Snapshot(snap.id(), other, snap.scale(), snap.status(),
                 snap.closedSinceRevision(), snap.contracts(), snap.movements(), snap.closes(), snap.liquidation(),
@@ -170,18 +177,18 @@ class JdbcSyirkahRepositoryIT {
         TenantId t = TenantId.generate();
         SyirkahId sid = SyirkahId.generate();
         UUID id = UUID.randomUUID();
-        var payload = new tech.kayys.numou.syirkah.application.command.Commands.Liquidate(t, sid,
+        var payload = new tech.kayys.numou.numouapplication.command.Commands.Liquidate(t, sid,
                 new LiquidationInput(idr("9.00"), idr("1.00"), true, LocalDate.parse("2026-05-05")),
                 ManagerFault.none());
-        var p = new tech.kayys.numou.syirkah.application.governance.PendingApproval(id, t, sid,
-                tech.kayys.numou.syirkah.application.governance.PendingApproval.Kind.LIQUIDATE, payload, "alice", T0,
-                tech.kayys.numou.syirkah.application.governance.PendingApproval.Status.PENDING, null, null, null);
+        var p = new tech.kayys.numou.numouapplication.governance.PendingApproval(id, t, sid,
+                tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.LIQUIDATE, payload, "alice", T0,
+                tech.kayys.numou.numouapplication.governance.PendingApproval.Status.PENDING, null, null, null);
         approvals.save(p);
         assertEquals(List.of(p), approvals.pending(t));
         assertTrue(approvals.find(TenantId.generate(), id).isEmpty());
-        var decided = new tech.kayys.numou.syirkah.application.governance.PendingApproval(id, t, sid, p.kind(),
+        var decided = new tech.kayys.numou.numouapplication.governance.PendingApproval(id, t, sid, p.kind(),
                 payload, "alice", T0,
-                tech.kayys.numou.syirkah.application.governance.PendingApproval.Status.APPROVED, "bob",
+                tech.kayys.numou.numouapplication.governance.PendingApproval.Status.APPROVED, "bob",
                 T0.plusSeconds(5), "ok");
         approvals.save(decided);
         assertEquals(decided, approvals.find(t, id).orElseThrow());
@@ -230,8 +237,8 @@ class JdbcSyirkahRepositoryIT {
         var e1 = new SyirkahEvents.SyirkahOpened(UUID.randomUUID(), T0, a.id(), SyirkahType.INAN, 1);
         var e2 = new SyirkahEvents.SyirkahOpened(UUID.randomUUID(), T0.plusSeconds(1), b.id(), SyirkahType.INAN, 1);
         outbox.publish(t, List.of(e1, e2));
-        var relay = new tech.kayys.numou.syirkah.application.ops.OutboxRelay(ops, uow, java.time.Clock.systemUTC());
-        List<tech.kayys.numou.syirkah.application.ops.OutboxRecord> got = new ArrayList<>();
+        var relay = new tech.kayys.numou.numouapplication.ops.OutboxRelay(ops, uow, java.time.Clock.systemUTC());
+        List<tech.kayys.numou.numouapplication.ops.OutboxRecord> got = new ArrayList<>();
         assertEquals(2, relay.drain(t, 10, got::add));
         assertEquals(List.of(e1.eventId(), e2.eventId()), got.stream().map(r -> r.eventId()).toList());
         assertEquals(0, relay.drain(t, 10, got::add));
@@ -247,7 +254,7 @@ class JdbcSyirkahRepositoryIT {
         int v = loaded.getVersion();
         close(loaded, 5_000_000, 0);
         repo.save(loaded, v);
-        var report = new tech.kayys.numou.syirkah.application.ops.SyirkahIntegrityAuditor(repo, ops).audit(t);
+        var report = new tech.kayys.numou.numouapplication.ops.SyirkahIntegrityAuditor(repo, ops).audit(t);
         assertTrue(report.ok(), report.toString());
         assertEquals(1, report.checked());
     }

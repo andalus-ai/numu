@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.identifier.DomainId;
 
@@ -6,7 +6,10 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Identifier of a partner (syarik / shahibul mal / mudharib). Ordered for deterministic tie-breaking. */
+/**
+ * Identifier of a partner (syarik / shahibul mal / mudharib). Ordered for
+ * deterministic tie-breaking.
+ */
 public record PartnerId(UUID value) implements DomainId<UUID>, Comparable<PartnerId>, Serializable {
     public PartnerId {
         Objects.requireNonNull(value, "PartnerId value must not be null");

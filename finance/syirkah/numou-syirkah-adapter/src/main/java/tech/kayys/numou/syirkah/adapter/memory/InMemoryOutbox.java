@@ -1,16 +1,19 @@
-package tech.kayys.numou.syirkah.adapter.memory;
+package tech.kayys.numou.numouadapter.memory;
 
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.ops.OutboxRecord;
-import tech.kayys.numou.syirkah.application.port.EventPublisherPort;
-import tech.kayys.numou.syirkah.application.port.OutboxPort;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
+import tech.kayys.numou.numouapplication.ops.OutboxRecord;
+import tech.kayys.numou.numouapplication.port.EventPublisherPort;
+import tech.kayys.numou.numouapplication.port.OutboxPort;
+import tech.kayys.numou.numoudomain.SyirkahId;
 
 import java.time.Instant;
 import java.util.*;
 
-/** Reference outbox (publisher and relay side) for tests and single-node use; idempotent per event id. */
+/**
+ * Reference outbox (publisher and relay side) for tests and single-node use;
+ * idempotent per event id.
+ */
 public class InMemoryOutbox implements EventPublisherPort, OutboxPort {
 
     private record Row(TenantId tenant, OutboxRecord record, Instant[] publishedAt) {

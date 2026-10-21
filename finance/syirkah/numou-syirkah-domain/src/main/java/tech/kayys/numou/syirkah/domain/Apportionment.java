@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -13,9 +13,14 @@ import java.util.TreeMap;
 /**
  * Deterministic exact apportionment (largest remainder method).
  *
- * <p>The returned parts always sum to exactly {@code total} at the requested scale;
- * ties are broken by key order, so the result never depends on map iteration order.
- * This replaces the "remainder goes to the last partner" shortcut, which biases results.</p>
+ * <p>
+ * The returned parts always sum to exactly {@code total} at the requested
+ * scale;
+ * ties are broken by key order, so the result never depends on map iteration
+ * order.
+ * This replaces the "remainder goes to the last partner" shortcut, which biases
+ * results.
+ * </p>
  */
 public final class Apportionment {
 
@@ -63,7 +68,8 @@ public final class Apportionment {
         int leftover = abs.subtract(floorSum).divide(unit, 0, RoundingMode.UNNECESSARY).intValueExact();
 
         List<K> order = new ArrayList<>(sorted.keySet());
-        order.sort(Comparator.<K, BigDecimal>comparing(remainders::get).reversed().thenComparing(Comparator.naturalOrder()));
+        order.sort(Comparator.<K, BigDecimal>comparing(remainders::get).reversed()
+                .thenComparing(Comparator.naturalOrder()));
         for (int i = 0; i < leftover; i++) {
             K k = order.get(i % order.size());
             floors.put(k, floors.get(k).add(unit));

@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION restaurant_anonymize_guests(older_than interval) RETU
 DECLARE
     changed bigint;
 BEGIN
-    UPDATE restaurant_document
+    UPDATE aggregate_document
     SET doc = jsonb_set(jsonb_set(jsonb_set(doc, '{guestName}', '"[anonymised]"'),
                                   '{guestPhone}', 'null'), '{guestEmail}', 'null'),
         updated_at = now()

@@ -1,12 +1,12 @@
-package tech.kayys.numou.syirkah.application.ops;
+package tech.kayys.numou.numouapplication.ops;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.syirkah.application.port.SyirkahCatalogPort;
-import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
-import tech.kayys.numou.syirkah.application.query.SyirkahSummary;
-import tech.kayys.numou.syirkah.domain.EquityReconciliation;
-import tech.kayys.numou.syirkah.domain.Syirkah;
-import tech.kayys.numou.syirkah.domain.SyirkahId;
+import tech.kayys.numou.numouapplication.port.SyirkahCatalogPort;
+import tech.kayys.numou.numouapplication.port.SyirkahRepository;
+import tech.kayys.numou.numouapplication.query.SyirkahSummary;
+import tech.kayys.numou.numoudomain.EquityReconciliation;
+import tech.kayys.numou.numoudomain.Syirkah;
+import tech.kayys.numou.numoudomain.SyirkahId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,8 +14,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Scheduled-job building block: re-loads every syirkah of a tenant (which re-verifies all hash chains and structural
- * invariants), then checks the equity identity. Never throws for bad data: a syirkah that cannot be loaded is a
+ * Scheduled-job building block: re-loads every syirkah of a tenant (which
+ * re-verifies all hash chains and structural
+ * invariants), then checks the equity identity. Never throws for bad data: a
+ * syirkah that cannot be loaded is a
  * finding, so one corrupt ledger cannot hide the others.
  */
 public class SyirkahIntegrityAuditor {
@@ -78,7 +80,8 @@ public class SyirkahIntegrityAuditor {
             problems.addAll(s.verifyIntegrity());
             EquityReconciliation eq = s.reconcile();
             if (!eq.balanced()) {
-                problems.add("partner equity does not reconcile: difference " + eq.difference().amount().toPlainString());
+                problems.add(
+                        "partner equity does not reconcile: difference " + eq.difference().amount().toPlainString());
             }
         } catch (RuntimeException e) {
             problems.add("cannot be restored: " + e.getMessage());

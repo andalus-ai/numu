@@ -1,0 +1,26 @@
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5}
+#app{max-width:720px;margin:0 auto;padding:24px 16px 64px}
+.logo{max-height:56px;max-width:60%;margin-bottom:16px}
+h1{font-size:1.6rem;margin:.2em 0}
+.card{background:rgba(127,127,127,.08);border:1px solid rgba(127,127,127,.25);border-radius:12px;padding:18px 20px;margin:14px 0}
+.card.err{border-color:#dc2626}
+.q-title{font-weight:600;margin-bottom:4px}.req{color:#dc2626;margin-left:4px}
+.q-desc{opacity:.75;font-size:.9rem;margin-bottom:8px}
+.msg{color:#dc2626;font-size:.88rem;margin-top:6px}
+.in,textarea,select{width:100%;padding:10px 12px;border:1px solid rgba(127,127,127,.5);border-radius:8px;font:inherit;color:inherit;background:transparent}
+textarea{min-height:96px;resize:vertical}
+label.opt{display:flex;gap:10px;align-items:center;padding:6px 2px;cursor:pointer}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--primary);background:transparent;color:var(--primary);padding:8px 16px}
+button.primary{background:var(--primary);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.spread{justify-content:space-between}
+.pill{min-width:42px;text-align:center;padding:8px 10px}.pill.sel{background:var(--primary);color:#fff}
+.scale-labels{display:flex;justify-content:space-between;font-size:.8rem;opacity:.7;margin-top:4px}
+table.mx{width:100%;border-collapse:collapse;font-size:.92rem}.mx th,.mx td{padding:6px;text-align:center;border-bottom:1px solid rgba(127,127,127,.2)}.mx td:first-child,.mx th:first-child{text-align:left}
+.progress{height:6px;background:rgba(127,127,127,.25);border-radius:4px;overflow:hidden;margin:10px 0}.progress>div{height:100%;background:var(--primary);transition:width .3s}
+.timer{font-variant-numeric:tabular-nums;opacity:.8}
+.rank li{display:flex;gap:8px;align-items:center;padding:4px 0}.rank ol{padding-left:20px;margin:0}
+.bar{background:rgba(127,127,127,.2);border-radius:4px;margin:4px 0;position:relative;height:24px}.bar>span{position:absolute;inset:0 auto 0 0;background:var(--primary);opacity:.6;border-radius:4px}.bar>em{position:relative;padding:0 8px;font-style:normal;line-height:24px;font-size:.85rem}
+.big{font-size:2.2rem;font-weight:700}
+.sec{font-size:1.15rem;margin:24px 0 2px}

@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.domain;
+package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.valueobject.Money;
 
@@ -6,7 +6,8 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Result of a period: net profit = revenue - direct costs - operating costs - other costs.
+ * Result of a period: net profit = revenue - direct costs - operating costs -
+ * other costs.
  * Profit sharing is always computed on {@link #netResult()}, never on revenue.
  */
 public record FinancialResult(Money revenue, Money directCosts, Money operatingCosts, Money otherCosts)
@@ -17,7 +18,7 @@ public record FinancialResult(Money revenue, Money directCosts, Money operatingC
         Objects.requireNonNull(directCosts, "directCosts");
         Objects.requireNonNull(operatingCosts, "operatingCosts");
         Objects.requireNonNull(otherCosts, "otherCosts");
-        for (Money m : new Money[] {revenue, directCosts, operatingCosts, otherCosts}) {
+        for (Money m : new Money[] { revenue, directCosts, operatingCosts, otherCosts }) {
             if (m.isNegative()) {
                 throw new IllegalArgumentException("revenue and costs must be non-negative: " + m);
             }
