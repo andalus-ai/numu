@@ -66,6 +66,7 @@ public final class SchedulePlan {
                 && existing.code().equalsIgnoreCase(replacement.code()))) {
             throw new IllegalArgumentException("Activity code must be unique within a plan");
         }
+        validateDependencyDates(replacement);
         activities.set(index, replacement);
     }
 
@@ -76,6 +77,11 @@ public final class SchedulePlan {
             throw new IllegalArgumentException("Both dependency endpoints must belong to this plan");
         }
         if (dependencies.contains(dependency)) throw new IllegalArgumentException("Dependency already exists");
+        ScheduleActivity predecessor = activityById(dependency.predecessor());
+        ScheduleActivity successor = activityById(dependency.successor());
+        if (successor.plannedStart().isBefore(predecessor.plannedFinish())) {
+            throw new IllegalArgumentException("Successor cannot start before predecessor finishes");
+        }
         dependencies.add(dependency);
         if (hasDependencyCycle()) {
             dependencies.remove(dependencies.size() - 1);
@@ -95,28 +101,45 @@ public final class SchedulePlan {
 
     private boolean hasDependencyCycle() {
         var outgoing = new java.util.HashMap<ActivityId, List<ActivityId>>();
+        var indegree = new java.util.HashMap<ActivityId, Integer>();
+        for (ScheduleActivity activity : activities) indegree.put(activity.id(), 0);
         for (ActivityDependency edge : dependencies) {
             outgoing.computeIfAbsent(edge.predecessor(), ignored -> new ArrayList<>()).add(edge.successor());
+            indegree.computeIfPresent(edge.successor(), (ignored, degree) -> degree + 1);
         }
-        Set<ActivityId> complete = new HashSet<>();
-        Set<ActivityId> active = new HashSet<>();
-        for (ScheduleActivity activity : activities) {
-            if (cycleFrom(activity.id(), outgoing, complete, active)) return true;
+        var ready = new java.util.ArrayDeque<ActivityId>();
+        indegree.forEach((id, degree) -> { if (degree == 0) ready.addLast(id); });
+        int visited = 0;
+        while (!ready.isEmpty()) {
+            ActivityId current = ready.removeFirst();
+            visited++;
+            for (ActivityId next : outgoing.getOrDefault(current, List.of())) {
+                int remaining = indegree.compute(next, (ignored, degree) -> degree - 1);
+                if (remaining == 0) ready.addLast(next);
+            }
         }
-        return false;
+        return visited != activities.size();
     }
 
-    private boolean cycleFrom(ActivityId id, java.util.Map<ActivityId, List<ActivityId>> outgoing,
-                              Set<ActivityId> complete, Set<ActivityId> active) {
-        if (active.contains(id)) return true;
-        if (complete.contains(id)) return false;
-        active.add(id);
-        for (ActivityId next : outgoing.getOrDefault(id, List.of())) {
-            if (cycleFrom(next, outgoing, complete, active)) return true;
+    private void validateDependencyDates(ScheduleActivity candidate) {
+        for (ActivityDependency dependency : dependencies) {
+            if (dependency.successor().equals(candidate.id())) {
+                ScheduleActivity predecessor = activityById(dependency.predecessor());
+                if (candidate.plannedStart().isBefore(predecessor.plannedFinish())) {
+                    throw new IllegalArgumentException("Successor cannot start before predecessor finishes");
+                }
+            } else if (dependency.predecessor().equals(candidate.id())) {
+                ScheduleActivity successor = activityById(dependency.successor());
+                if (successor.plannedStart().isBefore(candidate.plannedFinish())) {
+                    throw new IllegalArgumentException("Predecessor cannot finish after successor starts");
+                }
+            }
         }
-        active.remove(id);
-        complete.add(id);
-        return false;
+    }
+
+    private ScheduleActivity activityById(ActivityId id) {
+        return activities.stream().filter(activity -> activity.id().equals(id)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Dependency refers to a missing activity"));
     }
 
     private void validateDependencies() {
