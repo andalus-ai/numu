@@ -130,24 +130,81 @@ public class JdbcPlanRepository implements PlanRepository {
     }
 
     private void replaceWorkingSchedule(Connection connection, SchedulePlan plan) throws SQLException {
+        UUID planId = plan.id().value();
+        // Remove edges first; activities with progress evidence are protected by a RESTRICT FK.
         try (PreparedStatement deleteDependencies = connection.prepareStatement(
-                    "DELETE FROM schedule_dependency WHERE plan_id = ?");
-             PreparedStatement deleteActivities = connection.prepareStatement(
-                    "DELETE FROM schedule_activity WHERE plan_id = ?")) {
-            deleteDependencies.setObject(1, plan.id().value());
+                "DELETE FROM schedule_dependency WHERE plan_id = ?")) {
+            deleteDependencies.setObject(1, planId);
             deleteDependencies.executeUpdate();
-            deleteActivities.setObject(1, plan.id().value());
-            deleteActivities.executeUpdate();
         }
-        for (ScheduleActivity activity : plan.activities()) insertActivity(connection,
-                "schedule_activity", plan.id().value(), null, activity);
+
+        java.util.Set<UUID> retained = new java.util.HashSet<>();
+        for (ScheduleActivity activity : plan.activities()) {
+            retained.add(activity.id().value());
+            if (activityExists(connection, planId, activity.id().value())) {
+                updateActivity(connection, planId, activity);
+            } else {
+                insertActivity(connection, "schedule_activity", planId, null, activity);
+            }
+        }
+
+        // Delete only rows removed from the aggregate. FK RESTRICT preserves progress history.
+        List<UUID> existingIds = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT activity_id FROM schedule_activity WHERE plan_id = ?")) {
+            statement.setObject(1, planId);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) existingIds.add((UUID) rows.getObject(1));
+            }
+        }
+        try (PreparedStatement delete = connection.prepareStatement(
+                "DELETE FROM schedule_activity WHERE plan_id = ? AND activity_id = ?")) {
+            for (UUID existingId : existingIds) {
+                if (!retained.contains(existingId)) {
+                    delete.setObject(1, planId);
+                    delete.setObject(2, existingId);
+                    delete.addBatch();
+                }
+            }
+            delete.executeBatch();
+        }
+
         for (ActivityDependency dependency : plan.dependencies()) {
             try (PreparedStatement statement = connection.prepareStatement(
                     "INSERT INTO schedule_dependency(plan_id, predecessor_id, successor_id) VALUES (?, ?, ?)")) {
-                statement.setObject(1, plan.id().value());
+                statement.setObject(1, planId);
                 statement.setObject(2, dependency.predecessor().value());
                 statement.setObject(3, dependency.successor().value());
                 statement.executeUpdate();
+            }
+        }
+    }
+
+    private boolean activityExists(Connection connection, UUID planId, UUID activityId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT 1 FROM schedule_activity WHERE plan_id = ? AND activity_id = ?")) {
+            statement.setObject(1, planId);
+            statement.setObject(2, activityId);
+            try (ResultSet rows = statement.executeQuery()) { return rows.next(); }
+        }
+    }
+
+    private void updateActivity(Connection connection, UUID planId, ScheduleActivity activity) throws SQLException {
+        String sql = "UPDATE schedule_activity SET code = ?, name = ?, planned_start = ?, planned_finish = ?, "
+                + "work_item_type = ?, work_item_id = ?, position = ? WHERE plan_id = ? AND activity_id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, activity.code());
+            statement.setString(2, activity.name());
+            statement.setObject(3, activity.plannedStart());
+            statement.setObject(4, activity.plannedFinish());
+            WorkItemReference workItem = activity.workItem();
+            statement.setString(5, workItem == null ? null : workItem.type());
+            statement.setString(6, workItem == null ? null : workItem.id());
+            statement.setInt(7, activity.position());
+            statement.setObject(8, planId);
+            statement.setObject(9, activity.id().value());
+            if (statement.executeUpdate() != 1) {
+                throw new OptimisticPlanConflictException("Activity disappeared while updating schedule");
             }
         }
     }

@@ -97,6 +97,19 @@ public final class SchedulePlan {
         activities.set(index, replacement);
     }
 
+    /**
+     * Removes an activity from the working schedule. Persistence constraints may reject
+     * removal when immutable progress evidence still references it.
+     */
+    public void removeActivity(ActivityId id) {
+        ensureEditable();
+        Objects.requireNonNull(id, "Activity id cannot be null");
+        int index = indexOf(id);
+        dependencies.removeIf(dependency -> dependency.predecessor().equals(id)
+                || dependency.successor().equals(id));
+        activities.remove(index);
+    }
+
     public void addDependency(ActivityDependency dependency) {
         ensureEditable();
         Objects.requireNonNull(dependency, "Dependency cannot be null");
