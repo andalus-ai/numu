@@ -16,6 +16,7 @@ public final class SchedulePlan {
     private final String code;
     private String name;
     private PlanStatus status = PlanStatus.DRAFT;
+    private long revision;
     private final List<ScheduleActivity> activities = new ArrayList<>();
     private final List<ActivityDependency> dependencies = new ArrayList<>();
     private final List<ScheduleBaseline> baselines = new ArrayList<>();
@@ -28,6 +29,33 @@ public final class SchedulePlan {
 
     public static SchedulePlan create(String code, String name) {
         return new SchedulePlan(PlanId.generate(), code, name);
+    }
+
+    /** Reconstitutes a persisted aggregate without replaying domain commands. */
+    public static SchedulePlan reconstitute(PlanId id, String code, String name, PlanStatus status,
+                                            long revision, List<ScheduleActivity> activities,
+                                            List<ActivityDependency> dependencies,
+                                            List<ScheduleBaseline> baselines) {
+        if (revision < 0) throw new IllegalArgumentException("Revision cannot be negative");
+        SchedulePlan plan = new SchedulePlan(id, code, name);
+        plan.status = Objects.requireNonNull(status, "Plan status cannot be null");
+        plan.revision = revision;
+        plan.activities.addAll(List.copyOf(Objects.requireNonNull(activities, "Activities cannot be null")));
+        plan.dependencies.addAll(List.copyOf(Objects.requireNonNull(dependencies, "Dependencies cannot be null")));
+        plan.baselines.addAll(List.copyOf(Objects.requireNonNull(baselines, "Baselines cannot be null")));
+        plan.validateDependencies();
+        for (int i = 0; i < plan.baselines.size(); i++) {
+            if (plan.baselines.get(i).sequence() != i + 1) {
+                throw new IllegalArgumentException("Baseline sequence must be contiguous from one");
+            }
+        }
+        return plan;
+    }
+
+    /** Advances the persistence revision after a successful atomic repository commit. */
+    public void markPersisted(long revision) {
+        if (revision < this.revision) throw new IllegalArgumentException("Persistence revision cannot move backwards");
+        this.revision = revision;
     }
 
     public void rename(String name) {
@@ -153,6 +181,7 @@ public final class SchedulePlan {
     public String code() { return code; }
     public String name() { return name; }
     public PlanStatus status() { return status; }
+    public long revision() { return revision; }
     public List<ScheduleActivity> activities() { return List.copyOf(activities); }
     public List<ActivityDependency> dependencies() { return List.copyOf(dependencies); }
     public List<ScheduleBaseline> baselines() { return List.copyOf(baselines); }
