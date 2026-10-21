@@ -41,8 +41,12 @@ class JdbcActivityProgressRepositoryIntegrationTest {
         assertThrows(IllegalArgumentException.class,
                 () -> progressRepository.append(plan.id(), observation(activity.id(), "daily-1", "30")));
 
-        plan.rename("Revised plan");
+        plan.replaceActivity(new ScheduleActivity(activity.id(), "A-1", "Updated deliverable",
+                LocalDate.of(2026, 5, 2), LocalDate.of(2026, 5, 12),
+                activity.workItem(), activity.position()));
         planRepository.save(plan);
+        assertEquals("Updated deliverable", planRepository.findById(plan.id()).orElseThrow()
+                .activities().get(0).name());
         assertEquals(1, progressRepository.findHistory(plan.id(), activity.id()).size());
         assertThrows(Exception.class, () -> deleteObservation(plan.id(), first.id()));
     }
