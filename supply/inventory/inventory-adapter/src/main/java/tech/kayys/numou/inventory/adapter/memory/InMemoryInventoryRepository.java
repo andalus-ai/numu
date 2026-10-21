@@ -70,7 +70,6 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
             InventoryMovement a = existing.get(i), b = requested.get(i);
             if (!a.itemId().equals(b.itemId()) || !a.warehouseId().equals(b.warehouseId())
                     || a.type() != b.type() || a.quantity().compareTo(b.quantity()) != 0
-                    || a.unitCost().compareTo(b.unitCost()) != 0
                     || !a.currency().equals(b.currency())
                     || !java.util.Objects.equals(a.referenceNumber(), b.referenceNumber()))
                 throw new IllegalArgumentException("Idempotency key payload mismatch");
