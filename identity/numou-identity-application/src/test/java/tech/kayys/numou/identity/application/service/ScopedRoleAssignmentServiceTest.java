@@ -173,6 +173,17 @@ class ScopedRoleAssignmentServiceTest {
         }
 
         @Override
+        public Uni<Long> deleteByPrincipal(String principalType, UUID principalId) {
+            List<RoleAssignmentId> toRemove = store.values().stream()
+                    .filter(a -> a.principalType().equalsIgnoreCase(principalType)
+                            && a.principalId().equals(principalId))
+                    .map(RoleAssignment::id)
+                    .toList();
+            toRemove.forEach(store::remove);
+            return Uni.createFrom().item((long) toRemove.size());
+        }
+
+        @Override
         public Uni<List<RoleAssignment>> findByPrincipal(String principalType, UUID principalId) {
             List<RoleAssignment> list = store.values().stream()
                     .filter(a -> a.principalType().equalsIgnoreCase(principalType) && a.principalId().equals(principalId))

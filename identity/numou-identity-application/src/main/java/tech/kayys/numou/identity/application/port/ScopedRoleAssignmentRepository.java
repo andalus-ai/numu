@@ -30,6 +30,12 @@ public interface ScopedRoleAssignmentRepository {
     Uni<Long> deleteByPrincipalAndRole(String principalType, UUID principalId, RoleId roleId, String scopePath);
 
     /**
+     * Revokes every scoped role assignment held by a principal (used when a SCIM user is
+     * deactivated / deprovisioned). Returns the number of rows deleted.
+     */
+    Uni<Long> deleteByPrincipal(String principalType, UUID principalId);
+
+    /**
      * Finds permission codes associated with the given roles.
      */
     Uni<Set<String>> findPermissionCodesForRoles(List<RoleId> roleIds);

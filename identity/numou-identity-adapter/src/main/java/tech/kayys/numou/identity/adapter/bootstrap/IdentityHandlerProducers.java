@@ -23,6 +23,7 @@ import tech.kayys.numou.identity.application.port.PasswordHasher;
 import tech.kayys.numou.identity.application.port.PersonalAccessTokenRepository;
 import tech.kayys.numou.identity.application.port.RoleAssignmentPort;
 import tech.kayys.numou.identity.application.port.RoleRepository;
+import tech.kayys.numou.identity.application.port.SamlReplayPort;
 import tech.kayys.numou.identity.application.port.ScopedRoleAssignmentRepository;
 import tech.kayys.numou.identity.application.port.ServiceAccountRepository;
 import tech.kayys.numou.identity.application.port.TenantMembershipPort;
@@ -88,6 +89,9 @@ public class IdentityHandlerProducers {
 
     @Inject
     FederationSettingsPort federationSettings;
+
+    @Inject
+    SamlReplayPort samlReplayPort;
 
     @Inject
     IdentityProviderConfigRepository identityProviderConfigs;
@@ -193,7 +197,7 @@ public class IdentityHandlerProducers {
     @Produces
     @ApplicationScoped
     public SamlAssertionAdapter samlAssertionAdapter() {
-        return new SamlAssertionAdapter(federationSettings);
+        return new SamlAssertionAdapter(federationSettings, samlReplayPort);
     }
 
     @Produces
@@ -212,7 +216,6 @@ public class IdentityHandlerProducers {
                 userRepository,
                 scopedRoleAssignmentService(),
                 scopedRoleAssignmentRepository,
-                federatedAuthenticationService(),
                 passwordHasher,
                 eventPublisher,
                 unitOfWork,

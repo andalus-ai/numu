@@ -239,6 +239,11 @@ class AuthCheckServiceImplTest {
         }
 
         @Override
+        public Uni<Long> deleteByPrincipal(String principalType, UUID principalId) {
+            return Uni.createFrom().item(0L);
+        }
+
+        @Override
         public Uni<List<RoleAssignment>> findByPrincipal(String principalType, UUID principalId) {
             return Uni.createFrom().item(new ArrayList<>(store.values()));
         }

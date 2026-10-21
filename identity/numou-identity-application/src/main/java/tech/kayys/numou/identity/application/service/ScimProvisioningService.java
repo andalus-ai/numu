@@ -58,7 +58,6 @@ public class ScimProvisioningService {
     private final UserRepository userRepository;
     private final ScopedRoleAssignmentService roleAssignments;
     private final ScopedRoleAssignmentRepository roleAssignmentRepository;
-    private final FederatedAuthenticationService federation;
     private final PasswordHasher passwordHasher;
     private final EventPublisher eventPublisher;
     private final UnitOfWork unitOfWork;
@@ -71,7 +70,6 @@ public class ScimProvisioningService {
             UserRepository userRepository,
             ScopedRoleAssignmentService roleAssignments,
             ScopedRoleAssignmentRepository roleAssignmentRepository,
-            FederatedAuthenticationService federation,
             PasswordHasher passwordHasher,
             EventPublisher eventPublisher,
             UnitOfWork unitOfWork,
@@ -83,7 +81,6 @@ public class ScimProvisioningService {
         this.userRepository = Objects.requireNonNull(userRepository);
         this.roleAssignments = Objects.requireNonNull(roleAssignments);
         this.roleAssignmentRepository = Objects.requireNonNull(roleAssignmentRepository);
-        this.federation = Objects.requireNonNull(federation);
         this.passwordHasher = Objects.requireNonNull(passwordHasher);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
         this.unitOfWork = Objects.requireNonNull(unitOfWork);
@@ -174,6 +171,9 @@ public class ScimProvisioningService {
                                         user.deactivate("scim-deprovision", clock.now());
                                     }
                                     return userRepository.save(user)
+                                            // Revoke every scoped role assignment held by the user
+                                            // so a deactivated SCIM user retains no effective permissions.
+                                            .chain(ignored2 -> roleAssignmentRepository.deleteByPrincipal("USER", userId))
                                             .chain(() -> eventPublisher.publish(user.pullDomainEvents()));
                                 })
                 ));

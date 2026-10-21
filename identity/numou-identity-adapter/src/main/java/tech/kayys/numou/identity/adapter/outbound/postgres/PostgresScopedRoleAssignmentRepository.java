@@ -86,6 +86,14 @@ public class PostgresScopedRoleAssignmentRepository implements ScopedRoleAssignm
     }
 
     @Override
+    public Uni<Long> deleteByPrincipal(String principalType, UUID principalId) {
+        return RoleAssignmentEntity.delete(
+                "principalType = ?1 and principalId = ?2",
+                principalType, principalId
+        );
+    }
+
+    @Override
     public Uni<Set<String>> findPermissionCodesForRoles(List<RoleId> roleIds) {
         if (roleIds == null || roleIds.isEmpty()) {
             return Uni.createFrom().item(Collections.emptySet());

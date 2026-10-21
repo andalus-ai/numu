@@ -32,11 +32,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
+import tech.kayys.numou.identity.application.port.SamlReplayPort;
+
+import java.util.concurrent.CompletionException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
@@ -50,13 +50,14 @@ public class SamlAssertionAdapter implements SamlAssertionPort {
     private static final String DSIG_NS = "http://www.w3.org/2000/09/xmldsig#";
 
     private final FederationSettingsPort settingsPort;
+    private final SamlReplayPort replayStore;
     private final DocumentBuilder documentBuilder;
     private final XPath xpath;
-    private final Map<String, Long> consumedAssertionIds = new ConcurrentHashMap<>();
 
     @Inject
-    public SamlAssertionAdapter(FederationSettingsPort settingsPort) {
+    public SamlAssertionAdapter(FederationSettingsPort settingsPort, SamlReplayPort replayStore) {
         this.settingsPort = Objects.requireNonNull(settingsPort, "settingsPort cannot be null");
+        this.replayStore  = Objects.requireNonNull(replayStore,  "replayStore cannot be null");
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         try {
@@ -76,22 +77,75 @@ public class SamlAssertionAdapter implements SamlAssertionPort {
             IdentityProviderConfig config, String samlResponse, String expectedInResponseTo) {
         Objects.requireNonNull(config, "config cannot be null");
         FederationSettings settings = settingsPort.parse(config);
-        return Uni.createFrom()
-                .<FederatedIdentity>completionStage(() -> CompletableFuture.supplyAsync(() -> {
-                    try {
-                        return validateBlocking(
-                                config.id().value().toString(), settings, samlResponse, expectedInResponseTo);
-                    } catch (Exception e) {
-                        throw new java.util.concurrent.CompletionException(e);
+
+        // Phase 1: extract assertionId + notOnOrAfter from the raw base64 payload so we can
+        // check replay *before* the full validation (fail fast, no side effects on replay).
+        String assertionId;
+        Instant notOnOrAfter;
+        try {
+            var preview = previewAssertionId(samlResponse);
+            assertionId  = preview[0];
+            notOnOrAfter = preview[1] != null ? Instant.parse(preview[1]) : Instant.now().plusSeconds(300);
+        } catch (Exception ex) {
+            return Uni.createFrom().failure(
+                    ApplicationError.of("SAML_INVALID", "SAMLResponse is not valid base64 XML").toException());
+        }
+
+        // Phase 2: distributed atomic replay check.
+        return replayStore.tryConsume(assertionId, notOnOrAfter)
+                .flatMap(consumed -> {
+                    if (!consumed) {
+                        return Uni.createFrom().failure(
+                                ApplicationError.of("SAML_REPLAY", "Assertion already consumed").toException());
                     }
-                }))
+                    // Phase 3: full blocking XML/DSig validation on a worker thread.
+                    return Uni.createFrom()
+                            .<FederatedIdentity>completionStage(() -> CompletableFuture.supplyAsync(() -> {
+                                try {
+                                    return validateBlocking(
+                                            config.id().value().toString(), settings,
+                                            samlResponse, expectedInResponseTo);
+                                } catch (Exception e) {
+                                    throw new CompletionException(e);
+                                }
+                            }));
+                })
                 .onFailure()
                 .transform(ex -> {
                     if (ex instanceof SamlValidationException) {
                         return ApplicationError.of("SAML_INVALID", ex.getMessage()).toException();
                     }
-                    return ApplicationError.of("SAML_ERROR", ex.getClass().getSimpleName()).toException();
+                    // Already wrapped ApplicationErrorException (replay, etc.) pass through
+                    return ex;
                 });
+    }
+
+    /**
+     * Minimal pre-parse: extracts {@code ID} of the root Response element and
+     * {@code NotOnOrAfter} from the first Conditions element.  Used only for the
+     * replay-check before full validation.
+     *
+     * @return two-element array: {@code [assertionId, notOnOrAfterOrNull]}
+     */
+    private String[] previewAssertionId(String samlResponse) throws Exception {
+        byte[] bytes = Base64.getDecoder().decode(samlResponse.trim());
+        Document doc = documentBuilder.parse(new java.io.ByteArrayInputStream(bytes));
+        doc.getDocumentElement().normalize();
+        Element root = doc.getDocumentElement();
+        String id = root.getAttribute("ID");
+        if (id == null || id.isBlank()) {
+            id = root.getAttribute("InResponseTo");
+        }
+        if (id == null || id.isBlank()) {
+            id = java.util.UUID.randomUUID().toString();
+        }
+        var conditions = doc.getElementsByTagNameNS(SAML_ASSERTION_NS, "Conditions");
+        String notOnOrAfter = null;
+        if (conditions.getLength() > 0) {
+            notOnOrAfter = ((Element) conditions.item(0)).getAttribute("NotOnOrAfter");
+            if (notOnOrAfter != null && notOnOrAfter.isBlank()) notOnOrAfter = null;
+        }
+        return new String[]{ id, notOnOrAfter };
     }
 
     @Override
@@ -146,13 +200,8 @@ public class SamlAssertionAdapter implements SamlAssertionPort {
                 && !expectedInResponseTo.equals(inResponseTo)) {
             throw new SamlValidationException("InResponseTo does not match the issued request");
         }
-        if (inResponseTo != null && !inResponseTo.isBlank()) {
-            long now = Instant.now().toEpochMilli();
-            Long previous = consumedAssertionIds.putIfAbsent(inResponseTo, now + TimeUnit.MINUTES.toMillis(5));
-            if (previous != null && previous > now) {
-                throw new SamlValidationException("Assertion already consumed (replay)");
-            }
-        }
+        // Replay check is now handled upstream via SamlReplayPort (distributed store)
+        // before validateBlocking is called, so no per-instance map is needed here.
 
         verifySignature(settings, response, document);
 
