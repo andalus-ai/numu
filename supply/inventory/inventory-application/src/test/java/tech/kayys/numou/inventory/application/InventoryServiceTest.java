@@ -3,6 +3,7 @@ package tech.kayys.numou.inventory.application;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.inventory.domain.inventory.*;
 import tech.kayys.numou.inventory.spi.InventoryRepository;
+import tech.kayys.numou.inventory.domain.reservation.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -160,6 +161,11 @@ class InventoryServiceTest {
                     .filter(m -> m.itemId().equals(itemId) && m.warehouseId().equals(warehouseId))
                     .map(InventoryMovement::quantity)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        @Override
+        public synchronized List<InventoryReservation> findReservations(ItemId itemId, WarehouseId warehouseId) {
+            return List.of();
         }
 
         @Override
