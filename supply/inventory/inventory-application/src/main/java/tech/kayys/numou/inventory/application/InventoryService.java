@@ -123,28 +123,42 @@ public final class InventoryService {
                 tenantId, itemId, warehouseId, quantity, uom, sourceReference, expiresAt));
     }
 
-    public InventoryReservation releaseReservation(ReservationId id) {
-        InventoryReservation current = repository.findReservation(id);
+    public InventoryReservation releaseReservation(String tenantId, ReservationId id) {
+        InventoryReservation current = reservationForTenant(tenantId, id);
         return repository.updateReservation(current.release());
     }
 
-    public InventoryReservation expireReservation(ReservationId id) {
-        InventoryReservation current = repository.findReservation(id);
+    public InventoryReservation expireReservation(String tenantId, ReservationId id) {
+        InventoryReservation current = reservationForTenant(tenantId, id);
         if (current.expiresAt() == null || current.expiresAt().isAfter(Instant.now())) {
             throw new IllegalStateException("Reservation has not expired");
         }
         return repository.updateReservation(current.expire());
     }
 
-    public InventoryMovement issueReserved(ReservationId reservationId, ItemId itemId, WarehouseId warehouseId,
-                                           BigDecimal quantity, String currency, String ref) {
+    public InventoryMovement issueReserved(String tenantId, ReservationId reservationId, ItemId itemId,
+                                           WarehouseId warehouseId, BigDecimal quantity, String currency, String ref) {
         requirePositive(quantity, "Issued quantity");
+        InventoryReservation reservation = reservationForTenant(tenantId, reservationId);
+        if (!reservation.itemId().equals(itemId) || !reservation.warehouseId().equals(warehouseId)) {
+            throw new IllegalArgumentException("Issue does not match reservation");
+        }
         StockBalance current = getStockBalance(itemId, warehouseId);
         BigDecimal unitCost = current.onHand().signum() > 0
                 ? current.totalValue().divide(current.onHand(), 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
         InventoryMovement movement = new InventoryMovement(MovementId.generate(), itemId, warehouseId,
                 MovementType.ISSUE, quantity.negate(), unitCost, currency, ref, Instant.now());
         return repository.postReservedIssue(reservationId, movement, quantity);
+    }
+
+    private InventoryReservation reservationForTenant(String tenantId, ReservationId id) {
+        Objects.requireNonNull(tenantId, "Tenant id is required");
+        if (tenantId.isBlank()) throw new IllegalArgumentException("Tenant id must not be blank");
+        InventoryReservation reservation = repository.findReservation(id);
+        if (!reservation.tenantId().equals(tenantId)) {
+            throw new IllegalArgumentException("Reservation does not belong to the requested tenant");
+        }
+        return reservation;
     }
 
     /** Real-time stock balance projection derived from the movement log. */
