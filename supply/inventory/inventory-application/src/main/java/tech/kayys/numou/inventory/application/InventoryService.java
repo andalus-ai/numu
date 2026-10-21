@@ -23,6 +23,14 @@ public final class InventoryService {
     public void registerItem(InventoryItem item) { repository.registerItem(item); }
     public void registerWarehouse(Warehouse wh) { repository.registerWarehouse(wh); }
 
+    /** Idempotent receipt; key must remain stable across retries. */
+    public InventoryMovement receive(InventoryCommandKey key, ItemId itemId, WarehouseId warehouseId,
+                                     BigDecimal quantity, BigDecimal unitCost, String currency, String ref) {
+        Objects.requireNonNull(key, "Command key is required"); requirePositive(quantity, "Received quantity");
+        return repository.saveMovementIdempotently(key, new InventoryMovement(MovementId.generate(), itemId,
+                warehouseId, MovementType.RECEIPT, quantity, unitCost, currency, ref, Instant.now()));
+    }
+
     /** Inward goods movement: increases stock on-hand. */
     public InventoryMovement receive(ItemId itemId, WarehouseId warehouseId,
                                      BigDecimal quantity, BigDecimal unitCost,
@@ -51,6 +59,17 @@ public final class InventoryService {
         return movement;
     }
 
+    /** Idempotent issue; key must remain stable across retries. */
+    public InventoryMovement issue(InventoryCommandKey key, ItemId itemId, WarehouseId warehouseId,
+                                   BigDecimal quantity, String currency, String ref) {
+        Objects.requireNonNull(key, "Command key is required"); requirePositive(quantity, "Issued quantity");
+        StockBalance current = getStockBalance(itemId, warehouseId);
+        BigDecimal unitCost = current.onHand().signum() > 0
+                ? current.totalValue().divide(current.onHand(), 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        return repository.postIssueIfAvailable(key, new InventoryMovement(MovementId.generate(), itemId,
+                warehouseId, MovementType.ISSUE, quantity.negate(), unitCost, currency, ref, Instant.now()), quantity);
+    }
+
     /** Atomically posts both sides of an inter-warehouse stock transfer. */
     public void transfer(ItemId itemId, WarehouseId fromWarehouse, WarehouseId toWarehouse,
                          BigDecimal quantity, String currency, String ref) {
@@ -74,6 +93,24 @@ public final class InventoryService {
                 MovementId.generate(), itemId, toWarehouse, MovementType.RECEIPT,
                 quantity, unitCost, currency, ref + "-IN", now);
         repository.postTransferIfAvailable(outbound, inbound, quantity);
+    }
+
+    /** Idempotent transfer; replay returns the original movement pair. */
+    public void transfer(InventoryCommandKey key, ItemId itemId, WarehouseId fromWarehouse, WarehouseId toWarehouse,
+                         BigDecimal quantity, String currency, String ref) {
+        Objects.requireNonNull(key, "Command key is required"); requirePositive(quantity, "Transfer quantity");
+        Objects.requireNonNull(fromWarehouse, "Source warehouse is required");
+        Objects.requireNonNull(toWarehouse, "Destination warehouse is required");
+        if (fromWarehouse.equals(toWarehouse)) throw new IllegalArgumentException("Transfer source and destination must differ");
+        StockBalance source = getStockBalance(itemId, fromWarehouse);
+        BigDecimal unitCost = source.onHand().signum() > 0
+                ? source.totalValue().divide(source.onHand(), 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        Instant now = Instant.now();
+        InventoryMovement outbound = new InventoryMovement(MovementId.generate(), itemId, fromWarehouse,
+                MovementType.ISSUE, quantity.negate(), unitCost, currency, ref + "-OUT", now);
+        InventoryMovement inbound = new InventoryMovement(MovementId.generate(), itemId, toWarehouse,
+                MovementType.RECEIPT, quantity, unitCost, currency, ref + "-IN", now);
+        repository.postTransferIfAvailable(key, outbound, inbound, quantity);
     }
 
     /** Real-time stock balance projection derived from the movement log. */

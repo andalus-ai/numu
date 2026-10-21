@@ -6,6 +6,8 @@ import tech.kayys.numou.inventory.spi.InventoryRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -16,6 +18,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
     private final ConcurrentHashMap<ItemId, InventoryItem> items = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<WarehouseId, Warehouse> warehouses = new ConcurrentHashMap<>();
     private final List<InventoryMovement> movements = new ArrayList<>();
+    private final Map<InventoryCommandKey, List<InventoryMovement>> commandMovements = new HashMap<>();
 
     @Override
     public void registerItem(InventoryItem item) {
@@ -30,6 +33,46 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
     @Override
     public synchronized void saveMovement(InventoryMovement movement) {
         movements.add(movement);
+    }
+
+
+    @Override
+    public synchronized InventoryMovement saveMovementIdempotently(InventoryCommandKey key, InventoryMovement movement) {
+        List<InventoryMovement> existing = replayOrNull(key, List.of(movement));
+        if (existing != null) return existing.get(0);
+        movements.add(movement); commandMovements.put(key, List.of(movement)); return movement;
+    }
+
+    @Override
+    public synchronized InventoryMovement postIssueIfAvailable(InventoryCommandKey key, InventoryMovement movement, BigDecimal quantity) {
+        List<InventoryMovement> existing = replayOrNull(key, List.of(movement));
+        if (existing != null) return existing.get(0);
+        postIssueIfAvailable(movement, quantity); commandMovements.put(key, List.of(movement)); return movement;
+    }
+
+    @Override
+    public synchronized List<InventoryMovement> postTransferIfAvailable(InventoryCommandKey key, InventoryMovement outbound,
+                                                                        InventoryMovement inbound, BigDecimal quantity) {
+        List<InventoryMovement> requested = List.of(outbound, inbound);
+        List<InventoryMovement> existing = replayOrNull(key, requested);
+        if (existing != null) return existing;
+        postTransferIfAvailable(outbound, inbound, quantity); commandMovements.put(key, requested); return requested;
+    }
+
+    private List<InventoryMovement> replayOrNull(InventoryCommandKey key, List<InventoryMovement> requested) {
+        if (key == null) throw new IllegalArgumentException("Command key is required");
+        List<InventoryMovement> existing = commandMovements.get(key);
+        if (existing == null) return null;
+        if (existing.size() != requested.size()) throw new IllegalArgumentException("Idempotency key payload mismatch");
+        for (int i = 0; i < existing.size(); i++) {
+            InventoryMovement a = existing.get(i), b = requested.get(i);
+            if (!a.itemId().equals(b.itemId()) || !a.warehouseId().equals(b.warehouseId())
+                    || a.type() != b.type() || a.quantity().compareTo(b.quantity()) != 0
+                    || !a.currency().equals(b.currency())
+                    || !java.util.Objects.equals(a.referenceNumber(), b.referenceNumber()))
+                throw new IllegalArgumentException("Idempotency key payload mismatch");
+        }
+        return existing;
     }
 
     @Override

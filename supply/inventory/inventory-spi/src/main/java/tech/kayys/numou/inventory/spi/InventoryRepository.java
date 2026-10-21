@@ -18,6 +18,18 @@ public interface InventoryRepository {
     void registerWarehouse(Warehouse warehouse);
     void saveMovement(InventoryMovement movement);
 
+    /** Persist once; a replay with matching business payload returns the original movement. */
+    default InventoryMovement saveMovementIdempotently(InventoryCommandKey key, InventoryMovement movement) {
+        throw new UnsupportedOperationException("This adapter does not implement durable command idempotency");
+    }
+    default InventoryMovement postIssueIfAvailable(InventoryCommandKey key, InventoryMovement movement, BigDecimal requiredQuantity) {
+        throw new UnsupportedOperationException("This adapter does not implement durable command idempotency");
+    }
+    default List<InventoryMovement> postTransferIfAvailable(InventoryCommandKey key, InventoryMovement outbound,
+                                                            InventoryMovement inbound, BigDecimal requiredQuantity) {
+        throw new UnsupportedOperationException("This adapter does not implement durable command idempotency");
+    }
+
     /**
      * Atomically appends an issue if the current on-hand quantity is sufficient.
      * The movement quantity must be negative and {@code requiredQuantity} positive.
