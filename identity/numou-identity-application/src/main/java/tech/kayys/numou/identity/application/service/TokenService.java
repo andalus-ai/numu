@@ -3,13 +3,17 @@ package tech.kayys.numou.identity.application.service;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.foundation.application.result.ApplicationError;
 import tech.kayys.numou.identity.application.dto.AccessTokenResponse;
+import tech.kayys.numou.identity.application.dto.CreatePatRequest;
+import tech.kayys.numou.identity.application.dto.CreatePatResponse;
 import tech.kayys.numou.identity.application.dto.LoginRequest;
 import tech.kayys.numou.identity.application.port.PasswordHasher;
 import tech.kayys.numou.identity.application.port.TokenIssuerPort;
 import tech.kayys.numou.identity.application.port.TokenVerifierPort;
 import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.application.service.PersonalAccessTokenService;
 import tech.kayys.numou.identity.domain.valueobject.EmailAddress;
 
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -20,19 +24,22 @@ public class TokenService {
     private final TokenIssuerPort tokenIssuer;
     private final TokenVerifierPort tokenVerifier;
     private final long lifespanSeconds;
+    private final PersonalAccessTokenService patService;
 
     public TokenService(
             UserRepository userRepository,
             PasswordHasher passwordHasher,
             TokenIssuerPort tokenIssuer,
             TokenVerifierPort tokenVerifier,
-            long lifespanSeconds
+            long lifespanSeconds,
+            PersonalAccessTokenService patService
     ) {
         this.userRepository = Objects.requireNonNull(userRepository);
         this.passwordHasher = Objects.requireNonNull(passwordHasher);
         this.tokenIssuer = Objects.requireNonNull(tokenIssuer);
         this.tokenVerifier = Objects.requireNonNull(tokenVerifier);
         this.lifespanSeconds = lifespanSeconds > 0 ? lifespanSeconds : 900;
+        this.patService = Objects.requireNonNull(patService);
     }
 
     public Uni<AccessTokenResponse> loginLocal(LoginRequest request) {
@@ -64,7 +71,22 @@ public class TokenService {
                                 "USER",
                                 user.displayName().value()
                         );
-                        return Uni.createFrom().item(AccessTokenResponse.bearer(token, lifespanSeconds));
+                        boolean rememberMe = request.rememberMe();
+                        String rememberMeToken = null;
+                        if (rememberMe) {
+                            var patResponse = patService.issue(
+                                    new CreatePatRequest(
+                                            "USER",
+                                            user.id().value(),
+                                            "remember-me:" + user.id().value(),
+                                            Instant.now().plusSeconds(30L * 24L * 60L * 60L)
+                                    )
+                            ).await().indefinitely();
+                            rememberMeToken = patResponse.token();
+                        }
+                        return Uni.createFrom().item(new AccessTokenResponse(
+                                token, "Bearer", lifespanSeconds, rememberMeToken
+                        ));
                     });
         } catch (IllegalArgumentException e) {
             return Uni.createFrom().failure(ApplicationError.of(

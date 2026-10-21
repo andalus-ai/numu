@@ -105,7 +105,8 @@ class AuthCheckServiceImplTest {
                     }
                     return Uni.createFrom().failure(new IllegalArgumentException("invalid token"));
                 },
-                900
+                900,
+                patService
         );
 
         grpcService = new AuthCheckServiceImpl(roleAssignmentService, patService, tokenService);
@@ -253,6 +254,14 @@ class AuthCheckServiceImplTest {
                 }
             }
             return Uni.createFrom().item(roles);
+        }
+
+        @Override
+        public Uni<List<RoleAssignment>> findHolders(String principalType, RoleId roleId, String scopePath) {
+            List<RoleAssignment> list = store.values().stream()
+                    .filter(a -> a.roleId().equals(roleId) && a.scopePath().equals(scopePath))
+                    .toList();
+            return Uni.createFrom().item(new ArrayList<>(list));
         }
 
         @Override

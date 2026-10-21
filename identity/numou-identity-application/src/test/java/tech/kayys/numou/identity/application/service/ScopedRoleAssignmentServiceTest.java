@@ -195,6 +195,14 @@ class ScopedRoleAssignmentServiceTest {
         }
 
         @Override
+        public Uni<List<RoleAssignment>> findHolders(String principalType, RoleId roleId, String scopePath) {
+            List<RoleAssignment> list = store.values().stream()
+                    .filter(a -> a.roleId().equals(roleId) && a.scopePath().equals(scopePath))
+                    .toList();
+            return Uni.createFrom().item(new ArrayList<>(list));
+        }
+
+        @Override
         public Uni<Set<String>> findPermissionCodesForRoles(List<RoleId> roleIds) {
             Set<String> perms = new java.util.HashSet<>();
             for (RoleId r : roleIds) {

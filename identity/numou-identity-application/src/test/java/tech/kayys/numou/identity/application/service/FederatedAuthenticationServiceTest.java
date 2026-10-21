@@ -90,7 +90,9 @@ class FederatedAuthenticationServiceTest {
                 "", "", "",
                 Map.of("admins", ROLE_ID.toString()),
                 "system",
-                "SYSTEM"
+                "SYSTEM",
+                // LDAP / SAML settings are irrelevant for the OIDC flow exercised here.
+                null, null, null, null, null, null, null, null, null, null, null, null, null
         );
 
         var tokenService = new TokenService(
@@ -98,7 +100,11 @@ class FederatedAuthenticationServiceTest {
                 new InMemoryPasswordHasher(),
                 (principalId, principalType, displayName) -> "internal-token-for-" + principalId,
                 raw -> Uni.createFrom().failure(new IllegalArgumentException("not used in this test")),
-                900
+                900,
+                new PersonalAccessTokenService(
+                        new PersonalAccessTokenServiceTest.InMemoryPatRepository(),
+                        (tenantId, events) -> Uni.createFrom().voidItem(),
+                        new PassthroughUnitOfWork(), clock)
         );
 
         service = new FederatedAuthenticationService(
@@ -241,9 +247,21 @@ class FederatedAuthenticationServiceTest {
         }
 
         @Override
+        public Uni<Optional<FederatedIdentityLink>> findByUserId(UUID userId) {
+            return Uni.createFrom().item(links.values().stream()
+                    .filter(link -> link.userId().equals(userId))
+                    .findFirst());
+        }
+
+        @Override
         public Uni<Void> save(FederatedIdentityLink link) {
             links.put(link.providerId() + "|" + link.subject(), link);
             return Uni.createFrom().voidItem();
+        }
+
+        @Override
+        public Uni<Void> save(FederatedIdentityLink link, Map<String, String> claims) {
+            return save(link);
         }
     }
 }

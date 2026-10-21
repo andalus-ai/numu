@@ -17,4 +17,10 @@ public interface FederatedIdentityRepository {
     Uni<Optional<FederatedIdentityLink>> findByUserId(UUID userId);
 
     Uni<Void> save(FederatedIdentityLink link);
+
+    /**
+     * Saves a federated link together with the provider's custom attributes
+     * ({@code claims}), persisted as JSON on the link row.
+     */
+    Uni<Void> save(FederatedIdentityLink link, java.util.Map<String, String> claims);
 }

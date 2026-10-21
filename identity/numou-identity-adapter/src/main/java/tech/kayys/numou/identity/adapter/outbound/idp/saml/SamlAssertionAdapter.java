@@ -55,16 +55,20 @@ public class SamlAssertionAdapter implements SamlAssertionPort {
     private final Map<String, Long> consumedAssertionIds = new ConcurrentHashMap<>();
 
     @Inject
-    public SamlAssertionAdapter(FederationSettingsPort settingsPort) throws Exception {
-        this.settingsPort = settingsPort;
+    public SamlAssertionAdapter(FederationSettingsPort settingsPort) {
+        this.settingsPort = Objects.requireNonNull(settingsPort, "settingsPort cannot be null");
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        this.documentBuilder = factory.newDocumentBuilder();
-        this.xpath = XPathFactory.newInstance().newXPath();
+        try {
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            this.documentBuilder = factory.newDocumentBuilder();
+            this.xpath = XPathFactory.newInstance().newXPath();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not initialise the SAML XML parser", exception);
+        }
     }
 
     @Override

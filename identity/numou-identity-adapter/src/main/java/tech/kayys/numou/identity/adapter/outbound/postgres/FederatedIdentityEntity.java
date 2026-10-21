@@ -36,4 +36,21 @@ public class FederatedIdentityEntity extends PanacheEntityBase {
 
     @Column(name = "last_login_at")
     public Instant lastLoginAt;
+
+    /**
+     * Provider-side custom attributes ({@code claims}) captured at link time,
+     * serialised to JSON ({@code Map<String, String>}). Extension channel for
+     * federation metadata - the internal {@link tech.kayys.numou.identity.domain.user.User}
+     * aggregate stays authentication-only and never knows about them.
+     */
+    @Column(columnDefinition = "text")
+    public String attributes;
+
+    public String getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(String attributes) {
+        this.attributes = attributes;
+    }
 }

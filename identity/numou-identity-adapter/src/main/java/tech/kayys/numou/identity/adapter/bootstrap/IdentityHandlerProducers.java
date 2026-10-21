@@ -20,13 +20,17 @@ import tech.kayys.numou.identity.application.port.IdentityOutboxPort;
 import tech.kayys.numou.identity.application.port.IdentityProviderConfigRepository;
 import tech.kayys.numou.identity.application.port.MembershipManagementPort;
 import tech.kayys.numou.identity.application.port.PasswordHasher;
+import tech.kayys.numou.identity.application.port.PersonalAccessTokenRepository;
 import tech.kayys.numou.identity.application.port.RoleAssignmentPort;
 import tech.kayys.numou.identity.application.port.RoleRepository;
 import tech.kayys.numou.identity.application.port.ScopedRoleAssignmentRepository;
+import tech.kayys.numou.identity.application.port.ServiceAccountRepository;
 import tech.kayys.numou.identity.application.port.TenantMembershipPort;
 import tech.kayys.numou.identity.application.port.TokenIssuerPort;
 import tech.kayys.numou.identity.application.port.TokenVerifierPort;
 import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.application.query.GetUserByIdQueryHandler;
+import tech.kayys.numou.identity.application.query.ListUsersQueryHandler;
 import tech.kayys.numou.identity.application.security.AuthorizationDecisionService;
 import tech.kayys.numou.identity.application.service.AuthorizationService;
 import tech.kayys.numou.identity.application.service.DirectoryAuthenticationService;
@@ -219,7 +223,8 @@ public class IdentityHandlerProducers {
     @ApplicationScoped
     public TokenService tokenService() {
         return new TokenService(
-                userRepository, passwordHasher, tokenIssuer, tokenVerifier, 900);
+                userRepository, passwordHasher, tokenIssuer, tokenVerifier, 900,
+                personalAccessTokenService());
     }
 
     @Produces
