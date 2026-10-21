@@ -86,6 +86,24 @@ class InventoryReservationAvailabilityTest {
         }
     }
 
+
+    @Test
+    void committed_reservation_cannot_be_consumed_twice() {
+        var repo = new InMemoryInventoryRepository();
+        var item = ItemId.generate();
+        var warehouse = WarehouseId.generate();
+        repo.saveMovement(movement(item, warehouse, MovementType.RECEIPT, "5", "OPENING"));
+        var reservation = repo.reserveIfAvailable(InventoryReservation.create("tenant-a", item, warehouse,
+                new BigDecimal("2"), "EA", "ORDER-ONCE", null));
+        repo.postReservedIssue(reservation.id(), movement(item, warehouse, MovementType.ISSUE, "-2", "FULFILL-ONCE"),
+                new BigDecimal("2"));
+
+        assertThrows(IllegalStateException.class, () -> repo.postReservedIssue(reservation.id(),
+                movement(item, warehouse, MovementType.ISSUE, "-2", "FULFILL-ONCE"), new BigDecimal("2")));
+        assertEquals(new BigDecimal("3"), balance(repo, item, warehouse).onHand());
+        assertEquals(2, repo.findByItem(item).size());
+    }
+
     private static boolean tryReserve(InMemoryInventoryRepository repo, ItemId item, WarehouseId warehouse,
                                       String reference, CountDownLatch start) throws InterruptedException {
         start.await();
