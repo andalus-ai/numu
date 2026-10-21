@@ -49,7 +49,7 @@ class CreateWbsNodeHandlerTest {
         repository.nodes.add(WbsNode.create(
                 projectId, null, "WBS-1", "Existing root", WbsNodeType.PROJECT));
         var publisher = new RecordingEventPublisher();
-        var handler = new CreateWbsNodeHandler(repository, publisher);
+        var handler = new CreateWbsNodeHandler(repository, publisher, new TestWriteLock());
 
         var failure = assertThrows(
                 RuntimeException.class,
@@ -67,7 +67,7 @@ class CreateWbsNodeHandlerTest {
         var projectId = UUID.randomUUID();
         var repository = new InMemoryWbsNodeRepository();
         var publisher = new RecordingEventPublisher();
-        var handler = new CreateWbsNodeHandler(repository, publisher);
+        var handler = new CreateWbsNodeHandler(repository, publisher, new TestWriteLock());
 
         var failure = assertThrows(
                 RuntimeException.class,
