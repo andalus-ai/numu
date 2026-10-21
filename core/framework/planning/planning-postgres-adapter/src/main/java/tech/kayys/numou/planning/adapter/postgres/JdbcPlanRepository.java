@@ -10,13 +10,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.sql.Timestamp;
 
 /**
  * JDBC adapter with optimistic revision checks and one transaction per aggregate save.
@@ -190,7 +189,7 @@ public class JdbcPlanRepository implements PlanRepository {
             statement.setObject(2, baseline.id());
             statement.setInt(3, baseline.sequence());
             statement.setString(4, baseline.name());
-            statement.setObject(5, baseline.createdAt());
+            statement.setTimestamp(5, Timestamp.from(baseline.createdAt()));
             statement.setString(6, baseline.createdBy());
             statement.executeUpdate();
         }

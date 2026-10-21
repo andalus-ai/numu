@@ -1,12 +1,14 @@
 CREATE TABLE IF NOT EXISTS schedule_plan (
     plan_id UUID PRIMARY KEY,
-    code VARCHAR(120) NOT NULL UNIQUE,
+    code VARCHAR(120) NOT NULL,
     name VARCHAR(300) NOT NULL,
     status VARCHAR(20) NOT NULL CHECK (status IN ('DRAFT', 'ACTIVE', 'RETIRED')),
     revision BIGINT NOT NULL DEFAULT 0 CHECK (revision >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_schedule_plan_code_ci ON schedule_plan(lower(code));
 
 CREATE TABLE IF NOT EXISTS schedule_activity (
     plan_id UUID NOT NULL REFERENCES schedule_plan(plan_id) ON DELETE CASCADE,
@@ -19,10 +21,11 @@ CREATE TABLE IF NOT EXISTS schedule_activity (
     work_item_id VARCHAR(240),
     position INTEGER NOT NULL CHECK (position >= 0),
     PRIMARY KEY (plan_id, activity_id),
-    CONSTRAINT uq_schedule_activity_code UNIQUE (plan_id, code),
     CONSTRAINT ck_schedule_activity_dates CHECK (planned_finish >= planned_start),
     CONSTRAINT ck_schedule_work_item_pair CHECK ((work_item_type IS NULL) = (work_item_id IS NULL))
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_schedule_activity_code_ci ON schedule_activity(plan_id, lower(code));
 
 CREATE TABLE IF NOT EXISTS schedule_dependency (
     plan_id UUID NOT NULL REFERENCES schedule_plan(plan_id) ON DELETE CASCADE,
