@@ -15,6 +15,9 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.identity.application.port.MembershipManagementPort;
 import tech.kayys.numou.identity.domain.user.UserId;
+import tech.kayys.numou.security.domain.authorization.Principal;
+import tech.kayys.numou.security.domain.identifier.PrincipalId;
+import tech.kayys.numou.security.spi.port.TenantMembershipResolver;
 
 /**
  * Persistence-level membership contract. Uses the configured test PostgreSQL
@@ -26,6 +29,9 @@ class PostgresMembershipManagementRepositoryTest {
 
     @Inject
     MembershipManagementPort membership;
+
+    @Inject
+    TenantMembershipResolver securityMembership;
 
     private UUID tenantId;
     private UUID userId;
@@ -80,6 +86,36 @@ class PostgresMembershipManagementRepositoryTest {
                 .setParameter("id", userId).executeUpdate())).await().indefinitely();
 
         assertFalse(isActive());
+    }
+
+    @Test
+    void securitySpiAcceptsOnlyActiveMembershipAndUser() {
+        assertTrue(isActiveViaSecuritySpi());
+
+        for (String status : new String[] {"INVITED", "SUSPENDED", "REVOKED"}) {
+            setMembershipStatus(status);
+            assertFalse(isActiveViaSecuritySpi(), "Security SPI must deny " + status);
+        }
+
+        setMembershipStatus("ACTIVE");
+        Panache.withTransaction(() -> Panache.getSession().chain(session -> session.createNativeQuery(
+                "update identity_users set status = 'DEACTIVATED' where id = :id")
+                .setParameter("id", userId).executeUpdate())).await().indefinitely();
+        assertFalse(isActiveViaSecuritySpi(), "Security SPI must deny deactivated users");
+    }
+
+    @Test
+    void securitySpiRejectsDifferentTenant() {
+        assertFalse(securityMembership.isMember(
+                Principal.of(PrincipalId.of(userId), userId.toString(), TenantId.of(tenantId)),
+                TenantId.of(UUID.randomUUID())).await().indefinitely());
+    }
+
+    private boolean isActiveViaSecuritySpi() {
+        Principal principal = Principal.of(
+                PrincipalId.of(userId), userId.toString(), TenantId.of(tenantId));
+        return securityMembership.isMember(principal, TenantId.of(tenantId))
+                .await().indefinitely();
     }
 
     private boolean isActive() {
