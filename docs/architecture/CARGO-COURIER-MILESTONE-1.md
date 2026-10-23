@@ -40,3 +40,11 @@
 4. Only an active branch in the requested organization can be used to register a hub.
 5. Duplicate hub codes are checked per tenant; the persistence layer must enforce the same invariant atomically.
 6. Repository lookups require explicit tenant scope and enforce it in storage queries.
+
+## Tenant ownership and persistence boundary (M1 follow-up)
+
+Hub registration now resolves the organization before resolving its branch. The application flow rejects missing organizations, organizations whose `tenantId` does not match the command tenant, and inactive organizations. The organization lookup port contract requires adapter implementations to tenant-scope the lookup at query time; filtering a globally loaded organization in application memory is not sufficient for production.
+
+A PostgreSQL-oriented Flyway migration is included at `logistics/numou-courier-domain/src/main/resources/db/migration/V1__courier_hubs.sql`. It stores tenant ownership on each hub and enforces `UNIQUE (tenant_id, normalized_code)` in the database, including coordinate and lifecycle checks. This is the concurrency-safe uniqueness boundary; the application pre-check is only for early feedback.
+
+**Remaining before M1 is production-ready:** implement and wire a concrete repository adapter whose reads, updates and deletes all predicate on `tenant_id`; map database unique violations to a stable domain/application conflict; confirm the actual Flyway discovery and database dialect in the runtime; add database integration tests; and verify the complete Maven reactor/CI. The migration alone does not constitute a completed persistence adapter.
