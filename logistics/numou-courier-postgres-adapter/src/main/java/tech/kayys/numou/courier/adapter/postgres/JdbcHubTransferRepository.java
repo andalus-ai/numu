@@ -50,6 +50,7 @@ public class JdbcHubTransferRepository implements HubTransferRepository {
             boolean oldAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                validateBookedShipments(connection, tenantId, transfer);
                 int affected;
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
                     statement.setObject(1, tenantId.value());
@@ -96,6 +97,24 @@ public class JdbcHubTransferRepository implements HubTransferRepository {
             }
         } catch (SQLException failure) {
             return CompletableFuture.failedFuture(new IllegalStateException("Unable to open hub transfer transaction", failure));
+        }
+    }
+
+
+    private static void validateBookedShipments(Connection connection, TenantId tenantId, HubTransfer transfer)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT status FROM courier_shipments WHERE tenant_id = ? AND id = ? FOR SHARE
+                """)) {
+            for (ShipmentId shipmentId : transfer.shipments()) {
+                statement.setObject(1, tenantId.value());
+                statement.setObject(2, shipmentId.value());
+                try (ResultSet row = statement.executeQuery()) {
+                    if (!row.next()) throw new IllegalArgumentException("shipment does not exist in this tenant: " + shipmentId);
+                    if (!"BOOKED".equals(row.getString("status")))
+                        throw new IllegalStateException("only booked shipments may be loaded onto a transfer");
+                }
+            }
         }
     }
 
