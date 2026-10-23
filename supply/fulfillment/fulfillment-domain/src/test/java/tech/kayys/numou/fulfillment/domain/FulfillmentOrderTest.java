@@ -19,11 +19,13 @@ class FulfillmentOrderTest {
         assertEquals(FulfillmentStatus.PICKED, order.status());
         order = order.pack("line-1", new BigDecimal("5"));
         assertEquals(FulfillmentStatus.PACKED, order.status());
-        order = order.stage().ship("SHIP-1").deliver();
+        order = order.stage().requestShipmentHandoff("SHIP-1");
+        assertEquals(FulfillmentStatus.HANDOFF_REQUESTED, order.status());
+        order = order.ship("SHIP-1").deliver();
 
         assertEquals(FulfillmentStatus.DELIVERED, order.status());
         assertEquals("SHIP-1", order.shipmentReference());
-        assertEquals(7, order.version());
+        assertEquals(8, order.version());
     }
 
     @Test
@@ -51,10 +53,19 @@ class FulfillmentOrderTest {
     }
 
     @Test
-    void prevents_shipment_handoff_before_packing_and_duplicate_line_ids() {
-        var requested = FulfillmentLine.requested("line-1", "SKU-3", new BigDecimal("1"), "EA");
-        var order = FulfillmentOrder.request("tenant-a", "ORDER-3", List.of(requested));
-        assertThrows(IllegalStateException.class, () -> order.ship("SHIP-3"));
+    void prevents_handoff_before_packing_and_requires_matching_shipment_reference() {
+        var order = FulfillmentOrder.request("tenant-a", "ORDER-3", List.of(
+                FulfillmentLine.requested("line-1", "SKU-3", BigDecimal.ONE, "EA")));
+        assertThrows(IllegalStateException.class, () -> order.requestShipmentHandoff("SHIP-3"));
+        var staged = order.allocate("line-1", BigDecimal.ONE).pick("line-1", BigDecimal.ONE)
+                .pack("line-1", BigDecimal.ONE).stage().requestShipmentHandoff("SHIP-3");
+        assertThrows(IllegalArgumentException.class, () -> staged.ship("SHIP-OTHER"));
+        assertThrows(IllegalStateException.class, staged::cancel);
+    }
+
+    @Test
+    void prevents_duplicate_line_ids() {
+        var requested = FulfillmentLine.requested("line-1", "SKU-4", BigDecimal.ONE, "EA");
         assertThrows(IllegalArgumentException.class, () -> FulfillmentOrder.request("tenant-a", "ORDER-4",
                 List.of(requested, requested)));
     }
@@ -67,6 +78,7 @@ class FulfillmentOrderTest {
                 .pick("line-1", BigDecimal.ONE)
                 .pack("line-1", BigDecimal.ONE)
                 .stage()
+                .requestShipmentHandoff("SHIP-5")
                 .ship("SHIP-5");
 
         assertThrows(IllegalStateException.class, order::cancel);

@@ -10,6 +10,7 @@ public enum FulfillmentStatus {
     PARTIALLY_PACKED,
     PACKED,
     STAGED,
+    HANDOFF_REQUESTED,
     SHIPPED,
     DELIVERED,
     CANCELLED,
