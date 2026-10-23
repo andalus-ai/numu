@@ -17,10 +17,16 @@ public final class WarehouseExecutionRecoveryService {
 
     public WarehouseExecutionAttempt prepare(String tenantId, String commandKey, String fingerprint,
                                              String workOrderId, String lineId, String operation) {
+        return prepare(tenantId, commandKey, fingerprint, workOrderId, lineId, operation, null);
+    }
+
+    public WarehouseExecutionAttempt prepare(String tenantId, String commandKey, String fingerprint,
+            String workOrderId, String lineId, String operation,
+            WarehouseInventoryRecoveryPayload recoveryPayload) {
         WarehouseExecutionAttempt proposed = WarehouseExecutionAttempt.prepared(
-                tenantId, commandKey, fingerprint, workOrderId, lineId, operation);
+                tenantId, commandKey, fingerprint, workOrderId, lineId, operation, recoveryPayload);
         WarehouseExecutionAttempt stored = repository.createIfAbsent(proposed);
-        assertSamePayload(stored, fingerprint, workOrderId, lineId, operation);
+        assertSamePayload(stored, fingerprint, workOrderId, lineId, operation, recoveryPayload);
         return stored;
     }
 
@@ -58,11 +64,13 @@ public final class WarehouseExecutionRecoveryService {
     }
 
     private static void assertSamePayload(WarehouseExecutionAttempt stored, String fingerprint,
-                                          String workOrderId, String lineId, String operation) {
+                                          String workOrderId, String lineId, String operation,
+                                          WarehouseInventoryRecoveryPayload recoveryPayload) {
         if (!stored.fingerprint().equals(fingerprint)
                 || !stored.workOrderId().equals(workOrderId)
                 || !stored.lineId().equals(lineId)
-                || !stored.operation().equals(operation)) {
+                || !stored.operation().equals(operation)
+                || !java.util.Objects.equals(stored.recoveryPayload(), recoveryPayload)) {
             throw new IllegalStateException("Command key reused with different execution payload");
         }
     }
