@@ -245,6 +245,56 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
+    void rejectsPageAuditActorAndRevisionThatDifferFromTheSnapshot() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        UUID otherActor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Audit snapshot", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Audit page",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "body", 0)), now);
+        PageRevision revision = new PageRevision(tenant, page.id(), page.revision(),
+                page.title(), page.blocks(), actor, now, "create");
+
+        AuditEntry wrongActor = new AuditEntry(tenant, otherActor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision(), "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, revision, 0, wrongActor));
+
+        AuditEntry wrongRevision = new AuditEntry(tenant, actor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision() + 1, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, revision, 0, wrongRevision));
+
+        assertTrue(store.findPage(tenant, page.id()).isEmpty());
+        assertTrue(store.history(tenant, page.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void pageHistoryIsIsolatedByTenant() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID otherTenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "History isolation", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Private page",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "private content", 0)), now);
+        PageRevision revision = new PageRevision(tenant, page.id(), page.revision(),
+                page.title(), page.blocks(), actor, now, "created");
+        assertTrue(store.saveWithRevision(page, revision, 0));
+
+        assertEquals(1, store.history(tenant, page.id()).size());
+        assertTrue(store.history(otherTenant, page.id()).isEmpty());
+    }
+
+    @Test
     void rejectsRevisionSnapshotsThatDifferFromThePage() throws SQLException {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
