@@ -2,6 +2,7 @@ package tech.kayys.numou.courier.adapter.postgres;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.postgresql.util.PSQLException;
 import tech.kayys.numou.courier.domain.*;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.organization.domain.OrganizationId;
@@ -52,8 +53,7 @@ public class JdbcHubRepository implements HubRepository {
             s.executeUpdate();
             return CompletableFuture.completedFuture(hub);
         } catch (SQLException e) {
-            if ("23505".equals(e.getSQLState()) && e.getMessage() != null
-                    && e.getMessage().contains("uq_courier_hubs_tenant_code")) {
+            if (isHubCodeConflict(e)) {
                 return CompletableFuture.failedFuture(new HubCodeConflictException(
                         "hub code already exists for this tenant", e));
             }
@@ -120,6 +120,25 @@ public class JdbcHubRepository implements HubRepository {
         } catch (SQLException e) {
             return CompletableFuture.failedFuture(new IllegalStateException("Unable to " + operation, e));
         }
+    }
+
+    private static boolean isHubCodeConflict(SQLException exception) {
+        for (SQLException current = exception; current != null; current = current.getNextException()) {
+            if (!"23505".equals(current.getSQLState())) {
+                continue;
+            }
+            if (current instanceof PSQLException postgres
+                    && postgres.getServerErrorMessage() != null
+                    && "uq_courier_hubs_tenant_code".equals(
+                            postgres.getServerErrorMessage().getConstraint())) {
+                return true;
+            }
+            if (current.getMessage() != null
+                    && current.getMessage().contains("uq_courier_hubs_tenant_code")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Hub mapHub(ResultSet r) throws SQLException {
