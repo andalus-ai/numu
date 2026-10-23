@@ -19,10 +19,11 @@ M3 introduces immutable tracking facts and the append-only timeline contract. It
 - Unique `(tenant_id, idempotency_key)` provides the database concurrency guard.
 - Shipment and parcel foreign keys use RESTRICT so tracking history cannot be erased by deleting operational records.
 - Timeline indexes support shipment and parcel history queries.
+- Timeline pagination uses an exclusive composite cursor (occurrence timestamp + event ID), avoiding skipped events when multiple scans share a timestamp.
 
 ## Follow-on acceptance work
 
-- Add the JDBC adapter and PostgreSQL tests for append, replay, payload conflict, tenant isolation, and cursor ordering.
+- Wire scan ingestion through an application command with authenticated actor context.
 - Wire scan ingestion through an application command with authenticated actor context.
 - Define correction/supersession events rather than editing historical facts.
 - Implement public tracking-number resolution, privacy filtering, retention, and API rate limiting before customer exposure.
