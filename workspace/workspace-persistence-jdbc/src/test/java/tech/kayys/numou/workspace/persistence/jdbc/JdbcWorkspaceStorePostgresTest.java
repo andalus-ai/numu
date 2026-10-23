@@ -481,6 +481,35 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
+    void pageUpdateCannotChangeItsWorkspaceSpaceOrParentIdentity() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Immutable page identity", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Original", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        UUID otherWorkspaceId = UUID.randomUUID();
+        UUID otherSpaceId = UUID.randomUUID();
+        Page forged = new Page(page.id(), tenant, otherWorkspaceId, otherSpaceId, UUID.randomUUID(),
+                "Identity changed", List.of(PageBlock.text(BlockType.PARAGRAPH, "must not persist", 0)),
+                page.revision() + 1, page.createdAt(), now.plusSeconds(1));
+        assertFalse(store.saveWithRevision(forged,
+                PageRevision.snapshot(forged, actor, now.plusSeconds(1), "forged identity"), page.revision()));
+
+        Page persisted = store.findPage(tenant, page.id()).orElseThrow();
+        assertEquals(workspace.id(), persisted.workspaceId());
+        assertEquals(space.id(), persisted.spaceId());
+        assertNull(persisted.parentPageId());
+        assertEquals("Original", persisted.title());
+        assertTrue(persisted.blocks().isEmpty());
+        assertEquals(1, store.history(tenant, page.id()).size());
+    }
+
+    @Test
     void staleAuditedPageUpdateDoesNotWriteAnAuditEvent() throws SQLException {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
