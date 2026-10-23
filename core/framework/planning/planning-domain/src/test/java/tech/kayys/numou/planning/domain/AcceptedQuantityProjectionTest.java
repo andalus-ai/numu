@@ -1,0 +1,73 @@
+package tech.kayys.numou.planning.domain;
+
+import org.junit.jupiter.api.Test;
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+class AcceptedQuantityProjectionTest {
+    @Test void pendingCorrectionDoesNotReplaceAcceptedEvidenceButApprovalDoes() {
+        UUID tenant = UUID.randomUUID(), definition = UUID.randomUUID();
+        var original = measurement(tenant, definition, "3", "original", "2026-10-20");
+        var replacement = measurement(tenant, definition, "4", "replacement", "2026-10-21");
+        var correction = correction(tenant, definition, original, replacement, "c1");
+        var pending = AcceptedQuantityProjection.resolve(tenant, definition, List.of(original, replacement), List.of(correction), List.of());
+        assertEquals(original.id(), pending.acceptedMeasurementId());
+        assertEquals(new BigDecimal("3"), pending.acceptedQuantity());
+        assertEquals(List.of(correction.id()), pending.pendingCorrectionIds());
+        var approval = decision(tenant, definition, correction, QuantityCorrectionDecision.Decision.APPROVED, "decision-1");
+        var accepted = AcceptedQuantityProjection.resolve(tenant, definition, List.of(original, replacement), List.of(correction), List.of(approval));
+        assertEquals(replacement.id(), accepted.acceptedMeasurementId());
+        assertEquals(new BigDecimal("4"), accepted.acceptedQuantity());
+        assertEquals(List.of(correction.id()), accepted.appliedCorrectionIds());
+    }
+
+    @Test void approvedCorrectionChainResolvesToTerminalReplacement() {
+        UUID tenant = UUID.randomUUID(), definition = UUID.randomUUID();
+        var first = measurement(tenant, definition, "3", "first", "2026-10-20");
+        var second = measurement(tenant, definition, "4", "second", "2026-10-21");
+        var third = measurement(tenant, definition, "5", "third", "2026-10-22");
+        var c1 = correction(tenant, definition, first, second, "c1");
+        var c2 = correction(tenant, definition, second, third, "c2");
+        var projection = AcceptedQuantityProjection.resolve(tenant, definition, List.of(first, second, third),
+                List.of(c1, c2), List.of(
+                        decision(tenant, definition, c1, QuantityCorrectionDecision.Decision.APPROVED, "d1"),
+                        decision(tenant, definition, c2, QuantityCorrectionDecision.Decision.APPROVED, "d2")));
+        assertEquals(third.id(), projection.acceptedMeasurementId());
+        assertEquals(new BigDecimal("5"), projection.acceptedQuantity());
+        assertEquals(List.of(c1.id(), c2.id()), projection.appliedCorrectionIds());
+    }
+
+    @Test void rejectedCorrectionNeverChangesAcceptedQuantity() {
+        UUID tenant = UUID.randomUUID(), definition = UUID.randomUUID();
+        var original = measurement(tenant, definition, "3", "original", "2026-10-20");
+        var replacement = measurement(tenant, definition, "9", "replacement", "2026-10-21");
+        var correction = correction(tenant, definition, original, replacement, "c1");
+        var rejection = decision(tenant, definition, correction, QuantityCorrectionDecision.Decision.REJECTED, "decision-2");
+        var projection = AcceptedQuantityProjection.resolve(tenant, definition, List.of(original, replacement), List.of(correction), List.of(rejection));
+        assertEquals(original.id(), projection.acceptedMeasurementId());
+        assertEquals(new BigDecimal("3"), projection.acceptedQuantity());
+        assertEquals(List.of(correction.id()), projection.rejectedCorrectionIds());
+    }
+
+    @Test void rejectsCrossTenantEvidence() {
+        UUID tenant = UUID.randomUUID(), definition = UUID.randomUUID();
+        var wrongTenant = measurement(UUID.randomUUID(), definition, "1", "wrong", "2026-10-20");
+        assertThrows(IllegalArgumentException.class, () -> AcceptedQuantityProjection.resolve(tenant, definition, List.of(wrongTenant), List.of(), List.of()));
+    }
+
+    private QuantityMeasurement measurement(UUID tenant, UUID definition, String quantity, String key, String date) {
+        return new QuantityMeasurement(UUID.randomUUID(), tenant, definition, LocalDate.parse(date),
+                new BigDecimal(quantity), Instant.parse(date + "T10:00:00Z"), "surveyor", key, null);
+    }
+    private QuantityMeasurementCorrection correction(UUID tenant, UUID definition, QuantityMeasurement original, QuantityMeasurement replacement, String key) {
+        return new QuantityMeasurementCorrection(UUID.randomUUID(), tenant, definition, original.id(), replacement.id(),
+                Instant.parse("2026-10-22T09:00:00Z"), "auditor", "Correction verified", key);
+    }
+    private QuantityCorrectionDecision decision(UUID tenant, UUID definition, QuantityMeasurementCorrection correction,
+            QuantityCorrectionDecision.Decision outcome, String key) {
+        return new QuantityCorrectionDecision(UUID.randomUUID(), tenant, definition, correction.id(), outcome,
+                Instant.parse("2026-10-23T10:00:00Z"), "reviewer", "Reviewed evidence", key);
+    }
+}
