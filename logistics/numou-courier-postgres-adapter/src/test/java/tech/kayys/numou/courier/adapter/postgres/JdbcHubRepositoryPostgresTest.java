@@ -150,6 +150,28 @@ class JdbcHubRepositoryPostgresTest {
 
 
 
+
+    @Test
+    void transferRejectsDraftShipments() {
+        TenantId tenant = TenantId.generate();
+        Hub origin = hub(tenant, "TRF-DRAFT-O");
+        Hub destination = hub(tenant, "TRF-DRAFT-D");
+        repository.save(tenant, origin).toCompletableFuture().join();
+        repository.save(tenant, destination).toCompletableFuture().join();
+        Shipment draft = shipment(tenant, "SHIP-DRAFT-TRANSFER");
+        shipmentRepository.save(tenant, draft).toCompletableFuture().join();
+
+        HubTransfer transfer = HubTransfer.draft("TRF-DRAFT-SHIP", tenant, HubTransferId.generate(),
+                origin.id(), destination.id(), draft.createdAt().plusSeconds(1));
+        transfer.addShipment(draft.id(), draft.createdAt().plusSeconds(2));
+        transfer.seal(draft.createdAt().plusSeconds(3));
+
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> transferRepository.save(tenant, transfer).toCompletableFuture().join());
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+        assertTrue(transferRepository.findById(tenant, transfer.id()).toCompletableFuture().join().isEmpty());
+    }
+
     @Test
     void hubTransferManifestAndShipmentMembershipRoundTripTenantScoped() {
         TenantId tenant = TenantId.generate();
