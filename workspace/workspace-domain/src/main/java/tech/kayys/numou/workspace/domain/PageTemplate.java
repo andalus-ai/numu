@@ -41,10 +41,15 @@ public record PageTemplate(UUID id, UUID tenantId, UUID workspaceId, UUID create
     }
 
     private static List<PageBlock> normalize(List<PageBlock> blocks) {
-        if (blocks == null) return List.of();
-        return blocks.stream().sorted(java.util.Comparator.comparingInt(PageBlock::position))
-                .map((b) -> new PageBlock(b.id(), b.type(), b.text(), blocks.indexOf(b), b.attributes()))
-                .toList();
+        if (blocks == null || blocks.isEmpty()) return List.of();
+        List<PageBlock> ordered = blocks.stream()
+                .sorted(java.util.Comparator.comparingInt(PageBlock::position)).toList();
+        java.util.ArrayList<PageBlock> normalized = new java.util.ArrayList<>(ordered.size());
+        for (int i = 0; i < ordered.size(); i++) {
+            PageBlock block = ordered.get(i);
+            normalized.add(new PageBlock(block.id(), block.type(), block.text(), i, block.attributes()));
+        }
+        return List.copyOf(normalized);
     }
 
     private static String required(String value, String field) {
