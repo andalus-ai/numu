@@ -24,6 +24,21 @@ class JdbcWarehouseExecutionAttemptRepositoryContractTest {
     }
 
     @Test
+    void tenantScopedRecoveryOperationsValidateInputsBeforeDatabaseAccess() {
+        JdbcWarehouseExecutionAttemptRepository repository =
+                new JdbcWarehouseExecutionAttemptRepository(new NoConnectionDataSource());
+        assertThrows(IllegalArgumentException.class, () -> repository.findDeadLetters(" ", 10));
+        assertThrows(IllegalArgumentException.class, () -> repository.findDeadLetters("tenant-a", 0));
+        assertThrows(IllegalArgumentException.class, () -> repository.summarizeRecovery(" "));
+        assertThrows(IllegalArgumentException.class, () -> repository.replayDeadLetter(
+                "tenant-a", "command-a", 0, "operator reviewed", java.time.Instant.now().plusSeconds(30)));
+        assertThrows(IllegalArgumentException.class, () -> repository.replayDeadLetter(
+                "tenant-a", "command-a", 1, " ", java.time.Instant.now().plusSeconds(30)));
+        assertThrows(IllegalArgumentException.class, () -> repository.replayDeadLetter(
+                "tenant-a", "command-a", 1, "operator reviewed", java.time.Instant.EPOCH));
+    }
+
+    @Test
     void legacyWorkerOnlyReleaseFailsClosedWithoutDatabaseAccess() {
         JdbcWarehouseExecutionAttemptRepository repository =
                 new JdbcWarehouseExecutionAttemptRepository(new NoConnectionDataSource());
