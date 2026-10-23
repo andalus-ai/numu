@@ -12,7 +12,7 @@ import java.util.*;
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
  * Configure a pooled DataSource in the host application. All resource reads are tenant-scoped.
  */
-public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink {
+public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink, AuditedMutationRepository {
     private final DataSource dataSource;
 
     public JdbcWorkspaceStore(DataSource dataSource) { this.dataSource = Objects.requireNonNull(dataSource, "dataSource"); }
@@ -287,4 +287,110 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     private static PageLink readPageLink(ResultSet r)throws SQLException {
         return new PageLink(uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),uuid(r,5),r.getString(6),instant(r,7));
     }
+
+    /*
+     * Audited mutations share one JDBC transaction. Do not replace these with a resource
+     * save followed by AuditSink.record(): that creates a partial-success failure mode.
+     */
+    @FunctionalInterface private interface SqlMutation { boolean run(Connection connection) throws SQLException; }
+
+    private boolean atomicMutation(String operation, SqlMutation mutation) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                if (!mutation.run(c)) { c.rollback(); return false; }
+                c.commit();
+                return true;
+            } catch (SQLException | RuntimeException e) {
+                rollback(c, e);
+                if (e instanceof SQLException sql && isConstraintViolation(sql)) return false;
+                if (e instanceof SQLException sql) throw failure(operation, sql);
+                throw e;
+            }
+        } catch (SQLException e) {
+            if (isConstraintViolation(e)) return false;
+            throw failure(operation, e);
+        }
+    }
+
+    private void insertAudit(Connection c, AuditEntry entry) throws SQLException {
+        String sql = "INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)";
+        try (PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, entry.tenantId()); p.setObject(2, entry.actorId()); p.setString(3, entry.action());
+            p.setString(4, entry.resourceType()); p.setObject(5, entry.resourceId()); p.setLong(6, entry.revision());
+            p.setString(7, entry.summary() == null ? "" : entry.summary());
+            p.setTimestamp(8, Timestamp.from(entry.occurredAt())); p.executeUpdate();
+        }
+    }
+
+    @Override public boolean saveWorkspace(Workspace value, AuditEntry audit) {
+        return atomicMutation("save workspace with audit", c -> {
+            try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_workspaces(id,tenant_id,name,description,created_at) VALUES(?,?,?,?,?)")) {
+                p.setObject(1,value.id()); p.setObject(2,value.tenantId()); p.setString(3,value.name());
+                p.setString(4,value.description()); p.setTimestamp(5,Timestamp.from(value.createdAt())); p.executeUpdate();
+            }
+            insertAudit(c, audit); return true;
+        });
+    }
+
+    @Override public boolean saveSpace(Space value, AuditEntry audit) {
+        return atomicMutation("save space with audit", c -> {
+            try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_spaces(id,tenant_id,workspace_id,name,slug,created_at) VALUES(?,?,?,?,?,?)")) {
+                p.setObject(1,value.id()); p.setObject(2,value.tenantId()); p.setObject(3,value.workspaceId());
+                p.setString(4,value.name()); p.setString(5,value.slug()); p.setTimestamp(6,Timestamp.from(value.createdAt())); p.executeUpdate();
+            }
+            insertAudit(c, audit); return true;
+        });
+    }
+
+    @Override public boolean savePageWithRevision(Page page, PageRevision revision, long expectedRevision, AuditEntry audit) {
+        if (!page.tenantId().equals(revision.tenantId()) || !page.id().equals(revision.pageId()) || page.revision() != revision.revision())
+            throw new IllegalArgumentException("page and revision snapshot do not match");
+        if (expectedRevision < 0 || page.revision() != expectedRevision + 1)
+            throw new IllegalArgumentException("revision must advance exactly once");
+        return atomicMutation("save page, revision and audit atomically", c -> {
+            if (expectedRevision == 0) insertPage(c, page);
+            else if (updatePageCompareAndSet(c, page, expectedRevision) != 1) return false;
+            replaceBlocks(c, "workspace_page_blocks", page.tenantId(), page.id(), page.blocks(), null);
+            insertRevision(c, revision);
+            replaceBlocks(c, "workspace_page_revision_blocks", page.tenantId(), page.id(), revision.blocks(), revision.revision());
+            insertAudit(c, audit); return true;
+        });
+    }
+
+    @Override public boolean saveTemplate(PageTemplate template, AuditEntry audit) {
+        return atomicMutation("save page template with audit", c -> {
+            String insert = "INSERT INTO workspace_page_templates(id,tenant_id,workspace_id,created_by,name,name_normalized,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)";
+            try (PreparedStatement p = c.prepareStatement(insert)) {
+                p.setObject(1, template.id()); p.setObject(2, template.tenantId()); p.setObject(3, template.workspaceId());
+                p.setObject(4, template.createdBy()); p.setString(5, template.name());
+                p.setString(6, template.name().trim().toLowerCase(Locale.ROOT)); p.setString(7, template.title());
+                p.setTimestamp(8, Timestamp.from(template.createdAt())); p.setTimestamp(9, Timestamp.from(template.updatedAt()));
+                p.executeUpdate();
+            }
+            insertTemplateBlocks(c, template); insertAudit(c, audit); return true;
+        });
+    }
+
+    @Override public boolean saveLink(PageLink link, AuditEntry audit) {
+        return atomicMutation("save page link with audit", c -> {
+            try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_page_links(id,tenant_id,source_page_id,target_page_id,created_by,label,created_at) VALUES(?,?,?,?,?,?,?)")) {
+                p.setObject(1,link.id()); p.setObject(2,link.tenantId()); p.setObject(3,link.sourcePageId());
+                p.setObject(4,link.targetPageId()); p.setObject(5,link.createdBy()); p.setString(6,link.label());
+                p.setTimestamp(7,Timestamp.from(link.createdAt())); p.executeUpdate();
+            }
+            insertAudit(c, audit); return true;
+        });
+    }
+
+    @Override public boolean deleteLink(UUID tenantId, UUID linkId, AuditEntry audit) {
+        return atomicMutation("delete page link with audit", c -> {
+            try (PreparedStatement p = c.prepareStatement("DELETE FROM workspace_page_links WHERE tenant_id=? AND id=?")) {
+                p.setObject(1,tenantId); p.setObject(2,linkId);
+                if (p.executeUpdate() != 1) return false;
+            }
+            insertAudit(c, audit); return true;
+        });
+    }
+
 }
