@@ -37,7 +37,10 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
             throw new IllegalStateException("Inventory receipt requires a RECEIVING work order");
         String fingerprint = fingerprint("receive", tenant, workOrderId, lineId, itemId, warehouseId,
                 quantity, unitCost, currency);
-        return execute(order, lineId, quantity, null, commandKey, fingerprint, "receive",
+        WarehouseInventoryRecoveryPayload payload = new WarehouseInventoryRecoveryPayload(
+                "receive", itemId, warehouseId, null, quantity.toPlainString(), unitCost.toPlainString(),
+                currency, order.reference() + ":" + lineId);
+        return execute(order, lineId, quantity, null, commandKey, fingerprint, "receive", payload,
                 () -> inventory.receive(tenant, itemId, warehouseId, quantity, unitCost, currency,
                         order.reference() + ":" + lineId, commandKey, workOrderId, lineId));
     }
@@ -49,17 +52,21 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
             throw new IllegalStateException("Reserved issue requires a PICKING work order");
         String fingerprint = fingerprint("pick", tenant, workOrderId, lineId, itemId, warehouseId,
                 reservationId, quantity, currency);
-        return execute(order, lineId, quantity, warehouseId, commandKey, fingerprint, "pick",
+        WarehouseInventoryRecoveryPayload payload = new WarehouseInventoryRecoveryPayload(
+                "pick", itemId, warehouseId, reservationId, quantity.toPlainString(), null,
+                currency, order.reference() + ":" + lineId);
+        return execute(order, lineId, quantity, warehouseId, commandKey, fingerprint, "pick", payload,
                 () -> inventory.issueReserved(tenant, reservationId, itemId, warehouseId, quantity, currency,
                         order.reference() + ":" + lineId, commandKey, workOrderId, lineId));
     }
 
     private WarehouseWorkOrder execute(WarehouseWorkOrder order, String lineId, BigDecimal quantity,
-            String context, String commandKey, String fingerprint, String operation, Runnable postInventory) {
+            String context, String commandKey, String fingerprint, String operation,
+            WarehouseInventoryRecoveryPayload payload, Runnable postInventory) {
         if (commandKey == null || commandKey.isBlank()) throw new IllegalArgumentException("commandKey required");
         String tenant = order.tenantId();
         WarehouseExecutionAttempt attempt = recovery.prepare(tenant, commandKey, fingerprint,
-                order.id(), lineId, operation);
+                order.id(), lineId, operation, payload);
 
         if (attempt.status() == WarehouseExecutionAttemptStatus.WAREHOUSE_COMMITTED) {
             return repository.find(tenant, order.id())
@@ -88,7 +95,7 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
         } catch (RuntimeException failure) {
             try {
                 WarehouseExecutionAttempt current = recovery.prepare(tenant, commandKey, fingerprint,
-                        order.id(), lineId, operation);
+                        order.id(), lineId, operation, payload);
                 if (current.status() != WarehouseExecutionAttemptStatus.WAREHOUSE_COMMITTED
                         && current.status() != WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION) {
                     recovery.failed(tenant, commandKey, safeMessage(failure));
