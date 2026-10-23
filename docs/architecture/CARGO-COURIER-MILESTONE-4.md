@@ -22,7 +22,7 @@ M4 begins the operational hub-to-hub movement layer. It introduces a tenant-owne
 
 ## Follow-on acceptance work
 
-- Validate that only booked shipments may be loaded onto a sealed manifest and prevent conflicting active transfers.
+- Prevent conflicting active transfers for the same shipment and add load reconciliation.
 - Emit M3 tracking events on seal/depart/arrival through an application use case and transactional outbox.
 - Add hub scan intake, sortation lanes/bags, route planning, load reconciliation, and exception handling.
 - Add PostgreSQL integration tests and run the Maven reactor in CI; tests are not claimed as passing from this environment.
