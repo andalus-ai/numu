@@ -74,3 +74,12 @@ The JDBC adapter includes opt-in integration tests that apply workspace migratio
 Configure `NUMOU_WORKSPACE_TEST_JDBC_URL` with a PostgreSQL test database URL. Optionally set `NUMOU_WORKSPACE_TEST_DB_USER` and `NUMOU_WORKSPACE_TEST_DB_PASSWORD`. The database role must be allowed to create and drop schemas. Each test creates a uniquely named schema and drops it afterward; use a dedicated disposable database, never a production database. Run with `mvn -pl workspace/workspace-persistence-jdbc -am test` from the repository root. The PostgreSQL driver is test-scoped and does not become a runtime dependency of Workspace consumers.
 
 These tests do not replace full-reactor CI or dedicated performance checks for search indexes. Verify the test profile in the project's actual CI environment before treating database compatibility as established.
+
+
+## Atomic audited mutations — reliability increment
+
+The application defines an optional `AuditedMutationRepository` capability for adapters that can persist a resource mutation and its audit row in the same database transaction. The JDBC adapter implements this for workspace creation, space creation, page creation/update (including current blocks and immutable revision snapshots), template creation (including template blocks), and page-link creation/removal. If the audit insert fails, the resource mutation rolls back; stale optimistic page updates do not emit audit rows.
+
+Application services retain compatibility with simple/in-memory adapters by using the original repository and audit ports when the combined capability is absent. Such adapters do **not** provide atomic resource/audit consistency and should be used only where that limitation is acceptable. Production adapters should implement `AuditedMutationRepository` and test audit-write failure rollback. Audit delivery outside the database transaction is not a substitute for this contract.
+
+The PostgreSQL integration suite includes a failure-injection test that violates the audit action length constraint and verifies both the page row and revision history remain absent. This test is opt-in and must be run against a disposable PostgreSQL database using the documented `NUMOU_WORKSPACE_TEST_JDBC_URL` configuration. No Maven or PostgreSQL test execution was performed during this remote-editing session.
