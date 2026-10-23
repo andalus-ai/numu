@@ -17,5 +17,6 @@
         <module>numou-fleet</module>
         <module>numou-courier-domain</module>
         <module>numou-courier-application</module>
+        <module>numou-courier-postgres-adapter</module>
     </modules>
 </project>
