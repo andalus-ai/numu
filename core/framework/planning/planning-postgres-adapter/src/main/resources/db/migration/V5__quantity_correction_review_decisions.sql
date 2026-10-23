@@ -1,5 +1,9 @@
--- Review outcomes are immutable events. The projection uses the latest decision per correction;
--- absence of a decision means pending, and no correction is accepted by default.
+-- A composite unique key is required for the tenant+definition-scoped decision FK.
+ALTER TABLE planning_quantity_measurement_correction
+    ADD CONSTRAINT uq_quantity_correction_tenant_definition_id
+    UNIQUE (tenant_id, definition_id, correction_id);
+
+-- Review outcomes are immutable events. No correction is accepted by default.
 CREATE TABLE IF NOT EXISTS planning_quantity_correction_decision (
     tenant_id UUID NOT NULL,
     decision_id UUID NOT NULL,
