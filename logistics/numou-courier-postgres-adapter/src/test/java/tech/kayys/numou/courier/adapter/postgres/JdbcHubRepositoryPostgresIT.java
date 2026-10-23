@@ -68,10 +68,10 @@ class JdbcHubRepositoryPostgresIT {
     }
 
     private static javax.sql.DataSource dataSource() {
-        return new org.postgresql.ds.PGSimpleDataSource() {{
-            setURL(POSTGRES.getJdbcUrl());
-            setUser(POSTGRES.getUsername());
-            setPassword(POSTGRES.getPassword());
-        }};
+        org.postgresql.ds.PGSimpleDataSource dataSource = new org.postgresql.ds.PGSimpleDataSource();
+        dataSource.setURL(POSTGRES.getJdbcUrl());
+        dataSource.setUser(POSTGRES.getUsername());
+        dataSource.setPassword(POSTGRES.getPassword());
+        return dataSource;
     }
 }
