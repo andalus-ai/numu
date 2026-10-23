@@ -41,7 +41,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V5__workspace_case_insensitive_space_slugs.sql",
             "/db/migration/V6__workspace_template_name_integrity.sql",
             "/db/migration/V7__workspace_domain_invariants.sql",
-            "/db/migration/V8__workspace_page_parent_invariant.sql");
+            "/db/migration/V8__workspace_page_parent_invariant.sql",
+            "/db/migration/V9__workspace_audit_invariants.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -225,6 +226,36 @@ class JdbcWorkspaceStorePostgresTest {
                 .stream().allMatch(hit -> hit.spaceId().equals(space.id())));
     }
 
+
+    @Test
+    void databaseRejectsInvalidAuditMetadata() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+
+        // Audit validation must hold even when a caller bypasses the JDBC adapter.
+        assertAuditInsertRejected(tenant, actor, "   ", "WORKSPACE", UUID.randomUUID(), 0, now);
+        assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "   ", UUID.randomUUID(), 0, now);
+        assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE", UUID.randomUUID(), -1, now);
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    private void assertAuditInsertRejected(UUID tenant, UUID actor, String action, String resourceType,
+                                           UUID resourceId, long revision, Instant occurredAt) throws SQLException {
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)")) {
+            p.setObject(1, tenant);
+            p.setObject(2, actor);
+            p.setString(3, action);
+            p.setString(4, resourceType);
+            p.setObject(5, resourceId);
+            p.setLong(6, revision);
+            p.setString(7, "direct SQL invariant test");
+            p.setTimestamp(8, java.sql.Timestamp.from(occurredAt));
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+    }
 
     @Test
     void rejectsAuditMetadataThatDoesNotDescribeTheMutation() {
