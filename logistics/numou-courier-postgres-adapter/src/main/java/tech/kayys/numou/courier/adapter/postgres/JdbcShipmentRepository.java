@@ -57,6 +57,9 @@ public class JdbcShipmentRepository implements ShipmentRepository {
               recipient_locality=EXCLUDED.recipient_locality, recipient_administrative_area=EXCLUDED.recipient_administrative_area,
               recipient_postal_code=EXCLUDED.recipient_postal_code, recipient_country_code=EXCLUDED.recipient_country_code,
               updated_at=EXCLUDED.updated_at, booked_at=EXCLUDED.booked_at
+            WHERE courier_shipments.status = EXCLUDED.status
+               OR (courier_shipments.status = 'DRAFT' AND EXCLUDED.status IN ('BOOKED', 'CANCELLED'))
+               OR (courier_shipments.status = 'BOOKED' AND EXCLUDED.status = 'CANCELLED')
             """;
         try (Connection connection = dataSource.getConnection()) {
             boolean oldAutoCommit = connection.getAutoCommit();
@@ -64,7 +67,11 @@ public class JdbcShipmentRepository implements ShipmentRepository {
             try {
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
                     bindShipment(statement, tenantId, shipment);
-                    statement.executeUpdate();
+                    int affected = statement.executeUpdate();
+                    if (affected == 0) {
+                        throw new IllegalStateException("shipment lifecycle cannot transition from persisted state to "
+                                + shipment.status());
+                    }
                 }
                 try (PreparedStatement delete = connection.prepareStatement(
                         "DELETE FROM courier_parcels WHERE tenant_id = ? AND shipment_id = ?")) {
