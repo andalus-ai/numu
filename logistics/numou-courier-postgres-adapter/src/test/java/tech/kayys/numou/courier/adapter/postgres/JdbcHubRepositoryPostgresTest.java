@@ -7,6 +7,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tech.kayys.numou.courier.domain.*;
+import java.math.BigDecimal;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.organization.domain.OrganizationId;
 import tech.kayys.numou.organization.domain.OrganizationUnitId;
@@ -24,6 +25,7 @@ class JdbcHubRepositoryPostgresTest {
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
     static JdbcHubRepository repository;
+    static JdbcShipmentRepository shipmentRepository;
 
     @BeforeAll
     static void migrateSchema() {
@@ -33,6 +35,7 @@ class JdbcHubRepositoryPostgresTest {
                 .load()
                 .migrate();
         repository = new JdbcHubRepository(dataSource());
+        shipmentRepository = new JdbcShipmentRepository(dataSource());
     }
 
     @Test
@@ -82,6 +85,76 @@ class JdbcHubRepositoryPostgresTest {
             failure = failure.getCause();
         }
         assertInstanceOf(JdbcHubRepository.HubCodeConflictException.class, failure);
+    }
+
+    @Test
+    void shipmentAndParcelsRoundTripAtomicallyAndRemainTenantScoped() {
+        TenantId owner = TenantId.generate();
+        TenantId other = TenantId.generate();
+        Shipment shipment = shipment(owner, "SHIP-ROUNDTRIP");
+        Instant createdAt = shipment.createdAt();
+        shipment.addParcel(parcel("PIECE-01"), createdAt.plusSeconds(1));
+        shipment.addParcel(parcel("PIECE-02"), createdAt.plusSeconds(2));
+        shipment.book(createdAt.plusSeconds(3));
+
+        shipmentRepository.save(owner, shipment).toCompletableFuture().join();
+
+        assertTrue(shipmentRepository.findById(other, shipment.id()).toCompletableFuture().join().isEmpty());
+        Shipment loaded = shipmentRepository.findByReference(owner, "ship-roundtrip")
+                .toCompletableFuture().join().orElseThrow();
+        assertEquals(ShipmentStatus.BOOKED, loaded.status());
+        assertEquals(2, loaded.parcels().size());
+        assertEquals(shipment.sender(), loaded.sender());
+        assertEquals(shipment.bookedAt(), loaded.bookedAt());
+    }
+
+    @Test
+    void staleDraftCannotRegressPersistedBookedShipment() {
+        TenantId tenant = TenantId.generate();
+        Shipment shipment = shipment(tenant, "SHIP-STATE");
+        Instant createdAt = shipment.createdAt();
+        shipment.addParcel(parcel("PIECE-STATE"), createdAt.plusSeconds(1));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+        shipment.book(createdAt.plusSeconds(2));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+
+        Shipment staleDraft = Shipment.draft(shipment.id(), tenant, shipment.reference(),
+                shipment.sender(), shipment.recipient(), shipment.serviceLevel(), createdAt);
+        staleDraft.addParcel(parcel("PIECE-STATE"), createdAt.plusSeconds(1));
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> shipmentRepository.save(tenant, staleDraft).toCompletableFuture().join());
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+
+        Shipment stored = shipmentRepository.findById(tenant, shipment.id()).toCompletableFuture().join().orElseThrow();
+        assertEquals(ShipmentStatus.BOOKED, stored.status());
+        assertEquals(1, stored.parcels().size());
+    }
+
+    @Test
+    void shipmentReferenceIsUniquePerTenantNotGlobally() {
+        TenantId tenantA = TenantId.generate();
+        TenantId tenantB = TenantId.generate();
+        shipmentRepository.save(tenantA, shipment(tenantA, "SHIP-UNIQUE")).toCompletableFuture().join();
+        shipmentRepository.save(tenantB, shipment(tenantB, "SHIP-UNIQUE")).toCompletableFuture().join();
+
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> shipmentRepository.save(tenantA, shipment(tenantA, "SHIP-UNIQUE"))
+                        .toCompletableFuture().join());
+        assertInstanceOf(JdbcShipmentRepository.ShipmentReferenceConflictException.class, failure.getCause());
+    }
+
+    private static Shipment shipment(TenantId tenantId, String reference) {
+        ShipmentAddress sender = new ShipmentAddress("Sender", "+62111", "Origin Street", null,
+                "Bandung", "West Java", "40111", "ID");
+        ShipmentAddress recipient = new ShipmentAddress("Recipient", "+62222", "Destination Street", null,
+                "Jakarta", "DKI Jakarta", "10110", "ID");
+        return Shipment.draft(ShipmentId.generate(), tenantId, reference,
+                sender, recipient, ServiceLevel.STANDARD, Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+    }
+
+    private static Parcel parcel(String reference) {
+        return new Parcel(ParcelId.generate(), reference, new BigDecimal("1.250"),
+                new BigDecimal("20"), new BigDecimal("15"), new BigDecimal("10"), "Keep dry");
     }
 
     private static Hub hub(TenantId tenantId, String code) {
