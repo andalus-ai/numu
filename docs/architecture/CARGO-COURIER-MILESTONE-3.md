@@ -24,7 +24,6 @@ M3 introduces immutable tracking facts and the append-only timeline contract. It
 ## Follow-on acceptance work
 
 - Wire scan ingestion through an application command with authenticated actor context.
-- Wire scan ingestion through an application command with authenticated actor context.
 - Define correction/supersession events rather than editing historical facts.
 - Implement public tracking-number resolution, privacy filtering, retention, and API rate limiting before customer exposure.
 - M4/M5 will emit hub, linehaul, dispatch, and delivery events through this contract.
