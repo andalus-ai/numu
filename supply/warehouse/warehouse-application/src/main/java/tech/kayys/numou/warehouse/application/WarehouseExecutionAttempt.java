@@ -22,7 +22,8 @@ public record WarehouseExecutionAttempt(
         String lastError,
         Instant createdAt,
         Instant updatedAt,
-        long version) {
+        long version,
+        WarehouseInventoryRecoveryPayload recoveryPayload) {
 
     public WarehouseExecutionAttempt {
         tenantId = required(tenantId, "tenantId");
@@ -46,9 +47,16 @@ public record WarehouseExecutionAttempt(
     public static WarehouseExecutionAttempt prepared(
             String tenantId, String commandKey, String fingerprint,
             String workOrderId, String lineId, String operation) {
+        return prepared(tenantId, commandKey, fingerprint, workOrderId, lineId, operation, null);
+    }
+
+    public static WarehouseExecutionAttempt prepared(
+            String tenantId, String commandKey, String fingerprint,
+            String workOrderId, String lineId, String operation,
+            WarehouseInventoryRecoveryPayload recoveryPayload) {
         Instant now = Instant.now();
         return new WarehouseExecutionAttempt(tenantId, commandKey, fingerprint, workOrderId, lineId,
-                operation, WarehouseExecutionAttemptStatus.PREPARED, 1, null, now, now, 1);
+                operation, WarehouseExecutionAttemptStatus.PREPARED, 1, null, now, now, 1, recoveryPayload);
     }
 
     public WarehouseExecutionAttempt inventoryPosted() {
@@ -78,13 +86,13 @@ public record WarehouseExecutionAttempt(
         }
         Instant now = Instant.now();
         return new WarehouseExecutionAttempt(tenantId, commandKey, fingerprint, workOrderId, lineId, operation,
-                WarehouseExecutionAttemptStatus.PREPARED, attemptCount + 1, null, createdAt, now, version + 1);
+                WarehouseExecutionAttemptStatus.PREPARED, attemptCount + 1, null, createdAt, now, version + 1, recoveryPayload);
     }
 
     private WarehouseExecutionAttempt revise(WarehouseExecutionAttemptStatus next, String error) {
         Instant now = Instant.now();
         return new WarehouseExecutionAttempt(tenantId, commandKey, fingerprint, workOrderId, lineId, operation,
-                next, attemptCount, error, createdAt, now, version + 1);
+                next, attemptCount, error, createdAt, now, version + 1, recoveryPayload);
     }
 
     private void requireStatus(WarehouseExecutionAttemptStatus expected) {
