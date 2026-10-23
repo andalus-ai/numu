@@ -57,6 +57,22 @@ class ShipmentTest {
     }
 
     @Test
+    void reconstitutesCancelledShipmentThatWasPreviouslyBooked() {
+        Shipment shipment = draft("NUM-1005");
+        shipment.addParcel(parcel("PIECE-1"), T0.plusSeconds(1));
+        shipment.book(T0.plusSeconds(2));
+        shipment.cancel(T0.plusSeconds(3));
+
+        Shipment restored = Shipment.reconstitute(shipment.id(), shipment.tenantId(), shipment.reference(),
+                shipment.sender(), shipment.recipient(), shipment.serviceLevel(), shipment.status(),
+                shipment.createdAt(), shipment.updatedAt(), shipment.bookedAt(), shipment.parcels());
+
+        assertEquals(ShipmentStatus.CANCELLED, restored.status());
+        assertEquals(T0.plusSeconds(2), restored.bookedAt());
+        assertEquals(1, restored.parcels().size());
+    }
+
+    @Test
     void cancellationIsIdempotentAndBookingCannotBeCancelledBackwardsInTime() {
         Shipment shipment = draft("NUM-1004");
         shipment.addParcel(parcel("PIECE-1"), T0.plusSeconds(1));
