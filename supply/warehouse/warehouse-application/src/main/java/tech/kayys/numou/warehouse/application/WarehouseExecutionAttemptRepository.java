@@ -34,6 +34,19 @@ public interface WarehouseExecutionAttemptRepository {
         throw new UnsupportedOperationException("Durable retry scheduling is not supported by this repository");
     }
 
+    /**
+     * Atomically schedule a retry and relinquish the exact live claim in one database operation.
+     * This avoids a crash window between releasing a lease and persisting retry eligibility.
+     */
+    default WarehouseExecutionAttempt scheduleRetry(WarehouseExecutionClaim claim, Instant nextEligibleAt) {
+        throw new UnsupportedOperationException("Atomic claim retry scheduling is not supported by this repository");
+    }
+
+    /** Atomically terminalize a claimed reconciliation attempt and clear its lease. */
+    default WarehouseExecutionAttempt deadLetter(WarehouseExecutionClaim claim, String reason) {
+        throw new UnsupportedOperationException("Atomic claimed dead-letter transition is not supported by this repository");
+    }
+
     /** Return a bounded, oldest-first view of terminal recovery records for operations tooling. */
     default List<WarehouseExecutionAttempt> findDeadLetters(int limit) {
         throw new UnsupportedOperationException("Dead-letter queries are not supported by this repository");
