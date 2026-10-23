@@ -46,27 +46,31 @@ public final class HubTransfer {
         requireStatus(HubTransferStatus.DRAFT);
         Objects.requireNonNull(shipmentId, "shipmentId must not be null");
         if (shipments.contains(shipmentId)) throw new IllegalArgumentException("shipment already belongs to transfer");
+        Instant nextUpdatedAt = monotonic(now);
         shipments.add(shipmentId);
-        updatedAt = monotonic(now);
+        updatedAt = nextUpdatedAt;
     }
 
     public void seal(Instant now) {
         requireStatus(HubTransferStatus.DRAFT);
         if (shipments.isEmpty()) throw new IllegalStateException("cannot seal an empty transfer");
+        Instant nextUpdatedAt = monotonic(now);
         status = HubTransferStatus.SEALED;
-        updatedAt = monotonic(now);
+        updatedAt = nextUpdatedAt;
     }
 
     public void depart(Instant now) {
         requireStatus(HubTransferStatus.SEALED);
-        departedAt = monotonic(now);
+        Instant nextDepartedAt = monotonic(now);
+        departedAt = nextDepartedAt;
         updatedAt = departedAt;
         status = HubTransferStatus.DEPARTED;
     }
 
     public void arrive(Instant now) {
         requireStatus(HubTransferStatus.DEPARTED);
-        arrivedAt = monotonic(now);
+        Instant nextArrivedAt = monotonic(now);
+        arrivedAt = nextArrivedAt;
         updatedAt = arrivedAt;
         status = HubTransferStatus.ARRIVED;
     }
@@ -75,8 +79,9 @@ public final class HubTransfer {
         if (status == HubTransferStatus.CANCELLED) return;
         if (status != HubTransferStatus.DRAFT && status != HubTransferStatus.SEALED)
             throw new IllegalStateException("only draft or sealed transfers can be cancelled");
+        Instant nextUpdatedAt = monotonic(now);
         status = HubTransferStatus.CANCELLED;
-        updatedAt = monotonic(now);
+        updatedAt = nextUpdatedAt;
     }
 
     public static HubTransfer reconstitute(String reference, TenantId tenantId, HubTransferId id,
