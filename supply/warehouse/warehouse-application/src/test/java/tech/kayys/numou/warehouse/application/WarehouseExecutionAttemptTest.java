@@ -29,8 +29,10 @@ class WarehouseExecutionAttemptTest {
     void reconciliationRequiresReasonAndPayloadIdentity() {
         assertThrows(IllegalArgumentException.class, () -> prepared().needsReconciliation(" "));
         WarehouseExecutionAttempt a = prepared();
+        UnusedRepository repository = new UnusedRepository();
+        repository.createIfAbsent(a);
         assertThrows(IllegalStateException.class, () ->
-                new WarehouseExecutionRecoveryService(new UnusedRepository())
+                new WarehouseExecutionRecoveryService(repository)
                         .prepare("tenant-a", "command-a", "different-fingerprint", "work-1", "line-1", "RECEIVE"));
     }
 
