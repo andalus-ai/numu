@@ -330,6 +330,8 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             throw new IllegalArgumentException("audit tenant does not match mutation tenant");
         if (audit.resourceId() == null || !resourceId.equals(audit.resourceId()))
             throw new IllegalArgumentException("audit resource does not match mutation resource");
+        if (audit.actorId() == null)
+            throw new IllegalArgumentException("audit actor is required");
         if (audit.action() == null || audit.action().isBlank()
                 || audit.resourceType() == null || audit.resourceType().isBlank())
             throw new IllegalArgumentException("audit action and resource type are required");
