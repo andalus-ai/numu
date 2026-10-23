@@ -31,7 +31,10 @@ public final class PageLinkService {
  public void unlink(UUID tenantId,UUID actorId,UUID linkId) {
   identity(tenantId,actorId);PageLink link=links.findLink(tenantId,linkId).orElseThrow(()->new IllegalArgumentException("Page link not found for tenant"));
   pages.findPage(tenantId,link.sourcePageId()).orElseThrow(()->new IllegalArgumentException("Source page not found for tenant"));
+  pages.findPage(tenantId,link.targetPageId()).orElseThrow(()->new IllegalArgumentException("Target page not found for tenant"));
   access.require(tenantId,actorId,Resource.PAGE,link.sourcePageId(),Action.UPDATE);
+  // Keep target visibility consistent with creation and outgoing-link reads before mutating the link.
+  access.require(tenantId,actorId,Resource.PAGE,link.targetPageId(),Action.READ);
   AuditEntry event=new AuditEntry(tenantId,actorId,"PAGE_LINK_REMOVED","PAGE_LINK",link.id(),0,link.sourcePageId()+" -> "+link.targetPageId(),clock.instant());
   boolean deleted;
   if(links instanceof AuditedMutationRepository tx)deleted=tx.deleteLink(tenantId,linkId,event);
