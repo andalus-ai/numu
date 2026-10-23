@@ -12,7 +12,7 @@ public final class TenantScopedInventoryWarehouseGateway implements InventoryWar
   inventory.receive(req(tenant,"tenantId"),key(workOrder,line,"receive",commandKey),ItemId.of(req(item,"itemId")),WarehouseId.of(req(warehouse,"warehouseId")),quantity,unitCost,currency,reference);
  }
  @Override public void issueReserved(String tenant,String reservation,String item,String warehouse,BigDecimal quantity,String currency,String reference,String commandKey,String workOrder,String line){
-  inventory.issueReserved(req(tenant,"tenantId"),ReservationId.of(req(reservation,"reservationId")),ItemId.of(req(item,"itemId")),WarehouseId.of(req(warehouse,"warehouseId")),quantity,currency,reference);
+  inventory.issueReserved(req(tenant,"tenantId"),key(workOrder,line,"issue-reserved",commandKey),ReservationId.of(req(reservation,"reservationId")),ItemId.of(req(item,"itemId")),WarehouseId.of(req(warehouse,"warehouseId")),quantity,currency,reference);
  }
  private static InventoryCommandKey key(String workOrder,String line,String operation,String commandKey){
   return new InventoryCommandKey("warehouse:"+req(workOrder,"workOrderId")+":"+req(line,"lineId")+":"+operation,req(commandKey,"commandKey"));
