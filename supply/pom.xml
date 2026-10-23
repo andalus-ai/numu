@@ -22,5 +22,6 @@
         <module>inventory</module>
         <module>purchasing</module>
         <module>fulfillment</module>
+        <module>warehouse</module>
     </modules>
 </project>
