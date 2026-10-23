@@ -40,7 +40,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V4__workspace_page_search_indexes.sql",
             "/db/migration/V5__workspace_case_insensitive_space_slugs.sql",
             "/db/migration/V6__workspace_template_name_integrity.sql",
-            "/db/migration/V7__workspace_domain_invariants.sql");
+            "/db/migration/V7__workspace_domain_invariants.sql",
+            "/db/migration/V8__workspace_page_parent_invariant.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -478,6 +479,39 @@ class JdbcWorkspaceStorePostgresTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void pageCannotBeItsOwnParentAtDomainAndDatabaseBoundaries() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "No self parent", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+
+        UUID pageId = UUID.randomUUID();
+        assertThrows(IllegalArgumentException.class, () -> new Page(pageId, tenant, workspace.id(),
+                space.id(), pageId, "Invalid self parent", List.of(), 1, now, now));
+
+        // Exercise the storage invariant independently of the domain constructor.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "INSERT INTO workspace_pages(id,tenant_id,workspace_id,space_id,parent_page_id,title,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)")) {
+            p.setObject(1, pageId);
+            p.setObject(2, tenant);
+            p.setObject(3, workspace.id());
+            p.setObject(4, space.id());
+            p.setObject(5, pageId);
+            p.setString(6, "Invalid self parent");
+            p.setLong(7, 1);
+            p.setTimestamp(8, java.sql.Timestamp.from(now));
+            p.setTimestamp(9, java.sql.Timestamp.from(now));
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+        assertTrue(store.findPage(tenant, pageId).isEmpty());
+        assertTrue(store.history(tenant, pageId).isEmpty());
     }
 
     @Test
