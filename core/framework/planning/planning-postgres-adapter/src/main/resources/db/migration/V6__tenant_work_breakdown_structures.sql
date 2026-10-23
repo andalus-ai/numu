@@ -27,9 +27,14 @@ CREATE TABLE IF NOT EXISTS work_breakdown_node (
         REFERENCES work_breakdown_node (tenant_id, structure_id, node_id)
         DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT ck_wbs_node_not_self_parent CHECK (parent_id IS NULL OR parent_id <> node_id),
-    CONSTRAINT uq_wbs_node_sibling_code UNIQUE NULLS NOT DISTINCT (tenant_id, structure_id, parent_id, code),
-    CONSTRAINT uq_wbs_node_sibling_position UNIQUE NULLS NOT DISTINCT (tenant_id, structure_id, parent_id, position)
+    CONSTRAINT ck_wbs_node_reserved CHECK (position >= 0)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_wbs_node_sibling_code_ci
+    ON work_breakdown_node (tenant_id, structure_id, COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'::UUID), lower(code));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_wbs_node_sibling_position
+    ON work_breakdown_node (tenant_id, structure_id, COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'::UUID), position);
 
 CREATE OR REPLACE FUNCTION reject_work_breakdown_mutation() RETURNS trigger AS $$
 BEGIN
