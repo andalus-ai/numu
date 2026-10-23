@@ -222,6 +222,29 @@ class JdbcWorkspaceStorePostgresTest {
 
 
     @Test
+    void rejectsAuditMetadataThatDoesNotDescribeTheMutation() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID otherTenant = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Audit integrity", "", now);
+
+        AuditEntry crossTenant = new AuditEntry(otherTenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "WORKSPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, crossTenant));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+        assertEquals(0, countAuditEvents(otherTenant));
+
+        AuditEntry wrongResource = new AuditEntry(tenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "WORKSPACE", UUID.randomUUID(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, wrongResource));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
     void rejectsRevisionSnapshotsThatDifferFromThePage() throws SQLException {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
