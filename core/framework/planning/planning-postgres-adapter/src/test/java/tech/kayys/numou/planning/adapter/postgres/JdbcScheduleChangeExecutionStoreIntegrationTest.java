@@ -88,10 +88,8 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
             assertEquals(1, java.util.stream.Stream.of(a, b)
                     .filter(r -> r.status() == ScheduleChangeExecution.Status.CONFLICT).count());
             assertEquals(2, plans.findById(f.base.id()).orElseThrow().revision());
-            assertEquals(a, executions.findByExecutionId(firstId).orElseGet(
-                    () -> executions.findByExecutionId(secondId).orElseThrow()));
-            assertTrue(executions.findByExecutionId(firstId).isPresent());
-            assertTrue(executions.findByExecutionId(secondId).isPresent());
+            assertEquals(a, executions.findByExecutionId(firstId).orElseThrow());
+            assertEquals(b, executions.findByExecutionId(secondId).orElseThrow());
         } finally {
             start.countDown();
             pool.shutdownNow();
