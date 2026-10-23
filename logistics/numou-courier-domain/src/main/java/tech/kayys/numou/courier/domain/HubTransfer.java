@@ -13,7 +13,7 @@ import java.util.Set;
 public final class HubTransfer {
     private final String reference;
     private final TenantId tenantId;
-    private final HubId id;
+    private final HubTransferId id;
     private final HubId originHubId;
     private final HubId destinationHubId;
     private final Instant createdAt;
@@ -23,7 +23,7 @@ public final class HubTransfer {
     private Instant departedAt;
     private Instant arrivedAt;
 
-    private HubTransfer(String reference, TenantId tenantId, HubId id, HubId originHubId,
+    private HubTransfer(String reference, TenantId tenantId, HubTransferId id, HubId originHubId,
                         HubId destinationHubId, Instant now) {
         this.reference = required(reference, "reference").toUpperCase(java.util.Locale.ROOT);
         if (!this.reference.matches("[A-Z0-9][A-Z0-9._-]{2,39}"))
@@ -37,7 +37,7 @@ public final class HubTransfer {
         this.updatedAt = now;
     }
 
-    public static HubTransfer draft(String reference, TenantId tenantId, HubId id,
+    public static HubTransfer draft(String reference, TenantId tenantId, HubTransferId id,
                                     HubId origin, HubId destination, Instant now) {
         return new HubTransfer(reference, tenantId, id, origin, destination, now);
     }
@@ -79,7 +79,7 @@ public final class HubTransfer {
         updatedAt = monotonic(now);
     }
 
-    public static HubTransfer reconstitute(String reference, TenantId tenantId, HubId id,
+    public static HubTransfer reconstitute(String reference, TenantId tenantId, HubTransferId id,
             HubId origin, HubId destination, HubTransferStatus status, Instant createdAt,
             Instant updatedAt, Instant departedAt, Instant arrivedAt, List<ShipmentId> persistedShipments) {
         HubTransfer transfer = new HubTransfer(reference, tenantId, id, origin, destination, createdAt);
@@ -122,7 +122,7 @@ public final class HubTransfer {
     }
     public String reference() { return reference; }
     public TenantId tenantId() { return tenantId; }
-    public HubId id() { return id; }
+    public HubTransferId id() { return id; }
     public HubId originHubId() { return originHubId; }
     public HubId destinationHubId() { return destinationHubId; }
     public Instant createdAt() { return createdAt; }
