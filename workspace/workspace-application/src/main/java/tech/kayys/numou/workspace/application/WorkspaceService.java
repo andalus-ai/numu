@@ -22,7 +22,7 @@ public final class WorkspaceService {
   audit("SPACE_CREATED",tenant,actor,"SPACE",value.id(),0,value.name());return value;
  }
  public Page createPage(UUID tenant,UUID actor,UUID workspaceId,UUID spaceId,UUID parentId,String title,List<PageBlock> blocks){
-  identity(tenant,actor);workspaces.find(tenant,workspaceId).orElseThrow(()->new IllegalArgumentException("Workspace not found for tenant"));
+  identity(tenant,actor);workspaces.findWorkspace(tenant,workspaceId).orElseThrow(()->new IllegalArgumentException("Workspace not found for tenant"));
   spaces.find(tenant,workspaceId,spaceId).orElseThrow(()->new IllegalArgumentException("Space not found for workspace"));
   access.require(tenant,actor,Resource.SPACE,spaceId,Action.CREATE);
   if(parentId!=null){Page parent=pages.findPage(tenant,parentId).orElseThrow(()->new IllegalArgumentException("Parent page not found for tenant"));if(!parent.workspaceId().equals(workspaceId)||!parent.spaceId().equals(spaceId))throw new IllegalArgumentException("Parent page must belong to the same workspace and space");}
@@ -32,21 +32,21 @@ public final class WorkspaceService {
  }
  public Page updatePage(UUID tenant,UUID actor,UUID pageId,long expectedRevision,String title,List<PageBlock> blocks,String summary){
   identity(tenant,actor);if(expectedRevision<1)throw new IllegalArgumentException("expectedRevision must be positive");
-  Page current=pages.find(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.UPDATE);
+  Page current=pages.findPage(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.UPDATE);
   if(current.revision()!=expectedRevision)throw new RevisionConflictException(pageId,expectedRevision,current.revision());
   Instant now=clock.instant();Page revised=current.revise(title,validateFiles(tenant,actor,blocks),now);PageRevision rev=PageRevision.snapshot(revised,actor,now,summary);
   if(!pages.saveWithRevision(revised,rev,expectedRevision))throw new RevisionConflictException(pageId,expectedRevision,current.revision());
   audit("PAGE_UPDATED",tenant,actor,"PAGE",pageId,revised.revision(),summary);return revised;
  }
  public Page readPage(UUID tenant,UUID actor,UUID pageId){
-  identity(tenant,actor);Page page=pages.find(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return page;
+  identity(tenant,actor);Page page=pages.findPage(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return page;
  }
  public List<Page> listChildren(UUID tenant,UUID actor,UUID spaceId,UUID parentId){
   identity(tenant,actor);access.require(tenant,actor,Resource.SPACE,spaceId,Action.READ);
   return pages.findChildren(tenant,spaceId,parentId).stream().sorted(Comparator.comparing(Page::updatedAt).reversed()).toList();
  }
  public List<PageRevision> pageHistory(UUID tenant,UUID actor,UUID pageId){
-  identity(tenant,actor);pages.find(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return pages.history(tenant,pageId);
+  identity(tenant,actor);pages.findPage(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return pages.history(tenant,pageId);
  }
  private List<PageBlock> validateFiles(UUID tenant,UUID actor,List<PageBlock> blocks){
   List<PageBlock> safe=blocks==null?List.of():List.copyOf(blocks);

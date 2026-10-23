@@ -25,7 +25,7 @@ public final class PageLinkService {
   return link;
  }
  public void unlink(UUID tenantId,UUID actorId,UUID linkId) {
-  identity(tenantId,actorId);PageLink link=links.find(tenantId,linkId).orElseThrow(()->new IllegalArgumentException("Page link not found for tenant"));
+  identity(tenantId,actorId);PageLink link=links.findLink(tenantId,linkId).orElseThrow(()->new IllegalArgumentException("Page link not found for tenant"));
   pages.findPage(tenantId,link.sourcePageId()).orElseThrow(()->new IllegalArgumentException("Source page not found for tenant"));
   access.require(tenantId,actorId,Resource.PAGE,link.sourcePageId(),Action.UPDATE);
   if(!links.delete(tenantId,linkId))throw new IllegalStateException("Page link could not be removed");

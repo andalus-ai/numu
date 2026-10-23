@@ -29,6 +29,7 @@ public record PageTemplate(UUID id, UUID tenantId, UUID workspaceId, UUID create
 
     public static PageTemplate create(UUID tenantId, UUID workspaceId, UUID actorId,
                                       String name, String title, List<PageBlock> blocks, Instant now) {
+        validateUniqueInputPositions(blocks);
         return new PageTemplate(UUID.randomUUID(), tenantId, workspaceId, actorId, name, title,
                 normalize(blocks), now, now);
     }
@@ -38,6 +39,15 @@ public record PageTemplate(UUID id, UUID tenantId, UUID workspaceId, UUID create
         return normalize(blocks).stream()
                 .map(b -> new PageBlock(UUID.randomUUID(), b.type(), b.text(), b.position(), b.attributes()))
                 .toList();
+    }
+
+    private static void validateUniqueInputPositions(List<PageBlock> blocks) {
+        if (blocks == null) return;
+        Set<Integer> positions = new HashSet<>();
+        for (PageBlock block : blocks) {
+            Objects.requireNonNull(block, "template block");
+            if (!positions.add(block.position())) throw new IllegalArgumentException("duplicate template block position");
+        }
     }
 
     private static List<PageBlock> normalize(List<PageBlock> blocks) {
