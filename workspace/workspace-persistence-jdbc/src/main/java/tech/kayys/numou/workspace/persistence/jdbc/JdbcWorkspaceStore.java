@@ -73,8 +73,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveWithRevision(Page page,PageRevision revision,long expectedRevision) {
-        if(!page.tenantId().equals(revision.tenantId())||!page.id().equals(revision.pageId())||page.revision()!=revision.revision())
-            throw new IllegalArgumentException("page and revision snapshot do not match");
+        validateRevisionSnapshot(page, revision);
         if(expectedRevision<0||page.revision()!=expectedRevision+1)throw new IllegalArgumentException("revision must advance exactly once");
         try(Connection c=dataSource.getConnection()){
             c.setAutoCommit(false);
@@ -104,6 +103,18 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             p.setObject(1,entry.tenantId());p.setObject(2,entry.actorId());p.setString(3,entry.action());p.setString(4,entry.resourceType());
             p.setObject(5,entry.resourceId());p.setLong(6,entry.revision());p.setString(7,entry.summary());p.setTimestamp(8,Timestamp.from(entry.occurredAt()));p.executeUpdate();
         }catch(SQLException e){throw failure("record workspace audit event",e);}
+    }
+
+    private static void validateRevisionSnapshot(Page page, PageRevision revision) {
+        Objects.requireNonNull(page, "page");
+        Objects.requireNonNull(revision, "revision");
+        if (!page.tenantId().equals(revision.tenantId())
+                || !page.id().equals(revision.pageId())
+                || page.revision() != revision.revision()
+                || !page.title().equals(revision.title())
+                || !page.blocks().equals(revision.blocks())) {
+            throw new IllegalArgumentException("page and revision snapshot do not match");
+        }
     }
 
     private void insertPage(Connection c,Page p)throws SQLException{
@@ -344,8 +355,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean savePageWithRevision(Page page, PageRevision revision, long expectedRevision, AuditEntry audit) {
-        if (!page.tenantId().equals(revision.tenantId()) || !page.id().equals(revision.pageId()) || page.revision() != revision.revision())
-            throw new IllegalArgumentException("page and revision snapshot do not match");
+        validateRevisionSnapshot(page, revision);
         if (expectedRevision < 0 || page.revision() != expectedRevision + 1)
             throw new IllegalArgumentException("revision must advance exactly once");
         return atomicMutation("save page, revision and audit atomically", c -> {
