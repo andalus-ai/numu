@@ -7,5 +7,6 @@
   <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-workspace-domain</artifactId><version>${project.version}</version></dependency>
   <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-workspace-application</artifactId><version>${project.version}</version></dependency>
   <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+  <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.7.7</version><scope>test</scope></dependency>
  </dependencies>
 </project>

@@ -66,3 +66,11 @@ The base `WorkspaceApi` remains stable for workspace, space, page, and revision 
 Both API boundaries accept an identity provider supplied by the host and derive tenant/actor IDs from that trusted context; request records do not contain caller-controlled identity fields. The content API returns bounded projections rather than persistence objects, and maps invalid requests, denied access, and revision conflicts to the same API exception contract as the base API. Host adapters still need to map these exceptions to their transport's response format and provide real authentication, access-policy, audit, and database adapters.
 
 This is an application/API boundary, not a concrete HTTP server. Route registration, authentication middleware, rate limiting, OpenAPI generation, and HTTP-level integration tests remain host-adapter responsibilities.
+
+## PostgreSQL integration verification
+
+The JDBC adapter includes opt-in integration tests that apply workspace migrations V1–V4 to an isolated temporary schema and exercise template persistence, normalized-name uniqueness, metadata round trips, tenant-scoped reads, page revisions, links/backlinks, and full-text search. They are discovered by Maven Surefire but skip when no disposable test database is configured.
+
+Configure `NUMOU_WORKSPACE_TEST_JDBC_URL` with a PostgreSQL test database URL. Optionally set `NUMOU_WORKSPACE_TEST_DB_USER` and `NUMOU_WORKSPACE_TEST_DB_PASSWORD`. The database role must be allowed to create and drop schemas. Each test creates a uniquely named schema and drops it afterward; use a dedicated disposable database, never a production database. Run with `mvn -pl workspace/workspace-persistence-jdbc -am test` from the repository root. The PostgreSQL driver is test-scoped and does not become a runtime dependency of Workspace consumers.
+
+These tests do not replace full-reactor CI or dedicated performance checks for search indexes. Verify the test profile in the project's actual CI environment before treating database compatibility as established.
