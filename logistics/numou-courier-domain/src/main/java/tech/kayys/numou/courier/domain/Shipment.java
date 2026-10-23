@@ -60,8 +60,8 @@ public final class Shipment {
         if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt must not be before createdAt");
         if (status == ShipmentStatus.BOOKED && bookedAt == null)
             throw new IllegalArgumentException("booked shipment must have bookedAt");
-        if (status != ShipmentStatus.BOOKED && bookedAt != null)
-            throw new IllegalArgumentException("only booked shipments may have bookedAt");
+        if (status == ShipmentStatus.DRAFT && bookedAt != null)
+            throw new IllegalArgumentException("draft shipment cannot have bookedAt");
         if (bookedAt != null && (bookedAt.isBefore(createdAt) || bookedAt.isAfter(updatedAt)))
             throw new IllegalArgumentException("bookedAt must be between createdAt and updatedAt");
         shipment.bookedAt = bookedAt;
@@ -72,7 +72,7 @@ public final class Shipment {
                 throw new IllegalArgumentException("persisted shipment contains duplicate parcel identity or reference");
             shipment.parcels.add(parcel);
         }
-        if (status == ShipmentStatus.BOOKED && shipment.parcels.isEmpty())
+        if ((status == ShipmentStatus.BOOKED || bookedAt != null) && shipment.parcels.isEmpty())
             throw new IllegalArgumentException("booked shipment must contain at least one parcel");
         return shipment;
     }
