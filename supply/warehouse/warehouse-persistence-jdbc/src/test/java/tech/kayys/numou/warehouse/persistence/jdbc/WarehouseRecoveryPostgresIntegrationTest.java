@@ -3,7 +3,6 @@ package tech.kayys.numou.warehouse.persistence.jdbc;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttempt;
-import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptStatus;
 import tech.kayys.numou.warehouse.application.WarehouseInventoryRecoveryPayload;
 
 import javax.sql.DataSource;
@@ -45,16 +44,26 @@ class WarehouseRecoveryPostgresIntegrationTest {
         try {
             WarehouseExecutionAttempt inserted = repository.createIfAbsent(proposed);
             assertEquals(payload, inserted.recoveryPayload());
-            assertEquals("0.000125", inserted.recoveryPayload().quantity());
+            assertEquals("0.00012500", inserted.recoveryPayload().quantity());
             assertEquals("19.9900", inserted.recoveryPayload().unitCost());
 
+            try (Connection connection = dataSource.getConnection();
+                 var statement = connection.createStatement();
+                 var rows = statement.executeQuery("SELECT COUNT(*) FROM warehouse_execution_attempt " +
+                         "WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
+                         "AND (claim_until IS NULL OR claim_until < CURRENT_TIMESTAMP)")) {
+                assertTrue(rows.next());
+                assertEquals(1, rows.getInt(1),
+                        "Use a disposable PostgreSQL database with no other unclaimed recovery attempts");
+            }
+
             List<tech.kayys.numou.warehouse.application.WarehouseExecutionClaim> first =
-                    repository.claimRecoverable("integration-worker-a", 10, Duration.ofSeconds(60));
+                    repository.claimRecoverable("integration-worker-a", 500, Duration.ofSeconds(60));
             assertTrue(first.stream().anyMatch(c -> c.attempt().tenantId().equals(tenant)
                     && c.attempt().commandKey().equals(command)));
 
             List<tech.kayys.numou.warehouse.application.WarehouseExecutionClaim> second =
-                    repository.claimRecoverable("integration-worker-b", 10, Duration.ofSeconds(60));
+                    repository.claimRecoverable("integration-worker-b", 500, Duration.ofSeconds(60));
             assertFalse(second.stream().anyMatch(c -> c.attempt().tenantId().equals(tenant)
                     && c.attempt().commandKey().equals(command)),
                     "a second worker must not claim an attempt with a live lease");
