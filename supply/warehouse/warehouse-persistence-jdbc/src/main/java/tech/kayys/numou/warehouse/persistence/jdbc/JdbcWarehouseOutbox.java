@@ -21,7 +21,7 @@ public final class JdbcWarehouseOutbox {
         if (lease == null || lease.isZero() || lease.isNegative() || lease.compareTo(Duration.ofHours(1)) > 0)
             throw new IllegalArgumentException("lease must be positive and no longer than one hour");
         Instant now = Instant.now(), until = now.plus(lease);
-        String sql = "WITH selected AS (SELECT event_id FROM warehouse_outbox_event WHERE published_at IS NULL AND (claim_until IS NULL OR claim_until < ?) ORDER BY occurred_at,event_id FOR UPDATE SKIP LOCKED LIMIT ?) " +
+        String sql = "WITH selected AS (SELECT event_id FROM warehouse_outbox_event WHERE published_at IS NULL AND (claim_until IS NULL OR claim_until < ?) ORDER BY occurred_at,event_id LIMIT ? FOR UPDATE SKIP LOCKED) " +
                 "UPDATE warehouse_outbox_event e SET claim_owner=?,claim_until=?,delivery_attempts=e.delivery_attempts+1 FROM selected s WHERE e.event_id=s.event_id " +
                 "RETURNING e.event_id,e.tenant_id,e.aggregate_id,e.aggregate_version,e.event_type,e.payload,e.occurred_at,e.delivery_attempts";
         try (Connection c = dataSource.getConnection()) {
