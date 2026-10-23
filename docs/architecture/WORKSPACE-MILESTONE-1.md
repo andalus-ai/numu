@@ -94,3 +94,14 @@ These tests are opt-in and were added as regression coverage; they are not evide
 Page-link creation requires update permission on the source page and read permission on the target page. Link removal now applies the same source-update and target-read checks before mutating persisted state, and verifies that both endpoints still exist within the supplied tenant. This prevents a stale or malformed link from being removed without validating its target scope and prevents callers from using link removal to act on a target they cannot read.
 
 The application-level regression test proves that a denied target read leaves the link intact, while an authorized removal succeeds. This is unit-level coverage only; it does not replace database integration tests, concrete host access-policy tests, or full-reactor CI.
+
+
+## M2 security regression coverage — tenant scope and visibility
+
+Application-level tests now exercise the authorization boundaries for search and page links:
+- Search passes the exact tenant/workspace/space scope to its repository, clamps oversized limits, filters unreadable page hits, and does not invoke the search repository when workspace authorization or space-scope validation fails.
+- Search rejects blank, oversized, and invalid-limit requests before repository access.
+- Page-link lookup and deletion are tenant-scoped; denied target visibility prevents link removal.
+- Outgoing-link listing fails when a linked target is unreadable, and backlinks omit source pages the actor cannot read.
+
+These tests validate application policy orchestration with test doubles. They do not prove that every JDBC query or host access policy is correct; the PostgreSQL integration suite and full Maven reactor still need to run in CI.
