@@ -32,8 +32,28 @@ public interface WarehouseExecutionAttemptRepository {
         throw new UnsupportedOperationException("Durable recovery claims are not supported by this repository");
     }
 
-    /** Release a claim after successful handling; failed work should normally age out by lease expiry. */
+    /**
+     * Renew a claim only if the exact lease is still current and unexpired.
+     * The returned claim carries the new lease deadline and must replace the old claim.
+     */
+    default WarehouseExecutionClaim renewClaim(WarehouseExecutionClaim claim, Duration lease) {
+        throw new UnsupportedOperationException("Fenced durable lease renewal is not supported by this repository");
+    }
+
+    /**
+     * Release only the exact lease returned by claimRecoverable/renewClaim.
+     * Passing the claim (including its lease deadline) fences out stale workers.
+     */
+    default void releaseClaim(WarehouseExecutionClaim claim) {
+        throw new UnsupportedOperationException("Fenced durable claim release is not supported by this repository");
+    }
+
+    /**
+     * @deprecated Worker IDs are not fencing tokens. Use releaseClaim(WarehouseExecutionClaim)
+     * so an old execution cannot release a later lease acquired by the same worker identity.
+     */
+    @Deprecated
     default void releaseClaim(String tenantId, String commandKey, String workerId) {
-        throw new UnsupportedOperationException("Durable recovery claims are not supported by this repository");
+        throw new UnsupportedOperationException("Use releaseClaim(WarehouseExecutionClaim) for lease fencing");
     }
 }
