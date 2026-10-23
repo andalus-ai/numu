@@ -1,3 +1,6 @@
+ALTER TABLE courier_parcels
+    ADD CONSTRAINT uq_courier_parcels_tenant_shipment_id UNIQUE (tenant_id, shipment_id, id);
+
 CREATE TABLE courier_tracking_events (
     tenant_id UUID NOT NULL,
     id UUID NOT NULL,
@@ -16,8 +19,8 @@ CREATE TABLE courier_tracking_events (
         FOREIGN KEY (tenant_id, shipment_id)
         REFERENCES courier_shipments (tenant_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_courier_tracking_parcel
-        FOREIGN KEY (tenant_id, parcel_id)
-        REFERENCES courier_parcels (tenant_id, id) ON DELETE RESTRICT,
+        FOREIGN KEY (tenant_id, shipment_id, parcel_id)
+        REFERENCES courier_parcels (tenant_id, shipment_id, id) ON DELETE RESTRICT,
     CONSTRAINT uq_courier_tracking_idempotency UNIQUE (tenant_id, idempotency_key),
     CONSTRAINT ck_courier_tracking_recorded_time CHECK (recorded_at >= occurred_at),
     CONSTRAINT ck_courier_tracking_event_type CHECK (event_type IN (
