@@ -109,6 +109,28 @@ class JdbcHubRepositoryPostgresTest {
     }
 
     @Test
+    void staleDraftCannotRegressPersistedBookedShipment() {
+        TenantId tenant = TenantId.generate();
+        Shipment shipment = shipment(tenant, "SHIP-STATE");
+        Instant createdAt = shipment.createdAt();
+        shipment.addParcel(parcel("PIECE-STATE"), createdAt.plusSeconds(1));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+        shipment.book(createdAt.plusSeconds(2));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+
+        Shipment staleDraft = Shipment.draft(shipment.id(), tenant, shipment.reference(),
+                shipment.sender(), shipment.recipient(), shipment.serviceLevel(), createdAt);
+        staleDraft.addParcel(parcel("PIECE-STATE"), createdAt.plusSeconds(1));
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> shipmentRepository.save(tenant, staleDraft).toCompletableFuture().join());
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+
+        Shipment stored = shipmentRepository.findById(tenant, shipment.id()).toCompletableFuture().join().orElseThrow();
+        assertEquals(ShipmentStatus.BOOKED, stored.status());
+        assertEquals(1, stored.parcels().size());
+    }
+
+    @Test
     void shipmentReferenceIsUniquePerTenantNotGlobally() {
         TenantId tenantA = TenantId.generate();
         TenantId tenantB = TenantId.generate();
