@@ -17,7 +17,7 @@ class InMemoryInventoryRepositoryIdempotentReservedIssueTest {
   InventoryReservation reservation = repository.reserveIfAvailable(InventoryReservation.create(
     "tenant-a", item, warehouse, new BigDecimal("2"), "EA", "pick-1", null));
   InventoryCommandKey key = new InventoryCommandKey("warehouse:work-1:line-1:issue-reserved", "command-1");
-  InventoryMovement firstRequest = issue(item, warehouse, "pick-line-1");
+  InventoryMovement firstRequest = issue(item, warehouse, "pick-line-1", new BigDecimal("2"));
   InventoryMovement first = repository.postReservedIssue(key, reservation.id(), firstRequest, new BigDecimal("2"));
   InventoryMovement retry = repository.postReservedIssue(key, reservation.id(), issue(item, warehouse, "pick-line-1"), new BigDecimal("2"));
   assertEquals(first.id(), retry.id());
@@ -33,11 +33,11 @@ class InMemoryInventoryRepositoryIdempotentReservedIssueTest {
   InventoryReservation one = repository.reserveIfAvailable(InventoryReservation.create("tenant-a",item,warehouse,BigDecimal.ONE,"EA","one",null));
   InventoryReservation two = repository.reserveIfAvailable(InventoryReservation.create("tenant-a",item,warehouse,BigDecimal.ONE,"EA","two",null));
   InventoryCommandKey key = new InventoryCommandKey("warehouse:work-1:line-1:issue-reserved", "command-1");
-  repository.postReservedIssue(key,one.id(),issue(item,warehouse,"same-ref"),BigDecimal.ONE);
+  repository.postReservedIssue(key,one.id(),issue(item,warehouse,"same-ref",BigDecimal.ONE),BigDecimal.ONE);
   assertThrows(IllegalArgumentException.class,()->repository.postReservedIssue(key,two.id(),issue(item,warehouse,"same-ref"),BigDecimal.ONE));
  }
- private static InventoryMovement issue(ItemId item,WarehouseId warehouse,String ref) {
-  return new InventoryMovement(MovementId.generate(),item,warehouse,MovementType.ISSUE,BigDecimal.ONE.negate(),
+ private static InventoryMovement issue(ItemId item,WarehouseId warehouse,String ref,BigDecimal quantity) {
+  return new InventoryMovement(MovementId.generate(),item,warehouse,MovementType.ISSUE,quantity.negate(),
     BigDecimal.ONE,"USD",ref,Instant.now());
  }
 }
