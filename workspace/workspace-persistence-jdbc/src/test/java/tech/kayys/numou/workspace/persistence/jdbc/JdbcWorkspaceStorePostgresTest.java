@@ -33,7 +33,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V1__workspace_foundation.sql",
             "/db/migration/V2__workspace_page_links.sql",
             "/db/migration/V3__workspace_page_templates.sql",
-            "/db/migration/V4__workspace_page_search_indexes.sql");
+            "/db/migration/V4__workspace_page_search_indexes.sql",
+            "/db/migration/V5__workspace_case_insensitive_space_slugs.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -69,6 +70,23 @@ class JdbcWorkspaceStorePostgresTest {
         try (Connection c = connect(jdbcUrl, user, password); Statement s = c.createStatement()) {
             s.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
         }
+    }
+
+    @Test
+    void spaceSlugsAreUniqueIgnoringCaseAtTheDatabaseBoundary() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Slug uniqueness", "", now);
+        assertTrue(store.save(workspace));
+
+        Space canonical = Space.create(tenant, workspace.id(), "Operations", "operations", now);
+        assertTrue(store.save(canonical));
+
+        // Application pre-checks are not enough under concurrent writes. PostgreSQL must
+        // reject a case-only collision even when callers bypass slugExists().
+        Space caseVariant = Space.create(tenant, workspace.id(), "Operations duplicate", "OPERATIONS", now);
+        assertFalse(store.save(caseVariant));
+        assertTrue(store.find(tenant, workspace.id(), caseVariant.id()).isEmpty());
     }
 
     @Test
