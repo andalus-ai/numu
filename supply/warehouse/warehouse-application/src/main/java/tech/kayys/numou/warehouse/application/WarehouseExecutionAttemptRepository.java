@@ -3,6 +3,7 @@ package tech.kayys.numou.warehouse.application;
 import java.util.List;
 import java.util.Optional;
 import java.time.Duration;
+import java.time.Instant;
 
 /**
  * Persistence port for cross-context execution recovery.
@@ -23,6 +24,20 @@ public interface WarehouseExecutionAttemptRepository {
 
     /** Return oldest recoverable attempts for bounded background polling. */
     List<WarehouseExecutionAttempt> findRecoverable(int limit);
+
+    /**
+     * Persist a retry eligibility timestamp using compare-and-set version fencing.
+     * The attempt remains in reconciliation state and is not claimable before the timestamp.
+     */
+    default WarehouseExecutionAttempt scheduleRetry(String tenantId, String commandKey,
+                                                     long expectedVersion, Instant nextEligibleAt) {
+        throw new UnsupportedOperationException("Durable retry scheduling is not supported by this repository");
+    }
+
+    /** Return a bounded, oldest-first view of terminal recovery records for operations tooling. */
+    default List<WarehouseExecutionAttempt> findDeadLetters(int limit) {
+        throw new UnsupportedOperationException("Dead-letter queries are not supported by this repository");
+    }
 
     /**
      * Atomically claim recoverable attempts for one worker. Implementations must use
