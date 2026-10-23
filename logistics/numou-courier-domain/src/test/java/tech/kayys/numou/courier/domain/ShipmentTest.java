@@ -49,6 +49,17 @@ class ShipmentTest {
     }
 
     @Test
+    void failedParcelAdditionDoesNotPartiallyMutateAggregate() {
+        Shipment shipment = draft("NUM-1006");
+        shipment.addParcel(parcel("PIECE-1"), T0.plusSeconds(2));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> shipment.addParcel(parcel("PIECE-2"), T0.plusSeconds(1)));
+        assertEquals(1, shipment.parcels().size());
+        assertEquals(T0.plusSeconds(2), shipment.updatedAt());
+    }
+
+    @Test
     void volumetricWeightUsesConfiguredDivisorAndThreeDecimalPlaces() {
         Parcel parcel = new Parcel(ParcelId.generate(), "PIECE-4",
                 new BigDecimal("2.5"), new BigDecimal("40"), new BigDecimal("30"),
