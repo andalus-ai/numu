@@ -44,7 +44,7 @@ public final class RegisterHubHandler {
             return CompletableFuture.failedFuture(denied);
         }
 
-        return organizations.findById(command.organizationId()).thenCompose(foundOrganization -> {
+        return organizations.findById(command.tenantId(), command.organizationId()).thenCompose(foundOrganization -> {
             if (foundOrganization.isEmpty()) {
                 return CompletableFuture.failedFuture(
                         new IllegalArgumentException("organization was not found for this tenant"));

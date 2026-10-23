@@ -42,7 +42,7 @@ class RegisterHubHandlerTest {
     }
 
     private void allowOrganization() {
-        when(organizations.findById(organizationId))
+        when(organizations.findById(tenant, organizationId))
                 .thenReturn(CompletableFuture.completedFuture(Optional.of(organization)));
         when(organization.getTenantId()).thenReturn(tenant);
         when(organization.isActive()).thenReturn(true);
@@ -75,7 +75,7 @@ class RegisterHubHandlerTest {
 
     @Test
     void rejectsOrganizationOwnedByAnotherTenantBeforeBranchLookup() {
-        when(organizations.findById(organizationId))
+        when(organizations.findById(tenant, organizationId))
                 .thenReturn(CompletableFuture.completedFuture(Optional.of(organization)));
         when(organization.getTenantId()).thenReturn(otherTenant);
 
@@ -87,7 +87,7 @@ class RegisterHubHandlerTest {
 
     @Test
     void rejectsInactiveOrganization() {
-        when(organizations.findById(organizationId))
+        when(organizations.findById(tenant, organizationId))
                 .thenReturn(CompletableFuture.completedFuture(Optional.of(organization)));
         when(organization.getTenantId()).thenReturn(tenant);
         when(organization.isActive()).thenReturn(false);
