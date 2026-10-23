@@ -132,6 +132,60 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
     }
 
     @Override
+    public WarehouseExecutionAttempt scheduleRetry(WarehouseExecutionClaim claim, Instant nextEligibleAt) {
+        Objects.requireNonNull(claim, "claim");
+        Objects.requireNonNull(nextEligibleAt, "nextEligibleAt");
+        WarehouseExecutionAttempt attempt = claim.attempt();
+        String sql = "UPDATE warehouse_execution_attempt SET next_eligible_at=?, updated_at=CURRENT_TIMESTAMP, " +
+                "version=version+1, claim_owner=NULL, claim_until=NULL " +
+                "WHERE tenant_id=? AND command_key=? AND version=? AND status='NEEDS_RECONCILIATION' " +
+                "AND claim_owner=? AND claim_until=? AND claim_until > CURRENT_TIMESTAMP";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(nextEligibleAt.truncatedTo(ChronoUnit.MICROS)));
+            statement.setString(2, attempt.tenantId());
+            statement.setString(3, attempt.commandKey());
+            statement.setLong(4, attempt.version());
+            statement.setString(5, claim.workerId());
+            statement.setTimestamp(6, Timestamp.from(claim.leaseUntil()));
+            if (statement.executeUpdate() != 1) {
+                throw new OptimisticLockException("Retry scheduling rejected: claim stale, expired, or attempt not reconcilable");
+            }
+            return find(attempt.tenantId(), attempt.commandKey()).orElseThrow(
+                    () -> new IllegalStateException("Warehouse attempt disappeared after retry scheduling"));
+        } catch (SQLException e) {
+            throw persistence("Could not atomically schedule warehouse recovery retry", e);
+        }
+    }
+
+    @Override
+    public WarehouseExecutionAttempt deadLetter(WarehouseExecutionClaim claim, String reason) {
+        Objects.requireNonNull(claim, "claim");
+        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("reason is required");
+        WarehouseExecutionAttempt attempt = claim.attempt();
+        String sql = "UPDATE warehouse_execution_attempt SET status='DEAD_LETTER', last_error=?, " +
+                "updated_at=CURRENT_TIMESTAMP, version=version+1, claim_owner=NULL, claim_until=NULL " +
+                "WHERE tenant_id=? AND command_key=? AND version=? AND status='NEEDS_RECONCILIATION' " +
+                "AND claim_owner=? AND claim_until=? AND claim_until > CURRENT_TIMESTAMP";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, reason.trim());
+            statement.setString(2, attempt.tenantId());
+            statement.setString(3, attempt.commandKey());
+            statement.setLong(4, attempt.version());
+            statement.setString(5, claim.workerId());
+            statement.setTimestamp(6, Timestamp.from(claim.leaseUntil()));
+            if (statement.executeUpdate() != 1) {
+                throw new OptimisticLockException("Dead-letter transition rejected: claim stale, expired, or attempt not reconcilable");
+            }
+            return find(attempt.tenantId(), attempt.commandKey()).orElseThrow(
+                    () -> new IllegalStateException("Warehouse attempt disappeared after dead-letter transition"));
+        } catch (SQLException e) {
+            throw persistence("Could not atomically dead-letter warehouse recovery attempt", e);
+        }
+    }
+
+    @Override
     public List<WarehouseExecutionAttempt> findDeadLetters(int limit) {
         if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
         String sql = "SELECT " + COLUMNS + " FROM warehouse_execution_attempt WHERE status='DEAD_LETTER' " +
