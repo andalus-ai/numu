@@ -236,6 +236,13 @@ class JdbcWorkspaceStorePostgresTest {
         assertEquals(0, countAuditEvents(tenant));
         assertEquals(0, countAuditEvents(otherTenant));
 
+        AuditEntry missingActor = new AuditEntry(tenant, null,
+                "WORKSPACE_CREATED", "WORKSPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, missingActor));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+
         AuditEntry wrongResource = new AuditEntry(tenant, UUID.randomUUID(),
                 "WORKSPACE_CREATED", "WORKSPACE", UUID.randomUUID(), 0, "create", now);
         assertThrows(IllegalArgumentException.class,
