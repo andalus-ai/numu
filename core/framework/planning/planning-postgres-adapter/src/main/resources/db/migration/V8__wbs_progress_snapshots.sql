@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS work_breakdown_progress_snapshot (
     plan_revision BIGINT NOT NULL CHECK (plan_revision >= 0),
     as_of_date DATE NOT NULL,
     weighting_policy_version VARCHAR(120) NOT NULL CHECK (length(trim(weighting_policy_version)) > 0),
-    completion_percent NUMERIC(5,2) NOT NULL CHECK (completion_percent >= 0 AND completion_percent <= 100),
-    total_weight NUMERIC(24,8) NOT NULL CHECK (total_weight > 0),
+    completion_percent NUMERIC NOT NULL CHECK (completion_percent >= 0 AND completion_percent <= 100),
+    total_weight NUMERIC NOT NULL CHECK (total_weight > 0),
     included_activity_count INTEGER NOT NULL CHECK (included_activity_count > 0),
     recorded_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (tenant_id, snapshot_id),
@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS work_breakdown_progress_snapshot_activity (
     snapshot_id UUID NOT NULL,
     plan_id UUID NOT NULL,
     activity_id UUID NOT NULL,
-    actual_percent NUMERIC(5,2) NOT NULL CHECK (actual_percent >= 0 AND actual_percent <= 100),
-    weight NUMERIC(24,8) NOT NULL CHECK (weight > 0),
+    actual_percent NUMERIC NOT NULL CHECK (actual_percent >= 0 AND actual_percent <= 100),
+    weight NUMERIC NOT NULL CHECK (weight > 0),
     PRIMARY KEY (tenant_id, snapshot_id, activity_id),
     CONSTRAINT fk_progress_snapshot_activity_snapshot
         FOREIGN KEY (tenant_id, snapshot_id, plan_id)
