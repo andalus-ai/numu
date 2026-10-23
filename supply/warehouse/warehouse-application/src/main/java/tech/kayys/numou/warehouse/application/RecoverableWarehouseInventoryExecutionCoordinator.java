@@ -32,32 +32,46 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
 
     public WarehouseWorkOrder receive(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, BigDecimal quantity, BigDecimal unitCost, String currency, String commandKey) {
+        return receive(tenant, workOrderId, lineId, itemId, warehouseId, quantity, unitCost, currency, commandKey, null);
+    }
+
+    public WarehouseWorkOrder receive(String tenant, String workOrderId, String lineId, String itemId,
+            String warehouseId, BigDecimal quantity, BigDecimal unitCost, String currency, String commandKey,
+            String recoveryReference) {
         WarehouseWorkOrder order = load(tenant, workOrderId);
         if (order.type() != WarehouseWorkType.RECEIVING)
             throw new IllegalStateException("Inventory receipt requires a RECEIVING work order");
+        String reference = recoveryReference == null ? order.reference() + ":" + lineId : recoveryReference;
         String fingerprint = fingerprint("receive", tenant, workOrderId, lineId, itemId, warehouseId,
-                quantity, unitCost, currency);
+                quantity.toPlainString(), unitCost.toPlainString(), currency, reference);
         WarehouseInventoryRecoveryPayload payload = new WarehouseInventoryRecoveryPayload(
                 "receive", itemId, warehouseId, null, quantity.toPlainString(), unitCost.toPlainString(),
-                currency, order.reference() + ":" + lineId);
+                currency, reference);
         return execute(order, lineId, quantity, null, commandKey, fingerprint, "receive", payload,
                 () -> inventory.receive(tenant, itemId, warehouseId, quantity, unitCost, currency,
-                        order.reference() + ":" + lineId, commandKey, workOrderId, lineId));
+                        reference, commandKey, workOrderId, lineId));
     }
 
     public WarehouseWorkOrder pick(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, String reservationId, BigDecimal quantity, String currency, String commandKey) {
+        return pick(tenant, workOrderId, lineId, itemId, warehouseId, reservationId, quantity, currency, commandKey, null);
+    }
+
+    public WarehouseWorkOrder pick(String tenant, String workOrderId, String lineId, String itemId,
+            String warehouseId, String reservationId, BigDecimal quantity, String currency, String commandKey,
+            String recoveryReference) {
         WarehouseWorkOrder order = load(tenant, workOrderId);
         if (order.type() != WarehouseWorkType.PICKING)
             throw new IllegalStateException("Reserved issue requires a PICKING work order");
+        String reference = recoveryReference == null ? order.reference() + ":" + lineId : recoveryReference;
         String fingerprint = fingerprint("pick", tenant, workOrderId, lineId, itemId, warehouseId,
-                reservationId, quantity, currency);
+                reservationId, quantity.toPlainString(), currency, reference);
         WarehouseInventoryRecoveryPayload payload = new WarehouseInventoryRecoveryPayload(
                 "pick", itemId, warehouseId, reservationId, quantity.toPlainString(), null,
-                currency, order.reference() + ":" + lineId);
+                currency, reference);
         return execute(order, lineId, quantity, warehouseId, commandKey, fingerprint, "pick", payload,
                 () -> inventory.issueReserved(tenant, reservationId, itemId, warehouseId, quantity, currency,
-                        order.reference() + ":" + lineId, commandKey, workOrderId, lineId));
+                        reference, commandKey, workOrderId, lineId));
     }
 
     private WarehouseWorkOrder execute(WarehouseWorkOrder order, String lineId, BigDecimal quantity,
