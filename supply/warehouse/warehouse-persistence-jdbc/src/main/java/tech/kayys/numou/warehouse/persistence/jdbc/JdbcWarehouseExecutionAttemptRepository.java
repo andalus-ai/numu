@@ -93,7 +93,7 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
     @Override
     public List<WarehouseExecutionAttempt> findRecoverable(int limit) {
         if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
-        String sql = "SELECT " + COLUMNS + " FROM warehouse_execution_attempt WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') ORDER BY updated_at, created_at LIMIT ?";
+        String sql = "SELECT " + COLUMNS + " FROM warehouse_execution_attempt WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') AND (next_eligible_at IS NULL OR next_eligible_at <= CURRENT_TIMESTAMP) ORDER BY updated_at, created_at LIMIT ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, limit);
@@ -108,6 +108,48 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
     }
 
     @Override
+    public WarehouseExecutionAttempt scheduleRetry(String tenantId, String commandKey,
+                                                    long expectedVersion, Instant nextEligibleAt) {
+        requireKey(tenantId, commandKey);
+        Objects.requireNonNull(nextEligibleAt, "nextEligibleAt");
+        String sql = "UPDATE warehouse_execution_attempt SET next_eligible_at=?, updated_at=CURRENT_TIMESTAMP, version=version+1 " +
+                "WHERE tenant_id=? AND command_key=? AND version=? AND status='NEEDS_RECONCILIATION' " +
+                "AND (claim_until IS NULL OR claim_until < CURRENT_TIMESTAMP)";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(nextEligibleAt.truncatedTo(ChronoUnit.MICROS)));
+            statement.setString(2, tenantId.trim());
+            statement.setString(3, commandKey.trim());
+            statement.setLong(4, expectedVersion);
+            if (statement.executeUpdate() != 1) {
+                throw new OptimisticLockException("Retry schedule rejected: missing, stale, claimed, or non-reconciliation attempt");
+            }
+            return find(tenantId, commandKey).orElseThrow(
+                    () -> new IllegalStateException("Warehouse attempt disappeared after retry scheduling"));
+        } catch (SQLException e) {
+            throw persistence("Could not schedule warehouse recovery retry", e);
+        }
+    }
+
+    @Override
+    public List<WarehouseExecutionAttempt> findDeadLetters(int limit) {
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        String sql = "SELECT " + COLUMNS + " FROM warehouse_execution_attempt WHERE status='DEAD_LETTER' " +
+                "ORDER BY updated_at, created_at LIMIT ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, limit);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<WarehouseExecutionAttempt> result = new ArrayList<>();
+                while (rows.next()) result.add(read(rows));
+                return List.copyOf(result);
+            }
+        } catch (SQLException e) {
+            throw persistence("Could not list dead-letter warehouse executions", e);
+        }
+    }
+
+    @Override
     public List<WarehouseExecutionClaim> claimRecoverable(String workerId, int limit, Duration lease) {
         if (workerId == null || workerId.isBlank()) throw new IllegalArgumentException("workerId required");
         if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
@@ -116,6 +158,7 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
         Instant leaseUntil = now.plus(lease).truncatedTo(ChronoUnit.MICROS);
         String sql = "WITH candidates AS (SELECT tenant_id, command_key FROM warehouse_execution_attempt " +
                 "WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
+                "AND (next_eligible_at IS NULL OR next_eligible_at <= CURRENT_TIMESTAMP) " +
                 "AND (claim_until IS NULL OR claim_until < CURRENT_TIMESTAMP) ORDER BY updated_at, created_at " +
                 "LIMIT ? FOR UPDATE SKIP LOCKED) " +
                 "UPDATE warehouse_execution_attempt e SET claim_owner=?, claim_until=? " +
