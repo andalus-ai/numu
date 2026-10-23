@@ -15,5 +15,6 @@
     <description>Industry-neutral fulfillment demand, allocation, warehouse execution, and shipment handoff.</description>
     <modules>
         <module>fulfillment-domain</module>
+        <module>fulfillment-application</module>
     </modules>
 </project>
