@@ -33,7 +33,7 @@ The module contains lightweight query-contract tests and Docker-backed PostgreSQ
 Run from the repository's supported Maven reactor:
 
 ```bash
-mvn -pl logistics/numou-courier-postgres-adapter -am test
+mvn -f logistics/pom.xml -pl numou-courier-postgres-adapter -am test
 ```
 
 The Testcontainers tests are skipped when Docker is unavailable. A successful source commit does not mean these tests have passed; verify the Maven/CI result before promoting the adapter.
