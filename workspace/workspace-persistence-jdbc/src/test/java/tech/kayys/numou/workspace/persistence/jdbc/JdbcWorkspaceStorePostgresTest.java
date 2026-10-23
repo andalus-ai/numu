@@ -118,6 +118,18 @@ class JdbcWorkspaceStorePostgresTest {
         assertEquals(1, store.history(tenant, page.id()).size());
         assertTrue(store.findPage(UUID.randomUUID(), page.id()).isEmpty());
 
+        Page revised = page.revise("Database recovery checklist v2", page.blocks(), now.plusSeconds(1));
+        assertTrue(store.saveWithRevision(revised, PageRevision.snapshot(revised, actor, now.plusSeconds(1), "clarified"), 1));
+        Page stale = page.revise("Stale concurrent edit", page.blocks(), now.plusSeconds(2));
+        assertFalse(store.saveWithRevision(stale, PageRevision.snapshot(stale, actor, now.plusSeconds(2), "stale"), 1));
+        assertEquals(2, store.history(tenant, page.id()).size());
+
+        Page invalidAtStorageBoundary = Page.create(tenant, workspace.id(), space.id(), null,
+                "x".repeat(501), List.of(), now);
+        assertThrows(IllegalStateException.class, () -> store.saveWithRevision(invalidAtStorageBoundary,
+                PageRevision.snapshot(invalidAtStorageBoundary, actor, now, "should rollback"), 0));
+        assertTrue(store.findPage(tenant, invalidAtStorageBoundary.id()).isEmpty());
+
         PageLink link = PageLink.create(tenant, page.id(),
                 createTargetPage(tenant, workspace, space, actor, now), actor, "Related recovery guide", now);
         assertTrue(store.save(link));
