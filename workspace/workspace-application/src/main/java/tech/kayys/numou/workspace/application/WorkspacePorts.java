@@ -31,6 +31,18 @@ public final class WorkspacePorts {
  }
  public interface AccessPolicy { /** Must check actor membership and resource-level permission, not merely tenant equality. */ void require(UUID tenantId,UUID actorId,Resource resource,UUID resourceId,Action action); }
  public interface AuditSink { /** Must durably record or fail; do not silently drop audit entries. */ void record(AuditEntry entry); }
+ /**
+  * Optional capability for adapters that can atomically persist a resource mutation and its audit row.
+  * Production relational adapters should implement this port; separate save()+record() calls are not atomic.
+  */
+ public interface AuditedMutationRepository {
+  boolean saveWorkspace(Workspace workspace, AuditEntry audit);
+  boolean saveSpace(Space space, AuditEntry audit);
+  boolean savePageWithRevision(Page page, PageRevision revision, long expectedRevision, AuditEntry audit);
+  boolean saveTemplate(PageTemplate template, AuditEntry audit);
+  boolean saveLink(PageLink link, AuditEntry audit);
+  boolean deleteLink(UUID tenantId, UUID linkId, AuditEntry audit);
+ }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
  public enum Resource { WORKSPACE, SPACE, PAGE, ATTACHMENT }
  public enum Action { CREATE, READ, UPDATE, DELETE, ATTACH }

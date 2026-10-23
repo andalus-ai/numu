@@ -5,6 +5,7 @@ import tech.kayys.numou.workspace.domain.Page;
 import tech.kayys.numou.workspace.domain.PageBlock;
 import tech.kayys.numou.workspace.domain.PageTemplate;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -35,9 +36,13 @@ public final class PageTemplateService {
                 .orElseThrow(() -> new IllegalArgumentException("Workspace not found for tenant"));
         access.require(tenantId, actorId, Resource.WORKSPACE, workspaceId, Action.UPDATE);
         PageTemplate template = PageTemplate.create(tenantId, workspaceId, actorId, name, title, blocks, clock.instant());
-        if (!templates.save(template)) throw new IllegalStateException("Template name already exists or template could not be saved");
-        audit.record(new AuditEntry(tenantId, actorId, "PAGE_TEMPLATE_CREATED", "PAGE_TEMPLATE",
-                template.id(), 1, template.name(), clock.instant()));
+        Instant now = clock.instant();
+        AuditEntry event = new AuditEntry(tenantId, actorId, "PAGE_TEMPLATE_CREATED", "PAGE_TEMPLATE",
+                template.id(), 1, template.name(), now);
+        boolean saved;
+        if (templates instanceof AuditedMutationRepository tx) saved = tx.saveTemplate(template, event);
+        else { saved = templates.save(template); if (saved) audit.record(event); }
+        if (!saved) throw new IllegalStateException("Template name already exists or template could not be saved");
         return template;
     }
 
@@ -58,8 +63,6 @@ public final class PageTemplateService {
         String title = titleOverride == null || titleOverride.isBlank() ? template.title() : titleOverride.trim();
         List<PageBlock> freshBlocks = template.instantiateBlocks();
         Page page = pages.createPage(tenantId, actorId, template.workspaceId(), spaceId, parentPageId, title, freshBlocks);
-        audit.record(new AuditEntry(tenantId, actorId, "PAGE_CREATED_FROM_TEMPLATE", "PAGE",
-                page.id(), page.revision(), template.id().toString(), clock.instant()));
         return page;
     }
 
