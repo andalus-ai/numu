@@ -29,7 +29,7 @@ CREATE TABLE courier_shipments (
     CONSTRAINT ck_courier_shipments_status CHECK (status IN ('DRAFT', 'BOOKED', 'CANCELLED')),
     CONSTRAINT ck_courier_shipments_service CHECK (service_level IN ('ECONOMY', 'STANDARD', 'EXPRESS', 'SAME_DAY')),
     CONSTRAINT ck_courier_shipments_reference CHECK (normalized_reference = upper(trim(reference))),
-    CONSTRAINT ck_courier_shipments_dates CHECK (updated_at >= created_at AND (booked_at IS NULL OR booked_at >= created_at)),
+    CONSTRAINT ck_courier_shipments_dates CHECK (updated_at >= created_at AND (booked_at IS NULL OR (booked_at >= created_at AND booked_at <= updated_at)) AND (status <> 'BOOKED' OR booked_at IS NOT NULL) AND (status <> 'DRAFT' OR booked_at IS NULL)),
     CONSTRAINT ck_courier_shipments_country_codes CHECK (
         sender_country_code ~ '^[A-Z]{2}$' AND recipient_country_code ~ '^[A-Z]{2}$'
     )
