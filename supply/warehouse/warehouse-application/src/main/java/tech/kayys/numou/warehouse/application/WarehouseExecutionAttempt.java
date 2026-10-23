@@ -42,6 +42,9 @@ public record WarehouseExecutionAttempt(
                 && (lastError == null || lastError.isBlank())) {
             throw new IllegalArgumentException("A reconciliation attempt must explain the failure");
         }
+        if (recoveryPayload != null && !operation.equals(recoveryPayload.operation())) {
+            throw new IllegalArgumentException("Recovery payload operation must match journal operation");
+        }
     }
 
     public static WarehouseExecutionAttempt prepared(
