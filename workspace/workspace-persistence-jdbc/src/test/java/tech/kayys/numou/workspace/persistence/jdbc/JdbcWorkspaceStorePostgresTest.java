@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -236,12 +240,76 @@ class JdbcWorkspaceStorePostgresTest {
         assertEquals(0, countAuditEvents(tenant));
         assertEquals(0, countAuditEvents(otherTenant));
 
+        AuditEntry missingActor = new AuditEntry(tenant, null,
+                "WORKSPACE_CREATED", "WORKSPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, missingActor));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+
+        AuditEntry wrongType = new AuditEntry(tenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "SPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, wrongType));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+
         AuditEntry wrongResource = new AuditEntry(tenant, UUID.randomUUID(),
                 "WORKSPACE_CREATED", "WORKSPACE", UUID.randomUUID(), 0, "create", now);
         assertThrows(IllegalArgumentException.class,
                 () -> store.saveWorkspace(workspace, wrongResource));
         assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
         assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void rejectsPageAuditActorAndRevisionThatDifferFromTheSnapshot() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        UUID otherActor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Audit snapshot", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Audit page",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "body", 0)), now);
+        PageRevision revision = new PageRevision(tenant, page.id(), page.revision(),
+                page.title(), page.blocks(), actor, now, "create");
+
+        AuditEntry wrongActor = new AuditEntry(tenant, otherActor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision(), "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, revision, 0, wrongActor));
+
+        AuditEntry wrongRevision = new AuditEntry(tenant, actor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision() + 1, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, revision, 0, wrongRevision));
+
+        assertTrue(store.findPage(tenant, page.id()).isEmpty());
+        assertTrue(store.history(tenant, page.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void pageHistoryIsIsolatedByTenant() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID otherTenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "History isolation", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Private page",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "private content", 0)), now);
+        PageRevision revision = new PageRevision(tenant, page.id(), page.revision(),
+                page.title(), page.blocks(), actor, now, "created");
+        assertTrue(store.saveWithRevision(page, revision, 0));
+
+        assertEquals(1, store.history(tenant, page.id()).size());
+        assertTrue(store.history(otherTenant, page.id()).isEmpty());
     }
 
     @Test
@@ -300,7 +368,7 @@ class JdbcWorkspaceStorePostgresTest {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
         UUID actor = UUID.randomUUID();
-        AuditEntry invalidAudit = new AuditEntry(tenant, actor, "A".repeat(101), "TEST",
+        AuditEntry invalidAudit = new AuditEntry(tenant, actor, "A".repeat(101), "WORKSPACE",
                 UUID.randomUUID(), 0, "force audit write failure", now);
 
         Workspace workspace = Workspace.create(tenant, "Atomic workspace", "", now);
@@ -363,6 +431,53 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.findLink(tenant, link.id()).isPresent(),
                 "link deletion must roll back when the audit insert fails");
         assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void concurrentPageUpdatesAllowOnlyOneWriterForTheSameExpectedRevision() throws Exception {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Concurrent updates", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Initial", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        Page candidateA = page.revise("Concurrent writer A", List.of(), now.plusSeconds(1));
+        Page candidateB = page.revise("Concurrent writer B", List.of(), now.plusSeconds(1));
+        PageRevision revisionA = PageRevision.snapshot(candidateA, actor, now.plusSeconds(1), "writer A");
+        PageRevision revisionB = PageRevision.snapshot(candidateB, actor, now.plusSeconds(1), "writer B");
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> writeA = executor.submit(() -> {
+                ready.countDown();
+                start.await();
+                return store.saveWithRevision(candidateA, revisionA, 1);
+            });
+            Future<Boolean> writeB = executor.submit(() -> {
+                ready.countDown();
+                start.await();
+                return store.saveWithRevision(candidateB, revisionB, 1);
+            });
+            ready.await();
+            start.countDown();
+            boolean resultA = writeA.get();
+            boolean resultB = writeB.get();
+
+            assertEquals(1, (resultA ? 1 : 0) + (resultB ? 1 : 0),
+                    "exactly one writer should win the compare-and-set update");
+            Page persisted = store.findPage(tenant, page.id()).orElseThrow();
+            assertTrue(List.of("Concurrent writer A", "Concurrent writer B").contains(persisted.title()));
+            assertEquals(2, persisted.revision());
+            assertEquals(2, store.history(tenant, page.id()).size(),
+                    "the losing writer must not create a revision snapshot");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
