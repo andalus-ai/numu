@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * No framework scheduler or application container is required.</p>
  *
  * <p>Run {@link #runOnce()} from a scheduler of the caller's choice, or use
- * {@link #runUntilStopped(Duration)} for a simple managed polling loop.</p>
+ * {@link #runUntilStopped()} for a simple managed polling loop.</p>
  */
 public final class WarehouseRecoveryWorker implements AutoCloseable {
     private final WarehouseRecoveryOperationsService operations;
