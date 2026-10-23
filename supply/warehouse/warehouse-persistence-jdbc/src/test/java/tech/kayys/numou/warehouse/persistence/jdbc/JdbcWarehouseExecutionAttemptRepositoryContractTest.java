@@ -19,6 +19,26 @@ class JdbcWarehouseExecutionAttemptRepositoryContractTest {
         assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable("worker", 1, java.time.Duration.ZERO));
         assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable("worker", 1, java.time.Duration.ofHours(2)));
         assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable(" ", 1, java.time.Duration.ofSeconds(5)));
+        assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable("worker", 1, java.time.Duration.ofNanos(-1)));
+        assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable("worker", 1, null));
+    }
+
+    @Test
+    void legacyWorkerOnlyReleaseFailsClosedWithoutDatabaseAccess() {
+        JdbcWarehouseExecutionAttemptRepository repository =
+                new JdbcWarehouseExecutionAttemptRepository(new NoConnectionDataSource());
+        assertThrows(UnsupportedOperationException.class,
+                () -> repository.releaseClaim("tenant", "command", "worker"));
+    }
+
+    @Test
+    void fencedLeaseOperationsRequireAnExactClaim() {
+        JdbcWarehouseExecutionAttemptRepository repository =
+                new JdbcWarehouseExecutionAttemptRepository(new NoConnectionDataSource());
+        assertThrows(NullPointerException.class,
+                () -> repository.releaseClaim((tech.kayys.numou.warehouse.application.WarehouseExecutionClaim) null));
+        assertThrows(NullPointerException.class,
+                () -> repository.renewClaim(null, java.time.Duration.ofSeconds(10)));
     }
 
     private static final class NoConnectionDataSource implements javax.sql.DataSource {
