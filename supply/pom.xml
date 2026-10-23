@@ -3,32 +3,24 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
              https://maven.apache.org/xsd/maven-4.0.0.xsd">
-
     <modelVersion>4.0.0</modelVersion>
-
     <parent>
         <groupId>tech.kayys.numou</groupId>
         <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-
     <artifactId>numou-supply</artifactId>
     <packaging>pom</packaging>
-
     <name>Numou Supply - Aggregator</name>
     <description>
-        Phase 4 supply and procurement (Docs/Plan/base01.md Phase 4):
-        supplier, sourcing, replenishment, procurement, internal transfer.
-
-        "Inventory tells us what we have. Supply tells us what we need.
-         Procurement determines how we acquire it. Sourcing determines from
-         whom and under what commercial terms."
+        Neutral supply, procurement, inventory, warehouse execution, and fulfillment capabilities.
+        Inventory owns stock; purchasing owns supplier commitments; fulfillment owns demand execution
+        and shipment handoff. Domain contexts remain reusable across industries and deployment profiles.
     </description>
-
     <modules>
         <module>inventory</module>
         <module>purchasing</module>
+        <module>fulfillment</module>
     </modules>
-
 </project>
