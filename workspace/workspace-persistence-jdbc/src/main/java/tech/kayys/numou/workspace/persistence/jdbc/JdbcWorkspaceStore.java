@@ -122,8 +122,8 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         try(PreparedStatement s=c.prepareStatement(sql)){s.setObject(1,p.id());s.setObject(2,p.tenantId());s.setObject(3,p.workspaceId());s.setObject(4,p.spaceId());s.setObject(5,p.parentPageId());s.setString(6,p.title());s.setLong(7,p.revision());s.setTimestamp(8,Timestamp.from(p.createdAt()));s.setTimestamp(9,Timestamp.from(p.updatedAt()));s.executeUpdate();}
     }
     private int updatePageCompareAndSet(Connection c,Page p,long expected)throws SQLException{
-        String sql="UPDATE workspace_pages SET title=?,revision=?,updated_at=? WHERE tenant_id=? AND id=? AND revision=?";
-        try(PreparedStatement s=c.prepareStatement(sql)){s.setString(1,p.title());s.setLong(2,p.revision());s.setTimestamp(3,Timestamp.from(p.updatedAt()));s.setObject(4,p.tenantId());s.setObject(5,p.id());s.setLong(6,expected);return s.executeUpdate();}
+        String sql="UPDATE workspace_pages SET title=?,revision=?,updated_at=? WHERE tenant_id=? AND id=? AND revision=? AND workspace_id=? AND space_id=? AND parent_page_id IS NOT DISTINCT FROM ?";
+        try(PreparedStatement s=c.prepareStatement(sql)){s.setString(1,p.title());s.setLong(2,p.revision());s.setTimestamp(3,Timestamp.from(p.updatedAt()));s.setObject(4,p.tenantId());s.setObject(5,p.id());s.setLong(6,expected);s.setObject(7,p.workspaceId());s.setObject(8,p.spaceId());s.setObject(9,p.parentPageId());return s.executeUpdate();}
     }
     private void insertRevision(Connection c,PageRevision r)throws SQLException{
         String sql="INSERT INTO workspace_page_revisions(tenant_id,page_id,revision,title,actor_id,recorded_at,change_summary) VALUES(?,?,?,?,?,?,?)";
