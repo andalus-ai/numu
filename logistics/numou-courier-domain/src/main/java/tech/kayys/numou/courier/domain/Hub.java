@@ -58,6 +58,21 @@ public final class Hub {
                 type, address, timeZone, now);
     }
 
+    /** Reconstitutes a persisted hub without replaying lifecycle transitions. */
+    public static Hub reconstitute(HubId id, TenantId tenantId, OrganizationId organizationId,
+                                   OrganizationUnitId branchUnitId, String code, String name,
+                                   HubType type, HubAddress address, ZoneId timeZone,
+                                   HubStatus status, Instant createdAt, Instant updatedAt) {
+        Hub hub = new Hub(id, tenantId, organizationId, branchUnitId, code, name,
+                type, address, timeZone, createdAt);
+        hub.status = Objects.requireNonNull(status, "status must not be null");
+        hub.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+        if (updatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("updatedAt must not be before createdAt");
+        }
+        return hub;
+    }
+
     public void activate(Instant now) {
         transitionFrom(HubStatus.DRAFT, HubStatus.ACTIVE, now);
     }
