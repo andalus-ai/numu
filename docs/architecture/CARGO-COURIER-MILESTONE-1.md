@@ -1,7 +1,7 @@
 # Cargo and Courier — Milestone 1: Tenant, Branch, and Hub Foundations
 
 **Status:** Implementation in progress  
-**Scope:** Domain foundation only; persistence, APIs, and operational workflows follow in later milestones.
+**Scope:** Domain and application foundation; database persistence and operational workflows follow in later milestones.
 
 ## Boundary decisions
 
@@ -15,25 +15,28 @@
 
 ## Implemented in M1
 
-- Strongly typed `HubId`.
-- Hub types for origin, transit, destination, sorting, cross-dock, fulfillment, locker, branch depot, and partner facilities.
-- Hub address validation, ISO alpha-2 country code normalization, and paired/validated coordinates.
+- Strongly typed `HubId` and hub classifications for branch depots, origin/transit/destination hubs, sorting, cross-dock, fulfillment, lockers, and partner facilities.
+- Hub address validation, ISO alpha-2 country code normalization, paired/validated coordinates, and explicit timezone.
 - Hub lifecycle: draft → active → suspended → active; active/suspended → closed. Closed hubs cannot be renamed or resumed.
-- `HubAccessScope` enforces tenant identity and branch/hub-level access for application use.
-- Unit tests cover lifecycle, invalid coordinates, and access-scope isolation.
+- `HubAccessScope` enforces tenant identity and branch/hub-level access, including permission to register a hub at a branch.
+- `HubRegistrationPolicy` rejects organization mismatch, non-branch units, and dissolved branches.
+- `HubRepository` defines tenant-explicit save, lookup, uniqueness, and deletion contracts. Concrete adapters must enforce tenant predicates at query level.
+- `RegisterHubHandler` checks authorization first, loads the branch scoped to its organization, applies registration policy, checks tenant-local code uniqueness, and saves the hub.
+- Unit tests cover lifecycle, address validation, access isolation, branch registration, duplicate codes, and application-handler authorization.
 
-## Explicitly not implemented yet
+## Known gaps / not claimed complete
 
-- Database schema, migrations, repositories, REST endpoints, event publication, and API authentication wiring.
-- Branch existence/type validation. The application boundary must load the organization unit and confirm that it belongs to the same organization and is of kind `BRANCH` before creating a hub.
-- Cross-tenant shared-facility agreements.
-- Shipment booking, parcel identity, labels, tracking events, manifests, courier dispatch, delivery proof, billing, and COD.
+- No concrete database schema/migration or repository adapter exists yet; uniqueness must ultimately be backed by a tenant+normalized-code database constraint to close concurrent registration races.
+- Tenant-to-organization ownership validation is not available in the current organization model. It must be enforced through a canonical tenant-organization mapping or an authorized application port before production use.
+- The current `OrganizationUnitLookup` contract requires adapters to scope the lookup by organization and to ensure the requesting actor may see that unit.
+- REST endpoints, event publication, API authentication wiring, cross-tenant shared-facility agreements, shipment booking, parcel identity, labels, tracking events, manifests, courier dispatch, delivery proof, billing, and COD are later work.
+- Build/test execution has not yet been verified in the repository's intended Maven reactor.
 
-## Acceptance criteria for the milestone
+## Acceptance criteria
 
-1. Domain code is independently reusable and does not depend on fleet or shipment workflows.
-2. Tenant is mandatory and cannot be changed after creation.
-3. A hub belongs to exactly one tenant, organization, and branch.
-4. Hub access checks reject cross-tenant access even for tenant administrators.
-5. Lifecycle transitions are explicit and invalid transitions fail closed.
-6. Build and tests pass in the repository's intended Maven reactor; if reactor wiring is unavailable, that limitation is recorded rather than assuming success.
+1. Tenant is mandatory and immutable on a hub.
+2. A hub belongs to exactly one tenant, organization, and branch.
+3. Hub access rejects cross-tenant access even for tenant administrators.
+4. Only an active branch in the requested organization can be used to register a hub.
+5. Duplicate hub codes are checked per tenant; the persistence layer must enforce the same invariant atomically.
+6. Repository lookups require explicit tenant scope and enforce it in storage queries.

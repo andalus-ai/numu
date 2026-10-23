@@ -7,7 +7,7 @@
         <groupId>tech.kayys.numou</groupId>
         <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../core/framework/pom.xml</relativePath>
     </parent>
     <artifactId>numou-fms</artifactId>
     <packaging>pom</packaging>
@@ -16,5 +16,6 @@
     <modules>
         <module>numou-fleet</module>
         <module>numou-courier-domain</module>
+        <module>numou-courier-application</module>
     </modules>
 </project>

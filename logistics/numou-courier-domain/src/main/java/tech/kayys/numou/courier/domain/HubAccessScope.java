@@ -24,13 +24,26 @@ public record HubAccessScope(
 
     public void requireCanAccess(Hub hub) {
         Objects.requireNonNull(hub, "hub must not be null");
-        if (!tenantId.equals(hub.tenantId())) {
-            throw new SecurityException("cross-tenant hub access denied");
-        }
+        requireTenant(hub.tenantId());
         if (!tenantAdministrator
                 && !allowedHubs.contains(hub.id())
                 && !allowedBranches.contains(hub.branchUnitId())) {
             throw new SecurityException("hub is outside the caller's branch and hub scope");
+        }
+    }
+
+    public void requireCanCreateInBranch(TenantId requestedTenant, OrganizationUnitId branchUnitId) {
+        Objects.requireNonNull(requestedTenant, "requestedTenant must not be null");
+        Objects.requireNonNull(branchUnitId, "branchUnitId must not be null");
+        requireTenant(requestedTenant);
+        if (!tenantAdministrator && !allowedBranches.contains(branchUnitId)) {
+            throw new SecurityException("branch is outside the caller's authorized scope");
+        }
+    }
+
+    private void requireTenant(TenantId requestedTenant) {
+        if (!tenantId.equals(requestedTenant)) {
+            throw new SecurityException("cross-tenant hub access denied");
         }
     }
 }
