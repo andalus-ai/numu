@@ -48,6 +48,35 @@ public final class Shipment {
         return new Shipment(id, tenantId, reference, sender, recipient, serviceLevel, now);
     }
 
+    /** Restores persisted state without replaying booking or cancellation transitions. */
+    public static Shipment reconstitute(ShipmentId id, TenantId tenantId, String reference,
+                                        ShipmentAddress sender, ShipmentAddress recipient,
+                                        ServiceLevel serviceLevel, ShipmentStatus status,
+                                        Instant createdAt, Instant updatedAt, Instant bookedAt,
+                                        List<Parcel> persistedParcels) {
+        Shipment shipment = new Shipment(id, tenantId, reference, sender, recipient, serviceLevel, createdAt);
+        shipment.status = Objects.requireNonNull(status, "status must not be null");
+        shipment.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+        if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt must not be before createdAt");
+        if (status == ShipmentStatus.BOOKED && bookedAt == null)
+            throw new IllegalArgumentException("booked shipment must have bookedAt");
+        if (status != ShipmentStatus.BOOKED && bookedAt != null)
+            throw new IllegalArgumentException("only booked shipments may have bookedAt");
+        if (bookedAt != null && (bookedAt.isBefore(createdAt) || bookedAt.isAfter(updatedAt)))
+            throw new IllegalArgumentException("bookedAt must be between createdAt and updatedAt");
+        shipment.bookedAt = bookedAt;
+        Set<ParcelId> ids = new HashSet<>();
+        Set<String> references = new HashSet<>();
+        for (Parcel parcel : Objects.requireNonNull(persistedParcels, "persistedParcels must not be null")) {
+            if (!ids.add(parcel.id()) || !references.add(parcel.reference().toUpperCase(java.util.Locale.ROOT)))
+                throw new IllegalArgumentException("persisted shipment contains duplicate parcel identity or reference");
+            shipment.parcels.add(parcel);
+        }
+        if (status == ShipmentStatus.BOOKED && shipment.parcels.isEmpty())
+            throw new IllegalArgumentException("booked shipment must contain at least one parcel");
+        return shipment;
+    }
+
     public void addParcel(Parcel parcel, Instant now) {
         requireDraft();
         Objects.requireNonNull(parcel, "parcel must not be null");
