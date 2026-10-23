@@ -35,7 +35,8 @@ class WarehouseRecoveryOperationsServiceTest {
         WarehouseRecoveryOperationsService service = new WarehouseRecoveryOperationsService(repository);
         assertThrows(IllegalArgumentException.class, () -> service.defer(claim, Instant.EPOCH));
         Instant next = Instant.now().plusSeconds(30);
-        assertEquals(repository.scheduled, service.defer(claim, next));
+        WarehouseExecutionAttempt scheduled = service.defer(claim, next);
+        assertEquals(repository.scheduled, scheduled);
         assertEquals(claim, repository.scheduledClaim);
         assertEquals(next, repository.scheduledAt);
     }
@@ -46,7 +47,8 @@ class WarehouseRecoveryOperationsServiceTest {
         WarehouseExecutionClaim claim = claim();
         WarehouseRecoveryOperationsService service = new WarehouseRecoveryOperationsService(repository);
         assertThrows(IllegalArgumentException.class, () -> service.deadLetter(claim, " "));
-        assertEquals(repository.dead, service.deadLetter(claim, " exhausted "));
+        WarehouseExecutionAttempt dead = service.deadLetter(claim, " exhausted ");
+        assertEquals(repository.dead, dead);
         assertEquals(claim, repository.deadClaim);
         assertEquals("exhausted", repository.deadReason);
     }
