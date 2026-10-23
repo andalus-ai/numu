@@ -38,6 +38,12 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
     public WarehouseWorkOrder receive(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, BigDecimal quantity, BigDecimal unitCost, String currency, String commandKey,
             String recoveryReference) {
+        requireText(itemId, "itemId");
+        requireText(warehouseId, "warehouseId");
+        requireText(currency, "currency");
+        requireText(commandKey, "commandKey");
+        requirePositive(quantity, "quantity");
+        requireNonNegative(unitCost, "unitCost");
         WarehouseWorkOrder order = load(tenant, workOrderId);
         if (order.type() != WarehouseWorkType.RECEIVING)
             throw new IllegalStateException("Inventory receipt requires a RECEIVING work order");
@@ -60,6 +66,12 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
     public WarehouseWorkOrder pick(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, String reservationId, BigDecimal quantity, String currency, String commandKey,
             String recoveryReference) {
+        requireText(itemId, "itemId");
+        requireText(warehouseId, "warehouseId");
+        requireText(reservationId, "reservationId");
+        requireText(currency, "currency");
+        requireText(commandKey, "commandKey");
+        requirePositive(quantity, "quantity");
         WarehouseWorkOrder order = load(tenant, workOrderId);
         if (order.type() != WarehouseWorkType.PICKING)
             throw new IllegalStateException("Reserved issue requires a PICKING work order");
@@ -119,6 +131,20 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
             }
             throw failure;
         }
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
+    }
+
+    private static void requirePositive(BigDecimal value, String field) {
+        if (value == null || value.signum() <= 0)
+            throw new IllegalArgumentException(field + " must be positive");
+    }
+
+    private static void requireNonNegative(BigDecimal value, String field) {
+        if (value == null || value.signum() < 0)
+            throw new IllegalArgumentException(field + " cannot be negative");
     }
 
     private WarehouseWorkOrder load(String tenant, String id) {
