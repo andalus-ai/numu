@@ -12,7 +12,7 @@ import java.util.*;
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
  * Configure a pooled DataSource in the host application. All resource reads are tenant-scoped.
  */
-public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, AuditSink {
+public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, AuditSink {
     private final DataSource dataSource;
 
     public JdbcWorkspaceStore(DataSource dataSource) { this.dataSource = Objects.requireNonNull(dataSource, "dataSource"); }
@@ -174,6 +174,79 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             p.setObject(1,tenantId);p.setObject(2,pageId);List<PageLink> result=new ArrayList<>();
             try(ResultSet r=p.executeQuery()){while(r.next())result.add(readPageLink(r));}return List.copyOf(result);
         }catch(SQLException e){throw failure("list page links",e);}
+    }
+
+
+    @Override public boolean save(PageTemplate template) {
+        String insert = "INSERT INTO workspace_page_templates(id,tenant_id,workspace_id,created_by,name,name_normalized,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)";
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement p = c.prepareStatement(insert)) {
+                    p.setObject(1, template.id()); p.setObject(2, template.tenantId()); p.setObject(3, template.workspaceId());
+                    p.setObject(4, template.createdBy()); p.setString(5, template.name());
+                    p.setString(6, template.name().trim().toLowerCase(Locale.ROOT)); p.setString(7, template.title());
+                    p.setTimestamp(8, Timestamp.from(template.createdAt())); p.setTimestamp(9, Timestamp.from(template.updatedAt()));
+                    p.executeUpdate();
+                }
+                insertTemplateBlocks(c, template);
+                c.commit();
+                return true;
+            } catch (SQLException | RuntimeException e) {
+                rollback(c, e);
+                if (e instanceof SQLException sql && isConstraintViolation(sql)) return false;
+                throw e;
+            }
+        } catch (SQLException e) { throw failure("save page template atomically", e); }
+    }
+
+    @Override public Optional<PageTemplate> find(UUID tenantId, UUID templateId) {
+        String sql = "SELECT id,tenant_id,workspace_id,created_by,name,title,created_at,updated_at FROM workspace_page_templates WHERE tenant_id=? AND id=?";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, templateId);
+            try (ResultSet r = p.executeQuery()) {
+                if (!r.next()) return Optional.empty();
+                return Optional.of(readTemplate(c, r));
+            }
+        } catch (SQLException e) { throw failure("find page template", e); }
+    }
+
+    @Override public List<PageTemplate> findByWorkspace(UUID tenantId, UUID workspaceId) {
+        String sql = "SELECT id,tenant_id,workspace_id,created_by,name,title,created_at,updated_at FROM workspace_page_templates WHERE tenant_id=? AND workspace_id=? ORDER BY name_normalized,id";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, workspaceId);
+            List<PageTemplate> result = new ArrayList<>();
+            try (ResultSet r = p.executeQuery()) { while (r.next()) result.add(readTemplate(c, r)); }
+            return List.copyOf(result);
+        } catch (SQLException e) { throw failure("list page templates", e); }
+    }
+
+    private void insertTemplateBlocks(Connection c, PageTemplate template) throws SQLException {
+        String sql = "INSERT INTO workspace_page_template_blocks(tenant_id,template_id,block_id,block_type,text_content,position,attributes_encoded) VALUES(?,?,?,?,?,?,?)";
+        try (PreparedStatement p = c.prepareStatement(sql)) {
+            for (PageBlock block : template.blocks()) {
+                p.setObject(1, template.tenantId()); p.setObject(2, template.id()); p.setObject(3, block.id());
+                p.setString(4, block.type().name()); p.setString(5, block.text()); p.setInt(6, block.position());
+                p.setString(7, BlockAttributesCodec.encode(block.attributes())); p.addBatch();
+            }
+            p.executeBatch();
+        }
+    }
+
+    private PageTemplate readTemplate(Connection c, ResultSet r) throws SQLException {
+        UUID id = uuid(r, 1), tenant = uuid(r, 2), workspace = uuid(r, 3), actor = uuid(r, 4);
+        String name = r.getString(5), title = r.getString(6);
+        Instant created = instant(r, 7), updated = instant(r, 8);
+        List<PageBlock> blocks = new ArrayList<>();
+        String sql = "SELECT block_id,block_type,text_content,position,attributes_encoded FROM workspace_page_template_blocks WHERE tenant_id=? AND template_id=? ORDER BY position";
+        try (PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenant); p.setObject(2, id);
+            try (ResultSet rows = p.executeQuery()) {
+                while (rows.next()) blocks.add(new PageBlock(uuid(rows, 1), BlockType.valueOf(rows.getString(2)),
+                        rows.getString(3), rows.getInt(4), BlockAttributesCodec.decode(rows.getString(5))));
+            }
+        }
+        return new PageTemplate(id, tenant, workspace, actor, name, title, blocks, created, updated);
     }
 
     private static PageLink readPageLink(ResultSet r)throws SQLException {
