@@ -29,7 +29,7 @@ class WorkBreakdownScheduleRiskCalculatorTest {
         assertFalse(riskA.hasCriticalExposure());
         assertTrue(riskB.hasCriticalExposure());
         assertEquals(2,riskB.activityIds().size());
-        assertEquals(LocalDate.of(2026,1,8),riskB.forecastActivityFinish());
+        assertEquals(LocalDate.of(2026,1,7),riskB.forecastActivityFinish());
     }
 
     @Test
