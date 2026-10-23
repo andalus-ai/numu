@@ -1,4 +1,7 @@
 -- Named baselines point to approved immutable snapshot evidence; the source snapshot is never copied or mutated.
+-- Composite uniqueness lets the database enforce that baseline scope matches the referenced snapshot.
+ALTER TABLE work_breakdown_progress_snapshot
+    ADD CONSTRAINT uq_progress_snapshot_scope UNIQUE (tenant_id, snapshot_id, structure_id, node_id);
 CREATE TABLE IF NOT EXISTS work_breakdown_progress_baseline (
     tenant_id UUID NOT NULL,
     baseline_id UUID NOT NULL,
@@ -13,8 +16,8 @@ CREATE TABLE IF NOT EXISTS work_breakdown_progress_baseline (
     PRIMARY KEY (tenant_id, baseline_id),
     CONSTRAINT uq_progress_baseline_code UNIQUE (tenant_id, baseline_code),
     CONSTRAINT fk_progress_baseline_snapshot
-        FOREIGN KEY (tenant_id, source_snapshot_id)
-        REFERENCES work_breakdown_progress_snapshot (tenant_id, snapshot_id) ON DELETE RESTRICT,
+        FOREIGN KEY (tenant_id, source_snapshot_id, structure_id, node_id)
+        REFERENCES work_breakdown_progress_snapshot (tenant_id, snapshot_id, structure_id, node_id) ON DELETE RESTRICT,
     CONSTRAINT ck_progress_baseline_code CHECK (length(trim(baseline_code)) > 0),
     CONSTRAINT ck_progress_baseline_name CHECK (length(trim(name)) > 0)
 );
