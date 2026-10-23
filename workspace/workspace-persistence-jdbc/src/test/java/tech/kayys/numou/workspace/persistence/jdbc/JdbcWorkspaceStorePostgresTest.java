@@ -35,7 +35,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V3__workspace_page_templates.sql",
             "/db/migration/V4__workspace_page_search_indexes.sql",
             "/db/migration/V5__workspace_case_insensitive_space_slugs.sql",
-            "/db/migration/V6__workspace_template_name_integrity.sql");
+            "/db/migration/V6__workspace_template_name_integrity.sql",
+            "/db/migration/V7__workspace_domain_invariants.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -113,6 +114,37 @@ class JdbcWorkspaceStorePostgresTest {
             assertThrows(SQLException.class, p::executeUpdate);
         }
         assertEquals("Incident Runbook", store.findTemplate(tenant, template.id()).orElseThrow().name());
+    }
+
+    @Test
+    void databaseRejectsNonCanonicalSlugsAndBlankDomainNames() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Invariant checks", "", now);
+        assertTrue(store.save(workspace));
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "INSERT INTO workspace_spaces(id,tenant_id,workspace_id,name,slug,created_at) VALUES(?,?,?,?,?,?)")) {
+            p.setObject(1, UUID.randomUUID());
+            p.setObject(2, tenant);
+            p.setObject(3, workspace.id());
+            p.setString(4, "Invalid slug");
+            p.setString(5, "UPPERCASE-SLUG");
+            p.setTimestamp(6, java.sql.Timestamp.from(now));
+            assertThrows(SQLException.class, p::executeUpdate,
+                    "the database must enforce the same canonical slug rule as the domain");
+        }
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_workspaces SET name='   ' WHERE tenant_id=? AND id=?")) {
+            p.setObject(1, tenant);
+            p.setObject(2, workspace.id());
+            assertThrows(SQLException.class, p::executeUpdate,
+                    "direct SQL must not bypass required workspace names");
+        }
+        assertEquals("Invariant checks", store.findWorkspace(tenant, workspace.id()).orElseThrow().name());
     }
 
     @Test
