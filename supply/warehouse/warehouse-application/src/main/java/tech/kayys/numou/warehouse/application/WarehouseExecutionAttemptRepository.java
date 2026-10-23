@@ -52,6 +52,23 @@ public interface WarehouseExecutionAttemptRepository {
         throw new UnsupportedOperationException("Dead-letter queries are not supported by this repository");
     }
 
+    /** Tenant-scoped dead-letter inspection for authenticated operator workflows. */
+    default List<WarehouseExecutionAttempt> findDeadLetters(String tenantId, int limit) {
+        throw new UnsupportedOperationException("Tenant-scoped dead-letter queries are not supported by this repository");
+    }
+
+    /** Tenant-scoped point-in-time operational counters. */
+    default WarehouseRecoveryHealthSummary summarizeRecovery(String tenantId) {
+        throw new UnsupportedOperationException("Recovery health summaries are not supported by this repository");
+    }
+
+    /** Version-fenced manual replay; implementation must atomically reset status and eligibility. */
+    default WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
+                                                       long expectedVersion, String operatorReason,
+                                                       Instant nextEligibleAt) {
+        throw new UnsupportedOperationException("Manual dead-letter replay is not supported by this repository");
+    }
+
     /**
      * Atomically claim recoverable attempts for one worker. Implementations must use
      * durable leases and ensure competing workers do not receive the same live claim.
