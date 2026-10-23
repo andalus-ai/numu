@@ -131,6 +131,11 @@ public final class WarehouseRecoveryWorker implements AutoCloseable {
                 return; // The old worker is fenced out; never mutate or release its stale claim.
             }
             WarehouseExecutionClaim liveClaim = currentClaim.get();
+            if (stopping.get()) {
+                releaseQuietly(liveClaim);
+                metrics.outcome("stopped");
+                return;
+            }
             switch (result.outcome()) {
                 case COMPLETED -> {
                     operations.release(liveClaim);
