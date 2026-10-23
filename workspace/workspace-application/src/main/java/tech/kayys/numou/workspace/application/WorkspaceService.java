@@ -39,14 +39,14 @@ public final class WorkspaceService {
   audit("PAGE_UPDATED",tenant,actor,"PAGE",pageId,revised.revision(),summary);return revised;
  }
  public Page readPage(UUID tenant,UUID actor,UUID pageId){
-  identity(tenant,actor);Page page=pages.find(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return page;
+  identity(tenant,actor);Page page=pages.findPage(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return page;
  }
  public List<Page> listChildren(UUID tenant,UUID actor,UUID spaceId,UUID parentId){
   identity(tenant,actor);access.require(tenant,actor,Resource.SPACE,spaceId,Action.READ);
   return pages.findChildren(tenant,spaceId,parentId).stream().sorted(Comparator.comparing(Page::updatedAt).reversed()).toList();
  }
  public List<PageRevision> pageHistory(UUID tenant,UUID actor,UUID pageId){
-  identity(tenant,actor);pages.find(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return pages.history(tenant,pageId);
+  identity(tenant,actor);pages.findPage(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));access.require(tenant,actor,Resource.PAGE,pageId,Action.READ);return pages.history(tenant,pageId);
  }
  private List<PageBlock> validateFiles(UUID tenant,UUID actor,List<PageBlock> blocks){
   List<PageBlock> safe=blocks==null?List.of():List.copyOf(blocks);
