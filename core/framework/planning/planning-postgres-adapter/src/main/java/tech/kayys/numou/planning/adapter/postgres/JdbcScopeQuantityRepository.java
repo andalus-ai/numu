@@ -54,7 +54,7 @@ public class JdbcScopeQuantityRepository implements ScopeQuantityRepository {
             }
             ScopeQuantityDefinition existing = findDefinition(definition.tenantId(), definition.id())
                     .orElseThrow(() -> new IllegalStateException("Definition conflict but existing row was not found"));
-            if (existing.equals(definition)) return false;
+            if (sameDefinition(existing, definition)) return false;
             throw new IllegalArgumentException("Definition ID already exists with different content");
         } catch (SQLException e) {
             throw persistenceFailure("create scope quantity definition", e);
@@ -210,6 +210,18 @@ public class JdbcScopeQuantityRepository implements ScopeQuantityRepository {
                 (UUID) rs.getObject("definition_id"), rs.getObject("as_of_date", LocalDate.class),
                 rs.getBigDecimal("actual_quantity"), rs.getTimestamp("recorded_at").toInstant(),
                 rs.getString("recorded_by"), rs.getString("idempotency_key"), rs.getString("source_reference"));
+    }
+
+
+    private boolean sameDefinition(ScopeQuantityDefinition a, ScopeQuantityDefinition b) {
+        return a.tenantId().equals(b.tenantId())
+                && a.scopeType().equals(b.scopeType())
+                && a.scopeId().equals(b.scopeId())
+                && a.code().equals(b.code())
+                && a.description().equals(b.description())
+                && a.unitCode().equals(b.unitCode())
+                && a.plannedQuantity().compareTo(b.plannedQuantity()) == 0
+                && a.revision() == b.revision();
     }
 
     private boolean samePayload(QuantityMeasurement a, QuantityMeasurement b) {
