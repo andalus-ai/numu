@@ -19,17 +19,24 @@ public final class PageLinkService {
   Page target=pages.findPage(tenantId,targetPageId).orElseThrow(()->new IllegalArgumentException("Target page not found for tenant"));
   access.require(tenantId,actorId,Resource.PAGE,source.id(),Action.UPDATE);
   access.require(tenantId,actorId,Resource.PAGE,target.id(),Action.READ);
-  PageLink link=PageLink.create(tenantId,sourcePageId,targetPageId,actorId,label,clock.instant());
-  if(!links.save(link))throw new IllegalStateException("Page link already exists or could not be saved");
-  audit.record(new AuditEntry(tenantId,actorId,"PAGE_LINK_CREATED","PAGE_LINK",link.id(),0,source.title()+" -> "+target.title(),clock.instant()));
+  java.time.Instant now=clock.instant();
+  PageLink link=PageLink.create(tenantId,sourcePageId,targetPageId,actorId,label,now);
+  AuditEntry event=new AuditEntry(tenantId,actorId,"PAGE_LINK_CREATED","PAGE_LINK",link.id(),0,source.title()+" -> "+target.title(),now);
+  boolean saved;
+  if(links instanceof AuditedMutationRepository tx)saved=tx.saveLink(link,event);
+  else {saved=links.save(link);if(saved)audit.record(event);}
+  if(!saved)throw new IllegalStateException("Page link already exists or could not be saved");
   return link;
  }
  public void unlink(UUID tenantId,UUID actorId,UUID linkId) {
   identity(tenantId,actorId);PageLink link=links.findLink(tenantId,linkId).orElseThrow(()->new IllegalArgumentException("Page link not found for tenant"));
   pages.findPage(tenantId,link.sourcePageId()).orElseThrow(()->new IllegalArgumentException("Source page not found for tenant"));
   access.require(tenantId,actorId,Resource.PAGE,link.sourcePageId(),Action.UPDATE);
-  if(!links.delete(tenantId,linkId))throw new IllegalStateException("Page link could not be removed");
-  audit.record(new AuditEntry(tenantId,actorId,"PAGE_LINK_REMOVED","PAGE_LINK",link.id(),0,link.sourcePageId()+" -> "+link.targetPageId(),clock.instant()));
+  AuditEntry event=new AuditEntry(tenantId,actorId,"PAGE_LINK_REMOVED","PAGE_LINK",link.id(),0,link.sourcePageId()+" -> "+link.targetPageId(),clock.instant());
+  boolean deleted;
+  if(links instanceof AuditedMutationRepository tx)deleted=tx.deleteLink(tenantId,linkId,event);
+  else {deleted=links.delete(tenantId,linkId);if(deleted)audit.record(event);}
+  if(!deleted)throw new IllegalStateException("Page link could not be removed");
  }
  public List<PageLink> outgoing(UUID tenantId,UUID actorId,UUID pageId) {
   identity(tenantId,actorId);pages.findPage(tenantId,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));
