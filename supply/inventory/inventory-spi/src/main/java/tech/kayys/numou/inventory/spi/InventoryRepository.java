@@ -9,10 +9,16 @@ import java.util.List;
 /**
  * Persistence boundary for the inventory ledger.
  *
- * <p>Implementations must make conditional issues and transfers atomic across
- * all participating ledger entries. Database-backed adapters must use a
- * transaction/lock or atomic conditional update; synchronizing one JVM is
- * insufficient for multi-instance deployments.</p>
+ * <p>Implementations must make conditional issues, transfers, reservation
+ * transitions, and reserved issues atomic across all participating records.
+ * Database-backed adapters must use transactions, row locks, or atomic
+ * conditional writes; synchronizing one JVM is insufficient for multi-instance
+ * deployments.</p>
+ *
+ * <p>When an instance is obtained from {@link TenantInventoryRepositoryProvider},
+ * it must be bound to exactly one tenant. All item, warehouse, movement,
+ * reservation, and command-receipt reads/writes must enforce that tenant scope.
+ * A tenant-bound repository must not fall back to an unscoped shared store.</p>
  */
 public interface InventoryRepository {
     void registerItem(InventoryItem item);
