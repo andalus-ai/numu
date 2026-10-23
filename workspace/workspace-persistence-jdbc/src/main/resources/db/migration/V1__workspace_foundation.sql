@@ -19,7 +19,8 @@ CREATE TABLE workspace_spaces (
   CONSTRAINT fk_workspace_space_owner FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES workspace_workspaces (tenant_id, id),
   CONSTRAINT uq_workspace_space_slug UNIQUE (tenant_id, workspace_id, slug),
-  CONSTRAINT uq_workspace_space_tenant_id UNIQUE (tenant_id, id)
+  CONSTRAINT uq_workspace_space_tenant_id UNIQUE (tenant_id, id),
+  CONSTRAINT uq_workspace_space_parent UNIQUE (tenant_id, workspace_id, id)
 );
 
 CREATE TABLE workspace_pages (
@@ -32,11 +33,12 @@ CREATE TABLE workspace_pages (
   revision BIGINT NOT NULL CHECK (revision >= 1),
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
-  CONSTRAINT fk_workspace_page_space FOREIGN KEY (tenant_id, space_id)
-    REFERENCES workspace_spaces (tenant_id, id),
-  CONSTRAINT fk_workspace_page_parent FOREIGN KEY (tenant_id, parent_page_id)
-    REFERENCES workspace_pages (tenant_id, id),
-  CONSTRAINT uq_workspace_page_tenant_id UNIQUE (tenant_id, id)
+  CONSTRAINT fk_workspace_page_space FOREIGN KEY (tenant_id, workspace_id, space_id)
+    REFERENCES workspace_spaces (tenant_id, workspace_id, id),
+  CONSTRAINT fk_workspace_page_parent FOREIGN KEY (tenant_id, space_id, parent_page_id)
+    REFERENCES workspace_pages (tenant_id, space_id, id),
+  CONSTRAINT uq_workspace_page_tenant_id UNIQUE (tenant_id, id),
+  CONSTRAINT uq_workspace_page_parent UNIQUE (tenant_id, space_id, id)
 );
 CREATE INDEX ix_workspace_pages_parent ON workspace_pages (tenant_id, space_id, parent_page_id, updated_at DESC);
 
