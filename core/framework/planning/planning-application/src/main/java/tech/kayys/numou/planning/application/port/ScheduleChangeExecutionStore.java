@@ -20,6 +20,14 @@ public interface ScheduleChangeExecutionStore {
     Optional<ScheduleChangeExecution> findByExecutionId(UUID executionId);
 
     /**
+     * Verifies that a replay uses the same request, initiator, and target-plan payload as the
+     * original execution. Implementations should compare a durable canonical payload fingerprint,
+     * not merely the execution ID or target revision.
+     */
+    boolean matchesReplay(UUID executionId, ScheduleChangeRequest request,
+            SchedulePlan targetPlan, UUID initiatedBy);
+
+    /**
      * Atomically applies targetPlan and persists the resulting execution receipt.
      *
      * @param request approved request and its immutable impact evidence
