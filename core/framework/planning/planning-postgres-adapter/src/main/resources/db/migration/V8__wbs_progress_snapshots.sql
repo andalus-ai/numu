@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS work_breakdown_progress_snapshot (
     included_activity_count INTEGER NOT NULL CHECK (included_activity_count > 0),
     recorded_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (tenant_id, snapshot_id),
+    CONSTRAINT uq_progress_snapshot_plan UNIQUE (tenant_id, snapshot_id, plan_id),
     CONSTRAINT fk_progress_snapshot_wbs_node
         FOREIGN KEY (tenant_id, structure_id, node_id)
         REFERENCES work_breakdown_node (tenant_id, structure_id, node_id),
@@ -29,8 +30,8 @@ CREATE TABLE IF NOT EXISTS work_breakdown_progress_snapshot_activity (
     weight NUMERIC(24,8) NOT NULL CHECK (weight > 0),
     PRIMARY KEY (tenant_id, snapshot_id, activity_id),
     CONSTRAINT fk_progress_snapshot_activity_snapshot
-        FOREIGN KEY (tenant_id, snapshot_id)
-        REFERENCES work_breakdown_progress_snapshot (tenant_id, snapshot_id),
+        FOREIGN KEY (tenant_id, snapshot_id, plan_id)
+        REFERENCES work_breakdown_progress_snapshot (tenant_id, snapshot_id, plan_id),
     CONSTRAINT fk_progress_snapshot_activity_schedule
         FOREIGN KEY (plan_id, activity_id)
         REFERENCES schedule_activity (plan_id, activity_id) ON DELETE RESTRICT
