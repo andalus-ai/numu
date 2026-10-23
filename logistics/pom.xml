@@ -15,5 +15,6 @@
     <description>Fleet Management System Bounded Context</description>
     <modules>
         <module>numou-fleet</module>
+        <module>numou-courier-domain</module>
     </modules>
 </project>

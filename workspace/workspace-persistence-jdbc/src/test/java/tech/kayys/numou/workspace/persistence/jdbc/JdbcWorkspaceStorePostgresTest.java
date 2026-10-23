@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,7 +37,10 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V1__workspace_foundation.sql",
             "/db/migration/V2__workspace_page_links.sql",
             "/db/migration/V3__workspace_page_templates.sql",
-            "/db/migration/V4__workspace_page_search_indexes.sql");
+            "/db/migration/V4__workspace_page_search_indexes.sql",
+            "/db/migration/V5__workspace_case_insensitive_space_slugs.sql",
+            "/db/migration/V6__workspace_template_name_integrity.sql",
+            "/db/migration/V7__workspace_domain_invariants.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -69,6 +76,79 @@ class JdbcWorkspaceStorePostgresTest {
         try (Connection c = connect(jdbcUrl, user, password); Statement s = c.createStatement()) {
             s.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
         }
+    }
+
+    @Test
+    void spaceSlugsAreUniqueIgnoringCaseAtTheDatabaseBoundary() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Slug uniqueness", "", now);
+        assertTrue(store.save(workspace));
+
+        Space canonical = Space.create(tenant, workspace.id(), "Operations", "operations", now);
+        assertTrue(store.save(canonical));
+
+        // Application pre-checks are not enough under concurrent writes. PostgreSQL must
+        // reject a case-only collision even when callers bypass slugExists().
+        Space caseVariant = Space.create(tenant, workspace.id(), "Operations duplicate", "OPERATIONS", now);
+        assertFalse(store.save(caseVariant));
+        assertTrue(store.find(tenant, workspace.id(), caseVariant.id()).isEmpty());
+    }
+
+    @Test
+    void databaseRejectsTemplateNameNormalizationDrift() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Template integrity", "", now);
+        assertTrue(store.save(workspace));
+
+        PageTemplate template = PageTemplate.create(tenant, workspace.id(), actor,
+                "Incident Runbook", "Runbook", List.of(), now);
+        assertTrue(store.save(template));
+
+        // Exercise the database boundary directly: adapters must not be the only
+        // enforcement point for the normalized key used by template uniqueness.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_page_templates SET name_normalized=? WHERE tenant_id=? AND id=?")) {
+            p.setString(1, "different-key");
+            p.setObject(2, tenant);
+            p.setObject(3, template.id());
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+        assertEquals("Incident Runbook", store.findTemplate(tenant, template.id()).orElseThrow().name());
+    }
+
+    @Test
+    void databaseRejectsNonCanonicalSlugsAndBlankDomainNames() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Invariant checks", "", now);
+        assertTrue(store.save(workspace));
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "INSERT INTO workspace_spaces(id,tenant_id,workspace_id,name,slug,created_at) VALUES(?,?,?,?,?,?)")) {
+            p.setObject(1, UUID.randomUUID());
+            p.setObject(2, tenant);
+            p.setObject(3, workspace.id());
+            p.setString(4, "Invalid slug");
+            p.setString(5, "UPPERCASE-SLUG");
+            p.setTimestamp(6, java.sql.Timestamp.from(now));
+            assertThrows(SQLException.class, p::executeUpdate,
+                    "the database must enforce the same canonical slug rule as the domain");
+        }
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_workspaces SET name='   ' WHERE tenant_id=? AND id=?")) {
+            p.setObject(1, tenant);
+            p.setObject(2, workspace.id());
+            assertThrows(SQLException.class, p::executeUpdate,
+                    "direct SQL must not bypass required workspace names");
+        }
+        assertEquals("Invariant checks", store.findWorkspace(tenant, workspace.id()).orElseThrow().name());
     }
 
     @Test
@@ -146,6 +226,121 @@ class JdbcWorkspaceStorePostgresTest {
 
 
     @Test
+    void rejectsAuditMetadataThatDoesNotDescribeTheMutation() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID otherTenant = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Audit integrity", "", now);
+
+        AuditEntry crossTenant = new AuditEntry(otherTenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "WORKSPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, crossTenant));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+        assertEquals(0, countAuditEvents(otherTenant));
+
+        AuditEntry missingActor = new AuditEntry(tenant, null,
+                "WORKSPACE_CREATED", "WORKSPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, missingActor));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+
+        AuditEntry wrongType = new AuditEntry(tenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "SPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, wrongType));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+
+        AuditEntry wrongResource = new AuditEntry(tenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "WORKSPACE", UUID.randomUUID(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, wrongResource));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void rejectsPageAuditActorAndRevisionThatDifferFromTheSnapshot() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        UUID otherActor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Audit snapshot", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Audit page",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "body", 0)), now);
+        PageRevision revision = new PageRevision(tenant, page.id(), page.revision(),
+                page.title(), page.blocks(), actor, now, "create");
+
+        AuditEntry wrongActor = new AuditEntry(tenant, otherActor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision(), "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, revision, 0, wrongActor));
+
+        AuditEntry wrongRevision = new AuditEntry(tenant, actor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision() + 1, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, revision, 0, wrongRevision));
+
+        assertTrue(store.findPage(tenant, page.id()).isEmpty());
+        assertTrue(store.history(tenant, page.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void pageHistoryIsIsolatedByTenant() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID otherTenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "History isolation", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Private page",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "private content", 0)), now);
+        PageRevision revision = new PageRevision(tenant, page.id(), page.revision(),
+                page.title(), page.blocks(), actor, now, "created");
+        assertTrue(store.saveWithRevision(page, revision, 0));
+
+        assertEquals(1, store.history(tenant, page.id()).size());
+        assertTrue(store.history(otherTenant, page.id()).isEmpty());
+    }
+
+    @Test
+    void rejectsRevisionSnapshotsThatDifferFromThePage() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Snapshot consistency", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Authoritative title",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "authoritative body", 0)), now);
+        PageRevision mismatched = new PageRevision(tenant, page.id(), page.revision(),
+                "Different title", List.of(), actor, now, "forged snapshot");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWithRevision(page, mismatched, 0));
+        assertTrue(store.findPage(tenant, page.id()).isEmpty());
+        assertTrue(store.history(tenant, page.id()).isEmpty());
+
+        AuditEntry audit = new AuditEntry(tenant, actor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision(), "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, mismatched, 0, audit));
+        assertTrue(store.findPage(tenant, page.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
     void pageAndRevisionRollBackWhenAuditInsertFails() {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
@@ -173,7 +368,7 @@ class JdbcWorkspaceStorePostgresTest {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
         UUID actor = UUID.randomUUID();
-        AuditEntry invalidAudit = new AuditEntry(tenant, actor, "A".repeat(101), "TEST",
+        AuditEntry invalidAudit = new AuditEntry(tenant, actor, "A".repeat(101), "WORKSPACE",
                 UUID.randomUUID(), 0, "force audit write failure", now);
 
         Workspace workspace = Workspace.create(tenant, "Atomic workspace", "", now);
@@ -236,6 +431,53 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.findLink(tenant, link.id()).isPresent(),
                 "link deletion must roll back when the audit insert fails");
         assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void concurrentPageUpdatesAllowOnlyOneWriterForTheSameExpectedRevision() throws Exception {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Concurrent updates", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Initial", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        Page candidateA = page.revise("Concurrent writer A", List.of(), now.plusSeconds(1));
+        Page candidateB = page.revise("Concurrent writer B", List.of(), now.plusSeconds(1));
+        PageRevision revisionA = PageRevision.snapshot(candidateA, actor, now.plusSeconds(1), "writer A");
+        PageRevision revisionB = PageRevision.snapshot(candidateB, actor, now.plusSeconds(1), "writer B");
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> writeA = executor.submit(() -> {
+                ready.countDown();
+                start.await();
+                return store.saveWithRevision(candidateA, revisionA, 1);
+            });
+            Future<Boolean> writeB = executor.submit(() -> {
+                ready.countDown();
+                start.await();
+                return store.saveWithRevision(candidateB, revisionB, 1);
+            });
+            ready.await();
+            start.countDown();
+            boolean resultA = writeA.get();
+            boolean resultB = writeB.get();
+
+            assertEquals(1, (resultA ? 1 : 0) + (resultB ? 1 : 0),
+                    "exactly one writer should win the compare-and-set update");
+            Page persisted = store.findPage(tenant, page.id()).orElseThrow();
+            assertTrue(List.of("Concurrent writer A", "Concurrent writer B").contains(persisted.title()));
+            assertEquals(2, persisted.revision());
+            assertEquals(2, store.history(tenant, page.id()).size(),
+                    "the losing writer must not create a revision snapshot");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

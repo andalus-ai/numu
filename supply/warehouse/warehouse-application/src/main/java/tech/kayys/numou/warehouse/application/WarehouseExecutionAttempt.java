@@ -38,9 +38,10 @@ public record WarehouseExecutionAttempt(
         if (attemptCount < 1 || version < 1 || updatedAt.isBefore(createdAt)) {
             throw new IllegalArgumentException("Invalid attempt counters or timestamps");
         }
-        if (status == WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION
+        if ((status == WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION
+                || status == WarehouseExecutionAttemptStatus.DEAD_LETTER)
                 && (lastError == null || lastError.isBlank())) {
-            throw new IllegalArgumentException("A reconciliation attempt must explain the failure");
+            throw new IllegalArgumentException("A reconciliation/dead-letter attempt must explain the failure");
         }
         if (recoveryPayload != null && !operation.equals(recoveryPayload.operation())) {
             throw new IllegalArgumentException("Recovery payload operation must match journal operation");
@@ -81,6 +82,17 @@ public record WarehouseExecutionAttempt(
             throw new IllegalStateException("Committed execution cannot be marked for reconciliation");
         }
         return revise(WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION, required(reason, "reason"));
+    }
+
+    /**
+     * Move an exhausted or non-retryable reconciliation attempt to a terminal state.
+     * Dead-lettered attempts are excluded from the recoverable polling/claim queries.
+     */
+    public WarehouseExecutionAttempt deadLetter(String reason) {
+        if (status != WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION) {
+            throw new IllegalStateException("Only reconciliation attempts can be dead-lettered");
+        }
+        return revise(WarehouseExecutionAttemptStatus.DEAD_LETTER, required(reason, "reason"));
     }
 
     public WarehouseExecutionAttempt retryStarted() {
