@@ -27,7 +27,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         } catch (SQLException e) { if (isConstraintViolation(e)) return false; throw failure("save workspace",e); }
     }
 
-    @Override public Optional<Workspace> find(UUID tenantId, UUID workspaceId) {
+    @Override public Optional<Workspace> findWorkspace(UUID tenantId, UUID workspaceId) {
         String sql = "SELECT id,tenant_id,name,description,created_at FROM workspace_workspaces WHERE tenant_id=? AND id=?";
         try (Connection c=dataSource.getConnection(); PreparedStatement p=c.prepareStatement(sql)) {
             p.setObject(1,tenantId);p.setObject(2,workspaceId);
@@ -56,7 +56,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         catch(SQLException e){throw failure("check space slug",e);}
     }
 
-    @Override public Optional<Page> find(UUID tenantId,UUID pageId) {
+    @Override public Optional<Page> findPage(UUID tenantId,UUID pageId) {
         String sql="SELECT id,tenant_id,workspace_id,space_id,parent_page_id,title,revision,created_at,updated_at FROM workspace_pages WHERE tenant_id=? AND id=?";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
             p.setObject(1,tenantId);p.setObject(2,pageId);
