@@ -92,9 +92,10 @@ class JdbcHubRepositoryPostgresTest {
         TenantId owner = TenantId.generate();
         TenantId other = TenantId.generate();
         Shipment shipment = shipment(owner, "SHIP-ROUNDTRIP");
-        shipment.addParcel(parcel("PIECE-01"), Instant.now().plusSeconds(1));
-        shipment.addParcel(parcel("PIECE-02"), Instant.now().plusSeconds(2));
-        shipment.book(Instant.now().plusSeconds(3));
+        Instant createdAt = shipment.createdAt();
+        shipment.addParcel(parcel("PIECE-01"), createdAt.plusSeconds(1));
+        shipment.addParcel(parcel("PIECE-02"), createdAt.plusSeconds(2));
+        shipment.book(createdAt.plusSeconds(3));
 
         shipmentRepository.save(owner, shipment).toCompletableFuture().join();
 
@@ -126,7 +127,7 @@ class JdbcHubRepositoryPostgresTest {
         ShipmentAddress recipient = new ShipmentAddress("Recipient", "+62222", "Destination Street", null,
                 "Jakarta", "DKI Jakarta", "10110", "ID");
         return Shipment.draft(ShipmentId.generate(), tenantId, reference,
-                sender, recipient, ServiceLevel.STANDARD, Instant.now());
+                sender, recipient, ServiceLevel.STANDARD, Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
     }
 
     private static Parcel parcel(String reference) {
