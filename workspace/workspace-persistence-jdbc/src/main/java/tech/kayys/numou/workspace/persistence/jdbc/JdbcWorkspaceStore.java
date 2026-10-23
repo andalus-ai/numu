@@ -148,7 +148,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         }catch(SQLException e){if(isConstraintViolation(e))return false;throw failure("save page link",e);}
     }
 
-    @Override public Optional<PageLink> find(UUID tenantId,UUID linkId) {
+    @Override public Optional<PageLink> findLink(UUID tenantId,UUID linkId) {
         String sql="SELECT id,tenant_id,source_page_id,target_page_id,created_by,label,created_at FROM workspace_page_links WHERE tenant_id=? AND id=?";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
             p.setObject(1,tenantId);p.setObject(2,linkId);try(ResultSet r=p.executeQuery()){return r.next()?Optional.of(readPageLink(r)):Optional.empty();}
@@ -200,7 +200,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         } catch (SQLException e) { throw failure("save page template atomically", e); }
     }
 
-    @Override public Optional<PageTemplate> find(UUID tenantId, UUID templateId) {
+    @Override public Optional<PageTemplate> findTemplate(UUID tenantId, UUID templateId) {
         String sql = "SELECT id,tenant_id,workspace_id,created_by,name,title,created_at,updated_at FROM workspace_page_templates WHERE tenant_id=? AND id=?";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setObject(1, tenantId); p.setObject(2, templateId);
