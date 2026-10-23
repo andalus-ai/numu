@@ -52,7 +52,7 @@ public final class PageTemplateService {
     public Page createPage(UUID tenantId, UUID actorId, UUID templateId, UUID spaceId,
                            UUID parentPageId, String titleOverride) {
         identity(tenantId, actorId);
-        PageTemplate template = templates.find(tenantId, templateId)
+        PageTemplate template = templates.findTemplate(tenantId, templateId)
                 .orElseThrow(() -> new IllegalArgumentException("Page template not found for tenant"));
         access.require(tenantId, actorId, Resource.WORKSPACE, template.workspaceId(), Action.READ);
         String title = titleOverride == null || titleOverride.isBlank() ? template.title() : titleOverride.trim();
