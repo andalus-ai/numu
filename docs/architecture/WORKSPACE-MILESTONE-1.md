@@ -24,9 +24,9 @@ Provide a reusable knowledge and collaboration foundation without making any Num
 ## Deliberate non-goals
 Rich editor UI, concurrent editing/CRDT, custom database schemas and views, comments, notifications, full-text/semantic search, AI, automation, public sharing, and persistence/API adapters are later milestones.
 
-## Production gates still required
+## Production gates still required\n\nA JDBC/PostgreSQL persistence adapter is included in the follow-up persistence increment. It uses tenant-scoped queries, database uniqueness/FK constraints, and a transaction for page + current blocks + immutable revision + revision blocks. The host must configure the `DataSource` and migration runner. The standalone adapter deliberately does not supply an authentication provider or infer authorization from tenant IDs.
 - Register workspace aggregator in the root Maven reactor.
 - Add persistence adapters and migrations with tenant constraints, uniqueness, optimistic locking, and transactional page/revision/audit writes.
 - Add transport/API endpoints and derive identity from authenticated context.
 - Add concrete access-policy and file-storage adapters.
-- Run full Maven reactor and integration suite. Remote repository editing does not execute builds or tests.
+- Run full Maven reactor and PostgreSQL integration suite. Remote repository editing does not execute builds or tests.
