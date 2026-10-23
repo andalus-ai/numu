@@ -3,6 +3,7 @@ package tech.kayys.numou.planning.adapter.postgres;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.planning.application.port.ScheduleChangeExecutionStore;
+import tech.kayys.numou.planning.application.port.SchedulePlanScopeStore;
 import tech.kayys.numou.planning.domain.*;
 
 import javax.sql.DataSource;
@@ -16,12 +17,48 @@ import java.util.UUID;
 
 /** PostgreSQL transaction adapter for approved schedule changes. */
 @ApplicationScoped
-public class JdbcScheduleChangeExecutionStore implements ScheduleChangeExecutionStore {
+public class JdbcScheduleChangeExecutionStore implements ScheduleChangeExecutionStore, SchedulePlanScopeStore {
     private final DataSource dataSource;
 
     @Inject
     public JdbcScheduleChangeExecutionStore(DataSource dataSource) {
         this.dataSource = dataSource;
+    }
+
+
+    @Override
+    public void register(PlanId planId, UUID tenantId, UUID structureId) {
+        String insert = "INSERT INTO schedule_plan_scope(plan_id, tenant_id, structure_id) VALUES (?, ?, ?) "
+                + "ON CONFLICT (plan_id) DO NOTHING";
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement(insert)) {
+                    ps.setObject(1, planId.value());
+                    ps.setObject(2, tenantId);
+                    ps.setObject(3, structureId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT tenant_id, structure_id FROM schedule_plan_scope WHERE plan_id = ? FOR UPDATE")) {
+                    ps.setObject(1, planId.value());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) throw new IllegalStateException("Unable to establish plan ownership");
+                        UUID storedTenant = (UUID) rs.getObject("tenant_id");
+                        UUID storedStructure = (UUID) rs.getObject("structure_id");
+                        if (!tenantId.equals(storedTenant) || !structureId.equals(storedStructure))
+                            throw new IllegalStateException("Schedule plan is already registered to a different tenant or structure");
+                    }
+                }
+                c.commit();
+            } catch (Exception e) {
+                try { c.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                if (e instanceof RuntimeException runtime) throw runtime;
+                throw new IllegalStateException("Unable to register schedule plan scope", e);
+            }
+        } catch (SQLException e) {
+            throw failure("register schedule plan scope", e);
+        }
     }
 
     @Override
