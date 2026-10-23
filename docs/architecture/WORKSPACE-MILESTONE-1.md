@@ -37,3 +37,10 @@ Rich editor UI, concurrent editing/CRDT, custom database schemas and views, comm
 The optional page-link capability stores directed links between workspace pages. Backlinks are queried from persisted incoming links; they are not inferred from page text and do not require a rich-text editor. Link creation requires update permission on the source and read permission on the target. Outgoing-link listing and backlink listing require read access to the requested page, and backlink results are filtered through source-page read permissions to avoid disclosing inaccessible pages. A PostgreSQL migration enforces tenant-scoped foreign keys, unique directed links, and a no-self-link constraint.
 
 This increment does not yet parse inline links, provide a UI/editor, or add full-text search. Those are later M2/M3 concerns.
+
+
+## M2 increment — reusable page templates
+
+Page templates are tenant-owned blueprints scoped to a workspace. The application service checks workspace-level access before creating or listing templates, and page creation from a template also goes through the normal page creation use case so space permissions, attachment authorization, initial revision creation, and normal page invariants remain in force. Instantiation gives every block a fresh ID and normalizes block positions; it does not share mutable page identity with the template.
+
+The application boundary exposes a `PageTemplateRepository` port. Host implementations must enforce tenant scoping and normalized-name uniqueness within a workspace. A durable JDBC adapter and database migration for this new port are still required before this capability is considered production-ready.

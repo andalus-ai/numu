@@ -19,6 +19,12 @@ public final class WorkspacePorts {
   List<PageLink> outgoing(UUID tenantId,UUID sourcePageId);
   List<PageLink> backlinks(UUID tenantId,UUID targetPageId);
  }
+ public interface PageTemplateRepository {
+  /** Must enforce uniqueness of normalized template name within tenant/workspace. */
+  boolean save(PageTemplate template);
+  Optional<PageTemplate> find(UUID tenantId,UUID templateId);
+  List<PageTemplate> findByWorkspace(UUID tenantId,UUID workspaceId);
+ }
  public interface AccessPolicy { /** Must check actor membership and resource-level permission, not merely tenant equality. */ void require(UUID tenantId,UUID actorId,Resource resource,UUID resourceId,Action action); }
  public interface AuditSink { /** Must durably record or fail; do not silently drop audit entries. */ void record(AuditEntry entry); }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
