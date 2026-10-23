@@ -9,7 +9,7 @@ class HubTransferTest {
     @Test
     void manifestMustContainShipmentsBeforeSealAndFollowCustodyLifecycle() {
         Instant now = Instant.parse("2026-10-24T00:00:00Z");
-        HubTransfer transfer = HubTransfer.draft("TRF-001", TenantId.generate(), HubId.generate(),
+        HubTransfer transfer = HubTransfer.draft("TRF-001", TenantId.generate(), HubTransferId.generate(),
                 HubId.generate(), HubId.generate(), now);
         assertThrows(IllegalStateException.class, () -> transfer.seal(now));
         transfer.addShipment(ShipmentId.generate(), now.plusSeconds(1));
@@ -28,8 +28,8 @@ class HubTransferTest {
         Instant now = Instant.parse("2026-10-24T00:00:00Z");
         HubId hub = HubId.generate();
         assertThrows(IllegalArgumentException.class, () -> HubTransfer.draft("TRF-002", TenantId.generate(),
-                HubId.generate(), hub, hub, now));
-        HubTransfer transfer = HubTransfer.draft("TRF-003", TenantId.generate(), HubId.generate(),
+                HubTransferId.generate(), hub, hub, now));
+        HubTransfer transfer = HubTransfer.draft("TRF-003", TenantId.generate(), HubTransferId.generate(),
                 HubId.generate(), HubId.generate(), now);
         ShipmentId shipment = ShipmentId.generate();
         transfer.addShipment(shipment, now);
