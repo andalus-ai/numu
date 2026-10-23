@@ -50,6 +50,16 @@ public final class WarehouseRecoveryOperationsService {
         return List.copyOf(repository.findDeadLetters(limit));
     }
 
+    /** Renew the exact current claim; callers must replace their old fencing token. */
+    public WarehouseExecutionClaim renew(WarehouseExecutionClaim claim, Duration lease) {
+        Objects.requireNonNull(claim, "claim");
+        if (lease == null || lease.isZero() || lease.isNegative()
+                || lease.compareTo(Duration.ofHours(1)) > 0) {
+            throw new IllegalArgumentException("lease must be positive and no longer than one hour");
+        }
+        return repository.renewClaim(claim, lease);
+    }
+
     public void release(WarehouseExecutionClaim claim) {
         repository.releaseClaim(Objects.requireNonNull(claim, "claim"));
     }
