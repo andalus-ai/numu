@@ -26,7 +26,7 @@
 
 ## Known gaps / not claimed complete
 
-- No concrete database schema/migration or repository adapter exists yet; uniqueness must ultimately be backed by a tenant+normalized-code database constraint to close concurrent registration races.
+- A PostgreSQL JDBC adapter and tenant+normalized-code uniqueness migration are now present in `numou-courier-postgres-adapter`; runtime wiring, database integration tests, and full reactor verification remain outstanding.
 - Tenant-to-organization ownership validation is not available in the current organization model. It must be enforced through a canonical tenant-organization mapping or an authorized application port before production use.
 - The current `OrganizationUnitLookup` contract requires adapters to scope the lookup by organization and to ensure the requesting actor may see that unit.
 - REST endpoints, event publication, API authentication wiring, cross-tenant shared-facility agreements, shipment booking, parcel identity, labels, tracking events, manifests, courier dispatch, delivery proof, billing, and COD are later work.
@@ -45,6 +45,6 @@
 
 Hub registration now resolves the organization before resolving its branch. The application flow rejects missing organizations, organizations whose `tenantId` does not match the command tenant, and inactive organizations. The organization lookup port contract requires adapter implementations to tenant-scope the lookup at query time; filtering a globally loaded organization in application memory is not sufficient for production.
 
-A PostgreSQL-oriented Flyway migration is included at `logistics/numou-courier-domain/src/main/resources/db/migration/V1__courier_hubs.sql`. It stores tenant ownership on each hub and enforces `UNIQUE (tenant_id, normalized_code)` in the database, including coordinate and lifecycle checks. This is the concurrency-safe uniqueness boundary; the application pre-check is only for early feedback.
+A PostgreSQL Flyway migration is included at `logistics/numou-courier-postgres-adapter/src/main/resources/db/migration/V1__courier_hubs.sql`. It stores tenant ownership on each hub and enforces `UNIQUE (tenant_id, normalized_code)` in the database, including coordinate and lifecycle checks. The `JdbcHubRepository` predicates lookup and deletion queries by tenant, rejects save calls where the passed tenant differs from the aggregate, and maps the database duplicate-code constraint to a specific conflict exception. The application pre-check is only for early feedback.
 
-**Remaining before M1 is production-ready:** implement and wire a concrete repository adapter whose reads, updates and deletes all predicate on `tenant_id`; map database unique violations to a stable domain/application conflict; confirm the actual Flyway discovery and database dialect in the runtime; add database integration tests; and verify the complete Maven reactor/CI. The migration alone does not constitute a completed persistence adapter.
+**Remaining before M1 is production-ready:** verify runtime Flyway discovery and datasource configuration; add PostgreSQL integration tests (including cross-tenant reads/deletes and concurrent duplicate-code attempts); confirm module/reactor integration; and run the complete Maven build and CI. The adapter is implemented but not yet build-verified.
