@@ -29,7 +29,7 @@ class PageLinkServiceTest {
   public boolean saveWithRevision(Page p,PageRevision r,long e){return false;}
   public List<PageRevision> history(UUID t,UUID p){return List.of();}
   public boolean save(PageLink l){if(links.values().stream().anyMatch(x->x.tenantId().equals(l.tenantId())&&x.sourcePageId().equals(l.sourcePageId())&&x.targetPageId().equals(l.targetPageId())))return false;links.put(l.id(),l);return true;}
-  public Optional<PageLink> find(UUID t,UUID id){return Optional.ofNullable(links.get(id)).filter(l->l.tenantId().equals(t));}
+  public Optional<PageLink> findLink(UUID t,UUID id){return Optional.ofNullable(links.get(id)).filter(l->l.tenantId().equals(t));}
   public boolean delete(UUID t,UUID id){return links.remove(id)!=null;}
   public List<PageLink> outgoing(UUID t,UUID id){return links.values().stream().filter(l->l.tenantId().equals(t)&&l.sourcePageId().equals(id)).toList();}
   public List<PageLink> backlinks(UUID t,UUID id){return links.values().stream().filter(l->l.tenantId().equals(t)&&l.targetPageId().equals(id)).toList();}
