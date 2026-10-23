@@ -41,6 +41,20 @@ class HubTest {
     }
 
     @Test
+    void reconstitutesPersistedLifecycleAndTimestamps() {
+        Hub original = newHub();
+        original.activate(NOW.plusSeconds(1));
+        Hub restored = Hub.reconstitute(original.id(), original.tenantId(), original.organizationId(),
+                original.branchUnitId(), original.code(), original.name(), original.type(), original.address(),
+                original.timeZone(), HubStatus.ACTIVE, original.createdAt(), original.updatedAt());
+
+        assertThat(restored.status()).isEqualTo(HubStatus.ACTIVE);
+        assertThat(restored.createdAt()).isEqualTo(original.createdAt());
+        assertThat(restored.updatedAt()).isEqualTo(original.updatedAt());
+        assertThat(restored.id()).isEqualTo(original.id());
+    }
+
+    @Test
     void rejectsInvalidCoordinatesAndPartialCoordinates() {
         assertThatThrownBy(() -> new HubAddress("Street", null, "Bandung", null, null, "ID",
                 91.0, 107.0)).isInstanceOf(IllegalArgumentException.class);

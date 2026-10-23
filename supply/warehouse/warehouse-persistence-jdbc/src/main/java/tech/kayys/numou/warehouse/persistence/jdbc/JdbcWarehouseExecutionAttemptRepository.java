@@ -5,6 +5,7 @@ import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptRepositor
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptStatus;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionClaim;
 import tech.kayys.numou.warehouse.application.WarehouseInventoryRecoveryPayload;
+import tech.kayys.numou.warehouse.application.WarehouseRecoveryHealthSummary;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -200,6 +201,89 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
             }
         } catch (SQLException e) {
             throw persistence("Could not list dead-letter warehouse executions", e);
+        }
+    }
+
+    @Override
+    public List<WarehouseExecutionAttempt> findDeadLetters(String tenantId, int limit) {
+        requireKey(tenantId, "commandKey-not-used");
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        String sql = "SELECT " + COLUMNS + " FROM warehouse_execution_attempt WHERE tenant_id=? AND status='DEAD_LETTER' " +
+                "ORDER BY updated_at, created_at LIMIT ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tenantId.trim());
+            statement.setInt(2, limit);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<WarehouseExecutionAttempt> result = new ArrayList<>();
+                while (rows.next()) result.add(read(rows));
+                return List.copyOf(result);
+            }
+        } catch (SQLException e) {
+            throw persistence("Could not list tenant dead-letter warehouse executions", e);
+        }
+    }
+
+    @Override
+    public WarehouseRecoveryHealthSummary summarizeRecovery(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
+        String sql = "SELECT " +
+                "COUNT(*) FILTER (WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
+                "AND (next_eligible_at IS NULL OR next_eligible_at <= CURRENT_TIMESTAMP)) AS recoverable_count, " +
+                "COUNT(*) FILTER (WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
+                "AND (next_eligible_at IS NULL OR next_eligible_at <= CURRENT_TIMESTAMP) AND claim_until > CURRENT_TIMESTAMP) AS claimed_count, " +
+                "COUNT(*) FILTER (WHERE status='NEEDS_RECONCILIATION') AS reconciliation_count, " +
+                "COUNT(*) FILTER (WHERE status='DEAD_LETTER') AS dead_letter_count, " +
+                "MIN(created_at) FILTER (WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
+                "AND (next_eligible_at IS NULL OR next_eligible_at <= CURRENT_TIMESTAMP)) AS oldest_recoverable_at, " +
+                "MIN(updated_at) FILTER (WHERE status='DEAD_LETTER') AS oldest_dead_letter_at " +
+                "FROM warehouse_execution_attempt WHERE tenant_id=?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tenantId.trim());
+            try (ResultSet row = statement.executeQuery()) {
+                if (!row.next()) throw new SQLException("Recovery summary aggregate returned no row");
+                Timestamp oldestRecoverable = row.getTimestamp("oldest_recoverable_at");
+                Timestamp oldestDeadLetter = row.getTimestamp("oldest_dead_letter_at");
+                return new WarehouseRecoveryHealthSummary(tenantId.trim(), Instant.now(),
+                        row.getLong("recoverable_count"), row.getLong("claimed_count"),
+                        row.getLong("reconciliation_count"), row.getLong("dead_letter_count"),
+                        oldestRecoverable == null ? null : oldestRecoverable.toInstant(),
+                        oldestDeadLetter == null ? null : oldestDeadLetter.toInstant());
+            }
+        } catch (SQLException e) {
+            throw persistence("Could not summarize tenant warehouse recovery", e);
+        }
+    }
+
+    @Override
+    public WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
+                                                       long expectedVersion, String operatorReason,
+                                                       Instant nextEligibleAt) {
+        requireKey(tenantId, commandKey);
+        if (expectedVersion < 1) throw new IllegalArgumentException("expectedVersion must be positive");
+        if (operatorReason == null || operatorReason.isBlank()) throw new IllegalArgumentException("operatorReason is required");
+        if (operatorReason.trim().length() > 1000) throw new IllegalArgumentException("operatorReason must not exceed 1000 characters");
+        Objects.requireNonNull(nextEligibleAt, "nextEligibleAt");
+        String auditReason = "Manual replay requested: " + operatorReason.trim();
+        if (auditReason.length() > 1000) auditReason = auditReason.substring(0, 1000);
+        String sql = "UPDATE warehouse_execution_attempt SET status='PREPARED', attempt_count=attempt_count+1, " +
+                "last_error=?, next_eligible_at=?, updated_at=CURRENT_TIMESTAMP, version=version+1, " +
+                "claim_owner=NULL, claim_until=NULL WHERE tenant_id=? AND command_key=? AND version=? AND status='DEAD_LETTER'";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, auditReason);
+            statement.setTimestamp(2, Timestamp.from(nextEligibleAt.truncatedTo(ChronoUnit.MICROS)));
+            statement.setString(3, tenantId.trim());
+            statement.setString(4, commandKey.trim());
+            statement.setLong(5, expectedVersion);
+            if (statement.executeUpdate() != 1) {
+                throw new OptimisticLockException("Dead-letter replay rejected: missing, stale, or non-dead-letter attempt");
+            }
+            return find(tenantId, commandKey).orElseThrow(
+                    () -> new IllegalStateException("Warehouse attempt disappeared after replay"));
+        } catch (SQLException e) {
+            throw persistence("Could not replay tenant dead-letter warehouse execution", e);
         }
     }
 

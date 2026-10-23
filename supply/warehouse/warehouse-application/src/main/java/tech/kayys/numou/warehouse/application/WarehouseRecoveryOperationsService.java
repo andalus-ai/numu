@@ -45,9 +45,42 @@ public final class WarehouseRecoveryOperationsService {
         return repository.deadLetter(claim, reason.trim());
     }
 
+    /**
+     * @deprecated Use deadLetters(tenantId, limit) from tenant-authenticated operator flows.
+     */
+    @Deprecated
     public List<WarehouseExecutionAttempt> deadLetters(int limit) {
         if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
         return List.copyOf(repository.findDeadLetters(limit));
+    }
+
+    public List<WarehouseExecutionAttempt> deadLetters(String tenantId, int limit) {
+        requireTenant(tenantId);
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        return List.copyOf(repository.findDeadLetters(tenantId.trim(), limit));
+    }
+
+    public WarehouseRecoveryHealthSummary summarize(String tenantId) {
+        requireTenant(tenantId);
+        return repository.summarizeRecovery(tenantId.trim());
+    }
+
+    public WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
+                                                       long expectedVersion, String operatorReason,
+                                                       Instant nextEligibleAt) {
+        requireTenant(tenantId);
+        if (commandKey == null || commandKey.isBlank()) throw new IllegalArgumentException("commandKey is required");
+        if (expectedVersion < 1) throw new IllegalArgumentException("expectedVersion must be positive");
+        if (operatorReason == null || operatorReason.isBlank()) throw new IllegalArgumentException("operatorReason is required");
+        String reason = operatorReason.trim();
+        if (reason.length() > 1000) throw new IllegalArgumentException("operatorReason must not exceed 1000 characters");
+        Objects.requireNonNull(nextEligibleAt, "nextEligibleAt");
+        if (nextEligibleAt.isBefore(Instant.now())) throw new IllegalArgumentException("nextEligibleAt must not be in the past");
+        return repository.replayDeadLetter(tenantId.trim(), commandKey.trim(), expectedVersion, reason, nextEligibleAt);
+    }
+
+    private static void requireTenant(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
     }
 
     /** Renew the exact current claim; callers must replace their old fencing token. */
