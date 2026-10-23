@@ -20,6 +20,19 @@ class PageLinkServiceTest {
   assertThrows(IllegalArgumentException.class,()->service.link(tenant,actor,a.id(),UUID.randomUUID(),""));
   assertThrows(IllegalArgumentException.class,()->PageLink.create(tenant,a.id(),a.id(),actor,"",Instant.EPOCH));
  }
+ @Test void unlinkRequiresTargetReadPermissionAndPreservesLinkWhenDenied() {
+  UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();Page source=page(tenant,"Source"),target=page(tenant,"Target");Store store=new Store(source,target);
+  PageLink link=PageLink.create(tenant,source.id(),target.id(),actor,"related",Instant.EPOCH);assertTrue(store.save(link));
+  PageLinkService denied=new PageLinkService(store,store,(t,a,r,id,action)->{
+   if(id.equals(target.id())&&action==Action.READ)throw new SecurityException("target is not readable");
+  },e->{},Clock.systemUTC());
+  assertThrows(SecurityException.class,()->denied.unlink(tenant,actor,link.id()));
+  assertTrue(store.findLink(tenant,link.id()).isPresent(),"authorization must happen before deletion");
+
+  PageLinkService allowed=new PageLinkService(store,store,(t,a,r,id,action)->{},e->{},Clock.systemUTC());
+  allowed.unlink(tenant,actor,link.id());
+  assertTrue(store.findLink(tenant,link.id()).isEmpty());
+ }
  static Page page(UUID tenant,String title){UUID w=UUID.randomUUID(),s=UUID.randomUUID();return new Page(UUID.randomUUID(),tenant,w,s,null,title,List.of(),1,Instant.EPOCH,Instant.EPOCH);}
  static final class Store implements PageRepository,PageLinkRepository,AccessPolicy {
   final Map<UUID,Page> pages=new HashMap<>();final Map<UUID,PageLink> links=new LinkedHashMap<>();
