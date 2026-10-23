@@ -13,6 +13,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,7 +56,7 @@ public class JdbcWorkBreakdownProgressSnapshotRepository implements WorkBreakdow
                     statement.setBigDecimal(9, snapshot.completionPercent());
                     statement.setBigDecimal(10, snapshot.totalWeight());
                     statement.setInt(11, snapshot.includedActivityCount());
-                    statement.setObject(12, snapshot.recordedAt());
+                    statement.setObject(12, OffsetDateTime.ofInstant(snapshot.recordedAt(), ZoneOffset.UTC));
                     statement.executeUpdate();
                 }
                 try (PreparedStatement statement = connection.prepareStatement(detailSql)) {
