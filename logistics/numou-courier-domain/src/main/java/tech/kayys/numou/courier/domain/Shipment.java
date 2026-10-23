@@ -84,8 +84,9 @@ public final class Shipment {
             throw new IllegalArgumentException("parcel id already exists in shipment");
         if (parcels.stream().anyMatch(existing -> existing.reference().equalsIgnoreCase(parcel.reference())))
             throw new IllegalArgumentException("parcel reference already exists in shipment");
+        Instant nextUpdatedAt = monotonic(now);
         parcels.add(parcel);
-        updatedAt = monotonic(now);
+        updatedAt = nextUpdatedAt;
     }
 
     public void book(Instant now) {
