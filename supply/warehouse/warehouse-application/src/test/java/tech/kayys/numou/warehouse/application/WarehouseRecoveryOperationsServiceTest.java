@@ -35,7 +35,8 @@ class WarehouseRecoveryOperationsServiceTest {
         WarehouseRecoveryOperationsService service = new WarehouseRecoveryOperationsService(repository);
         assertThrows(IllegalArgumentException.class, () -> service.defer(claim, Instant.EPOCH));
         Instant next = Instant.now().plusSeconds(30);
-        assertEquals(repository.scheduled, service.defer(claim, next));
+        WarehouseExecutionAttempt scheduled = service.defer(claim, next);
+        assertEquals(repository.scheduled, scheduled);
         assertEquals(claim, repository.scheduledClaim);
         assertEquals(next, repository.scheduledAt);
     }
@@ -46,7 +47,8 @@ class WarehouseRecoveryOperationsServiceTest {
         WarehouseExecutionClaim claim = claim();
         WarehouseRecoveryOperationsService service = new WarehouseRecoveryOperationsService(repository);
         assertThrows(IllegalArgumentException.class, () -> service.deadLetter(claim, " "));
-        assertEquals(repository.dead, service.deadLetter(claim, " exhausted "));
+        WarehouseExecutionAttempt dead = service.deadLetter(claim, " exhausted ");
+        assertEquals(repository.dead, dead);
         assertEquals(claim, repository.deadClaim);
         assertEquals("exhausted", repository.deadReason);
     }
@@ -59,6 +61,36 @@ class WarehouseRecoveryOperationsServiceTest {
         assertEquals(0, repository.deadLetterQueryCalls);
     }
 
+    @Test
+    void tenantScopedDeadLettersAndSummaryRequireTenant() {
+        FakeRepository repository = new FakeRepository();
+        WarehouseRecoveryOperationsService service = new WarehouseRecoveryOperationsService(repository);
+        assertThrows(IllegalArgumentException.class, () -> service.deadLetters(" ", 10));
+        assertThrows(IllegalArgumentException.class, () -> service.summarize(null));
+        assertEquals(0, repository.tenantDeadLetterQueryCalls);
+        WarehouseRecoveryHealthSummary summary = service.summarize(" tenant-a ");
+        assertEquals("tenant-a", summary.tenantId());
+        assertEquals(3, summary.recoverableCount());
+        assertEquals(1, summary.claimedCount());
+    }
+
+    @Test
+    void manualReplayRequiresReasonAndVersionAndDelegatesTenantScope() {
+        FakeRepository repository = new FakeRepository();
+        WarehouseRecoveryOperationsService service = new WarehouseRecoveryOperationsService(repository);
+        Instant eligible = Instant.now().plusSeconds(15);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.replayDeadLetter("tenant-a", "cmd-a", 0, "manual review", eligible));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.replayDeadLetter("tenant-a", "cmd-a", 2, " ", eligible));
+        assertEquals(0, repository.replayCalls);
+        service.replayDeadLetter(" tenant-a ", " cmd-a ", 7, " reviewed by operator ", eligible);
+        assertEquals("tenant-a", repository.replayTenant);
+        assertEquals("cmd-a", repository.replayCommand);
+        assertEquals(7, repository.replayVersion);
+        assertEquals("reviewed by operator", repository.replayReason);
+    }
+
     private static WarehouseExecutionClaim claim() {
         WarehouseExecutionAttempt attempt = WarehouseExecutionAttempt.prepared(
                 "tenant-a", "cmd-a", "fp-a", "work-a", "line-a", "RECEIVE")
@@ -69,6 +101,12 @@ class WarehouseRecoveryOperationsServiceTest {
     private static final class FakeRepository implements WarehouseExecutionAttemptRepository {
         int claimCalls;
         int deadLetterQueryCalls;
+        int tenantDeadLetterQueryCalls;
+        int replayCalls;
+        String replayTenant;
+        String replayCommand;
+        long replayVersion;
+        String replayReason;
         List<WarehouseExecutionClaim> claims = List.of();
         WarehouseExecutionClaim scheduledClaim;
         Instant scheduledAt;
@@ -100,6 +138,22 @@ class WarehouseRecoveryOperationsServiceTest {
         @Override public List<WarehouseExecutionAttempt> findDeadLetters(int limit) {
             deadLetterQueryCalls++;
             return List.of();
+        }
+        @Override public List<WarehouseExecutionAttempt> findDeadLetters(String tenantId, int limit) {
+            tenantDeadLetterQueryCalls++;
+            return List.of();
+        }
+        @Override public WarehouseRecoveryHealthSummary summarizeRecovery(String tenantId) {
+            return new WarehouseRecoveryHealthSummary(tenantId, Instant.now(), 3, 1, 2, 4, null, null);
+        }
+        @Override public WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
+                long expectedVersion, String operatorReason, Instant nextEligibleAt) {
+            replayCalls++;
+            replayTenant = tenantId;
+            replayCommand = commandKey;
+            replayVersion = expectedVersion;
+            replayReason = operatorReason;
+            return claim().attempt();
         }
     }
 }
