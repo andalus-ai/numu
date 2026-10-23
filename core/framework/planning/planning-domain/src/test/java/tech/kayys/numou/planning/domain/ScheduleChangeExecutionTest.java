@@ -39,7 +39,7 @@ class ScheduleChangeExecutionTest {
 
     private PlanRevisionSnapshot snapshot(long revision, Instant capturedAt, UUID tenantId) {
         return new PlanRevisionSnapshot(tenantId, structure, plan, revision, capturedAt,
-                LocalDate.of(2026, 2, 1), Map.of(new ActivityId("delivery"), 2), List.of());
+                LocalDate.of(2026, 2, 1), Map.of(new ActivityId(id(7)), 2), List.of());
     }
 
     @Test
