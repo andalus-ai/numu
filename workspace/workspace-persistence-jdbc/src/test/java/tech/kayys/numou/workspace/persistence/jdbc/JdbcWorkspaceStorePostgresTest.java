@@ -34,7 +34,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V2__workspace_page_links.sql",
             "/db/migration/V3__workspace_page_templates.sql",
             "/db/migration/V4__workspace_page_search_indexes.sql",
-            "/db/migration/V5__workspace_case_insensitive_space_slugs.sql");
+            "/db/migration/V5__workspace_case_insensitive_space_slugs.sql",
+            "/db/migration/V6__workspace_template_name_integrity.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -87,6 +88,31 @@ class JdbcWorkspaceStorePostgresTest {
         Space caseVariant = Space.create(tenant, workspace.id(), "Operations duplicate", "OPERATIONS", now);
         assertFalse(store.save(caseVariant));
         assertTrue(store.find(tenant, workspace.id(), caseVariant.id()).isEmpty());
+    }
+
+    @Test
+    void databaseRejectsTemplateNameNormalizationDrift() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Template integrity", "", now);
+        assertTrue(store.save(workspace));
+
+        PageTemplate template = PageTemplate.create(tenant, workspace.id(), actor,
+                "Incident Runbook", "Runbook", List.of(), now);
+        assertTrue(store.save(template));
+
+        // Exercise the database boundary directly: adapters must not be the only
+        // enforcement point for the normalized key used by template uniqueness.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_page_templates SET name_normalized=? WHERE tenant_id=? AND id=?")) {
+            p.setString(1, "different-key");
+            p.setObject(2, tenant);
+            p.setObject(3, template.id());
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+        assertEquals("Incident Runbook", store.findTemplate(tenant, template.id()).orElseThrow().name());
     }
 
     @Test
