@@ -14,6 +14,7 @@ import tech.kayys.numou.organization.domain.OrganizationUnitId;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -27,6 +28,7 @@ class JdbcHubRepositoryPostgresTest {
     static JdbcHubRepository repository;
     static JdbcShipmentRepository shipmentRepository;
     static JdbcTrackingEventRepository trackingRepository;
+    static JdbcHubTransferRepository transferRepository;
 
     @BeforeAll
     static void migrateSchema() {
@@ -38,6 +40,7 @@ class JdbcHubRepositoryPostgresTest {
         repository = new JdbcHubRepository(dataSource());
         shipmentRepository = new JdbcShipmentRepository(dataSource());
         trackingRepository = new JdbcTrackingEventRepository(dataSource());
+        transferRepository = new JdbcHubTransferRepository(dataSource());
     }
 
     @Test
@@ -145,6 +148,34 @@ class JdbcHubRepositoryPostgresTest {
         assertInstanceOf(JdbcShipmentRepository.ShipmentReferenceConflictException.class, failure.getCause());
     }
 
+
+
+    @Test
+    void hubTransferManifestAndShipmentMembershipRoundTripTenantScoped() {
+        TenantId tenant = TenantId.generate();
+        TenantId other = TenantId.generate();
+        Hub origin = hub(tenant, "TRF-ORIGIN");
+        Hub destination = hub(tenant, "TRF-DEST");
+        repository.save(tenant, origin).toCompletableFuture().join();
+        repository.save(tenant, destination).toCompletableFuture().join();
+
+        Shipment shipment = shipment(tenant, "SHIP-TRANSFER");
+        shipment.addParcel(parcel("PIECE-TRANSFER"), shipment.createdAt().plusSeconds(1));
+        shipment.book(shipment.createdAt().plusSeconds(2));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+
+        HubTransfer transfer = HubTransfer.draft("TRF-ROUNDTRIP", tenant, HubTransferId.generate(),
+                origin.id(), destination.id(), shipment.createdAt().plusSeconds(3));
+        transfer.addShipment(shipment.id(), shipment.createdAt().plusSeconds(4));
+        transfer.seal(shipment.createdAt().plusSeconds(5));
+        transferRepository.save(tenant, transfer).toCompletableFuture().join();
+
+        assertTrue(transferRepository.findById(other, transfer.id()).toCompletableFuture().join().isEmpty());
+        HubTransfer loaded = transferRepository.findByReference(tenant, "trf-roundtrip")
+                .toCompletableFuture().join().orElseThrow();
+        assertEquals(HubTransferStatus.SEALED, loaded.status());
+        assertEquals(List.of(shipment.id()), loaded.shipments());
+    }
 
     @Test
     void trackingEventAppendIsIdempotentAndTenantScoped() {
