@@ -21,6 +21,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
     private final List<InventoryMovement> movements = new ArrayList<>();
     private final Map<InventoryCommandKey, List<InventoryMovement>> commandMovements = new HashMap<>();
     private final Map<ReservationId, InventoryReservation> reservations = new HashMap<>();
+    private final Map<InventoryCommandKey, ReservationId> reservedIssueReservations = new HashMap<>();
 
     @Override
     public void registerItem(InventoryItem item) {
@@ -156,6 +157,23 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
         movements.add(movement);
         reservations.put(reservationId, reservation.commit());
         return movement;
+    }
+
+    @Override
+    public synchronized InventoryMovement postReservedIssue(InventoryCommandKey key, ReservationId reservationId,
+                                                            InventoryMovement movement, BigDecimal requiredQuantity) {
+        if (key == null || reservationId == null) throw new IllegalArgumentException("Command key and reservation are required");
+        List<InventoryMovement> existing = replayOrNull(key, List.of(movement));
+        if (existing != null) {
+            if (!reservationId.equals(reservedIssueReservations.get(key))) {
+                throw new IllegalArgumentException("Idempotency key payload mismatch: reservation differs");
+            }
+            return existing.get(0);
+        }
+        InventoryMovement posted = postReservedIssue(reservationId, movement, requiredQuantity);
+        commandMovements.put(key, List.of(posted));
+        reservedIssueReservations.put(key, reservationId);
+        return posted;
     }
 
     private BigDecimal activeReserved(ItemId itemId, WarehouseId warehouseId) {
