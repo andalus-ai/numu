@@ -61,10 +61,10 @@ class ShipmentTest {
         Shipment shipment = draft("NUM-1004");
         shipment.addParcel(parcel("PIECE-1"), T0.plusSeconds(1));
         shipment.book(T0.plusSeconds(2));
+        assertThrows(IllegalArgumentException.class, () -> shipment.cancel(T0.plusSeconds(1)));
         shipment.cancel(T0.plusSeconds(3));
-        shipment.cancel(T0.plusSeconds(4));
+        shipment.cancel(T0.plusSeconds(2));
         assertEquals(ShipmentStatus.CANCELLED, shipment.status());
-        assertThrows(IllegalArgumentException.class, () -> shipment.cancel(T0.plusSeconds(2)));
     }
 
     private static Shipment draft(String reference) {
