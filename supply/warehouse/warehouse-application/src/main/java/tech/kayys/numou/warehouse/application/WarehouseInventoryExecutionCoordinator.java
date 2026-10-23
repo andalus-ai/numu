@@ -17,6 +17,7 @@ public final class WarehouseInventoryExecutionCoordinator {
  public WarehouseWorkOrder receive(String tenant,String workOrderId,String lineId,String itemId,String warehouseId,
    BigDecimal quantity,BigDecimal unitCost,String currency,String commandKey){
   WarehouseWorkOrder order=load(tenant,workOrderId);
+  validate(order,lineId,quantity,WarehouseWorkType.RECEIVING);
   if(order.type()!=WarehouseWorkType.RECEIVING)throw new IllegalStateException("Inventory receipt requires a RECEIVING work order");
   inventory.receive(tenant,itemId,warehouseId,quantity,unitCost,currency,order.reference()+":"+lineId,commandKey,workOrderId,lineId);
   return warehouse.execute(tenant,workOrderId,lineId,quantity,null,commandKey);
@@ -24,9 +25,18 @@ public final class WarehouseInventoryExecutionCoordinator {
  public WarehouseWorkOrder pick(String tenant,String workOrderId,String lineId,String itemId,String warehouseId,String reservationId,
    BigDecimal quantity,String currency,String commandKey){
   WarehouseWorkOrder order=load(tenant,workOrderId);
+  validate(order,lineId,quantity,WarehouseWorkType.PICKING);
   if(order.type()!=WarehouseWorkType.PICKING)throw new IllegalStateException("Reserved issue requires a PICKING work order");
   inventory.issueReserved(tenant,reservationId,itemId,warehouseId,quantity,currency,order.reference()+":"+lineId,commandKey,workOrderId,lineId);
   return warehouse.execute(tenant,workOrderId,lineId,quantity,warehouseId,commandKey);
+ }
+ private void validate(WarehouseWorkOrder order,String lineId,BigDecimal quantity,WarehouseWorkType expectedType){
+  if(order.type()!=expectedType)throw new IllegalStateException("Inventory operation does not match warehouse work type");
+  if(order.status()!=WarehouseWorkStatus.IN_PROGRESS)throw new IllegalStateException("Warehouse work must be IN_PROGRESS before inventory posting");
+  if(lineId==null||lineId.isBlank()||quantity==null||quantity.signum()<=0)throw new IllegalArgumentException("Line and positive quantity are required");
+  WarehouseWorkLine line=order.lines().stream().filter(l->l.lineId().equals(lineId)).findFirst()
+    .orElseThrow(()->new IllegalArgumentException("Unknown warehouse work line: "+lineId));
+  if(line.executedQuantity().add(quantity).compareTo(line.plannedQuantity())>0)throw new IllegalArgumentException("Execution exceeds remaining planned quantity");
  }
  private WarehouseWorkOrder load(String tenant,String id){
   if(tenant==null||tenant.isBlank()||id==null||id.isBlank())throw new IllegalArgumentException("Tenant and work order id are required");
