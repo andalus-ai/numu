@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -85,9 +84,7 @@ class JdbcHubRepositoryTenantBoundaryTest {
         return (PreparedStatement) Proxy.newProxyInstance(PreparedStatement.class.getClassLoader(),
                 new Class<?>[]{PreparedStatement.class}, (proxy, method, args) -> {
                     if (method.getName().equals("setObject")) {
-                        int index = (Integer) args[0];
-                        while (parameters.size() < index) parameters.add(null);
-                        parameters.set(index - 1, args[1]);
+                        parameters.add(args[1]);
                         return null;
                     }
                     if (method.getName().equals("executeQuery")) return resultSet();
