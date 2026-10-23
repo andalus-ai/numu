@@ -109,7 +109,9 @@ class WarehouseRecoveryConcurrentClaimsPostgresIntegrationTest {
 
     private record DriverManagerDataSource(String url, String user, String password) implements DataSource {
         @Override public Connection getConnection() throws SQLException {
-            return DriverManager.getConnection(url, user, password);
+            return user == null || user.isBlank()
+                    ? DriverManager.getConnection(url)
+                    : DriverManager.getConnection(url, user, password);
         }
         @Override public Connection getConnection(String username, String pwd) throws SQLException {
             return DriverManager.getConnection(url, username, pwd);
