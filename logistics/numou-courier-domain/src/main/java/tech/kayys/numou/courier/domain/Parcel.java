@@ -10,7 +10,9 @@ public record Parcel(
         String handlingInstructions) {
     public Parcel {
         Objects.requireNonNull(id, "id must not be null");
-        reference = required(reference, "reference");
+        reference = required(reference, "reference").toUpperCase(java.util.Locale.ROOT);
+        if (!reference.matches("[A-Z0-9][A-Z0-9._-]{2,39}"))
+            throw new IllegalArgumentException("reference must be 3-40 characters using letters, digits, '.', '_' or '-'");
         weightKg = positive(weightKg, "weightKg");
         lengthCm = positive(lengthCm, "lengthCm");
         widthCm = positive(widthCm, "widthCm");
