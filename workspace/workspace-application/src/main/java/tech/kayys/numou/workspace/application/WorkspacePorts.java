@@ -12,6 +12,13 @@ public final class WorkspacePorts {
   boolean saveWithRevision(Page page,PageRevision revision,long expectedRevision);
   List<PageRevision> history(UUID tenantId,UUID pageId);
  }
+ public interface PageLinkRepository {
+  boolean save(PageLink link);
+  Optional<PageLink> find(UUID tenantId,UUID linkId);
+  boolean delete(UUID tenantId,UUID linkId);
+  List<PageLink> outgoing(UUID tenantId,UUID sourcePageId);
+  List<PageLink> backlinks(UUID tenantId,UUID targetPageId);
+ }
  public interface AccessPolicy { /** Must check actor membership and resource-level permission, not merely tenant equality. */ void require(UUID tenantId,UUID actorId,Resource resource,UUID resourceId,Action action); }
  public interface AuditSink { /** Must durably record or fail; do not silently drop audit entries. */ void record(AuditEntry entry); }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
