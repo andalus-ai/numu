@@ -58,3 +58,11 @@ Unit tests cover template block identity/position normalization, invalid templat
 The application exposes a search repository port scoped to a tenant and workspace, with an optional space filter. The JDBC adapter uses PostgreSQL full-text search over page titles and block text, with GIN indexes introduced by migration V4. The application service validates query length and result limits, checks workspace/space read access, and filters each candidate through page-level read authorization before returning results. Search hits are projections rather than full page payloads.
 
 The search contract intentionally does not expose cross-workspace search, semantic/AI search, snippets, or a frontend editor. Search integration tests against PostgreSQL are still required to verify query behavior and index usage.
+
+## M2 increment — transport-neutral content API
+
+The base `WorkspaceApi` remains stable for workspace, space, page, and revision operations. `WorkspaceContentApi` adds a separate transport-neutral boundary for template creation/listing, page creation from a template, page search, outgoing links, backlinks, and link removal. This keeps newer capabilities available to HTTP, RPC, or in-process hosts without making the application module depend on a web framework.
+
+Both API boundaries accept an identity provider supplied by the host and derive tenant/actor IDs from that trusted context; request records do not contain caller-controlled identity fields. The content API returns bounded projections rather than persistence objects, and maps invalid requests, denied access, and revision conflicts to the same API exception contract as the base API. Host adapters still need to map these exceptions to their transport's response format and provide real authentication, access-policy, audit, and database adapters.
+
+This is an application/API boundary, not a concrete HTTP server. Route registration, authentication middleware, rate limiting, OpenAPI generation, and HTTP-level integration tests remain host-adapter responsibilities.
