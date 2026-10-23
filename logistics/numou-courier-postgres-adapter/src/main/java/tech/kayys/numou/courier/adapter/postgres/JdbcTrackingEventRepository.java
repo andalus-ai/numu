@@ -75,7 +75,7 @@ public class JdbcTrackingEventRepository implements TrackingEventRepository {
 
     @Override
     public CompletionStage<List<TrackingEvent>> findByShipment(
-            TenantId tenantId, ShipmentId shipmentId, Instant beforeOccurredAt, int limit) {
+            TenantId tenantId, ShipmentId shipmentId, TrackingCursor before, int limit) {
         if (tenantId == null || shipmentId == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("tenantId and shipmentId are required"));
         if (limit < 1 || limit > 500)
@@ -85,22 +85,19 @@ public class JdbcTrackingEventRepository implements TrackingEventRepository {
             SELECT id, tenant_id, shipment_id, parcel_id, event_type, occurred_at, recorded_at,
                    location_code, actor_reference, source, idempotency_key, note
             FROM courier_tracking_events
-            WHERE tenant_id = ? AND shipment_id = ? AND (? IS NULL OR occurred_at < ?)
-            ORDER BY occurred_at DESC, id DESC
-            LIMIT ?
-            """;
+            WHERE tenant_id = ? AND shipment_id = ?
+            """ + (before == null ? "" : " AND (occurred_at, id) < (?, ?) ")
+                + " ORDER BY occurred_at DESC, id DESC LIMIT ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, tenantId.value());
             statement.setObject(2, shipmentId.value());
-            if (beforeOccurredAt == null) {
-                statement.setNull(3, Types.TIMESTAMP_WITH_TIMEZONE);
-                statement.setNull(4, Types.TIMESTAMP_WITH_TIMEZONE);
-            } else {
-                statement.setTimestamp(3, Timestamp.from(beforeOccurredAt));
-                statement.setTimestamp(4, Timestamp.from(beforeOccurredAt));
+            int parameter = 3;
+            if (before != null) {
+                statement.setTimestamp(parameter++, Timestamp.from(before.occurredAt()));
+                statement.setObject(parameter++, before.eventId().value());
             }
-            statement.setInt(5, limit);
+            statement.setInt(parameter, limit);
             List<TrackingEvent> events = new ArrayList<>();
             try (ResultSet rows = statement.executeQuery()) {
                 while (rows.next()) events.add(map(rows));
