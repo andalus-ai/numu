@@ -4,6 +4,7 @@ import tech.kayys.numou.warehouse.application.WarehouseExecutionAttempt;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptRepository;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptStatus;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionClaim;
+import tech.kayys.numou.warehouse.application.WarehouseInventoryRecoveryPayload;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -19,7 +20,7 @@ import java.util.Optional;
  * The caller owns DataSource lifecycle and schema migration execution.
  */
 public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseExecutionAttemptRepository {
-    private static final String COLUMNS = "tenant_id, command_key, fingerprint, work_order_id, line_id, operation, status, attempt_count, last_error, created_at, updated_at, version";
+    private static final String COLUMNS = "tenant_id, command_key, fingerprint, work_order_id, line_id, operation, status, attempt_count, last_error, created_at, updated_at, version, payload_item_id, payload_warehouse_id, payload_reservation_id, payload_quantity, payload_unit_cost, payload_currency, payload_reference";
     private final DataSource dataSource;
 
     public JdbcWarehouseExecutionAttemptRepository(DataSource dataSource) {
@@ -29,7 +30,7 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
     @Override
     public WarehouseExecutionAttempt createIfAbsent(WarehouseExecutionAttempt attempt) {
         Objects.requireNonNull(attempt, "attempt");
-        String sql = "INSERT INTO warehouse_execution_attempt (" + COLUMNS + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (tenant_id, command_key) DO NOTHING";
+        String sql = "INSERT INTO warehouse_execution_attempt (" + COLUMNS + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (tenant_id, command_key) DO NOTHING";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             bind(statement, attempt);
@@ -60,7 +61,7 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
                 || candidate.version() != expectedVersion + 1) {
             throw new IllegalArgumentException("Candidate identity or version does not match transition");
         }
-        String sql = "UPDATE warehouse_execution_attempt SET fingerprint=?, work_order_id=?, line_id=?, operation=?, status=?, attempt_count=?, last_error=?, created_at=?, updated_at=?, version=? WHERE tenant_id=? AND command_key=? AND version=?";
+        String sql = "UPDATE warehouse_execution_attempt SET fingerprint=?, work_order_id=?, line_id=?, operation=?, status=?, attempt_count=?, last_error=?, created_at=?, updated_at=?, version=?, payload_item_id=?, payload_warehouse_id=?, payload_reservation_id=?, payload_quantity=?, payload_unit_cost=?, payload_currency=?, payload_reference=? WHERE tenant_id=? AND command_key=? AND version=?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, candidate.fingerprint());
@@ -73,9 +74,10 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
             statement.setTimestamp(8, Timestamp.from(candidate.createdAt()));
             statement.setTimestamp(9, Timestamp.from(candidate.updatedAt()));
             statement.setLong(10, candidate.version());
-            statement.setString(11, tenantId.trim());
-            statement.setString(12, commandKey.trim());
-            statement.setLong(13, expectedVersion);
+            bindPayload(statement, 11, candidate.recoveryPayload());
+            statement.setString(18, tenantId.trim());
+            statement.setString(19, commandKey.trim());
+            statement.setLong(20, expectedVersion);
             if (statement.executeUpdate() != 1) {
                 throw new OptimisticLockException("Warehouse execution attempt missing or concurrently changed");
             }
@@ -179,6 +181,17 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
         s.setString(7, a.status().name()); s.setInt(8, a.attemptCount()); s.setString(9, a.lastError());
         s.setTimestamp(10, Timestamp.from(a.createdAt())); s.setTimestamp(11, Timestamp.from(a.updatedAt()));
         s.setLong(12, a.version());
+        bindPayload(s, 13, a.recoveryPayload());
+    }
+
+    private static void bindPayload(PreparedStatement s, int start, WarehouseInventoryRecoveryPayload p) throws SQLException {
+        s.setString(start, p == null ? null : p.itemId());
+        s.setString(start + 1, p == null ? null : p.warehouseId());
+        s.setString(start + 2, p == null ? null : p.reservationId());
+        s.setString(start + 3, p == null ? null : p.quantity());
+        s.setString(start + 4, p == null ? null : p.unitCost());
+        s.setString(start + 5, p == null ? null : p.currency());
+        s.setString(start + 6, p == null ? null : p.reference());
     }
 
     private static WarehouseExecutionAttempt read(ResultSet r) throws SQLException {
@@ -187,7 +200,16 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
                 r.getString("operation"), WarehouseExecutionAttemptStatus.valueOf(r.getString("status")),
                 r.getInt("attempt_count"), r.getString("last_error"),
                 r.getTimestamp("created_at").toInstant(), r.getTimestamp("updated_at").toInstant(),
-                r.getLong("version"));
+                r.getLong("version"), readPayload(r));
+    }
+
+    private static WarehouseInventoryRecoveryPayload readPayload(ResultSet r) throws SQLException {
+        String itemId = r.getString("payload_item_id");
+        if (itemId == null) return null;
+        return new WarehouseInventoryRecoveryPayload(r.getString("operation"), itemId,
+                r.getString("payload_warehouse_id"), r.getString("payload_reservation_id"),
+                r.getString("payload_quantity"), r.getString("payload_unit_cost"),
+                r.getString("payload_currency"), r.getString("payload_reference"));
     }
 
     private static void requireKey(String tenantId, String commandKey) {

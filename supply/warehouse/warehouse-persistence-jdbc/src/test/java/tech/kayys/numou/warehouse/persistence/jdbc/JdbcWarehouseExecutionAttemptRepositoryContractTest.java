@@ -15,6 +15,10 @@ class JdbcWarehouseExecutionAttemptRepositoryContractTest {
                 new JdbcWarehouseExecutionAttemptRepository(new NoConnectionDataSource());
         assertThrows(IllegalArgumentException.class, () -> repository.findRecoverable(0));
         assertThrows(IllegalArgumentException.class, () -> repository.findRecoverable(1001));
+        assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable("worker", 0, java.time.Duration.ofSeconds(5)));
+        assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable("worker", 1, java.time.Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable("worker", 1, java.time.Duration.ofHours(2)));
+        assertThrows(IllegalArgumentException.class, () -> repository.claimRecoverable(" ", 1, java.time.Duration.ofSeconds(5)));
     }
 
     private static final class NoConnectionDataSource implements javax.sql.DataSource {
