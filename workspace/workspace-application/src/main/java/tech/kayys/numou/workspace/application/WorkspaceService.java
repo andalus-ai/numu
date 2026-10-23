@@ -15,7 +15,7 @@ public final class WorkspaceService {
   audit("WORKSPACE_CREATED",tenant,actor,"WORKSPACE",value.id(),0,value.name());return value;
  }
  public Space createSpace(UUID tenant,UUID actor,UUID workspaceId,String name,String slug){
-  identity(tenant,actor);workspaces.find(tenant,workspaceId).orElseThrow(()->new IllegalArgumentException("Workspace not found for tenant"));
+  identity(tenant,actor);workspaces.findWorkspace(tenant,workspaceId).orElseThrow(()->new IllegalArgumentException("Workspace not found for tenant"));
   access.require(tenant,actor,Resource.WORKSPACE,workspaceId,Action.UPDATE);
   if(spaces.slugExists(tenant,workspaceId,slug))throw new IllegalArgumentException("Space slug already exists in workspace");
   Space value=Space.create(tenant,workspaceId,name,slug,clock.instant());if(!spaces.save(value))throw new IllegalStateException("Space could not be created");
@@ -25,7 +25,7 @@ public final class WorkspaceService {
   identity(tenant,actor);workspaces.find(tenant,workspaceId).orElseThrow(()->new IllegalArgumentException("Workspace not found for tenant"));
   spaces.find(tenant,workspaceId,spaceId).orElseThrow(()->new IllegalArgumentException("Space not found for workspace"));
   access.require(tenant,actor,Resource.SPACE,spaceId,Action.CREATE);
-  if(parentId!=null){Page parent=pages.find(tenant,parentId).orElseThrow(()->new IllegalArgumentException("Parent page not found for tenant"));if(!parent.workspaceId().equals(workspaceId)||!parent.spaceId().equals(spaceId))throw new IllegalArgumentException("Parent page must belong to the same workspace and space");}
+  if(parentId!=null){Page parent=pages.findPage(tenant,parentId).orElseThrow(()->new IllegalArgumentException("Parent page not found for tenant"));if(!parent.workspaceId().equals(workspaceId)||!parent.spaceId().equals(spaceId))throw new IllegalArgumentException("Parent page must belong to the same workspace and space");}
   List<PageBlock> safe=validateFiles(tenant,actor,blocks);Instant now=clock.instant();Page page=Page.create(tenant,workspaceId,spaceId,parentId,title,safe,now);PageRevision rev=PageRevision.snapshot(page,actor,now,"Page created");
   if(!pages.saveWithRevision(page,rev,0))throw new IllegalStateException("Page and initial revision could not be committed atomically");
   audit("PAGE_CREATED",tenant,actor,"PAGE",page.id(),page.revision(),page.title());return page;
