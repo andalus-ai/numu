@@ -19,6 +19,10 @@ public final class WorkspacePorts {
   List<PageLink> outgoing(UUID tenantId,UUID sourcePageId);
   List<PageLink> backlinks(UUID tenantId,UUID targetPageId);
  }
+ public interface PageSearchRepository {
+  /** Full-text search is scoped to a tenant and workspace; null spaceId means all spaces in that workspace. */
+  List<PageSearchHit> searchPages(UUID tenantId, UUID workspaceId, UUID spaceId, String query, int limit);
+ }
  public interface PageTemplateRepository {
   /** Must enforce uniqueness of normalized template name within tenant/workspace. */
   boolean save(PageTemplate template);
