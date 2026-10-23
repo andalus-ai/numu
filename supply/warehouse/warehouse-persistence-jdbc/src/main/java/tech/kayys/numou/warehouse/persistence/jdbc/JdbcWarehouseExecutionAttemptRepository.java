@@ -10,6 +10,7 @@ import javax.sql.DataSource;
 import java.sql.*;
 import java.time.Instant;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -110,13 +111,12 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
     public List<WarehouseExecutionClaim> claimRecoverable(String workerId, int limit, Duration lease) {
         if (workerId == null || workerId.isBlank()) throw new IllegalArgumentException("workerId required");
         if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
-        if (lease == null || lease.isZero() || lease.isNegative() || lease.compareTo(Duration.ofHours(1)) > 0)
-            throw new IllegalArgumentException("lease must be positive and no longer than one hour");
-        Instant now = Instant.now();
-        Instant leaseUntil = now.plus(lease);
+        validateLease(lease);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant leaseUntil = now.plus(lease).truncatedTo(ChronoUnit.MICROS);
         String sql = "WITH candidates AS (SELECT tenant_id, command_key FROM warehouse_execution_attempt " +
                 "WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
-                "AND (claim_until IS NULL OR claim_until < ?) ORDER BY updated_at, created_at " +
+                "AND (claim_until IS NULL OR claim_until < CURRENT_TIMESTAMP) ORDER BY updated_at, created_at " +
                 "LIMIT ? FOR UPDATE SKIP LOCKED) " +
                 "UPDATE warehouse_execution_attempt e SET claim_owner=?, claim_until=? " +
                 "FROM candidates c WHERE e.tenant_id=c.tenant_id AND e.command_key=c.command_key " +
@@ -129,10 +129,9 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setTimestamp(1, Timestamp.from(now));
-                statement.setInt(2, limit);
-                statement.setString(3, workerId.trim());
-                statement.setTimestamp(4, Timestamp.from(leaseUntil));
+                statement.setInt(1, limit);
+                statement.setString(2, workerId.trim());
+                statement.setTimestamp(3, Timestamp.from(leaseUntil));
                 List<WarehouseExecutionClaim> claims = new ArrayList<>();
                 try (ResultSet rows = statement.executeQuery()) {
                     while (rows.next()) claims.add(new WarehouseExecutionClaim(read(rows), workerId.trim(), leaseUntil));
@@ -149,20 +148,63 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
     }
 
     @Override
-    public void releaseClaim(String tenantId, String commandKey, String workerId) {
-        requireKey(tenantId, commandKey);
-        if (workerId == null || workerId.isBlank()) throw new IllegalArgumentException("workerId required");
-        String sql = "UPDATE warehouse_execution_attempt SET claim_owner=NULL, claim_until=NULL " +
-                "WHERE tenant_id=? AND command_key=? AND claim_owner=?";
+    public WarehouseExecutionClaim renewClaim(WarehouseExecutionClaim claim, Duration lease) {
+        Objects.requireNonNull(claim, "claim");
+        validateLease(lease);
+        WarehouseExecutionAttempt attempt = claim.attempt();
+        Instant nextLeaseUntil = Instant.now().truncatedTo(ChronoUnit.MICROS)
+                .plus(lease).truncatedTo(ChronoUnit.MICROS);
+        String sql = "UPDATE warehouse_execution_attempt SET claim_until=? " +
+                "WHERE tenant_id=? AND command_key=? AND claim_owner=? AND claim_until=? " +
+                "AND claim_until > CURRENT_TIMESTAMP AND status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION')";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, tenantId.trim());
-            statement.setString(2, commandKey.trim());
-            statement.setString(3, workerId.trim());
-            int updated = statement.executeUpdate();
-            if (updated != 1) throw new OptimisticLockException("Recovery claim lost or expired");
+            statement.setTimestamp(1, Timestamp.from(nextLeaseUntil));
+            statement.setString(2, attempt.tenantId());
+            statement.setString(3, attempt.commandKey());
+            statement.setString(4, claim.workerId());
+            statement.setTimestamp(5, Timestamp.from(claim.leaseUntil()));
+            if (statement.executeUpdate() != 1) {
+                throw new OptimisticLockException("Recovery lease is stale, expired, or no longer owned");
+            }
+            return new WarehouseExecutionClaim(attempt, claim.workerId(), nextLeaseUntil);
+        } catch (SQLException e) {
+            throw persistence("Could not renew warehouse recovery claim", e);
+        }
+    }
+
+    @Override
+    public void releaseClaim(WarehouseExecutionClaim claim) {
+        Objects.requireNonNull(claim, "claim");
+        WarehouseExecutionAttempt attempt = claim.attempt();
+        String sql = "UPDATE warehouse_execution_attempt SET claim_owner=NULL, claim_until=NULL " +
+                "WHERE tenant_id=? AND command_key=? AND claim_owner=? AND claim_until=? " +
+                "AND claim_until > CURRENT_TIMESTAMP";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, attempt.tenantId());
+            statement.setString(2, attempt.commandKey());
+            statement.setString(3, claim.workerId());
+            statement.setTimestamp(4, Timestamp.from(claim.leaseUntil()));
+            if (statement.executeUpdate() != 1) {
+                throw new OptimisticLockException("Recovery lease is stale, expired, or no longer owned");
+            }
         } catch (SQLException e) {
             throw persistence("Could not release warehouse recovery claim", e);
+        }
+    }
+
+    @Deprecated
+    @Override
+    public void releaseClaim(String tenantId, String commandKey, String workerId) {
+        throw new UnsupportedOperationException(
+                "Worker ID alone cannot fence a stale lease; release the exact WarehouseExecutionClaim");
+    }
+
+    private static void validateLease(Duration lease) {
+        if (lease == null || lease.isZero() || lease.isNegative()
+                || lease.compareTo(Duration.ofHours(1)) > 0) {
+            throw new IllegalArgumentException("lease must be positive and no longer than one hour");
         }
     }
 
