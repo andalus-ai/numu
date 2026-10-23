@@ -120,7 +120,9 @@ class WarehouseRecoveryCrashWindowTest {
             return Optional.ofNullable(orders.get(key(tenant, id)));
         }
         @Override public Optional<WarehouseCommandReceipt> findReceipt(String tenant, String command) {
-            return Optional.ofNullable(receipts.get(key(tenant, command)));
+            WarehouseCommandReceipt receipt = receipts.get(key(tenant, command));
+            if (receipt != null) receiptReplays++;
+            return Optional.ofNullable(receipt);
         }
         @Override public WarehouseCommitResult commit(String tenant, long expectedVersion, WarehouseWorkOrder candidate,
                 String command, String fingerprint, List<WarehouseOutboxEvent> events) {
