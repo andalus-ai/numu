@@ -12,7 +12,7 @@ import java.util.*;
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
  * Configure a pooled DataSource in the host application. All resource reads are tenant-scoped.
  */
-public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, AuditSink {
+public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, AuditSink {
     private final DataSource dataSource;
 
     public JdbcWorkspaceStore(DataSource dataSource) { this.dataSource = Objects.requireNonNull(dataSource, "dataSource"); }
@@ -139,4 +139,44 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     private static boolean isConstraintViolation(SQLException e){for(SQLException x=e;x!=null;x=x.getNextException())if(x.getSQLState()!=null&&x.getSQLState().startsWith("23"))return true;return false;}
     private static IllegalStateException failure(String operation,SQLException e){return new IllegalStateException("Unable to "+operation+": "+e.getMessage(),e);}
     private static void rollback(Connection c,Throwable original){try{c.rollback();}catch(SQLException rollback){original.addSuppressed(rollback);}}
+
+    @Override public boolean save(PageLink link) {
+        String sql="INSERT INTO workspace_page_links(id,tenant_id,source_page_id,target_page_id,created_by,label,created_at) VALUES(?,?,?,?,?,?,?)";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,link.id());p.setObject(2,link.tenantId());p.setObject(3,link.sourcePageId());p.setObject(4,link.targetPageId());
+            p.setObject(5,link.createdBy());p.setString(6,link.label());p.setTimestamp(7,Timestamp.from(link.createdAt()));p.executeUpdate();return true;
+        }catch(SQLException e){if(isConstraintViolation(e))return false;throw failure("save page link",e);}
+    }
+
+    @Override public Optional<PageLink> find(UUID tenantId,UUID linkId) {
+        String sql="SELECT id,tenant_id,source_page_id,target_page_id,created_by,label,created_at FROM workspace_page_links WHERE tenant_id=? AND id=?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setObject(2,linkId);try(ResultSet r=p.executeQuery()){return r.next()?Optional.of(readPageLink(r)):Optional.empty();}
+        }catch(SQLException e){throw failure("find page link",e);}
+    }
+
+    @Override public boolean delete(UUID tenantId,UUID linkId) {
+        String sql="DELETE FROM workspace_page_links WHERE tenant_id=? AND id=?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setObject(1,tenantId);p.setObject(2,linkId);return p.executeUpdate()==1;}
+        catch(SQLException e){throw failure("delete page link",e);}
+    }
+
+    @Override public List<PageLink> outgoing(UUID tenantId,UUID sourcePageId) {
+        return findPageLinks("SELECT id,tenant_id,source_page_id,target_page_id,created_by,label,created_at FROM workspace_page_links WHERE tenant_id=? AND source_page_id=? ORDER BY created_at,id",tenantId,sourcePageId);
+    }
+
+    @Override public List<PageLink> backlinks(UUID tenantId,UUID targetPageId) {
+        return findPageLinks("SELECT id,tenant_id,source_page_id,target_page_id,created_by,label,created_at FROM workspace_page_links WHERE tenant_id=? AND target_page_id=? ORDER BY created_at DESC,id",tenantId,targetPageId);
+    }
+
+    private List<PageLink> findPageLinks(String sql,UUID tenantId,UUID pageId) {
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setObject(2,pageId);List<PageLink> result=new ArrayList<>();
+            try(ResultSet r=p.executeQuery()){while(r.next())result.add(readPageLink(r));}return List.copyOf(result);
+        }catch(SQLException e){throw failure("list page links",e);}
+    }
+
+    private static PageLink readPageLink(ResultSet r)throws SQLException {
+        return new PageLink(uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),uuid(r,5),r.getString(6),instant(r,7));
+    }
 }
