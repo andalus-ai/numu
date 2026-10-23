@@ -51,4 +51,10 @@ The generic block vocabulary now includes table, callout, toggle, and checklist-
 
 ## Current verification status
 
-Unit tests cover template block identity/position normalization, invalid template data, and typed block metadata. These tests have been authored but have not been executed in this remote-editing session. Before merge, verify root Maven reactor registration, run all workspace module tests, apply migrations V1–V3 to a clean PostgreSQL database, and add or run persistence integration tests for template round trips, normalized-name conflicts, tenant isolation, and rollback on block insert failure.
+Unit tests cover template block identity/position normalization, invalid template data, and typed block metadata. These tests have been authored but have not been executed in this remote-editing session. Before merge, verify root Maven reactor registration, run all workspace module tests, apply migrations V1–V4 to a clean PostgreSQL database, and add or run persistence integration tests for template round trips, normalized-name conflicts, tenant isolation, and rollback on block insert failure.
+
+## M2 increment — tenant-scoped full-text search
+
+The application exposes a search repository port scoped to a tenant and workspace, with an optional space filter. The JDBC adapter uses PostgreSQL full-text search over page titles and block text, with GIN indexes introduced by migration V4. The application service validates query length and result limits, checks workspace/space read access, and filters each candidate through page-level read authorization before returning results. Search hits are projections rather than full page payloads.
+
+The search contract intentionally does not expose cross-workspace search, semantic/AI search, snippets, or a frontend editor. Search integration tests against PostgreSQL are still required to verify query behavior and index usage.
