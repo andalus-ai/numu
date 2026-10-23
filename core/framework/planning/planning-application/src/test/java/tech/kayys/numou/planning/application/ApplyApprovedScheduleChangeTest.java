@@ -111,6 +111,9 @@ class ApplyApprovedScheduleChangeTest {
                         approvedAt, "Approved", 4);
         assertThrows(IllegalArgumentException.class,
                 () -> useCase.execute(id(33), other, reviewer, target));
+        var differentTarget = plan(5, "Different target payload");
+        assertThrows(IllegalArgumentException.class,
+                () -> useCase.execute(id(33), request, reviewer, differentTarget));
     }
 
     private static final class FakePlanRepository implements PlanRepository {
@@ -126,10 +129,32 @@ class ApplyApprovedScheduleChangeTest {
     private static final class FakeExecutionStore implements ScheduleChangeExecutionStore {
         private final FakePlanRepository plans;
         private final Map<UUID, ScheduleChangeExecution> receipts = new HashMap<>();
+        private final Map<UUID, ScheduleChangeRequest> requests = new HashMap<>();
+        private final Map<UUID, SchedulePlan> targets = new HashMap<>();
+        private final Map<UUID, UUID> initiators = new HashMap<>();
         FakeExecutionStore(FakePlanRepository plans) { this.plans = plans; }
 
         @Override public Optional<ScheduleChangeExecution> findByExecutionId(UUID executionId) {
             return Optional.ofNullable(receipts.get(executionId));
+        }
+
+        @Override public boolean matchesReplay(UUID executionId, ScheduleChangeRequest request,
+                SchedulePlan targetPlan, UUID initiatedBy) {
+            var priorRequest = requests.get(executionId);
+            var priorTarget = targets.get(executionId);
+            return priorRequest != null && priorTarget != null
+                    && initiators.get(executionId).equals(initiatedBy)
+                    && priorRequest.requestId().equals(request.requestId())
+                    && priorRequest.reason().equals(request.reason())
+                    && priorRequest.impactReport().equals(request.impactReport())
+                    && priorTarget.id().equals(targetPlan.id())
+                    && priorTarget.revision() == targetPlan.revision()
+                    && priorTarget.code().equals(targetPlan.code())
+                    && priorTarget.name().equals(targetPlan.name())
+                    && priorTarget.status() == targetPlan.status()
+                    && priorTarget.activities().equals(targetPlan.activities())
+                    && priorTarget.dependencies().equals(targetPlan.dependencies())
+                    && priorTarget.baselines().equals(targetPlan.baselines());
         }
 
         @Override public ScheduleChangeExecution applyAtomically(ScheduleChangeRequest request,
@@ -151,6 +176,9 @@ class ApplyApprovedScheduleChangeTest {
                     applying.targetRevision(), applying.initiatedBy(), applying.startedAt(),
                     ScheduleChangeExecution.Status.APPLIED, applying.targetRevision(), clockTime(), null);
             receipts.put(applied.executionId(), applied);
+            requests.put(applied.executionId(), request);
+            targets.put(applied.executionId(), targetPlan);
+            initiators.put(applied.executionId(), applied.initiatedBy());
             return applied;
         }
 
