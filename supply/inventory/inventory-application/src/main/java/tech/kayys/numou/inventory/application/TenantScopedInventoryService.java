@@ -98,6 +98,15 @@ public final class TenantScopedInventoryService {
                 warehouseId, quantity, currency, reference);
     }
 
+    /** Idempotent reserved issue for retry-safe warehouse picking. */
+    public InventoryMovement issueReserved(String tenantId, InventoryCommandKey key, ReservationId reservationId,
+                                           ItemId itemId, WarehouseId warehouseId, BigDecimal quantity,
+                                           String currency, String reference) {
+        String normalizedTenant = requireTenant(tenantId);
+        return service(normalizedTenant).issueReserved(normalizedTenant, scopedKey(normalizedTenant, key),
+                reservationId, itemId, warehouseId, quantity, currency, reference);
+    }
+
     public StockBalance getStockBalance(String tenantId, ItemId itemId, WarehouseId warehouseId) {
         return service(tenantId).getStockBalance(itemId, warehouseId);
     }
