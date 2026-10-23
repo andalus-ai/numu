@@ -32,10 +32,12 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertEquals(ScheduleChangeExecution.Status.APPLIED, applied.status());
         assertEquals(2, plans.findById(f.base.id()).orElseThrow().revision());
         assertEquals(applied, executions.findByExecutionId(f.executionId).orElseThrow());
+        assertEquals(1, outboxCount(f.executionId, "ScheduleChangeApplied"));
 
         ScheduleChangeExecution replay = executions.applyAtomically(f.request, f.target, applying);
         assertEquals(applied, replay);
         assertEquals(2, plans.findById(f.base.id()).orElseThrow().revision());
+        assertEquals(1, outboxCount(f.executionId, "ScheduleChangeApplied"));
     }
 
     @Test
@@ -53,6 +55,8 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertEquals(ScheduleChangeExecution.Status.CONFLICT, conflict.status());
         assertEquals("Concurrent writer", plans.findById(f.base.id()).orElseThrow().name());
         assertEquals(conflict, executions.findByExecutionId(f.executionId).orElseThrow());
+        assertEquals(1, outboxCount(f.executionId, "ScheduleChangeConflicted"));
+        assertEquals(0, outboxCount(f.executionId, "ScheduleChangeApplied"));
     }
 
 
@@ -128,6 +132,18 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertEquals(1, unchanged.revision());
         assertEquals(1, unchanged.activities().size());
         assertTrue(executions.findByExecutionId(f.executionId).isEmpty());
+        assertEquals(0, outboxCount(f.executionId, null));
+    }
+
+    private int outboxCount(UUID executionId, String eventType) throws Exception {
+        String sql = eventType == null
+                ? "SELECT count(*) FROM schedule_change_outbox WHERE execution_id=?"
+                : "SELECT count(*) FROM schedule_change_outbox WHERE execution_id=? AND event_type=?";
+        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, executionId);
+            if (eventType != null) statement.setString(2, eventType);
+            try (var rs = statement.executeQuery()) { rs.next(); return rs.getInt(1); }
+        }
     }
 
     private ScheduleChangeExecution executeAfterBarrier(Fixture f, UUID executionId,
