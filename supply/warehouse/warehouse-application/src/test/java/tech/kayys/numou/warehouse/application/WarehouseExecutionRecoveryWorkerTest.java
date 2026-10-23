@@ -17,13 +17,34 @@ class WarehouseExecutionRecoveryWorkerTest {
         assertEquals(1, repository.released);
     }
 
-    @Test void failedRecoveryLeavesLeaseToExpire() {
+    @Test void failedRecoveryLeavesLeaseToExpireAndReportsStructuredFailure() {
         FakeRepository repository = new FakeRepository();
+        List<WarehouseExecutionRecoveryWorker.RecoveryFailure> failures = new ArrayList<>();
         WarehouseExecutionRecoveryWorker worker = new WarehouseExecutionRecoveryWorker(
                 repository, attempt -> { throw new IllegalStateException("temporary failure"); },
-                "worker-a", 10, Duration.ofSeconds(30));
+                "worker-a", 10, Duration.ofSeconds(30), failures::add);
         var result = worker.runOnce();
         assertEquals(1, result.failed());
+        assertEquals(0, repository.released);
+        assertEquals(1, failures.size());
+        var failure = failures.get(0);
+        assertEquals("worker-a", failure.workerId());
+        assertEquals("tenant", failure.tenantId());
+        assertEquals("command", failure.commandKey());
+        assertEquals("receive", failure.operation());
+        assertEquals(WarehouseExecutionAttemptStatus.PREPARED, failure.status());
+        assertEquals("temporary failure", failure.cause().getMessage());
+    }
+
+    @Test void brokenFailureListenerDoesNotAbortBatchAccounting() {
+        FakeRepository repository = new FakeRepository();
+        WarehouseExecutionRecoveryWorker worker = new WarehouseExecutionRecoveryWorker(
+                repository, attempt -> { throw new IllegalStateException("recovery failed"); },
+                "worker-a", 10, Duration.ofSeconds(30), failure -> {
+                    throw new IllegalStateException("logging backend unavailable");
+                });
+        var result = assertDoesNotThrow(worker::runOnce);
+        assertEquals(new WarehouseExecutionRecoveryWorker.BatchResult(1, 0, 1), result);
         assertEquals(0, repository.released);
     }
 
@@ -33,6 +54,8 @@ class WarehouseExecutionRecoveryWorkerTest {
                 repository, attempt -> { }, "worker-a", 0, Duration.ofSeconds(30)));
         assertThrows(IllegalArgumentException.class, () -> new WarehouseExecutionRecoveryWorker(
                 repository, attempt -> { }, "worker-a", 1, Duration.ZERO));
+        assertThrows(NullPointerException.class, () -> new WarehouseExecutionRecoveryWorker(
+                repository, attempt -> { }, "worker-a", 1, Duration.ofSeconds(30), null));
     }
 
     private static final class FakeRepository implements WarehouseExecutionAttemptRepository {
