@@ -13,6 +13,7 @@ import tech.kayys.numou.organization.domain.OrganizationUnitId;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -58,6 +59,29 @@ class JdbcHubRepositoryPostgresTest {
                 () -> repository.save(tenantA, hub(tenantA, "DEPOT-01")).toCompletableFuture().join());
 
         assertInstanceOf(JdbcHubRepository.HubCodeConflictException.class, failure.getCause());
+    }
+
+    @Test
+    void concurrentDuplicateCodesAllowExactlyOneInsert() {
+        TenantId tenant = TenantId.generate();
+        CompletableFuture<Throwable> first = CompletableFuture.supplyAsync(
+                () -> repository.save(tenant, hub(tenant, "RACE-01")).toCompletableFuture()
+                        .handle((saved, failure) -> failure).join());
+        CompletableFuture<Throwable> second = CompletableFuture.supplyAsync(
+                () -> repository.save(tenant, hub(tenant, "RACE-01")).toCompletableFuture()
+                        .handle((saved, failure) -> failure).join());
+
+        CompletableFuture.allOf(first, second).join();
+        Throwable firstFailure = first.join();
+        Throwable secondFailure = second.join();
+
+        assertNotEquals(firstFailure == null, secondFailure == null,
+                "exactly one insert should succeed");
+        Throwable failure = firstFailure == null ? secondFailure : firstFailure;
+        while (failure instanceof CompletionException && failure.getCause() != null) {
+            failure = failure.getCause();
+        }
+        assertInstanceOf(JdbcHubRepository.HubCodeConflictException.class, failure);
     }
 
     private static Hub hub(TenantId tenantId, String code) {
