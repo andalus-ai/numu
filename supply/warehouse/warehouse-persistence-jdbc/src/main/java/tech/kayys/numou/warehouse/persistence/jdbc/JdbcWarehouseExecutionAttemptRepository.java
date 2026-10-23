@@ -3,10 +3,12 @@ package tech.kayys.numou.warehouse.persistence.jdbc;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttempt;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptRepository;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptStatus;
+import tech.kayys.numou.warehouse.application.WarehouseExecutionClaim;
 
 import javax.sql.DataSource;
 import java.sql.*;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -97,6 +99,66 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
             }
         } catch (SQLException e) {
             throw persistence("Could not list recoverable warehouse executions", e);
+        }
+    }
+
+    @Override
+    public List<WarehouseExecutionClaim> claimRecoverable(String workerId, int limit, Duration lease) {
+        if (workerId == null || workerId.isBlank()) throw new IllegalArgumentException("workerId required");
+        if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
+        if (lease == null || lease.isZero() || lease.isNegative() || lease.compareTo(Duration.ofHours(1)) > 0)
+            throw new IllegalArgumentException("lease must be positive and no longer than one hour");
+        Instant now = Instant.now();
+        Instant leaseUntil = now.plus(lease);
+        String sql = "WITH candidates AS (SELECT tenant_id, command_key FROM warehouse_execution_attempt " +
+                "WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
+                "AND (claim_until IS NULL OR claim_until < ?) ORDER BY updated_at, created_at " +
+                "LIMIT ? FOR UPDATE SKIP LOCKED) " +
+                "UPDATE warehouse_execution_attempt e SET claim_owner=?, claim_until=? " +
+                "FROM candidates c WHERE e.tenant_id=c.tenant_id AND e.command_key=c.command_key " +
+                "RETURNING " + COLUMNS.replace("tenant_id", "e.tenant_id").replace("command_key", "e.command_key")
+                        .replace("fingerprint", "e.fingerprint").replace("work_order_id", "e.work_order_id")
+                        .replace("line_id", "e.line_id").replace("operation", "e.operation")
+                        .replace("status", "e.status").replace("attempt_count", "e.attempt_count")
+                        .replace("last_error", "e.last_error").replace("created_at", "e.created_at")
+                        .replace("updated_at", "e.updated_at").replace("version", "e.version");
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setTimestamp(1, Timestamp.from(now));
+                statement.setInt(2, limit);
+                statement.setString(3, workerId.trim());
+                statement.setTimestamp(4, Timestamp.from(leaseUntil));
+                List<WarehouseExecutionClaim> claims = new ArrayList<>();
+                try (ResultSet rows = statement.executeQuery()) {
+                    while (rows.next()) claims.add(new WarehouseExecutionClaim(read(rows), workerId.trim(), leaseUntil));
+                }
+                connection.commit();
+                return List.copyOf(claims);
+            } catch (SQLException | RuntimeException e) {
+                try { connection.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw persistence("Could not claim recoverable warehouse executions", e);
+        }
+    }
+
+    @Override
+    public void releaseClaim(String tenantId, String commandKey, String workerId) {
+        requireKey(tenantId, commandKey);
+        if (workerId == null || workerId.isBlank()) throw new IllegalArgumentException("workerId required");
+        String sql = "UPDATE warehouse_execution_attempt SET claim_owner=NULL, claim_until=NULL " +
+                "WHERE tenant_id=? AND command_key=? AND claim_owner=?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tenantId.trim());
+            statement.setString(2, commandKey.trim());
+            statement.setString(3, workerId.trim());
+            int updated = statement.executeUpdate();
+            if (updated != 1) throw new OptimisticLockException("Recovery claim lost or expired");
+        } catch (SQLException e) {
+            throw persistence("Could not release warehouse recovery claim", e);
         }
     }
 
