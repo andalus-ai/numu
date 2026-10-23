@@ -73,6 +73,7 @@ class WarehouseRecoveryCrashWindowTest {
                     List.of(WarehouseWorkLine.planned("line-1", "item-1", "each", BigDecimal.ONE)));
             workOrderId = order.id();
             warehouse.start("tenant-a", workOrderId, "start-1");
+            work.newCommits = 0; // count only commits after the test fixture is prepared
             coordinator = new RecoverableWarehouseInventoryExecutionCoordinator(work, warehouse, inventory, recovery);
         }
 
