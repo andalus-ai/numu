@@ -26,6 +26,7 @@ class JdbcHubRepositoryPostgresTest {
 
     static JdbcHubRepository repository;
     static JdbcShipmentRepository shipmentRepository;
+    static JdbcTrackingEventRepository trackingRepository;
 
     @BeforeAll
     static void migrateSchema() {
@@ -36,6 +37,7 @@ class JdbcHubRepositoryPostgresTest {
                 .migrate();
         repository = new JdbcHubRepository(dataSource());
         shipmentRepository = new JdbcShipmentRepository(dataSource());
+        trackingRepository = new JdbcTrackingEventRepository(dataSource());
     }
 
     @Test
@@ -141,6 +143,52 @@ class JdbcHubRepositoryPostgresTest {
                 () -> shipmentRepository.save(tenantA, shipment(tenantA, "SHIP-UNIQUE"))
                         .toCompletableFuture().join());
         assertInstanceOf(JdbcShipmentRepository.ShipmentReferenceConflictException.class, failure.getCause());
+    }
+
+
+    @Test
+    void trackingEventAppendIsIdempotentAndTenantScoped() {
+        TenantId tenant = TenantId.generate();
+        TenantId other = TenantId.generate();
+        Shipment shipment = shipment(tenant, "SHIP-TRACKING");
+        shipment.addParcel(parcel("PIECE-TRACKING"), shipment.createdAt().plusSeconds(1));
+        shipment.book(shipment.createdAt().plusSeconds(2));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+
+        Instant occurred = shipment.createdAt().plusSeconds(3);
+        TrackingEvent event = trackingEvent(tenant, shipment, occurred, "scan-001", TrackingEventType.ARRIVED_AT_HUB);
+        TrackingEvent first = trackingRepository.append(tenant, event).toCompletableFuture().join();
+        TrackingEvent replay = trackingRepository.append(tenant, trackingEvent(
+                tenant, shipment, occurred, "scan-001", TrackingEventType.ARRIVED_AT_HUB)).toCompletableFuture().join();
+
+        assertEquals(first.id(), replay.id());
+        assertEquals(1, trackingRepository.findByShipment(tenant, shipment.id(), null, 20)
+                .toCompletableFuture().join().size());
+        assertTrue(trackingRepository.findByShipment(other, shipment.id(), null, 20)
+                .toCompletableFuture().join().isEmpty());
+    }
+
+    @Test
+    void trackingIdempotencyKeyCannotBeReusedForDifferentFact() {
+        TenantId tenant = TenantId.generate();
+        Shipment shipment = shipment(tenant, "SHIP-TRACK-CONFLICT");
+        shipment.addParcel(parcel("PIECE-CONFLICT"), shipment.createdAt().plusSeconds(1));
+        shipment.book(shipment.createdAt().plusSeconds(2));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+
+        Instant occurred = shipment.createdAt().plusSeconds(3);
+        trackingRepository.append(tenant, trackingEvent(tenant, shipment, occurred, "scan-reused",
+                TrackingEventType.ARRIVED_AT_HUB)).toCompletableFuture().join();
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> trackingRepository.append(tenant, trackingEvent(tenant, shipment, occurred.plusSeconds(1),
+                        "scan-reused", TrackingEventType.DEPARTED_HUB)).toCompletableFuture().join());
+        assertInstanceOf(JdbcTrackingEventRepository.IdempotencyConflictException.class, failure.getCause());
+    }
+
+    private static TrackingEvent trackingEvent(TenantId tenant, Shipment shipment, Instant occurred,
+                                               String key, TrackingEventType type) {
+        return new TrackingEvent(TrackingEventId.generate(), tenant, shipment.id(), shipment.parcels().get(0).id(),
+                type, occurred, occurred.plusSeconds(1), "HUB-01", "scanner-01", "handheld", key, null);
     }
 
     private static Shipment shipment(TenantId tenantId, String reference) {
