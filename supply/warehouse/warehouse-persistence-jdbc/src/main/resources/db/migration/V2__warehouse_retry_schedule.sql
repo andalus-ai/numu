@@ -10,3 +10,13 @@ CREATE INDEX ix_warehouse_execution_retry_eligible
 CREATE INDEX ix_warehouse_execution_dead_letter
     ON warehouse_execution_attempt (updated_at, created_at)
     WHERE status = 'DEAD_LETTER';
+
+-- M20 adds a terminal state; extend the original V1 status constraint without
+-- rewriting existing rows.
+ALTER TABLE warehouse_execution_attempt
+    DROP CONSTRAINT IF EXISTS warehouse_execution_attempt_status_check;
+
+ALTER TABLE warehouse_execution_attempt
+    ADD CONSTRAINT warehouse_execution_attempt_status_check
+    CHECK (status IN ('PREPARED', 'INVENTORY_POSTED', 'WAREHOUSE_COMMITTED',
+                      'NEEDS_RECONCILIATION', 'DEAD_LETTER'));
