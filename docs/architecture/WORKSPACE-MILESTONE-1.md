@@ -83,3 +83,10 @@ The application defines an optional `AuditedMutationRepository` capability for a
 Application services retain compatibility with simple/in-memory adapters by using the original repository and audit ports when the combined capability is absent. Such adapters do **not** provide atomic resource/audit consistency and should be used only where that limitation is acceptable. Production adapters should implement `AuditedMutationRepository` and test audit-write failure rollback. Audit delivery outside the database transaction is not a substitute for this contract.
 
 The PostgreSQL integration suite includes a failure-injection test that violates the audit action length constraint and verifies both the page row and revision history remain absent. This test is opt-in and must be run against a disposable PostgreSQL database using the documented `NUMOU_WORKSPACE_TEST_JDBC_URL` configuration. No Maven or PostgreSQL test execution was performed during this remote-editing session.
+
+
+### Atomic-write verification follow-up
+
+The PostgreSQL integration suite now covers failure injection for workspace, space, page-template, page create/update, and page-link create/delete operations. Each case checks that a failed audit insert leaves the resource state unchanged and does not create an audit row. An additional optimistic-concurrency case verifies that a stale page update does not write a new revision or audit event.
+
+These tests are opt-in and were added as regression coverage; they are not evidence of a passing build until executed against a disposable PostgreSQL instance. Constraint failures and stale compare-and-set outcomes have different contracts: storage constraint exceptions fail the operation, while a stale revision returns `false` without an audit event.
