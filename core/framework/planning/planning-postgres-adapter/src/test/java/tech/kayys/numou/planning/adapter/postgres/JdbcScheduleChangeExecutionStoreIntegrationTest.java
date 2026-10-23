@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.planning.domain.*;
+import tech.kayys.numou.planning.application.RegisterSchedulePlanScope;
 
 import javax.sql.DataSource;
 import java.sql.PreparedStatement;
@@ -19,6 +20,7 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
     @Inject JdbcPlanRepository plans;
     @Inject JdbcScheduleChangeExecutionStore executions;
     @Inject DataSource dataSource;
+    @Inject RegisterSchedulePlanScope scopeRegistration;
 
     @Test
     void appliesPlanAndReceiptTogetherAndReturnsSameReceiptOnReplay() throws Exception {
@@ -53,6 +55,17 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertEquals(conflict, executions.findByExecutionId(f.executionId).orElseThrow());
     }
 
+
+
+    @Test
+    void scopeRegistrationIsIdempotentButCannotReassignOwnership() throws Exception {
+        Fixture f = fixture();
+        assertDoesNotThrow(() -> scopeRegistration.execute(f.base.id(), f.tenant, f.structure));
+        assertThrows(IllegalStateException.class, () -> scopeRegistration.execute(
+                f.base.id(), UUID.randomUUID(), f.structure));
+        assertThrows(IllegalStateException.class, () -> scopeRegistration.execute(
+                f.base.id(), f.tenant, UUID.randomUUID()));
+    }
 
     @Test
     void concurrentExecutionsFromSameBaseProduceOneApplyAndOneConflict() throws Exception {
@@ -144,14 +157,7 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         base.addActivity(activity);
         plans.save(base);
 
-        try (var connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "INSERT INTO schedule_plan_scope(plan_id, tenant_id, structure_id) VALUES (?,?,?)")) {
-            statement.setObject(1, base.id().value());
-            statement.setObject(2, tenant);
-            statement.setObject(3, structure);
-            statement.executeUpdate();
-        }
+        scopeRegistration.execute(base.id(), tenant, structure);
 
         PlanChangeImpactReport impact = new PlanChangeImpactReport(tenant, structure, base.id(),
                 1, 2, requestedAt, capturedAt, LocalDate.of(2026, 10, 21),
