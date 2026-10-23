@@ -206,7 +206,7 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
 
     @Override
     public List<WarehouseExecutionAttempt> findDeadLetters(String tenantId, int limit) {
-        requireKey(tenantId, "commandKey-not-used");
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
         if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
         String sql = "SELECT " + COLUMNS + " FROM warehouse_execution_attempt WHERE tenant_id=? AND status='DEAD_LETTER' " +
                 "ORDER BY updated_at, created_at LIMIT ?";
@@ -265,6 +265,7 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
         if (operatorReason == null || operatorReason.isBlank()) throw new IllegalArgumentException("operatorReason is required");
         if (operatorReason.trim().length() > 1000) throw new IllegalArgumentException("operatorReason must not exceed 1000 characters");
         Objects.requireNonNull(nextEligibleAt, "nextEligibleAt");
+        if (nextEligibleAt.isBefore(Instant.now())) throw new IllegalArgumentException("nextEligibleAt must not be in the past");
         String auditReason = "Manual replay requested: " + operatorReason.trim();
         if (auditReason.length() > 1000) auditReason = auditReason.substring(0, 1000);
         String sql = "UPDATE warehouse_execution_attempt SET status='PREPARED', attempt_count=attempt_count+1, " +
