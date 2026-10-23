@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
 import org.postgresql.ds.PGSimpleDataSource;
 import tech.kayys.numou.workspace.domain.*;
+import tech.kayys.numou.workspace.application.WorkspacePorts.AuditEntry;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -141,6 +142,29 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.searchPages(UUID.randomUUID(), workspace.id(), null, "recovery", 10).isEmpty());
         assertTrue(store.searchPages(tenant, workspace.id(), space.id(), "recovery", 10)
                 .stream().allMatch(hit -> hit.spaceId().equals(space.id())));
+    }
+
+
+    @Test
+    void pageAndRevisionRollBackWhenAuditInsertFails() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Atomic audit", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Must roll back", List.of(), now);
+        PageRevision revision = PageRevision.snapshot(page, actor, now, "initial");
+        AuditEntry invalidAudit = new AuditEntry(tenant, actor, "A".repeat(101), "PAGE",
+                page.id(), page.revision(), "force audit constraint failure", now);
+
+        assertThrows(IllegalStateException.class,
+                () -> store.savePageWithRevision(page, revision, 0, invalidAudit));
+        assertTrue(store.findPage(tenant, page.id()).isEmpty(),
+                "page row must roll back when its audit insert fails");
+        assertTrue(store.history(tenant, page.id()).isEmpty(),
+                "revision row must roll back when its audit insert fails");
     }
 
     private UUID createTargetPage(UUID tenant, Workspace workspace, Space space, UUID actor, Instant now) {
