@@ -4,10 +4,10 @@ import java.time.Instant; import java.util.List; import java.util.Optional; impo
 /** Adapter ports keep the workspace domain independent from persistence, auth, files, and other Numou modules. */
 public final class WorkspacePorts {
  private WorkspacePorts() {}
- public interface WorkspaceRepository { boolean save(Workspace workspace); Optional<Workspace> find(UUID tenantId,UUID workspaceId); }
+ public interface WorkspaceRepository { boolean save(Workspace workspace); Optional<Workspace> findWorkspace(UUID tenantId,UUID workspaceId); }
  public interface SpaceRepository { boolean save(Space space); Optional<Space> find(UUID tenantId,UUID workspaceId,UUID spaceId); boolean slugExists(UUID tenantId,UUID workspaceId,String slug); }
  public interface PageRepository {
-  Optional<Page> find(UUID tenantId,UUID pageId); List<Page> findChildren(UUID tenantId,UUID spaceId,UUID parentPageId);
+  Optional<Page> findPage(UUID tenantId,UUID pageId); List<Page> findChildren(UUID tenantId,UUID spaceId,UUID parentPageId);
   /** Atomically persists page and immutable revision; expectedRevision=0 means create-only. */
   boolean saveWithRevision(Page page,PageRevision revision,long expectedRevision);
   List<PageRevision> history(UUID tenantId,UUID pageId);
