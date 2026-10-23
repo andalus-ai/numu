@@ -23,10 +23,10 @@ public final class WarehouseInventoryRecoveryHandler implements WarehouseExecuti
         switch (payload.operation()) {
             case "receive" -> coordinator.receive(attempt.tenantId(), attempt.workOrderId(), attempt.lineId(),
                     payload.itemId(), payload.warehouseId(), payload.quantityValue(), payload.unitCostValue(),
-                    payload.currency(), attempt.commandKey());
+                    payload.currency(), attempt.commandKey(), payload.reference());
             case "pick" -> coordinator.pick(attempt.tenantId(), attempt.workOrderId(), attempt.lineId(),
                     payload.itemId(), payload.warehouseId(), payload.reservationId(), payload.quantityValue(),
-                    payload.currency(), attempt.commandKey());
+                    payload.currency(), attempt.commandKey(), payload.reference());
             default -> throw new IllegalStateException("Unsupported recovery operation: " + payload.operation());
         }
     }
