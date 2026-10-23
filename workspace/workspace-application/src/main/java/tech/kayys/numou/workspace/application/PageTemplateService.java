@@ -63,8 +63,6 @@ public final class PageTemplateService {
         String title = titleOverride == null || titleOverride.isBlank() ? template.title() : titleOverride.trim();
         List<PageBlock> freshBlocks = template.instantiateBlocks();
         Page page = pages.createPage(tenantId, actorId, template.workspaceId(), spaceId, parentPageId, title, freshBlocks);
-        audit.record(new AuditEntry(tenantId, actorId, "PAGE_CREATED_FROM_TEMPLATE", "PAGE",
-                page.id(), page.revision(), template.id().toString(), clock.instant()));
         return page;
     }
 
