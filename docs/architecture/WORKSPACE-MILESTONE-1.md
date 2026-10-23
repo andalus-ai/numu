@@ -43,4 +43,18 @@ This increment does not yet parse inline links, provide a UI/editor, or add full
 
 Page templates are tenant-owned blueprints scoped to a workspace. The application service checks workspace-level access before creating or listing templates, and page creation from a template also goes through the normal page creation use case so space permissions, attachment authorization, initial revision creation, and normal page invariants remain in force. Instantiation gives every block a fresh ID and normalizes block positions; it does not share mutable page identity with the template.
 
-The application boundary exposes a `PageTemplateRepository` port. Host implementations must enforce tenant scoping and normalized-name uniqueness within a workspace. A durable JDBC adapter and database migration for this new port are still required before this capability is considered production-ready.
+The application boundary exposes a `PageTemplateRepository` port, with a JDBC adapter and PostgreSQL migration for tenant-scoped template and block storage. The database enforces normalized-name uniqueness within a workspace and cascades template-block deletion. Template records and blocks are inserted in one JDBC transaction. The adapter and migration still require execution against PostgreSQL and full reactor verification before this capability is considered production-ready.
+
+## M2 increment — richer content block contracts
+
+The generic block vocabulary now includes table, callout, toggle, and checklist-item primitives in addition to paragraphs, headings, lists, quotes, code, files, dividers, and opaque domain references. Callout tones are restricted to a small supported set, and checklist checked-state metadata accepts only boolean text values. Table cell/column serialization and rendering remain editor-adapter responsibilities; the domain does not assume a particular frontend or JSON library. Attributes remain inert metadata and must never be evaluated as code.
+
+## Current verification status
+
+Unit tests cover template block identity/position normalization, invalid template data, and typed block metadata. These tests have been authored but have not been executed in this remote-editing session. Before merge, verify root Maven reactor registration, run all workspace module tests, apply migrations V1–V4 to a clean PostgreSQL database, and add or run persistence integration tests for template round trips, normalized-name conflicts, tenant isolation, and rollback on block insert failure.
+
+## M2 increment — tenant-scoped full-text search
+
+The application exposes a search repository port scoped to a tenant and workspace, with an optional space filter. The JDBC adapter uses PostgreSQL full-text search over page titles and block text, with GIN indexes introduced by migration V4. The application service validates query length and result limits, checks workspace/space read access, and filters each candidate through page-level read authorization before returning results. Search hits are projections rather than full page payloads.
+
+The search contract intentionally does not expose cross-workspace search, semantic/AI search, snippets, or a frontend editor. Search integration tests against PostgreSQL are still required to verify query behavior and index usage.

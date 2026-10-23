@@ -32,34 +32,67 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
 
     public WarehouseWorkOrder receive(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, BigDecimal quantity, BigDecimal unitCost, String currency, String commandKey) {
+        return receive(tenant, workOrderId, lineId, itemId, warehouseId, quantity, unitCost, currency, commandKey, null);
+    }
+
+    public WarehouseWorkOrder receive(String tenant, String workOrderId, String lineId, String itemId,
+            String warehouseId, BigDecimal quantity, BigDecimal unitCost, String currency, String commandKey,
+            String recoveryReference) {
+        requireText(itemId, "itemId");
+        requireText(warehouseId, "warehouseId");
+        requireText(currency, "currency");
+        requireText(commandKey, "commandKey");
+        requirePositive(quantity, "quantity");
+        requireNonNegative(unitCost, "unitCost");
         WarehouseWorkOrder order = load(tenant, workOrderId);
         if (order.type() != WarehouseWorkType.RECEIVING)
             throw new IllegalStateException("Inventory receipt requires a RECEIVING work order");
+        String reference = recoveryReference == null ? order.reference() + ":" + lineId : recoveryReference;
         String fingerprint = fingerprint("receive", tenant, workOrderId, lineId, itemId, warehouseId,
-                quantity, unitCost, currency);
-        return execute(order, lineId, quantity, null, commandKey, fingerprint, "receive",
+                quantity.toPlainString(), unitCost.toPlainString(), currency, reference);
+        WarehouseInventoryRecoveryPayload payload = new WarehouseInventoryRecoveryPayload(
+                "receive", itemId, warehouseId, null, quantity.toPlainString(), unitCost.toPlainString(),
+                currency, reference);
+        return execute(order, lineId, quantity, null, commandKey, fingerprint, "receive", payload,
                 () -> inventory.receive(tenant, itemId, warehouseId, quantity, unitCost, currency,
-                        order.reference() + ":" + lineId, commandKey, workOrderId, lineId));
+                        reference, commandKey, workOrderId, lineId));
     }
 
     public WarehouseWorkOrder pick(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, String reservationId, BigDecimal quantity, String currency, String commandKey) {
+        return pick(tenant, workOrderId, lineId, itemId, warehouseId, reservationId, quantity, currency, commandKey, null);
+    }
+
+    public WarehouseWorkOrder pick(String tenant, String workOrderId, String lineId, String itemId,
+            String warehouseId, String reservationId, BigDecimal quantity, String currency, String commandKey,
+            String recoveryReference) {
+        requireText(itemId, "itemId");
+        requireText(warehouseId, "warehouseId");
+        requireText(reservationId, "reservationId");
+        requireText(currency, "currency");
+        requireText(commandKey, "commandKey");
+        requirePositive(quantity, "quantity");
         WarehouseWorkOrder order = load(tenant, workOrderId);
         if (order.type() != WarehouseWorkType.PICKING)
             throw new IllegalStateException("Reserved issue requires a PICKING work order");
+        String reference = recoveryReference == null ? order.reference() + ":" + lineId : recoveryReference;
         String fingerprint = fingerprint("pick", tenant, workOrderId, lineId, itemId, warehouseId,
-                reservationId, quantity, currency);
-        return execute(order, lineId, quantity, warehouseId, commandKey, fingerprint, "pick",
+                reservationId, quantity.toPlainString(), currency, reference);
+        WarehouseInventoryRecoveryPayload payload = new WarehouseInventoryRecoveryPayload(
+                "pick", itemId, warehouseId, reservationId, quantity.toPlainString(), null,
+                currency, reference);
+        return execute(order, lineId, quantity, warehouseId, commandKey, fingerprint, "pick", payload,
                 () -> inventory.issueReserved(tenant, reservationId, itemId, warehouseId, quantity, currency,
-                        order.reference() + ":" + lineId, commandKey, workOrderId, lineId));
+                        reference, commandKey, workOrderId, lineId));
     }
 
     private WarehouseWorkOrder execute(WarehouseWorkOrder order, String lineId, BigDecimal quantity,
-            String context, String commandKey, String fingerprint, String operation, Runnable postInventory) {
+            String context, String commandKey, String fingerprint, String operation,
+            WarehouseInventoryRecoveryPayload payload, Runnable postInventory) {
         if (commandKey == null || commandKey.isBlank()) throw new IllegalArgumentException("commandKey required");
         String tenant = order.tenantId();
         WarehouseExecutionAttempt attempt = recovery.prepare(tenant, commandKey, fingerprint,
-                order.id(), lineId, operation);
+                order.id(), lineId, operation, payload);
 
         if (attempt.status() == WarehouseExecutionAttemptStatus.WAREHOUSE_COMMITTED) {
             return repository.find(tenant, order.id())
@@ -88,7 +121,7 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
         } catch (RuntimeException failure) {
             try {
                 WarehouseExecutionAttempt current = recovery.prepare(tenant, commandKey, fingerprint,
-                        order.id(), lineId, operation);
+                        order.id(), lineId, operation, payload);
                 if (current.status() != WarehouseExecutionAttemptStatus.WAREHOUSE_COMMITTED
                         && current.status() != WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION) {
                     recovery.failed(tenant, commandKey, safeMessage(failure));
@@ -98,6 +131,20 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
             }
             throw failure;
         }
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
+    }
+
+    private static void requirePositive(BigDecimal value, String field) {
+        if (value == null || value.signum() <= 0)
+            throw new IllegalArgumentException(field + " must be positive");
+    }
+
+    private static void requireNonNegative(BigDecimal value, String field) {
+        if (value == null || value.signum() < 0)
+            throw new IllegalArgumentException(field + " cannot be negative");
     }
 
     private WarehouseWorkOrder load(String tenant, String id) {
