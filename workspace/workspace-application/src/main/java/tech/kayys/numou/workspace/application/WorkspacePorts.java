@@ -14,7 +14,7 @@ public final class WorkspacePorts {
  }
  public interface PageLinkRepository {
   boolean save(PageLink link);
-  Optional<PageLink> find(UUID tenantId,UUID linkId);
+  Optional<PageLink> findLink(UUID tenantId,UUID linkId);
   boolean delete(UUID tenantId,UUID linkId);
   List<PageLink> outgoing(UUID tenantId,UUID sourcePageId);
   List<PageLink> backlinks(UUID tenantId,UUID targetPageId);
@@ -22,7 +22,7 @@ public final class WorkspacePorts {
  public interface PageTemplateRepository {
   /** Must enforce uniqueness of normalized template name within tenant/workspace. */
   boolean save(PageTemplate template);
-  Optional<PageTemplate> find(UUID tenantId,UUID templateId);
+  Optional<PageTemplate> findTemplate(UUID tenantId,UUID templateId);
   List<PageTemplate> findByWorkspace(UUID tenantId,UUID workspaceId);
  }
  public interface AccessPolicy { /** Must check actor membership and resource-level permission, not merely tenant equality. */ void require(UUID tenantId,UUID actorId,Resource resource,UUID resourceId,Action action); }
