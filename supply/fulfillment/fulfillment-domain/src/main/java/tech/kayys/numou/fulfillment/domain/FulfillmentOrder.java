@@ -38,7 +38,8 @@ public record FulfillmentOrder(
             Objects.requireNonNull(line, "Fulfillment lines cannot contain null");
             if (!lineIds.add(line.lineId())) throw new IllegalArgumentException("Duplicate fulfillment line id: " + line.lineId());
         }
-        if (status == FulfillmentStatus.SHIPPED || status == FulfillmentStatus.DELIVERED) {
+        if (status == FulfillmentStatus.HANDOFF_REQUESTED || status == FulfillmentStatus.SHIPPED
+                || status == FulfillmentStatus.DELIVERED) {
             requireText(shipmentReference, "shipmentReference");
         }
     }
@@ -58,7 +59,6 @@ public record FulfillmentOrder(
     }
 
     public FulfillmentOrder pick(String lineId, BigDecimal quantity) {
-        // Picking allocated stock is valid even when the remainder is backordered.
         requireMutable(FulfillmentStatus.PARTIALLY_ALLOCATED, FulfillmentStatus.ALLOCATED, FulfillmentStatus.PARTIALLY_PICKED);
         List<FulfillmentLine> next = replaceLine(lineId, line -> line.pick(quantity));
         FulfillmentStatus nextStatus = total(next, Quantity.PICKED).compareTo(total(next, Quantity.ALLOCATED)) == 0
@@ -79,9 +79,22 @@ public record FulfillmentOrder(
         return revise(FulfillmentStatus.STAGED, lines, shipmentReference);
     }
 
-    public FulfillmentOrder ship(String shipmentReference) {
+    /** Requests carrier/dispatch handoff; the order is not marked shipped yet. */
+    public FulfillmentOrder requestShipmentHandoff(String shipmentReference) {
         requireStatus(FulfillmentStatus.STAGED);
-        return revise(FulfillmentStatus.SHIPPED, lines, requireText(shipmentReference, "shipmentReference"));
+        return revise(FulfillmentStatus.HANDOFF_REQUESTED, lines,
+                requireText(shipmentReference, "shipmentReference"));
+    }
+
+    /** Confirms that the physical carrier handoff has occurred. */
+    public FulfillmentOrder ship(String shipmentReference) {
+        requireStatus(FulfillmentStatus.HANDOFF_REQUESTED);
+        String requestedReference = requireText(this.shipmentReference, "shipmentReference");
+        String confirmedReference = requireText(shipmentReference, "shipmentReference");
+        if (!requestedReference.equals(confirmedReference)) {
+            throw new IllegalArgumentException("Shipment reference must match the requested handoff");
+        }
+        return revise(FulfillmentStatus.SHIPPED, lines, confirmedReference);
     }
 
     public FulfillmentOrder deliver() {
@@ -90,8 +103,9 @@ public record FulfillmentOrder(
     }
 
     public FulfillmentOrder cancel() {
-        if (status == FulfillmentStatus.SHIPPED || status == FulfillmentStatus.DELIVERED
-                || status == FulfillmentStatus.CANCELLED || status == FulfillmentStatus.REJECTED) {
+        if (status == FulfillmentStatus.HANDOFF_REQUESTED || status == FulfillmentStatus.SHIPPED
+                || status == FulfillmentStatus.DELIVERED || status == FulfillmentStatus.CANCELLED
+                || status == FulfillmentStatus.REJECTED) {
             throw new IllegalStateException("Cannot cancel fulfillment order in status " + status);
         }
         return revise(FulfillmentStatus.CANCELLED, lines, shipmentReference);

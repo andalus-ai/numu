@@ -151,6 +151,24 @@ public final class InventoryService {
         return repository.postReservedIssue(reservationId, movement, quantity);
     }
 
+    /** Idempotent reserved issue; the same key and payload must replay the original movement. */
+    public InventoryMovement issueReserved(String tenantId, InventoryCommandKey key, ReservationId reservationId,
+                                           ItemId itemId, WarehouseId warehouseId, BigDecimal quantity,
+                                           String currency, String ref) {
+        Objects.requireNonNull(key, "Command key is required");
+        requirePositive(quantity, "Issued quantity");
+        InventoryReservation reservation = reservationForTenant(tenantId, reservationId);
+        if (!reservation.itemId().equals(itemId) || !reservation.warehouseId().equals(warehouseId)) {
+            throw new IllegalArgumentException("Issue does not match reservation");
+        }
+        StockBalance current = getStockBalance(itemId, warehouseId);
+        BigDecimal unitCost = current.onHand().signum() > 0
+                ? current.totalValue().divide(current.onHand(), 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        InventoryMovement movement = new InventoryMovement(MovementId.generate(), itemId, warehouseId,
+                MovementType.ISSUE, quantity.negate(), unitCost, currency, ref, Instant.now());
+        return repository.postReservedIssue(key, reservationId, movement, quantity);
+    }
+
     private InventoryReservation reservationForTenant(String tenantId, ReservationId id) {
         Objects.requireNonNull(tenantId, "Tenant id is required");
         if (tenantId.isBlank()) throw new IllegalArgumentException("Tenant id must not be blank");
