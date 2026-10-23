@@ -3,6 +3,7 @@ package tech.kayys.numou.warehouse.application;
 import java.util.List;
 import java.util.Optional;
 import java.time.Duration;
+import java.time.Instant;
 
 /**
  * Persistence port for cross-context execution recovery.
@@ -25,6 +26,33 @@ public interface WarehouseExecutionAttemptRepository {
     List<WarehouseExecutionAttempt> findRecoverable(int limit);
 
     /**
+     * Persist a retry eligibility timestamp using compare-and-set version fencing.
+     * The attempt remains in reconciliation state and is not claimable before the timestamp.
+     */
+    default WarehouseExecutionAttempt scheduleRetry(String tenantId, String commandKey,
+                                                     long expectedVersion, Instant nextEligibleAt) {
+        throw new UnsupportedOperationException("Durable retry scheduling is not supported by this repository");
+    }
+
+    /**
+     * Atomically schedule a retry and relinquish the exact live claim in one database operation.
+     * This avoids a crash window between releasing a lease and persisting retry eligibility.
+     */
+    default WarehouseExecutionAttempt scheduleRetry(WarehouseExecutionClaim claim, Instant nextEligibleAt) {
+        throw new UnsupportedOperationException("Atomic claim retry scheduling is not supported by this repository");
+    }
+
+    /** Atomically terminalize a claimed reconciliation attempt and clear its lease. */
+    default WarehouseExecutionAttempt deadLetter(WarehouseExecutionClaim claim, String reason) {
+        throw new UnsupportedOperationException("Atomic claimed dead-letter transition is not supported by this repository");
+    }
+
+    /** Return a bounded, oldest-first view of terminal recovery records for operations tooling. */
+    default List<WarehouseExecutionAttempt> findDeadLetters(int limit) {
+        throw new UnsupportedOperationException("Dead-letter queries are not supported by this repository");
+    }
+
+    /**
      * Atomically claim recoverable attempts for one worker. Implementations must use
      * durable leases and ensure competing workers do not receive the same live claim.
      */
@@ -32,8 +60,28 @@ public interface WarehouseExecutionAttemptRepository {
         throw new UnsupportedOperationException("Durable recovery claims are not supported by this repository");
     }
 
-    /** Release a claim after successful handling; failed work should normally age out by lease expiry. */
+    /**
+     * Renew a claim only if the exact lease is still current and unexpired.
+     * The returned claim carries the new lease deadline and must replace the old claim.
+     */
+    default WarehouseExecutionClaim renewClaim(WarehouseExecutionClaim claim, Duration lease) {
+        throw new UnsupportedOperationException("Fenced durable lease renewal is not supported by this repository");
+    }
+
+    /**
+     * Release only the exact lease returned by claimRecoverable/renewClaim.
+     * Passing the claim (including its lease deadline) fences out stale workers.
+     */
+    default void releaseClaim(WarehouseExecutionClaim claim) {
+        throw new UnsupportedOperationException("Fenced durable claim release is not supported by this repository");
+    }
+
+    /**
+     * @deprecated Worker IDs are not fencing tokens. Use releaseClaim(WarehouseExecutionClaim)
+     * so an old execution cannot release a later lease acquired by the same worker identity.
+     */
+    @Deprecated
     default void releaseClaim(String tenantId, String commandKey, String workerId) {
-        throw new UnsupportedOperationException("Durable recovery claims are not supported by this repository");
+        throw new UnsupportedOperationException("Use releaseClaim(WarehouseExecutionClaim) for lease fencing");
     }
 }

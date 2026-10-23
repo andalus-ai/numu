@@ -5,5 +5,6 @@ public enum WarehouseExecutionAttemptStatus {
     PREPARED,
     INVENTORY_POSTED,
     WAREHOUSE_COMMITTED,
-    NEEDS_RECONCILIATION
+    NEEDS_RECONCILIATION,
+    DEAD_LETTER
 }

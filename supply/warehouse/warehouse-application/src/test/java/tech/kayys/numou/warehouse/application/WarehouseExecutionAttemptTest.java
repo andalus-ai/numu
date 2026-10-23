@@ -26,6 +26,18 @@ class WarehouseExecutionAttemptTest {
     }
 
     @Test
+    void exhaustedReconciliationCanBeDeadLetteredAndCannotBeRetried() {
+        WarehouseExecutionAttempt failed = prepared().needsReconciliation("repeated downstream failure");
+        WarehouseExecutionAttempt dead = failed.deadLetter("retry budget exhausted");
+        assertEquals(WarehouseExecutionAttemptStatus.DEAD_LETTER, dead.status());
+        assertEquals("retry budget exhausted", dead.lastError());
+        assertEquals(failed.version() + 1, dead.version());
+        assertThrows(IllegalStateException.class, dead::retryStarted);
+        assertThrows(IllegalStateException.class, () -> prepared().deadLetter("not in reconciliation"));
+        assertThrows(IllegalArgumentException.class, () -> failed.deadLetter(" "));
+    }
+
+    @Test
     void reconciliationRequiresReasonAndPayloadIdentity() {
         assertThrows(IllegalArgumentException.class, () -> prepared().needsReconciliation(" "));
         WarehouseExecutionAttempt a = prepared();
