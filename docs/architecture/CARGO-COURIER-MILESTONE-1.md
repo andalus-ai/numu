@@ -20,12 +20,14 @@
 - Hub address validation, ISO alpha-2 country code normalization, and paired/validated coordinates.
 - Hub lifecycle: draft → active → suspended → active; active/suspended → closed. Closed hubs cannot be renamed or resumed.
 - `HubAccessScope` enforces tenant identity and branch/hub-level access for application use.
-- Unit tests cover lifecycle, invalid coordinates, and access-scope isolation.
+- `HubRegistrationPolicy` rejects organization mismatch, non-branch units, and dissolved branches before hub registration.
+- `HubRepository` establishes tenant-explicit persistence contracts for lookup, code uniqueness checks, save, and deletion.
+- Unit tests cover lifecycle, invalid coordinates, access-scope isolation, and branch registration policy.
 
 ## Explicitly not implemented yet
 
-- Database schema, migrations, repositories, REST endpoints, event publication, and API authentication wiring.
-- Branch existence/type validation. The application boundary must load the organization unit and confirm that it belongs to the same organization and is of kind `BRANCH` before creating a hub.
+- Database schema, migrations, concrete repositories, REST endpoints, event publication, and API authentication wiring.
+- Tenant-to-organization ownership validation. The current organization model does not expose a tenant ownership link; this must be resolved at the application authorization boundary or through a canonical organization-tenant mapping.
 - Cross-tenant shared-facility agreements.
 - Shipment booking, parcel identity, labels, tracking events, manifests, courier dispatch, delivery proof, billing, and COD.
 
@@ -36,4 +38,5 @@
 3. A hub belongs to exactly one tenant, organization, and branch.
 4. Hub access checks reject cross-tenant access even for tenant administrators.
 5. Lifecycle transitions are explicit and invalid transitions fail closed.
-6. Build and tests pass in the repository's intended Maven reactor; if reactor wiring is unavailable, that limitation is recorded rather than assuming success.
+6. Repository contracts require tenant-scoped lookups; concrete implementations must enforce query-level tenant predicates.
+7. Build and tests pass in the repository's intended Maven reactor; if reactor wiring is unavailable, that limitation is recorded rather than assuming success.
