@@ -31,8 +31,10 @@ public final class CompareProgressSnapshotToBaseline {
         if (!source.structureId().equals(current.structureId()) || !source.nodeId().equals(current.nodeId())
                 || !baseline.structureId().equals(current.structureId()) || !baseline.nodeId().equals(current.nodeId()))
             throw new IllegalArgumentException("Current snapshot and baseline must have the same WBS scope");
-        if (current.asOfDate().isBefore(source.asOfDate()))
-            throw new IllegalArgumentException("Current snapshot date cannot precede baseline source date");
+        if (current.snapshotId().equals(source.snapshotId()))
+            throw new IllegalArgumentException("Current snapshot must differ from the baseline source snapshot");
+        if (current.asOfDate().isBefore(baseline.effectiveDate()))
+            throw new IllegalArgumentException("Current snapshot date cannot precede baseline effective date");
         return new ProgressVariance(tenantId, baseline.structureId(), baseline.nodeId(),
                 source.snapshotId(), current.snapshotId(), source.asOfDate(), current.asOfDate(),
                 source.completionPercent(), current.completionPercent(),
