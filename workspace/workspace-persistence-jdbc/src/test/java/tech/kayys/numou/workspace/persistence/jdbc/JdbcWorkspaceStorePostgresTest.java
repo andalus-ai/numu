@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -427,6 +431,53 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.findLink(tenant, link.id()).isPresent(),
                 "link deletion must roll back when the audit insert fails");
         assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void concurrentPageUpdatesAllowOnlyOneWriterForTheSameExpectedRevision() throws Exception {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Concurrent updates", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Initial", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        Page candidateA = page.revise("Concurrent writer A", List.of(), now.plusSeconds(1));
+        Page candidateB = page.revise("Concurrent writer B", List.of(), now.plusSeconds(1));
+        PageRevision revisionA = PageRevision.snapshot(candidateA, actor, now.plusSeconds(1), "writer A");
+        PageRevision revisionB = PageRevision.snapshot(candidateB, actor, now.plusSeconds(1), "writer B");
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> writeA = executor.submit(() -> {
+                ready.countDown();
+                start.await();
+                return store.saveWithRevision(candidateA, revisionA, 1);
+            });
+            Future<Boolean> writeB = executor.submit(() -> {
+                ready.countDown();
+                start.await();
+                return store.saveWithRevision(candidateB, revisionB, 1);
+            });
+            ready.await();
+            start.countDown();
+            boolean resultA = writeA.get();
+            boolean resultB = writeB.get();
+
+            assertEquals(1, (resultA ? 1 : 0) + (resultB ? 1 : 0),
+                    "exactly one writer should win the compare-and-set update");
+            Page persisted = store.findPage(tenant, page.id()).orElseThrow();
+            assertTrue(List.of("Concurrent writer A", "Concurrent writer B").contains(persisted.title()));
+            assertEquals(2, persisted.revision());
+            assertEquals(2, store.history(tenant, page.id()).size(),
+                    "the losing writer must not create a revision snapshot");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
