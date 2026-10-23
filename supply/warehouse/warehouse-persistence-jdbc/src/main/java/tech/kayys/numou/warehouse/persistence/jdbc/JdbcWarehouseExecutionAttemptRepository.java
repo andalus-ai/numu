@@ -35,8 +35,10 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
              PreparedStatement statement = connection.prepareStatement(sql)) {
             bind(statement, attempt);
             statement.executeUpdate();
-            return find(connection, attempt.tenantId(), attempt.commandKey())
+            WarehouseExecutionAttempt stored = find(connection, attempt.tenantId(), attempt.commandKey())
                     .orElseThrow(() -> new SQLException("Journal row missing after insert"));
+            assertCompatibleReplay(attempt, stored);
+            return stored;
         } catch (SQLException e) {
             throw persistence("Could not create warehouse execution attempt", e);
         }
@@ -162,6 +164,27 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
         } catch (SQLException e) {
             throw persistence("Could not release warehouse recovery claim", e);
         }
+    }
+
+    /**
+     * An idempotency key identifies one immutable command payload. A retry may observe
+     * a later status/version, but it must not silently alias a different business command.
+     */
+    private static void assertCompatibleReplay(WarehouseExecutionAttempt proposed,
+                                               WarehouseExecutionAttempt stored) {
+        if (!proposed.fingerprint().equals(stored.fingerprint())
+                || !proposed.workOrderId().equals(stored.workOrderId())
+                || !proposed.lineId().equals(stored.lineId())
+                || !proposed.operation().equals(stored.operation())
+                || !Objects.equals(proposed.recoveryPayload(), stored.recoveryPayload())) {
+            throw new IdempotencyConflictException(
+                    "Tenant-scoped command key is already bound to a different warehouse command payload");
+        }
+    }
+
+    /** Signals unsafe reuse of a tenant-scoped idempotency key for another command. */
+    public static final class IdempotencyConflictException extends IllegalStateException {
+        public IdempotencyConflictException(String message) { super(message); }
     }
 
     private Optional<WarehouseExecutionAttempt> find(Connection connection, String tenantId, String commandKey) throws SQLException {
