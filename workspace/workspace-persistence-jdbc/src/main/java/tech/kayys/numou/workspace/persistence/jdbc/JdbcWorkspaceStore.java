@@ -4,11 +4,9 @@ import tech.kayys.numou.workspace.application.WorkspacePorts.*;
 import tech.kayys.numou.workspace.domain.*;
 
 import javax.sql.DataSource;
-import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Instant;
 import java.util.*;
-import java.util.Base64;
 
 /**
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
@@ -125,7 +123,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         try(PreparedStatement d=c.prepareStatement(delete)){d.setObject(1,tenant);d.setObject(2,page);if(revision!=null)d.setLong(3,revision);d.executeUpdate();}
         String sql=revision==null?"INSERT INTO "+table+"(tenant_id,page_id,block_id,block_type,text_content,position,attributes_encoded) VALUES(?,?,?,?,?,?,?)"
                 :"INSERT INTO "+table+"(tenant_id,page_id,revision,block_id,block_type,text_content,position,attributes_encoded) VALUES(?,?,?,?,?,?,?,?)";
-        try(PreparedStatement s=c.prepareStatement(sql)){for(PageBlock b:blocks){int i=1;s.setObject(i++,tenant);s.setObject(i++,page);if(revision!=null)s.setLong(i++,revision);s.setObject(i++,b.id());s.setString(i++,b.type().name());s.setString(i++,b.text());s.setInt(i++,b.position());s.setString(i,encodeAttributes(b.attributes()));s.addBatch();}s.executeBatch();}
+        try(PreparedStatement s=c.prepareStatement(sql)){for(PageBlock b:blocks){int i=1;s.setObject(i++,tenant);s.setObject(i++,page);if(revision!=null)s.setLong(i++,revision);s.setObject(i++,b.id());s.setString(i++,b.type().name());s.setString(i++,b.text());s.setInt(i++,b.position());s.setString(i,BlockAttributesCodec.encode(b.attributes()));s.addBatch();}s.executeBatch();}
     }
     private Page readPageRow(Connection c,ResultSet r)throws SQLException{
         UUID id=uuid(r,1),tenant=uuid(r,2),workspace=uuid(r,3),space=uuid(r,4);Object parentValue=r.getObject(5);
@@ -134,15 +132,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     private List<PageBlock> readBlocks(Connection c,String table,UUID tenant,UUID page,Long revision)throws SQLException{
         String sql=revision==null?"SELECT block_id,block_type,text_content,position,attributes_encoded FROM "+table+" WHERE tenant_id=? AND page_id=? ORDER BY position"
                 :"SELECT block_id,block_type,text_content,position,attributes_encoded FROM "+table+" WHERE tenant_id=? AND page_id=? AND revision=? ORDER BY position";
-        try(PreparedStatement p=c.prepareStatement(sql)){p.setObject(1,tenant);p.setObject(2,page);if(revision!=null)p.setLong(3,revision);List<PageBlock> out=new ArrayList<>();try(ResultSet r=p.executeQuery()){while(r.next())out.add(new PageBlock(uuid(r,1),BlockType.valueOf(r.getString(2)),r.getString(3),r.getInt(4),decodeAttributes(r.getString(5))));}return List.copyOf(out);}
-    }
-    private static String encodeAttributes(Map<String,String> attributes){
-        StringJoiner j=new StringJoiner(";");Base64.Encoder e=Base64.getUrlEncoder().withoutPadding();
-        attributes.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(x->j.add(e.encodeToString(x.getKey().getBytes(StandardCharsets.UTF_8))+":"+e.encodeToString(x.getValue().getBytes(StandardCharsets.UTF_8))));return j.toString();
-    }
-    private static Map<String,String> decodeAttributes(String value){
-        if(value==null||value.isEmpty())return Map.of();Map<String,String> out=new LinkedHashMap<>();Base64.Decoder d=Base64.getUrlDecoder();
-        for(String item:value.split(";")){int i=item.indexOf(':');if(i<0)throw new IllegalStateException("Malformed encoded block attributes");String k=new String(d.decode(item.substring(0,i)),StandardCharsets.UTF_8);String v=new String(d.decode(item.substring(i+1)),StandardCharsets.UTF_8);out.put(k,v);}return Map.copyOf(out);
+        try(PreparedStatement p=c.prepareStatement(sql)){p.setObject(1,tenant);p.setObject(2,page);if(revision!=null)p.setLong(3,revision);List<PageBlock> out=new ArrayList<>();try(ResultSet r=p.executeQuery()){while(r.next())out.add(new PageBlock(uuid(r,1),BlockType.valueOf(r.getString(2)),r.getString(3),r.getInt(4),BlockAttributesCodec.decode(r.getString(5))));}return List.copyOf(out);}
     }
     private static UUID uuid(ResultSet r,int i)throws SQLException{Object value=r.getObject(i);return value instanceof UUID u?u:UUID.fromString(value.toString());}
     private static Instant instant(ResultSet r,int i)throws SQLException{return r.getTimestamp(i).toInstant();}
