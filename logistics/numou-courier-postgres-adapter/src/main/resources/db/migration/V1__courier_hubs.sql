@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS courier_hubs (
     updated_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT uq_courier_hubs_tenant_id UNIQUE (tenant_id, id),
     CONSTRAINT uq_courier_hubs_tenant_code UNIQUE (tenant_id, normalized_code),
-    CONSTRAINT ck_courier_hubs_code_upper CHECK (normalized_code = upper(trim(normalized_code))),
+    CONSTRAINT ck_courier_hubs_code_normalized CHECK (normalized_code = upper(trim(code))),
     CONSTRAINT ck_courier_hubs_country_code CHECK (country_code = upper(country_code)),
     CONSTRAINT ck_courier_hubs_latitude CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
     CONSTRAINT ck_courier_hubs_longitude CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
