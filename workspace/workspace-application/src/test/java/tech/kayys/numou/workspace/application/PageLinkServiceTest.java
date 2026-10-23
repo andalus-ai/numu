@@ -12,7 +12,7 @@ class PageLinkServiceTest {
   UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();Page a=page(tenant,"A"),b=page(tenant,"B");Store store=new Store(a,b);List<String> permissions=new ArrayList<>();
   PageLinkService service=new PageLinkService(store,store,(t,u,r,id,action)->permissions.add(id+":"+action),e->{},Clock.fixed(Instant.EPOCH,ZoneOffset.UTC));
   PageLink link=service.link(tenant,actor,a.id(),b.id(),"related");
-  assertEquals("related",link.label());assertEquals(List.of(a),service.backlinks(tenant,actor,b.id()));assertEquals(2,permissions.size());
+  assertEquals("related",link.label());assertEquals(List.of(a),service.backlinks(tenant,actor,b.id()));assertEquals(4,permissions.size());
   assertThrows(IllegalStateException.class,()->service.link(tenant,actor,a.id(),b.id(),"duplicate"));
  }
  @Test void rejectsCrossTenantOrMissingTargetsAndSelfLinks() {
