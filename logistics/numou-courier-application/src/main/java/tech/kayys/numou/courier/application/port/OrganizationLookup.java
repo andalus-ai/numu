@@ -1,5 +1,6 @@
 package tech.kayys.numou.courier.application.port;
 
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.organization.domain.Organization;
 import tech.kayys.numou.organization.domain.OrganizationId;
 
@@ -7,10 +8,10 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Looks up an organization by ID. Implementations must apply the authenticated
- * tenant boundary in the query, not load an arbitrary organization and filter
- * it in application memory.
+ * Tenant-scoped organization lookup. Implementations must predicate the
+ * repository query on both tenant ID and organization ID; a global lookup
+ * followed by application-memory filtering is not an acceptable boundary.
  */
 public interface OrganizationLookup {
-    CompletionStage<Optional<Organization>> findById(OrganizationId organizationId);
+    CompletionStage<Optional<Organization>> findById(TenantId tenantId, OrganizationId organizationId);
 }
