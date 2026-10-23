@@ -368,10 +368,10 @@ class JdbcWorkspaceStorePostgresTest {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
         UUID actor = UUID.randomUUID();
-        AuditEntry invalidAudit = new AuditEntry(tenant, actor, "A".repeat(101), "WORKSPACE",
-                UUID.randomUUID(), 0, "force audit write failure", now);
-
         Workspace workspace = Workspace.create(tenant, "Atomic workspace", "", now);
+        AuditEntry invalidAudit = new AuditEntry(tenant, actor, "A".repeat(101), "WORKSPACE",
+                workspace.id(), 0, "force audit write failure", now);
+
         assertThrows(IllegalStateException.class, () -> store.saveWorkspace(workspace, invalidAudit));
         assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
         assertEquals(0, countAuditEvents(tenant));
