@@ -30,3 +30,10 @@ Rich editor UI, concurrent editing/CRDT, custom database schemas and views, comm
 - Add transport/API endpoints and derive identity from authenticated context.
 - Add concrete access-policy and file-storage adapters.
 - Run full Maven reactor and PostgreSQL integration suite. Remote repository editing does not execute builds or tests.
+
+
+## M2 increment — page links and backlinks
+
+The optional page-link capability stores directed links between workspace pages. Backlinks are queried from persisted incoming links; they are not inferred from page text and do not require a rich-text editor. Link creation requires update permission on the source and read permission on the target. Outgoing-link listing and backlink listing require read access to the requested page, and backlink results are filtered through source-page read permissions to avoid disclosing inaccessible pages. A PostgreSQL migration enforces tenant-scoped foreign keys, unique directed links, and a no-self-link constraint.
+
+This increment does not yet parse inline links, provide a UI/editor, or add full-text search. Those are later M2/M3 concerns.
