@@ -12,7 +12,7 @@ import java.util.*;
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
  * Configure a pooled DataSource in the host application. All resource reads are tenant-scoped.
  */
-public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, AuditSink {
+public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink {
     private final DataSource dataSource;
 
     public JdbcWorkspaceStore(DataSource dataSource) { this.dataSource = Objects.requireNonNull(dataSource, "dataSource"); }
@@ -176,6 +176,41 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         }catch(SQLException e){throw failure("list page links",e);}
     }
 
+
+    @Override public List<PageSearchHit> searchPages(UUID tenantId, UUID workspaceId, UUID spaceId, String query, int limit) {
+        if (limit < 1 || limit > 100) throw new IllegalArgumentException("limit must be between 1 and 100");
+        boolean scopedToSpace = spaceId != null;
+        String spaceClause = scopedToSpace ? " AND p.space_id=?" : "";
+        String sql = "SELECT p.id,p.workspace_id,p.space_id,p.parent_page_id,p.title,p.updated_at," +
+                "ts_rank(to_tsvector('simple',p.title),plainto_tsquery('simple',?)) + " +
+                "CASE WHEN EXISTS (SELECT 1 FROM workspace_page_blocks sb WHERE sb.tenant_id=p.tenant_id AND sb.page_id=p.id " +
+                "AND to_tsvector('simple',sb.text_content) @@ plainto_tsquery('simple',?)) THEN 0.25 ELSE 0 END AS search_rank " +
+                "FROM workspace_pages p WHERE p.tenant_id=? AND p.workspace_id=?" + spaceClause +
+                " AND (to_tsvector('simple',p.title) @@ plainto_tsquery('simple',?) OR EXISTS " +
+                "(SELECT 1 FROM workspace_page_blocks b WHERE b.tenant_id=p.tenant_id AND b.page_id=p.id " +
+                "AND to_tsvector('simple',b.text_content) @@ plainto_tsquery('simple',?))) " +
+                "ORDER BY search_rank DESC,p.updated_at DESC,p.id LIMIT ?";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            int i = 1;
+            p.setString(i++, query);
+            p.setString(i++, query);
+            p.setObject(i++, tenantId);
+            p.setObject(i++, workspaceId);
+            if (scopedToSpace) p.setObject(i++, spaceId);
+            p.setString(i++, query);
+            p.setString(i++, query);
+            p.setInt(i, limit);
+            List<PageSearchHit> result = new ArrayList<>();
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    Object parent = r.getObject(4);
+                    result.add(new PageSearchHit(uuid(r,1), uuid(r,2), uuid(r,3),
+                            parent == null ? null : uuid(r,4), r.getString(5), instant(r,6)));
+                }
+            }
+            return List.copyOf(result);
+        } catch (SQLException e) { throw failure("search workspace pages", e); }
+    }
 
     @Override public boolean save(PageTemplate template) {
         String insert = "INSERT INTO workspace_page_templates(id,tenant_id,workspace_id,created_by,name,name_normalized,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)";
