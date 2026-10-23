@@ -168,6 +168,30 @@ class JdbcHubRepositoryPostgresTest {
                 .toCompletableFuture().join().isEmpty());
     }
 
+
+    @Test
+    void trackingTimelineCursorDoesNotSkipEventsWithTheSameOccurrenceTime() {
+        TenantId tenant = TenantId.generate();
+        Shipment shipment = shipment(tenant, "SHIP-CURSOR");
+        shipment.addParcel(parcel("PIECE-CURSOR"), shipment.createdAt().plusSeconds(1));
+        shipment.book(shipment.createdAt().plusSeconds(2));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+
+        Instant occurred = shipment.createdAt().plusSeconds(3);
+        trackingRepository.append(tenant, trackingEvent(tenant, shipment, occurred, "cursor-001",
+                TrackingEventType.ARRIVED_AT_HUB)).toCompletableFuture().join();
+        trackingRepository.append(tenant, trackingEvent(tenant, shipment, occurred, "cursor-002",
+                TrackingEventType.SORTED_AT_HUB)).toCompletableFuture().join();
+
+        var firstPage = trackingRepository.findByShipment(tenant, shipment.id(), null, 1)
+                .toCompletableFuture().join();
+        assertEquals(1, firstPage.size());
+        var secondPage = trackingRepository.findByShipment(tenant, shipment.id(),
+                TrackingCursor.after(firstPage.get(0)), 10).toCompletableFuture().join();
+        assertEquals(1, secondPage.size());
+        assertNotEquals(firstPage.get(0).id(), secondPage.get(0).id());
+    }
+
     @Test
     void trackingIdempotencyKeyCannotBeReusedForDifferentFact() {
         TenantId tenant = TenantId.generate();
