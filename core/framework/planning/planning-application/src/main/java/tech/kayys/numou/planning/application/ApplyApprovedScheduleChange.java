@@ -45,7 +45,8 @@ public final class ApplyApprovedScheduleChange {
                     || !existing.structureId().equals(request.structureId())
                     || !existing.planId().equals(request.planId())
                     || existing.baseRevision() != request.baseRevision()
-                    || existing.targetRevision() != request.targetRevision()) {
+                    || existing.targetRevision() != request.targetRevision()
+                    || !executions.matchesReplay(executionId, request, targetPlan, initiatedBy)) {
                 throw new IllegalArgumentException("Execution id was already used for a different change payload");
             }
             return existing;
