@@ -10,7 +10,7 @@ class DependencyScheduleForecastCalculatorTest {
  @Test void calculatesCriticalPathAndFloatAcrossParallelBranches(){
   var a=id(1);var b=id(2);var c=id(3);var d=id(4);
   var f=calculator.calculate(LocalDate.of(2026,1,1),List.of(new ScheduleActivityDuration(a,3),new ScheduleActivityDuration(b,5),new ScheduleActivityDuration(c,2),new ScheduleActivityDuration(d,1)),List.of(new ActivityDependency(a,c),new ActivityDependency(b,c),new ActivityDependency(c,d)));
-  assertEquals(9,f.projectDurationDays());assertEquals(LocalDate.of(2026,1,10),f.forecastFinish());assertEquals(2,f.activities().get(a).totalFloatDays());
+  assertEquals(8,f.projectDurationDays());assertEquals(LocalDate.of(2026,1,9),f.forecastFinish());assertEquals(2,f.activities().get(a).totalFloatDays());
   assertTrue(f.activities().get(b).critical());assertTrue(f.activities().get(c).critical());assertTrue(f.activities().get(d).critical());assertEquals(List.of(b,c,d),f.criticalPath());
  }
  @Test void rejectsUnknownDependenciesAndCycles(){
