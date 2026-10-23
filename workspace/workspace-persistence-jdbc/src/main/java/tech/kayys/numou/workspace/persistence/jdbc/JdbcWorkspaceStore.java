@@ -73,8 +73,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveWithRevision(Page page,PageRevision revision,long expectedRevision) {
-        if(!page.tenantId().equals(revision.tenantId())||!page.id().equals(revision.pageId())||page.revision()!=revision.revision())
-            throw new IllegalArgumentException("page and revision snapshot do not match");
+        validateRevisionSnapshot(page, revision);
         if(expectedRevision<0||page.revision()!=expectedRevision+1)throw new IllegalArgumentException("revision must advance exactly once");
         try(Connection c=dataSource.getConnection()){
             c.setAutoCommit(false);
@@ -104,6 +103,18 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             p.setObject(1,entry.tenantId());p.setObject(2,entry.actorId());p.setString(3,entry.action());p.setString(4,entry.resourceType());
             p.setObject(5,entry.resourceId());p.setLong(6,entry.revision());p.setString(7,entry.summary());p.setTimestamp(8,Timestamp.from(entry.occurredAt()));p.executeUpdate();
         }catch(SQLException e){throw failure("record workspace audit event",e);}
+    }
+
+    private static void validateRevisionSnapshot(Page page, PageRevision revision) {
+        Objects.requireNonNull(page, "page");
+        Objects.requireNonNull(revision, "revision");
+        if (!page.tenantId().equals(revision.tenantId())
+                || !page.id().equals(revision.pageId())
+                || page.revision() != revision.revision()
+                || !page.title().equals(revision.title())
+                || !page.blocks().equals(revision.blocks())) {
+            throw new IllegalArgumentException("page and revision snapshot do not match");
+        }
     }
 
     private void insertPage(Connection c,Page p)throws SQLException{
@@ -313,6 +324,23 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         }
     }
 
+    private static void validateAudit(AuditEntry audit, UUID tenantId, UUID resourceId, Long revision, UUID actorId) {
+        Objects.requireNonNull(audit, "audit");
+        if (audit.tenantId() == null || !tenantId.equals(audit.tenantId()))
+            throw new IllegalArgumentException("audit tenant does not match mutation tenant");
+        if (audit.resourceId() == null || !resourceId.equals(audit.resourceId()))
+            throw new IllegalArgumentException("audit resource does not match mutation resource");
+        if (audit.action() == null || audit.action().isBlank()
+                || audit.resourceType() == null || audit.resourceType().isBlank())
+            throw new IllegalArgumentException("audit action and resource type are required");
+        if (audit.occurredAt() == null)
+            throw new IllegalArgumentException("audit timestamp is required");
+        if (revision != null && audit.revision() != revision)
+            throw new IllegalArgumentException("audit revision does not match mutation revision");
+        if (actorId != null && !actorId.equals(audit.actorId()))
+            throw new IllegalArgumentException("audit actor does not match mutation actor");
+    }
+
     private void insertAudit(Connection c, AuditEntry entry) throws SQLException {
         String sql = "INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)";
         try (PreparedStatement p = c.prepareStatement(sql)) {
@@ -324,6 +352,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveWorkspace(Workspace value, AuditEntry audit) {
+        validateAudit(audit, value.tenantId(), value.id(), null, null);
         return atomicMutation("save workspace with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_workspaces(id,tenant_id,name,description,created_at) VALUES(?,?,?,?,?)")) {
                 p.setObject(1,value.id()); p.setObject(2,value.tenantId()); p.setString(3,value.name());
@@ -334,6 +363,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveSpace(Space value, AuditEntry audit) {
+        validateAudit(audit, value.tenantId(), value.id(), null, null);
         return atomicMutation("save space with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_spaces(id,tenant_id,workspace_id,name,slug,created_at) VALUES(?,?,?,?,?,?)")) {
                 p.setObject(1,value.id()); p.setObject(2,value.tenantId()); p.setObject(3,value.workspaceId());
@@ -344,8 +374,8 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean savePageWithRevision(Page page, PageRevision revision, long expectedRevision, AuditEntry audit) {
-        if (!page.tenantId().equals(revision.tenantId()) || !page.id().equals(revision.pageId()) || page.revision() != revision.revision())
-            throw new IllegalArgumentException("page and revision snapshot do not match");
+        validateAudit(audit, page.tenantId(), page.id(), page.revision(), revision.actorId());
+        validateRevisionSnapshot(page, revision);
         if (expectedRevision < 0 || page.revision() != expectedRevision + 1)
             throw new IllegalArgumentException("revision must advance exactly once");
         return atomicMutation("save page, revision and audit atomically", c -> {
@@ -359,6 +389,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveTemplate(PageTemplate template, AuditEntry audit) {
+        validateAudit(audit, template.tenantId(), template.id(), null, template.createdBy());
         return atomicMutation("save page template with audit", c -> {
             String insert = "INSERT INTO workspace_page_templates(id,tenant_id,workspace_id,created_by,name,name_normalized,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)";
             try (PreparedStatement p = c.prepareStatement(insert)) {
@@ -373,6 +404,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveLink(PageLink link, AuditEntry audit) {
+        validateAudit(audit, link.tenantId(), link.id(), null, link.createdBy());
         return atomicMutation("save page link with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_page_links(id,tenant_id,source_page_id,target_page_id,created_by,label,created_at) VALUES(?,?,?,?,?,?,?)")) {
                 p.setObject(1,link.id()); p.setObject(2,link.tenantId()); p.setObject(3,link.sourcePageId());
@@ -384,6 +416,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean deleteLink(UUID tenantId, UUID linkId, AuditEntry audit) {
+        validateAudit(audit, tenantId, linkId, null, null);
         return atomicMutation("delete page link with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("DELETE FROM workspace_page_links WHERE tenant_id=? AND id=?")) {
                 p.setObject(1,tenantId); p.setObject(2,linkId);

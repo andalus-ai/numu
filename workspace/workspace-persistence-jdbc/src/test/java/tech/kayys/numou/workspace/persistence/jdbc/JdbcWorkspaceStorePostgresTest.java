@@ -222,6 +222,57 @@ class JdbcWorkspaceStorePostgresTest {
 
 
     @Test
+    void rejectsAuditMetadataThatDoesNotDescribeTheMutation() {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID otherTenant = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Audit integrity", "", now);
+
+        AuditEntry crossTenant = new AuditEntry(otherTenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "WORKSPACE", workspace.id(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, crossTenant));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+        assertEquals(0, countAuditEvents(otherTenant));
+
+        AuditEntry wrongResource = new AuditEntry(tenant, UUID.randomUUID(),
+                "WORKSPACE_CREATED", "WORKSPACE", UUID.randomUUID(), 0, "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWorkspace(workspace, wrongResource));
+        assertTrue(store.findWorkspace(tenant, workspace.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
+    void rejectsRevisionSnapshotsThatDifferFromThePage() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Snapshot consistency", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "docs", now);
+        assertTrue(store.save(space));
+
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Authoritative title",
+                List.of(PageBlock.text(BlockType.PARAGRAPH, "authoritative body", 0)), now);
+        PageRevision mismatched = new PageRevision(tenant, page.id(), page.revision(),
+                "Different title", List.of(), actor, now, "forged snapshot");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveWithRevision(page, mismatched, 0));
+        assertTrue(store.findPage(tenant, page.id()).isEmpty());
+        assertTrue(store.history(tenant, page.id()).isEmpty());
+
+        AuditEntry audit = new AuditEntry(tenant, actor, "PAGE_CREATED", "PAGE",
+                page.id(), page.revision(), "create", now);
+        assertThrows(IllegalArgumentException.class,
+                () -> store.savePageWithRevision(page, mismatched, 0, audit));
+        assertTrue(store.findPage(tenant, page.id()).isEmpty());
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+    @Test
     void pageAndRevisionRollBackWhenAuditInsertFails() {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
