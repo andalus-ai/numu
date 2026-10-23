@@ -27,7 +27,7 @@ public final class AssessQuantityBasedActivityProgress {
                 .orElseThrow(() -> new IllegalArgumentException("Activity must reference the quantity's work item"));
         if (!definition.scopeType().equals(workItem.type()) || !definition.scopeId().equals(workItem.id()))
             throw new IllegalArgumentException("Activity work-item reference does not match quantity definition scope");
-        AcceptedQuantityProjection accepted = acceptedQuantities.execute(tenantId, definitionId);
+        AcceptedQuantityProjection accepted = acceptedQuantities.execute(tenantId, definitionId, asOfDate);
         return QuantityBasedProgressAssessment.assess(tenantId, definitionId, accepted.acceptedMeasurementId(),
                 activity, asOfDate, definition.plannedQuantity(), accepted.acceptedQuantity());
     }
