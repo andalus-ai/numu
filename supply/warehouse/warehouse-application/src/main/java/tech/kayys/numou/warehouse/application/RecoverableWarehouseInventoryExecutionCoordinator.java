@@ -33,7 +33,6 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
     public WarehouseWorkOrder receive(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, BigDecimal quantity, BigDecimal unitCost, String currency, String commandKey) {
         WarehouseWorkOrder order = load(tenant, workOrderId);
-        validate(order, lineId, quantity, WarehouseWorkType.RECEIVING);
         if (order.type() != WarehouseWorkType.RECEIVING)
             throw new IllegalStateException("Inventory receipt requires a RECEIVING work order");
         String fingerprint = fingerprint("receive", tenant, workOrderId, lineId, itemId, warehouseId,
@@ -46,7 +45,6 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
     public WarehouseWorkOrder pick(String tenant, String workOrderId, String lineId, String itemId,
             String warehouseId, String reservationId, BigDecimal quantity, String currency, String commandKey) {
         WarehouseWorkOrder order = load(tenant, workOrderId);
-        validate(order, lineId, quantity, WarehouseWorkType.PICKING);
         if (order.type() != WarehouseWorkType.PICKING)
             throw new IllegalStateException("Reserved issue requires a PICKING work order");
         String fingerprint = fingerprint("pick", tenant, workOrderId, lineId, itemId, warehouseId,
@@ -67,12 +65,18 @@ public final class RecoverableWarehouseInventoryExecutionCoordinator {
             return repository.find(tenant, order.id())
                     .orElseThrow(() -> new IllegalStateException("Committed warehouse work order is missing"));
         }
+        boolean retrying = attempt.status() == WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION
+                || attempt.attemptCount() > 1
+                || attempt.status() == WarehouseExecutionAttemptStatus.INVENTORY_POSTED;
         if (attempt.status() == WarehouseExecutionAttemptStatus.NEEDS_RECONCILIATION) {
             attempt = recovery.retry(tenant, commandKey);
         }
         try {
             if (attempt.status() == WarehouseExecutionAttemptStatus.PREPARED) {
-                // Safe to replay if a previous process posted inventory but crashed before journaling it.
+                // Do not reject a retry if the warehouse commit succeeded before a process crash.
+                if (!retrying) validate(order, lineId, quantity,
+                        "receive".equals(operation) ? WarehouseWorkType.RECEIVING : WarehouseWorkType.PICKING);
+                // Safe to replay if inventory posted but the process crashed before journaling it.
                 postInventory.run();
                 attempt = recovery.inventoryPosted(tenant, commandKey);
             }
