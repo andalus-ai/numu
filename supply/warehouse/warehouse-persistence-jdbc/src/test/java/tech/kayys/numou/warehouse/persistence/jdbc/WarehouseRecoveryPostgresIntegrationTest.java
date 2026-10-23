@@ -3,6 +3,7 @@ package tech.kayys.numou.warehouse.persistence.jdbc;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionAttempt;
+import tech.kayys.numou.warehouse.application.WarehouseExecutionClaim;
 import tech.kayys.numou.warehouse.application.WarehouseInventoryRecoveryPayload;
 
 import javax.sql.DataSource;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class WarehouseRecoveryPostgresIntegrationTest {
     @Test
-    void recoveryPayloadRoundTripsAndLiveClaimIsNotReturnedToAnotherWorker() throws Exception {
+    void payloadRoundTripsLiveLeaseExcludesSecondWorkerAndExpiredLeaseCanBeReclaimed() throws Exception {
         String url = System.getenv("NUMOU_TEST_POSTGRES_URL");
         Assumptions.assumeTrue(url != null && !url.isBlank(),
                 "Set NUMOU_TEST_POSTGRES_URL to enable PostgreSQL integration tests");
@@ -47,26 +48,32 @@ class WarehouseRecoveryPostgresIntegrationTest {
             assertEquals("0.00012500", inserted.recoveryPayload().quantity());
             assertEquals("19.9900", inserted.recoveryPayload().unitCost());
 
-            try (Connection connection = dataSource.getConnection();
-                 var statement = connection.createStatement();
-                 var rows = statement.executeQuery("SELECT COUNT(*) FROM warehouse_execution_attempt " +
-                         "WHERE status IN ('PREPARED','INVENTORY_POSTED','NEEDS_RECONCILIATION') " +
-                         "AND (claim_until IS NULL OR claim_until < CURRENT_TIMESTAMP)")) {
-                assertTrue(rows.next());
-                assertEquals(1, rows.getInt(1),
-                        "Use a disposable PostgreSQL database with no other unclaimed recovery attempts");
-            }
-
-            List<tech.kayys.numou.warehouse.application.WarehouseExecutionClaim> first =
+            List<WarehouseExecutionClaim> first =
                     repository.claimRecoverable("integration-worker-a", 500, Duration.ofSeconds(60));
             assertTrue(first.stream().anyMatch(c -> c.attempt().tenantId().equals(tenant)
-                    && c.attempt().commandKey().equals(command)));
+                    && c.attempt().commandKey().equals(command)),
+                    "worker A should claim the newly inserted attempt");
 
-            List<tech.kayys.numou.warehouse.application.WarehouseExecutionClaim> second =
+            List<WarehouseExecutionClaim> second =
                     repository.claimRecoverable("integration-worker-b", 500, Duration.ofSeconds(60));
             assertFalse(second.stream().anyMatch(c -> c.attempt().tenantId().equals(tenant)
                     && c.attempt().commandKey().equals(command)),
-                    "a second worker must not claim an attempt with a live lease");
+                    "worker B must not claim an attempt with a live lease");
+
+            try (Connection connection = dataSource.getConnection();
+                 var statement = connection.prepareStatement(
+                         "UPDATE warehouse_execution_attempt SET claim_until = CURRENT_TIMESTAMP - INTERVAL '1 second' " +
+                                 "WHERE tenant_id = ? AND command_key = ?")) {
+                statement.setString(1, tenant);
+                statement.setString(2, command);
+                assertEquals(1, statement.executeUpdate(), "the claimed row must exist for lease-expiry simulation");
+            }
+
+            List<WarehouseExecutionClaim> reclaimed =
+                    repository.claimRecoverable("integration-worker-b", 500, Duration.ofSeconds(60));
+            assertTrue(reclaimed.stream().anyMatch(c -> c.attempt().tenantId().equals(tenant)
+                    && c.attempt().commandKey().equals(command)),
+                    "worker B should reclaim the row after its lease expires");
         } finally {
             try (Connection connection = dataSource.getConnection();
                  var statement = connection.prepareStatement(
