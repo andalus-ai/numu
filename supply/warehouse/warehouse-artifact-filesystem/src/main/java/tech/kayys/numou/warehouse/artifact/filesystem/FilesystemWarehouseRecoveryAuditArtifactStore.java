@@ -53,7 +53,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
         Path receipt = dir.resolve("chunks").resolve(sha256(chunkId.getBytes(StandardCharsets.UTF_8)) + ".receipt");
         try (FileChannel lockChannel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
              FileLock ignored = lockChannel.lock()) {
-            Files.createFileIfNotExists(artifact);
+            if (!Files.exists(artifact)) Files.createFile(artifact);
             String digest = sha256(bytes);
             if (Files.exists(receipt)) {
                 String[] parts = Files.readString(receipt, StandardCharsets.UTF_8).split("\\n", -1);
@@ -66,7 +66,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
 
             long size = Files.size(artifact);
             if (size < expectedOffset) throw new IOException("Artifact is shorter than expected offset");
-            if (size > expectedOffset + bytes.length) throw new IOException("Artifact has unexpected bytes beyond retried chunk");
+            long chunkEnd;\n            try { chunkEnd = Math.addExact(expectedOffset, bytes.length); }\n            catch (ArithmeticException overflow) { throw new IOException("Chunk end offset overflow", overflow); }\n            if (size > chunkEnd) throw new IOException("Artifact has unexpected bytes beyond retried chunk");
             int alreadyPresent = Math.toIntExact(size - expectedOffset);
             if (alreadyPresent > 0) {
                 byte[] prefix = new byte[alreadyPresent];
@@ -129,7 +129,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
     }
 
     private static void verifyRange(Path artifact, long offset, byte[] expected) throws IOException {
-        if (Files.size(artifact) < offset + expected.length) throw new IOException("Committed chunk is missing from artifact");
+        long end;\n        try { end = Math.addExact(offset, expected.length); }\n        catch (ArithmeticException overflow) { throw new IOException("Chunk end offset overflow", overflow); }\n        if (Files.size(artifact) < end) throw new IOException("Committed chunk is missing from artifact");
         byte[] actual = new byte[expected.length];
         try (FileChannel channel = FileChannel.open(artifact, StandardOpenOption.READ)) {
             readFully(channel, ByteBuffer.wrap(actual), offset);
