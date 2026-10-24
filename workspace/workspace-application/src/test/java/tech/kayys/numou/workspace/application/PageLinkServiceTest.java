@@ -8,6 +8,19 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PageLinkServiceTest {
+ @Test void auditedLinkMutationsFailClosedWithoutAtomicCapability() {
+  UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();
+  Page source=page(tenant,"Source"),target=page(tenant,"Target");
+  Store store=new Store(source,target);
+  PageLinkService service=new PageLinkService(store,store,(t,a,r,id,action)->{},e->{},Clock.systemUTC());
+  assertThrows(IllegalStateException.class,()->service.link(tenant,actor,source.id(),target.id(),"related"));
+  assertTrue(store.links.isEmpty(),"link creation must be rejected before mutating the adapter");
+
+  PageLink existing=PageLink.create(tenant,source.id(),target.id(),actor,"related",Instant.EPOCH);
+  assertTrue(store.save(existing));
+  assertThrows(IllegalStateException.class,()->service.unlink(tenant,actor,existing.id()));
+  assertTrue(store.findLink(tenant,existing.id()).isPresent(),"link deletion must be rejected before mutating the adapter");
+ }
  @Test void linkCreatesBacklinkAndRequiresPermissions() {
   UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();Page a=page(tenant,"A"),b=page(tenant,"B");Store store=new Store(a,b);List<String> permissions=new ArrayList<>();
   PageLinkService service=new PageLinkService(store,store,(t,u,r,id,action)->permissions.add(id+":"+action),e->{},Clock.fixed(Instant.EPOCH,ZoneOffset.UTC),true);
