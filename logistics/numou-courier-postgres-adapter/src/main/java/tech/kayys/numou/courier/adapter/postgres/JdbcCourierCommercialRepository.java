@@ -16,11 +16,11 @@ import java.util.concurrent.CompletionStage;
 
 /** Tenant-scoped JDBC persistence for tariff snapshots and COD operational facts. */
 @ApplicationScoped
-public class JdbcCourierCommercialRepository {
+public class JdbcCourierCommercialRepository implements CourierCommercialRepository {
     private final DataSource dataSource;
     @Inject public JdbcCourierCommercialRepository(DataSource dataSource) { this.dataSource = dataSource; }
 
-    public CompletionStage<CourierRateCard> saveRateCard(TenantId tenantId, CourierRateCard card) {
+    @Override public CompletionStage<CourierRateCard> saveRateCard(TenantId tenantId, CourierRateCard card) {
         if (tenantId == null || card == null) return failed(new IllegalArgumentException("tenantId and card are required"));
         if (!tenantId.equals(card.tenantId())) return failed(new SecurityException("rate card tenant mismatch"));
         String sql = """
@@ -40,7 +40,7 @@ public class JdbcCourierCommercialRepository {
         } catch(SQLException e) { return failed(new IllegalStateException("Unable to save rate card",e)); }
     }
 
-    public CompletionStage<Optional<CourierRateCard>> findEffectiveRateCard(TenantId tenantId, ServiceLevel service,
+    @Override public CompletionStage<Optional<CourierRateCard>> findEffectiveRateCard(TenantId tenantId, ServiceLevel service,
             String originZone, String destinationZone, Instant at) {
         if(tenantId==null||service==null||originZone==null||destinationZone==null||at==null)
             return failed(new IllegalArgumentException("tenant, service, zones and instant are required"));
@@ -67,7 +67,7 @@ public class JdbcCourierCommercialRepository {
         }catch(SQLException|RuntimeException e){return failed(new IllegalStateException("Unable to find effective rate card",e));}
     }
 
-    public CompletionStage<ShipmentQuote> saveQuote(TenantId tenantId, ShipmentQuote quote) {
+    @Override public CompletionStage<ShipmentQuote> saveQuote(TenantId tenantId, ShipmentQuote quote) {
         if(tenantId==null||quote==null)return failed(new IllegalArgumentException("tenantId and quote are required"));
         String sql="""
             INSERT INTO courier_shipment_quotes (tenant_id,id,shipment_id,rate_card_id,rate_card_version,currency_code,
@@ -84,7 +84,7 @@ public class JdbcCourierCommercialRepository {
         }catch(SQLException e){return failed(new IllegalStateException("Unable to save quote snapshot",e));}
     }
 
-    public CompletionStage<CodObligation> saveCodObligation(TenantId tenantId, CodObligation cod) {
+    @Override public CompletionStage<CodObligation> saveCodObligation(TenantId tenantId, CodObligation cod) {
         if(tenantId==null||cod==null)return failed(new IllegalArgumentException("tenantId and COD obligation are required"));
         if(!tenantId.equals(cod.tenantId()))return failed(new SecurityException("COD tenant mismatch"));
         String sql="""
