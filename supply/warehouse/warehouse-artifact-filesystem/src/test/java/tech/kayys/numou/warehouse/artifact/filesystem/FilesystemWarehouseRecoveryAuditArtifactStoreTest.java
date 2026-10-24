@@ -6,7 +6,7 @@ import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditArtifactStor
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
+import java.nio.file.Path;\nimport java.nio.file.Files;\nimport java.security.MessageDigest;\nimport java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.*;
 
