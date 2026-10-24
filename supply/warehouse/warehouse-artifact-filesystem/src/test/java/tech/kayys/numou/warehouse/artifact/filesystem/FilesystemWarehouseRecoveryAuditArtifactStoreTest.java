@@ -111,6 +111,43 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
                 new String(store.open("tenant-a", "export-concurrent").readAllBytes(), StandardCharsets.UTF_8));
     }
 
+
+    @Test
+    void recoversDurableChunkWhenDatabaseCheckpointWasNotCommitted() throws Exception {
+        byte[] chunk = "header\\nrow-1\\n".getBytes(StandardCharsets.UTF_8);
+        var firstProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+
+        var durableWrite = firstProcess.appendChunk("tenant-checkpoint", "export-checkpoint",
+                "export-checkpoint:0", 0, chunk);
+        // The job database checkpoint is deliberately not advanced: emulate a crash between
+        // forcing artifact bytes/receipt and committing the checkpoint transaction.
+        var restartedProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        var recoveredWrite = restartedProcess.appendChunk("tenant-checkpoint", "export-checkpoint",
+                "export-checkpoint:0", 0, chunk);
+
+        assertEquals(durableWrite.byteSize(), recoveredWrite.byteSize());
+        assertEquals(durableWrite.sha256Hex(), recoveredWrite.sha256Hex());
+        assertEquals(chunk.length, recoveredWrite.byteSize());
+        assertEquals("header\\nrow-1\\n",
+                new String(restartedProcess.open("tenant-checkpoint", "export-checkpoint").readAllBytes(),
+                        StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void rejectsDifferentChunkAtUncheckpointedDurableOffsetAfterRestart() throws Exception {
+        byte[] durableChunk = "header\\nrow-1\\n".getBytes(StandardCharsets.UTF_8);
+        var firstProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        firstProcess.appendChunk("tenant-checkpoint", "export-conflict", "export-conflict:0", 0, durableChunk);
+
+        var restartedProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] conflictingRetry = "header\\nrow-X\\n".getBytes(StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> restartedProcess.appendChunk("tenant-checkpoint", "export-conflict",
+                "export-conflict:0", 0, conflictingRetry));
+        assertArrayEquals(durableChunk,
+                restartedProcess.open("tenant-checkpoint", "export-conflict").readAllBytes(),
+                "conflicting retry must not alter durable artifact bytes");
+    }
+
     private record WarehouseSnapshot(long byteSize, String sha256Hex) {}
 
     private static String hash(String value) throws Exception {
