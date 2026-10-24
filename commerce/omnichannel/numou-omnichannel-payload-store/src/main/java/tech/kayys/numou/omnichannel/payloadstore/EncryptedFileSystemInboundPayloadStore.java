@@ -139,8 +139,9 @@ public final class EncryptedFileSystemInboundPayloadStore implements InboundPayl
     private boolean isExpired(Path file, Instant now) throws IOException {
         try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
             ByteBuffer header = ByteBuffer.allocate(Integer.BYTES + 1 + Long.BYTES);
-            int read = channel.read(header);
-            if (read != header.capacity()) return true;
+            while (header.hasRemaining()) {
+                if (channel.read(header) < 0) return true;
+            }
             header.flip();
             if (header.getInt() != MAGIC || header.get() != VERSION) return true;
             return !Instant.ofEpochMilli(header.getLong()).isAfter(now);
