@@ -8,6 +8,10 @@ AS $$
 DECLARE
     creates_cycle BOOLEAN;
 BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.parent_page_id IS NOT DISTINCT FROM OLD.parent_page_id THEN
+        RETURN NEW;
+    END IF;
+
     IF NEW.parent_page_id IS NULL THEN
         RETURN NEW;
     END IF;
@@ -42,7 +46,7 @@ END;
 $$;
 
 CREATE TRIGGER trg_workspace_page_hierarchy_acyclic
-BEFORE INSERT OR UPDATE OF parent_page_id
+BEFORE INSERT OR UPDATE
 ON workspace_pages
 FOR EACH ROW
 EXECUTE FUNCTION workspace_prevent_page_hierarchy_cycles();
