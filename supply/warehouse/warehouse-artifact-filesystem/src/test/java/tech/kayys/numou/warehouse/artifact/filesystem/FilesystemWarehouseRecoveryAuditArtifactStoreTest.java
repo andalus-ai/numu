@@ -9,6 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,8 +21,8 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
     @Test
     void appendsChunksAndRetryDoesNotDuplicateBytes() throws Exception {
         var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
-        byte[] first = "header\\n".getBytes(StandardCharsets.UTF_8);
-        byte[] second = "row-1\\n".getBytes(StandardCharsets.UTF_8);
+        byte[] first = "header\n".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "row-1\n".getBytes(StandardCharsets.UTF_8);
 
         var one = store.appendChunk("tenant-a", "export-1", "chunk-1", 0, first);
         var retry = store.appendChunk("tenant-a", "export-1", "chunk-1", 0, first);
@@ -28,7 +31,7 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
 
         var two = store.appendChunk("tenant-a", "export-1", "chunk-2", first.length, second);
         assertEquals(first.length + second.length, two.byteSize());
-        assertEquals("header\\nrow-1\\n",
+        assertEquals("header\nrow-1\n",
                 new String(store.open("tenant-a", "export-1").readAllBytes(), StandardCharsets.UTF_8));
     }
 
@@ -57,11 +60,33 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
         Files.writeString(exportDirectory.resolve("audit.csv"), "head", StandardCharsets.UTF_8);
 
         var snapshot = store.appendChunk("tenant-a", "export-1", "chunk-1", 0,
-                "header\\n".getBytes(StandardCharsets.UTF_8));
-        assertEquals("header\\n",
+                "header\n".getBytes(StandardCharsets.UTF_8));
+        assertEquals("header\n",
                 new String(store.open("tenant-a", "export-1").readAllBytes(), StandardCharsets.UTF_8));
         assertEquals(7, snapshot.byteSize());
     }
+
+    @Test
+    void concurrentRetriesOfSameChunkDoNotDuplicateBytes() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "one-row\n".getBytes(StandardCharsets.UTF_8);
+        try (var executor = Executors.newFixedThreadPool(8)) {
+            Callable<WarehouseSnapshot> write = () -> {
+                var snapshot = store.appendChunk("tenant-a", "export-concurrent", "chunk-1", 0, chunk);
+                return new WarehouseSnapshot(snapshot.byteSize(), snapshot.sha256Hex());
+            };
+            var tasks = java.util.stream.IntStream.range(0, 24).<Callable<WarehouseSnapshot>>mapToObj(i -> write).toList();
+            var futures = executor.invokeAll(tasks);
+            for (Future<WarehouseSnapshot> future : futures) {
+                assertEquals(chunk.length, future.get().byteSize());
+                assertEquals(store.inspect("tenant-a", "export-concurrent").sha256Hex(), future.get().sha256Hex());
+            }
+        }
+        assertEquals("one-row\n",
+                new String(store.open("tenant-a", "export-concurrent").readAllBytes(), StandardCharsets.UTF_8));
+    }
+
+    private record WarehouseSnapshot(long byteSize, String sha256Hex) {}
 
     private static String hash(String value) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
