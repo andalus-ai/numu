@@ -2,6 +2,7 @@ package tech.kayys.numou.omnichannel.core;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,5 +25,17 @@ class ProviderWebhookVerificationRequestTest {
         assertThatThrownBy(() -> new ProviderWebhookVerificationRequest(
                 " ", "account", Map.of(), new byte[0]))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsCaseVariantDuplicateSignatureHeadersAtVerifierBoundary() {
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("X-Signature", "first");
+        headers.put("x-signature", "second");
+
+        assertThatThrownBy(() -> new ProviderWebhookVerificationRequest(
+                "provider", "account", headers, new byte[] {1}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("duplicate");
     }
 }

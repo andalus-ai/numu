@@ -16,7 +16,7 @@ public record ProviderWebhookVerificationRequest(
     public ProviderWebhookVerificationRequest {
         providerId = required(providerId, "providerId");
         providerAccountId = required(providerAccountId, "providerAccountId");
-        headers = Map.copyOf(Objects.requireNonNull(headers, "headers must not be null"));
+        headers = WebhookHeaders.validatedCopy(headers);
         rawBody = Objects.requireNonNull(rawBody, "rawBody must not be null").clone();
     }
 
