@@ -190,9 +190,11 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
                 property("title", DatabasePropertyType.TEXT, true, List.of(), null),
                 property("status", DatabasePropertyType.SELECT, true, List.of("todo", "done"), null)));
         assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
-        for (String[] values : List.of(new String[]{"A", "todo"}, new String[]{"B", "done"}, new String[]{"C", "todo"})) {
+        String[][] rows = {{"A", "todo"}, {"B", "done"}, {"C", "todo"}};
+        for (int i = 0; i < rows.length; i++) {
+            String[] values = rows[i];
             DatabaseRecord record = DatabaseRecord.create(tenant, database.id(), table,
-                    Map.of("title", values[0], "status", values[1]), now);
+                    Map.of("title", values[0], "status", values[1]), now.plusSeconds(i));
             assertTrue(repository.saveRecord(record, 0,
                     audit(record.id(), "DATABASE_RECORD", "DATABASE_RECORD_CREATED", 1)));
         }
