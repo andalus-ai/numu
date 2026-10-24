@@ -110,6 +110,35 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void groupsBoardViewBySelectPropertyAndRejectsNonBoardOrInvalidGrouping() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Boards");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false, List.of("todo", "doing", "done"), null)));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "One", "status", "todo"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Two", "status", "done"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Three"));
+        DatabaseView board = service.createView(tenant, actor, database.id(), table.id(), "Task board",
+                DatabaseViewType.BOARD, Map.of(), List.of(), List.of("title", "status"));
+        DatabaseRecordBoard result = service.queryBoard(tenant, actor, database.id(), board.id(), "status", 20, 0);
+        assertEquals(3, result.totalRecords());
+        assertEquals("status", result.groupByProperty());
+        assertEquals(4, result.groups().size());
+        assertEquals(1, result.groups().get(0).records().size());
+        assertEquals("todo", result.groups().get(0).value());
+        assertEquals(1, result.groups().get(2).records().size());
+        assertEquals("done", result.groups().get(2).value());
+        assertEquals(1, result.groups().get(3).records().size());
+        assertNull(result.groups().get(3).value());
+        DatabaseView tableView = service.createView(tenant, actor, database.id(), table.id(), "Plain table",
+                DatabaseViewType.TABLE, Map.of(), List.of(), List.of());
+        assertThrows(IllegalArgumentException.class, () -> service.queryBoard(
+                tenant, actor, database.id(), tableView.id(), "status", 20, 0));
+        assertThrows(IllegalArgumentException.class, () -> service.queryBoard(
+                tenant, actor, database.id(), board.id(), "title", 20, 0));
+    }
+
+    @Test
     void relationValuesMustResolveToReadableRecordsInTheConfiguredTable() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Relations");
         DatabaseTable targetTable = service.createTable(tenant, actor, database.id(), "Targets", List.of(

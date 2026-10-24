@@ -159,6 +159,48 @@ public final class StructuredDatabaseService {
         return page;
     }
 
+    /**
+     * Produces a bounded board projection from a saved BOARD view, grouped by a SELECT property.
+     * Groups cover the current page only; totalRecords reports the full filtered result count.
+     */
+    public tech.kayys.numou.workspace.domain.DatabaseRecordBoard queryBoard(UUID tenantId, UUID actorId,
+            UUID databaseId, UUID viewId, String groupByProperty, int limit, int offset) {
+        requireDatabase(tenantId, actorId, databaseId, Action.READ);
+        DatabaseView view = repository.findView(tenantId, databaseId, viewId)
+                .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
+        if (view.type() != DatabaseViewType.BOARD) {
+            throw new IllegalArgumentException("saved view is not a BOARD view");
+        }
+        DatabaseRecordPage page = queryRecordsByView(tenantId, actorId, databaseId, viewId, limit, offset);
+        DatabaseTable table = repository.findTable(tenantId, databaseId, view.tableId())
+                .orElseThrow(() -> new IllegalStateException("saved view table no longer exists"));
+        DatabaseProperty groupProperty = table.property(groupByProperty);
+        if (groupProperty.type() != tech.kayys.numou.workspace.domain.DatabasePropertyType.SELECT) {
+            throw new IllegalArgumentException("board grouping requires a SELECT property");
+        }
+        Map<String, List<DatabaseRecord>> grouped = new java.util.TreeMap<>();
+        List<DatabaseRecord> unassigned = new java.util.ArrayList<>();
+        for (DatabaseRecord record : page.records()) {
+            Object raw = record.values().get(groupProperty.key());
+            if (raw == null) unassigned.add(record);
+            else if (raw instanceof String option && groupProperty.options().contains(option)) {
+                grouped.computeIfAbsent(option, ignored -> new java.util.ArrayList<>()).add(record);
+            } else {
+                throw new IllegalStateException("record contains an invalid board grouping value");
+            }
+        }
+        List<tech.kayys.numou.workspace.domain.DatabaseRecordGroup> groups = new java.util.ArrayList<>();
+        for (String option : groupProperty.options()) {
+            groups.add(new tech.kayys.numou.workspace.domain.DatabaseRecordGroup(option,
+                    grouped.getOrDefault(option, List.of())));
+        }
+        if (!unassigned.isEmpty()) {
+            groups.add(new tech.kayys.numou.workspace.domain.DatabaseRecordGroup(null, unassigned));
+        }
+        return new tech.kayys.numou.workspace.domain.DatabaseRecordBoard(groupProperty.key(), groups,
+                page.total(), page.limit(), page.offset());
+    }
+
     /** Creates a personal saved view after validating every referenced property against the current schema. */
     public DatabaseView createView(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId, String name,
                                    DatabaseViewType type, Map<String, Object> filters,
