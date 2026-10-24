@@ -199,7 +199,7 @@ class WarehouseRecoveryAuditWorkerPostgresFilesystemRecoveryTest {
         try (var input = new FilesystemWarehouseRecoveryAuditArtifactStore(artifactRoot).open(tenantId, exportId)) {
             csv = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
-        assertTrue(csv.startsWith("tenant_id,command_key,action,actor_id,reason,prior_version,resulting_version,correlation_id,occurred_at\\n"));
+        assertTrue(csv.startsWith("tenant_id,command_key,action,actor_id,reason,prior_version,resulting_version,correlation_id,occurred_at\n"));
         assertTrue(csv.contains("\"'=cmd,with,comma\""),
                 "formula-like command keys must be neutralized and CSV-quoted");
         assertTrue(csv.contains("\"quoted \"\"reason\"\", value\""),
