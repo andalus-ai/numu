@@ -73,7 +73,12 @@ public final class WarehouseRecoveryAuditExportWorker {
                     checkpointAt,checkpointAt.plus(lease));
             if(!jobs.update(checkpoint,job.version()))
                 throw new IllegalStateException("Export checkpoint lost optimistic version race");
-            if(page.nextCursor()!=null) return Optional.of(checkpoint);
+            if(page.nextCursor()!=null) {
+                WarehouseRecoveryAuditExportJob yielded=checkpoint.yieldForResume(workerId,clock.instant());
+                if(!jobs.update(yielded,checkpoint.version()))
+                    throw new IllegalStateException("Export yield lost optimistic version race");
+                return Optional.of(yielded);
+            }
             return Optional.of(verifyAndComplete(checkpoint,workerId));
         } catch(IOException|RuntimeException e) {
             WarehouseRecoveryAuditExportJob latest=jobs.find(job.tenantId(),job.exportId()).orElse(job);
