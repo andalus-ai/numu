@@ -10,9 +10,15 @@ import java.util.UUID;
 
 /** Authorized page-link use cases; backlinks are derived from persisted directed links. */
 public final class PageLinkService {
- private final PageRepository pages; private final PageLinkRepository links; private final AccessPolicy access; private final AuditSink audit; private final Clock clock;
+ private final PageRepository pages; private final PageLinkRepository links; private final AccessPolicy access; private final AuditSink audit; private final Clock clock; private final boolean allowNonAtomicAuditFallback;
  public PageLinkService(PageRepository pages,PageLinkRepository links,AccessPolicy access,AuditSink audit,Clock clock) {
+  this(pages, links, access, audit, clock, false);
+ }
+ /** Enable the non-atomic compatibility path only while migrating a legacy adapter. */
+ public PageLinkService(PageRepository pages,PageLinkRepository links,AccessPolicy access,AuditSink audit,Clock clock,
+                        boolean allowNonAtomicAuditFallback) {
   this.pages=Objects.requireNonNull(pages);this.links=Objects.requireNonNull(links);this.access=Objects.requireNonNull(access);this.audit=Objects.requireNonNull(audit);this.clock=Objects.requireNonNull(clock);
+  this.allowNonAtomicAuditFallback=allowNonAtomicAuditFallback;
  }
  public PageLink link(UUID tenantId,UUID actorId,UUID sourcePageId,UUID targetPageId,String label) {
   identity(tenantId,actorId);Page source=pages.findPage(tenantId,sourcePageId).orElseThrow(()->new IllegalArgumentException("Source page not found for tenant"));
@@ -24,7 +30,8 @@ public final class PageLinkService {
   AuditEntry event=new AuditEntry(tenantId,actorId,"PAGE_LINK_CREATED","PAGE_LINK",link.id(),0,source.title()+" -> "+target.title(),now);
   boolean saved;
   if(links instanceof AuditedMutationRepository tx)saved=tx.saveLink(link,event);
-  else {saved=links.save(link);if(saved)audit.record(event);}
+  else if (allowNonAtomicAuditFallback) {saved=links.save(link);if(saved)audit.record(event);}
+  else throw new IllegalStateException("Atomic audited page-link writes require AuditedMutationRepository");
   if(!saved)throw new IllegalStateException("Page link already exists or could not be saved");
   return link;
  }
@@ -38,7 +45,8 @@ public final class PageLinkService {
   AuditEntry event=new AuditEntry(tenantId,actorId,"PAGE_LINK_REMOVED","PAGE_LINK",link.id(),0,link.sourcePageId()+" -> "+link.targetPageId(),clock.instant());
   boolean deleted;
   if(links instanceof AuditedMutationRepository tx)deleted=tx.deleteLink(tenantId,linkId,event);
-  else {deleted=links.delete(tenantId,linkId);if(deleted)audit.record(event);}
+  else if (allowNonAtomicAuditFallback) {deleted=links.delete(tenantId,linkId);if(deleted)audit.record(event);}
+  else throw new IllegalStateException("Atomic audited page-link deletion requires AuditedMutationRepository");
   if(!deleted)throw new IllegalStateException("Page link could not be removed");
  }
  public List<PageLink> outgoing(UUID tenantId,UUID actorId,UUID pageId) {
