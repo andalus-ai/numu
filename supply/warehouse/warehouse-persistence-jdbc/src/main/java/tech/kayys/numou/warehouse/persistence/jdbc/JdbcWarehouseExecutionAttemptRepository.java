@@ -6,6 +6,7 @@ import tech.kayys.numou.warehouse.application.WarehouseExecutionAttemptStatus;
 import tech.kayys.numou.warehouse.application.WarehouseExecutionClaim;
 import tech.kayys.numou.warehouse.application.WarehouseInventoryRecoveryPayload;
 import tech.kayys.numou.warehouse.application.WarehouseRecoveryHealthSummary;
+import tech.kayys.numou.warehouse.application.WarehouseRecoveryOperatorAuditEvent;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -260,10 +261,22 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
     public WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
                                                        long expectedVersion, String operatorReason,
                                                        Instant nextEligibleAt) {
+        return replayDeadLetter(tenantId, commandKey, expectedVersion, "legacy-unknown",
+                operatorReason, null, nextEligibleAt);
+    }
+
+    @Override
+    public WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
+                                                       long expectedVersion, String actorId,
+                                                       String operatorReason, String correlationId,
+                                                       Instant nextEligibleAt) {
         requireKey(tenantId, commandKey);
         if (expectedVersion < 1) throw new IllegalArgumentException("expectedVersion must be positive");
+        if (actorId == null || actorId.isBlank()) throw new IllegalArgumentException("actorId is required");
         if (operatorReason == null || operatorReason.isBlank()) throw new IllegalArgumentException("operatorReason is required");
         if (operatorReason.trim().length() > 1000) throw new IllegalArgumentException("operatorReason must not exceed 1000 characters");
+        if (correlationId != null && correlationId.isBlank()) throw new IllegalArgumentException("correlationId must be null or non-blank");
+        if (correlationId != null && correlationId.length() > 200) throw new IllegalArgumentException("correlationId must not exceed 200 characters");
         Objects.requireNonNull(nextEligibleAt, "nextEligibleAt");
         if (nextEligibleAt.isBefore(Instant.now())) throw new IllegalArgumentException("nextEligibleAt must not be in the past");
         String auditReason = "Manual replay requested: " + operatorReason.trim();
@@ -271,20 +284,72 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
         String sql = "UPDATE warehouse_execution_attempt SET status='PREPARED', attempt_count=attempt_count+1, " +
                 "last_error=?, next_eligible_at=?, updated_at=CURRENT_TIMESTAMP, version=version+1, " +
                 "claim_owner=NULL, claim_until=NULL WHERE tenant_id=? AND command_key=? AND version=? AND status='DEAD_LETTER'";
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                int changed;
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, auditReason);
+                    statement.setTimestamp(2, Timestamp.from(nextEligibleAt.truncatedTo(ChronoUnit.MICROS)));
+                    statement.setString(3, tenantId.trim());
+                    statement.setString(4, commandKey.trim());
+                    statement.setLong(5, expectedVersion);
+                    changed = statement.executeUpdate();
+                }
+                if (changed != 1) {
+                    throw new OptimisticLockException("Dead-letter replay rejected: missing, stale, or non-dead-letter attempt");
+                }
+                WarehouseExecutionAttempt replayed = find(connection, tenantId.trim(), commandKey.trim())
+                        .orElseThrow(() -> new SQLException("Warehouse attempt disappeared after replay"));
+                try (PreparedStatement audit = connection.prepareStatement(
+                        "INSERT INTO warehouse_recovery_operator_audit " +
+                        "(tenant_id, command_key, action, actor_id, reason, prior_version, resulting_version, correlation_id, occurred_at) " +
+                        "VALUES (?, ?, 'DEAD_LETTER_REPLAY', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)")) {
+                    audit.setString(1, tenantId.trim());
+                    audit.setString(2, commandKey.trim());
+                    audit.setString(3, actorId.trim());
+                    audit.setString(4, operatorReason.trim());
+                    audit.setLong(5, expectedVersion);
+                    audit.setLong(6, replayed.version());
+                    audit.setString(7, correlationId == null ? null : correlationId.trim());
+                    audit.executeUpdate();
+                }
+                connection.commit();
+                return replayed;
+            } catch (SQLException | RuntimeException e) {
+                try { connection.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw persistence("Could not replay tenant dead-letter warehouse execution with audit", e);
+        }
+    }
+
+    @Override
+    public List<WarehouseRecoveryOperatorAuditEvent> findOperatorAuditEvents(String tenantId, int limit) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        String sql = "SELECT tenant_id, command_key, action, actor_id, reason, prior_version, " +
+                "resulting_version, correlation_id, occurred_at FROM warehouse_recovery_operator_audit " +
+                "WHERE tenant_id=? ORDER BY occurred_at DESC, id DESC LIMIT ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, auditReason);
-            statement.setTimestamp(2, Timestamp.from(nextEligibleAt.truncatedTo(ChronoUnit.MICROS)));
-            statement.setString(3, tenantId.trim());
-            statement.setString(4, commandKey.trim());
-            statement.setLong(5, expectedVersion);
-            if (statement.executeUpdate() != 1) {
-                throw new OptimisticLockException("Dead-letter replay rejected: missing, stale, or non-dead-letter attempt");
+            statement.setString(1, tenantId.trim());
+            statement.setInt(2, limit);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<WarehouseRecoveryOperatorAuditEvent> events = new ArrayList<>();
+                while (rows.next()) {
+                    Timestamp occurredAt = rows.getTimestamp("occurred_at");
+                    events.add(new WarehouseRecoveryOperatorAuditEvent(
+                            rows.getString("tenant_id"), rows.getString("command_key"),
+                            rows.getString("action"), rows.getString("actor_id"), rows.getString("reason"),
+                            rows.getLong("prior_version"), rows.getLong("resulting_version"),
+                            rows.getString("correlation_id"), occurredAt.toInstant()));
+                }
+                return List.copyOf(events);
             }
-            return find(tenantId, commandKey).orElseThrow(
-                    () -> new IllegalStateException("Warehouse attempt disappeared after replay"));
         } catch (SQLException e) {
-            throw persistence("Could not replay tenant dead-letter warehouse execution", e);
+            throw persistence("Could not list tenant recovery operator audit events", e);
         }
     }
 
