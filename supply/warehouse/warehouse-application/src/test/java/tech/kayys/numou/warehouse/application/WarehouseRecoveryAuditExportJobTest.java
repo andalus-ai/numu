@@ -57,6 +57,22 @@ class WarehouseRecoveryAuditExportJobTest {
                 "worker-a", now.plusSeconds(40), "object://bucket/export.csv"));
     }
 
+    @Test void interruptedVerificationCanBeReclaimedWithoutLosingArtifactMetadata() {
+        var running = requested().claim("worker-a", now, now.plusSeconds(30));
+        var verifying = running.beginVerification("worker-a", now.plusSeconds(1), "file:///archive.csv");
+        var reclaimed = verifying.claim("worker-b", now.plusSeconds(2), now.plusSeconds(60));
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.RUNNING, reclaimed.status());
+        assertEquals("worker-b", reclaimed.leaseOwner());
+        assertEquals("file:///archive.csv", reclaimed.artifactLocation());
+        assertEquals(verifying.version() + 1, reclaimed.version());
+    }
+
+    @Test void persistenceExceptionPreservesOriginalCauseForRetryClassification() {
+        var cause = new java.sql.SQLException("database temporarily unavailable");
+        var failure = new WarehouseRecoveryAuditPersistenceException("Could not checkpoint export", cause);
+        assertSame(cause, failure.getCause());
+    }
+
     @Test void failedJobUsesSanitizedFailureCode() {
         var failed = requested().fail(now, "ARCHIVE_CHECKSUM_MISMATCH");
         assertEquals(WarehouseRecoveryAuditExportJob.Status.FAILED, failed.status());

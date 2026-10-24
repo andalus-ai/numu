@@ -30,8 +30,8 @@ public record WarehouseRecoveryAuditExportJob(
     }
 
     public WarehouseRecoveryAuditExportJob claim(String worker, Instant now, Instant until) {
-        if (status != Status.REQUESTED && status != Status.RUNNING)
-            throw new IllegalStateException("only requested or resumable running jobs may be claimed");
+        if (status != Status.REQUESTED && status != Status.RUNNING && status != Status.VERIFYING)
+            throw new IllegalStateException("only requested, verifying, or resumable running jobs may be claimed");
         required(worker, "worker");
         Objects.requireNonNull(now, "now");
         Objects.requireNonNull(until, "until");

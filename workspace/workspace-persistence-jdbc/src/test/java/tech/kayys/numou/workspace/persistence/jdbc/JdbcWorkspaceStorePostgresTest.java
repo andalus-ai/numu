@@ -47,7 +47,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V10__workspace_page_hierarchy_cycle_invariant.sql",
             "/db/migration/V11__workspace_revision_snapshot_integrity.sql",
             "/db/migration/V12__workspace_revision_blocks_immutable.sql",
-            "/db/migration/V13__workspace_audit_action_semantics.sql");
+            "/db/migration/V13__workspace_audit_action_semantics.sql",
+            "/db/migration/V14__workspace_audit_resource_actor_integrity.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -509,6 +510,41 @@ class JdbcWorkspaceStorePostgresTest {
                 return false;
             }
         }
+    }
+
+
+    @Test
+    void databaseRejectsAuditRowsForMissingResourcesAndMismatchedPageActors() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        UUID otherActor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Audit resource integrity", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Operations", "operations", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Audited page", List.of(), now);
+        PageRevision revision = PageRevision.snapshot(page, actor, now, "created");
+        assertTrue(store.saveWithRevision(page, revision, 0));
+
+        assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE",
+                UUID.randomUUID(), 0, now);
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)")) {
+            p.setObject(1, tenant);
+            p.setObject(2, otherActor);
+            p.setString(3, "PAGE_CREATED");
+            p.setString(4, "PAGE");
+            p.setObject(5, page.id());
+            p.setLong(6, 1);
+            p.setString(7, "forged actor");
+            p.setTimestamp(8, java.sql.Timestamp.from(now));
+            assertThrows(SQLException.class, p::executeUpdate,
+                    "audit actor must match the immutable page revision actor");
+        }
+        assertEquals(0, countAuditEvents(tenant));
     }
 
     @Test
