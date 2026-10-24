@@ -97,7 +97,9 @@ public final class WarehouseRecoveryAuditExportWorker {
                         &&latest.status()!=WarehouseRecoveryAuditExportJob.Status.FAILED) {
                     WarehouseRecoveryAuditExportJob failed=latest.fail(clock.instant(),failureCode(e));
                     jobs.update(failed,latest.version());
-                    record(latest,workerId,WarehouseRecoveryAuditExportAccessEvent.Action.VERIFY_FAILED,
+                    record(latest,workerId,job.exportedEventCount()==0&&job.continuationCursor()==null
+                                    ?WarehouseRecoveryAuditExportAccessEvent.Action.CLAIM
+                                    :WarehouseRecoveryAuditExportAccessEvent.Action.RESUME,
                             WarehouseRecoveryAuditExportAccessEvent.Outcome.FAILURE,failureCode(e));
                 }
             }
