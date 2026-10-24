@@ -129,6 +129,36 @@ public final class StructuredDatabaseService {
         return page;
     }
 
+    /** Executes a personal saved view using its persisted filters and typed sort specification. */
+    public DatabaseRecordPage queryRecordsByView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId,
+                                                  int limit, int offset) {
+        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
+        if (offset < 0) throw new IllegalArgumentException("offset cannot be negative");
+        requireDatabase(tenantId, actorId, databaseId, Action.READ);
+        DatabaseView view = repository.findView(tenantId, databaseId, viewId)
+                .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
+        if (!view.createdBy().equals(actorId)) {
+            throw new IllegalArgumentException("saved view is personal and belongs to another actor");
+        }
+        DatabaseTable table = repository.findTable(tenantId, databaseId, view.tableId())
+                .orElseThrow(() -> new IllegalStateException("saved view table no longer exists"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, table.id(), Action.READ);
+        // Revalidate on every execution: saved configurations must never bypass current schema rules.
+        Map<String, Object> filters = new java.util.LinkedHashMap<>();
+        view.filters().forEach((key, value) -> {
+            DatabaseProperty property = table.property(key);
+            if (value == null) throw new IllegalStateException("saved view contains a null filter");
+            filters.put(key, property.validateValue(value));
+        });
+        for (DatabaseViewSort sort : view.sorts()) table.property(sort.propertyKey());
+        DatabaseRecordPage page = repository.queryRecords(tenantId, databaseId, table.id(),
+                Map.copyOf(filters), view.sorts(), limit, offset);
+        for (DatabaseRecord record : page.records()) {
+            accessPolicy.require(tenantId, actorId, Resource.DATABASE_RECORD, record.id(), Action.READ);
+        }
+        return page;
+    }
+
     /** Creates a personal saved view after validating every referenced property against the current schema. */
     public DatabaseView createView(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId, String name,
                                    DatabaseViewType type, Map<String, Object> filters,
