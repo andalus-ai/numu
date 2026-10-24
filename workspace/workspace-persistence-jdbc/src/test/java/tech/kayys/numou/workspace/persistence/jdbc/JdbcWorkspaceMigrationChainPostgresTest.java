@@ -42,7 +42,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             "V14__workspace_audit_resource_actor_integrity.sql",
             "V15__workspace_audit_history_append_only.sql",
             "V16__workspace_structured_databases.sql",
-            "V17__workspace_database_views.sql"
+            "V17__workspace_database_views.sql",
+            "V18__workspace_board_view_grouping.sql"
     );
 
     @Test
@@ -67,6 +68,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             assertTrue(tableExists(connection, "workspace_database_properties"));
             assertTrue(tableExists(connection, "workspace_database_records"));
             assertTrue(tableExists(connection, "workspace_database_views"));
+            assertTrue(columnExists(connection, "workspace_database_views", "group_by_property"));
+            assertTrue(constraintExists(connection, "ck_workspace_database_view_group_by_property"));
             assertTrue(indexExists(connection, "ix_workspace_database_views_owner"));
             assertTrue(indexExists(connection, "ix_workspace_database_records_table"));
             assertTrue(indexExists(connection, "ix_workspace_database_records_data"));
@@ -95,6 +98,18 @@ class JdbcWorkspaceMigrationChainPostgresTest {
         try (var statement = connection.prepareStatement(
                 "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?)")) {
             statement.setString(1, table);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                return result.getBoolean(1);
+            }
+        }
+    }
+
+    private boolean columnExists(Connection connection, String table, String column) throws SQLException {
+        try (var statement = connection.prepareStatement(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?)")) {
+            statement.setString(1, table);
+            statement.setString(2, column);
             try (ResultSet result = statement.executeQuery()) {
                 assertTrue(result.next());
                 return result.getBoolean(1);
