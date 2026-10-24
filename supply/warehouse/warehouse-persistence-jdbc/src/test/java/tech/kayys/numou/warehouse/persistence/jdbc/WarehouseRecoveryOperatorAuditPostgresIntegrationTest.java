@@ -15,6 +15,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -68,6 +74,101 @@ class WarehouseRecoveryOperatorAuditPostgresIntegrationTest {
         } finally {
             deleteTenant(dataSource, tenant);
             deleteTenant(dataSource, otherTenant);
+        }
+    }
+
+
+    @Test
+    void auditInsertFailureRollsBackTheReplayTransition() throws Exception {
+        String url = System.getenv("NUMOU_TEST_POSTGRES_URL");
+        Assumptions.assumeTrue(url != null && !url.isBlank(),
+                "Set NUMOU_TEST_POSTGRES_URL to enable PostgreSQL integration tests");
+        DataSource dataSource = new DriverManagerDataSource(url,
+                System.getenv().getOrDefault("NUMOU_TEST_POSTGRES_USER", ""),
+                System.getenv().getOrDefault("NUMOU_TEST_POSTGRES_PASSWORD", ""));
+        JdbcWarehouseExecutionAttemptRepository repository = new JdbcWarehouseExecutionAttemptRepository(dataSource);
+        String tenant = "it-audit-rollback-" + UUID.randomUUID();
+        String command = "audit-rollback-" + UUID.randomUUID();
+        String constraint = "ck_audit_reject_" + UUID.randomUUID().toString().replace("-", "");
+        WarehouseExecutionAttempt deadLetter = null;
+        try {
+            deadLetter = createDeadLetter(repository, tenant, command);
+            try (Connection connection = dataSource.getConnection();
+                 var statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE warehouse_recovery_operator_audit ADD CONSTRAINT "
+                        + constraint + " CHECK (actor_id <> 'operator-fail')");
+            }
+            WarehouseExecutionAttempt original = deadLetter;
+            assertThrows(IllegalStateException.class, () -> repository.replayDeadLetter(
+                    tenant, command, original.version(), "operator-fail",
+                    "exercise transaction rollback", null, Instant.now().plusSeconds(90)));
+
+            WarehouseExecutionAttempt persisted = repository.find(tenant, command).orElseThrow();
+            assertEquals("DEAD_LETTER", persisted.status().name(),
+                    "attempt transition must roll back when the audit insert fails");
+            assertEquals(original.version(), persisted.version());
+            assertTrue(repository.findOperatorAuditEvents(tenant, 20).isEmpty());
+        } finally {
+            try (Connection connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE warehouse_recovery_operator_audit DROP CONSTRAINT IF EXISTS " + constraint);
+            } finally {
+                deleteTenant(dataSource, tenant);
+            }
+        }
+    }
+
+    @Test
+    void concurrentReplayAllowsExactlyOneTransitionAndAuditEvent() throws Exception {
+        String url = System.getenv("NUMOU_TEST_POSTGRES_URL");
+        Assumptions.assumeTrue(url != null && !url.isBlank(),
+                "Set NUMOU_TEST_POSTGRES_URL to enable PostgreSQL integration tests");
+        DataSource dataSource = new DriverManagerDataSource(url,
+                System.getenv().getOrDefault("NUMOU_TEST_POSTGRES_USER", ""),
+                System.getenv().getOrDefault("NUMOU_TEST_POSTGRES_PASSWORD", ""));
+        JdbcWarehouseExecutionAttemptRepository repository = new JdbcWarehouseExecutionAttemptRepository(dataSource);
+        String tenant = "it-audit-race-" + UUID.randomUUID();
+        String command = "audit-race-" + UUID.randomUUID();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            WarehouseExecutionAttempt deadLetter = createDeadLetter(repository, tenant, command);
+            CountDownLatch ready = new CountDownLatch(2);
+            CountDownLatch start = new CountDownLatch(1);
+            AtomicInteger successes = new AtomicInteger();
+            AtomicInteger staleRejections = new AtomicInteger();
+            List<Future<?>> tasks = List.of(
+                    executor.submit(() -> raceReplay(repository, tenant, command, deadLetter.version(), "operator-a", ready, start, successes, staleRejections)),
+                    executor.submit(() -> raceReplay(repository, tenant, command, deadLetter.version(), "operator-b", ready, start, successes, staleRejections)));
+            assertTrue(ready.await(5, TimeUnit.SECONDS), "both replay workers should be ready");
+            start.countDown();
+            for (Future<?> task : tasks) task.get(10, TimeUnit.SECONDS);
+
+            assertEquals(1, successes.get(), "only one version-fenced replay may succeed");
+            assertEquals(1, staleRejections.get(), "the competing replay must be rejected as stale");
+            List<WarehouseRecoveryOperatorAuditEvent> events = repository.findOperatorAuditEvents(tenant, 20);
+            assertEquals(1, events.size(), "exactly one successful replay must have exactly one audit event");
+            assertEquals(deadLetter.version() + 1, events.get(0).resultingVersion());
+            assertTrue(List.of("operator-a", "operator-b").contains(events.get(0).actorId()));
+        } finally {
+            executor.shutdownNow();
+            deleteTenant(dataSource, tenant);
+        }
+    }
+
+    private static void raceReplay(JdbcWarehouseExecutionAttemptRepository repository,
+                                   String tenant, String command, long version, String actor,
+                                   CountDownLatch ready, CountDownLatch start,
+                                   AtomicInteger successes, AtomicInteger staleRejections) {
+        ready.countDown();
+        try {
+            if (!start.await(5, TimeUnit.SECONDS)) throw new AssertionError("timed out waiting to start race");
+            repository.replayDeadLetter(tenant, command, version, actor,
+                    "concurrent replay test", "race-correlation", Instant.now().plusSeconds(90));
+            successes.incrementAndGet();
+        } catch (JdbcWarehouseExecutionAttemptRepository.OptimisticLockException expected) {
+            staleRejections.incrementAndGet();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("replay race interrupted", e);
         }
     }
 
