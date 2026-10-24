@@ -125,6 +125,8 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
                 count.setObject(1, tenantId); count.setObject(2, databaseId); count.setObject(3, tableId); count.setString(4, filterJson);
                 try (ResultSet r = count.executeQuery()) { r.next(); total = r.getLong(1); }
             }
+            DatabaseTable schema = findTable(c, tenantId, databaseId, tableId)
+                    .orElseThrow(() -> new SQLException("table not found in tenant database"));
             List<DatabaseRecord> records = new ArrayList<>();
             String sql = "SELECT id,tenant_id,database_id,table_id,revision,record_data::text,created_at,updated_at FROM workspace_database_records WHERE "
                     + where + " ORDER BY created_at ASC,id ASC LIMIT ? OFFSET ?";
@@ -135,8 +137,6 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
                     while (r.next()) {
                         UUID id=uuid(r,1), tenant=uuid(r,2), db=uuid(r,3), table=uuid(r,4);
                         long revision=r.getLong(5); String data=r.getString(6);
-                        DatabaseTable schema=findTable(c,tenant,db,table)
-                                .orElseThrow(()->new SQLException("record table missing"));
                         records.add(new DatabaseRecord(id,tenant,db,table,revision,decodeValues(schema,data),instant(r,7),instant(r,8)));
                     }
                 }
