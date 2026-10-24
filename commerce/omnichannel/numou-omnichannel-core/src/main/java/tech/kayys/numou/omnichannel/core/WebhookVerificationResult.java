@@ -18,7 +18,7 @@ public record WebhookVerificationResult(boolean verified, String reasonCode) {
         }
     }
 
-    public static WebhookVerificationResult verified() {
+    public static WebhookVerificationResult success() {
         return new WebhookVerificationResult(true, "VERIFIED");
     }
 
