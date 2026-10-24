@@ -1,0 +1,109 @@
+package tech.kayys.numou.workspace.application;
+
+import tech.kayys.numou.workspace.application.WorkspacePorts.AccessPolicy;
+import tech.kayys.numou.workspace.application.WorkspacePorts.Action;
+import tech.kayys.numou.workspace.application.WorkspacePorts.AuditEntry;
+import tech.kayys.numou.workspace.application.WorkspacePorts.Resource;
+import tech.kayys.numou.workspace.application.WorkspacePorts.StructuredDatabaseRepository;
+import tech.kayys.numou.workspace.domain.DatabaseProperty;
+import tech.kayys.numou.workspace.domain.DatabaseRecord;
+import tech.kayys.numou.workspace.domain.DatabaseTable;
+import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Use cases for neutral workspace databases. Repository adapters must persist each mutation
+ * and its audit row atomically, and must implement record revision compare-and-swap.
+ */
+public final class StructuredDatabaseService {
+    private final StructuredDatabaseRepository repository;
+    private final AccessPolicy accessPolicy;
+    private final Clock clock;
+
+    public StructuredDatabaseService(StructuredDatabaseRepository repository, AccessPolicy accessPolicy, Clock clock) {
+        this.repository = Objects.requireNonNull(repository, "repository");
+        this.accessPolicy = Objects.requireNonNull(accessPolicy, "accessPolicy");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    public WorkspaceDatabase createDatabase(UUID tenantId, UUID workspaceId, UUID actorId, String name) {
+        accessPolicy.require(tenantId, actorId, Resource.WORKSPACE, workspaceId, Action.UPDATE);
+        Instant now = clock.instant();
+        WorkspaceDatabase database = WorkspaceDatabase.create(tenantId, workspaceId, actorId, name, now);
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_CREATED", "DATABASE", database.id(), 1,
+                "Created workspace database");
+        if (!repository.saveDatabase(database, audit)) {
+            throw new IllegalStateException("database was not persisted; name may already exist");
+        }
+        return database;
+    }
+
+    public DatabaseTable createTable(UUID tenantId, UUID actorId, UUID databaseId, String name,
+                                     List<DatabaseProperty> properties) {
+        WorkspaceDatabase database = requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        Instant now = clock.instant();
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenantId, database.id(), name, 1, properties);
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_TABLE_CREATED", "DATABASE_TABLE", table.id(), 1,
+                "Created table in workspace database");
+        if (!repository.saveTable(table, audit)) {
+            throw new IllegalStateException("table was not persisted; name may already exist");
+        }
+        return table;
+    }
+
+    public DatabaseRecord createRecord(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId,
+                                       Map<String, Object> values) {
+        requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        DatabaseTable table = repository.findTable(tenantId, databaseId, tableId)
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.UPDATE);
+        DatabaseRecord record = DatabaseRecord.create(tenantId, databaseId, table, values, clock.instant());
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_RECORD_CREATED", "DATABASE_RECORD", record.id(),
+                record.revision(), "Created structured record");
+        if (!repository.saveRecord(record, 0, audit)) {
+            throw new IllegalStateException("record was not created; identifier conflict");
+        }
+        return record;
+    }
+
+    public DatabaseRecord updateRecord(UUID tenantId, UUID actorId, UUID recordId, long expectedRevision,
+                                       Map<String, Object> values) {
+        if (expectedRevision < 1) throw new IllegalArgumentException("expectedRevision must be positive");
+        DatabaseRecord current = repository.findRecord(tenantId, recordId)
+                .orElseThrow(() -> new IllegalArgumentException("record not found"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_RECORD, recordId, Action.UPDATE);
+        DatabaseTable table = repository.findTable(tenantId, current.databaseId(), current.tableId())
+                .orElseThrow(() -> new IllegalStateException("record schema no longer exists"));
+        DatabaseRecord updated = current.update(table, expectedRevision, values, clock.instant());
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_RECORD_UPDATED", "DATABASE_RECORD", recordId,
+                updated.revision(), "Updated structured record");
+        if (!repository.saveRecord(updated, expectedRevision, audit)) {
+            throw new IllegalStateException("record revision conflict or persistence failure");
+        }
+        return updated;
+    }
+
+    public Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID actorId, UUID databaseId) {
+        WorkspaceDatabase database = requireDatabase(tenantId, actorId, databaseId, Action.READ);
+        return Optional.of(database);
+    }
+
+    private WorkspaceDatabase requireDatabase(UUID tenantId, UUID actorId, UUID databaseId, Action action) {
+        WorkspaceDatabase database = repository.findDatabase(tenantId, databaseId)
+                .orElseThrow(() -> new IllegalArgumentException("database not found"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE, databaseId, action);
+        return database;
+    }
+
+    private AuditEntry audit(UUID tenantId, UUID actorId, String action, String type, UUID id,
+                             long revision, String summary) {
+        return new AuditEntry(tenantId, actorId, action, type, id, revision, summary, clock.instant());
+    }
+}
