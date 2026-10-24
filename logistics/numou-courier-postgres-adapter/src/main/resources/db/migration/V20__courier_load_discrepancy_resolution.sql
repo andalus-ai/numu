@@ -14,6 +14,7 @@ CREATE TABLE courier_dispatch_wave_discrepancy_resolutions (
     evidence_reference VARCHAR(500),
     source VARCHAR(64) NOT NULL,
     idempotency_key VARCHAR(160) NOT NULL,
+    payload_fingerprint VARCHAR(128) NOT NULL,
     occurred_at TIMESTAMPTZ NOT NULL,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (tenant_id, id),
@@ -36,6 +37,7 @@ CREATE TABLE courier_dispatch_wave_discrepancy_resolutions (
     CONSTRAINT ck_courier_wave_resolution_permission CHECK (length(trim(permission_reference)) BETWEEN 1 AND 200),
     CONSTRAINT ck_courier_wave_resolution_source CHECK (length(trim(source)) BETWEEN 1 AND 64),
     CONSTRAINT ck_courier_wave_resolution_idempotency CHECK (length(trim(idempotency_key)) BETWEEN 1 AND 160),
+    CONSTRAINT ck_courier_wave_resolution_fingerprint CHECK (length(trim(payload_fingerprint)) BETWEEN 1 AND 128),
     CONSTRAINT ck_courier_wave_resolution_parcel CHECK (length(trim(parcel_reference)) BETWEEN 1 AND 160),
     CONSTRAINT ck_courier_wave_resolution_time CHECK (recorded_at >= occurred_at),
     CONSTRAINT ck_courier_wave_resolution_discrepancy_ref CHECK (
