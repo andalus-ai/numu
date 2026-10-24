@@ -25,6 +25,19 @@ class WarehouseRecoveryAuditExportJobTest {
                 "worker-a", "cursor-3", 49, 5000, now.plusSeconds(2), now.plusSeconds(90)));
     }
 
+    @Test void yieldedCheckpointCanBeClaimedImmediatelyByAnotherWorker() {
+        var running = requested().claim("worker-a", now, now.plusSeconds(30));
+        var checkpoint = running.checkpoint("worker-a", "cursor-2", 10, 1024,
+                now.plusSeconds(1), now.plusSeconds(30));
+        var yielded = checkpoint.yieldForResume("worker-a", now.plusSeconds(2));
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.REQUESTED, yielded.status());
+        assertNull(yielded.leaseOwner());
+        assertEquals("cursor-2", yielded.continuationCursor());
+        assertEquals(checkpoint.version() + 1, yielded.version());
+        var resumed = yielded.claim("worker-b", now.plusSeconds(3), now.plusSeconds(40));
+        assertEquals("worker-b", resumed.leaseOwner());
+    }
+
     @Test void liveLeaseCannotBeStolenButExpiredLeaseCanBeReclaimed() {
         var running = requested().claim("worker-a", now, now.plusSeconds(30));
         assertThrows(IllegalStateException.class,
