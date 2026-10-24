@@ -43,7 +43,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V7__workspace_domain_invariants.sql",
             "/db/migration/V8__workspace_page_parent_invariant.sql",
             "/db/migration/V9__workspace_audit_invariants.sql",
-            "/db/migration/V10__workspace_page_hierarchy_cycle_invariant.sql");
+            "/db/migration/V10__workspace_page_hierarchy_cycle_invariant.sql",
+            "/db/migration/V11__workspace_revision_snapshot_integrity.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -227,6 +228,54 @@ class JdbcWorkspaceStorePostgresTest {
                 .stream().allMatch(hit -> hit.spaceId().equals(space.id())));
     }
 
+
+    @Test
+    void databaseEnforcesRevisionSnapshotConsistencyAndImmutability() throws SQLException {
+        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Revision snapshot integrity", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "revision-snapshots", now);
+        assertTrue(store.save(space));
+
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Current title", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        // Direct SQL cannot append a snapshot with a stale revision number or title.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "INSERT INTO workspace_page_revisions(tenant_id,page_id,revision,title,actor_id,recorded_at,change_summary) VALUES(?,?,?,?,?,?,?)")) {
+            p.setObject(1, tenant);
+            p.setObject(2, page.id());
+            p.setLong(3, 1);
+            p.setString(4, "Forged title");
+            p.setObject(5, actor);
+            p.setTimestamp(6, java.sql.Timestamp.from(now.plusSeconds(1)));
+            p.setString(7, "mismatched title");
+            assertThrows(SQLException.class, p::executeUpdate);
+
+            p.setLong(3, 2);
+            p.setString(4, "Current title");
+            p.setString(7, "mismatched revision");
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+
+        // Historical snapshots are append-only, even for direct SQL callers.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_page_revisions SET title=? WHERE tenant_id=? AND page_id=? AND revision=1")) {
+            p.setString(1, "Rewritten history");
+            p.setObject(2, tenant);
+            p.setObject(3, page.id());
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+
+        List<PageRevision> history = store.history(tenant, page.id());
+        assertEquals(1, history.size());
+        assertEquals("Current title", history.get(0).title());
+        assertEquals(1, history.get(0).revision());
+    }
 
     @Test
     void databaseRejectsPageHierarchyCycles() throws SQLException {
