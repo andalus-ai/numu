@@ -57,31 +57,40 @@ public final class TransportContainer {
     public void addParcel(String parcelReference, Instant now) {
         requireStatus(TransportContainerStatus.OPEN);
         String parcel = required(parcelReference, 160, "parcelReference");
-        if (!parcelReferences.add(parcel)) throw new IllegalArgumentException("parcel already belongs to this container");
-        touch(now);
+        Instant at = monotonic(now);
+        if (parcelReferences.contains(parcel)) throw new IllegalArgumentException("parcel already belongs to this container");
+        parcelReferences.add(parcel);
+        updatedAt = at;
     }
 
     public void removeParcel(String parcelReference, Instant now) {
         requireStatus(TransportContainerStatus.OPEN);
         String parcel = required(parcelReference, 160, "parcelReference");
-        if (!parcelReferences.remove(parcel)) throw new IllegalArgumentException("parcel is not in this container");
-        touch(now);
+        Instant at = monotonic(now);
+        if (!parcelReferences.contains(parcel)) throw new IllegalArgumentException("parcel is not in this container");
+        parcelReferences.remove(parcel);
+        updatedAt = at;
     }
 
     public void seal(String sealReference, String actorReference, Instant now) {
         requireStatus(TransportContainerStatus.OPEN);
         if (parcelReferences.isEmpty()) throw new IllegalStateException("empty container cannot be sealed");
-        this.sealReference = required(sealReference, 160, "sealReference");
-        this.sealedBy = required(actorReference, 160, "actorReference");
-        this.sealedAt = monotonic(now);
+        Instant at = monotonic(now);
+        String validatedSeal = required(sealReference, 160, "sealReference");
+        String validatedActor = required(actorReference, 160, "actorReference");
+        this.sealReference = validatedSeal;
+        this.sealedBy = validatedActor;
+        this.sealedAt = at;
         this.updatedAt = sealedAt;
         this.status = TransportContainerStatus.SEALED;
     }
 
     public void dispatch(String manifestReference, Instant now) {
         requireStatus(TransportContainerStatus.SEALED);
-        this.dispatchedWithManifestReference = required(manifestReference, 160, "manifestReference");
-        this.dispatchedAt = monotonic(now);
+        Instant at = monotonic(now);
+        String validatedManifest = required(manifestReference, 160, "manifestReference");
+        this.dispatchedWithManifestReference = validatedManifest;
+        this.dispatchedAt = at;
         this.updatedAt = dispatchedAt;
         this.status = TransportContainerStatus.DISPATCHED;
     }
@@ -94,8 +103,9 @@ public final class TransportContainer {
         if (!sealReference.equals(observed)) {
             throw new IllegalStateException("seal mismatch; route through the seal-exception workflow");
         }
+        Instant at = monotonic(now);
         this.receivedBy = actor;
-        this.receivedAt = monotonic(now);
+        this.receivedAt = at;
         this.updatedAt = receivedAt;
         this.status = TransportContainerStatus.RECEIVED;
     }
@@ -105,7 +115,8 @@ public final class TransportContainer {
         if (status != TransportContainerStatus.OPEN) {
             throw new IllegalStateException("only an open container can be cancelled");
         }
-        touch(now);
+        Instant at = monotonic(now);
+        updatedAt = at;
         status = TransportContainerStatus.CANCELLED;
     }
 
