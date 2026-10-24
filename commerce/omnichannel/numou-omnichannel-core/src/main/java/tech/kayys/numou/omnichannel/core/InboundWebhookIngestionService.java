@@ -16,19 +16,22 @@ import java.util.stream.Collectors;
  * Coordinates signature verification, durable inbox deduplication, payload
  * persistence, and the durable RECEIVED-to-VERIFIED transition. Business
  * dispatch is deliberately left to a leased worker.
+ *
+ * The byte limit is a defense-in-depth bound; HTTP adapters must also reject
+ * oversized bodies before buffering them into an InboundWebhookRequest.
  */
 public final class InboundWebhookIngestionService {
+    public static final int DEFAULT_MAX_PAYLOAD_BYTES = 1_048_576;
+
     private final Map<String, ProviderWebhookVerifier> verifiers;
     private final InboundEventInbox inbox;
     private final InboundPayloadStore payloadStore;
     private final InboundEventVerificationStore verificationStore;
     private final Clock clock;
     private final Duration payloadRetention;
+    private final int maxPayloadBytes;
 
-    /**
-     * Preferred constructor when provider capabilities are available: the
-     * registry validates declarations before the ingestion service is wired.
-     */
+    /** Preferred constructor when provider capabilities are available. */
     public InboundWebhookIngestionService(
             ProviderWebhookAdapterRegistry registry,
             InboundEventInbox inbox,
@@ -36,10 +39,24 @@ public final class InboundWebhookIngestionService {
             InboundEventVerificationStore verificationStore,
             Clock clock,
             Duration payloadRetention) {
-        this(Objects.requireNonNull(registry, "registry must not be null").verifiers(),
-                inbox, payloadStore, verificationStore, clock, payloadRetention);
+        this(registry, inbox, payloadStore, verificationStore, clock, payloadRetention,
+                DEFAULT_MAX_PAYLOAD_BYTES);
     }
 
+    /** Registry-based constructor with an explicit per-request body limit. */
+    public InboundWebhookIngestionService(
+            ProviderWebhookAdapterRegistry registry,
+            InboundEventInbox inbox,
+            InboundPayloadStore payloadStore,
+            InboundEventVerificationStore verificationStore,
+            Clock clock,
+            Duration payloadRetention,
+            int maxPayloadBytes) {
+        this(Objects.requireNonNull(registry, "registry must not be null").verifiers(),
+                inbox, payloadStore, verificationStore, clock, payloadRetention, maxPayloadBytes);
+    }
+
+    /** Compatibility constructor using the default 1 MiB body limit. */
     public InboundWebhookIngestionService(
             List<ProviderWebhookVerifier> verifiers,
             InboundEventInbox inbox,
@@ -47,6 +64,19 @@ public final class InboundWebhookIngestionService {
             InboundEventVerificationStore verificationStore,
             Clock clock,
             Duration payloadRetention) {
+        this(verifiers, inbox, payloadStore, verificationStore, clock, payloadRetention,
+                DEFAULT_MAX_PAYLOAD_BYTES);
+    }
+
+    /** List-based compatibility constructor with an explicit per-request body limit. */
+    public InboundWebhookIngestionService(
+            List<ProviderWebhookVerifier> verifiers,
+            InboundEventInbox inbox,
+            InboundPayloadStore payloadStore,
+            InboundEventVerificationStore verificationStore,
+            Clock clock,
+            Duration payloadRetention,
+            int maxPayloadBytes) {
         Objects.requireNonNull(verifiers, "verifiers must not be null");
         this.verifiers = verifiers.stream().collect(Collectors.toUnmodifiableMap(
                 verifier -> requiredProviderId(verifier.providerId()), Function.identity()));
@@ -58,10 +88,18 @@ public final class InboundWebhookIngestionService {
         if (payloadRetention.isZero() || payloadRetention.isNegative()) {
             throw new IllegalArgumentException("payloadRetention must be positive");
         }
+        if (maxPayloadBytes < 1) {
+            throw new IllegalArgumentException("maxPayloadBytes must be positive");
+        }
+        this.maxPayloadBytes = maxPayloadBytes;
     }
 
     public InboundIngestionResult ingest(InboundWebhookRequest request) {
         Objects.requireNonNull(request, "request must not be null");
+        if (request.rawBodyLength() > maxPayloadBytes) {
+            return result(InboundIngestionDisposition.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", null);
+        }
+
         ProviderWebhookVerifier verifier = verifiers.get(request.providerId());
         if (verifier == null) {
             return result(InboundIngestionDisposition.REJECTED, "UNSUPPORTED_PROVIDER", null);
