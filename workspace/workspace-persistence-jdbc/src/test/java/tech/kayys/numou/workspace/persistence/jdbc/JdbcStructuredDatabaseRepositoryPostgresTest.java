@@ -19,6 +19,11 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -201,6 +206,51 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
 
         assertEquals("ready", repository.findRecord(tenant, initial.id()).orElseThrow().values().get("title"));
         assertEquals(auditBefore + 1, countAuditRows());
+    }
+
+    @Test
+    void simultaneousUpdatesAtSameRevisionAllowExactlyOneWinner() throws Exception {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null)));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        DatabaseRecord initial = DatabaseRecord.create(tenant, database.id(), table, Map.of("title", "draft"), now);
+        assertTrue(repository.saveRecord(initial, 0,
+                audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_CREATED", 1)));
+        long auditBefore = countAuditRows();
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> first = executor.submit(() -> {
+                DatabaseRecord candidate = initial.update(table, 1, Map.of("title", "candidate-a"), now.plusSeconds(1));
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("start signal timed out");
+                return repository.saveRecord(candidate, 1,
+                        audit(candidate.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2));
+            });
+            Future<Boolean> second = executor.submit(() -> {
+                DatabaseRecord candidate = initial.update(table, 1, Map.of("title", "candidate-b"), now.plusSeconds(2));
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("start signal timed out");
+                return repository.saveRecord(candidate, 1,
+                        audit(candidate.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2));
+            });
+
+            assertTrue(ready.await(10, TimeUnit.SECONDS), "both writers should be ready");
+            start.countDown();
+            boolean firstWon = first.get(20, TimeUnit.SECONDS);
+            boolean secondWon = second.get(20, TimeUnit.SECONDS);
+
+            assertNotEquals(firstWon, secondWon, "exactly one writer must win revision 1 -> 2");
+            DatabaseRecord persisted = repository.findRecord(tenant, initial.id()).orElseThrow();
+            assertEquals(2, persisted.revision());
+            assertTrue(List.of("candidate-a", "candidate-b").contains(persisted.values().get("title")));
+            assertEquals(auditBefore + 1, countAuditRows(), "only the successful update should be audited");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

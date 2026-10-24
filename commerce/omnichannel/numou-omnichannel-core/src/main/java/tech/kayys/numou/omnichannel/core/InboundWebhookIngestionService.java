@@ -25,6 +25,21 @@ public final class InboundWebhookIngestionService {
     private final Clock clock;
     private final Duration payloadRetention;
 
+    /**
+     * Preferred constructor when provider capabilities are available: the
+     * registry validates declarations before the ingestion service is wired.
+     */
+    public InboundWebhookIngestionService(
+            ProviderWebhookAdapterRegistry registry,
+            InboundEventInbox inbox,
+            InboundPayloadStore payloadStore,
+            InboundEventVerificationStore verificationStore,
+            Clock clock,
+            Duration payloadRetention) {
+        this(Objects.requireNonNull(registry, "registry must not be null").verifiers(),
+                inbox, payloadStore, verificationStore, clock, payloadRetention);
+    }
+
     public InboundWebhookIngestionService(
             List<ProviderWebhookVerifier> verifiers,
             InboundEventInbox inbox,
