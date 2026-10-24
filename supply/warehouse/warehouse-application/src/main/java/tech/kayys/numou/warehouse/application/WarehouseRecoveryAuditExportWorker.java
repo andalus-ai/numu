@@ -68,7 +68,7 @@ public final class WarehouseRecoveryAuditExportWorker {
                 throw new IllegalStateException("Audit pagination cursor did not advance");
 
             byte[] chunk=encode(page.events(),job.exportedEventCount()==0&&job.exportedByteCount()==0);
-            String chunkId=job.exportId()+":"+job.version();
+            String chunkId=job.exportId()+":"+job.exportedByteCount();
             WarehouseRecoveryAuditArtifactStore.ArtifactSnapshot written=artifacts.appendChunk(
                     job.tenantId(),job.exportId(),chunkId,job.exportedByteCount(),chunk);
             if(written.byteSize()!=job.exportedByteCount()+chunk.length)
