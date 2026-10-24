@@ -159,17 +159,13 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         return Map.copyOf(values);
     }
 
-    private interface SqlWork<T> { T run(Connection connection) throws SQLException; }
-    private <T> T atomic(String operation,SqlWork<T> work) {
+    private interface SqlWork { boolean run(Connection connection) throws SQLException; }
+    private boolean atomic(String operation,SqlWork work) {
         try(Connection c=dataSource.getConnection()) {
             c.setAutoCommit(false);
-            try { T result=work.run(c);c.commit();return result; }
+            try { boolean result=work.run(c);c.commit();return result; }
             catch(SQLException|RuntimeException e) { try { c.rollback(); } catch(SQLException rollback) { e.addSuppressed(rollback); } throw e; }
-        } catch(SQLException e) { if(isConstraint(e)) return falseResult(operation,e); throw failure(operation,e); }
-    }
-    @SuppressWarnings("unchecked") private static <T> T falseResult(String operation,SQLException e) {
-        if(e.getSQLState()!=null && e.getSQLState().startsWith("23")) return (T)Boolean.FALSE;
-        throw failure(operation,e);
+        } catch(SQLException e) { if(isConstraint(e)) return false; throw failure(operation,e); }
     }
     private static void insertAudit(Connection c,AuditEntry a) throws SQLException {
         String sql="INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)";
@@ -216,10 +212,10 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
             final String s;int i;Parser(String s){this.s=Objects.requireNonNull(s);}
             void space(){while(i<s.length()&&Character.isWhitespace(s.charAt(i)))i++;}
             Object value(){space();if(i>=s.length())throw bad();char c=s.charAt(i);if(c=='"')return string();if(c=='{')return object();if(c=='[')return array();if(s.startsWith("true",i)){i+=4;return true;}if(s.startsWith("false",i)){i+=5;return false;}if(s.startsWith("null",i)){i+=4;return null;}return number();}
-            Map<String,Object> object(){i++;Map<String,Object> m=new LinkedHashMap<>();space();if(take('}'))return m;do{space();if(i>=s.length()||s.charAt(i)!='"')throw bad();String k=string();space();if(!take(':'))throw bad();if(m.put(k,value())!=null)throw bad();space();if(take('}'))return m;if(!take(','))throw bad();}while(true);}
+            Map<String,Object> object(){i++;Map<String,Object> m=new LinkedHashMap<>();space();if(take('}'))return m;do{space();if(i>=s.length()||s.charAt(i)!='"')throw bad();String k=string();space();if(!take(':'))throw bad();if(m.containsKey(k))throw bad();m.put(k,value());space();if(take('}'))return m;if(!take(','))throw bad();}while(true);}
             List<Object> array(){i++;List<Object> a=new ArrayList<>();space();if(take(']'))return a;do{a.add(value());space();if(take(']'))return a;if(!take(','))throw bad();}while(true);}
             String string(){i++;StringBuilder b=new StringBuilder();while(i<s.length()){char c=s.charAt(i++);if(c=='"')return b.toString();if(c=='\\'){if(i>=s.length())throw bad();char e=s.charAt(i++);switch(e){case '"','\\','/'->b.append(e);case 'b'->b.append('\b');case 'f'->b.append('\f');case 'n'->b.append('\n');case 'r'->b.append('\r');case 't'->b.append('\t');case 'u'->{if(i+4>s.length())throw bad();b.append((char)Integer.parseInt(s.substring(i,i+4),16));i+=4;}default->throw bad();}}else{if(c<0x20)throw bad();b.append(c);}}throw bad();}
-            BigDecimal number(){int start=i;if(take('-')){}while(i<s.length()&&Character.isDigit(s.charAt(i)))i++;if(take('.'))while(i<s.length()&&Character.isDigit(s.charAt(i)))i++;if(i<s.length()&&(s.charAt(i)=='e'||s.charAt(i)=='E')){i++;if(i<s.length()&&(s.charAt(i)=='+'||s.charAt(i)=='-'))i++;while(i<s.length()&&Character.isDigit(s.charAt(i)))i++;}try{return new BigDecimal(s.substring(start,i));}catch(RuntimeException e){throw bad();}}
+            BigDecimal number(){int start=i;if(take('-')&&i>=s.length())throw bad();if(take('0')){if(i<s.length()&&Character.isDigit(s.charAt(i)))throw bad();}else{if(i>=s.length()||s.charAt(i)<'1'||s.charAt(i)>'9')throw bad();while(i<s.length()&&Character.isDigit(s.charAt(i)))i++;}if(take('.')){int fraction=i;while(i<s.length()&&Character.isDigit(s.charAt(i)))i++;if(i==fraction)throw bad();}if(i<s.length()&&(s.charAt(i)=='e'||s.charAt(i)=='E')){i++;if(i<s.length()&&(s.charAt(i)=='+'||s.charAt(i)=='-'))i++;int exponent=i;while(i<s.length()&&Character.isDigit(s.charAt(i)))i++;if(i==exponent)throw bad();}try{return new BigDecimal(s.substring(start,i));}catch(RuntimeException e){throw bad();}}
             boolean take(char c){if(i<s.length()&&s.charAt(i)==c){i++;return true;}return false;}
             IllegalArgumentException bad(){return new IllegalArgumentException("invalid JSON at offset "+i);}
         }

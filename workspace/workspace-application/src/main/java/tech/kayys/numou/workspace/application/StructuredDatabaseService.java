@@ -65,6 +65,7 @@ public final class StructuredDatabaseService {
                 .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
         accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.UPDATE);
         DatabaseRecord record = DatabaseRecord.create(tenantId, databaseId, table, values, clock.instant());
+        validateRelationTargets(tenantId, actorId, table, record.values());
         AuditEntry audit = audit(tenantId, actorId, "DATABASE_RECORD_CREATED", "DATABASE_RECORD", record.id(),
                 record.revision(), "Created structured record");
         if (!repository.saveRecord(record, 0, audit)) {
@@ -82,6 +83,7 @@ public final class StructuredDatabaseService {
         DatabaseTable table = repository.findTable(tenantId, current.databaseId(), current.tableId())
                 .orElseThrow(() -> new IllegalStateException("record schema no longer exists"));
         DatabaseRecord updated = current.update(table, expectedRevision, values, clock.instant());
+        validateRelationTargets(tenantId, actorId, table, updated.values());
         AuditEntry audit = audit(tenantId, actorId, "DATABASE_RECORD_UPDATED", "DATABASE_RECORD", recordId,
                 updated.revision(), "Updated structured record");
         if (!repository.saveRecord(updated, expectedRevision, audit)) {
@@ -93,6 +95,34 @@ public final class StructuredDatabaseService {
     public Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID actorId, UUID databaseId) {
         WorkspaceDatabase database = requireDatabase(tenantId, actorId, databaseId, Action.READ);
         return Optional.of(database);
+    }
+
+    /**
+     * Relation fields may only reference readable records in the same database and the schema's
+     * declared target table. This keeps generic workspace links from bypassing tenant/resource ACLs.
+     */
+    private void validateRelationTargets(UUID tenantId, UUID actorId, DatabaseTable sourceTable,
+                                         Map<String, Object> values) {
+        for (DatabaseProperty property : sourceTable.properties()) {
+            if (property.type() != tech.kayys.numou.workspace.domain.DatabasePropertyType.RELATION) continue;
+            Object raw = values.get(property.key());
+            if (raw == null) continue;
+            if (!(raw instanceof List<?> targets)) {
+                throw new IllegalArgumentException("relation property '" + property.key() + "' must be a list");
+            }
+            for (Object targetId : targets) {
+                if (!(targetId instanceof UUID id)) {
+                    throw new IllegalArgumentException("relation property '" + property.key() + "' must contain record UUIDs");
+                }
+                DatabaseRecord target = repository.findRecord(tenantId, id)
+                        .orElseThrow(() -> new IllegalArgumentException("related record not found or not readable"));
+                if (!target.databaseId().equals(sourceTable.databaseId())
+                        || !target.tableId().equals(property.relatedTableId())) {
+                    throw new IllegalArgumentException("related record does not belong to the configured relation table");
+                }
+                accessPolicy.require(tenantId, actorId, Resource.DATABASE_RECORD, id, Action.READ);
+            }
+        }
     }
 
     private WorkspaceDatabase requireDatabase(UUID tenantId, UUID actorId, UUID databaseId, Action action) {

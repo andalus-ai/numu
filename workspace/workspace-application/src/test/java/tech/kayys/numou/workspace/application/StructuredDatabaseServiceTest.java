@@ -53,6 +53,59 @@ class StructuredDatabaseServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.createRecord(tenant, actor, database.id(), table.id(), Map.of()));
     }
 
+    @Test
+    void relationValuesMustResolveToReadableRecordsInTheConfiguredTable() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Relations");
+        DatabaseTable targetTable = service.createTable(tenant, actor, database.id(), "Targets", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                        DatabasePropertyType.TEXT, true, List.of(), null)));
+        DatabaseTable otherTable = service.createTable(tenant, actor, database.id(), "Other", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                        DatabasePropertyType.TEXT, true, List.of(), null)));
+        DatabaseTable sourceTable = service.createTable(tenant, actor, database.id(), "Sources", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "targets", "Targets",
+                        DatabasePropertyType.RELATION, false, List.of(), targetTable.id())));
+
+        DatabaseRecord target = service.createRecord(tenant, actor, database.id(), targetTable.id(),
+                Map.of("title", "Allowed target"));
+        DatabaseRecord other = service.createRecord(tenant, actor, database.id(), otherTable.id(),
+                Map.of("title", "Wrong table"));
+
+        DatabaseRecord linked = service.createRecord(tenant, actor, database.id(), sourceTable.id(),
+                Map.of("targets", List.of(target.id())));
+        assertEquals(List.of(target.id()), linked.values().get("targets"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createRecord(tenant, actor, database.id(), sourceTable.id(),
+                        Map.of("targets", List.of(other.id()))));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createRecord(tenant, actor, database.id(), sourceTable.id(),
+                        Map.of("targets", List.of(UUID.randomUUID()))));
+    }
+
+    @Test
+    void relationValuesRequireReadPermissionOnEveryTarget() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Protected relations");
+        DatabaseTable targetTable = service.createTable(tenant, actor, database.id(), "Targets", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                        DatabasePropertyType.TEXT, true, List.of(), null)));
+        DatabaseTable sourceTable = service.createTable(tenant, actor, database.id(), "Sources", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "targets", "Targets",
+                        DatabasePropertyType.RELATION, false, List.of(), targetTable.id())));
+        DatabaseRecord target = service.createRecord(tenant, actor, database.id(), targetTable.id(),
+                Map.of("title", "Private target"));
+        StructuredDatabaseService restricted = new StructuredDatabaseService(repository,
+                (t, a, resource, id, action) -> {
+                    if (resource == Resource.DATABASE_RECORD && action == Action.READ) {
+                        throw new SecurityException("record read denied");
+                    }
+                }, Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
+
+        assertThrows(SecurityException.class,
+                () -> restricted.createRecord(tenant, actor, database.id(), sourceTable.id(),
+                        Map.of("targets", List.of(target.id()))));
+    }
+
     private static final class InMemoryRepository implements StructuredDatabaseRepository {
         private final Map<UUID, WorkspaceDatabase> databases = new HashMap<>();
         private final Map<UUID, DatabaseTable> tables = new HashMap<>();
