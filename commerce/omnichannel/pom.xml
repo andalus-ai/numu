@@ -15,5 +15,6 @@
     <description>Optional channel coordination contracts that compose existing Numou business capabilities.</description>
     <modules>
         <module>numou-omnichannel-core</module>
+        <module>numou-omnichannel-postgres</module>
     </modules>
 </project>
