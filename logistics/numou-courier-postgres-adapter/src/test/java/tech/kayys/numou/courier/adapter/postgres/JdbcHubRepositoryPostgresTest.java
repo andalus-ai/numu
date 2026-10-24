@@ -29,6 +29,7 @@ class JdbcHubRepositoryPostgresTest {
     static JdbcShipmentRepository shipmentRepository;
     static JdbcTrackingEventRepository trackingRepository;
     static JdbcHubTransferRepository transferRepository;
+    static JdbcDeliveryTaskRepository deliveryTaskRepository;
 
     @BeforeAll
     static void migrateSchema() {
@@ -41,6 +42,7 @@ class JdbcHubRepositoryPostgresTest {
         shipmentRepository = new JdbcShipmentRepository(dataSource());
         trackingRepository = new JdbcTrackingEventRepository(dataSource());
         transferRepository = new JdbcHubTransferRepository(dataSource());
+        deliveryTaskRepository = new JdbcDeliveryTaskRepository(dataSource());
     }
 
     @Test
@@ -196,6 +198,48 @@ class JdbcHubRepositoryPostgresTest {
                 () -> transferRepository.save(tenant, transfer).toCompletableFuture().join());
         assertInstanceOf(IllegalStateException.class, failure.getCause());
         assertTrue(transferRepository.findById(tenant, transfer.id()).toCompletableFuture().join().isEmpty());
+    }
+
+
+    @Test
+    void deliveryTaskPersistsAssignmentAttemptsAndProofOfDeliveryTenantScoped() {
+        TenantId tenant = TenantId.generate();
+        TenantId other = TenantId.generate();
+        Shipment shipment = shipment(tenant, "SHIP-POD");
+        shipment.addParcel(parcel("PIECE-POD"), shipment.createdAt().plusSeconds(1));
+        shipment.book(shipment.createdAt().plusSeconds(2));
+        shipmentRepository.save(tenant, shipment).toCompletableFuture().join();
+
+        Instant assigned = shipment.createdAt().plusSeconds(3);
+        DeliveryTask task = DeliveryTask.assign(DeliveryTaskId.generate(), tenant, shipment.id(),
+                "courier-42", "dispatcher-3", assigned);
+        deliveryTaskRepository.save(tenant, task).toCompletableFuture().join();
+        task.startDelivery(assigned.plusSeconds(1));
+        deliveryTaskRepository.save(tenant, task).toCompletableFuture().join();
+        task.recordFailedAttempt("Recipient unavailable", assigned.plusSeconds(2));
+        deliveryTaskRepository.save(tenant, task).toCompletableFuture().join();
+        task.recordProofOfDelivery("Recipient A", "media://pod/tenant/object-1", assigned.plusSeconds(3));
+        deliveryTaskRepository.save(tenant, task).toCompletableFuture().join();
+
+        assertTrue(deliveryTaskRepository.findById(other, task.id()).toCompletableFuture().join().isEmpty());
+        assertTrue(deliveryTaskRepository.findActiveByShipment(tenant, shipment.id()).toCompletableFuture().join().isEmpty());
+        DeliveryTask loaded = deliveryTaskRepository.findById(tenant, task.id()).toCompletableFuture().join().orElseThrow();
+        assertEquals(DeliveryTaskStatus.DELIVERED, loaded.status());
+        assertEquals("Recipient A", loaded.recipientName());
+        assertEquals("media://pod/tenant/object-1", loaded.proofReference());
+    }
+
+    @Test
+    void deliveryTaskRejectsDraftShipment() {
+        TenantId tenant = TenantId.generate();
+        Shipment draft = shipment(tenant, "SHIP-DRAFT-POD");
+        shipmentRepository.save(tenant, draft).toCompletableFuture().join();
+        DeliveryTask task = DeliveryTask.assign(DeliveryTaskId.generate(), tenant, draft.id(),
+                "courier-43", "dispatcher-3", draft.createdAt().plusSeconds(1));
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> deliveryTaskRepository.save(tenant, task).toCompletableFuture().join());
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+        assertTrue(deliveryTaskRepository.findById(tenant, task.id()).toCompletableFuture().join().isEmpty());
     }
 
     @Test
