@@ -87,7 +87,7 @@ public class ScheduleChangeOutboxRelay {
     static long retryDelaySeconds(int attemptCount) {
         if (attemptCount < 1) throw new IllegalArgumentException("attemptCount must be >= 1");
         // 2, 4, 8, ... seconds, capped at five minutes to avoid overflow and retry storms.
-        return Math.min(300L, 1L << Math.min(attemptCount, 8));
+        return Math.min(300L, 1L << Math.min(attemptCount, 9));
     }
 
     private static String describe(Exception failure) {
