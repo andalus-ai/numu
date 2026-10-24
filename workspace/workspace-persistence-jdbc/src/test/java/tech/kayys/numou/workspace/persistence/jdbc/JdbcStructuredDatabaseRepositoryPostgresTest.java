@@ -184,6 +184,31 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
     }
 
     @Test
+    void queryUsesTenantTableScopeExactJsonFiltersAndStablePagination() {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("status", DatabasePropertyType.SELECT, true, List.of("todo", "done"), null)));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        String[][] rows = {{"A", "todo"}, {"B", "done"}, {"C", "todo"}};
+        for (int i = 0; i < rows.length; i++) {
+            String[] values = rows[i];
+            DatabaseRecord record = DatabaseRecord.create(tenant, database.id(), table,
+                    Map.of("title", values[0], "status", values[1]), now.plusSeconds(i));
+            assertTrue(repository.saveRecord(record, 0,
+                    audit(record.id(), "DATABASE_RECORD", "DATABASE_RECORD_CREATED", 1)));
+        }
+
+        DatabaseRecordPage page = repository.queryRecords(tenant, database.id(), table.id(), Map.of("status", "todo"), 1, 1);
+        assertEquals(2, page.total());
+        assertEquals(1, page.records().size());
+        assertEquals("C", page.records().get(0).values().get("title"));
+        assertEquals(0, repository.queryRecords(UUID.randomUUID(), database.id(), table.id(), Map.of(), 20, 0).total());
+        assertEquals(0, repository.queryRecords(tenant, database.id(), table.id(), Map.of(), 20, 0).records().stream()
+                .filter(record -> !record.tenantId().equals(tenant)).count());
+    }
+
+    @Test
     void readsAreTenantScopedAndStaleUpdatesDoNotWriteAuditRows() throws SQLException {
         WorkspaceDatabase database = createDatabase();
         DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(

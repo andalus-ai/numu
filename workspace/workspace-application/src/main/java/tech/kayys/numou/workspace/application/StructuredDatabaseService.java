@@ -7,6 +7,7 @@ import tech.kayys.numou.workspace.application.WorkspacePorts.Resource;
 import tech.kayys.numou.workspace.application.WorkspacePorts.StructuredDatabaseRepository;
 import tech.kayys.numou.workspace.domain.DatabaseProperty;
 import tech.kayys.numou.workspace.domain.DatabaseRecord;
+import tech.kayys.numou.workspace.domain.DatabaseRecordPage;
 import tech.kayys.numou.workspace.domain.DatabaseTable;
 import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
 
@@ -90,6 +91,39 @@ public final class StructuredDatabaseService {
             throw new IllegalStateException("record revision conflict or persistence failure");
         }
         return updated;
+    }
+
+    /**
+     * Lists records with bounded offset pagination and exact-match filters. The query is
+     * scoped to a table after workspace/database/table ACL checks; domain aggregates remain
+     * authoritative and should not be mirrored here as writable business state.
+     */
+    public DatabaseRecordPage queryRecords(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId,
+                                           Map<String, Object> filters, int limit, int offset) {
+        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
+        if (offset < 0) throw new IllegalArgumentException("offset cannot be negative");
+        requireDatabase(tenantId, actorId, databaseId, Action.READ);
+        DatabaseTable table = repository.findTable(tenantId, databaseId, tableId)
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.READ);
+        Map<String, Object> canonicalFilters = new java.util.LinkedHashMap<>();
+        if (filters != null) {
+            for (Map.Entry<String, Object> entry : filters.entrySet()) {
+                DatabaseProperty property = table.properties().stream()
+                        .filter(candidate -> candidate.key().equals(entry.getKey())).findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("unknown filter property: " + entry.getKey()));
+                if (entry.getValue() == null) throw new IllegalArgumentException("null filter values are not supported");
+                canonicalFilters.put(property.key(), property.validateValue(entry.getValue()));
+            }
+        }
+        DatabaseRecordPage page = repository.queryRecords(tenantId, databaseId, tableId,
+                Map.copyOf(canonicalFilters), limit, offset);
+        // Record-level policies may be stricter than table-level access. Fail closed rather
+        // than returning protected rows or exposing a partial page with misleading totals.
+        for (DatabaseRecord record : page.records()) {
+            accessPolicy.require(tenantId, actorId, Resource.DATABASE_RECORD, record.id(), Action.READ);
+        }
+        return page;
     }
 
     public Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID actorId, UUID databaseId) {
