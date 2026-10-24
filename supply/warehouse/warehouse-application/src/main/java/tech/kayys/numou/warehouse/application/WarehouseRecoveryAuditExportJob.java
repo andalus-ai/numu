@@ -58,6 +58,15 @@ public record WarehouseRecoveryAuditExportJob(
                 renewedLeaseUntil, worker, version + 1);
     }
 
+    /** Releases a checkpointed non-terminal page so another invocation can resume immediately. */
+    public WarehouseRecoveryAuditExportJob yieldForResume(String worker, Instant now) {
+        requireLease(worker, now);
+        if (continuationCursor == null) throw new IllegalStateException("completed pagination cannot be yielded for resume");
+        return new WarehouseRecoveryAuditExportJob(exportId, tenantId, requestedBy, Status.REQUESTED,
+                continuationCursor, exportedEventCount, exportedByteCount, artifactLocation, null,
+                createdAt, now, null, null, version + 1);
+    }
+
     public WarehouseRecoveryAuditExportJob beginVerification(String worker, Instant now, String location) {
         requireLease(worker, now);
         if (location == null || location.isBlank()) throw new IllegalArgumentException("artifact location is required");
