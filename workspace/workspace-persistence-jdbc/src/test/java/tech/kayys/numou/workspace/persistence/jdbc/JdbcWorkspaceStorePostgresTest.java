@@ -688,11 +688,11 @@ class JdbcWorkspaceStorePostgresTest {
 
         for (int i = 0; i < sql.length(); i++) {
             char ch = sql.charAt(i);
-            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\\0';
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
 
             if (lineComment) {
                 current.append(ch);
-                if (ch == '\\n') lineComment = false;
+                if (ch == '\n') lineComment = false;
                 continue;
             }
             if (blockComment) {
@@ -716,10 +716,10 @@ class JdbcWorkspaceStorePostgresTest {
             }
             if (singleQuoted) {
                 current.append(ch);
-                if (ch == '\\'' && next == '\\'') {
+                if (ch == '\'' && next == '\'') {
                     current.append(next);
                     i++;
-                } else if (ch == '\\'') {
+                } else if (ch == '\'') {
                     singleQuoted = false;
                 }
                 continue;
@@ -742,22 +742,14 @@ class JdbcWorkspaceStorePostgresTest {
                 current.append(ch).append(next);
                 i++;
                 blockComment = true;
-            } else if (ch == '\\'') {
+            } else if (ch == '\'') {
                 current.append(ch);
                 singleQuoted = true;
             } else if (ch == '"') {
                 current.append(ch);
                 doubleQuoted = true;
-            } else if (ch == '
-        }
-    }
-}
-) {
-                int end = sql.indexOf('
-        }
-    }
-}
-, i + 1);
+            } else if (ch == '$') {
+                int end = sql.indexOf('$', i + 1);
                 if (end >= 0) {
                     String tag = sql.substring(i, end + 1);
                     if (tag.matches("\\$[A-Za-z_0-9]*\\$")) {
@@ -779,6 +771,5 @@ class JdbcWorkspaceStorePostgresTest {
         }
         if (!current.toString().isBlank()) statements.add(current.toString().trim());
         return statements;
-        }
     }
 }
