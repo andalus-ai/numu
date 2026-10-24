@@ -113,6 +113,38 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         });
     }
 
+    @Override public DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId,
+                                                       Map<String, Object> filters, int limit, int offset) {
+        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
+        if (offset < 0) throw new IllegalArgumentException("offset cannot be negative");
+        String filterJson = Json.write(filters == null ? Map.of() : filters);
+        String where = "tenant_id=? AND database_id=? AND table_id=? AND archived_at IS NULL AND record_data @> CAST(? AS jsonb)";
+        try (Connection c = dataSource.getConnection()) {
+            long total;
+            try (PreparedStatement count = c.prepareStatement("SELECT count(*) FROM workspace_database_records WHERE " + where)) {
+                count.setObject(1, tenantId); count.setObject(2, databaseId); count.setObject(3, tableId); count.setString(4, filterJson);
+                try (ResultSet r = count.executeQuery()) { r.next(); total = r.getLong(1); }
+            }
+            List<DatabaseRecord> records = new ArrayList<>();
+            String sql = "SELECT id,tenant_id,database_id,table_id,revision,record_data::text,created_at,updated_at FROM workspace_database_records WHERE "
+                    + where + " ORDER BY created_at ASC,id ASC LIMIT ? OFFSET ?";
+            try (PreparedStatement p = c.prepareStatement(sql)) {
+                p.setObject(1, tenantId); p.setObject(2, databaseId); p.setObject(3, tableId); p.setString(4, filterJson);
+                p.setInt(5, limit); p.setInt(6, offset);
+                try (ResultSet r = p.executeQuery()) {
+                    while (r.next()) {
+                        UUID id=uuid(r,1), tenant=uuid(r,2), db=uuid(r,3), table=uuid(r,4);
+                        long revision=r.getLong(5); String data=r.getString(6);
+                        DatabaseTable schema=findTable(c,tenant,db,table)
+                                .orElseThrow(()->new SQLException("record table missing"));
+                        records.add(new DatabaseRecord(id,tenant,db,table,revision,decodeValues(schema,data),instant(r,7),instant(r,8)));
+                    }
+                }
+            }
+            return new DatabaseRecordPage(records, total, limit, offset);
+        } catch (SQLException e) { throw failure("query structured database records", e); }
+    }
+
     private List<DatabaseProperty> readProperties(Connection c,UUID tenant,UUID db,UUID table) throws SQLException {
         List<DatabaseProperty> out=new ArrayList<>();
         String sql="SELECT property_id,property_key,label,property_type,required,options::text,related_table_id FROM workspace_database_properties WHERE tenant_id=? AND database_id=? AND table_id=? ORDER BY property_key";
