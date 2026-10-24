@@ -43,7 +43,10 @@ class JdbcStructuredDatabaseRepositoryJsonTest {
 
     @Test
     void supportsJsonNullAndDetectsDuplicateKeysEvenWhenFirstValueIsNull() {
-        assertNull(JdbcStructuredDatabaseRepository.Json.read("{\"value\":null}"));
+        Object decoded = JdbcStructuredDatabaseRepository.Json.read("{\"value\":null}");
+        assertInstanceOf(Map.class, decoded);
+        assertTrue(((Map<?, ?>) decoded).containsKey("value"));
+        assertNull(((Map<?, ?>) decoded).get("value"));
         assertThrows(IllegalArgumentException.class,
                 () -> JdbcStructuredDatabaseRepository.Json.read("{\"value\":null,\"value\":1}"));
     }
