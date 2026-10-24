@@ -531,6 +531,12 @@ class JdbcWorkspaceStorePostgresTest {
         assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE",
                 UUID.randomUUID(), 0, now);
 
+        UUID foreignTenant = UUID.randomUUID();
+        Workspace foreignWorkspace = Workspace.create(foreignTenant, "Foreign tenant workspace", "", now);
+        assertTrue(store.save(foreignWorkspace));
+        assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE",
+                foreignWorkspace.id(), 0, now);
+
         try (Connection c = dataSource.getConnection();
              java.sql.PreparedStatement p = c.prepareStatement(
                      "INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)")) {
