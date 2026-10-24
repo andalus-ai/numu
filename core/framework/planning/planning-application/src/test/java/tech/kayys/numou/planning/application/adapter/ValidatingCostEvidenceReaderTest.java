@@ -46,7 +46,7 @@ class ValidatingCostEvidenceReaderTest {
     @Test
     void rejectsUnapprovedEvidenceAndDuplicateRows() {
         var unapproved = new ValidatingCostEvidenceReader(new StubReader(
-                List.of(budget(TENANT, STRUCTURE, NODE, BASELINE, CostEvidenceStatus.PENDING)),
+                List.of(budget(TENANT, STRUCTURE, NODE, BASELINE, CostEvidenceStatus.REJECTED)),
                 List.of()));
         assertThrows(IllegalStateException.class,
                 () -> unapproved.findApprovedBudgets(TENANT, STRUCTURE, BASELINE, List.of(NODE)));
