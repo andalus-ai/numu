@@ -52,7 +52,7 @@ class WarehouseRecoveryAuditExportJobTest {
 
     @Test void accessEventRequiresIdentityAndTenant() {
         assertThrows(IllegalArgumentException.class, () -> new WarehouseRecoveryAuditExportAccessEvent(
-                "event-1", "tenant-1", "exp-1", "operator-1",
+                "event-1", " ", "exp-1", "operator-1",
                 WarehouseRecoveryAuditExportAccessEvent.Action.DOWNLOAD,
                 WarehouseRecoveryAuditExportAccessEvent.Outcome.DENIED, "TENANT_SCOPE_MISMATCH", now));
     }
