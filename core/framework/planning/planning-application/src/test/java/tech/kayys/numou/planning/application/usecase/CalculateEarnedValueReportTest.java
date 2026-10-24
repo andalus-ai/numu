@@ -79,6 +79,71 @@ class CalculateEarnedValueReportTest {
         assertTrue(result.portfolio().isEmpty());
     }
 
+
+    @Test
+    void rejectsBudgetEvidenceForAnotherBaseline() {
+        var useCase = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> List.of(budget(NODE, UUID.randomUUID(), "1000")),
+                (tenant, structure, date, nodes) -> List.of(actual(NODE, date, "500")));
+        assertThrows(IllegalArgumentException.class, () -> useCase.execute(command()));
+    }
+
+    @Test
+    void rejectsActualCostForAnotherStructureOrReportingDate() {
+        var wrongStructure = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> List.of(budget(NODE, BASELINE, "1000")),
+                (tenant, structure, date, nodes) -> List.of(new CumulativeActualCostEvidence(
+                        TENANT, UUID.randomUUID(), NODE, date, "USD", new BigDecimal("500"),
+                        "actual:wrong-structure", CostEvidenceStatus.APPROVED,
+                        Instant.parse("2026-10-24T00:00:00Z"))));
+        assertThrows(IllegalArgumentException.class, () -> wrongStructure.execute(command()));
+
+        var wrongDate = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> List.of(budget(NODE, BASELINE, "1000")),
+                (tenant, structure, date, nodes) -> List.of(actual(NODE, date.minusDays(1), "500")));
+        assertThrows(IllegalArgumentException.class, () -> wrongDate.execute(command()));
+    }
+
+    @Test
+    void rejectsMixedCurrenciesRatherThanSilentlyConverting() {
+        var useCase = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> List.of(new BudgetedCostEvidence(
+                        TENANT, STRUCTURE, NODE, BASELINE, "EUR", new BigDecimal("1000"),
+                        "budget:eur", CostEvidenceStatus.APPROVED, Instant.parse("2026-10-01T00:00:00Z"))),
+                (tenant, structure, date, nodes) -> List.of(actual(NODE, date, "500")));
+        assertThrows(IllegalArgumentException.class, () -> useCase.execute(command()));
+    }
+
+    @Test
+    void rejectsDuplicateBudgetEvidenceForSameNode() {
+        var useCase = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> List.of(
+                        budget(NODE, BASELINE, "1000"), budget(NODE, BASELINE, "1000")),
+                (tenant, structure, date, nodes) -> List.of(actual(NODE, date, "500")));
+        assertThrows(IllegalArgumentException.class, () -> useCase.execute(command()));
+    }
+
+    @Test
+    void rejectsUnrequestedCostEvidenceNode() {
+        var useCase = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> List.of(budget(UUID.randomUUID(), BASELINE, "1000")),
+                (tenant, structure, date, nodes) -> List.of(actual(NODE, date, "500")));
+        assertThrows(IllegalArgumentException.class, () -> useCase.execute(command()));
+    }
+
+    @Test
+    void rejectsNullProviderResults() {
+        var nullBudgetSource = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> null,
+                (tenant, structure, date, nodes) -> List.of(actual(NODE, date, "500")));
+        assertThrows(NullPointerException.class, () -> nullBudgetSource.execute(command()));
+
+        var nullActualSource = new CalculateEarnedValueReport(
+                (tenant, structure, baseline, nodes) -> List.of(budget(NODE, BASELINE, "1000")),
+                (tenant, structure, date, nodes) -> null);
+        assertThrows(NullPointerException.class, () -> nullActualSource.execute(command()));
+    }
+
     private static CalculateEarnedValueReport.Command command() {
         return new CalculateEarnedValueReport.Command(
                 TENANT, STRUCTURE, BASELINE, DATE, "USD", List.of(progress(NODE)));
