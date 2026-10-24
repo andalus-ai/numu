@@ -91,7 +91,10 @@ public record HubScanCommand(
                 Objects.requireNonNull(containerId, "containerId is required for CONTAINER_RECEIVED");
                 required(observedSealReference, 160, "observedSealReference");
             }
-            case LOAD_DISCREPANCY -> required(discrepancyReason, 500, "discrepancyReason");
+            case LOAD_DISCREPANCY -> {
+                Objects.requireNonNull(dispatchWaveId, "dispatchWaveId is required for LOAD_DISCREPANCY");
+                required(discrepancyReason, 500, "discrepancyReason");
+            }
             case PICKUP_COLLECTED, HUB_INTAKE, SORTED, HUB_RECEIVED, EXCEPTION_RECORDED -> {
                 // No mandatory aggregate reference for these scan types.
             }
