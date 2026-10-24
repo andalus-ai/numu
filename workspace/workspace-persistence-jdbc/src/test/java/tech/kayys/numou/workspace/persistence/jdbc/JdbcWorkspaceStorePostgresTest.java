@@ -46,7 +46,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V9__workspace_audit_invariants.sql",
             "/db/migration/V10__workspace_page_hierarchy_cycle_invariant.sql",
             "/db/migration/V11__workspace_revision_snapshot_integrity.sql",
-            "/db/migration/V12__workspace_revision_blocks_immutable.sql");
+            "/db/migration/V12__workspace_revision_blocks_immutable.sql",
+            "/db/migration/V13__workspace_audit_action_semantics.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -520,6 +521,24 @@ class JdbcWorkspaceStorePostgresTest {
         assertAuditInsertRejected(tenant, actor, "   ", "WORKSPACE", UUID.randomUUID(), 0, now);
         assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "   ", UUID.randomUUID(), 0, now);
         assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE", UUID.randomUUID(), -1, now);
+        assertEquals(0, countAuditEvents(tenant));
+    }
+
+
+    @Test
+    void databaseRejectsKnownAuditActionsWithMismatchedResourceOrRevision() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+
+        // These checks must protect direct SQL writers as well as JdbcWorkspaceStore.
+        assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "PAGE", UUID.randomUUID(), 0, now);
+        assertAuditInsertRejected(tenant, actor, "SPACE_CREATED", "SPACE", UUID.randomUUID(), 1, now);
+        assertAuditInsertRejected(tenant, actor, "PAGE_CREATED", "PAGE", UUID.randomUUID(), 2, now);
+        assertAuditInsertRejected(tenant, actor, "PAGE_UPDATED", "PAGE", UUID.randomUUID(), 1, now);
+        assertAuditInsertRejected(tenant, actor, "PAGE_TEMPLATE_CREATED", "PAGE_TEMPLATE", UUID.randomUUID(), 0, now);
+        assertAuditInsertRejected(tenant, actor, "PAGE_LINK_CREATED", "PAGE_LINK", UUID.randomUUID(), 1, now);
+        assertAuditInsertRejected(tenant, actor, "PAGE_LINK_REMOVED", "WORKSPACE", UUID.randomUUID(), 0, now);
         assertEquals(0, countAuditEvents(tenant));
     }
 
