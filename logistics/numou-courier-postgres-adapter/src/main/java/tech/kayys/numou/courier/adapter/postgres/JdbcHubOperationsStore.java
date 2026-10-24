@@ -16,7 +16,10 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
-/** Transactional scan receipt, tracking and outbox writer. */
+/**
+ * Transactional scan receipt, custody transitions, tracking and outbox writer.
+ * Aggregate rows are locked tenant-scoped and transitions commit atomically with scan facts.
+ */
 @ApplicationScoped
 public class JdbcHubOperationsStore implements HubOperationsStore {
     private final DataSource dataSource;
@@ -38,8 +41,9 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
                 try (PreparedStatement s = c.prepareStatement("""
                     INSERT INTO courier_hub_scan_receipts
                       (tenant_id,id,source,idempotency_key,payload_fingerprint,shipment_id,
-                       parcel_reference,scan_type,hub_reference,actor_reference,occurred_at,received_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                       parcel_reference,scan_type,hub_reference,actor_reference,occurred_at,received_at,
+                       container_id,dispatch_wave_id,seal_reference,manifest_reference,observed_seal_reference)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT (tenant_id,source,idempotency_key) DO NOTHING
                     """)) {
                     s.setObject(1, command.tenantId().value());
@@ -54,6 +58,11 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
                     s.setString(10, command.actorReference());
                     s.setTimestamp(11, Timestamp.from(command.occurredAt()));
                     s.setTimestamp(12, Timestamp.from(command.receivedAt()));
+                    s.setObject(13, command.containerId());
+                    s.setObject(14, command.dispatchWaveId());
+                    s.setString(15, command.sealReference());
+                    s.setString(16, command.manifestReference());
+                    s.setString(17, command.observedSealReference());
                     inserted = s.executeUpdate();
                 }
                 if (inserted == 0) {
@@ -61,6 +70,7 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
                     c.commit();
                     return CompletableFuture.completedFuture(result);
                 }
+                applyCustodyTransition(c, command);
                 appendTracking(c, command);
                 appendOutbox(c, command);
                 c.commit();
@@ -77,6 +87,168 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
             return CompletableFuture.failedFuture(new IllegalStateException("Unable to open hub scan transaction", e));
         }
     }
+
+    private static void applyCustodyTransition(Connection c, HubScanCommand cmd) throws SQLException {
+        switch (cmd.type()) {
+            case CONTAINER_SEALED -> sealContainer(c, cmd);
+            case CONTAINER_DISPATCHED -> dispatchContainer(c, cmd);
+            case CONTAINER_RECEIVED -> receiveContainer(c, cmd);
+            case DISPATCH_LOADED -> recordWaveParcelScan(c, cmd);
+            case HUB_RECEIVED -> {
+                // General shipment arrival does not transition container custody; use CONTAINER_RECEIVED.
+            }
+            case PICKUP_COLLECTED, HUB_INTAKE, SORTED, EXCEPTION_RECORDED -> {
+                // No container/wave state transition implied by these scans.
+            }
+        }
+    }
+
+    private static void sealContainer(Connection c, HubScanCommand cmd) throws SQLException {
+        ContainerRow row = lockContainer(c, cmd);
+        if (!"OPEN".equals(row.status())) throw new IllegalStateException("only an open container can be sealed");
+        if (!row.origin().equalsIgnoreCase(cmd.hubReference()))
+            throw new IllegalStateException("container must be sealed at its origin hub");
+        try (PreparedStatement s = c.prepareStatement(
+                "SELECT count(*) FROM courier_transport_container_parcels WHERE tenant_id=? AND container_id=?")) {
+            s.setObject(1, cmd.tenantId().value());
+            s.setObject(2, cmd.containerId());
+            try (ResultSet r = s.executeQuery()) {
+                r.next();
+                if (r.getLong(1) == 0) throw new IllegalStateException("empty container cannot be sealed");
+            }
+        }
+        try (PreparedStatement s = c.prepareStatement("""
+                UPDATE courier_transport_containers
+                SET status='SEALED', seal_reference=?, sealed_by=?, sealed_at=?, updated_at=GREATEST(updated_at,?)
+                WHERE tenant_id=? AND id=? AND status='OPEN'
+                """)) {
+            s.setString(1, cmd.sealReference());
+            s.setString(2, requiredActor(cmd));
+            s.setTimestamp(3, Timestamp.from(cmd.occurredAt()));
+            s.setTimestamp(4, Timestamp.from(cmd.occurredAt()));
+            s.setObject(5, cmd.tenantId().value());
+            s.setObject(6, cmd.containerId());
+            requireOne(s.executeUpdate(), "container changed while sealing");
+        }
+    }
+
+    private static void dispatchContainer(Connection c, HubScanCommand cmd) throws SQLException {
+        ContainerRow container = lockContainer(c, cmd);
+        if (!"SEALED".equals(container.status()))
+            throw new IllegalStateException("only a sealed container can be dispatched");
+        if (!container.origin().equalsIgnoreCase(cmd.hubReference()))
+            throw new IllegalStateException("container must depart from its origin hub");
+        WaveRow wave = lockWave(c, cmd);
+        if (!"DEPARTED".equals(wave.status()))
+            throw new IllegalStateException("container dispatch requires a departed dispatch wave");
+        if (!container.origin().equalsIgnoreCase(wave.origin())
+                || !container.destination().equalsIgnoreCase(wave.destination()))
+            throw new IllegalStateException("container route does not match dispatch-wave route");
+        try (PreparedStatement s = c.prepareStatement("""
+                UPDATE courier_transport_containers
+                SET status='DISPATCHED', dispatched_with_manifest_reference=?, dispatched_at=?,
+                    updated_at=GREATEST(updated_at,?)
+                WHERE tenant_id=? AND id=? AND status='SEALED'
+                """)) {
+            s.setString(1, cmd.manifestReference());
+            s.setTimestamp(2, Timestamp.from(cmd.occurredAt()));
+            s.setTimestamp(3, Timestamp.from(cmd.occurredAt()));
+            s.setObject(4, cmd.tenantId().value());
+            s.setObject(5, cmd.containerId());
+            requireOne(s.executeUpdate(), "container changed while dispatching");
+        }
+    }
+
+    private static void receiveContainer(Connection c, HubScanCommand cmd) throws SQLException {
+        ContainerRow row = lockContainer(c, cmd);
+        if (!"DISPATCHED".equals(row.status()))
+            throw new IllegalStateException("only a dispatched container can be received");
+        if (!row.destination().equalsIgnoreCase(cmd.hubReference()))
+            throw new IllegalStateException("container must be received at its destination hub");
+        if (row.sealReference() == null || !row.sealReference().equals(cmd.observedSealReference()))
+            throw new IllegalStateException("seal mismatch; route through the seal-exception workflow");
+        try (PreparedStatement s = c.prepareStatement("""
+                UPDATE courier_transport_containers
+                SET status='RECEIVED', received_by=?, received_at=?, updated_at=GREATEST(updated_at,?)
+                WHERE tenant_id=? AND id=? AND status='DISPATCHED'
+                """)) {
+            s.setString(1, requiredActor(cmd));
+            s.setTimestamp(2, Timestamp.from(cmd.occurredAt()));
+            s.setTimestamp(3, Timestamp.from(cmd.occurredAt()));
+            s.setObject(4, cmd.tenantId().value());
+            s.setObject(5, cmd.containerId());
+            requireOne(s.executeUpdate(), "container changed while receiving");
+        }
+    }
+
+    private static void recordWaveParcelScan(Connection c, HubScanCommand cmd) throws SQLException {
+        WaveRow wave = lockWave(c, cmd);
+        if (!"LOADING".equals(wave.status()))
+            throw new IllegalStateException("dispatch-loaded scan requires a wave in LOADING state");
+        if (!wave.origin().equalsIgnoreCase(cmd.hubReference()))
+            throw new IllegalStateException("scan hub does not match dispatch-wave origin");
+        try (PreparedStatement s = c.prepareStatement("""
+                UPDATE courier_dispatch_wave_parcels
+                SET scan_count=scan_count+1, first_scanned_at=COALESCE(first_scanned_at,?),
+                    discrepancy=CASE WHEN expected THEN
+                        CASE WHEN scan_count > 0 THEN 'DUPLICATE' ELSE discrepancy END
+                        ELSE 'UNEXPECTED' END
+                WHERE tenant_id=? AND wave_id=? AND parcel_reference=?
+                RETURNING expected
+                """)) {
+            s.setTimestamp(1, Timestamp.from(cmd.occurredAt()));
+            s.setObject(2, cmd.tenantId().value());
+            s.setObject(3, cmd.dispatchWaveId());
+            s.setString(4, cmd.parcelReference());
+            try (ResultSet r = s.executeQuery()) {
+                if (!r.next()) throw new IllegalStateException("parcel is not registered in dispatch wave");
+                if (!r.getBoolean("expected")) throw new IllegalStateException("parcel is not expected in dispatch wave");
+            }
+        }
+    }
+
+    private static ContainerRow lockContainer(Connection c, HubScanCommand cmd) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement("""
+                SELECT status,origin_hub_reference,destination_hub_reference,seal_reference
+                FROM courier_transport_containers WHERE tenant_id=? AND id=? FOR UPDATE
+                """)) {
+            s.setObject(1, cmd.tenantId().value());
+            s.setObject(2, cmd.containerId());
+            try (ResultSet r = s.executeQuery()) {
+                if (!r.next()) throw new IllegalStateException("container not found in command tenant");
+                return new ContainerRow(r.getString("status"), r.getString("origin_hub_reference"),
+                        r.getString("destination_hub_reference"), r.getString("seal_reference"));
+            }
+        }
+    }
+
+    private static WaveRow lockWave(Connection c, HubScanCommand cmd) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement("""
+                SELECT status,origin_hub_reference,destination_hub_reference
+                FROM courier_dispatch_waves WHERE tenant_id=? AND id=? FOR UPDATE
+                """)) {
+            s.setObject(1, cmd.tenantId().value());
+            s.setObject(2, cmd.dispatchWaveId());
+            try (ResultSet r = s.executeQuery()) {
+                if (!r.next()) throw new IllegalStateException("dispatch wave not found in command tenant");
+                return new WaveRow(r.getString("status"), r.getString("origin_hub_reference"),
+                        r.getString("destination_hub_reference"));
+            }
+        }
+    }
+
+    private static String requiredActor(HubScanCommand cmd) {
+        if (cmd.actorReference() == null || cmd.actorReference().isBlank())
+            throw new IllegalStateException("custody transition requires an actor reference");
+        return cmd.actorReference();
+    }
+
+    private static void requireOne(int count, String message) {
+        if (count != 1) throw new IllegalStateException(message);
+    }
+
+    private record ContainerRow(String status, String origin, String destination, String sealReference) { }
+    private record WaveRow(String status, String origin, String destination) { }
 
     private static ScanReceiptResult existingReceipt(Connection c, HubScanCommand cmd) throws SQLException {
         try (PreparedStatement s = c.prepareStatement("""
@@ -133,8 +305,12 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
         String payload = "{\"scanType\":\"" + json(cmd.type().name())
             + "\",\"parcelReference\":\"" + json(cmd.parcelReference())
             + "\",\"hubReference\":\"" + json(cmd.hubReference())
-            + "\",\"actorReference\":" + (cmd.actorReference() == null ? "null"
-                : "\"" + json(cmd.actorReference()) + "\"") + "}";
+            + "\",\"containerId\":" + (cmd.containerId() == null ? "null" : "\"" + cmd.containerId() + "\"")
+            + ",\"dispatchWaveId\":" + (cmd.dispatchWaveId() == null ? "null" : "\"" + cmd.dispatchWaveId() + "\"")
+            + ",\"sealReference\":" + nullableJson(cmd.sealReference())
+            + ",\"manifestReference\":" + nullableJson(cmd.manifestReference())
+            + ",\"observedSealReference\":" + nullableJson(cmd.observedSealReference())
+            + ",\"actorReference\":" + nullableJson(cmd.actorReference()) + "}";
         try (PreparedStatement s = c.prepareStatement("""
             INSERT INTO courier_operational_outbox
               (tenant_id,id,aggregate_type,aggregate_id,shipment_id,event_type,event_key,occurred_at,payload)
@@ -143,7 +319,7 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
             """)) {
             s.setObject(1, cmd.tenantId().value());
             s.setObject(2, cmd.commandId());
-            s.setObject(3, cmd.shipmentId().value());
+            s.setObject(3, cmd.containerId() == null ? cmd.shipmentId().value() : cmd.containerId());
             s.setObject(4, cmd.shipmentId().value());
             s.setString(5, cmd.type().name());
             s.setString(6, "HUB_SCAN:" + cmd.source() + ":" + cmd.idempotencyKey());
@@ -151,6 +327,10 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
             s.setString(8, payload);
             s.executeUpdate();
         }
+    }
+
+    private static String nullableJson(String value) {
+        return value == null ? "null" : "\"" + json(value) + "\"";
     }
 
     private static String digest(String value) {
