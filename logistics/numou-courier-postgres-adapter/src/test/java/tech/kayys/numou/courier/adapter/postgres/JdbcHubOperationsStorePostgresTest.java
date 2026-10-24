@@ -94,6 +94,32 @@ class JdbcHubOperationsStorePostgresTest {
     }
 
     @Test
+    void invalidSealTransitionRollsBackReceiptTrackingAndOutbox() throws Exception {
+        Fixture fixture = fixture();
+        UUID containerId = createEmptyOpenContainer(fixture);
+        HubScanCommand command = new HubScanCommand(fixture.tenant(), UUID.randomUUID(), "scanner-a",
+                "device-1:seal-empty", "sha256:empty", fixture.shipment(), "parcel-1",
+                HubScanType.CONTAINER_SEALED, "hub-jkt", "operator-1", fixture.occurredAt(),
+                fixture.occurredAt().plusSeconds(1), containerId, null, "seal-empty", null, null);
+
+        assertThrows(RuntimeException.class, () -> store.ingest(command).toCompletableFuture().join());
+        assertEquals(0, count("courier_hub_scan_receipts", fixture.tenant()));
+        assertEquals(0, count("courier_tracking_events", fixture.tenant()));
+        assertEquals(0, count("courier_operational_outbox", fixture.tenant()));
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement statement = connection.prepareStatement(
+                "SELECT status FROM courier_transport_containers WHERE tenant_id=? AND id=?")) {
+            statement.setObject(1, fixture.tenant().value());
+            statement.setObject(2, containerId);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals("OPEN", result.getString("status"));
+            }
+        }
+    }
+
+    @Test
     void sameKeyWithDifferentFingerprintConflictsWithoutMutation() throws Exception {
         Fixture fixture = fixture();
         store.ingest(fixture.command("sha256:original")).toCompletableFuture().join();
@@ -134,6 +160,25 @@ class JdbcHubOperationsStorePostgresTest {
         assertEquals(1, count("courier_hub_scan_receipts", fixture.tenant()));
         assertEquals(1, count("courier_tracking_events", fixture.tenant()));
         assertEquals(1, count("courier_operational_outbox", fixture.tenant()));
+    }
+
+    private static UUID createEmptyOpenContainer(Fixture fixture) throws Exception {
+        UUID containerId = UUID.randomUUID();
+        try (Connection c = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement container = c.prepareStatement("""
+                INSERT INTO courier_transport_containers
+                  (tenant_id,id,reference,container_type,origin_hub_reference,destination_hub_reference,
+                   status,created_at,updated_at)
+                VALUES (?,?,'BAG-EMPTY','BAG','hub-jkt','hub-bdg','OPEN',?,?)
+                """)) {
+            container.setObject(1, fixture.tenant().value());
+            container.setObject(2, containerId);
+            container.setTimestamp(3, java.sql.Timestamp.from(fixture.occurredAt()));
+            container.setTimestamp(4, java.sql.Timestamp.from(fixture.occurredAt()));
+            container.executeUpdate();
+        }
+        return containerId;
     }
 
     private static UUID createOpenContainerWithParcel(Fixture fixture) throws Exception {
