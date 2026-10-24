@@ -83,6 +83,11 @@ public interface WarehouseExecutionAttemptRepository {
         throw new UnsupportedOperationException("Recovery operator audit queries are not supported by this repository");
     }
 
+    /** Return a bounded, newest-first audit page. The opaque cursor is tenant-scoped and stable across inserts. */
+    default WarehouseRecoveryAuditPage pageOperatorAuditEvents(String tenantId, int limit, String cursor) {
+        throw new UnsupportedOperationException("Paged recovery operator audit queries are not supported by this repository");
+    }
+
     /**
      * Atomically claim recoverable attempts for one worker. Implementations must use
      * durable leases and ensure competing workers do not receive the same live claim.
