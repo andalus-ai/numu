@@ -120,6 +120,52 @@ class JdbcHubOperationsStorePostgresTest {
     }
 
     @Test
+    void unexpectedParcelDiscrepancyIsPersistedWithoutSuccessfulLoadEvent() throws Exception {
+        Fixture fixture = fixture();
+        UUID waveId = createLoadingWave(fixture);
+        HubScanCommand command = new HubScanCommand(fixture.tenant(), UUID.randomUUID(), "scanner-a",
+                "device-1:unexpected-1", "sha256:unexpected", fixture.shipment(), "parcel-surprise",
+                HubScanType.LOAD_DISCREPANCY, "hub-jkt", "operator-1", fixture.occurredAt(),
+                fixture.occurredAt().plusSeconds(1), null, waveId, null, null, null,
+                "Parcel is absent from the signed manifest");
+
+        HubOperationsStore.ScanReceiptResult result = store.ingest(command).toCompletableFuture().join();
+
+        assertEquals(HubOperationsStore.Outcome.ACCEPTED, result.outcome());
+        assertEquals(1, count("courier_hub_scan_receipts", fixture.tenant()));
+        assertEquals(1, count("courier_tracking_events", fixture.tenant()));
+        assertEquals(1, count("courier_operational_outbox", fixture.tenant()));
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement statement = connection.prepareStatement("""
+                SELECT discrepancy_type,reason FROM courier_dispatch_wave_discrepancies
+                WHERE tenant_id=? AND wave_id=? AND parcel_reference=?
+                """)) {
+            statement.setObject(1, fixture.tenant().value());
+            statement.setObject(2, waveId);
+            statement.setString(3, "parcel-surprise");
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals("UNEXPECTED_PARCEL", resultSet.getString("discrepancy_type"));
+                assertEquals("Parcel is absent from the signed manifest", resultSet.getString("reason"));
+            }
+        }
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement statement = connection.prepareStatement("""
+                SELECT event_type FROM courier_tracking_events WHERE tenant_id=? AND shipment_id=?
+                """)) {
+            statement.setObject(1, fixture.tenant().value());
+            statement.setObject(2, fixture.shipment().value());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals("LOAD_DISCREPANCY", resultSet.getString("event_type"));
+                assertFalse(resultSet.next());
+            }
+        }
+    }
+
+    @Test
     void sameKeyWithDifferentFingerprintConflictsWithoutMutation() throws Exception {
         Fixture fixture = fixture();
         store.ingest(fixture.command("sha256:original")).toCompletableFuture().join();
@@ -160,6 +206,24 @@ class JdbcHubOperationsStorePostgresTest {
         assertEquals(1, count("courier_hub_scan_receipts", fixture.tenant()));
         assertEquals(1, count("courier_tracking_events", fixture.tenant()));
         assertEquals(1, count("courier_operational_outbox", fixture.tenant()));
+    }
+
+    private static UUID createLoadingWave(Fixture fixture) throws Exception {
+        UUID waveId = UUID.randomUUID();
+        try (Connection c = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement wave = c.prepareStatement("""
+                INSERT INTO courier_dispatch_waves
+                  (tenant_id,id,reference,origin_hub_reference,destination_hub_reference,status,created_at,updated_at)
+                VALUES (?,?,'WAVE-M16','hub-jkt','hub-bdg','LOADING',?,?)
+                """)) {
+            wave.setObject(1, fixture.tenant().value());
+            wave.setObject(2, waveId);
+            wave.setTimestamp(3, java.sql.Timestamp.from(fixture.occurredAt()));
+            wave.setTimestamp(4, java.sql.Timestamp.from(fixture.occurredAt()));
+            wave.executeUpdate();
+        }
+        return waveId;
     }
 
     private static UUID createEmptyOpenContainer(Fixture fixture) throws Exception {
