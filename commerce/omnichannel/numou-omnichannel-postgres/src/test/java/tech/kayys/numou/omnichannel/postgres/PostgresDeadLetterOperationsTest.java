@@ -76,7 +76,7 @@ class PostgresDeadLetterOperationsTest {
                 Optional.empty(), 3, 50));
 
         assertThat(results).hasSize(1);
-        assertThat(results.getFirst().key().tenantId().toString()).isEqualTo(tenant);
+        assertThat(results.get(0).key().tenantId().toString()).isEqualTo(tenant);
         assertThat(results.getFirst().key().externalEventId()).isEqualTo("evt-a");
     }
 
