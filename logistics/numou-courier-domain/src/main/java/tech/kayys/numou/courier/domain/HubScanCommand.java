@@ -65,7 +65,7 @@ public record HubScanCommand(
             throw new IllegalArgumentException("receivedAt must not be before occurredAt");
         }
         switch (type) {
-            case DISPATCH_LOADED, LOAD_DISCREPANCY -> Objects.requireNonNull(dispatchWaveId,
+            case DISPATCH_LOADED -> Objects.requireNonNull(dispatchWaveId,
                     "dispatchWaveId is required for DISPATCH_LOADED");
             case CONTAINER_SEALED -> {
                 Objects.requireNonNull(containerId, "containerId is required for CONTAINER_SEALED");
