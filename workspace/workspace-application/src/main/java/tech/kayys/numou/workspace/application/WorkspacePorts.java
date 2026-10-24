@@ -59,6 +59,8 @@ public final class WorkspacePorts {
   boolean saveRecord(DatabaseRecord record, long expectedRevision, AuditEntry audit);
   /** Exact-match JSONB filters; results must be tenant/database/table scoped and deterministically ordered. */
   DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId, java.util.Map<String, Object> filters, int limit, int offset);
+  /** Query with validated typed ordering; legacy adapters may retain deterministic default order. */
+  default DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId, java.util.Map<String, Object> filters, List<DatabaseViewSort> sorts, int limit, int offset) { return queryRecords(tenantId, databaseId, tableId, filters, limit, offset); }
   boolean saveView(DatabaseView view, AuditEntry audit);
   Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId);
   List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId);

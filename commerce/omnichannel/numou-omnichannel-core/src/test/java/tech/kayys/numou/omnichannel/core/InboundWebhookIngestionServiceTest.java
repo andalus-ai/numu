@@ -95,6 +95,48 @@ class InboundWebhookIngestionServiceTest {
         assertThat(payloads.deleted).isEqualTo(1);
     }
 
+    @Test
+    void rejectsOversizedPayloadBeforeVerificationOrPersistence() {
+        AtomicInteger verifications = new AtomicInteger();
+        AtomicInteger claims = new AtomicInteger();
+        AtomicInteger writes = new AtomicInteger();
+        ProviderWebhookVerifier verifier = new ProviderWebhookVerifier() {
+            @Override public String providerId() { return "test-provider"; }
+            @Override public WebhookVerificationResult verify(ProviderWebhookVerificationRequest request) {
+                verifications.incrementAndGet();
+                return WebhookVerificationResult.success();
+            }
+        };
+        InboundPayloadStore payloads = new PayloadStoreFake() {
+            @Override public InboundPayloadReference store(ChannelContext c, byte[] b, String h, Instant expiry) {
+                writes.incrementAndGet();
+                return super.store(c, b, h, expiry);
+            }
+        };
+        var service = new InboundWebhookIngestionService(List.of(verifier),
+                (provider, envelope) -> {
+                    claims.incrementAndGet();
+                    return new InboxClaimResult(InboundEventKey.from(envelope, provider),
+                            InboxClaimDisposition.ACCEPTED, Optional.empty());
+                }, payloads,
+                (key, digest, ref, at) -> new InboundVerificationResult(
+                        InboundVerificationDisposition.VERIFIED, Optional.of(ref)),
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofHours(1));
+
+        byte[] oversizedBody = new byte[InboundWebhookIngestionService.DEFAULT_MAX_PAYLOAD_BYTES + 1];
+        var oversizedRequest = new InboundWebhookRequest(CONTEXT, "test-provider", Map.of(),
+                oversizedBody, "event-large", "order.created", Optional.empty());
+
+        var result = service.ingest(oversizedRequest);
+
+        assertThat(result.disposition()).isEqualTo(InboundIngestionDisposition.PAYLOAD_TOO_LARGE);
+        assertThat(result.reasonCode()).isEqualTo("PAYLOAD_TOO_LARGE");
+        assertThat(result.payloadReference()).isEmpty();
+        assertThat(verifications).hasValue(0);
+        assertThat(claims).hasValue(0);
+        assertThat(writes).hasValue(0);
+    }
+
     private static InboundWebhookIngestionService service(
             WebhookVerificationResult verification,
             InboundEventInbox inbox,
