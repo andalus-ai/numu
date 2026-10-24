@@ -35,6 +35,17 @@ public record HubScanCommand(
         String discrepancyReason) {
 
     /** Compatibility constructor for scans that do not imply container/wave transitions. */
+    /** Compatibility constructor for callers before discrepancy evidence was introduced. */
+    public HubScanCommand(TenantId tenantId, UUID commandId, String source, String idempotencyKey,
+                          String payloadFingerprint, ShipmentId shipmentId, String parcelReference,
+                          HubScanType type, String hubReference, String actorReference,
+                          Instant occurredAt, Instant receivedAt, UUID containerId, UUID dispatchWaveId,
+                          String sealReference, String manifestReference, String observedSealReference) {
+        this(tenantId, commandId, source, idempotencyKey, payloadFingerprint, shipmentId, parcelReference,
+                type, hubReference, actorReference, occurredAt, receivedAt, containerId, dispatchWaveId,
+                sealReference, manifestReference, observedSealReference, null);
+    }
+
     public HubScanCommand(TenantId tenantId, UUID commandId, String source, String idempotencyKey,
                           String payloadFingerprint, ShipmentId shipmentId, String parcelReference,
                           HubScanType type, String hubReference, String actorReference,
