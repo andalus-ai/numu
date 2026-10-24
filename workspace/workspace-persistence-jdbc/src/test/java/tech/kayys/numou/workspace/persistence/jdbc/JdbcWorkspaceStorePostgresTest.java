@@ -258,6 +258,72 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
+    void concurrentParentChangesCannotCreateHierarchyCycle() throws Exception {
+        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Concurrent hierarchy", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "concurrent-hierarchy", now);
+        assertTrue(store.save(space));
+
+        Page first = Page.create(tenant, workspace.id(), space.id(), null, "First", List.of(), now);
+        Page second = Page.create(tenant, workspace.id(), space.id(), null, "Second", List.of(), now);
+        assertTrue(store.saveWithRevision(first, PageRevision.snapshot(first, actor, now, "first"), 0));
+        assertTrue(store.saveWithRevision(second, PageRevision.snapshot(second, actor, now, "second"), 0));
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> firstUpdate = executor.submit(
+                    () -> attemptParentChange(dataSource, tenant, first.id(), second.id(), ready, start));
+            Future<Boolean> secondUpdate = executor.submit(
+                    () -> attemptParentChange(dataSource, tenant, second.id(), first.id(), ready, start));
+
+            ready.await();
+            start.countDown();
+            boolean firstChanged = firstUpdate.get();
+            boolean secondChanged = secondUpdate.get();
+
+            assertTrue(firstChanged ^ secondChanged,
+                    "exactly one concurrent reparenting may commit; the other would close a cycle");
+            UUID firstParent = store.findPage(tenant, first.id()).orElseThrow().parentPageId();
+            UUID secondParent = store.findPage(tenant, second.id()).orElseThrow().parentPageId();
+            assertFalse(first.id().equals(secondParent) && second.id().equals(firstParent),
+                    "persisted hierarchy must not contain the two-page cycle");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static boolean attemptParentChange(
+            DataSource source,
+            UUID tenant,
+            UUID pageId,
+            UUID parentId,
+            CountDownLatch ready,
+            CountDownLatch start) throws Exception {
+        try (Connection connection = source.getConnection()) {
+            connection.setAutoCommit(false);
+            ready.countDown();
+            start.await();
+            try (java.sql.PreparedStatement statement = connection.prepareStatement(
+                    "UPDATE workspace_pages SET parent_page_id=? WHERE tenant_id=? AND id=?")) {
+                statement.setObject(1, parentId);
+                statement.setObject(2, tenant);
+                statement.setObject(3, pageId);
+                statement.executeUpdate();
+                connection.commit();
+                return true;
+            } catch (SQLException e) {
+                connection.rollback();
+                return false;
+            }
+        }
+    }
+
+    @Test
     void databaseRejectsInvalidAuditMetadata() throws SQLException {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
