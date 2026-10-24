@@ -34,7 +34,7 @@ class EncryptedFileSystemInboundPayloadStoreTest {
         Path file;
         try (var paths = Files.walk(tempDir)) { file = paths.filter(p -> p.toString().endsWith(".payload")).findFirst().orElseThrow(); }
         assertThat(new String(Files.readAllBytes(file), StandardCharsets.UTF_8)).doesNotContain(new String(payload, StandardCharsets.UTF_8));
-        assertThat(store.load(tenantA, ref)).contains(payload);
+        assertThat(store.load(tenantA, ref)).hasValueSatisfying(bytes -> assertThat(bytes).containsExactly(payload));
         assertThat(store.load(context("tenant-b"), ref)).isEmpty();
     }
 
