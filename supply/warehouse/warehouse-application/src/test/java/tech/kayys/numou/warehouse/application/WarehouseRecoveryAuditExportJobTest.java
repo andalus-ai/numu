@@ -67,6 +67,19 @@ class WarehouseRecoveryAuditExportJobTest {
         assertEquals(verifying.version() + 1, reclaimed.version());
     }
 
+    @Test void persistenceFailuresAreRetryableButDeterministicValidationFailuresAreNot() {
+        var sqlCause = new java.sql.SQLException("database temporarily unavailable");
+        var persistenceFailure = new WarehouseRecoveryAuditPersistenceException(
+                "Could not checkpoint export", sqlCause);
+        assertTrue(WarehouseRecoveryAuditExportWorker.isTransientFailure(persistenceFailure));
+        assertTrue(WarehouseRecoveryAuditExportWorker.isTransientFailure(
+                new java.io.IOException("artifact storage temporarily unavailable")));
+        assertTrue(WarehouseRecoveryAuditExportWorker.isTransientFailure(
+                new IllegalStateException("Export checkpoint lost optimistic version race")));
+        assertFalse(WarehouseRecoveryAuditExportWorker.isTransientFailure(
+                new IllegalStateException("Audit repository returned an event outside the job tenant")));
+    }
+
     @Test void persistenceExceptionPreservesOriginalCauseForRetryClassification() {
         var cause = new java.sql.SQLException("database temporarily unavailable");
         var failure = new WarehouseRecoveryAuditPersistenceException("Could not checkpoint export", cause);
