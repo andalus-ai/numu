@@ -155,7 +155,7 @@ class PostgresInboundEventWorkerLifecycleTest {
 
             @Override
             public Optional<byte[]> load(ChannelContext context, InboundPayloadReference reference) {
-                if (!"opaque-ref-" .concat(EVENT_ID).equals(reference.value())) return Optional.empty();
+                if (!("opaque-ref-" + EVENT_ID).equals(reference.value())) return Optional.empty();
                 if (!context.tenantId().equals(TenantId.of(tenant))) return Optional.empty();
                 return Optional.of(BODY.clone());
             }
@@ -201,6 +201,7 @@ class PostgresInboundEventWorkerLifecycleTest {
                 assertThat(rs.next()).isTrue();
                 Object value = rs.getObject(1);
                 if (value instanceof java.sql.Timestamp timestamp) return timestamp.toInstant();
+                if (value instanceof UUID uuid) return uuid.toString();
                 return value;
             }
         }
