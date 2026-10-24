@@ -66,7 +66,6 @@ public final class DeliveryTask {
         String normalizedRecipient = required(recipientName, 160, "recipientName");
         String normalizedProof = required(proofReference, 512, "proofReference");
         Instant next = monotonic(now);
-        recipientName = normalizedRecipient;
         this.recipientName = normalizedRecipient;
         this.proofReference = normalizedProof;
         deliveredAt = next;
@@ -109,6 +108,12 @@ public final class DeliveryTask {
             throw new IllegalArgumentException("lastAttemptAt must not be before outForDeliveryAt");
         if (deliveredAt != null && outForDeliveryAt == null)
             throw new IllegalArgumentException("deliveredAt requires outForDeliveryAt");
+        if (status == DeliveryTaskStatus.FAILED && outForDeliveryAt == null)
+            throw new IllegalArgumentException("failed delivery requires outForDeliveryAt");
+        if (status != DeliveryTaskStatus.DELIVERED && deliveredAt != null)
+            throw new IllegalArgumentException("only delivered tasks may have deliveredAt");
+        if (status != DeliveryTaskStatus.DELIVERED && (recipientName != null || proofReference != null))
+            throw new IllegalArgumentException("proof of delivery is only valid for delivered tasks");
         if (status == DeliveryTaskStatus.OUT_FOR_DELIVERY && outForDeliveryAt == null)
             throw new IllegalArgumentException("active delivery requires outForDeliveryAt");
         if (status == DeliveryTaskStatus.DELIVERY_ATTEMPTED && lastAttemptAt == null)
