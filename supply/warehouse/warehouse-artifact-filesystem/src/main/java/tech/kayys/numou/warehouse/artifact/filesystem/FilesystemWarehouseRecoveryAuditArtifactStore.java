@@ -17,6 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Durable local-filesystem adapter for single-host deployments and tests.
@@ -27,7 +28,14 @@ import java.util.Objects;
  * Use an object-store adapter for multi-host deployments.</p>
  */
 public final class FilesystemWarehouseRecoveryAuditArtifactStore implements WarehouseRecoveryAuditArtifactStore {
+    private static final ReentrantLock[] JVM_LOCKS = createLocks();
     private final Path root;
+
+    private static ReentrantLock[] createLocks() {
+        ReentrantLock[] locks = new ReentrantLock[64];
+        for (int i = 0; i < locks.length; i++) locks[i] = new ReentrantLock();
+        return locks;
+    }
 
     public FilesystemWarehouseRecoveryAuditArtifactStore(Path root) throws IOException {
         Objects.requireNonNull(root, "root");
@@ -50,6 +58,9 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
         Path artifact = dir.resolve("audit.csv");
         Path lockPath = dir.resolve("write.lock");
         Path receipt = dir.resolve("chunks").resolve(sha256(chunkId.getBytes(StandardCharsets.UTF_8)) + ".receipt");
+        ReentrantLock processLock = JVM_LOCKS[Math.floorMod(lockPath.hashCode(), JVM_LOCKS.length)];
+        processLock.lock();
+        try {
         try (FileChannel lockChannel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
              FileLock ignored = lockChannel.lock()) {
             if (!Files.exists(artifact)) Files.createFile(artifact);
@@ -106,6 +117,9 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
             forceDirectory(dir.resolve("chunks"));
             forceDirectory(dir);
             return snapshot(artifact);
+        }
+        } finally {
+            processLock.unlock();
         }
     }
 
