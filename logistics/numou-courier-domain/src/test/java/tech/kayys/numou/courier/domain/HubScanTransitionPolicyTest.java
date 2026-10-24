@@ -76,7 +76,16 @@ class HubScanTransitionPolicyTest {
     }
 
     private HubScanCommand command(HubScanType type, String hub) {
+        UUID containerId = (type == HubScanType.CONTAINER_SEALED
+                || type == HubScanType.CONTAINER_DISPATCHED
+                || type == HubScanType.CONTAINER_RECEIVED) ? UUID.randomUUID() : null;
+        UUID waveId = (type == HubScanType.DISPATCH_LOADED
+                || type == HubScanType.CONTAINER_DISPATCHED) ? UUID.randomUUID() : null;
         return new HubScanCommand(tenant, UUID.randomUUID(), "scanner", UUID.randomUUID().toString(),
-                "sha256:test", shipment, "parcel-1", type, hub, "operator-1", now, now.plusSeconds(1));
+                "sha256:test", shipment, "parcel-1", type, hub, "operator-1", now, now.plusSeconds(1),
+                containerId, waveId,
+                type == HubScanType.CONTAINER_SEALED ? "seal-1" : null,
+                type == HubScanType.CONTAINER_DISPATCHED ? "manifest-1" : null,
+                type == HubScanType.CONTAINER_RECEIVED ? "seal-1" : null);
     }
 }
