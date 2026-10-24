@@ -89,9 +89,7 @@ public final class WarehouseRecoveryAuditExportWorker {
         } catch(IOException|RuntimeException e) {
             // I/O and optimistic-lock failures may be transient. Leave the live lease to expire so
             // another worker can retry the same idempotent chunk from the last durable checkpoint.
-            boolean transientFailure=e instanceof IOException
-                    || e instanceof WarehouseRecoveryAuditPersistenceException
-                    || (e.getMessage()!=null&&e.getMessage().contains("version"));
+            boolean transientFailure=isTransientFailure(e);
             if(!transientFailure) {
                 try {
                     WarehouseRecoveryAuditExportJob latest=jobs.find(job.tenantId(),job.exportId()).orElse(job);
@@ -166,6 +164,12 @@ public final class WarehouseRecoveryAuditExportWorker {
         access.append(new WarehouseRecoveryAuditExportAccessEvent(UUID.randomUUID().toString(),
                 job.tenantId(),job.exportId(),actor,action,outcome,reason,clock.instant()));
     }
+    static boolean isTransientFailure(Exception e) {
+        return e instanceof IOException
+                || e instanceof WarehouseRecoveryAuditPersistenceException
+                || (e.getMessage()!=null && e.getMessage().contains("version"));
+    }
+
     private static String failureCode(Exception e) {
         if(e instanceof IllegalArgumentException) return "INVALID_EXPORT_PAGE";
         if(e instanceof IOException) return "ARTIFACT_IO_FAILURE";
