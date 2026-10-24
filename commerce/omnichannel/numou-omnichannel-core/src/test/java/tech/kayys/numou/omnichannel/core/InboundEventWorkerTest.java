@@ -68,6 +68,30 @@ class InboundEventWorkerTest {
     }
 
     @Test
+    void observerReceivesOutcomeAndSanitizedFailureWithoutChangingProcessing() {
+        Fixture f = new Fixture();
+        AtomicReference<InboundWorkerDisposition> outcome = new AtomicReference<>();
+        AtomicReference<String> errorCode = new AtomicReference<>();
+        InboundEventObserver observer = new InboundEventObserver() {
+            @Override public void onOutcome(InboundWorkerDisposition disposition) {
+                outcome.set(disposition);
+                throw new IllegalStateException("metrics backend unavailable");
+            }
+            @Override public void onFailure(String code, InboundWorkerDisposition disposition) {
+                errorCode.set(code);
+            }
+        };
+
+        InboundWorkerDisposition result = f.worker(
+                event -> { throw new IllegalStateException("sensitive provider payload"); }, observer).processNext();
+
+        assertThat(result).isEqualTo(InboundWorkerDisposition.RETRY_SCHEDULED);
+        assertThat(outcome.get()).isEqualTo(InboundWorkerDisposition.RETRY_SCHEDULED);
+        assertThat(errorCode.get()).isEqualTo("INBOUND_DISPATCH_FAILED");
+        assertThat(f.failureCode.get()).isEqualTo("INBOUND_DISPATCH_FAILED");
+    }
+
+    @Test
     void unleasedItemIsRejected() {
         Fixture f = new Fixture();
         InboundWorkItem unleased = new InboundWorkItem(
@@ -95,6 +119,10 @@ class InboundEventWorkerTest {
         }
 
         InboundEventWorker worker(InboundEventDispatcher dispatcher) {
+            return worker(dispatcher, InboundEventObserver.NOOP);
+        }
+
+        InboundEventWorker worker(InboundEventDispatcher dispatcher, InboundEventObserver observer) {
             InboundEventProcessingStore processing = new InboundEventProcessingStore() {
                 @Override public Optional<InboundWorkItem> claimNext(Instant now, Instant leaseUntil, int maxAttempts) {
                     return Optional.of(item);
@@ -125,7 +153,7 @@ class InboundEventWorkerTest {
                 @Override public boolean delete(ChannelContext context, InboundPayloadReference reference) { return true; }
             };
             return new InboundEventWorker(processing, metadata, payloads, dispatcher,
-                    Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(10), 5);
+                    Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(10), 5, observer);
         }
     }
 }
