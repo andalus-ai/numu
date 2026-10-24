@@ -145,9 +145,9 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         ScheduleChangeExecution applied = executions.applyAtomically(f.request, f.target, applying);
         assertEquals(ScheduleChangeExecution.Status.APPLIED, applied.status());
 
-        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        Instant now = Instant.now();
         UUID token = UUID.randomUUID();
-        var claimed = outboxRelayStore.claimDue(10, now, now.plusSeconds(30), token);
+        var claimed = outboxRelayStore.claimDue(1000, now, now.plusSeconds(30), token);
         var event = claimed.stream().filter(e -> e.executionId().equals(f.executionId)).findFirst().orElseThrow();
         assertEquals("ScheduleChangeApplied", event.eventType());
         assertTrue(event.payload().contains("\\"executionId\\":\\"" + f.executionId + "\\""));
@@ -156,7 +156,7 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertFalse(outboxRelayStore.markPublished(event.outboxId(), UUID.randomUUID(), now));
         assertTrue(outboxRelayStore.markPublished(event.outboxId(), token, now));
         assertFalse(outboxRelayStore.markPublished(event.outboxId(), token, now.plusSeconds(1)));
-        assertTrue(outboxRelayStore.claimDue(10, now.plusSeconds(1), now.plusSeconds(31), UUID.randomUUID())
+        assertTrue(outboxRelayStore.claimDue(1000, now.plusSeconds(1), now.plusSeconds(31), UUID.randomUUID())
                 .stream().noneMatch(e -> e.outboxId().equals(event.outboxId())));
     }
 
@@ -167,17 +167,17 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
                 f.executionId, f.request, f.initiator, f.startedAt, f.base.revision());
         executions.applyAtomically(f.request, f.target, applying);
 
-        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        Instant now = Instant.now();
         UUID firstToken = UUID.randomUUID();
-        var first = outboxRelayStore.claimDue(10, now, now.plusSeconds(5), firstToken).stream()
+        var first = outboxRelayStore.claimDue(1000, now, now.plusSeconds(5), firstToken).stream()
                 .filter(e -> e.executionId().equals(f.executionId)).findFirst().orElseThrow();
         assertTrue(outboxRelayStore.recordFailure(first.outboxId(), firstToken,
                 now.plusSeconds(60), "broker unavailable"));
-        assertTrue(outboxRelayStore.claimDue(10, now.plusSeconds(30), now.plusSeconds(35), UUID.randomUUID())
+        assertTrue(outboxRelayStore.claimDue(1000, now.plusSeconds(30), now.plusSeconds(35), UUID.randomUUID())
                 .stream().noneMatch(e -> e.outboxId().equals(first.outboxId())));
 
         UUID secondToken = UUID.randomUUID();
-        var second = outboxRelayStore.claimDue(10, now.plusSeconds(61), now.plusSeconds(90), secondToken)
+        var second = outboxRelayStore.claimDue(1000, now.plusSeconds(61), now.plusSeconds(90), secondToken)
                 .stream().filter(e -> e.outboxId().equals(first.outboxId())).findFirst().orElseThrow();
         assertNotEquals(firstToken, second.claimToken());
         assertFalse(outboxRelayStore.markPublished(second.outboxId(), firstToken, now.plusSeconds(62)));
