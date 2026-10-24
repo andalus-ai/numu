@@ -1,27 +1,19 @@
 # Cargo & Courier — Milestone 6: Pricing, Billing and COD
 
-## Scope
-M6 establishes tenant-owned effective-dated courier tariffs, deterministic shipment quote snapshots, and an explicit Cash-on-Delivery (COD) collection/settlement lifecycle. It does not replace the shared Finance ledger or the separately delegated Supply Chain domain.
-
-## Pricing contract
-- Rate cards are versioned; changes publish a new version.
-- Tariffs are scoped by tenant, service level, origin zone, destination zone, currency and effective window.
-- Dimensional weight is parcel volume in cm³ divided by the tariff's cm³/kg divisor. Actual and dimensional weights are summed across pieces, rounded to 3 decimals, and chargeable weight is their maximum.
-- Quote money is rounded half-up to two decimals. The quote stores rate-card ID/version and all calculation components; later tariff changes do not recalculate an existing quote.
+## Pricing
+- Effective-dated rate cards are scoped by tenant, service level, route zones, currency and tariff version.
+- Dimensional weight is each parcel's volume in cm³ divided by the tariff divisor; actual and dimensional weights are summed and rounded to 3 decimals. Chargeable weight is the maximum.
+- Quotes snapshot the rate-card ID/version, weights, fees, tax and total. Monetary components use half-up rounding to two decimals.
 - Quote calculation rejects tenant, service, zone and effective-window mismatches.
 
-## COD contract
-- One COD obligation per shipment and tenant.
-- State transitions: DUE → COLLECTED → SETTLED or VARIANCE_RECORDED.
-- Collection stores collector, branch, amount and time. Settlement stores reference, amount/time and explicit variance (collected minus settled).
-- Variance is never silently discarded. Branch closeout reports group collections by tenant and collection branch.
-- Finance owns ledger postings and accounting reconciliation. Courier stores operational collection facts and must use a Finance application port for journal posting; no second ledger is introduced.
+## COD lifecycle and closeout
+- COD state transitions: DUE → COLLECTED → SETTLED or VARIANCE_RECORDED.
+- Collection captures collector, branch, amount and timestamp. Settlement captures reference, amount, timestamp and the explicit difference between collected and settled amounts.
+- `CodBranchCloseout` calculates an immutable report for one tenant, branch, currency and half-open time window. It reports collected/settled totals, counts and outstanding/variance amounts without mutating obligations.
+- Mixed currencies and cross-tenant inputs are rejected. Closeout is a report, not a ledger posting.
 
-## Persistence and isolation
-V8 adds rate cards, quote snapshots and COD obligations. Composite tenant foreign keys prevent cross-tenant shipment/rate-card references. Tenant ID alone is not authorization; handlers must also enforce branch and actor permissions.
+## Boundary with Finance and Supply Chain
+Courier owns operational tariff and COD facts. The shared Finance module remains the ledger/accounting authority; Courier must integrate through an application port rather than maintain a second ledger. The separately delegated Supply Chain module remains responsible for its own procurement/inventory workflows.
 
-## Follow-on before production
-- Add tenant-explicit JDBC repositories and transactional application handlers for rate cards, quotes and COD.
-- Enforce non-overlapping effective windows per route/service.
-- Add idempotency keys, audit/outbox events, branch closeout workflow and shared Finance ledger integration.
-- Run Maven unit and PostgreSQL Testcontainers integration tests. Migration has not been verified against a live PostgreSQL instance in this environment.
+## Verification and production follow-up
+Domain tests cover tariff math and COD transitions/closeout invariants. Tests have not been run in this environment. JDBC persistence for tariffs, quotes and COD exists, but production readiness still requires transactional application handlers, command idempotency, audit/outbox integration, database enforcement of non-overlapping tariff windows, Finance posting integration, and PostgreSQL Testcontainers verification.
