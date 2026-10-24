@@ -24,7 +24,7 @@ public final class InboundEventWorker {
     private final InboundEventDispatcher dispatcher;
     private final Clock clock;
     private final Duration leaseDuration;
-    private final Duration retryDelay;
+    private final InboundRetryPolicy retryPolicy;
     private final int maxAttempts;
 
     public InboundEventWorker(
@@ -36,13 +36,26 @@ public final class InboundEventWorker {
             Duration leaseDuration,
             Duration retryDelay,
             int maxAttempts) {
+        this(processingStore, metadataStore, payloadStore, dispatcher, clock, leaseDuration,
+                fixedRetryPolicy(retryDelay), maxAttempts);
+    }
+
+    public InboundEventWorker(
+            InboundEventProcessingStore processingStore,
+            InboundVerifiedEventMetadataStore metadataStore,
+            InboundPayloadStore payloadStore,
+            InboundEventDispatcher dispatcher,
+            Clock clock,
+            Duration leaseDuration,
+            InboundRetryPolicy retryPolicy,
+            int maxAttempts) {
         this.processingStore = Objects.requireNonNull(processingStore, "processingStore must not be null");
         this.metadataStore = Objects.requireNonNull(metadataStore, "metadataStore must not be null");
         this.payloadStore = Objects.requireNonNull(payloadStore, "payloadStore must not be null");
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.leaseDuration = positive(leaseDuration, "leaseDuration");
-        this.retryDelay = positive(retryDelay, "retryDelay");
+        this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy must not be null");
         if (maxAttempts < 1) throw new IllegalArgumentException("maxAttempts must be positive");
         this.maxAttempts = maxAttempts;
     }
@@ -98,11 +111,18 @@ public final class InboundEventWorker {
 
     private InboundWorkerDisposition fail(InboundWorkItem item, String code) {
         Instant now = clock.instant();
-        boolean updated = processingStore.recordFailure(item, code, now.plus(retryDelay), maxAttempts);
+        Duration delay = positive(Objects.requireNonNull(retryPolicy.delayFor(item),
+                "retryPolicy must return a delay"), "retry delay");
+        boolean updated = processingStore.recordFailure(item, code, now.plus(delay), maxAttempts);
         if (!updated) return InboundWorkerDisposition.STALE_LEASE;
         return item.attemptCount() >= maxAttempts
                 ? InboundWorkerDisposition.DEAD_LETTERED
                 : InboundWorkerDisposition.RETRY_SCHEDULED;
+    }
+
+    private static InboundRetryPolicy fixedRetryPolicy(Duration retryDelay) {
+        Duration delay = positive(retryDelay, "retryDelay");
+        return item -> delay;
     }
 
     private static Duration positive(Duration value, String field) {
