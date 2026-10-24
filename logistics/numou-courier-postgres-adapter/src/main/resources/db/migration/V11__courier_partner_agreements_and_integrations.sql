@@ -1,12 +1,5 @@
-CREATE TABLE courier_network_partners (
- tenant_id UUID NOT NULL, id UUID NOT NULL, partner_code VARCHAR(80) NOT NULL, legal_name VARCHAR(240) NOT NULL,
- country_code CHAR(2) NOT NULL, status VARCHAR(24) NOT NULL DEFAULT 'ONBOARDING',
- created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
- PRIMARY KEY (tenant_id,id), CONSTRAINT uq_courier_partner_code UNIQUE (tenant_id,partner_code),
- CONSTRAINT ck_courier_partner_country CHECK (country_code ~ '^[A-Z]{2}$'),
- CONSTRAINT ck_courier_partner_status CHECK (status IN ('ONBOARDING','ACTIVE','SUSPENDED','TERMINATED')),
- CONSTRAINT ck_courier_partner_timestamps CHECK (updated_at >= created_at)
-);
+-- Partner agreements and outbound integration metadata.
+-- courier_network_partners is created by V9__courier_network_partners_and_inbound_events.sql.
 CREATE TABLE courier_partner_agreements (
  tenant_id UUID NOT NULL, id UUID NOT NULL, partner_id UUID NOT NULL, version VARCHAR(64) NOT NULL,
  service_level VARCHAR(16) NOT NULL, origin_zone VARCHAR(80) NOT NULL, destination_zone VARCHAR(80) NOT NULL,
