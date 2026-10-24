@@ -165,6 +165,7 @@ public final class StructuredDatabaseService {
      */
     public tech.kayys.numou.workspace.domain.DatabaseRecordBoard queryBoard(UUID tenantId, UUID actorId,
             UUID databaseId, UUID viewId, String groupByProperty, int limit, int offset) {
+        requireDatabase(tenantId, actorId, databaseId, Action.READ);
         DatabaseView view = repository.findView(tenantId, databaseId, viewId)
                 .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
         if (view.type() != DatabaseViewType.BOARD) {
