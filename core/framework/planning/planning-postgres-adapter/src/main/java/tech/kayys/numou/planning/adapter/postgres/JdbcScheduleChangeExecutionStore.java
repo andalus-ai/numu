@@ -113,6 +113,7 @@ public class JdbcScheduleChangeExecutionStore implements ScheduleChangeExecution
                     ScheduleChangeExecution result = conflict(applying,
                             "Plan is not registered to the requested tenant and structure");
                     insertReceipt(c, result, fingerprint);
+                    insertOutbox(c, result);
                     c.commit();
                     return result;
                 }
@@ -120,6 +121,7 @@ public class JdbcScheduleChangeExecutionStore implements ScheduleChangeExecution
                     ScheduleChangeExecution result = conflict(applying,
                             "Live plan revision changed after approval; no schedule changes were applied");
                     insertReceipt(c, result, fingerprint);
+                    insertOutbox(c, result);
                     c.commit();
                     return result;
                 }
@@ -139,6 +141,7 @@ public class JdbcScheduleChangeExecutionStore implements ScheduleChangeExecution
                     if (ps.executeUpdate() != 1) {
                         ScheduleChangeExecution result = conflict(applying, "Plan revision compare-and-set failed");
                         insertReceipt(c, result, fingerprint);
+                        insertOutbox(c, result);
                         c.commit();
                         return result;
                     }
@@ -151,6 +154,7 @@ public class JdbcScheduleChangeExecutionStore implements ScheduleChangeExecution
                         applying.startedAt(), ScheduleChangeExecution.Status.APPLIED, request.targetRevision(),
                         nowAfter(applying.startedAt()), null);
                 insertReceipt(c, result, fingerprint);
+                insertOutbox(c, result);
                 c.commit();
                 return result;
             } catch (Exception e) {
@@ -267,6 +271,62 @@ public class JdbcScheduleChangeExecutionStore implements ScheduleChangeExecution
             ps.setTimestamp(12, Timestamp.from(r.completedAt())); ps.setString(13, r.failureReason());
             ps.setString(14, fingerprint); ps.executeUpdate();
         }
+    }
+
+    /** Persist the domain event in the same transaction as the schedule mutation and terminal receipt. */
+    private void insertOutbox(Connection c, ScheduleChangeExecution result) throws SQLException {
+        String eventType = switch (result.status()) {
+            case APPLIED -> "ScheduleChangeApplied";
+            case CONFLICT -> "ScheduleChangeConflicted";
+            default -> throw new IllegalArgumentException("Only terminal applied/conflict results may be published");
+        };
+        UUID outboxId = UUID.randomUUID();
+        String payload = "{\"eventId\":\"" + outboxId
+                + "\",\"executionId\":\"" + result.executionId()
+                + "\",\"requestId\":\"" + result.requestId()
+                + "\",\"tenantId\":\"" + result.tenantId()
+                + "\",\"structureId\":\"" + result.structureId()
+                + "\",\"planId\":\"" + result.planId().value()
+                + "\",\"baseRevision\":" + result.baseRevision()
+                + ",\"targetRevision\":" + result.targetRevision()
+                + ",\"resultingRevision\":" + (result.resultingRevision() == null ? "null" : result.resultingRevision())
+                + ",\"status\":\"" + result.status().name() + "\""
+                + (result.failureReason() == null ? "" : ",\"failureReason\":\"" + jsonEscape(result.failureReason()) + "\"")
+                + "}";
+        String sql = "INSERT INTO schedule_change_outbox(outbox_id, execution_id, event_type, tenant_id, "
+                + "structure_id, plan_id, payload, occurred_at, available_at) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?) "
+                + "ON CONFLICT (execution_id, event_type) DO NOTHING";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, outboxId);
+            ps.setObject(2, result.executionId());
+            ps.setString(3, eventType);
+            ps.setObject(4, result.tenantId());
+            ps.setObject(5, result.structureId());
+            ps.setObject(6, result.planId().value());
+            ps.setString(7, payload);
+            ps.setTimestamp(8, Timestamp.from(result.completedAt()));
+            ps.setTimestamp(9, Timestamp.from(result.completedAt()));
+            ps.executeUpdate();
+        }
+    }
+
+    private String jsonEscape(String value) {
+        StringBuilder escaped = new StringBuilder(value.length() + 16);
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            switch (ch) {
+                case '\\' -> escaped.append("\\\\");
+                case '"' -> escaped.append("\\\"");
+                case '\n' -> escaped.append("\\n");
+                case '\r' -> escaped.append("\\r");
+                case '\t' -> escaped.append("\\t");
+                default -> {
+                    if (ch < 0x20) escaped.append(String.format("\\u%04x", (int) ch));
+                    else escaped.append(ch);
+                }
+            }
+        }
+        return escaped.toString();
     }
 
     private ScheduleChangeExecution receipt(ResultSet rs) throws SQLException {
