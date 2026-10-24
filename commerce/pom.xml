@@ -10,7 +10,7 @@
         <groupId>tech.kayys.numou</groupId>
         <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../core/framework/pom.xml</relativePath>
     </parent>
 
     <artifactId>numou-commerce</artifactId>
@@ -18,13 +18,8 @@
 
     <name>Numou Commerce - Aggregator</name>
     <description>
-        Phase 2 commerce channel applications (Docs/Plan/base01.md Phase 2,
-        §2.18 "POS becomes an application, not a domain").
-
-        The reusable commerce primitives - product, catalog, pricing, order,
-        fulfilment - live in their own modules under product/. What sits
-        here is the point-of-sale and kiosk *application* that wires
-        those primitives to a physical checkout surface.
+        Reusable commerce primitives and channel applications. Omnichannel
+        composes existing commerce capabilities and is optional for domain modules.
     </description>
 
     <modules>
@@ -35,6 +30,7 @@
         <module>subscription</module>
         <module>pos</module>
         <module>kiosk</module>
+        <module>omnichannel</module>
     </modules>
 
 </project>
