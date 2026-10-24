@@ -149,7 +149,7 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
                     case NUMBER -> "NULLIF(" + value + ", '')::numeric";
                     case DATE -> "NULLIF(" + value + ", '')::date";
                     case DATE_TIME -> "NULLIF(" + value + ", '')::timestamptz";
-                    case CHECKBOX -> "NULLIF(" + value + ", '')::boolean";
+                    case BOOLEAN -> "NULLIF(" + value + ", '')::boolean";
                     default -> value;
                 };
                 orderExpressions.add(expression + (sort.direction() == DatabaseViewSort.Direction.ASC ? " ASC" : " DESC") + " NULLS LAST");
