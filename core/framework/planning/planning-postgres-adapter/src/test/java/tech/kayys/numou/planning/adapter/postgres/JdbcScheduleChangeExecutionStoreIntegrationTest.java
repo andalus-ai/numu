@@ -206,6 +206,38 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertTrue(outboxRelayStore.markPublished(first.outboxId(), newToken, now.plusSeconds(3)));
     }
 
+    @Test
+    void exhaustedDeliveryMovesToDeadLetterAndAppearsInHealthSnapshot() throws Exception {
+        Fixture f = fixture();
+        ScheduleChangeExecution applying = ScheduleChangeExecution.begin(
+                f.executionId, f.request, f.initiator, f.startedAt, f.base.revision());
+        executions.applyAtomically(f.request, f.target, applying);
+
+        Instant now = Instant.now();
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "UPDATE schedule_change_outbox SET attempt_count = 9, available_at = ? WHERE execution_id = ?")) {
+            statement.setTimestamp(1, java.sql.Timestamp.from(now.minusSeconds(5)));
+            statement.setObject(2, f.executionId);
+            assertEquals(1, statement.executeUpdate());
+        }
+
+        UUID token = UUID.randomUUID();
+        var event = outboxRelayStore.claimDue(1000, now, now.plusSeconds(30), token).stream()
+                .filter(e -> e.executionId().equals(f.executionId)).findFirst().orElseThrow();
+        assertEquals(10, event.attemptCount());
+        assertTrue(outboxRelayStore.recordFailure(event.outboxId(), token,
+                now.plusSeconds(30), "simulated broker outage"));
+
+        assertTrue(outboxRelayStore.claimDue(1000, now.plusSeconds(31), now.plusSeconds(61),
+                UUID.randomUUID()).stream().noneMatch(e -> e.executionId().equals(f.executionId())));
+        var health = outboxRelayStore.healthSnapshot();
+        assertTrue(health.deadLetterCount() >= 1);
+        assertTrue(health.pendingCount() >= 0);
+        assertTrue(health.leasedCount() >= 0);
+        assertTrue(health.oldestPendingAgeSeconds() >= 0);
+    }
+
     private int outboxCount(UUID executionId, String eventType) throws Exception {
         String sql = eventType == null
                 ? "SELECT count(*) FROM schedule_change_outbox WHERE execution_id=?"

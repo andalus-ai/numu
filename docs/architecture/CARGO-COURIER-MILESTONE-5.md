@@ -26,7 +26,7 @@ Domain and PostgreSQL Testcontainers tests have been added for the delivery life
 
 ## Remaining before production exposure
 
-- Add a transactional outbox for delivery status changes and project them into M3 tracking events.
+- Add an outbox dispatcher that claims rows safely with `FOR UPDATE SKIP LOCKED`, retries failures, and projects delivery milestones into M3 tracking events idempotently.
 - Add authenticated courier identity and authorization policy; courier references are not an authentication mechanism.
 - Add offline command idempotency, delivery geolocation/time evidence, media authorization/retention, recipient privacy rules, and signature/photo capture through a protected media service.
 - Add reassignment/route optimization, multi-stop tours, failed-delivery retry policy, and COD collection/reconciliation.

@@ -38,7 +38,7 @@ class WarehouseMigrationChainContractTest {
                     });
         }
 
-        for (int version = 1; version <= 6; version++ {
+        for (int version = 1; version <= 7; version++) {
             assertTrue(versions.containsKey(version), "Missing warehouse migration V" + version);
         }
         assertEquals("V2__warehouse_transactional_execution.sql", versions.get(2),
@@ -47,5 +47,7 @@ class WarehouseMigrationChainContractTest {
                 "Retry scheduling must follow V3 leases and V4 replay-payload migrations");
         assertEquals("V6__warehouse_recovery_operator_audit.sql", versions.get(6),
                 "Operator audit must be introduced as a forward-only migration");
+        assertEquals("V7__warehouse_recovery_audit_archive_manifest.sql", versions.get(7),
+                "Archive manifests must be introduced as a forward-only migration");
     }
 }
