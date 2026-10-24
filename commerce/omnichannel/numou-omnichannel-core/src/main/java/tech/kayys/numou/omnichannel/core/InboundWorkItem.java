@@ -14,7 +14,8 @@ public record InboundWorkItem(
         String correlationId,
         Instant receivedAt,
         int attemptCount,
-        Instant leaseUntil) {
+        Instant leaseUntil,
+        Optional<String> leaseToken) {
 
     public InboundWorkItem {
         Objects.requireNonNull(key, "key must not be null");
@@ -24,9 +25,13 @@ public record InboundWorkItem(
         branchId = Objects.requireNonNull(branchId, "branchId must not be null");
         Objects.requireNonNull(correlationId, "correlationId must not be null");
         Objects.requireNonNull(receivedAt, "receivedAt must not be null");
-        if (attemptCount < 1) {
-            throw new IllegalArgumentException("attemptCount must be positive");
-        }
+        if (attemptCount < 1) throw new IllegalArgumentException("attemptCount must be positive");
         Objects.requireNonNull(leaseUntil, "leaseUntil must not be null");
+        leaseToken = Objects.requireNonNull(leaseToken, "leaseToken must not be null");
+    }
+
+    /** True only for an item actually claimed by a worker, not a dead-letter listing. */
+    public boolean isLeased() {
+        return leaseToken.isPresent();
     }
 }
