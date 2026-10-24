@@ -4,7 +4,7 @@ ALTER TABLE schedule_change_outbox
 
 -- Mark rows that exhausted retries before this migration was deployed.
 UPDATE schedule_change_outbox
-SET dead_lettered_at = created_at
+SET dead_lettered_at = created_at, claim_token = NULL, claimed_until = NULL
 WHERE published_at IS NULL
   AND attempt_count >= 10
   AND dead_lettered_at IS NULL;
