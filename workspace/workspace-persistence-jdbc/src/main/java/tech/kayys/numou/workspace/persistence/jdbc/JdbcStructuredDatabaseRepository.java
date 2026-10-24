@@ -159,17 +159,13 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         return Map.copyOf(values);
     }
 
-    private interface SqlWork<T> { T run(Connection connection) throws SQLException; }
-    private <T> T atomic(String operation,SqlWork<T> work) {
+    private interface SqlWork { boolean run(Connection connection) throws SQLException; }
+    private boolean atomic(String operation,SqlWork work) {
         try(Connection c=dataSource.getConnection()) {
             c.setAutoCommit(false);
-            try { T result=work.run(c);c.commit();return result; }
+            try { boolean result=work.run(c);c.commit();return result; }
             catch(SQLException|RuntimeException e) { try { c.rollback(); } catch(SQLException rollback) { e.addSuppressed(rollback); } throw e; }
-        } catch(SQLException e) { if(isConstraint(e)) return falseResult(operation,e); throw failure(operation,e); }
-    }
-    @SuppressWarnings("unchecked") private static <T> T falseResult(String operation,SQLException e) {
-        if(e.getSQLState()!=null && e.getSQLState().startsWith("23")) return (T)Boolean.FALSE;
-        throw failure(operation,e);
+        } catch(SQLException e) { if(isConstraint(e)) return false; throw failure(operation,e); }
     }
     private static void insertAudit(Connection c,AuditEntry a) throws SQLException {
         String sql="INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)";
