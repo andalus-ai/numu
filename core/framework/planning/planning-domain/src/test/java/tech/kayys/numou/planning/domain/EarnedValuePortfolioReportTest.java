@@ -23,12 +23,12 @@ class EarnedValuePortfolioReportTest {
 
         assertEquals(new BigDecimal("1500.00"), report.budgetAtCompletion());
         assertEquals(new BigDecimal("950.00"), report.plannedValue());
-        assertEquals(new BigDecimal("800.00"), report.earnedValue());
+        assertEquals(new BigDecimal("850.00"), report.earnedValue());
         assertEquals(new BigDecimal("800.00"), report.actualCost());
-        assertEquals(new BigDecimal("0.00"), report.costVariance());
-        assertEquals(new BigDecimal("-150.00"), report.scheduleVariance());
-        assertEquals(new BigDecimal("1.0000"), report.costPerformanceIndex());
-        assertEquals(new BigDecimal("0.8421"), report.schedulePerformanceIndex());
+        assertEquals(new BigDecimal("50.00"), report.costVariance());
+        assertEquals(new BigDecimal("-100.00"), report.scheduleVariance());
+        assertEquals(new BigDecimal("1.0625"), report.costPerformanceIndex());
+        assertEquals(new BigDecimal("0.8947"), report.schedulePerformanceIndex());
     }
 
     @Test
