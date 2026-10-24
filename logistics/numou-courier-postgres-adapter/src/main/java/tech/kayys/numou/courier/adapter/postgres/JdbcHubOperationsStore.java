@@ -104,7 +104,8 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
             case DISPATCH_LOADED -> "LOADED_FOR_LINEHAUL";
             case CONTAINER_DISPATCHED -> "LINEHAUL_DEPARTED";
             case CONTAINER_RECEIVED -> "LINEHAUL_ARRIVED";
-            case CONTAINER_SEALED, EXCEPTION_RECORDED -> "EXCEPTION_RECORDED";
+            case CONTAINER_SEALED -> "CONTAINER_SEALED";
+            case EXCEPTION_RECORDED -> "EXCEPTION_RECORDED";
         };
         try (PreparedStatement s = c.prepareStatement("""
             INSERT INTO courier_tracking_events

@@ -57,6 +57,26 @@ class JdbcHubOperationsStorePostgresTest {
     }
 
     @Test
+    void containerSealScanUsesDedicatedTrackingEvent() throws Exception {
+        Fixture fixture = fixture();
+        store.ingest(fixture.command("sha256:seal", HubScanType.CONTAINER_SEALED))
+                .toCompletableFuture().join();
+
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement statement = connection.prepareStatement(
+                "SELECT event_type FROM courier_tracking_events WHERE tenant_id = ? AND shipment_id = ?")) {
+            statement.setObject(1, fixture.tenant().value());
+            statement.setObject(2, fixture.shipment().value());
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals("CONTAINER_SEALED", result.getString("event_type"));
+                assertFalse(result.next());
+            }
+        }
+    }
+
+    @Test
     void sameKeyWithDifferentFingerprintConflictsWithoutMutation() throws Exception {
         Fixture fixture = fixture();
         store.ingest(fixture.command("sha256:original")).toCompletableFuture().join();
@@ -143,8 +163,12 @@ class JdbcHubOperationsStorePostgresTest {
 
     private record Fixture(TenantId tenant, ShipmentId shipment, Instant occurredAt) {
         HubScanCommand command(String fingerprint) {
+            return command(fingerprint, HubScanType.HUB_INTAKE);
+        }
+
+        HubScanCommand command(String fingerprint, HubScanType type) {
             return new HubScanCommand(tenant, UUID.randomUUID(), "scanner-a", "device-1:scan-1",
-                    fingerprint, shipment, "parcel-1", HubScanType.HUB_INTAKE, "hub-jkt",
+                    fingerprint, shipment, "parcel-1", type, "hub-jkt",
                     "operator-1", occurredAt, occurredAt.plusSeconds(1));
         }
     }
