@@ -64,6 +64,8 @@ public final class WarehouseRecoveryAuditExportWorker {
             }
             if(page.hasMore()&&page.events().isEmpty())
                 throw new IllegalStateException("Audit pagination returned an empty page with a continuation cursor");
+            if(page.hasMore()&&page.nextCursor().equals(job.continuationCursor()))
+                throw new IllegalStateException("Audit pagination cursor did not advance");
 
             byte[] chunk=encode(page.events(),job.exportedEventCount()==0&&job.exportedByteCount()==0);
             String chunkId=job.exportId()+":"+job.version();
