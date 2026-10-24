@@ -7,6 +7,7 @@ import tech.kayys.numou.warehouse.application.WarehouseExecutionClaim;
 import tech.kayys.numou.warehouse.application.WarehouseInventoryRecoveryPayload;
 import tech.kayys.numou.warehouse.application.WarehouseRecoveryHealthSummary;
 import tech.kayys.numou.warehouse.application.WarehouseRecoveryOperatorAuditEvent;
+import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditPage;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Base64;
 
 /**
  * PostgreSQL-compatible JDBC adapter for the warehouse recovery journal.
@@ -351,6 +353,71 @@ public final class JdbcWarehouseExecutionAttemptRepository implements WarehouseE
         } catch (SQLException e) {
             throw persistence("Could not list tenant recovery operator audit events", e);
         }
+    }
+
+
+    @Override
+    public WarehouseRecoveryAuditPage pageOperatorAuditEvents(String tenantId, int limit, String cursor) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
+        if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
+        Instant cursorTime = null;
+        long cursorId = 0;
+        if (cursor != null) {
+            try {
+                String decoded = new String(Base64.getUrlDecoder().decode(cursor), java.nio.charset.StandardCharsets.UTF_8);
+                String[] parts = decoded.split("\\|", -1);
+                if (parts.length != 2) throw new IllegalArgumentException("Invalid audit cursor");
+                cursorTime = Instant.parse(parts[0]);
+                cursorId = Long.parseLong(parts[1]);
+                if (cursorId < 1) throw new IllegalArgumentException("Invalid audit cursor");
+            } catch (RuntimeException e) {
+                throw new IllegalArgumentException("Invalid audit cursor", e);
+            }
+        }
+        String sql = "SELECT id, tenant_id, command_key, action, actor_id, reason, prior_version, " +
+                "resulting_version, correlation_id, occurred_at FROM warehouse_recovery_operator_audit " +
+                "WHERE tenant_id=? " +
+                (cursorTime == null ? "" : "AND (occurred_at, id) < (?, ?) ") +
+                "ORDER BY occurred_at DESC, id DESC LIMIT ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            int index = 1;
+            statement.setString(index++, tenantId.trim());
+            if (cursorTime != null) {
+                statement.setTimestamp(index++, Timestamp.from(cursorTime.truncatedTo(ChronoUnit.MICROS)));
+                statement.setLong(index++, cursorId);
+            }
+            statement.setInt(index, limit + 1);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<WarehouseRecoveryOperatorAuditEvent> events = new ArrayList<>();
+                List<String> cursors = new ArrayList<>();
+                while (rows.next()) {
+                    Timestamp occurredAt = rows.getTimestamp("occurred_at");
+                    Instant at = occurredAt.toInstant();
+                    events.add(new WarehouseRecoveryOperatorAuditEvent(
+                            rows.getString("tenant_id"), rows.getString("command_key"),
+                            rows.getString("action"), rows.getString("actor_id"), rows.getString("reason"),
+                            rows.getLong("prior_version"), rows.getLong("resulting_version"),
+                            rows.getString("correlation_id"), at));
+                    cursors.add(encodeAuditCursor(at, rows.getLong("id")));
+                }
+                boolean hasMore = events.size() > limit;
+                if (hasMore) {
+                    events.remove(events.size() - 1);
+                    cursors.remove(cursors.size() - 1);
+                }
+                String nextCursor = hasMore && !cursors.isEmpty() ? cursors.get(cursors.size() - 1) : null;
+                return new WarehouseRecoveryAuditPage(events, nextCursor);
+            }
+        } catch (SQLException e) {
+            throw persistence("Could not page tenant recovery operator audit events", e);
+        }
+    }
+
+    private static String encodeAuditCursor(Instant occurredAt, long id) {
+        String value = occurredAt.truncatedTo(ChronoUnit.MICROS).toString() + "|" + id;
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     @Override
