@@ -325,7 +325,8 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     private static void validateAudit(AuditEntry audit, UUID tenantId, UUID resourceId,
-                                      String expectedResourceType, Long revision, UUID actorId) {
+                                      String expectedResourceType, String expectedAction,
+                                      long expectedRevision, UUID actorId) {
         Objects.requireNonNull(audit, "audit");
         if (audit.tenantId() == null || !tenantId.equals(audit.tenantId()))
             throw new IllegalArgumentException("audit tenant does not match mutation tenant");
@@ -333,13 +334,13 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             throw new IllegalArgumentException("audit resource does not match mutation resource");
         if (audit.actorId() == null)
             throw new IllegalArgumentException("audit actor is required");
-        if (audit.action() == null || audit.action().isBlank())
-            throw new IllegalArgumentException("audit action is required");
+        if (!expectedAction.equals(audit.action()))
+            throw new IllegalArgumentException("audit action does not match mutation action");
         if (!expectedResourceType.equals(audit.resourceType()))
             throw new IllegalArgumentException("audit resource type does not match mutation resource type");
         if (audit.occurredAt() == null)
             throw new IllegalArgumentException("audit timestamp is required");
-        if (revision != null && audit.revision() != revision)
+        if (audit.revision() != expectedRevision)
             throw new IllegalArgumentException("audit revision does not match mutation revision");
         if (actorId != null && !actorId.equals(audit.actorId()))
             throw new IllegalArgumentException("audit actor does not match mutation actor");
@@ -356,7 +357,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveWorkspace(Workspace value, AuditEntry audit) {
-        validateAudit(audit, value.tenantId(), value.id(), "WORKSPACE", null, null);
+        validateAudit(audit, value.tenantId(), value.id(), "WORKSPACE", "WORKSPACE_CREATED", 0, null);
         return atomicMutation("save workspace with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_workspaces(id,tenant_id,name,description,created_at) VALUES(?,?,?,?,?)")) {
                 p.setObject(1,value.id()); p.setObject(2,value.tenantId()); p.setString(3,value.name());
@@ -367,7 +368,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveSpace(Space value, AuditEntry audit) {
-        validateAudit(audit, value.tenantId(), value.id(), "SPACE", null, null);
+        validateAudit(audit, value.tenantId(), value.id(), "SPACE", "SPACE_CREATED", 0, null);
         return atomicMutation("save space with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_spaces(id,tenant_id,workspace_id,name,slug,created_at) VALUES(?,?,?,?,?,?)")) {
                 p.setObject(1,value.id()); p.setObject(2,value.tenantId()); p.setObject(3,value.workspaceId());
@@ -378,7 +379,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean savePageWithRevision(Page page, PageRevision revision, long expectedRevision, AuditEntry audit) {
-        validateAudit(audit, page.tenantId(), page.id(), "PAGE", page.revision(), revision.actorId());
+        validateAudit(audit, page.tenantId(), page.id(), "PAGE", expectedRevision == 0 ? "PAGE_CREATED" : "PAGE_UPDATED", page.revision(), revision.actorId());
         validateRevisionSnapshot(page, revision);
         if (expectedRevision < 0 || page.revision() != expectedRevision + 1)
             throw new IllegalArgumentException("revision must advance exactly once");
@@ -393,7 +394,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveTemplate(PageTemplate template, AuditEntry audit) {
-        validateAudit(audit, template.tenantId(), template.id(), "PAGE_TEMPLATE", null, template.createdBy());
+        validateAudit(audit, template.tenantId(), template.id(), "PAGE_TEMPLATE", "PAGE_TEMPLATE_CREATED", 1, template.createdBy());
         return atomicMutation("save page template with audit", c -> {
             String insert = "INSERT INTO workspace_page_templates(id,tenant_id,workspace_id,created_by,name,name_normalized,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)";
             try (PreparedStatement p = c.prepareStatement(insert)) {
@@ -408,7 +409,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean saveLink(PageLink link, AuditEntry audit) {
-        validateAudit(audit, link.tenantId(), link.id(), "PAGE_LINK", null, link.createdBy());
+        validateAudit(audit, link.tenantId(), link.id(), "PAGE_LINK", "PAGE_LINK_CREATED", 0, link.createdBy());
         return atomicMutation("save page link with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("INSERT INTO workspace_page_links(id,tenant_id,source_page_id,target_page_id,created_by,label,created_at) VALUES(?,?,?,?,?,?,?)")) {
                 p.setObject(1,link.id()); p.setObject(2,link.tenantId()); p.setObject(3,link.sourcePageId());
@@ -420,7 +421,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public boolean deleteLink(UUID tenantId, UUID linkId, AuditEntry audit) {
-        validateAudit(audit, tenantId, linkId, "PAGE_LINK", null, null);
+        validateAudit(audit, tenantId, linkId, "PAGE_LINK", "PAGE_LINK_REMOVED", 0, null);
         return atomicMutation("delete page link with audit", c -> {
             try (PreparedStatement p = c.prepareStatement("DELETE FROM workspace_page_links WHERE tenant_id=? AND id=?")) {
                 p.setObject(1,tenantId); p.setObject(2,linkId);
