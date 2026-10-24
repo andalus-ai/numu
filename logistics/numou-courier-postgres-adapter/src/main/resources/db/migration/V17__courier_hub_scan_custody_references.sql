@@ -1,4 +1,3 @@
--- M15: explicit references and custody evidence for transactional scan enforcement.
 ALTER TABLE courier_hub_scan_receipts
     ADD COLUMN container_id UUID,
     ADD COLUMN dispatch_wave_id UUID,
@@ -20,7 +19,7 @@ ALTER TABLE courier_hub_scan_receipts
             (container_id IS NOT NULL AND dispatch_wave_id IS NOT NULL AND manifest_reference IS NOT NULL))
         AND (scan_type <> 'CONTAINER_RECEIVED' OR
             (container_id IS NOT NULL AND observed_seal_reference IS NOT NULL))
-    );
+    ) NOT VALID;
 
 CREATE INDEX ix_courier_scan_container_timeline
     ON courier_hub_scan_receipts (tenant_id, container_id, occurred_at DESC)
