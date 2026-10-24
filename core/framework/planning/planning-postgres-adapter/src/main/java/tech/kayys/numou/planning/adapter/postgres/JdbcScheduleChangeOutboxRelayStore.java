@@ -159,7 +159,7 @@ public class JdbcScheduleChangeOutboxRelayStore {
                     COUNT(*) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL
                         AND claim_token IS NOT NULL) AS leased_count,
                     COUNT(*) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL
-                        AND last_error IS NOT NULL) AS retrying_count,
+                        AND last_error IS NOT NULL AND claim_token IS NULL) AS retrying_count,
                     COUNT(*) FILTER (WHERE dead_lettered_at IS NOT NULL) AS dead_letter_count,
                     COALESCE(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - MIN(created_at)
                         FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL))), 0) AS oldest_pending_age_seconds
