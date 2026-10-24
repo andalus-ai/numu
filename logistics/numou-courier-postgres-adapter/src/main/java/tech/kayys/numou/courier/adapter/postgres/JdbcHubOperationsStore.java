@@ -95,7 +95,7 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
             case CONTAINER_RECEIVED -> receiveContainer(c, cmd);
             case DISPATCH_LOADED -> recordWaveParcelScan(c, cmd);
             case HUB_RECEIVED -> {
-                if (cmd.containerId() != null) receiveContainer(c, cmd);
+                // General shipment arrival does not transition container custody; use CONTAINER_RECEIVED.
             }
             case PICKUP_COLLECTED, HUB_INTAKE, SORTED, EXCEPTION_RECORDED -> {
                 // No container/wave state transition implied by these scans.
