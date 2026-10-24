@@ -41,7 +41,7 @@ class ProgressBaselineUseCasesTest {
     }
 
     @Test
-    void comparesCurrentSnapshotToBaselineAndReturnsPercentagePointVariance() {
+    void comparesCurrentSnapshotToBaselineOnlyAfterLatestDecisionApprovesCurrentSnapshot() {
         UUID tenant = UUID.randomUUID(), structure = UUID.randomUUID(), node = UUID.randomUUID();
         WorkBreakdownProgressSnapshot source = snapshot(tenant, structure, node, "2026-10-01", "40");
         WorkBreakdownProgressSnapshot current = snapshot(tenant, structure, node, "2026-10-23", "62.5");
@@ -50,9 +50,22 @@ class ProgressBaselineUseCasesTest {
         baselines.created = baseline;
         InMemorySnapshots snapshots = new InMemorySnapshots(Map.of(
                 source.snapshotId(), source, current.snapshotId(), current));
+        InMemoryDecisions decisions = new InMemoryDecisions();
+        CompareProgressSnapshotToBaseline useCase =
+                new CompareProgressSnapshotToBaseline(baselines, snapshots, decisions);
 
-        ProgressVariance variance = new CompareProgressSnapshotToBaseline(baselines, snapshots)
-                .execute(tenant, baseline.baselineId(), current.snapshotId());
+        assertThrows(IllegalArgumentException.class,
+                () -> useCase.execute(tenant, baseline.baselineId(), current.snapshotId()),
+                "a snapshot without a governance decision must not be used for an approved variance report");
+
+        decisions.latest = Optional.of(decision(tenant, current, ProgressSnapshotDecision.Outcome.APPROVED));
+        decisions.latest = Optional.of(decision(tenant, current, ProgressSnapshotDecision.Outcome.REJECTED));
+        assertThrows(IllegalArgumentException.class,
+                () -> useCase.execute(tenant, baseline.baselineId(), current.snapshotId()),
+                "a later rejection must supersede an earlier approval");
+
+        decisions.latest = Optional.of(decision(tenant, current, ProgressSnapshotDecision.Outcome.APPROVED));
+        ProgressVariance variance = useCase.execute(tenant, baseline.baselineId(), current.snapshotId());
 
         assertEquals(0, new BigDecimal("22.50").compareTo(variance.variancePercentagePoints()));
         assertEquals(source.snapshotId(), variance.baselineSnapshotId());
@@ -69,7 +82,7 @@ class ProgressBaselineUseCasesTest {
     private static ProgressSnapshotDecision decision(UUID tenant, WorkBreakdownProgressSnapshot snapshot,
             ProgressSnapshotDecision.Outcome outcome) {
         return new ProgressSnapshotDecision(UUID.randomUUID(), tenant, snapshot.snapshotId(), UUID.randomUUID(),
-                outcome, "Reviewed for baseline", Instant.parse("2026-10-02T10:00:00Z"));
+                outcome, "Reviewed for baseline", Instant.parse("2026-10-24T10:00:00Z"));
     }
 
     private static WorkBreakdownProgressSnapshot snapshot(UUID tenant, UUID structure, UUID node, String date, String percent) {
