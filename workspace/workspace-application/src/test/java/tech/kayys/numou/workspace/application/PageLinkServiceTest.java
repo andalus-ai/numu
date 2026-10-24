@@ -25,12 +25,12 @@ class PageLinkServiceTest {
   PageLink link=PageLink.create(tenant,source.id(),target.id(),actor,"related",Instant.EPOCH);assertTrue(store.save(link));
   PageLinkService denied=new PageLinkService(store,store,(t,a,r,id,action)->{
    if(id.equals(target.id())&&action==Action.READ)throw new SecurityException("target is not readable");
-  },e->{},Clock.systemUTC());
+  },e->{},Clock.systemUTC(),true);
   assertThrows(SecurityException.class,()->denied.unlink(tenant,actor,link.id()));
   assertTrue(store.findLink(tenant,link.id()).isPresent(),"authorization must happen before deletion");
   assertTrue(store.findLink(UUID.randomUUID(),link.id()).isEmpty(),"link lookup must be tenant-scoped");
 
-  PageLinkService allowed=new PageLinkService(store,store,(t,a,r,id,action)->{},e->{},Clock.systemUTC());
+  PageLinkService allowed=new PageLinkService(store,store,(t,a,r,id,action)->{},e->{},Clock.systemUTC(),true);
   allowed.unlink(tenant,actor,link.id());
   assertTrue(store.findLink(tenant,link.id()).isEmpty());
  }
@@ -41,12 +41,12 @@ class PageLinkServiceTest {
   assertTrue(store.save(visible));assertTrue(store.save(hiddenLink));
   PageLinkService service=new PageLinkService(store,store,(t,a,r,id,action)->{
    if(action==Action.READ&&(id.equals(target.id())||id.equals(hidden.id())))throw new SecurityException("denied");
-  },e->{},Clock.systemUTC());
+  },e->{},Clock.systemUTC(),true);
   assertThrows(SecurityException.class,()->service.outgoing(tenant,actor,source.id()));
   // The target page itself must be readable to ask for backlinks; test filtering with a separate policy.
   PageLinkService backlinkService=new PageLinkService(store,store,(t,a,r,id,action)->{
    if(id.equals(hidden.id())&&action==Action.READ)throw new SecurityException("hidden source");
-  },e->{},Clock.systemUTC());
+  },e->{},Clock.systemUTC(),true);
   assertEquals(List.of(source),backlinkService.backlinks(tenant,actor,target.id()));
  }
  static Page page(UUID tenant,String title){UUID w=UUID.randomUUID(),s=UUID.randomUUID();return new Page(UUID.randomUUID(),tenant,w,s,null,title,List.of(),1,Instant.EPOCH,Instant.EPOCH);}
