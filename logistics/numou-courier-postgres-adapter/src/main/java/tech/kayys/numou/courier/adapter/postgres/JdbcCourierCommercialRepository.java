@@ -69,7 +69,7 @@ public class JdbcCourierCommercialRepository {
 
     public CompletionStage<ShipmentQuote> saveQuote(TenantId tenantId, ShipmentQuote quote) {
         if(tenantId==null||quote==null)return failed(new IllegalArgumentException("tenantId and quote are required"));
-        String sql=""" 
+        String sql="""
             INSERT INTO courier_shipment_quotes (tenant_id,id,shipment_id,rate_card_id,rate_card_version,currency_code,
               actual_weight_kg,dimensional_weight_kg,chargeable_weight_kg,base_fee,weight_fee,tax,total,quoted_at,expires_at)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -97,8 +97,7 @@ public class JdbcCourierCommercialRepository {
               settled_at=EXCLUDED.settled_at,updated_at=now()
             WHERE courier_cod_obligations.shipment_id=EXCLUDED.shipment_id
               AND courier_cod_obligations.amount=EXCLUDED.amount AND courier_cod_obligations.currency_code=EXCLUDED.currency_code
-              AND (courier_cod_obligations.status=EXCLUDED.status
-                OR (courier_cod_obligations.status='DUE' AND EXCLUDED.status='COLLECTED')
+              AND ((courier_cod_obligations.status='DUE' AND EXCLUDED.status='COLLECTED')
                 OR (courier_cod_obligations.status='COLLECTED' AND EXCLUDED.status IN ('SETTLED','VARIANCE_RECORDED')))
             """;
         try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(sql)){
