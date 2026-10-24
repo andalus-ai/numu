@@ -54,6 +54,28 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void queriesRecordsWithValidatedExactFiltersAndBoundedPagination() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Query");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, true, List.of("todo", "done"), null)));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "A", "status", "todo"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "B", "status", "done"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "C", "status", "todo"));
+
+        DatabaseRecordPage page = service.queryRecords(tenant, actor, database.id(), table.id(),
+                Map.of("status", "todo"), 1, 1);
+        assertEquals(2, page.total());
+        assertEquals(1, page.records().size());
+        assertEquals(1, page.limit());
+        assertEquals(1, page.offset());
+        assertThrows(IllegalArgumentException.class, () -> service.queryRecords(
+                tenant, actor, database.id(), table.id(), Map.of("unknown", "x"), 10, 0));
+        assertThrows(IllegalArgumentException.class, () -> service.queryRecords(
+                tenant, actor, database.id(), table.id(), Map.of(), 201, 0));
+    }
+
+    @Test
     void relationValuesMustResolveToReadableRecordsInTheConfiguredTable() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Relations");
         DatabaseTable targetTable = service.createTable(tenant, actor, database.id(), "Targets", List.of(
@@ -131,6 +153,19 @@ class StructuredDatabaseServiceTest {
         }
         @Override public Optional<DatabaseRecord> findRecord(UUID tenantId, UUID recordId) {
             return Optional.ofNullable(records.get(recordId)).filter(r -> r.tenantId().equals(tenantId));
+        }
+        @Override public DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId,
+                                                          Map<String, Object> filters, int limit, int offset) {
+            List<DatabaseRecord> matched = records.values().stream()
+                    .filter(r -> r.tenantId().equals(tenantId) && r.databaseId().equals(databaseId)
+                            && r.tableId().equals(tableId))
+                    .filter(r -> filters.entrySet().stream()
+                            .allMatch(e -> Objects.equals(r.values().get(e.getKey()), e.getValue())))
+                    .sorted(Comparator.comparing(DatabaseRecord::createdAt).thenComparing(DatabaseRecord::id))
+                    .toList();
+            int from = Math.min(offset, matched.size());
+            int to = Math.min(from + limit, matched.size());
+            return new DatabaseRecordPage(matched.subList(from, to), matched.size(), limit, offset);
         }
         @Override public boolean saveRecord(DatabaseRecord record, long expectedRevision, AuditEntry entry) {
             DatabaseRecord current = records.get(record.id());
