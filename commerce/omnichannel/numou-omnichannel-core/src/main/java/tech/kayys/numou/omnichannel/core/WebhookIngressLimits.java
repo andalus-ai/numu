@@ -56,7 +56,7 @@ public final class WebhookIngressLimits {
     public byte[] readBounded(InputStream input) throws IOException {
         Objects.requireNonNull(input, "input must not be null");
         ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maxBodyBytes, READ_BUFFER_BYTES));
-        byte[] buffer = new byte[Math.min(READ_BUFFER_BYTES, maxBodyBytes + 1)];
+        byte[] buffer = new byte[Math.min(READ_BUFFER_BYTES, maxBodyBytes)];
         int total = 0;
         while (total <= maxBodyBytes) {
             int remainingIncludingProbe = maxBodyBytes - total + 1;
