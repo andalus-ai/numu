@@ -16,8 +16,8 @@ M8 establishes auditable ETA snapshots and versioned courier route plans. It del
 - PostgreSQL composite tenant keys and constraints isolate estimates, plans and stops.
 
 ## Production follow-up
-- Implement tenant-explicit repositories and application handlers, branch/courier authorization, and audit events.
-- Connect a pluggable ETA provider using calibrated historical transit times and/or a traffic provider. Track model version, calibration and prediction error.
+- Tenant-explicit repository ports and PostgreSQL persistence are implemented for ETA snapshots and route plans. Application handlers now require a planning-access port for actor/branch authorization; deployments must provide a real authorization adapter. Audit/outbox events remain follow-on work.
+- The application uses a pluggable ETA-provider port; connect it to calibrated historical transit times and/or a traffic provider, tracking model version, calibration and prediction error.
 - Implement optimization behind a provider port with constraints for capacity, service windows, pickup/delivery precedence, breaks, driver shifts and hub cutoffs. Store input/output versions for reproducibility.
 - Add event-fed analytics with late-event handling, privacy controls, retention policies and tenant-level aggregation.
 - Run Maven domain tests and PostgreSQL migration/Testcontainers suites; they have not been executed in this environment.
