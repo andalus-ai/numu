@@ -30,6 +30,7 @@ class JdbcHubRepositoryPostgresTest {
     static JdbcTrackingEventRepository trackingRepository;
     static JdbcHubTransferRepository transferRepository;
     static JdbcDeliveryTaskRepository deliveryTaskRepository;
+    static JdbcDeliveryOutboxProjector deliveryOutboxProjector;
 
     @BeforeAll
     static void migrateSchema() {
@@ -43,6 +44,7 @@ class JdbcHubRepositoryPostgresTest {
         trackingRepository = new JdbcTrackingEventRepository(dataSource());
         transferRepository = new JdbcHubTransferRepository(dataSource());
         deliveryTaskRepository = new JdbcDeliveryTaskRepository(dataSource());
+        deliveryOutboxProjector = new JdbcDeliveryOutboxProjector(dataSource());
     }
 
     @Test
@@ -242,6 +244,13 @@ class JdbcHubRepositoryPostgresTest {
         } catch (java.sql.SQLException failure) {
             fail("outbox query failed", failure);
         }
+        assertEquals(3, deliveryOutboxProjector.projectBatch(50).toCompletableFuture().join());
+        var tracking = trackingRepository.findByShipment(tenant, shipment.id(), null, 20)
+                .toCompletableFuture().join();
+        assertEquals(3, tracking.size());
+        assertTrue(tracking.stream().anyMatch(event -> event.type() == TrackingEventType.OUT_FOR_DELIVERY));
+        assertTrue(tracking.stream().anyMatch(event -> event.type() == TrackingEventType.DELIVERY_ATTEMPTED));
+        assertTrue(tracking.stream().anyMatch(event -> event.type() == TrackingEventType.DELIVERED));
     }
 
     @Test
