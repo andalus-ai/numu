@@ -12,7 +12,13 @@ Provide the durable operational boundary that joins first-mile collection, hub i
 - PostgreSQL V15 scan idempotency ledger and append-only operational decision audit table.
 - Tenant-scoped uniqueness and foreign-key boundaries, timestamp checks, and indexes for hub queues and shipment timelines.
 
-## Required transaction semantics for the PostgreSQL adapter
+## PostgreSQL adapter behavior implemented in this slice
+
+`JdbcHubOperationsStore` now claims the tenant/source/idempotency tuple, compares the stored payload fingerprint on conflict, and writes a new receipt plus tracking fact (using the existing tracking vocabulary) and operational outbox row in one JDBC transaction. A matching retry returns `REPLAYED`; key reuse with a different fingerprint returns `IDEMPOTENCY_CONFLICT` and does not append tracking or outbox rows.
+
+The adapter remains a first integration slice: transition validation against dispatch waves and sealed containers, and an authenticated exception-approval flow, are not yet wired into this store. Container sealing currently maps to the existing tracking exception vocabulary because the public tracking enum does not yet include a dedicated seal event; this mapping should be revisited before production use.
+
+## Required transaction semantics and remaining work
 
 1. Resolve the shipment under the command tenant; never infer tenant identity from the supplied shipment reference.
 2. Attempt to claim `(tenant_id, source, idempotency_key)`.
