@@ -6,7 +6,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ConflictException;
-import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -48,7 +48,7 @@ public class ScheduleChangeOutboxReplayResource {
         if (securityContext == null || securityContext.getUserPrincipal() == null
                 || securityContext.getUserPrincipal().getName() == null
                 || securityContext.getUserPrincipal().getName().isBlank()) {
-            throw new NotAuthorizedException("Authenticated operator identity is required");
+            throw new ForbiddenException("Authenticated operator identity is required");
         }
 
         boolean replayed = store.replayDeadLetter(

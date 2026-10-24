@@ -239,6 +239,46 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
     }
 
     @Test
+    void concurrentRelayWorkersDoNotClaimTheSameEvent() throws Exception {
+        Fixture f = fixture();
+        ScheduleChangeExecution applying = ScheduleChangeExecution.begin(
+                f.executionId, f.request, f.initiator, f.startedAt, f.base.revision());
+        executions.applyAtomically(f.request, f.target, applying);
+
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try {
+            var first = pool.submit(() -> claimAfterBarrier(ready, start, UUID.randomUUID()));
+            var second = pool.submit(() -> claimAfterBarrier(ready, start, UUID.randomUUID()));
+            assertTrue(ready.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            start.countDown();
+
+            var a = first.get(20, java.util.concurrent.TimeUnit.SECONDS).stream()
+                    .filter(event -> event.executionId().equals(f.executionId)).toList();
+            var b = second.get(20, java.util.concurrent.TimeUnit.SECONDS).stream()
+                    .filter(event -> event.executionId().equals(f.executionId)).toList();
+            assertEquals(1, a.size() + b.size(),
+                    "a single due outbox event must be claimed by only one concurrent worker");
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    private List<JdbcScheduleChangeOutboxRelayStore.ClaimedEvent> claimAfterBarrier(
+            java.util.concurrent.CountDownLatch ready,
+            java.util.concurrent.CountDownLatch start,
+            UUID token) throws Exception {
+        ready.countDown();
+        if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Timed out waiting for concurrent relay start");
+        }
+        Instant now = Instant.now();
+        return outboxRelayStore.claimDue(1000, now, now.plusSeconds(30), token);
+    }
+
+    @Test
     void deadLetterReplayIsAuditedAndCannotBeRequestedTwice() throws Exception {
         Fixture f = fixture();
         ScheduleChangeExecution applying = ScheduleChangeExecution.begin(
