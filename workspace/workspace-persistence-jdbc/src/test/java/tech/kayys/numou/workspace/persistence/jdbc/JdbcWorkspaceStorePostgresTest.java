@@ -42,7 +42,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V6__workspace_template_name_integrity.sql",
             "/db/migration/V7__workspace_domain_invariants.sql",
             "/db/migration/V8__workspace_page_parent_invariant.sql",
-            "/db/migration/V9__workspace_audit_invariants.sql");
+            "/db/migration/V9__workspace_audit_invariants.sql",
+            "/db/migration/V10__workspace_page_hierarchy_cycle_invariant.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -226,6 +227,35 @@ class JdbcWorkspaceStorePostgresTest {
                 .stream().allMatch(hit -> hit.spaceId().equals(space.id())));
     }
 
+
+    @Test
+    void databaseRejectsPageHierarchyCycles() throws SQLException {
+        Instant now = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Hierarchy integrity", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "hierarchy-docs", now);
+        assertTrue(store.save(space));
+
+        Page root = Page.create(tenant, workspace.id(), space.id(), null, "Root", List.of(), now);
+        assertTrue(store.saveWithRevision(root, PageRevision.snapshot(root, actor, now, "root"), 0));
+        Page child = Page.create(tenant, workspace.id(), space.id(), root.id(), "Child", List.of(), now);
+        assertTrue(store.saveWithRevision(child, PageRevision.snapshot(child, actor, now, "child"), 0));
+
+        // Direct SQL bypasses the immutable-parent application update path.
+        // The database trigger must still reject a cycle, and leave the hierarchy unchanged.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_pages SET parent_page_id=? WHERE tenant_id=? AND id=?")) {
+            p.setObject(1, child.id());
+            p.setObject(2, tenant);
+            p.setObject(3, root.id());
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+        assertNull(store.findPage(tenant, root.id()).orElseThrow().parentPageId());
+        assertEquals(root.id(), store.findPage(tenant, child.id()).orElseThrow().parentPageId());
+    }
 
     @Test
     void databaseRejectsInvalidAuditMetadata() throws SQLException {
