@@ -19,7 +19,7 @@ class CourierPodTrackingProjectorContractTest {
         assertTrue(source.contains("FOR UPDATE SKIP LOCKED"));
         assertTrue(source.contains("published_at IS NULL"));
         assertTrue(source.contains("ON CONFLICT (tenant_id, idempotency_key) DO NOTHING"));
-        assertTrue(source.contains("\\\"POD:\\\" + proofId"));
+        assertTrue(source.contains("\"POD:\" + proofId"));
         assertTrue(source.contains("connection.rollback(savepoint)"));
         assertTrue(source.contains("recordRetry(connection, tenantId, outboxId, failure)"));
     }
