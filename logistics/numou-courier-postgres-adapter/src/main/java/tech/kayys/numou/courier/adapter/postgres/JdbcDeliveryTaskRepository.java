@@ -7,6 +7,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import javax.sql.DataSource;
 import java.sql.*;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +35,6 @@ public class JdbcDeliveryTaskRepository implements DeliveryTaskRepository {
                out_for_delivery_at, last_attempt_at, delivered_at, recipient_name, proof_reference, failure_reason)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT (tenant_id, id) DO UPDATE SET
-              courier_reference=EXCLUDED.courier_reference, assigned_by=EXCLUDED.assigned_by,
               status=EXCLUDED.status, updated_at=EXCLUDED.updated_at,
               out_for_delivery_at=EXCLUDED.out_for_delivery_at, last_attempt_at=EXCLUDED.last_attempt_at,
               delivered_at=EXCLUDED.delivered_at, recipient_name=EXCLUDED.recipient_name,
