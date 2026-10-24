@@ -70,17 +70,21 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
     void concurrentRetriesOfSameChunkDoNotDuplicateBytes() throws Exception {
         var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
         byte[] chunk = "one-row\n".getBytes(StandardCharsets.UTF_8);
-        try (var executor = Executors.newFixedThreadPool(8)) {
+        var executor = Executors.newFixedThreadPool(8);
+        try {
             Callable<WarehouseSnapshot> write = () -> {
                 var snapshot = store.appendChunk("tenant-a", "export-concurrent", "chunk-1", 0, chunk);
                 return new WarehouseSnapshot(snapshot.byteSize(), snapshot.sha256Hex());
             };
             var tasks = java.util.stream.IntStream.range(0, 24).<Callable<WarehouseSnapshot>>mapToObj(i -> write).toList();
             var futures = executor.invokeAll(tasks);
+            String expectedDigest = store.inspect("tenant-a", "export-concurrent").sha256Hex();
             for (Future<WarehouseSnapshot> future : futures) {
                 assertEquals(chunk.length, future.get().byteSize());
-                assertEquals(store.inspect("tenant-a", "export-concurrent").sha256Hex(), future.get().sha256Hex());
+                assertEquals(expectedDigest, future.get().sha256Hex());
             }
+        } finally {
+            executor.shutdownNow();
         }
         assertEquals("one-row\n",
                 new String(store.open("tenant-a", "export-concurrent").readAllBytes(), StandardCharsets.UTF_8));
