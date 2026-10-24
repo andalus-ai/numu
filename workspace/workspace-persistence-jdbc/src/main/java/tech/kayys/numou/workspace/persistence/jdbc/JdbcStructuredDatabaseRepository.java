@@ -115,6 +115,12 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
 
     @Override public DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId,
                                                        Map<String, Object> filters, int limit, int offset) {
+        return queryRecords(tenantId, databaseId, tableId, filters, List.of(), limit, offset);
+    }
+
+    @Override public DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId,
+                                                       Map<String, Object> filters, List<DatabaseViewSort> sorts,
+                                                       int limit, int offset) {
         if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
         if (offset < 0) throw new IllegalArgumentException("offset cannot be negative");
         Map<String, Object> safeFilters = filters == null ? Map.of() : filters;
@@ -134,6 +140,22 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
                     throw new IllegalArgumentException("unknown filter property: " + key);
                 }
             }
+            List<String> orderExpressions = new ArrayList<>();
+            for (DatabaseViewSort sort : (sorts == null ? List.<DatabaseViewSort>of() : sorts)) {
+                DatabaseProperty property = schema.property(sort.propertyKey());
+                String key = property.key(); // schema keys are validated identifiers, never caller SQL
+                String value = "(record_data ->> '" + key + "')";
+                String expression = switch (property.type()) {
+                    case NUMBER -> "NULLIF(" + value + ", '')::numeric";
+                    case DATE -> "NULLIF(" + value + ", '')::date";
+                    case DATE_TIME -> "NULLIF(" + value + ", '')::timestamptz";
+                    case CHECKBOX -> "NULLIF(" + value + ", '')::boolean";
+                    default -> value;
+                };
+                orderExpressions.add(expression + (sort.direction() == DatabaseViewSort.Direction.ASC ? " ASC" : " DESC") + " NULLS LAST");
+            }
+            String orderBy = orderExpressions.isEmpty() ? "created_at ASC,id ASC"
+                    : String.join(",", orderExpressions) + ",created_at ASC,id ASC";
             long total;
             try (PreparedStatement count = c.prepareStatement("SELECT count(*) FROM workspace_database_records WHERE " + where)) {
                 int index = bindRecordQuery(count, tenantId, databaseId, tableId, safeFilters);
@@ -141,7 +163,7 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
             }
             List<DatabaseRecord> records = new ArrayList<>();
             String sql = "SELECT id,tenant_id,database_id,table_id,revision,record_data::text,created_at,updated_at FROM workspace_database_records WHERE "
-                    + where + " ORDER BY created_at ASC,id ASC LIMIT ? OFFSET ?";
+                    + where + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?";
             try (PreparedStatement p = c.prepareStatement(sql)) {
                 int index = bindRecordQuery(p, tenantId, databaseId, tableId, safeFilters);
                 p.setInt(index++, limit); p.setInt(index, offset);
