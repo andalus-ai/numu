@@ -27,6 +27,7 @@ public class JdbcPickupRequestRepository implements PickupRequestRepository {
     collection_evidence_reference=EXCLUDED.collection_evidence_reference,failure_reason=EXCLUDED.failure_reason
    WHERE courier_pickup_requests.shipment_id=EXCLUDED.shipment_id
     AND courier_pickup_requests.reference=EXCLUDED.reference
+    AND courier_pickup_requests.updated_at<=EXCLUDED.updated_at
     AND (courier_pickup_requests.status=EXCLUDED.status
      OR (courier_pickup_requests.status='REQUESTED' AND EXCLUDED.status IN ('ASSIGNED','CANCELLED'))
      OR (courier_pickup_requests.status='FAILED' AND EXCLUDED.status IN ('ASSIGNED','CANCELLED'))

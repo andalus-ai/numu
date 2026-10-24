@@ -27,7 +27,7 @@ public final class PickupRequest {
  public void assign(String courier,Instant now) {
   if(status!=PickupRequestStatus.REQUESTED&&status!=PickupRequestStatus.FAILED)throw new IllegalStateException("pickup is not assignable");
   courierReference=required(courier,160,"courierReference");assignedAt=monotonic(now);updatedAt=assignedAt;
-  failureReason=null;status=PickupRequestStatus.ASSIGNED;
+  status=PickupRequestStatus.ASSIGNED;
  }
  public void recordCollection(String evidence,Instant now) {
   require(PickupRequestStatus.ASSIGNED);collectionEvidenceReference=required(evidence,512,"evidenceReference");
