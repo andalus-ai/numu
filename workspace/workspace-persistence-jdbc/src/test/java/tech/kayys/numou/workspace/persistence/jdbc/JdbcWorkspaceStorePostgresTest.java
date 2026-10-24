@@ -664,15 +664,121 @@ class JdbcWorkspaceStorePostgresTest {
                 if (in == null) throw new IllegalStateException("Missing migration resource " + migration);
                 sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
-            // These migration files contain ordinary DDL statements only; semicolon splitting is sufficient.
+            // Keep procedural bodies (for example PostgreSQL dollar-quoted functions) intact.
             try (Connection c = source.getConnection(); Statement s = c.createStatement()) {
-                for (String statement : sql.split(";")) {
-                    String executable = statement.lines().map(String::trim)
-                            .filter(line -> !line.isEmpty() && !line.startsWith("--"))
-                            .reduce("", (left, right) -> left + " " + right).trim();
-                    if (!executable.isEmpty()) s.execute(executable);
+                for (String statement : splitSqlStatements(sql)) {
+                    if (!statement.isBlank()) s.execute(statement);
                 }
             }
+        }
+    }
+
+    /**
+     * Splits migration SQL on statement terminators without splitting strings,
+     * comments, quoted identifiers, or PostgreSQL dollar-quoted function bodies.
+     */
+    private static List<String> splitSqlStatements(String sql) {
+        List<String> statements = new java.util.ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        String dollarTag = null;
+        boolean singleQuoted = false;
+        boolean doubleQuoted = false;
+        boolean lineComment = false;
+        boolean blockComment = false;
+
+        for (int i = 0; i < sql.length(); i++) {
+            char ch = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\\0';
+
+            if (lineComment) {
+                current.append(ch);
+                if (ch == '\\n') lineComment = false;
+                continue;
+            }
+            if (blockComment) {
+                current.append(ch);
+                if (ch == '*' && next == '/') {
+                    current.append(next);
+                    i++;
+                    blockComment = false;
+                }
+                continue;
+            }
+            if (dollarTag != null) {
+                if (sql.startsWith(dollarTag, i)) {
+                    current.append(dollarTag);
+                    i += dollarTag.length() - 1;
+                    dollarTag = null;
+                } else {
+                    current.append(ch);
+                }
+                continue;
+            }
+            if (singleQuoted) {
+                current.append(ch);
+                if (ch == '\\'' && next == '\\'') {
+                    current.append(next);
+                    i++;
+                } else if (ch == '\\'') {
+                    singleQuoted = false;
+                }
+                continue;
+            }
+            if (doubleQuoted) {
+                current.append(ch);
+                if (ch == '"' && next == '"') {
+                    current.append(next);
+                    i++;
+                } else if (ch == '"') {
+                    doubleQuoted = false;
+                }
+                continue;
+            }
+            if (ch == '-' && next == '-') {
+                current.append(ch).append(next);
+                i++;
+                lineComment = true;
+            } else if (ch == '/' && next == '*') {
+                current.append(ch).append(next);
+                i++;
+                blockComment = true;
+            } else if (ch == '\\'') {
+                current.append(ch);
+                singleQuoted = true;
+            } else if (ch == '"') {
+                current.append(ch);
+                doubleQuoted = true;
+            } else if (ch == '
+        }
+    }
+}
+) {
+                int end = sql.indexOf('
+        }
+    }
+}
+, i + 1);
+                if (end >= 0) {
+                    String tag = sql.substring(i, end + 1);
+                    if (tag.matches("\\$[A-Za-z_0-9]*\\$")) {
+                        current.append(tag);
+                        i = end;
+                        dollarTag = tag;
+                    } else {
+                        current.append(ch);
+                    }
+                } else {
+                    current.append(ch);
+                }
+            } else if (ch == ';') {
+                statements.add(current.toString().trim());
+                current.setLength(0);
+            } else {
+                current.append(ch);
+            }
+        }
+        if (!current.toString().isBlank()) statements.add(current.toString().trim());
+        return statements;
         }
     }
 }
