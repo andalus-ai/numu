@@ -5,6 +5,7 @@ import tech.kayys.numou.courier.domain.*;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -23,8 +24,9 @@ class AssignDeliveryTaskHandlerTest {
                 ServiceLevel.STANDARD, now);
         when(shipments.findById(tenant, shipmentId)).thenReturn(CompletableFuture.completedFuture(Optional.of(draft)));
         AssignDeliveryTaskHandler handler = new AssignDeliveryTaskHandler(shipments, tasks);
-        assertThrows(IllegalStateException.class, () -> handler.handle(new AssignDeliveryTaskCommand(
+        CompletionException failure = assertThrows(CompletionException.class, () -> handler.handle(new AssignDeliveryTaskCommand(
                 tenant, DeliveryTaskId.generate(), shipmentId, "courier-1", "dispatcher-1", now)).toCompletableFuture().join());
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
         verifyNoInteractions(tasks);
     }
 }
