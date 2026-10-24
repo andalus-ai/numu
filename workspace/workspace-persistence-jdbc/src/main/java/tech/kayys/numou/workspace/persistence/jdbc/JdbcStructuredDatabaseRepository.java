@@ -170,6 +170,62 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         return index;
     }
 
+    @Override public boolean saveView(DatabaseView view, AuditEntry audit) {
+        validateAudit(audit, view.tenantId(), view.id(), "DATABASE_VIEW", "DATABASE_VIEW_CREATED", 1);
+        return atomic("save structured database view", c -> {
+            String sql = "INSERT INTO workspace_database_views(id,tenant_id,database_id,table_id,created_by,name,view_type,filters,sorts,visible_properties,created_at,updated_at) VALUES(?,?,?,?,?,?,?,CAST(? AS jsonb),CAST(? AS jsonb),CAST(? AS jsonb),?,?)";
+            try (PreparedStatement p = c.prepareStatement(sql)) {
+                p.setObject(1, view.id()); p.setObject(2, view.tenantId()); p.setObject(3, view.databaseId());
+                p.setObject(4, view.tableId()); p.setObject(5, view.createdBy()); p.setString(6, view.name());
+                p.setString(7, view.type().name()); p.setString(8, Json.write(view.filters()));
+                List<Map<String, Object>> sorts = view.sorts().stream().map(s -> Map.<String,Object>of(
+                        "propertyKey", s.propertyKey(), "direction", s.direction().name())).toList();
+                p.setString(9, Json.write(sorts)); p.setString(10, Json.write(view.visibleProperties()));
+                p.setTimestamp(11, Timestamp.from(view.createdAt())); p.setTimestamp(12, Timestamp.from(view.updatedAt()));
+                p.executeUpdate();
+            }
+            insertAudit(c, audit);
+            return true;
+        });
+    }
+
+    @Override public Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId) {
+        String sql = "SELECT id,tenant_id,database_id,table_id,created_by,name,view_type,filters::text,sorts::text,visible_properties::text,created_at,updated_at FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=?";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, databaseId); p.setObject(3, viewId);
+            try (ResultSet r = p.executeQuery()) {
+                if (!r.next()) return Optional.empty();
+                return Optional.of(decodeView(r));
+            }
+        } catch (SQLException e) { throw failure("find structured database view", e); }
+    }
+
+    @Override public List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId) {
+        String sql = "SELECT id,tenant_id,database_id,table_id,created_by,name,view_type,filters::text,sorts::text,visible_properties::text,created_at,updated_at FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND table_id=? AND created_by=? ORDER BY name,id";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, databaseId); p.setObject(3, tableId); p.setObject(4, actorId);
+            try (ResultSet r = p.executeQuery()) {
+                List<DatabaseView> result = new ArrayList<>();
+                while (r.next()) result.add(decodeView(r));
+                return List.copyOf(result);
+            }
+        } catch (SQLException e) { throw failure("list structured database views", e); }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static DatabaseView decodeView(ResultSet r) throws SQLException {
+        Map<String,Object> filters = (Map<String,Object>) Json.read(r.getString(8));
+        List<?> rawSorts = (List<?>) Json.read(r.getString(9));
+        List<DatabaseViewSort> sorts = rawSorts.stream().map(raw -> {
+            Map<?,?> item = (Map<?,?>) raw;
+            return new DatabaseViewSort((String) item.get("propertyKey"),
+                    DatabaseViewSort.Direction.valueOf((String) item.get("direction")));
+        }).toList();
+        List<String> visible = ((List<?>) Json.read(r.getString(10))).stream().map(String.class::cast).toList();
+        return new DatabaseView(uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),uuid(r,5),r.getString(6),
+                DatabaseViewType.valueOf(r.getString(7)),filters,sorts,visible,instant(r,11),instant(r,12));
+    }
+
     private List<DatabaseProperty> readProperties(Connection c,UUID tenant,UUID db,UUID table) throws SQLException {
         List<DatabaseProperty> out=new ArrayList<>();
         String sql="SELECT property_id,property_key,label,property_type,required,options::text,related_table_id FROM workspace_database_properties WHERE tenant_id=? AND database_id=? AND table_id=? ORDER BY property_key";

@@ -9,6 +9,9 @@ import tech.kayys.numou.workspace.domain.DatabaseProperty;
 import tech.kayys.numou.workspace.domain.DatabaseRecord;
 import tech.kayys.numou.workspace.domain.DatabaseRecordPage;
 import tech.kayys.numou.workspace.domain.DatabaseTable;
+import tech.kayys.numou.workspace.domain.DatabaseView;
+import tech.kayys.numou.workspace.domain.DatabaseViewSort;
+import tech.kayys.numou.workspace.domain.DatabaseViewType;
 import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
 
 import java.time.Clock;
@@ -124,6 +127,48 @@ public final class StructuredDatabaseService {
             accessPolicy.require(tenantId, actorId, Resource.DATABASE_RECORD, record.id(), Action.READ);
         }
         return page;
+    }
+
+    /** Creates a personal saved view after validating every referenced property against the current schema. */
+    public DatabaseView createView(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId, String name,
+                                   DatabaseViewType type, Map<String, Object> filters,
+                                   List<DatabaseViewSort> sorts, List<String> visibleProperties) {
+        requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        DatabaseTable table = repository.findTable(tenantId, databaseId, tableId)
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.UPDATE);
+        Map<String, Object> validatedFilters = new java.util.LinkedHashMap<>();
+        if (filters != null) {
+            filters.forEach((key, value) -> {
+                DatabaseProperty property = table.property(key);
+                if (value == null) throw new IllegalArgumentException("null saved-view filters are not supported");
+                validatedFilters.put(key, property.validateValue(value));
+            });
+        }
+        List<DatabaseViewSort> validatedSorts = sorts == null ? List.of() : List.copyOf(sorts);
+        for (DatabaseViewSort sort : validatedSorts) table.property(sort.propertyKey());
+        List<String> visible = visibleProperties == null ? List.of() : List.copyOf(visibleProperties);
+        for (String key : visible) table.property(key);
+        if (visible.stream().distinct().count() != visible.size()) {
+            throw new IllegalArgumentException("visible properties must be unique");
+        }
+        Instant now = clock.instant();
+        DatabaseView view = DatabaseView.create(tenantId, databaseId, tableId, actorId, name, type,
+                validatedFilters, validatedSorts, visible, now);
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_VIEW_CREATED", "DATABASE_VIEW", view.id(), 1,
+                "Created saved structured database view");
+        if (!repository.saveView(view, audit)) {
+            throw new IllegalStateException("view was not saved; a view with this name may already exist");
+        }
+        return view;
+    }
+
+    public List<DatabaseView> findViews(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId) {
+        requireDatabase(tenantId, actorId, databaseId, Action.READ);
+        repository.findTable(tenantId, databaseId, tableId)
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.READ);
+        return repository.findViews(tenantId, databaseId, tableId, actorId);
     }
 
     public Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID actorId, UUID databaseId) {

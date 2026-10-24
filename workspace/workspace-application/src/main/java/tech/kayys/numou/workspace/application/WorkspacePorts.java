@@ -59,6 +59,9 @@ public final class WorkspacePorts {
   boolean saveRecord(DatabaseRecord record, long expectedRevision, AuditEntry audit);
   /** Exact-match JSONB filters; results must be tenant/database/table scoped and deterministically ordered. */
   DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId, java.util.Map<String, Object> filters, int limit, int offset);
+  boolean saveView(DatabaseView view, AuditEntry audit);
+  Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId);
+  List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId);
  }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
  public enum Resource { WORKSPACE, SPACE, PAGE, ATTACHMENT, DATABASE, DATABASE_TABLE, DATABASE_RECORD }
