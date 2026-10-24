@@ -50,6 +50,7 @@ public class JdbcScheduleChangeOutboxRelayStore {
                     WHERE published_at IS NULL
                       AND available_at <= ?
                       AND (claim_token IS NULL OR claimed_until <= ?)
+                      AND dead_lettered_at IS NULL
                       AND attempt_count < 10
                     ORDER BY created_at, outbox_id
                     FOR UPDATE SKIP LOCKED
@@ -127,8 +128,12 @@ public class JdbcScheduleChangeOutboxRelayStore {
                 : error.substring(0, Math.min(error.length(), 2000));
         String sql = """
                 UPDATE schedule_change_outbox
-                SET available_at = ?, last_error = ?, claim_token = NULL, claimed_until = NULL
-                WHERE outbox_id = ? AND claim_token = ? AND published_at IS NULL AND claimed_until > CURRENT_TIMESTAMP
+                SET available_at = CASE WHEN attempt_count >= 10 THEN available_at ELSE ? END,
+                    last_error = ?,
+                    dead_lettered_at = CASE WHEN attempt_count >= 10 THEN CURRENT_TIMESTAMP ELSE dead_lettered_at END,
+                    claim_token = NULL, claimed_until = NULL
+                WHERE outbox_id = ? AND claim_token = ? AND published_at IS NULL
+                  AND dead_lettered_at IS NULL AND claimed_until > CURRENT_TIMESTAMP
                 """;
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setTimestamp(1, Timestamp.from(Objects.requireNonNull(retryAt, "retryAt cannot be null")));
@@ -138,6 +143,50 @@ public class JdbcScheduleChangeOutboxRelayStore {
             return ps.executeUpdate() == 1;
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to reschedule schedule-change outbox event", e);
+        }
+    }
+
+    /**
+     * Returns a low-cost operational snapshot for health endpoints and monitoring.
+     * Counts are intentionally tenant-agnostic; callers must not expose event payloads
+     * or last-error text through public health endpoints.
+     */
+    public OutboxHealthSnapshot healthSnapshot() {
+        String sql = """
+                SELECT
+                    COUNT(*) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL
+                        AND claim_token IS NULL) AS pending_count,
+                    COUNT(*) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL
+                        AND claim_token IS NOT NULL) AS leased_count,
+                    COUNT(*) FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL
+                        AND last_error IS NOT NULL) AS retrying_count,
+                    COUNT(*) FILTER (WHERE dead_lettered_at IS NOT NULL) AS dead_letter_count,
+                    COALESCE(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - MIN(created_at)
+                        FILTER (WHERE published_at IS NULL AND dead_lettered_at IS NULL))), 0) AS oldest_pending_age_seconds
+                FROM schedule_change_outbox
+                """;
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) throw new IllegalStateException("Outbox health query returned no row");
+            return new OutboxHealthSnapshot(
+                    rs.getLong("pending_count"),
+                    rs.getLong("leased_count"),
+                    rs.getLong("retrying_count"),
+                    rs.getLong("dead_letter_count"),
+                    rs.getLong("oldest_pending_age_seconds"));
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to read schedule-change outbox health", e);
+        }
+    }
+
+    public record OutboxHealthSnapshot(long pendingCount, long leasedCount, long retryingCount,
+                                       long deadLetterCount, long oldestPendingAgeSeconds) {
+        public OutboxHealthSnapshot {
+            if (pendingCount < 0 || leasedCount < 0 || retryingCount < 0
+                    || deadLetterCount < 0 || oldestPendingAgeSeconds < 0) {
+                throw new IllegalArgumentException("Outbox health values cannot be negative");
+            }
         }
     }
 
