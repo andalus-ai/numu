@@ -68,6 +68,28 @@ class InboundEventWorkerTest {
     }
 
     @Test
+    void replayAfterSideEffectBeforeAcknowledgementKeepsSameIdempotencyKey() {
+        Fixture f = new Fixture();
+        f.markProcessedResult = false;
+        AtomicReference<String> firstKey = new AtomicReference<>();
+
+        assertThat(f.worker(event -> firstKey.set(event.idempotencyKey())).processNext())
+                .isEqualTo(InboundWorkerDisposition.STALE_LEASE);
+        assertThat(firstKey.get()).isNotBlank();
+
+        f.item = new InboundWorkItem(
+                f.item.key(), f.item.eventType(), f.item.payloadSha256(), f.item.channelType(),
+                f.item.branchId(), f.item.correlationId(), f.item.receivedAt(), 2,
+                NOW.plusSeconds(30), Optional.of("00000000-0000-0000-0000-000000000100"));
+        f.markProcessedResult = true;
+        AtomicReference<String> replayKey = new AtomicReference<>();
+
+        assertThat(f.worker(event -> replayKey.set(event.idempotencyKey())).processNext())
+                .isEqualTo(InboundWorkerDisposition.PROCESSED);
+        assertThat(replayKey.get()).isEqualTo(firstKey.get());
+    }
+
+    @Test
     void observerReceivesOutcomeAndSanitizedFailureWithoutChangingProcessing() {
         Fixture f = new Fixture();
         AtomicReference<InboundWorkerDisposition> outcome = new AtomicReference<>();
