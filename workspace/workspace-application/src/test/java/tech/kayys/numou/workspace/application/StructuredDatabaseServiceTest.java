@@ -214,6 +214,10 @@ class StructuredDatabaseServiceTest {
         assertEquals(3, lastPage.totalRecords());
         assertEquals(2, lastPage.offset());
         assertEquals(1, lastPage.groups().stream().mapToInt(group -> group.records().size()).sum());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.queryBoard(tenant, actor, database.id(), board.id(), "status", 201, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.queryBoard(tenant, actor, database.id(), board.id(), "status", 20, -1));
     }
 
     private static final class InMemoryRepository implements StructuredDatabaseRepository {
