@@ -1,5 +1,6 @@
 package tech.kayys.numou.omnichannel.postgres;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -32,6 +33,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class PostgresInboundEventReliabilityTest {
     private static final String URL_ENV = "NUMOU_TEST_POSTGRES_URL";
     private final String tenant = UUID.randomUUID().toString();
+    private final String schema = "omni_test_" + UUID.randomUUID().toString().replace("-", "");
+    private PGSimpleDataSource rootDataSource;
     private DataSource dataSource;
     private PostgresInboundEventProcessingStore processingStore;
     private PostgresInboundEventRecoveryStore recoveryStore;
@@ -48,12 +51,27 @@ class PostgresInboundEventReliabilityTest {
         String password = System.getenv("NUMOU_TEST_POSTGRES_PASSWORD");
         if (user != null) pg.setUser(user);
         if (password != null) pg.setPassword(password);
+        rootDataSource = pg;
+        try (Connection connection = pg.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA " + schema);
+        }
+        pg.setCurrentSchema(schema);
         dataSource = pg;
         applyMigration("db/migration/V1__create_omnichannel_inbound_event.sql");
         applyMigration("db/migration/V2__add_inbound_event_retry_lifecycle.sql");
         applyMigration("db/migration/V3__persist_verified_payload_reference.sql");
         processingStore = new PostgresInboundEventProcessingStore(dataSource);
         recoveryStore = new PostgresInboundEventRecoveryStore(dataSource);
+    }
+
+    @AfterEach
+    void dropIsolatedSchema() throws SQLException {
+        if (rootDataSource == null) return;
+        try (Connection connection = rootDataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+        }
     }
 
     @Test
