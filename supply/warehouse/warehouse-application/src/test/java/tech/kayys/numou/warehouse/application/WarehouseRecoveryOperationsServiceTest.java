@@ -91,6 +91,18 @@ class WarehouseRecoveryOperationsServiceTest {
         assertEquals("reviewed by operator", repository.replayReason);
     }
 
+
+    @Test
+    void auditPageValidatesTenantLimitAndCursorBeforeRepositoryCall() {
+        FakeRepository repository = new FakeRepository();
+        WarehouseRecoveryOperationsService service = new WarehouseRecoveryOperationsService(repository);
+        assertThrows(IllegalArgumentException.class, () -> service.auditPage(" ", 10, null));
+        assertThrows(IllegalArgumentException.class, () -> service.auditPage("tenant-a", 0, null));
+        assertThrows(IllegalArgumentException.class, () -> service.auditPage("tenant-a", 501, null));
+        assertThrows(IllegalArgumentException.class, () -> service.auditPage("tenant-a", 10, " "));
+        assertThrows(IllegalArgumentException.class, () -> service.auditPage("tenant-a", 10, "x".repeat(201)));
+    }
+
     private static WarehouseExecutionClaim claim() {
         WarehouseExecutionAttempt attempt = WarehouseExecutionAttempt.prepared(
                 "tenant-a", "cmd-a", "fp-a", "work-a", "line-a", "RECEIVE")
