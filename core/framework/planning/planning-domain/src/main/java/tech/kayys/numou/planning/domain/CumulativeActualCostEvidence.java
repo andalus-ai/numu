@@ -3,6 +3,7 @@ package tech.kayys.numou.planning.domain;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Currency;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -27,8 +28,10 @@ public record CumulativeActualCostEvidence(
         Objects.requireNonNull(nodeId, "WBS node id cannot be null");
         Objects.requireNonNull(asOfDate, "Actual-cost as-of date cannot be null");
         currencyCode = requireText(currencyCode, "Currency code");
-        if (!currencyCode.matches("[A-Z]{3}")) {
-            throw new IllegalArgumentException("Currency code must be an uppercase ISO-4217 code");
+        try {
+            Currency.getInstance(currencyCode);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Currency code must be a supported ISO-4217 code", exception);
         }
         Objects.requireNonNull(cumulativeActualCost, "Cumulative actual cost cannot be null");
         if (cumulativeActualCost.signum() < 0) {
