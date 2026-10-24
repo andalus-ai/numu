@@ -150,7 +150,7 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         var claimed = outboxRelayStore.claimDue(1000, now, now.plusSeconds(30), token);
         var event = claimed.stream().filter(e -> e.executionId().equals(f.executionId)).findFirst().orElseThrow();
         assertEquals("ScheduleChangeApplied", event.eventType());
-        assertTrue(event.payload().contains("\\"executionId\\":\\"" + f.executionId + "\\""));
+        assertTrue(event.payload().contains("\"executionId\":\"" + f.executionId + "\""));
         assertEquals(token, event.claimToken());
 
         assertFalse(outboxRelayStore.markPublished(event.outboxId(), UUID.randomUUID(), now));
