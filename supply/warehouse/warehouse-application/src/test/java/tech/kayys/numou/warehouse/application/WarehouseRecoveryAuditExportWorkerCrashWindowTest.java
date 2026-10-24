@@ -107,7 +107,8 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
 
     private static final class InMemoryJobs implements WarehouseRecoveryAuditExportJobRepository {
         private WarehouseRecoveryAuditExportJob current;
-        private WarehouseRecoveryAuditExportJob.Status failNextUpdateForStatus;\n        private boolean failNextCheckpointUpdate;
+        private WarehouseRecoveryAuditExportJob.Status failNextUpdateForStatus;
+        private boolean failNextCheckpointUpdate;
         private InMemoryJobs(WarehouseRecoveryAuditExportJob initial) { current = initial; }
         @Override public void insert(WarehouseRecoveryAuditExportJob job) { current = job; }
         @Override public Optional<WarehouseRecoveryAuditExportJob> find(String tenantId, String exportId) {
