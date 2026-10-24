@@ -164,12 +164,27 @@ public final class StructuredDatabaseService {
      * Groups cover the current page only; totalRecords reports the full filtered result count.
      */
     public tech.kayys.numou.workspace.domain.DatabaseRecordBoard queryBoard(UUID tenantId, UUID actorId,
+            UUID databaseId, UUID viewId, int limit, int offset) {
+        requireDatabase(tenantId, actorId, databaseId, Action.READ);
+        DatabaseView view = repository.findView(tenantId, databaseId, viewId)
+                .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
+        if (view.groupByProperty() == null) {
+            throw new IllegalArgumentException("saved board view has no group-by property configured");
+        }
+        return queryBoard(tenantId, actorId, databaseId, viewId, view.groupByProperty(), limit, offset);
+    }
+
+    /** Compatibility overload; persisted grouping cannot be overridden by a query caller. */
+    public tech.kayys.numou.workspace.domain.DatabaseRecordBoard queryBoard(UUID tenantId, UUID actorId,
             UUID databaseId, UUID viewId, String groupByProperty, int limit, int offset) {
         requireDatabase(tenantId, actorId, databaseId, Action.READ);
         DatabaseView view = repository.findView(tenantId, databaseId, viewId)
                 .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
         if (view.type() != DatabaseViewType.BOARD) {
             throw new IllegalArgumentException("saved view is not a BOARD view");
+        }
+        if (view.groupByProperty() != null && !view.groupByProperty().equals(groupByProperty)) {
+            throw new IllegalArgumentException("group-by property differs from saved view configuration");
         }
         DatabaseRecordPage page = queryRecordsByView(tenantId, actorId, databaseId, viewId, limit, offset);
         DatabaseTable table = repository.findTable(tenantId, databaseId, view.tableId())
@@ -205,6 +220,15 @@ public final class StructuredDatabaseService {
     public DatabaseView createView(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId, String name,
                                    DatabaseViewType type, Map<String, Object> filters,
                                    List<DatabaseViewSort> sorts, List<String> visibleProperties) {
+        return createView(tenantId, actorId, databaseId, tableId, name, type, filters, sorts,
+                visibleProperties, null);
+    }
+
+    /** Creates a saved view with optional persistent board grouping configuration. */
+    public DatabaseView createView(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId, String name,
+                                   DatabaseViewType type, Map<String, Object> filters,
+                                   List<DatabaseViewSort> sorts, List<String> visibleProperties,
+                                   String groupByProperty) {
         requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
         DatabaseTable table = repository.findTable(tenantId, databaseId, tableId)
                 .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
@@ -221,12 +245,21 @@ public final class StructuredDatabaseService {
         for (DatabaseViewSort sort : validatedSorts) table.property(sort.propertyKey());
         List<String> visible = visibleProperties == null ? List.of() : List.copyOf(visibleProperties);
         for (String key : visible) table.property(key);
+        if (groupByProperty != null) {
+            if (type != DatabaseViewType.BOARD) {
+                throw new IllegalArgumentException("only BOARD views can define a group-by property");
+            }
+            DatabaseProperty grouping = table.property(groupByProperty);
+            if (grouping.type() != tech.kayys.numou.workspace.domain.DatabasePropertyType.SELECT) {
+                throw new IllegalArgumentException("board grouping requires a SELECT property");
+            }
+        }
         if (visible.stream().distinct().count() != visible.size()) {
             throw new IllegalArgumentException("visible properties must be unique");
         }
         Instant now = clock.instant();
         DatabaseView view = DatabaseView.create(tenantId, databaseId, tableId, actorId, name, type,
-                validatedFilters, validatedSorts, visible, now);
+                validatedFilters, validatedSorts, visible, groupByProperty, now);
         AuditEntry audit = audit(tenantId, actorId, "DATABASE_VIEW_CREATED", "DATABASE_VIEW", view.id(), 1,
                 "Created saved structured database view");
         if (!repository.saveView(view, audit)) {
