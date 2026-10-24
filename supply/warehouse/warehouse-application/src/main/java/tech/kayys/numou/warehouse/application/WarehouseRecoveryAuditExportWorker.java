@@ -92,15 +92,21 @@ public final class WarehouseRecoveryAuditExportWorker {
             boolean transientFailure=e instanceof IOException
                     ||(e.getMessage()!=null&&e.getMessage().contains("version"));
             if(!transientFailure) {
-                WarehouseRecoveryAuditExportJob latest=jobs.find(job.tenantId(),job.exportId()).orElse(job);
-                if(latest.status()!=WarehouseRecoveryAuditExportJob.Status.COMPLETED
-                        &&latest.status()!=WarehouseRecoveryAuditExportJob.Status.FAILED) {
-                    WarehouseRecoveryAuditExportJob failed=latest.fail(clock.instant(),failureCode(e));
-                    jobs.update(failed,latest.version());
-                    record(latest,workerId,job.exportedEventCount()==0&&job.continuationCursor()==null
-                                    ?WarehouseRecoveryAuditExportAccessEvent.Action.CLAIM
-                                    :WarehouseRecoveryAuditExportAccessEvent.Action.RESUME,
-                            WarehouseRecoveryAuditExportAccessEvent.Outcome.FAILURE,failureCode(e));
+                try {
+                    WarehouseRecoveryAuditExportJob latest=jobs.find(job.tenantId(),job.exportId()).orElse(job);
+                    if(latest.status()!=WarehouseRecoveryAuditExportJob.Status.COMPLETED
+                            &&latest.status()!=WarehouseRecoveryAuditExportJob.Status.FAILED) {
+                        WarehouseRecoveryAuditExportJob failed=latest.fail(clock.instant(),failureCode(e));
+                        jobs.update(failed,latest.version());
+                        record(latest,workerId,job.exportedEventCount()==0&&job.continuationCursor()==null
+                                        ?WarehouseRecoveryAuditExportAccessEvent.Action.CLAIM
+                                        :WarehouseRecoveryAuditExportAccessEvent.Action.RESUME,
+                                WarehouseRecoveryAuditExportAccessEvent.Outcome.FAILURE,failureCode(e));
+                    }
+                } catch (WarehouseRecoveryAuditPersistenceException persistenceFailure) {
+                    // Preserve the original processing error and leave recovery to lease expiry when
+                    // the database is unavailable while trying to record a terminal failure.
+                    e.addSuppressed(persistenceFailure);
                 }
             }
             throw e;
