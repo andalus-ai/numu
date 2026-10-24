@@ -14,6 +14,15 @@ public final class HubScanTransitionPolicy {
     public void validate(HubScanCommand command, ContainerContext container, DispatchWaveContext wave) {
         Objects.requireNonNull(command, "command must not be null");
         switch (command.type()) {
+            case LOAD_DISCREPANCY -> {
+                require(wave != null, "load discrepancy requires a dispatch wave");
+                require(wave.status() == DispatchWaveStatus.LOADING,
+                        "load discrepancy requires a wave in LOADING state");
+                require(equal(command.hubReference(), wave.originHubReference()),
+                        "discrepancy scan hub does not match dispatch-wave origin");
+                require(command.discrepancyReason() != null && !command.discrepancyReason().isBlank(),
+                        "load discrepancy requires a reason");
+            }
             case DISPATCH_LOADED -> {
                 require(wave != null, "dispatch-loaded scan requires a dispatch wave");
                 require(wave.status() == DispatchWaveStatus.LOADING,
