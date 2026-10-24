@@ -60,3 +60,25 @@ BEFORE INSERT OR UPDATE OR DELETE
 ON workspace_page_revision_blocks
 FOR EACH ROW
 EXECUTE FUNCTION workspace_guard_page_revision_blocks();
+
+-- Revision headers are retained with their block snapshots. Page deletion may cascade
+-- through the history tables, but callers cannot remove individual history entries.
+CREATE OR REPLACE FUNCTION workspace_guard_page_revision_header_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF pg_trigger_depth() > 1 THEN
+        RETURN OLD;
+    END IF;
+
+    RAISE EXCEPTION 'Workspace page revision headers cannot be deleted directly'
+        USING ERRCODE = '23514';
+END;
+$$;
+
+CREATE TRIGGER trg_workspace_page_revision_header_delete_guard
+BEFORE DELETE
+ON workspace_page_revisions
+FOR EACH ROW
+EXECUTE FUNCTION workspace_guard_page_revision_header_delete();
