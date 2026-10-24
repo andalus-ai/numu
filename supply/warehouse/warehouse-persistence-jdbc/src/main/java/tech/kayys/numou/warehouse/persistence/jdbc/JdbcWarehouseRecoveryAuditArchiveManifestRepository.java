@@ -1,6 +1,7 @@
 package tech.kayys.numou.warehouse.persistence.jdbc;
 
 import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditArchiveManifest;
+import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditPersistenceException;
 import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditArchiveManifestRepository;
 
 import javax.sql.DataSource;
@@ -39,7 +40,7 @@ public final class JdbcWarehouseRecoveryAuditArchiveManifestRepository
             statement.setString(8, manifest.createdBy());
             statement.executeUpdate();
         } catch (SQLException exception) {
-            throw new IllegalStateException("Could not persist recovery audit archive manifest", exception);
+            throw new WarehouseRecoveryAuditPersistenceException("Could not persist recovery audit archive manifest", exception);
         }
     }
 
@@ -62,7 +63,7 @@ public final class JdbcWarehouseRecoveryAuditArchiveManifestRepository
                         result.getTimestamp("created_at").toInstant(), result.getString("created_by")));
             }
         } catch (SQLException exception) {
-            throw new IllegalStateException("Could not read recovery audit archive manifest", exception);
+            throw new WarehouseRecoveryAuditPersistenceException("Could not read recovery audit archive manifest", exception);
         }
     }
 }
