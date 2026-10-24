@@ -161,6 +161,6 @@ public final class WarehouseRecoveryAuditExportWorker {
         String safe=value;
         if(!safe.isEmpty()&&(safe.charAt(0)=='='||safe.charAt(0)=='+'||safe.charAt(0)=='-'
                 ||safe.charAt(0)=='@'||safe.charAt(0)=='\t'||safe.charAt(0)=='\r')) safe="'"+safe;
-        return "\"" + safe.replace("\"","\\"") + "\"";
+        return "\"" + safe.replace("\"", "\"\"") + "\"";
     }
 }
