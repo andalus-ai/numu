@@ -1,6 +1,7 @@
 package tech.kayys.numou.warehouse.persistence.jdbc;
 
 import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditArchiveManifest;
+import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditPersistenceException;
 import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditArchiveManifestRepository;
 
 import javax.sql.DataSource;
