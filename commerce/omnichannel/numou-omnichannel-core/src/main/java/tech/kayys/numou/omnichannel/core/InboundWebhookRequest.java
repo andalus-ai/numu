@@ -16,6 +16,8 @@ public record InboundWebhookRequest(ChannelContext context, String providerId, M
         eventType = required(eventType, "eventType");
         providerOccurredAt = Objects.requireNonNull(providerOccurredAt, "providerOccurredAt must not be null");
     }
+    /** Returns the byte count without allocating another defensive copy. */
+    public int rawBodyLength() { return rawBody.length; }
     @Override public byte[] rawBody() { return rawBody.clone(); }
     private static String required(String value, String field) {
         Objects.requireNonNull(value, field + " must not be null");

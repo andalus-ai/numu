@@ -92,6 +92,24 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void executesPersonalSavedViewWithFiltersAndTypedSorts() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Executable views");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, true, List.of("todo", "done"), null)));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "A", "status", "todo"));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Todo by title",
+                DatabaseViewType.TABLE, Map.of("status", "todo"),
+                List.of(new DatabaseViewSort("title", DatabaseViewSort.Direction.ASC)), List.of("title"));
+        DatabaseRecordPage page = service.queryRecordsByView(tenant, actor, database.id(), view.id(), 20, 0);
+        assertEquals(1, page.total());
+        assertEquals("todo", page.records().get(0).values().get("status"));
+        assertEquals(List.of(new DatabaseViewSort("title", DatabaseViewSort.Direction.ASC)), repository.lastSorts);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.queryRecordsByView(tenant, UUID.randomUUID(), database.id(), view.id(), 20, 0));
+    }
+
+    @Test
     void relationValuesMustResolveToReadableRecordsInTheConfiguredTable() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Relations");
         DatabaseTable targetTable = service.createTable(tenant, actor, database.id(), "Targets", List.of(
@@ -145,6 +163,7 @@ class StructuredDatabaseServiceTest {
     }
 
     private static final class InMemoryRepository implements StructuredDatabaseRepository {
+        private List<DatabaseViewSort> lastSorts = List.of();
         private final Map<UUID, WorkspaceDatabase> databases = new HashMap<>();
         private final Map<UUID, DatabaseTable> tables = new HashMap<>();
         private final Map<UUID, DatabaseRecord> records = new HashMap<>();
@@ -183,6 +202,11 @@ class StructuredDatabaseServiceTest {
             int from = Math.min(offset, matched.size());
             int to = Math.min(from + limit, matched.size());
             return new DatabaseRecordPage(matched.subList(from, to), matched.size(), limit, offset);
+        }
+        @Override public DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId,
+                Map<String, Object> filters, List<DatabaseViewSort> sorts, int limit, int offset) {
+            lastSorts = List.copyOf(sorts);
+            return queryRecords(tenantId, databaseId, tableId, filters, limit, offset);
         }
         @Override public boolean saveView(DatabaseView view, AuditEntry entry) {
             if (views.values().stream().anyMatch(existing -> existing.tenantId().equals(view.tenantId())
