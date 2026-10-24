@@ -91,7 +91,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
                 channel.force(true);
             }
 
-            String receiptText = expectedOffset + "\\n" + bytes.length + "\\n" + digest + "\\n";
+            String receiptText = expectedOffset + "\n" + bytes.length + "\n" + digest + "\n";
             Path temp = Files.createTempFile(dir.resolve("chunks"), ".receipt-", ".tmp");
             try {
                 Files.writeString(temp, receiptText, StandardCharsets.UTF_8,
