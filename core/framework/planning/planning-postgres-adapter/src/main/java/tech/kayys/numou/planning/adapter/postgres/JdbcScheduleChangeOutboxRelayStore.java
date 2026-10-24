@@ -104,12 +104,14 @@ public class JdbcScheduleChangeOutboxRelayStore {
         String sql = """
                 UPDATE schedule_change_outbox
                 SET published_at = ?, claim_token = NULL, claimed_until = NULL, last_error = NULL
-                WHERE outbox_id = ? AND claim_token = ? AND published_at IS NULL
+                WHERE outbox_id = ? AND claim_token = ? AND published_at IS NULL AND claimed_until > ?
                 """;
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setTimestamp(1, Timestamp.from(Objects.requireNonNull(publishedAt, "publishedAt cannot be null")));
+            Instant acknowledgedAt = Objects.requireNonNull(publishedAt, "publishedAt cannot be null");
+            ps.setTimestamp(1, Timestamp.from(acknowledgedAt));
             ps.setObject(2, Objects.requireNonNull(outboxId, "outboxId cannot be null"));
             ps.setObject(3, Objects.requireNonNull(claimToken, "claimToken cannot be null"));
+            ps.setTimestamp(4, Timestamp.from(acknowledgedAt));
             return ps.executeUpdate() == 1;
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to acknowledge schedule-change outbox event", e);
@@ -126,7 +128,7 @@ public class JdbcScheduleChangeOutboxRelayStore {
         String sql = """
                 UPDATE schedule_change_outbox
                 SET available_at = ?, last_error = ?, claim_token = NULL, claimed_until = NULL
-                WHERE outbox_id = ? AND claim_token = ? AND published_at IS NULL
+                WHERE outbox_id = ? AND claim_token = ? AND published_at IS NULL AND claimed_until > CURRENT_TIMESTAMP
                 """;
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setTimestamp(1, Timestamp.from(Objects.requireNonNull(retryAt, "retryAt cannot be null")));
