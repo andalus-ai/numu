@@ -31,16 +31,28 @@ public record HubScanCommand(
         UUID dispatchWaveId,
         String sealReference,
         String manifestReference,
-        String observedSealReference) {
+        String observedSealReference,
+        String discrepancyReason) {
 
     /** Compatibility constructor for scans that do not imply container/wave transitions. */
+    /** Compatibility constructor for callers before discrepancy evidence was introduced. */
+    public HubScanCommand(TenantId tenantId, UUID commandId, String source, String idempotencyKey,
+                          String payloadFingerprint, ShipmentId shipmentId, String parcelReference,
+                          HubScanType type, String hubReference, String actorReference,
+                          Instant occurredAt, Instant receivedAt, UUID containerId, UUID dispatchWaveId,
+                          String sealReference, String manifestReference, String observedSealReference) {
+        this(tenantId, commandId, source, idempotencyKey, payloadFingerprint, shipmentId, parcelReference,
+                type, hubReference, actorReference, occurredAt, receivedAt, containerId, dispatchWaveId,
+                sealReference, manifestReference, observedSealReference, null);
+    }
+
     public HubScanCommand(TenantId tenantId, UUID commandId, String source, String idempotencyKey,
                           String payloadFingerprint, ShipmentId shipmentId, String parcelReference,
                           HubScanType type, String hubReference, String actorReference,
                           Instant occurredAt, Instant receivedAt) {
         this(tenantId, commandId, source, idempotencyKey, payloadFingerprint, shipmentId,
                 parcelReference, type, hubReference, actorReference, occurredAt, receivedAt,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
     }
 
     public HubScanCommand {
@@ -59,6 +71,7 @@ public record HubScanCommand(
         sealReference = optional(sealReference, 160, "sealReference");
         manifestReference = optional(manifestReference, 160, "manifestReference");
         observedSealReference = optional(observedSealReference, 160, "observedSealReference");
+        discrepancyReason = optional(discrepancyReason, 500, "discrepancyReason");
         if (receivedAt.isBefore(occurredAt)) {
             throw new IllegalArgumentException("receivedAt must not be before occurredAt");
         }
@@ -77,6 +90,10 @@ public record HubScanCommand(
             case CONTAINER_RECEIVED -> {
                 Objects.requireNonNull(containerId, "containerId is required for CONTAINER_RECEIVED");
                 required(observedSealReference, 160, "observedSealReference");
+            }
+            case LOAD_DISCREPANCY -> {
+                Objects.requireNonNull(dispatchWaveId, "dispatchWaveId is required for LOAD_DISCREPANCY");
+                required(discrepancyReason, 500, "discrepancyReason");
             }
             case PICKUP_COLLECTED, HUB_INTAKE, SORTED, HUB_RECEIVED, EXCEPTION_RECORDED -> {
                 // No mandatory aggregate reference for these scan types.
