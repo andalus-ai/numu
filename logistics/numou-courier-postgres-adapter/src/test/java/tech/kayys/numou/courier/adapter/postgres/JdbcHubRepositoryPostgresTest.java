@@ -30,6 +30,7 @@ class JdbcHubRepositoryPostgresTest {
     static JdbcTrackingEventRepository trackingRepository;
     static JdbcHubTransferRepository transferRepository;
     static JdbcDeliveryTaskRepository deliveryTaskRepository;
+    static JdbcDeliveryOutboxProjector deliveryOutboxProjector;
 
     @BeforeAll
     static void migrateSchema() {
@@ -43,6 +44,7 @@ class JdbcHubRepositoryPostgresTest {
         trackingRepository = new JdbcTrackingEventRepository(dataSource());
         transferRepository = new JdbcHubTransferRepository(dataSource());
         deliveryTaskRepository = new JdbcDeliveryTaskRepository(dataSource());
+        deliveryOutboxProjector = new JdbcDeliveryOutboxProjector(dataSource());
     }
 
     @Test
@@ -227,6 +229,28 @@ class JdbcHubRepositoryPostgresTest {
         assertEquals(DeliveryTaskStatus.DELIVERED, loaded.status());
         assertEquals("Recipient A", loaded.recipientName());
         assertEquals("media://pod/tenant/object-1", loaded.proofReference());
+        try (var connection = dataSource().getConnection();
+             var statement = connection.prepareStatement("""
+                     SELECT event_type FROM courier_operational_outbox
+                     WHERE tenant_id = ? AND aggregate_id = ? ORDER BY occurred_at
+                     """)) {
+            statement.setObject(1, tenant.value());
+            statement.setObject(2, task.id().value());
+            try (var rows = statement.executeQuery()) {
+                List<String> eventTypes = new java.util.ArrayList<>();
+                while (rows.next()) eventTypes.add(rows.getString(1));
+                assertEquals(List.of("OUT_FOR_DELIVERY", "DELIVERY_ATTEMPTED", "DELIVERED"), eventTypes);
+            }
+        } catch (java.sql.SQLException failure) {
+            fail("outbox query failed", failure);
+        }
+        assertEquals(3, deliveryOutboxProjector.projectBatch(50).toCompletableFuture().join());
+        var tracking = trackingRepository.findByShipment(tenant, shipment.id(), null, 20)
+                .toCompletableFuture().join();
+        assertEquals(3, tracking.size());
+        assertTrue(tracking.stream().anyMatch(event -> event.type() == TrackingEventType.OUT_FOR_DELIVERY));
+        assertTrue(tracking.stream().anyMatch(event -> event.type() == TrackingEventType.DELIVERY_ATTEMPTED));
+        assertTrue(tracking.stream().anyMatch(event -> event.type() == TrackingEventType.DELIVERED));
     }
 
     @Test
