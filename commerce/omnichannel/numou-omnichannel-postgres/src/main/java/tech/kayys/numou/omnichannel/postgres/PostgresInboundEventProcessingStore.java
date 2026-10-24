@@ -33,8 +33,8 @@ public final class PostgresInboundEventProcessingStore implements InboundEventPr
                        OR (state = 'PROCESSING' AND lease_until <= ?)
                    )
                  ORDER BY COALESCE(next_attempt_at, received_at), received_at
-                 FOR UPDATE SKIP LOCKED
                  LIMIT 1
+                 FOR UPDATE SKIP LOCKED
             )
             UPDATE numou_omnichannel_inbound_event e
                SET state = 'PROCESSING',
@@ -77,8 +77,11 @@ public final class PostgresInboundEventProcessingStore implements InboundEventPr
                SET state = 'DEAD_LETTER', next_attempt_at = NULL, lease_until = NULL,
                    lease_token = NULL, updated_at = ?
              WHERE attempt_count >= ?
-               AND state IN ('VERIFIED', 'RETRYABLE_FAILURE')
-               AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+               AND (
+                   (state IN ('VERIFIED', 'RETRYABLE_FAILURE')
+                       AND (next_attempt_at IS NULL OR next_attempt_at <= ?))
+                   OR (state = 'PROCESSING' AND lease_until <= ?)
+               )
             """;
 
     private static final String FIND_DEAD_LETTERS_SQL = """
@@ -158,6 +161,7 @@ public final class PostgresInboundEventProcessingStore implements InboundEventPr
             statement.setTimestamp(1, Timestamp.from(now));
             statement.setInt(2, maxAttempts);
             statement.setTimestamp(3, Timestamp.from(now));
+            statement.setTimestamp(4, Timestamp.from(now));
             return statement.executeUpdate();
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to dead-letter exhausted inbox events", exception);
