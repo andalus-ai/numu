@@ -4,7 +4,6 @@ import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditArtifactStor
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -23,10 +22,9 @@ import java.util.Objects;
  * Durable local-filesystem adapter for single-host deployments and tests.
  *
  * <p>Each export is isolated under opaque tenant/export hashes. A per-export OS file lock
- * serializes writers across JVMs. Chunk receipts make retries idempotent; the append path
- * also repairs a process crash that occurred after a partial append but before receipt commit.
- * The configured root must be on a filesystem whose force/rename semantics meet the deployment's
- * durability requirements. Use an object-store adapter for multi-host deployments.</p>
+ * serializes writers across processes. Chunk receipts make retries idempotent; retries can
+ * also finish a partial append if the durable bytes match the exact prefix of the chunk.
+ * Use an object-store adapter for multi-host deployments.</p>
  */
 public final class FilesystemWarehouseRecoveryAuditArtifactStore implements WarehouseRecoveryAuditArtifactStore {
     private final Path root;
@@ -67,7 +65,14 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
 
             long size = Files.size(artifact);
             if (size < expectedOffset) throw new IOException("Artifact is shorter than expected offset");
-            long chunkEnd;\n            try { chunkEnd = Math.addExact(expectedOffset, bytes.length); }\n            catch (ArithmeticException overflow) { throw new IOException("Chunk end offset overflow", overflow); }\n            if (size > chunkEnd) throw new IOException("Artifact has unexpected bytes beyond retried chunk");
+            long chunkEnd;
+            try {
+                chunkEnd = Math.addExact(expectedOffset, bytes.length);
+            } catch (ArithmeticException overflow) {
+                throw new IOException("Chunk end offset overflow", overflow);
+            }
+            if (size > chunkEnd) throw new IOException("Artifact has unexpected bytes beyond retried chunk");
+
             int alreadyPresent = Math.toIntExact(size - expectedOffset);
             if (alreadyPresent > 0) {
                 byte[] prefix = new byte[alreadyPresent];
@@ -78,16 +83,19 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
                     if (prefix[i] != bytes[i]) throw new IOException("Artifact content conflicts at expected offset");
                 }
             }
+
             try (FileChannel channel = FileChannel.open(artifact, StandardOpenOption.WRITE)) {
                 channel.position(size);
                 ByteBuffer remaining = ByteBuffer.wrap(bytes, alreadyPresent, bytes.length - alreadyPresent);
                 while (remaining.hasRemaining()) channel.write(remaining);
                 channel.force(true);
             }
-            String receiptText = expectedOffset + "\n" + bytes.length + "\n" + digest + "\n";
+
+            String receiptText = expectedOffset + "\\n" + bytes.length + "\\n" + digest + "\\n";
             Path temp = Files.createTempFile(dir.resolve("chunks"), ".receipt-", ".tmp");
             try {
-                Files.writeString(temp, receiptText, StandardCharsets.UTF_8, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(temp, receiptText, StandardCharsets.UTF_8,
+                        StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
                 try (FileChannel receiptChannel = FileChannel.open(temp, StandardOpenOption.WRITE)) {
                     receiptChannel.force(true);
                 }
@@ -103,8 +111,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
 
     @Override
     public ArtifactSnapshot inspect(String tenantId, String exportId) throws IOException {
-        Path artifact = existingArtifact(tenantId, exportId);
-        return snapshot(artifact);
+        return snapshot(existingArtifact(tenantId, exportId));
     }
 
     @Override
@@ -130,12 +137,19 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
     }
 
     private static void verifyRange(Path artifact, long offset, byte[] expected) throws IOException {
-        long end;\n        try { end = Math.addExact(offset, expected.length); }\n        catch (ArithmeticException overflow) { throw new IOException("Chunk end offset overflow", overflow); }\n        if (Files.size(artifact) < end) throw new IOException("Committed chunk is missing from artifact");
+        long end;
+        try {
+            end = Math.addExact(offset, expected.length);
+        } catch (ArithmeticException overflow) {
+            throw new IOException("Chunk end offset overflow", overflow);
+        }
+        if (Files.size(artifact) < end) throw new IOException("Committed chunk is missing from artifact");
         byte[] actual = new byte[expected.length];
         try (FileChannel channel = FileChannel.open(artifact, StandardOpenOption.READ)) {
             readFully(channel, ByteBuffer.wrap(actual), offset);
         }
-        if (!MessageDigest.isEqual(actual, expected)) throw new IOException("Committed chunk content does not match receipt");
+        if (!MessageDigest.isEqual(actual, expected))
+            throw new IOException("Committed chunk content does not match receipt");
     }
 
     private static void readFully(FileChannel channel, ByteBuffer buffer, long position) throws IOException {
