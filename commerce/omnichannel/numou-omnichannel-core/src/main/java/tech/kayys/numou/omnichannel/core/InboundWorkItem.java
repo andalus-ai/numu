@@ -25,9 +25,12 @@ public record InboundWorkItem(
         branchId = Objects.requireNonNull(branchId, "branchId must not be null");
         Objects.requireNonNull(correlationId, "correlationId must not be null");
         Objects.requireNonNull(receivedAt, "receivedAt must not be null");
-        if (attemptCount < 1) throw new IllegalArgumentException("attemptCount must be positive");
+        if (attemptCount < 0) throw new IllegalArgumentException("attemptCount must not be negative");
         Objects.requireNonNull(leaseUntil, "leaseUntil must not be null");
         leaseToken = Objects.requireNonNull(leaseToken, "leaseToken must not be null");
+        if (leaseToken.isPresent() && attemptCount < 1) {
+            throw new IllegalArgumentException("a leased item must have a positive attemptCount");
+        }
     }
 
     /** True only for an item actually claimed by a worker, not a dead-letter listing. */
