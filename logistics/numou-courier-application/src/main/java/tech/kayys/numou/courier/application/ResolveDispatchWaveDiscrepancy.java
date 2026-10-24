@@ -69,24 +69,26 @@ public final class ResolveDispatchWaveDiscrepancy {
             Objects.requireNonNull(tenantId, "tenantId must not be null");
             Objects.requireNonNull(resolutionId, "resolutionId must not be null");
             Objects.requireNonNull(waveId, "waveId must not be null");
-            parcelReference = required(parcelReference, 160, "parcelReference");
-            resolutionCode = required(resolutionCode, 32, "resolutionCode");
+            String normalizedParcel = required(parcelReference, 160, "parcelReference");
+            String normalizedCode = required(resolutionCode, 32, "resolutionCode");
             if (!java.util.Set.of("ACCEPT_UNEXPECTED", "ACKNOWLEDGE_DUPLICATE",
-                    "WAIVE_MISSING", "REMOVE_FROM_MANIFEST").contains(resolutionCode)) {
+                    "WAIVE_MISSING", "REMOVE_FROM_MANIFEST").contains(normalizedCode)) {
                 throw new IllegalArgumentException("unsupported resolutionCode");
             }
-            reason = required(reason, 500, "reason");
-            actorReference = required(actorReference, 160, "actorReference");
-            evidenceReference = optional(evidenceReference, 500, "evidenceReference");
-            source = required(source, 64, "source");
-            idempotencyKey = required(idempotencyKey, 160, "idempotencyKey");
-            payloadFingerprint = required(payloadFingerprint, 128, "payloadFingerprint");
+            String normalizedReason = required(reason, 500, "reason");
+            String normalizedActor = required(actorReference, 160, "actorReference");
+            String normalizedEvidence = optional(evidenceReference, 500, "evidenceReference");
+            String normalizedSource = required(source, 64, "source");
+            String normalizedKey = required(idempotencyKey, 160, "idempotencyKey");
+            String normalizedFingerprint = required(payloadFingerprint, 128, "payloadFingerprint");
             Objects.requireNonNull(occurredAt, "occurredAt must not be null");
-            if (discrepancyId == null && !("WAIVE_MISSING".equals(resolutionCode)
-                    || "REMOVE_FROM_MANIFEST".equals(resolutionCode))) {
+            if (discrepancyId == null && !("WAIVE_MISSING".equals(normalizedCode)
+                    || "REMOVE_FROM_MANIFEST".equals(normalizedCode))) {
                 throw new IllegalArgumentException("discrepancyId is required for this resolutionCode");
             }
-            return this;
+            return new Request(tenantId, resolutionId, waveId, discrepancyId, normalizedParcel,
+                    normalizedCode, normalizedReason, normalizedActor, normalizedEvidence,
+                    normalizedSource, normalizedKey, normalizedFingerprint, occurredAt);
         }
 
         private static String required(String value, int max, String field) {
