@@ -42,8 +42,8 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
                     INSERT INTO courier_hub_scan_receipts
                       (tenant_id,id,source,idempotency_key,payload_fingerprint,shipment_id,
                        parcel_reference,scan_type,hub_reference,actor_reference,occurred_at,received_at,
-                       container_id,dispatch_wave_id,seal_reference,manifest_reference,observed_seal_reference)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                       container_id,dispatch_wave_id,seal_reference,manifest_reference,observed_seal_reference,discrepancy_reason)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT (tenant_id,source,idempotency_key) DO NOTHING
                     """)) {
                     s.setObject(1, command.tenantId().value());
@@ -63,6 +63,7 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
                     s.setString(15, command.sealReference());
                     s.setString(16, command.manifestReference());
                     s.setString(17, command.observedSealReference());
+                    s.setString(18, command.discrepancyReason());
                     inserted = s.executeUpdate();
                 }
                 if (inserted == 0) {
@@ -94,6 +95,7 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
             case CONTAINER_DISPATCHED -> dispatchContainer(c, cmd);
             case CONTAINER_RECEIVED -> receiveContainer(c, cmd);
             case DISPATCH_LOADED -> recordWaveParcelScan(c, cmd);
+            case LOAD_DISCREPANCY -> recordWaveDiscrepancy(c, cmd);
             case HUB_RECEIVED -> {
                 // General shipment arrival does not transition container custody; use CONTAINER_RECEIVED.
             }
@@ -207,6 +209,90 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
         }
     }
 
+    /**
+     * Retains an observed loading discrepancy without emitting a successful-load tracking fact.
+     * The wave lock serializes discrepancy classification with ordinary parcel-load scans.
+     */
+    private static void recordWaveDiscrepancy(Connection c, HubScanCommand cmd) throws SQLException {
+        WaveRow wave = lockWave(c, cmd);
+        if (!"LOADING".equals(wave.status()))
+            throw new IllegalStateException("load discrepancy requires a wave in LOADING state");
+        if (!wave.origin().equalsIgnoreCase(cmd.hubReference()))
+            throw new IllegalStateException("discrepancy scan hub does not match wave origin");
+
+        boolean expected = false;
+        int scanCount = 0;
+        try (PreparedStatement s = c.prepareStatement("""
+                SELECT expected, scan_count FROM courier_dispatch_wave_parcels
+                WHERE tenant_id=? AND wave_id=? AND parcel_reference=? FOR UPDATE
+                """)) {
+            s.setObject(1, cmd.tenantId().value());
+            s.setObject(2, cmd.dispatchWaveId());
+            s.setString(3, cmd.parcelReference());
+            try (ResultSet r = s.executeQuery()) {
+                if (r.next()) {
+                    expected = r.getBoolean("expected");
+                    scanCount = r.getInt("scan_count");
+                }
+            }
+        }
+
+        String discrepancyType;
+        if (!expected) {
+            discrepancyType = "UNEXPECTED_PARCEL";
+            try (PreparedStatement s = c.prepareStatement("""
+                    INSERT INTO courier_dispatch_wave_parcels
+                      (tenant_id,wave_id,parcel_reference,expected,first_scanned_at,scan_count,discrepancy)
+                    VALUES (?,?,?,FALSE,?,1,'UNEXPECTED')
+                    ON CONFLICT (tenant_id,wave_id,parcel_reference) DO UPDATE
+                    SET scan_count=courier_dispatch_wave_parcels.scan_count+1,
+                        first_scanned_at=COALESCE(courier_dispatch_wave_parcels.first_scanned_at,?),
+                        discrepancy='UNEXPECTED'
+                    """)) {
+                s.setObject(1, cmd.tenantId().value());
+                s.setObject(2, cmd.dispatchWaveId());
+                s.setString(3, cmd.parcelReference());
+                s.setTimestamp(4, Timestamp.from(cmd.occurredAt()));
+                s.setTimestamp(5, Timestamp.from(cmd.occurredAt()));
+                s.executeUpdate();
+            }
+        } else if (scanCount > 0) {
+            discrepancyType = "DUPLICATE_SCAN";
+            try (PreparedStatement s = c.prepareStatement("""
+                    UPDATE courier_dispatch_wave_parcels
+                    SET scan_count=scan_count+1, discrepancy='DUPLICATE'
+                    WHERE tenant_id=? AND wave_id=? AND parcel_reference=?
+                    """)) {
+                s.setObject(1, cmd.tenantId().value());
+                s.setObject(2, cmd.dispatchWaveId());
+                s.setString(3, cmd.parcelReference());
+                requireOne(s.executeUpdate(), "wave parcel changed while recording discrepancy");
+            }
+        } else {
+            throw new IllegalStateException("expected parcel has not been scanned; use DISPATCH_LOADED");
+        }
+
+        try (PreparedStatement s = c.prepareStatement("""
+                INSERT INTO courier_dispatch_wave_discrepancies
+                  (tenant_id,id,wave_id,parcel_reference,discrepancy_type,reason,source,
+                   idempotency_key,actor_reference,occurred_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT (tenant_id,source,idempotency_key) DO NOTHING
+                """)) {
+            s.setObject(1, cmd.tenantId().value());
+            s.setObject(2, UUID.randomUUID());
+            s.setObject(3, cmd.dispatchWaveId());
+            s.setString(4, cmd.parcelReference());
+            s.setString(5, discrepancyType);
+            s.setString(6, cmd.discrepancyReason());
+            s.setString(7, cmd.source());
+            s.setString(8, cmd.idempotencyKey());
+            s.setString(9, cmd.actorReference());
+            s.setTimestamp(10, Timestamp.from(cmd.occurredAt()));
+            s.executeUpdate();
+        }
+    }
+
     private static ContainerRow lockContainer(Connection c, HubScanCommand cmd) throws SQLException {
         try (PreparedStatement s = c.prepareStatement("""
                 SELECT status,origin_hub_reference,destination_hub_reference,seal_reference
@@ -274,6 +360,7 @@ public class JdbcHubOperationsStore implements HubOperationsStore {
             case HUB_INTAKE, HUB_RECEIVED -> "ARRIVED_AT_HUB";
             case SORTED -> "SORTED_AT_HUB";
             case DISPATCH_LOADED -> "LOADED_FOR_LINEHAUL";
+            case LOAD_DISCREPANCY -> "LOAD_DISCREPANCY";
             case CONTAINER_DISPATCHED -> "LINEHAUL_DEPARTED";
             case CONTAINER_RECEIVED -> "LINEHAUL_ARRIVED";
             case CONTAINER_SEALED -> "CONTAINER_SEALED";
