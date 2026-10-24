@@ -116,7 +116,14 @@ public final class StructuredDatabaseService {
                 canonicalFilters.put(property.key(), property.validateValue(entry.getValue()));
             }
         }
-        return repository.queryRecords(tenantId, databaseId, tableId, Map.copyOf(canonicalFilters), limit, offset);
+        DatabaseRecordPage page = repository.queryRecords(tenantId, databaseId, tableId,
+                Map.copyOf(canonicalFilters), limit, offset);
+        // Record-level policies may be stricter than table-level access. Fail closed rather
+        // than returning protected rows or exposing a partial page with misleading totals.
+        for (DatabaseRecord record : page.records()) {
+            accessPolicy.require(tenantId, actorId, Resource.DATABASE_RECORD, record.id(), Action.READ);
+        }
+        return page;
     }
 
     public Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID actorId, UUID databaseId) {
