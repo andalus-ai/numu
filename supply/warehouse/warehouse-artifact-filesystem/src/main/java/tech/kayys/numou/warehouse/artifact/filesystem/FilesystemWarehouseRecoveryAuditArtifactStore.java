@@ -4,6 +4,7 @@ import tech.kayys.numou.warehouse.application.WarehouseRecoveryAuditArtifactStor
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -86,7 +87,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
             String receiptText = expectedOffset + "\n" + bytes.length + "\n" + digest + "\n";
             Path temp = Files.createTempFile(dir.resolve("chunks"), ".receipt-", ".tmp");
             try {
-                Files.writeString(temp, receiptText, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(temp, receiptText, StandardCharsets.UTF_8, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
                 try (FileChannel receiptChannel = FileChannel.open(temp, StandardOpenOption.WRITE)) {
                     receiptChannel.force(true);
                 }
@@ -125,7 +126,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
     }
 
     private static ArtifactSnapshot snapshot(Path artifact) throws IOException {
-        return new ArtifactSnapshot(artifact.toUri().toString(), Files.size(artifact), sha256(Files.readAllBytes(artifact)));
+        return new ArtifactSnapshot(artifact.toUri().toString(), Files.size(artifact), sha256(artifact));
     }
 
     private static void verifyRange(Path artifact, long offset, byte[] expected) throws IOException {
