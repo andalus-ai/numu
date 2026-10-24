@@ -50,7 +50,7 @@ public class JdbcCourierNetworkRepository {
             INSERT INTO courier_partner_inbound_events
               (tenant_id,id,partner_id,external_event_id,event_type,payload,occurred_at,received_at,processing_status)
             VALUES (?,?,?,?,?,?::jsonb,?,?, 'RECEIVED')
-            ON CONFLICT (tenant_id,partner_id,external_event_id) DO NOTHING
+            ON CONFLICT DO NOTHING
             """;
         try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(sql)){
             s.setObject(1,tenant.value());s.setObject(2,event.id());s.setObject(3,event.partnerId());
