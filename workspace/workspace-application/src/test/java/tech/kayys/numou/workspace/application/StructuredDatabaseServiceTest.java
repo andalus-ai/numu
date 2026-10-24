@@ -123,11 +123,13 @@ class StructuredDatabaseServiceTest {
         DatabaseRecordBoard result = service.queryBoard(tenant, actor, database.id(), board.id(), "status", 20, 0);
         assertEquals(3, result.totalRecords());
         assertEquals("status", result.groupByProperty());
-        assertEquals(3, result.groups().size());
+        assertEquals(4, result.groups().size());
         assertEquals(1, result.groups().get(0).records().size());
         assertEquals("todo", result.groups().get(0).value());
         assertEquals(1, result.groups().get(2).records().size());
-        assertNull(result.groups().get(2).value());
+        assertEquals("done", result.groups().get(2).value());
+        assertEquals(1, result.groups().get(3).records().size());
+        assertNull(result.groups().get(3).value());
         DatabaseView tableView = service.createView(tenant, actor, database.id(), table.id(), "Plain table",
                 DatabaseViewType.TABLE, Map.of(), List.of(), List.of());
         assertThrows(IllegalArgumentException.class, () -> service.queryBoard(
