@@ -16,5 +16,6 @@
     <modules>
         <module>numou-omnichannel-core</module>
         <module>numou-omnichannel-postgres</module>
+        <module>numou-omnichannel-payload-store</module>
     </modules>
 </project>
