@@ -9,6 +9,9 @@ import tech.kayys.numou.workspace.domain.DatabaseProperty;
 import tech.kayys.numou.workspace.domain.DatabaseRecord;
 import tech.kayys.numou.workspace.domain.DatabaseRecordPage;
 import tech.kayys.numou.workspace.domain.DatabaseTable;
+import tech.kayys.numou.workspace.domain.DatabaseView;
+import tech.kayys.numou.workspace.domain.DatabaseViewSort;
+import tech.kayys.numou.workspace.domain.DatabaseViewType;
 import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
 
 import java.time.Clock;
