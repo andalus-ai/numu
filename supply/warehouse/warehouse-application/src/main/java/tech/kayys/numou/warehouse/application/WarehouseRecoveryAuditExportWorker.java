@@ -52,6 +52,10 @@ public final class WarehouseRecoveryAuditExportWorker {
                 :WarehouseRecoveryAuditExportAccessEvent.Action.RESUME,
                 WarehouseRecoveryAuditExportAccessEvent.Outcome.SUCCESS,null);
         try {
+            // A null cursor with nonzero bytes means the final page was checkpointed already.
+            // This also resumes a crash during verification without appending the first page twice.
+            if(job.continuationCursor()==null && job.exportedByteCount()>0)
+                return Optional.of(verifyAndComplete(job,workerId));
             WarehouseRecoveryAuditPage page=operations.auditPage(job.tenantId(),pageSize,job.continuationCursor());
             if(page.events().size()>pageSize) throw new IllegalStateException("Audit repository exceeded requested page size");
             for(WarehouseRecoveryOperatorAuditEvent event:page.events()) {
@@ -123,7 +127,14 @@ public final class WarehouseRecoveryAuditExportWorker {
                     WarehouseRecoveryAuditExportAccessEvent.Outcome.FAILURE,"ARCHIVE_CHECKSUM_MISMATCH");
             throw new IllegalStateException("Recovery audit archive failed integrity verification");
         }
-        manifests.insert(manifest);
+        Optional<WarehouseRecoveryAuditArchiveManifest> existing=manifests.find(verifying.tenantId(),verifying.exportId());
+        if(existing.isPresent()) {
+            WarehouseRecoveryAuditArchiveManifest saved=existing.get();
+            if(!saved.equals(manifest))
+                throw new IllegalStateException("Existing archive manifest conflicts with verified artifact");
+        } else {
+            manifests.insert(manifest);
+        }
         WarehouseRecoveryAuditExportJob completed=verifying.complete(clock.instant());
         if(!jobs.update(completed,verifying.version()))
             throw new IllegalStateException("Completion transition lost optimistic version race");
