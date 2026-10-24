@@ -18,15 +18,24 @@ public final class PageTemplateService {
     private final AccessPolicy access;
     private final AuditSink audit;
     private final Clock clock;
+    private final boolean allowNonAtomicAuditFallback;
 
     public PageTemplateService(WorkspaceRepository workspaces, PageTemplateRepository templates,
                                WorkspaceService pages, AccessPolicy access, AuditSink audit, Clock clock) {
+        this(workspaces, templates, pages, access, audit, clock, false);
+    }
+
+    /** Enable the non-atomic compatibility path only while migrating a legacy adapter. */
+    public PageTemplateService(WorkspaceRepository workspaces, PageTemplateRepository templates,
+                               WorkspaceService pages, AccessPolicy access, AuditSink audit, Clock clock,
+                               boolean allowNonAtomicAuditFallback) {
         this.workspaces = Objects.requireNonNull(workspaces);
         this.templates = Objects.requireNonNull(templates);
         this.pages = Objects.requireNonNull(pages);
         this.access = Objects.requireNonNull(access);
         this.audit = Objects.requireNonNull(audit);
         this.clock = Objects.requireNonNull(clock);
+        this.allowNonAtomicAuditFallback = allowNonAtomicAuditFallback;
     }
 
     public PageTemplate create(UUID tenantId, UUID actorId, UUID workspaceId, String name,
@@ -41,7 +50,8 @@ public final class PageTemplateService {
                 template.id(), 1, template.name(), now);
         boolean saved;
         if (templates instanceof AuditedMutationRepository tx) saved = tx.saveTemplate(template, event);
-        else { saved = templates.save(template); if (saved) audit.record(event); }
+        else if (allowNonAtomicAuditFallback) { saved = templates.save(template); if (saved) audit.record(event); }
+        else throw new IllegalStateException("Atomic audited template writes require AuditedMutationRepository");
         if (!saved) throw new IllegalStateException("Template name already exists or template could not be saved");
         return template;
     }
