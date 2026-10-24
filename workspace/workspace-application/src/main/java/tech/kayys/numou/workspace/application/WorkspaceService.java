@@ -19,12 +19,25 @@ public final class WorkspaceService {
  private final AuditSink audit;
  private final AttachmentPolicy attachments;
  private final Clock clock;
+ private final boolean allowNonAtomicAuditFallback;
 
  public WorkspaceService(WorkspaceRepository w, SpaceRepository s, PageRepository p, AccessPolicy a,
                           AuditSink audit, AttachmentPolicy files, Clock clock) {
+  this(w, s, p, a, audit, files, clock, false);
+ }
+
+ /**
+  * Non-atomic save-then-audit fallback is disabled by default because audit failure can leave
+  * a committed resource mutation without its audit event. Enable only for explicitly accepted
+  * legacy adapters while migrating them to AuditedMutationRepository.
+  */
+ public WorkspaceService(WorkspaceRepository w, SpaceRepository s, PageRepository p, AccessPolicy a,
+                          AuditSink audit, AttachmentPolicy files, Clock clock,
+                          boolean allowNonAtomicAuditFallback) {
   this.workspaces=Objects.requireNonNull(w); this.spaces=Objects.requireNonNull(s); this.pages=Objects.requireNonNull(p);
   this.access=Objects.requireNonNull(a); this.audit=Objects.requireNonNull(audit);
   this.attachments=Objects.requireNonNull(files); this.clock=Objects.requireNonNull(clock);
+  this.allowNonAtomicAuditFallback=allowNonAtomicAuditFallback;
  }
 
  public Workspace createWorkspace(UUID tenant, UUID actor, String name, String description) {
@@ -33,7 +46,8 @@ public final class WorkspaceService {
   AuditEntry event=entry("WORKSPACE_CREATED",tenant,actor,"WORKSPACE",value.id(),0,value.name(),now);
   boolean saved;
   if(workspaces instanceof AuditedMutationRepository tx) saved=tx.saveWorkspace(value,event);
-  else { saved=workspaces.save(value); if(saved) audit.record(event); }
+  else if (allowNonAtomicAuditFallback) { saved=workspaces.save(value); if(saved) audit.record(event); }
+  else throw new IllegalStateException("Atomic audited workspace writes require AuditedMutationRepository");
   if(!saved) throw new IllegalStateException("Workspace could not be created"); return value;
  }
 
@@ -45,7 +59,8 @@ public final class WorkspaceService {
   AuditEntry event=entry("SPACE_CREATED",tenant,actor,"SPACE",value.id(),0,value.name(),now);
   boolean saved;
   if(spaces instanceof AuditedMutationRepository tx) saved=tx.saveSpace(value,event);
-  else { saved=spaces.save(value); if(saved) audit.record(event); }
+  else if (allowNonAtomicAuditFallback) { saved=spaces.save(value); if(saved) audit.record(event); }
+  else throw new IllegalStateException("Atomic audited space writes require AuditedMutationRepository");
   if(!saved) throw new IllegalStateException("Space could not be created"); return value;
  }
 
@@ -64,7 +79,8 @@ public final class WorkspaceService {
   AuditEntry event=entry("PAGE_CREATED",tenant,actor,"PAGE",page.id(),page.revision(),page.title(),now);
   boolean saved;
   if(pages instanceof AuditedMutationRepository tx) saved=tx.savePageWithRevision(page,rev,0,event);
-  else { saved=pages.saveWithRevision(page,rev,0); if(saved) audit.record(event); }
+  else if (allowNonAtomicAuditFallback) { saved=pages.saveWithRevision(page,rev,0); if(saved) audit.record(event); }
+  else throw new IllegalStateException("Atomic audited page writes require AuditedMutationRepository");
   if(!saved) throw new IllegalStateException("Page, initial revision and audit event could not be committed atomically");
   return page;
  }
@@ -79,7 +95,8 @@ public final class WorkspaceService {
   AuditEntry event=entry("PAGE_UPDATED",tenant,actor,"PAGE",pageId,revised.revision(),summary,now);
   boolean saved;
   if(pages instanceof AuditedMutationRepository tx) saved=tx.savePageWithRevision(revised,rev,expectedRevision,event);
-  else { saved=pages.saveWithRevision(revised,rev,expectedRevision); if(saved) audit.record(event); }
+  else if (allowNonAtomicAuditFallback) { saved=pages.saveWithRevision(revised,rev,expectedRevision); if(saved) audit.record(event); }
+  else throw new IllegalStateException("Atomic audited page updates require AuditedMutationRepository");
   if(!saved) throw new RevisionConflictException(pageId,expectedRevision,current.revision());
   return revised;
  }
