@@ -200,7 +200,7 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
         DatabaseRecordPage page = repository.queryRecords(tenant, database.id(), table.id(), Map.of("status", "todo"), 1, 1);
         assertEquals(2, page.total());
         assertEquals(1, page.records().size());
-        assertEquals("C", page.records().getFirst().values().get("title"));
+        assertEquals("C", page.records().get(0).values().get("title"));
         assertEquals(0, repository.queryRecords(UUID.randomUUID(), database.id(), table.id(), Map.of(), 20, 0).total());
         assertEquals(0, repository.queryRecords(tenant, database.id(), table.id(), Map.of(), 20, 0).records().stream()
                 .filter(record -> !record.tenantId().equals(tenant)).count());
