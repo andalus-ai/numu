@@ -26,6 +26,7 @@ public final class InboundEventWorker {
     private final Duration leaseDuration;
     private final InboundRetryPolicy retryPolicy;
     private final int maxAttempts;
+    private final InboundEventObserver observer;
 
     public InboundEventWorker(
             InboundEventProcessingStore processingStore,
@@ -37,7 +38,7 @@ public final class InboundEventWorker {
             Duration retryDelay,
             int maxAttempts) {
         this(processingStore, metadataStore, payloadStore, dispatcher, clock, leaseDuration,
-                fixedRetryPolicy(retryDelay), maxAttempts);
+                fixedRetryPolicy(retryDelay), maxAttempts, InboundEventObserver.NOOP);
     }
 
     public InboundEventWorker(
@@ -49,6 +50,20 @@ public final class InboundEventWorker {
             Duration leaseDuration,
             InboundRetryPolicy retryPolicy,
             int maxAttempts) {
+        this(processingStore, metadataStore, payloadStore, dispatcher, clock, leaseDuration,
+                retryPolicy, maxAttempts, InboundEventObserver.NOOP);
+    }
+
+    public InboundEventWorker(
+            InboundEventProcessingStore processingStore,
+            InboundVerifiedEventMetadataStore metadataStore,
+            InboundPayloadStore payloadStore,
+            InboundEventDispatcher dispatcher,
+            Clock clock,
+            Duration leaseDuration,
+            InboundRetryPolicy retryPolicy,
+            int maxAttempts,
+            InboundEventObserver observer) {
         this.processingStore = Objects.requireNonNull(processingStore, "processingStore must not be null");
         this.metadataStore = Objects.requireNonNull(metadataStore, "metadataStore must not be null");
         this.payloadStore = Objects.requireNonNull(payloadStore, "payloadStore must not be null");
@@ -58,13 +73,14 @@ public final class InboundEventWorker {
         this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy must not be null");
         if (maxAttempts < 1) throw new IllegalArgumentException("maxAttempts must be positive");
         this.maxAttempts = maxAttempts;
+        this.observer = Objects.requireNonNull(observer, "observer must not be null");
     }
 
     /** Claims at most one due item and handles it. Suitable for a scheduler or worker loop. */
     public InboundWorkerDisposition processNext() {
         Instant now = clock.instant();
         Optional<InboundWorkItem> claimed = processingStore.claimNext(now, now.plus(leaseDuration), maxAttempts);
-        if (claimed.isEmpty()) return InboundWorkerDisposition.NO_WORK;
+        if (claimed.isEmpty()) return report(InboundWorkerDisposition.NO_WORK);
         return process(claimed.get());
     }
 
@@ -98,9 +114,9 @@ public final class InboundEventWorker {
             dispatcher.dispatch(new VerifiedInboundEvent(
                     item.key().providerId(), envelope, metadata.payloadReference(), metadata.verifiedAt()));
 
-            return processingStore.markProcessed(item, clock.instant())
+            return report(processingStore.markProcessed(item, clock.instant())
                     ? InboundWorkerDisposition.PROCESSED
-                    : InboundWorkerDisposition.STALE_LEASE;
+                    : InboundWorkerDisposition.STALE_LEASE);
         } catch (WorkerFailure failure) {
             return fail(item, failure.code());
         } catch (RuntimeException failure) {
@@ -114,10 +130,30 @@ public final class InboundEventWorker {
         Duration delay = positive(Objects.requireNonNull(retryPolicy.delayFor(item),
                 "retryPolicy must return a delay"), "retry delay");
         boolean updated = processingStore.recordFailure(item, code, now.plus(delay), maxAttempts);
-        if (!updated) return InboundWorkerDisposition.STALE_LEASE;
-        return item.attemptCount() >= maxAttempts
-                ? InboundWorkerDisposition.DEAD_LETTERED
-                : InboundWorkerDisposition.RETRY_SCHEDULED;
+        InboundWorkerDisposition disposition = !updated
+                ? InboundWorkerDisposition.STALE_LEASE
+                : item.attemptCount() >= maxAttempts
+                    ? InboundWorkerDisposition.DEAD_LETTERED
+                    : InboundWorkerDisposition.RETRY_SCHEDULED;
+        notifyFailure(code, disposition);
+        return report(disposition);
+    }
+
+    private void notifyFailure(String code, InboundWorkerDisposition disposition) {
+        try {
+            observer.onFailure(code, disposition);
+        } catch (RuntimeException ignored) {
+            // Telemetry must never change delivery semantics.
+        }
+    }
+
+    private InboundWorkerDisposition report(InboundWorkerDisposition disposition) {
+        try {
+            observer.onOutcome(disposition);
+        } catch (RuntimeException ignored) {
+            // Telemetry must never change delivery semantics.
+        }
+        return disposition;
     }
 
     private static InboundRetryPolicy fixedRetryPolicy(Duration retryDelay) {
