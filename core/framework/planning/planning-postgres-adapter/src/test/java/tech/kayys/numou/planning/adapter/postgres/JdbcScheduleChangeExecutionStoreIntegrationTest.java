@@ -238,6 +238,126 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertTrue(health.oldestPendingAgeSeconds() >= 0);
     }
 
+    @Test
+    void concurrentRelayWorkersDoNotClaimTheSameEvent() throws Exception {
+        Fixture f = fixture();
+        ScheduleChangeExecution applying = ScheduleChangeExecution.begin(
+                f.executionId, f.request, f.initiator, f.startedAt, f.base.revision());
+        executions.applyAtomically(f.request, f.target, applying);
+
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try {
+            var first = pool.submit(() -> claimAfterBarrier(ready, start, UUID.randomUUID()));
+            var second = pool.submit(() -> claimAfterBarrier(ready, start, UUID.randomUUID()));
+            assertTrue(ready.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            start.countDown();
+
+            var a = first.get(20, java.util.concurrent.TimeUnit.SECONDS).stream()
+                    .filter(event -> event.executionId().equals(f.executionId)).toList();
+            var b = second.get(20, java.util.concurrent.TimeUnit.SECONDS).stream()
+                    .filter(event -> event.executionId().equals(f.executionId)).toList();
+            assertEquals(1, a.size() + b.size(),
+                    "a single due outbox event must be claimed by only one concurrent worker");
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    private List<JdbcScheduleChangeOutboxRelayStore.ClaimedEvent> claimAfterBarrier(
+            java.util.concurrent.CountDownLatch ready,
+            java.util.concurrent.CountDownLatch start,
+            UUID token) throws Exception {
+        ready.countDown();
+        if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Timed out waiting for concurrent relay start");
+        }
+        Instant now = Instant.now();
+        return outboxRelayStore.claimDue(1000, now, now.plusSeconds(30), token);
+    }
+
+    @Test
+    void deadLetterReplayIsAuditedAndCannotBeRequestedTwice() throws Exception {
+        Fixture f = fixture();
+        ScheduleChangeExecution applying = ScheduleChangeExecution.begin(
+                f.executionId, f.request, f.initiator, f.startedAt, f.base.revision());
+        executions.applyAtomically(f.request, f.target, applying);
+
+        Instant exhaustedAt = Instant.now();
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     UPDATE schedule_change_outbox
+                     SET attempt_count = 10, dead_lettered_at = ?, claim_token = NULL, claimed_until = NULL
+                     WHERE execution_id = ?
+                     """)) {
+            statement.setTimestamp(1, java.sql.Timestamp.from(exhaustedAt));
+            statement.setObject(2, f.executionId);
+            assertEquals(1, statement.executeUpdate());
+        }
+
+        UUID outboxId;
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT outbox_id FROM schedule_change_outbox WHERE execution_id = ?")) {
+            statement.setObject(1, f.executionId);
+            try (var rs = statement.executeQuery()) {
+                assertTrue(rs.next());
+                outboxId = (UUID) rs.getObject(1);
+            }
+        }
+
+        Instant replayAt = Instant.now().plusSeconds(1);
+        assertTrue(outboxRelayStore.replayDeadLetter(outboxId, "operator@example.test",
+                "Broker credentials repaired; approved replay", replayAt));
+        assertFalse(outboxRelayStore.replayDeadLetter(outboxId, "operator@example.test",
+                "Duplicate replay must be rejected", replayAt.plusSeconds(1)));
+
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     SELECT attempt_count, dead_lettered_at, last_error
+                     FROM schedule_change_outbox WHERE outbox_id = ?
+                     """)) {
+            statement.setObject(1, outboxId);
+            try (var rs = statement.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(0, rs.getInt("attempt_count"));
+                assertNull(rs.getTimestamp("dead_lettered_at"));
+                assertNull(rs.getString("last_error"));
+            }
+        }
+
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     SELECT count(*) FROM schedule_change_outbox_replay_audit
+                     WHERE outbox_id = ? AND replayed_by = ? AND reason = ?
+                     """)) {
+            statement.setObject(1, outboxId);
+            statement.setString(2, "operator@example.test");
+            statement.setString(3, "Broker credentials repaired; approved replay");
+            try (var rs = statement.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(1, rs.getInt(1));
+            }
+        }
+
+        var replayed = outboxRelayStore.claimDue(1000, replayAt.plusSeconds(1),
+                replayAt.plusSeconds(31), UUID.randomUUID());
+        assertTrue(replayed.stream().anyMatch(event -> event.outboxId().equals(outboxId)
+                && event.attemptCount() == 1));
+    }
+
+    @Test
+    void deadLetterReplayRejectsInvalidOperatorOrReason() {
+        assertThrows(IllegalArgumentException.class, () -> outboxRelayStore.replayDeadLetter(
+                UUID.randomUUID(), " ", "valid reason", Instant.now()));
+        assertThrows(IllegalArgumentException.class, () -> outboxRelayStore.replayDeadLetter(
+                UUID.randomUUID(), "operator", "  ", Instant.now()));
+        assertThrows(IllegalArgumentException.class, () -> outboxRelayStore.replayDeadLetter(
+                UUID.randomUUID(), "operator", "r".repeat(501), Instant.now()));
+    }
+
     private int outboxCount(UUID executionId, String eventType) throws Exception {
         String sql = eventType == null
                 ? "SELECT count(*) FROM schedule_change_outbox WHERE execution_id=?"

@@ -147,6 +147,85 @@ public class JdbcScheduleChangeOutboxRelayStore {
     }
 
     /**
+     * Requeues one dead-lettered event after an explicit operator decision.
+     *
+     * <p>The state transition and audit insert commit atomically. Only unpublished rows
+     * currently marked dead-lettered can be replayed, preventing a retry request from
+     * resetting an active delivery or replaying an already-published event.
+     *
+     * @return true when the event was requeued, false when it was not dead-lettered
+     */
+    public boolean replayDeadLetter(UUID outboxId, String replayedBy, String reason, Instant replayedAt) {
+        UUID eventId = Objects.requireNonNull(outboxId, "outboxId cannot be null");
+        String actor = Objects.requireNonNull(replayedBy, "replayedBy cannot be null").trim();
+        String rationale = Objects.requireNonNull(reason, "reason cannot be null").trim();
+        Instant at = Objects.requireNonNull(replayedAt, "replayedAt cannot be null");
+        if (actor.isEmpty() || actor.length() > 200) {
+            throw new IllegalArgumentException("replayedBy must contain 1 to 200 characters");
+        }
+        if (rationale.isEmpty() || rationale.length() > 500) {
+            throw new IllegalArgumentException("reason must contain 1 to 500 characters");
+        }
+
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int previousAttempts;
+                try (PreparedStatement select = c.prepareStatement("""
+                        SELECT attempt_count
+                        FROM schedule_change_outbox
+                        WHERE outbox_id = ? AND published_at IS NULL AND dead_lettered_at IS NOT NULL
+                        FOR UPDATE
+                        """)) {
+                    select.setObject(1, eventId);
+                    try (ResultSet rs = select.executeQuery()) {
+                        if (!rs.next()) {
+                            c.rollback();
+                            return false;
+                        }
+                        previousAttempts = rs.getInt("attempt_count");
+                    }
+                }
+
+                try (PreparedStatement update = c.prepareStatement("""
+                        UPDATE schedule_change_outbox
+                        SET attempt_count = 0, available_at = ?, last_error = NULL,
+                            dead_lettered_at = NULL, claim_token = NULL, claimed_until = NULL
+                        WHERE outbox_id = ? AND published_at IS NULL AND dead_lettered_at IS NOT NULL
+                        """)) {
+                    update.setTimestamp(1, Timestamp.from(at));
+                    update.setObject(2, eventId);
+                    if (update.executeUpdate() != 1) {
+                        throw new SQLException("Dead-lettered outbox event changed during replay");
+                    }
+                }
+
+                try (PreparedStatement audit = c.prepareStatement("""
+                        INSERT INTO schedule_change_outbox_replay_audit
+                            (replay_id, outbox_id, replayed_at, replayed_by, reason, previous_attempt_count)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """)) {
+                    audit.setObject(1, UUID.randomUUID());
+                    audit.setObject(2, eventId);
+                    audit.setTimestamp(3, Timestamp.from(at));
+                    audit.setString(4, actor);
+                    audit.setString(5, rationale);
+                    audit.setInt(6, previousAttempts);
+                    audit.executeUpdate();
+                }
+                c.commit();
+                return true;
+            } catch (Exception e) {
+                try { c.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                if (e instanceof RuntimeException runtime) throw runtime;
+                throw new IllegalStateException("Unable to replay dead-lettered schedule-change event", e);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to replay dead-lettered schedule-change event", e);
+        }
+    }
+
+    /**
      * Returns a low-cost operational snapshot for health endpoints and monitoring.
      * Counts are intentionally tenant-agnostic; callers must not expose event payloads
      * or last-error text through public health endpoints.
