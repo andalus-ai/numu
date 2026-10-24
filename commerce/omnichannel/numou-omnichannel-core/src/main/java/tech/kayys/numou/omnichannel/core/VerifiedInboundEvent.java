@@ -19,4 +19,9 @@ public record VerifiedInboundEvent(
         Objects.requireNonNull(payloadReference, "payloadReference must not be null");
         Objects.requireNonNull(verifiedAt, "verifiedAt must not be null");
     }
+
+    /** Stable tenant-scoped idempotency token for downstream application use cases. */
+    public String idempotencyKey() {
+        return InboundEventIdempotencyKey.from(InboundEventKey.from(envelope, providerId));
+    }
 }

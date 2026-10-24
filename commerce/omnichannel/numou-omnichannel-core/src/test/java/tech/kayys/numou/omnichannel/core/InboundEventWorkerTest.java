@@ -68,6 +68,52 @@ class InboundEventWorkerTest {
     }
 
     @Test
+    void replayAfterSideEffectBeforeAcknowledgementKeepsSameIdempotencyKey() {
+        Fixture f = new Fixture();
+        f.markProcessedResult = false;
+        AtomicReference<String> firstKey = new AtomicReference<>();
+
+        assertThat(f.worker(event -> firstKey.set(event.idempotencyKey())).processNext())
+                .isEqualTo(InboundWorkerDisposition.STALE_LEASE);
+        assertThat(firstKey.get()).isNotBlank();
+
+        f.item = new InboundWorkItem(
+                f.item.key(), f.item.eventType(), f.item.payloadSha256(), f.item.channelType(),
+                f.item.branchId(), f.item.correlationId(), f.item.receivedAt(), 2,
+                NOW.plusSeconds(30), Optional.of("00000000-0000-0000-0000-000000000100"));
+        f.markProcessedResult = true;
+        AtomicReference<String> replayKey = new AtomicReference<>();
+
+        assertThat(f.worker(event -> replayKey.set(event.idempotencyKey())).processNext())
+                .isEqualTo(InboundWorkerDisposition.PROCESSED);
+        assertThat(replayKey.get()).isEqualTo(firstKey.get());
+    }
+
+    @Test
+    void observerReceivesOutcomeAndSanitizedFailureWithoutChangingProcessing() {
+        Fixture f = new Fixture();
+        AtomicReference<InboundWorkerDisposition> outcome = new AtomicReference<>();
+        AtomicReference<String> errorCode = new AtomicReference<>();
+        InboundEventObserver observer = new InboundEventObserver() {
+            @Override public void onOutcome(InboundWorkerDisposition disposition) {
+                outcome.set(disposition);
+                throw new IllegalStateException("metrics backend unavailable");
+            }
+            @Override public void onFailure(String code, InboundWorkerDisposition disposition) {
+                errorCode.set(code);
+            }
+        };
+
+        InboundWorkerDisposition result = f.worker(
+                event -> { throw new IllegalStateException("sensitive provider payload"); }, observer).processNext();
+
+        assertThat(result).isEqualTo(InboundWorkerDisposition.RETRY_SCHEDULED);
+        assertThat(outcome.get()).isEqualTo(InboundWorkerDisposition.RETRY_SCHEDULED);
+        assertThat(errorCode.get()).isEqualTo("INBOUND_DISPATCH_FAILED");
+        assertThat(f.failureCode.get()).isEqualTo("INBOUND_DISPATCH_FAILED");
+    }
+
+    @Test
     void unleasedItemIsRejected() {
         Fixture f = new Fixture();
         InboundWorkItem unleased = new InboundWorkItem(
@@ -95,6 +141,10 @@ class InboundEventWorkerTest {
         }
 
         InboundEventWorker worker(InboundEventDispatcher dispatcher) {
+            return worker(dispatcher, InboundEventObserver.NOOP);
+        }
+
+        InboundEventWorker worker(InboundEventDispatcher dispatcher, InboundEventObserver observer) {
             InboundEventProcessingStore processing = new InboundEventProcessingStore() {
                 @Override public Optional<InboundWorkItem> claimNext(Instant now, Instant leaseUntil, int maxAttempts) {
                     return Optional.of(item);
@@ -125,7 +175,7 @@ class InboundEventWorkerTest {
                 @Override public boolean delete(ChannelContext context, InboundPayloadReference reference) { return true; }
             };
             return new InboundEventWorker(processing, metadata, payloads, dispatcher,
-                    Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(10), 5);
+                    Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(10), 5, observer);
         }
     }
 }
