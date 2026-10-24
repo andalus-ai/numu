@@ -57,6 +57,11 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
 
     private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, InMemoryArtifacts artifacts,
             InMemoryManifests manifests, InMemoryAccess access) {
+        return worker(jobs, artifacts, manifests, access, Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, InMemoryArtifacts artifacts,
+            InMemoryManifests manifests, InMemoryAccess access, Clock clock) {
         WarehouseExecutionAttemptRepository repository = (WarehouseExecutionAttemptRepository)
                 java.lang.reflect.Proxy.newProxyInstance(WarehouseExecutionAttemptRepository.class.getClassLoader(),
                 new Class<?>[]{WarehouseExecutionAttemptRepository.class}, (proxy, method, args) -> {
@@ -110,6 +115,12 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
         }
         @Override public boolean update(WarehouseRecoveryAuditExportJob job, long expectedVersion) {
             if (current.version() != expectedVersion) return false;
+            if (failNextCheckpointUpdate && job.status() == WarehouseRecoveryAuditExportJob.Status.RUNNING
+                    && job.exportedByteCount() > current.exportedByteCount()) {
+                failNextCheckpointUpdate = false;
+                throw new WarehouseRecoveryAuditPersistenceException("Injected checkpoint outage",
+                        new java.sql.SQLException("injected"));
+            }
             if (failNextUpdateForStatus == job.status()) {
                 failNextUpdateForStatus = null;
                 throw new WarehouseRecoveryAuditPersistenceException("Injected completion outage", new java.sql.SQLException("injected"));
@@ -139,6 +150,8 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
     private static final class InMemoryArtifacts implements WarehouseRecoveryAuditArtifactStore {
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         private int appendCalls;
+        private int physicalWrites;
+        private int receiptCount;
         private String lastChunkId;
         @Override public ArtifactSnapshot appendChunk(String tenantId, String exportId, String chunkId, long expectedOffset, byte[] chunk) throws IOException {
             if (lastChunkId != null && lastChunkId.equals(chunkId)) return snapshot();
