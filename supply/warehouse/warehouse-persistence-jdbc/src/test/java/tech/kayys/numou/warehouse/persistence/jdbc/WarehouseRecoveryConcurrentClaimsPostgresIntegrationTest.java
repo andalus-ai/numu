@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Opt-in two-worker PostgreSQL contention test. Uses separate JDBC connections through
- * the repository and requires migrations V1-V5 in a disposable PostgreSQL database.
+ * the repository and requires migrations V1-V6 in a disposable PostgreSQL database.
  */
 class WarehouseRecoveryConcurrentClaimsPostgresIntegrationTest {
     @Test
