@@ -184,6 +184,28 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertTrue(outboxRelayStore.markPublished(second.outboxId(), secondToken, now.plusSeconds(62)));
     }
 
+
+    @Test
+    void expiredLeaseCannotBeAcknowledgedAndCanBeReclaimed() throws Exception {
+        Fixture f = fixture();
+        ScheduleChangeExecution applying = ScheduleChangeExecution.begin(
+                f.executionId, f.request, f.initiator, f.startedAt, f.base.revision());
+        executions.applyAtomically(f.request, f.target, applying);
+
+        Instant now = Instant.now();
+        UUID oldToken = UUID.randomUUID();
+        var first = outboxRelayStore.claimDue(1000, now, now.plusSeconds(1), oldToken).stream()
+                .filter(e -> e.executionId().equals(f.executionId)).findFirst().orElseThrow();
+        assertFalse(outboxRelayStore.markPublished(first.outboxId(), oldToken, now.plusSeconds(2)));
+
+        UUID newToken = UUID.randomUUID();
+        var reclaimed = outboxRelayStore.claimDue(1000, now.plusSeconds(2), now.plusSeconds(30), newToken)
+                .stream().filter(e -> e.outboxId().equals(first.outboxId())).findFirst().orElseThrow();
+        assertEquals(newToken, reclaimed.claimToken());
+        assertFalse(outboxRelayStore.markPublished(first.outboxId(), oldToken, now.plusSeconds(3)));
+        assertTrue(outboxRelayStore.markPublished(first.outboxId(), newToken, now.plusSeconds(3)));
+    }
+
     private int outboxCount(UUID executionId, String eventType) throws Exception {
         String sql = eventType == null
                 ? "SELECT count(*) FROM schedule_change_outbox WHERE execution_id=?"
