@@ -1,0 +1,94 @@
+package tech.kayys.numou.workspace.application;
+
+import org.junit.jupiter.api.Test;
+import tech.kayys.numou.workspace.application.WorkspacePorts.*;
+import tech.kayys.numou.workspace.domain.*;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class StructuredDatabaseServiceTest {
+    private final UUID tenant = UUID.randomUUID();
+    private final UUID workspace = UUID.randomUUID();
+    private final UUID actor = UUID.randomUUID();
+    private final InMemoryRepository repository = new InMemoryRepository();
+    private final StructuredDatabaseService service = new StructuredDatabaseService(
+            repository, (t, a, r, id, action) -> {
+                if (!tenant.equals(t) || !actor.equals(a)) throw new SecurityException("unauthorized");
+            }, Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
+
+    @Test
+    void createsDatabaseTableAndRecordThenUpdatesWithRevision() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Tasks");
+        DatabaseProperty title = new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                DatabasePropertyType.TEXT, true, List.of(), null);
+        DatabaseProperty status = new DatabaseProperty(UUID.randomUUID(), "status", "Status",
+                DatabasePropertyType.SELECT, true, List.of("todo", "done"), null);
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Task", List.of(title, status));
+
+        DatabaseRecord first = service.createRecord(tenant, actor, database.id(), table.id(),
+                Map.of("title", "Draft", "status", "todo"));
+        DatabaseRecord second = service.updateRecord(tenant, actor, first.id(), 1,
+                Map.of("title", "Ready", "status", "done"));
+
+        assertEquals(2, second.revision());
+        assertEquals("Draft", first.values().get("title"));
+        assertEquals("Ready", second.values().get("title"));
+        assertEquals(4, repository.audit.size());
+        assertEquals(0, repository.lastExpectedRevisionForCreate);
+        assertEquals(1, repository.lastExpectedRevisionForUpdate);
+    }
+
+    @Test
+    void rejectsStaleRevisionAndMissingRequiredValues() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Tasks");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Task", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null)));
+        DatabaseRecord record = service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Draft"));
+        assertThrows(IllegalArgumentException.class, () -> service.updateRecord(tenant, actor, record.id(), 0, Map.of("title", "x")));
+        assertThrows(IllegalArgumentException.class, () -> service.createRecord(tenant, actor, database.id(), table.id(), Map.of()));
+    }
+
+    private static final class InMemoryRepository implements StructuredDatabaseRepository {
+        private final Map<UUID, WorkspaceDatabase> databases = new HashMap<>();
+        private final Map<UUID, DatabaseTable> tables = new HashMap<>();
+        private final Map<UUID, DatabaseRecord> records = new HashMap<>();
+        private final List<AuditEntry> audit = new ArrayList<>();
+        private long lastExpectedRevisionForCreate = -1;
+        private long lastExpectedRevisionForUpdate = -1;
+
+        @Override public boolean saveDatabase(WorkspaceDatabase database, AuditEntry entry) {
+            if (databases.putIfAbsent(database.id(), database) != null) return false;
+            audit.add(entry); return true;
+        }
+        @Override public Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID databaseId) {
+            return Optional.ofNullable(databases.get(databaseId)).filter(db -> db.tenantId().equals(tenantId));
+        }
+        @Override public boolean saveTable(DatabaseTable table, AuditEntry entry) {
+            if (tables.putIfAbsent(table.id(), table) != null) return false;
+            audit.add(entry); return true;
+        }
+        @Override public Optional<DatabaseTable> findTable(UUID tenantId, UUID databaseId, UUID tableId) {
+            return Optional.ofNullable(tables.get(tableId))
+                    .filter(t -> t.tenantId().equals(tenantId) && t.databaseId().equals(databaseId));
+        }
+        @Override public Optional<DatabaseRecord> findRecord(UUID tenantId, UUID recordId) {
+            return Optional.ofNullable(records.get(recordId)).filter(r -> r.tenantId().equals(tenantId));
+        }
+        @Override public boolean saveRecord(DatabaseRecord record, long expectedRevision, AuditEntry entry) {
+            DatabaseRecord current = records.get(record.id());
+            if (expectedRevision == 0) {
+                lastExpectedRevisionForCreate = expectedRevision;
+                if (current != null || record.revision() != 1) return false;
+            } else {
+                lastExpectedRevisionForUpdate = expectedRevision;
+                if (current == null || current.revision() != expectedRevision || record.revision() != expectedRevision + 1) return false;
+            }
+            records.put(record.id(), record); audit.add(entry); return true;
+        }
+    }
+}

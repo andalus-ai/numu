@@ -1,6 +1,11 @@
 package tech.kayys.numou.workspace.application;
+
 import tech.kayys.numou.workspace.domain.*;
-import java.time.Instant; import java.util.List; import java.util.Optional; import java.util.UUID;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 /** Adapter ports keep the workspace domain independent from persistence, auth, files, and other Numou modules. */
 public final class WorkspacePorts {
  private WorkspacePorts() {}
@@ -43,8 +48,18 @@ public final class WorkspacePorts {
   boolean saveLink(PageLink link, AuditEntry audit);
   boolean deleteLink(UUID tenantId, UUID linkId, AuditEntry audit);
  }
+ /** Structured workspace data operations must persist the mutation and audit entry in one transaction. */
+ public interface StructuredDatabaseRepository {
+  boolean saveDatabase(WorkspaceDatabase database, AuditEntry audit);
+  Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID databaseId);
+  boolean saveTable(DatabaseTable table, AuditEntry audit);
+  Optional<DatabaseTable> findTable(UUID tenantId, UUID databaseId, UUID tableId);
+  Optional<DatabaseRecord> findRecord(UUID tenantId, UUID recordId);
+  /** expectedRevision=0 means create-only; positive values require an atomic compare-and-swap. */
+  boolean saveRecord(DatabaseRecord record, long expectedRevision, AuditEntry audit);
+ }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
- public enum Resource { WORKSPACE, SPACE, PAGE, ATTACHMENT }
+ public enum Resource { WORKSPACE, SPACE, PAGE, ATTACHMENT, DATABASE, DATABASE_TABLE, DATABASE_RECORD }
  public enum Action { CREATE, READ, UPDATE, DELETE, ATTACH }
  public record AuditEntry(UUID tenantId,UUID actorId,String action,String resourceType,UUID resourceId,long revision,String summary,Instant occurredAt) {}
 }
