@@ -14,9 +14,9 @@ Provide the durable operational boundary that joins first-mile collection, hub i
 
 ## PostgreSQL adapter behavior implemented in this slice
 
-`JdbcHubOperationsStore` now claims the tenant/source/idempotency tuple, compares the stored payload fingerprint on conflict, and writes a new receipt plus tracking fact (using the existing tracking vocabulary) and operational outbox row in one JDBC transaction. A matching retry returns `REPLAYED`; key reuse with a different fingerprint returns `IDEMPOTENCY_CONFLICT` and does not append tracking or outbox rows.
+`JdbcHubOperationsStore` claims the tenant/source/idempotency tuple, compares the stored payload fingerprint on conflict, and writes a new receipt plus tracking fact and operational outbox row in one JDBC transaction. A matching retry returns `REPLAYED`; key reuse with a different fingerprint returns `IDEMPOTENCY_CONFLICT` and does not append tracking or outbox rows.
 
-The adapter remains a first integration slice: transition validation against dispatch waves and sealed containers, and an authenticated exception-approval flow, are not yet wired into this store. Container sealing currently maps to the existing tracking exception vocabulary because the public tracking enum does not yet include a dedicated seal event; this mapping should be revisited before production use.
+The adapter remains a first integration slice: transition validation against dispatch waves and sealed containers, and an authenticated exception-approval flow, are not yet wired into this store. M13 adds a dedicated `CONTAINER_SEALED` tracking fact so seal scans are no longer misclassified as shipment exceptions. This records the scan accurately but does not itself prove the container aggregate passed seal verification.
 
 ## Required transaction semantics and remaining work
 
@@ -38,4 +38,4 @@ The adapter remains a first integration slice: transition validation against dis
 
 ## Verification and rollout
 
-The domain command invariants have unit tests. The PostgreSQL adapter still needs an implementation of `HubOperationsStore` and Testcontainers coverage proving concurrent same-key ingestion, same-key/different-payload conflict, cross-tenant isolation, transaction rollback between receipt/tracking/outbox writes, and full Flyway migration through V15. Do not enable scan intake in production until those adapter and integration tests pass.
+The domain command invariants have unit tests, and Testcontainers coverage now exercises concurrent same-key ingestion, same-key/different-payload conflict, cross-tenant isolation, and full Flyway migration. Add explicit rollback/failure-injection coverage, validate container and dispatch-wave transitions, and implement authenticated exception approval before enabling scan intake in production. The PostgreSQL integration tests have been added; execution and CI results must be checked for the target environment.
