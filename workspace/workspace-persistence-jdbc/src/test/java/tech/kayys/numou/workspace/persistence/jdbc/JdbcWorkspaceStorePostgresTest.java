@@ -677,7 +677,7 @@ class JdbcWorkspaceStorePostgresTest {
      * Splits migration SQL on statement terminators without splitting strings,
      * comments, quoted identifiers, or PostgreSQL dollar-quoted function bodies.
      */
-    private static List<String> splitSqlStatements(String sql) {
+    static List<String> splitSqlStatements(String sql) {
         List<String> statements = new java.util.ArrayList<>();
         StringBuilder current = new StringBuilder();
         String dollarTag = null;
