@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -239,7 +240,8 @@ class JdbcWorkspaceStorePostgresTest {
         Space space = Space.create(tenant, workspace.id(), "Docs", "revision-snapshots", now);
         assertTrue(store.save(space));
 
-        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Current title", List.of(), now);
+        PageBlock block = new PageBlock(UUID.randomUUID(), BlockType.PARAGRAPH, "Current content", 0, Map.of());
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Current title", List.of(block), now);
         assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
 
         // Direct SQL cannot append a snapshot with a stale revision number or title.
@@ -261,7 +263,34 @@ class JdbcWorkspaceStorePostgresTest {
             assertThrows(SQLException.class, p::executeUpdate);
         }
 
-        // Historical snapshots are append-only, even for direct SQL callers.
+        // A direct page update must not commit unless its matching revision is written too.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_pages SET title=? WHERE tenant_id=? AND id=?")) {
+            c.setAutoCommit(false);
+            p.setString(1, "Unversioned title");
+            p.setObject(2, tenant);
+            p.setObject(3, page.id());
+            assertEquals(1, p.executeUpdate());
+            assertThrows(SQLException.class, c::commit);
+            c.rollback();
+        }
+
+        // The current page blocks and the current revision's blocks must agree at commit.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_page_blocks SET text_content=? WHERE tenant_id=? AND page_id=? AND block_id=?")) {
+            c.setAutoCommit(false);
+            p.setString(1, "Unversioned content");
+            p.setObject(2, tenant);
+            p.setObject(3, page.id());
+            p.setObject(4, block.id());
+            assertEquals(1, p.executeUpdate());
+            assertThrows(SQLException.class, c::commit);
+            c.rollback();
+        }
+
+        // Historical revision headers are immutable, even for direct SQL callers.
         try (Connection c = dataSource.getConnection();
              java.sql.PreparedStatement p = c.prepareStatement(
                      "UPDATE workspace_page_revisions SET title=? WHERE tenant_id=? AND page_id=? AND revision=1")) {
@@ -275,6 +304,8 @@ class JdbcWorkspaceStorePostgresTest {
         assertEquals(1, history.size());
         assertEquals("Current title", history.get(0).title());
         assertEquals(1, history.get(0).revision());
+        assertEquals(List.of(block), history.get(0).blocks());
+        assertEquals(List.of(block), store.findPage(tenant, page.id()).orElseThrow().blocks());
     }
 
     @Test
@@ -330,10 +361,10 @@ class JdbcWorkspaceStorePostgresTest {
             Future<Boolean> secondUpdate = executor.submit(
                     () -> attemptParentChange(dataSource, tenant, second.id(), first.id(), ready, start));
 
-            ready.await();
+            assertTrue(ready.await(10, TimeUnit.SECONDS), "both PostgreSQL transactions must be ready");
             start.countDown();
-            boolean firstChanged = firstUpdate.get();
-            boolean secondChanged = secondUpdate.get();
+            boolean firstChanged = firstUpdate.get(20, TimeUnit.SECONDS);
+            boolean secondChanged = secondUpdate.get(20, TimeUnit.SECONDS);
 
             assertTrue(firstChanged ^ secondChanged,
                     "exactly one concurrent reparenting may commit; the other would close a cycle");
@@ -367,6 +398,9 @@ class JdbcWorkspaceStorePostgresTest {
                 return true;
             } catch (SQLException e) {
                 connection.rollback();
+                if (!"23514".equals(e.getSQLState())) {
+                    throw e;
+                }
                 return false;
             }
         }
