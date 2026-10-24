@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -49,6 +50,19 @@ public class JdbcDeliveryTaskRepository implements DeliveryTaskRepository {
             boolean oldAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                DeliveryTaskStatus previousStatus = null;
+                Instant previousUpdatedAt = null;
+                try (PreparedStatement existing = connection.prepareStatement(
+                        "SELECT status, updated_at FROM courier_delivery_tasks WHERE tenant_id = ? AND id = ? FOR UPDATE")) {
+                    existing.setObject(1, tenantId.value());
+                    existing.setObject(2, task.id().value());
+                    try (ResultSet row = existing.executeQuery()) {
+                        if (row.next()) {
+                            previousStatus = DeliveryTaskStatus.valueOf(row.getString("status"));
+                            previousUpdatedAt = row.getTimestamp("updated_at").toInstant();
+                        }
+                    }
+                }
                 try (PreparedStatement shipment = connection.prepareStatement(
                         "SELECT status FROM courier_shipments WHERE tenant_id = ? AND id = ? FOR SHARE")) {
                     shipment.setObject(1, tenantId.value());
@@ -78,6 +92,11 @@ public class JdbcDeliveryTaskRepository implements DeliveryTaskRepository {
                     affected = statement.executeUpdate();
                 }
                 if (affected == 0) throw new IllegalStateException("delivery task lifecycle regression rejected");
+                boolean statusChanged = previousStatus != null && previousStatus != task.status();
+                boolean repeatedAttempt = previousStatus == DeliveryTaskStatus.DELIVERY_ATTEMPTED
+                        && task.status() == DeliveryTaskStatus.DELIVERY_ATTEMPTED
+                        && previousUpdatedAt != null && task.updatedAt().isAfter(previousUpdatedAt);
+                if (statusChanged || repeatedAttempt) appendOutbox(connection, task);
                 connection.commit();
                 return CompletableFuture.completedFuture(task);
             } catch (SQLException | RuntimeException failure) {
@@ -141,6 +160,52 @@ public class JdbcDeliveryTaskRepository implements DeliveryTaskRepository {
         int count = 0;
         for (int i = 0; i < predicate.length(); i++) if (predicate.charAt(i) == '?') count++;
         return count;
+    }
+
+
+    private static void appendOutbox(Connection connection, DeliveryTask task) throws SQLException {
+        String eventType = switch (task.status()) {
+            case OUT_FOR_DELIVERY -> "OUT_FOR_DELIVERY";
+            case DELIVERY_ATTEMPTED -> "DELIVERY_ATTEMPTED";
+            case DELIVERED -> "DELIVERED";
+            case FAILED -> "DELIVERY_FAILED";
+            case CANCELLED -> "DELIVERY_CANCELLED";
+            case ASSIGNED -> throw new IllegalStateException("assignment creation is not a tracking milestone");
+        };
+        String eventKey = task.id() + ":" + task.status().name() + ":" + task.updatedAt();
+        String payload = "{\"deliveryTaskId\":\"" + task.id()
+                + "\",\"shipmentId\":\"" + task.shipmentId()
+                + "\",\"courierReference\":\"" + jsonEscape(task.courierReference())
+                + "\",\"status\":\"" + task.status().name()
+                + "\",\"occurredAt\":\"" + task.updatedAt()
+                + "\",\"recipientName\":" + jsonNullable(task.recipientName())
+                + ",\"proofReference\":" + jsonNullable(task.proofReference())
+                + ",\"failureReason\":" + jsonNullable(task.failureReason()) + "}";
+        try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO courier_operational_outbox
+                  (tenant_id, id, aggregate_type, aggregate_id, shipment_id, event_type, event_key, occurred_at, payload)
+                VALUES (?, ?, 'DELIVERY_TASK', ?, ?, ?, ?, ?, CAST(? AS jsonb))
+                ON CONFLICT (tenant_id, event_key) DO NOTHING
+                """)) {
+            statement.setObject(1, task.tenantId().value());
+            statement.setObject(2, UUID.randomUUID());
+            statement.setObject(3, task.id().value());
+            statement.setObject(4, task.shipmentId().value());
+            statement.setString(5, eventType);
+            statement.setString(6, eventKey);
+            statement.setTimestamp(7, Timestamp.from(task.updatedAt()));
+            statement.setString(8, payload);
+            statement.executeUpdate();
+        }
+    }
+
+    private static String jsonNullable(String value) {
+        return value == null ? "null" : "\"" + jsonEscape(value) + "\"";
+    }
+
+    private static String jsonEscape(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     }
 
     private static DeliveryTask map(ResultSet row) throws SQLException {
