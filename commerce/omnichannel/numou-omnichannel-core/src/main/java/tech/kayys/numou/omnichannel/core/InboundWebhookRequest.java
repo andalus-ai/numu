@@ -10,7 +10,7 @@ public record InboundWebhookRequest(ChannelContext context, String providerId, M
     public InboundWebhookRequest {
         Objects.requireNonNull(context, "context must not be null");
         providerId = required(providerId, "providerId");
-        headers = Map.copyOf(Objects.requireNonNull(headers, "headers must not be null"));
+        headers = WebhookHeaders.validatedCopy(headers);
         rawBody = Objects.requireNonNull(rawBody, "rawBody must not be null").clone();
         externalEventId = required(externalEventId, "externalEventId");
         eventType = required(eventType, "eventType");
