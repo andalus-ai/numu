@@ -38,12 +38,14 @@ class WarehouseMigrationChainContractTest {
                     });
         }
 
-        for (int version = 1; version <= 5; version++) {
+        for (int version = 1; version <= 6; version++ {
             assertTrue(versions.containsKey(version), "Missing warehouse migration V" + version);
         }
         assertEquals("V2__warehouse_transactional_execution.sql", versions.get(2),
                 "V2 must remain the transactional execution migration");
         assertEquals("V5__warehouse_retry_schedule.sql", versions.get(5),
                 "Retry scheduling must follow V3 leases and V4 replay-payload migrations");
+        assertEquals("V6__warehouse_recovery_operator_audit.sql", versions.get(6),
+                "Operator audit must be introduced as a forward-only migration");
     }
 }

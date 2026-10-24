@@ -65,18 +65,42 @@ public final class WarehouseRecoveryOperationsService {
         return repository.summarizeRecovery(tenantId.trim());
     }
 
+    /**
+     * Compatibility entry point. New operator-facing code should pass actor and correlation IDs
+     * so the immutable audit event can identify the person and request.
+     */
+    @Deprecated
     public WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
                                                        long expectedVersion, String operatorReason,
+                                                       Instant nextEligibleAt) {
+        return replayDeadLetter(tenantId, commandKey, expectedVersion, "legacy-unknown",
+                operatorReason, null, nextEligibleAt);
+    }
+
+    public WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
+                                                       long expectedVersion, String actorId,
+                                                       String operatorReason, String correlationId,
                                                        Instant nextEligibleAt) {
         requireTenant(tenantId);
         if (commandKey == null || commandKey.isBlank()) throw new IllegalArgumentException("commandKey is required");
         if (expectedVersion < 1) throw new IllegalArgumentException("expectedVersion must be positive");
+        if (actorId == null || actorId.isBlank()) throw new IllegalArgumentException("actorId is required");
         if (operatorReason == null || operatorReason.isBlank()) throw new IllegalArgumentException("operatorReason is required");
         String reason = operatorReason.trim();
         if (reason.length() > 1000) throw new IllegalArgumentException("operatorReason must not exceed 1000 characters");
+        if (correlationId != null && (correlationId.isBlank() || correlationId.length() > 200)) {
+            throw new IllegalArgumentException("correlationId must be null or contain 1-200 characters");
+        }
         Objects.requireNonNull(nextEligibleAt, "nextEligibleAt");
         if (nextEligibleAt.isBefore(Instant.now())) throw new IllegalArgumentException("nextEligibleAt must not be in the past");
-        return repository.replayDeadLetter(tenantId.trim(), commandKey.trim(), expectedVersion, reason, nextEligibleAt);
+        return repository.replayDeadLetter(tenantId.trim(), commandKey.trim(), expectedVersion,
+                actorId.trim(), reason, correlationId == null ? null : correlationId.trim(), nextEligibleAt);
+    }
+
+    public List<WarehouseRecoveryOperatorAuditEvent> auditEvents(String tenantId, int limit) {
+        requireTenant(tenantId);
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        return List.copyOf(repository.findOperatorAuditEvents(tenantId.trim(), limit));
     }
 
     private static void requireTenant(String tenantId) {

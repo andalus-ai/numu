@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Opt-in PostgreSQL integration test. Point NUMOU_TEST_POSTGRES_URL at a disposable
- * PostgreSQL database with warehouse migrations V1-V5 applied. Optional credentials are
+ * PostgreSQL database with warehouse migrations V1-V6 applied. Optional credentials are
  * read from NUMOU_TEST_POSTGRES_USER and NUMOU_TEST_POSTGRES_PASSWORD.
  */
 class WarehouseRecoveryPostgresIntegrationTest {

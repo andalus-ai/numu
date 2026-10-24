@@ -66,7 +66,21 @@ public interface WarehouseExecutionAttemptRepository {
     default WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
                                                        long expectedVersion, String operatorReason,
                                                        Instant nextEligibleAt) {
-        throw new UnsupportedOperationException("Manual dead-letter replay is not supported by this repository");
+        return replayDeadLetter(tenantId, commandKey, expectedVersion, "legacy-unknown",
+                operatorReason, null, nextEligibleAt);
+    }
+
+    /** Version-fenced replay with explicit actor and correlation metadata for durable audit. */
+    default WarehouseExecutionAttempt replayDeadLetter(String tenantId, String commandKey,
+                                                       long expectedVersion, String actorId,
+                                                       String operatorReason, String correlationId,
+                                                       Instant nextEligibleAt) {
+        throw new UnsupportedOperationException("Audited manual dead-letter replay is not supported by this repository");
+    }
+
+    /** Return immutable operator actions for one tenant, newest first, with a bounded result size. */
+    default List<WarehouseRecoveryOperatorAuditEvent> findOperatorAuditEvents(String tenantId, int limit) {
+        throw new UnsupportedOperationException("Recovery operator audit queries are not supported by this repository");
     }
 
     /**
