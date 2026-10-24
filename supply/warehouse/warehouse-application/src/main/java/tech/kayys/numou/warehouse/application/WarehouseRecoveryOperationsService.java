@@ -103,6 +103,16 @@ public final class WarehouseRecoveryOperationsService {
         return List.copyOf(repository.findOperatorAuditEvents(tenantId.trim(), limit));
     }
 
+    /** Bounded tenant-scoped audit history for operator consoles and streaming exports. */
+    public WarehouseRecoveryAuditPage auditPage(String tenantId, int limit, String cursor) {
+        requireTenant(tenantId);
+        if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
+        if (cursor != null && (cursor.isBlank() || cursor.length() > 200)) {
+            throw new IllegalArgumentException("cursor must be null or contain 1-200 characters");
+        }
+        return repository.pageOperatorAuditEvents(tenantId.trim(), limit, cursor);
+    }
+
     private static void requireTenant(String tenantId) {
         if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
     }

@@ -172,6 +172,49 @@ class WarehouseRecoveryOperatorAuditPostgresIntegrationTest {
         }
     }
 
+
+    @Test
+    void auditPagesAreBoundedAndDoNotRepeatEventsAcrossCursors() throws Exception {
+        String url = System.getenv("NUMOU_TEST_POSTGRES_URL");
+        Assumptions.assumeTrue(url != null && !url.isBlank(),
+                "Set NUMOU_TEST_POSTGRES_URL to enable PostgreSQL integration tests");
+        DataSource dataSource = new DriverManagerDataSource(url,
+                System.getenv().getOrDefault("NUMOU_TEST_POSTGRES_USER", ""),
+                System.getenv().getOrDefault("NUMOU_TEST_POSTGRES_PASSWORD", ""));
+        JdbcWarehouseExecutionAttemptRepository repository = new JdbcWarehouseExecutionAttemptRepository(dataSource);
+        String tenant = "it-audit-page-" + UUID.randomUUID();
+        try {
+            for (int i = 0; i < 3; i++) {
+                String command = "audit-page-" + i + "-" + UUID.randomUUID();
+                WarehouseExecutionAttempt deadLetter = createDeadLetter(repository, tenant, command);
+                repository.replayDeadLetter(tenant, command, deadLetter.version(),
+                        "page-operator", "pagination test " + i, "page-correlation-" + i,
+                        Instant.now().plusSeconds(120 + i));
+            }
+
+            var first = repository.pageOperatorAuditEvents(tenant, 2, null);
+            assertEquals(2, first.events().size());
+            assertTrue(first.hasMore());
+            var second = repository.pageOperatorAuditEvents(tenant, 2, first.nextCursor());
+            assertEquals(1, second.events().size());
+            assertFalse(second.hasMore());
+
+            List<String> commandKeys = new java.util.ArrayList<>();
+            first.events().forEach(event -> commandKeys.add(event.commandKey()));
+            second.events().forEach(event -> commandKeys.add(event.commandKey()));
+            assertEquals(3, new java.util.HashSet<>(commandKeys).size(),
+                    "cursor pagination must not duplicate audit events");
+            assertEquals(3, repository.findOperatorAuditEvents(tenant, 10).size());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> repository.pageOperatorAuditEvents(tenant, 2, "not-a-valid-cursor"));
+            assertThrows(IllegalArgumentException.class,
+                    () -> repository.pageOperatorAuditEvents(" ", 2, null));
+        } finally {
+            deleteTenant(dataSource, tenant);
+        }
+    }
+
     private static WarehouseExecutionAttempt createDeadLetter(
             JdbcWarehouseExecutionAttemptRepository repository, String tenant, String command) {
         WarehouseExecutionAttempt prepared = repository.createIfAbsent(WarehouseExecutionAttempt.prepared(
