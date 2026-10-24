@@ -130,7 +130,13 @@ public final class WarehouseRecoveryAuditExportWorker {
         Optional<WarehouseRecoveryAuditArchiveManifest> existing=manifests.find(verifying.tenantId(),verifying.exportId());
         if(existing.isPresent()) {
             WarehouseRecoveryAuditArchiveManifest saved=existing.get();
-            if(!saved.equals(manifest))
+            if(!saved.tenantId().equals(manifest.tenantId())
+                    ||!saved.exportId().equals(manifest.exportId())
+                    ||!saved.artifactLocation().equals(manifest.artifactLocation())
+                    ||!saved.sha256Hex().equals(manifest.sha256Hex())
+                    ||saved.byteSize()!=manifest.byteSize()
+                    ||saved.eventCount()!=manifest.eventCount()
+                    ||!saved.createdBy().equals(manifest.createdBy()))
                 throw new IllegalStateException("Existing archive manifest conflicts with verified artifact");
         } else {
             manifests.insert(manifest);
