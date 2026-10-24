@@ -16,7 +16,7 @@ M14 adds a pure domain guard for validating hub scans against tenant-scoped tran
 
 The policy is pure and does not access a database. Callers must load contexts under the command tenant and keep the corresponding row locks until the receipt, state transition, tracking fact, and outbox event commit. They must not use unscoped or stale cached contexts.
 
-This slice is not yet wired into `JdbcHubOperationsStore`: `HubScanCommand` has no explicit container or dispatch-wave reference, and the JDBC store does not persist container/wave lifecycle transitions. Do not treat this policy alone as production enforcement. The integration slice must add explicit aggregate references and seal/manifest data, lock matching rows, validate and persist transitions, and write receipt/tracking/outbox atomically.
+M15 connects custody-sensitive scans to `JdbcHubOperationsStore` with explicit container/wave references, row locks, transition checks, and atomic custody/receipt/tracking/outbox writes. See [M15 transactional custody enforcement](M15-transactional-custody-enforcement.md) for implementation details and remaining limitations. The policy class remains a pure reusable guard; the JDBC adapter currently enforces the equivalent persistence checks directly while transitioning database rows.
 
 ## Exception authorization
 
