@@ -55,7 +55,7 @@ CREATE TABLE workspace_database_records (
   database_id UUID NOT NULL,
   table_id UUID NOT NULL,
   revision BIGINT NOT NULL CHECK (revision >= 1),
-  values JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(values) = 'object'),
+  record_data JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(record_data) = 'object'),
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
   archived_at TIMESTAMPTZ NULL,
@@ -67,5 +67,5 @@ CREATE TABLE workspace_database_records (
 CREATE INDEX ix_workspace_database_records_table
   ON workspace_database_records (tenant_id, database_id, table_id, created_at, id)
   WHERE archived_at IS NULL;
-CREATE INDEX ix_workspace_database_records_values
-  ON workspace_database_records USING GIN (values jsonb_path_ops);
+CREATE INDEX ix_workspace_database_records_data
+  ON workspace_database_records USING GIN (record_data jsonb_path_ops);
