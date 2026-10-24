@@ -35,7 +35,7 @@ public final class JdbcWarehouseRecoveryAuditExportJobRepository implements Ware
     }
     @Override public Optional<WarehouseRecoveryAuditExportJob> claimNext(String workerId,Instant now,Instant leaseUntil) {
         require(workerId,"workerId"); Objects.requireNonNull(now,"now"); Objects.requireNonNull(leaseUntil,"leaseUntil"); if(!leaseUntil.isAfter(now)) throw new IllegalArgumentException("leaseUntil must be after now");
-        String select="SELECT * FROM warehouse_recovery_audit_export_job WHERE status='REQUESTED' OR status='VERIFYING' OR (status='RUNNING' AND lease_until<=?) ORDER BY created_at,export_id LIMIT 1 FOR UPDATE SKIP LOCKED";
+        String select="SELECT * FROM warehouse_recovery_audit_export_job WHERE (status IN ('REQUESTED', 'VERIFYING') OR (status='RUNNING' AND lease_until<=?)) ORDER BY created_at,export_id LIMIT 1 FOR UPDATE SKIP LOCKED";
         try(Connection c=dataSource.getConnection()) {
             c.setAutoCommit(false);
             try(PreparedStatement p=c.prepareStatement(select)) {
