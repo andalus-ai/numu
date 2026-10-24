@@ -48,7 +48,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V11__workspace_revision_snapshot_integrity.sql",
             "/db/migration/V12__workspace_revision_blocks_immutable.sql",
             "/db/migration/V13__workspace_audit_action_semantics.sql",
-            "/db/migration/V14__workspace_audit_resource_actor_integrity.sql");
+            "/db/migration/V14__workspace_audit_resource_actor_integrity.sql",
+            "/db/migration/V15__workspace_audit_history_append_only.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -529,6 +530,12 @@ class JdbcWorkspaceStorePostgresTest {
 
         assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE",
                 UUID.randomUUID(), 0, now);
+
+        UUID foreignTenant = UUID.randomUUID();
+        Workspace foreignWorkspace = Workspace.create(foreignTenant, "Foreign tenant workspace", "", now);
+        assertTrue(store.save(foreignWorkspace));
+        assertAuditInsertRejected(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE",
+                foreignWorkspace.id(), 0, now);
 
         try (Connection c = dataSource.getConnection();
              java.sql.PreparedStatement p = c.prepareStatement(
@@ -1080,4 +1087,47 @@ class JdbcWorkspaceStorePostgresTest {
         if (!current.toString().isBlank()) statements.add(current.toString().trim());
         return statements;
     }
+
+    @Test
+    void databaseRejectsAuditHistoryUpdatesAndDeletes() throws SQLException {
+        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Append-only audit", "", now);
+        AuditEntry event = new AuditEntry(tenant, actor, "WORKSPACE_CREATED", "WORKSPACE",
+                workspace.id(), 0, workspace.name(), now);
+        assertTrue(store.saveWorkspace(workspace, event));
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_audit_events SET summary=? WHERE tenant_id=? AND resource_id=?")) {
+            p.setString(1, "tampered summary");
+            p.setObject(2, tenant);
+            p.setObject(3, workspace.id());
+            assertThrows(SQLException.class, p::executeUpdate,
+                    "direct SQL must not be able to rewrite an audit event");
+        }
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "DELETE FROM workspace_audit_events WHERE tenant_id=? AND resource_id=?")) {
+            p.setObject(1, tenant);
+            p.setObject(2, workspace.id());
+            assertThrows(SQLException.class, p::executeUpdate,
+                    "direct SQL must not be able to delete an audit event");
+        }
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "SELECT summary FROM workspace_audit_events WHERE tenant_id=? AND resource_id=?")) {
+            p.setObject(1, tenant);
+            p.setObject(2, workspace.id());
+            try (java.sql.ResultSet rs = p.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals("Append-only audit", rs.getString(1));
+                assertFalse(rs.next());
+            }
+        }
+    }
+
 }
