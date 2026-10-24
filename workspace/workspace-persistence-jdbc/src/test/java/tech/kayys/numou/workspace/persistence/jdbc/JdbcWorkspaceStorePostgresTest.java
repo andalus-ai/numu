@@ -310,6 +310,48 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
+    void pageDeletionCanCascadeThroughImmutableRevisionHistory() throws SQLException {
+        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Revision cascade", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "revision-cascade", now);
+
+        assertTrue(store.save(space));
+        PageBlock block = new PageBlock(UUID.randomUUID(), BlockType.PARAGRAPH, "Retained until page deletion", 0,
+                Map.of("origin", "cascade-test"));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Cascade", List.of(block), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "DELETE FROM workspace_pages WHERE tenant_id=? AND id=?")) {
+            p.setObject(1, tenant);
+            p.setObject(2, page.id());
+            assertEquals(1, p.executeUpdate());
+        }
+
+        assertEquals(0, countRows("workspace_page_revisions", tenant, page.id()));
+        assertEquals(0, countRows("workspace_page_revision_blocks", tenant, page.id()));
+        assertEquals(0, countRows("workspace_page_blocks", tenant, page.id()));
+    }
+
+    private int countRows(String table, UUID tenant, UUID pageId) throws SQLException {
+        // Table names are fixed by this test; bind all row identifiers as parameters.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "SELECT count(*) FROM " + table + " WHERE tenant_id=? AND page_id=?")) {
+            p.setObject(1, tenant);
+            p.setObject(2, pageId);
+            try (java.sql.ResultSet rs = p.executeQuery()) {
+                assertTrue(rs.next());
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    @Test
     void databaseProtectsRevisionBlockHistoryFromDirectMutation() throws SQLException {
         Instant now = Instant.parse("2026-10-24T00:00:00Z");
         UUID tenant = UUID.randomUUID();
