@@ -81,13 +81,19 @@ public final class WarehouseRecoveryAuditExportWorker {
             }
             return Optional.of(verifyAndComplete(checkpoint,workerId));
         } catch(IOException|RuntimeException e) {
-            WarehouseRecoveryAuditExportJob latest=jobs.find(job.tenantId(),job.exportId()).orElse(job);
-            if(latest.status()!=WarehouseRecoveryAuditExportJob.Status.COMPLETED
-                    &&latest.status()!=WarehouseRecoveryAuditExportJob.Status.FAILED) {
-                WarehouseRecoveryAuditExportJob failed=latest.fail(clock.instant(),failureCode(e));
-                jobs.update(failed,latest.version());
-                record(latest,workerId,WarehouseRecoveryAuditExportAccessEvent.Action.VERIFY_FAILED,
-                        WarehouseRecoveryAuditExportAccessEvent.Outcome.FAILURE,failureCode(e));
+            // I/O and optimistic-lock failures may be transient. Leave the live lease to expire so
+            // another worker can retry the same idempotent chunk from the last durable checkpoint.
+            boolean transientFailure=e instanceof IOException
+                    ||(e.getMessage()!=null&&e.getMessage().contains("version"));
+            if(!transientFailure) {
+                WarehouseRecoveryAuditExportJob latest=jobs.find(job.tenantId(),job.exportId()).orElse(job);
+                if(latest.status()!=WarehouseRecoveryAuditExportJob.Status.COMPLETED
+                        &&latest.status()!=WarehouseRecoveryAuditExportJob.Status.FAILED) {
+                    WarehouseRecoveryAuditExportJob failed=latest.fail(clock.instant(),failureCode(e));
+                    jobs.update(failed,latest.version());
+                    record(latest,workerId,WarehouseRecoveryAuditExportAccessEvent.Action.VERIFY_FAILED,
+                            WarehouseRecoveryAuditExportAccessEvent.Outcome.FAILURE,failureCode(e));
+                }
             }
             throw e;
         }
