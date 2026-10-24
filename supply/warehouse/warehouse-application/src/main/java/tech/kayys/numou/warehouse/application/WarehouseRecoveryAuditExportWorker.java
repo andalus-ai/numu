@@ -90,7 +90,8 @@ public final class WarehouseRecoveryAuditExportWorker {
             // I/O and optimistic-lock failures may be transient. Leave the live lease to expire so
             // another worker can retry the same idempotent chunk from the last durable checkpoint.
             boolean transientFailure=e instanceof IOException
-                    ||(e.getMessage()!=null&&e.getMessage().contains("version"));
+                    || e instanceof WarehouseRecoveryAuditPersistenceException
+                    || (e.getMessage()!=null&&e.getMessage().contains("version"));
             if(!transientFailure) {
                 try {
                     WarehouseRecoveryAuditExportJob latest=jobs.find(job.tenantId(),job.exportId()).orElse(job);
