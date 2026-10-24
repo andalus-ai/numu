@@ -182,7 +182,7 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
                         "propertyKey", s.propertyKey(), "direction", s.direction().name())).toList();
                 p.setString(9, Json.write(sorts)); p.setString(10, Json.write(view.visibleProperties()));
                 p.setTimestamp(11, Timestamp.from(view.createdAt())); p.setTimestamp(12, Timestamp.from(view.updatedAt()));
-                try { p.executeUpdate(); } catch (SQLException e) { if (isConstraint(e)) return false; throw e; }
+                p.executeUpdate();
             }
             insertAudit(c, audit);
             return true;
