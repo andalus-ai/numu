@@ -67,6 +67,27 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
     }
 
     @Test
+    void reconstructsReceiptAfterArtifactWasWrittenButReceiptWasNotCommitted() throws Exception {
+        byte[] chunk = "durable-row\n".getBytes(StandardCharsets.UTF_8);
+        Path exportDirectory = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-crash"));
+        Files.createDirectories(exportDirectory.resolve("chunks"));
+        // Simulate a process crash after the artifact bytes were forced but before the receipt rename.
+        Files.write(exportDirectory.resolve("audit.csv"), chunk);
+
+        var recoveredStore = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        var recovered = recoveredStore.appendChunk("tenant-a", "export-crash", "chunk-1", 0, chunk);
+        assertEquals(chunk.length, recovered.byteSize());
+        assertEquals(new String(chunk, StandardCharsets.UTF_8),
+                new String(recoveredStore.open("tenant-a", "export-crash").readAllBytes(), StandardCharsets.UTF_8));
+
+        // A fresh adapter instance must recognize the reconstructed durable receipt as an idempotent retry.
+        var restartedStore = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        var retry = restartedStore.appendChunk("tenant-a", "export-crash", "chunk-1", 0, chunk);
+        assertEquals(recovered.byteSize(), retry.byteSize());
+        assertEquals(recovered.sha256Hex(), retry.sha256Hex());
+    }
+
+    @Test
     void concurrentRetriesOfSameChunkDoNotDuplicateBytes() throws Exception {
         var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
         byte[] chunk = "one-row\n".getBytes(StandardCharsets.UTF_8);
