@@ -10,13 +10,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class PageLinkServiceTest {
  @Test void linkCreatesBacklinkAndRequiresPermissions() {
   UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();Page a=page(tenant,"A"),b=page(tenant,"B");Store store=new Store(a,b);List<String> permissions=new ArrayList<>();
-  PageLinkService service=new PageLinkService(store,store,(t,u,r,id,action)->permissions.add(id+":"+action),e->{},Clock.fixed(Instant.EPOCH,ZoneOffset.UTC));
+  PageLinkService service=new PageLinkService(store,store,(t,u,r,id,action)->permissions.add(id+":"+action),e->{},Clock.fixed(Instant.EPOCH,ZoneOffset.UTC),true);
   PageLink link=service.link(tenant,actor,a.id(),b.id(),"related");
   assertEquals("related",link.label());assertEquals(List.of(a),service.backlinks(tenant,actor,b.id()));assertEquals(4,permissions.size());
   assertThrows(IllegalStateException.class,()->service.link(tenant,actor,a.id(),b.id(),"duplicate"));
  }
  @Test void rejectsCrossTenantOrMissingTargetsAndSelfLinks() {
-  UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();Page a=page(tenant,"A");Store store=new Store(a);PageLinkService service=new PageLinkService(store,store,(t,u,r,id,action)->{},e->{},Clock.systemUTC());
+  UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();Page a=page(tenant,"A");Store store=new Store(a);PageLinkService service=new PageLinkService(store,store,(t,u,r,id,action)->{},e->{},Clock.systemUTC(),true);
   assertThrows(IllegalArgumentException.class,()->service.link(tenant,actor,a.id(),UUID.randomUUID(),""));
   assertThrows(IllegalArgumentException.class,()->PageLink.create(tenant,a.id(),a.id(),actor,"",Instant.EPOCH));
  }
