@@ -76,6 +76,22 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void createsAndListsValidatedPersonalSavedViews() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Saved views");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, true, List.of("todo", "done"), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Open tasks",
+                DatabaseViewType.TABLE, Map.of("status", "todo"),
+                List.of(new DatabaseViewSort("title", DatabaseViewSort.Direction.ASC)), List.of("title", "status"));
+        assertEquals("Open tasks", view.name());
+        assertEquals("todo", view.filters().get("status"));
+        assertEquals(1, service.findViews(tenant, actor, database.id(), table.id()).size());
+        assertThrows(IllegalArgumentException.class, () -> service.createView(tenant, actor, database.id(),
+                table.id(), "Bad view", DatabaseViewType.TABLE, Map.of("unknown", "x"), List.of(), List.of()));
+    }
+
+    @Test
     void relationValuesMustResolveToReadableRecordsInTheConfiguredTable() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Relations");
         DatabaseTable targetTable = service.createTable(tenant, actor, database.id(), "Targets", List.of(
@@ -132,6 +148,7 @@ class StructuredDatabaseServiceTest {
         private final Map<UUID, WorkspaceDatabase> databases = new HashMap<>();
         private final Map<UUID, DatabaseTable> tables = new HashMap<>();
         private final Map<UUID, DatabaseRecord> records = new HashMap<>();
+        private final Map<UUID, DatabaseView> views = new HashMap<>();
         private final List<AuditEntry> audit = new ArrayList<>();
         private long lastExpectedRevisionForCreate = -1;
         private long lastExpectedRevisionForUpdate = -1;
@@ -166,6 +183,21 @@ class StructuredDatabaseServiceTest {
             int from = Math.min(offset, matched.size());
             int to = Math.min(from + limit, matched.size());
             return new DatabaseRecordPage(matched.subList(from, to), matched.size(), limit, offset);
+        }
+        @Override public boolean saveView(DatabaseView view, AuditEntry entry) {
+            if (views.values().stream().anyMatch(existing -> existing.tenantId().equals(view.tenantId())
+                    && existing.tableId().equals(view.tableId()) && existing.createdBy().equals(view.createdBy())
+                    && existing.name().equals(view.name()))) return false;
+            views.put(view.id(), view); audit.add(entry); return true;
+        }
+        @Override public Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId) {
+            return Optional.ofNullable(views.get(viewId)).filter(v -> v.tenantId().equals(tenantId)
+                    && v.databaseId().equals(databaseId));
+        }
+        @Override public List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId) {
+            return views.values().stream().filter(v -> v.tenantId().equals(tenantId)
+                    && v.databaseId().equals(databaseId) && v.tableId().equals(tableId)
+                    && v.createdBy().equals(actorId)).sorted(Comparator.comparing(DatabaseView::name)).toList();
         }
         @Override public boolean saveRecord(DatabaseRecord record, long expectedRevision, AuditEntry entry) {
             DatabaseRecord current = records.get(record.id());
