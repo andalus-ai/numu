@@ -45,7 +45,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V8__workspace_page_parent_invariant.sql",
             "/db/migration/V9__workspace_audit_invariants.sql",
             "/db/migration/V10__workspace_page_hierarchy_cycle_invariant.sql",
-            "/db/migration/V11__workspace_revision_snapshot_integrity.sql");
+            "/db/migration/V11__workspace_revision_snapshot_integrity.sql",
+            "/db/migration/V12__workspace_revision_blocks_immutable.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -305,6 +306,67 @@ class JdbcWorkspaceStorePostgresTest {
         assertEquals("Current title", history.get(0).title());
         assertEquals(1, history.get(0).revision());
         assertEquals(List.of(block), history.get(0).blocks());
+        assertEquals(List.of(block), store.findPage(tenant, page.id()).orElseThrow().blocks());
+    }
+
+    @Test
+    void databaseProtectsRevisionBlockHistoryFromDirectMutation() throws SQLException {
+        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Immutable revision blocks", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "Docs", "immutable-revisions", now);
+        assertTrue(store.save(space));
+
+        PageBlock block = new PageBlock(UUID.randomUUID(), BlockType.PARAGRAPH, "Historical content", 0,
+                Map.of("origin", "immutable-test"));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "History", List.of(block), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "UPDATE workspace_page_revision_blocks SET text_content=? WHERE tenant_id=? AND page_id=? AND revision=1 AND block_id=?")) {
+            p.setString(1, "rewritten history");
+            p.setObject(2, tenant);
+            p.setObject(3, page.id());
+            p.setObject(4, block.id());
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "DELETE FROM workspace_page_revision_blocks WHERE tenant_id=? AND page_id=? AND revision=1 AND block_id=?")) {
+            p.setObject(1, tenant);
+            p.setObject(2, page.id());
+            p.setObject(3, block.id());
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "DELETE FROM workspace_page_revisions WHERE tenant_id=? AND page_id=? AND revision=1")) {
+            p.setObject(1, tenant);
+            p.setObject(2, page.id());
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+
+        // An extra row cannot be injected into the current revision if it differs from live content.
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement(
+                     "INSERT INTO workspace_page_revision_blocks(tenant_id,page_id,revision,block_id,block_type,text_content,position,attributes_encoded) VALUES(?,?,?,?,?,?,?,?)")) {
+            p.setObject(1, tenant);
+            p.setObject(2, page.id());
+            p.setLong(3, page.revision());
+            p.setObject(4, UUID.randomUUID());
+            p.setString(5, BlockType.PARAGRAPH.name());
+            p.setString(6, "forged extra block");
+            p.setInt(7, 1);
+            p.setString(8, "");
+            assertThrows(SQLException.class, p::executeUpdate);
+        }
+
+        assertEquals(List.of(block), store.history(tenant, page.id()).get(0).blocks());
         assertEquals(List.of(block), store.findPage(tenant, page.id()).orElseThrow().blocks());
     }
 
