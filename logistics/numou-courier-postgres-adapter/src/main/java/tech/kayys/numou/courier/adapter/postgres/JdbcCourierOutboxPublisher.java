@@ -60,10 +60,13 @@ public class JdbcCourierOutboxPublisher {
                             SELECT 1 FROM courier_event_publications p
                             WHERE p.tenant_id = e.tenant_id AND p.event_id = e.id AND p.destination = ?
                         )
+                        ORDER BY e.created_at, e.id
+                        LIMIT ?
                         ON CONFLICT DO NOTHING
                         """)) {
                     seed.setString(1, destination);
                     seed.setString(2, destination);
+                    seed.setInt(3, limit);
                     seed.executeUpdate();
                 }
                 List<Delivery> claimed = new ArrayList<>();
@@ -113,7 +116,7 @@ public class JdbcCourierOutboxPublisher {
                 }
                 c.commit();
                 return claimed;
-            } catch (Exception failure) {
+            } catch (SQLException | RuntimeException failure) {
                 c.rollback();
                 throw failure;
             } finally {
