@@ -72,6 +72,8 @@ jobs:
         run: mvn -B -ntp -f security/pom.xml -pl security-spi -am install
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Verify document storage reactor
+        run: mvn -B -ntp -f documents/pom.xml verify
       - name: Build and install full security reactor
         run: mvn -B -ntp -f security/pom.xml install
       # Organization domain references the identity domain artifact. Install
