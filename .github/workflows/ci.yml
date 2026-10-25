@@ -59,15 +59,16 @@ jobs:
       # their Maven descriptors from the local repository.
       - name: Install framework parent POM
         run: mvn -B -ntp -f core/framework/pom.xml -N install
-      # Security-domain consumes foundation domain and foundation-testing.
-      # Build the actual nested foundation reactor, not only its aggregator;
-      # selecting the aggregator alone leaves the required JARs uninstalled.
+      # Build the nested foundation reactor first because framework modules
+      # consume its contracts and test support.
       - name: Install framework foundation modules
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
-      - name: Build and install security contracts
-        run: mvn -B -ntp -f security/pom.xml install
+      # Security application depends on numou-cache-api. Install the framework
+      # reactor (including cache-api) before building security.
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Build and install security contracts
+        run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install organization contracts used by Courier
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
