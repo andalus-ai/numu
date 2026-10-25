@@ -453,6 +453,20 @@ class StructuredDatabaseServiceTest {
             if (tables.putIfAbsent(table.id(), table) != null) return false;
             audit.add(entry); return true;
         }
+        @Override public boolean updateTableSchema(DatabaseTable table, long expectedSchemaVersion, AuditEntry entry) {
+            DatabaseTable current = tables.get(table.id());
+            if (current == null || !current.tenantId().equals(table.tenantId())
+                    || !current.databaseId().equals(table.databaseId())
+                    || current.schemaVersion() != expectedSchemaVersion
+                    || table.schemaVersion() != expectedSchemaVersion + 1) return false;
+            if (tables.values().stream().anyMatch(existing -> !existing.id().equals(table.id())
+                    && existing.tenantId().equals(table.tenantId())
+                    && existing.databaseId().equals(table.databaseId())
+                    && existing.name().equals(table.name()))) return false;
+            tables.put(table.id(), table);
+            audit.add(entry);
+            return true;
+        }
         @Override public Optional<DatabaseTable> findTable(UUID tenantId, UUID databaseId, UUID tableId) {
             return Optional.ofNullable(tables.get(tableId))
                     .filter(t -> t.tenantId().equals(tenantId) && t.databaseId().equals(databaseId));
