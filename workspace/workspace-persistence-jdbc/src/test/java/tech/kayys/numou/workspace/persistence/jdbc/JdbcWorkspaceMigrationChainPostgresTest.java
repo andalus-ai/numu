@@ -43,7 +43,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             "V15__workspace_audit_history_append_only.sql",
             "V16__workspace_structured_databases.sql",
             "V17__workspace_database_views.sql",
-            "V18__workspace_board_view_grouping.sql"
+            "V18__workspace_board_view_grouping.sql",
+            "V19__workspace_saved_view_revision.sql"
     );
 
     @Test
@@ -69,6 +70,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             assertTrue(tableExists(connection, "workspace_database_records"));
             assertTrue(tableExists(connection, "workspace_database_views"));
             assertTrue(columnExists(connection, "workspace_database_views", "group_by_property"));
+            assertTrue(columnExists(connection, "workspace_database_views", "revision"));
+            assertTrue(constraintExists(connection, "ck_workspace_database_view_revision_positive"));
             assertTrue(constraintExists(connection, "ck_workspace_database_view_group_by_property"));
             assertTrue(indexExists(connection, "ix_workspace_database_views_owner"));
             assertTrue(indexExists(connection, "ix_workspace_database_records_table"));
