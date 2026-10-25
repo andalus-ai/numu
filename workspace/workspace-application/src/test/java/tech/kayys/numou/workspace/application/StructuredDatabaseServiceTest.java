@@ -172,6 +172,39 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void repairsSchemaIncompatibleSavedViewWithRevisionAuditAndActionableSuggestions() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Repair views");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false, List.of("todo", "done"), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "My board",
+                DatabaseViewType.BOARD, Map.of("status", "todo"),
+                List.of(new DatabaseViewSort("status", DatabaseViewSort.Direction.ASC)),
+                List.of("title", "status"), "status");
+
+        repository.tables.put(table.id(), new DatabaseTable(table.id(), tenant, database.id(), "Tasks", 2,
+                List.of(new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                        DatabasePropertyType.TEXT, true, List.of(), null))));
+
+        DatabaseViewValidationResult invalid = service.validateView(tenant, actor, database.id(), view.id());
+        assertFalse(invalid.valid());
+        assertTrue(invalid.suggestions().stream().anyMatch(suggestion ->
+                suggestion.action() == DatabaseViewRepairSuggestion.Action.REMOVE_FILTER));
+        assertTrue(invalid.suggestions().stream().anyMatch(suggestion ->
+                suggestion.action() == DatabaseViewRepairSuggestion.Action.CLEAR_GROUPING));
+
+        DatabaseView repaired = service.repairView(tenant, actor, database.id(), view.id(), 1,
+                "My tasks", DatabaseViewType.TABLE, Map.of(), List.of(), List.of("title"), null);
+        assertEquals(2, repaired.revision());
+        assertEquals("DATABASE_VIEW_UPDATED", repository.audit.get(repository.audit.size() - 1).action());
+        assertTrue(service.validateView(tenant, actor, database.id(), view.id()).valid());
+        assertThrows(IllegalArgumentException.class, () -> service.repairView(
+                tenant, actor, database.id(), view.id(), 1, "Stale repair",
+                DatabaseViewType.TABLE, Map.of(), List.of(), List.of("title"), null));
+        assertEquals(2, repository.findView(tenant, database.id(), view.id()).orElseThrow().revision());
+    }
+
+    @Test
     void deletesOnlyOwnedSavedViewsAndRecordsAudit() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "View lifecycle");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
