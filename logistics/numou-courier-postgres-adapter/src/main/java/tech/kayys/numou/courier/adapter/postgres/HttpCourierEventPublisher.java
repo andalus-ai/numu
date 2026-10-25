@@ -43,7 +43,7 @@ public class HttpCourierEventPublisher implements CourierEventPublisher {
 
     HttpCourierEventPublisher(URI endpoint, String expectedDestination, String bearerToken,
                               long connectTimeoutMs, long requestTimeoutMs, HttpClient client) {
-        this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
+        this.endpoint = validateEndpoint(Objects.requireNonNull(endpoint, "endpoint").toString());
         if (expectedDestination == null || expectedDestination.isBlank() || expectedDestination.length() > 120)
             throw new IllegalArgumentException("HTTP destination must contain 1-120 characters");
         this.expectedDestination = expectedDestination;
