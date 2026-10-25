@@ -18,12 +18,21 @@ import java.util.UUID;
 public class CourierOutboxOperations {
     private final DataSource dataSource;
     private final Instance<CourierOutboxOperationsAuthorizer> authorizers;
+    private final CourierOutboxOperationsAuthorizer directAuthorizer;
 
     @Inject
     public CourierOutboxOperations(DataSource dataSource,
                                    Instance<CourierOutboxOperationsAuthorizer> authorizers) {
         this.dataSource = dataSource;
         this.authorizers = authorizers;
+        this.directAuthorizer = null;
+    }
+
+    /** Explicit-authorizer constructor for adapter-level integration tests and non-CDI composition. */
+    CourierOutboxOperations(DataSource dataSource, CourierOutboxOperationsAuthorizer authorizer) {
+        this.dataSource = dataSource;
+        this.authorizers = null;
+        this.directAuthorizer = java.util.Objects.requireNonNull(authorizer, "authorizer must not be null");
     }
 
     public List<DestinationHealth> health(String actorReference, String destination) {
@@ -143,7 +152,8 @@ public class CourierOutboxOperations {
     }
 
     private CourierOutboxOperationsAuthorizer requireAuthorizer() {
-        if (authorizers.isUnsatisfied() || authorizers.isAmbiguous())
+        if (directAuthorizer != null) return directAuthorizer;
+        if (authorizers == null || authorizers.isUnsatisfied() || authorizers.isAmbiguous())
             throw new IllegalStateException("A unique CourierOutboxOperationsAuthorizer must be configured");
         return authorizers.get();
     }
