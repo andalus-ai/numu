@@ -32,7 +32,7 @@ This matrix describes target ownership, not a claim that every capability is alr
 
 ## Dependency rules
 
-1. Neutral project, scope, scheduling and control domains may depend on platform primitives and narrow stable contracts, never on construction/software/manufacturing packages.
+1. Neutral project, scope, scheduling, control and quantity domains may depend on platform primitives and narrow stable contracts, never on construction/software/manufacturing packages. The CI rule set currently enforces the neutral Project and Quantity reverse-dependency guards; other boundaries are added only after ownership and actual contracts are reviewed.
 2. Extensions may depend inward on neutral contracts. The reverse dependency is forbidden.
 3. Cross-context relationships use stable identifiers, explicit ports, domain events or read models; do not share another bounded context's mutable aggregate.
 4. Domain policy belongs with the concept it governs. Application services orchestrate workflows but do not reimplement invariants.
