@@ -59,15 +59,16 @@ jobs:
       # their Maven descriptors from the local repository.
       - name: Install framework parent POM
         run: mvn -B -ntp -f core/framework/pom.xml -N install
-      # Build the nested foundation reactor first because framework modules
-      # consume its contracts and test support.
       - name: Install framework foundation modules
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
-      # Security application depends on numou-cache-api. Install the framework
-      # reactor (including cache-api) before building security.
+      # Reliability adapter depends on security SPI while the security
+      # application depends on cache-api from the framework. Install only the
+      # security SPI's prerequisite reactor first to break this build cycle.
+      - name: Install security domain and SPI prerequisites
+        run: mvn -B -ntp -f security/pom.xml -pl security-spi -am install
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
-      - name: Build and install security contracts
+      - name: Build and install full security reactor
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install organization contracts used by Courier
         run: mvn -B -ntp -f organization/pom.xml install
