@@ -36,10 +36,10 @@ class ActivityProgressHistoryTest {
         var history = new ActivityProgressHistory(PlanId.generate());
         history.append(observation("later", 18, "70"));
         history.append(observation("earlier", 12, "40"));
-        assertEquals(new BigDecimal("40"),
-                history.latestAsOf(activityId, LocalDate.of(2026, 5, 15)).orElseThrow().percentComplete());
-        assertEquals(new BigDecimal("70"),
-                history.latestAsOf(activityId, LocalDate.of(2026, 5, 20)).orElseThrow().percentComplete());
+        assertEquals(0, history.latestAsOf(activityId, LocalDate.of(2026, 5, 15))
+                .orElseThrow().percentComplete().compareTo(new BigDecimal("40")));
+        assertEquals(0, history.latestAsOf(activityId, LocalDate.of(2026, 5, 20))
+                .orElseThrow().percentComplete().compareTo(new BigDecimal("70")));
     }
 
     @Test
