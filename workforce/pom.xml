@@ -9,7 +9,7 @@
         <groupId>tech.kayys.numou</groupId>
         <artifactId>numou-framework</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../core/framework/pom.xml</relativePath>
     </parent>
 
     <artifactId>numou-workforce</artifactId>
