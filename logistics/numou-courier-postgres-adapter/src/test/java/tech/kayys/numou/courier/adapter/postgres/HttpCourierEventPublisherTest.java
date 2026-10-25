@@ -81,9 +81,10 @@ class HttpCourierEventPublisherTest {
             try {
                 handler.handle(exchange);
                 exchange.sendResponseHeaders(status, -1);
-            } catch (Throwable failure) {
+            } catch (Exception failure) {
                 exchange.close();
-                throw failure;
+                if (failure instanceof IOException io) throw io;
+                throw new IOException("test HTTP handler failed", failure);
             } finally {
                 exchange.close();
             }
