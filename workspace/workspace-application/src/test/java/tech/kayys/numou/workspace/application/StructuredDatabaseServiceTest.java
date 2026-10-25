@@ -116,6 +116,32 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void reportsImpactAcrossAllOwnedSavedViewsWithoutMutatingThem() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "View impact");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false, List.of("todo", "done"), null)));
+        DatabaseView valid = service.createView(tenant, actor, database.id(), table.id(), "Title view",
+                DatabaseViewType.TABLE, Map.of(), List.of(), List.of("title"));
+        DatabaseView invalid = service.createView(tenant, actor, database.id(), table.id(), "Status view",
+                DatabaseViewType.TABLE, Map.of("status", "todo"), List.of(), List.of("title", "status"));
+        repository.tables.put(table.id(), new DatabaseTable(table.id(), tenant, database.id(), "Tasks", 2,
+                List.of(new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null))));
+
+        DatabaseTableViewImpactReport report = service.validateViewsForTable(tenant, actor, database.id(), table.id());
+        assertEquals(table.id(), report.tableId());
+        assertEquals(2, report.schemaVersion());
+        assertEquals(2, report.totalViewCount());
+        assertEquals(1, report.validViewCount());
+        assertEquals(1, report.invalidViewCount());
+        assertTrue(report.hasIncompatibleViews());
+        assertTrue(report.views().stream().anyMatch(result -> result.viewId().equals(valid.id()) && result.valid()));
+        assertTrue(report.views().stream().anyMatch(result -> result.viewId().equals(invalid.id()) && !result.valid()));
+        assertEquals(1, repository.findView(tenant, database.id(), valid.id()).orElseThrow().revision());
+        assertEquals(1, repository.findView(tenant, database.id(), invalid.id()).orElseThrow().revision());
+    }
+
+    @Test
     void diagnosesSchemaDriftAndRefusesExecutionWithoutDeletingSavedView() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema drift");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
