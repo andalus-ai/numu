@@ -1,7 +1,5 @@
 package tech.kayys.numou.planning.application;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import tech.kayys.numou.planning.application.port.SchedulePlanScopeStore;
 import tech.kayys.numou.planning.domain.PlanId;
 
@@ -14,11 +12,9 @@ import java.util.UUID;
  * Call this only after the caller's authorization and tenant membership have been verified by
  * the application/API boundary. A plan's ownership is immutable through this use case.
  */
-@ApplicationScoped
 public class RegisterSchedulePlanScope {
     private final SchedulePlanScopeStore store;
 
-    @Inject
     public RegisterSchedulePlanScope(SchedulePlanScopeStore store) {
         this.store = Objects.requireNonNull(store, "Scope store cannot be null");
     }
