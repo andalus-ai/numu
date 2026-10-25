@@ -75,5 +75,8 @@ class RecordQuantityMeasurementCorrectionTest {
             return records.stream().filter(c -> c.tenantId().equals(tenant) && c.definitionId().equals(definition)
                     && c.originalMeasurementId().equals(original)).toList();
         }
+        @Override public List<QuantityMeasurementCorrection> findCorrectionsForDefinition(UUID tenant, UUID definition) {
+            return records.stream().filter(c -> c.tenantId().equals(tenant) && c.definitionId().equals(definition)).toList();
+        }
     }
 }
