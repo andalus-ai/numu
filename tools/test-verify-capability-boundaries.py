@@ -90,6 +90,15 @@ class CapabilityBoundaryVerifierTest(unittest.TestCase):
         _, errors = MODULE.scan(self.root, self.rules)
         self.assertEqual([], errors)
 
+    def test_rejects_provided_scoped_reference_to_construction(self):
+        write_pom(self.root, "project/project-domain/pom.xml", "numou-project-domain",
+                  '<dependency><groupId>tech.kayys.numou</groupId>'
+                  '<artifactId>numou-construction-domain</artifactId>'
+                  '<scope>provided</scope></dependency>')
+        _, errors = MODULE.scan(self.root, self.rules)
+        self.assertEqual(1, len(errors))
+        self.assertIn("forbids provided-scoped dependency", errors[0])
+
     def test_rejects_malformed_pom(self):
         path = self.root / "project/project-domain/pom.xml"
         path.parent.mkdir(parents=True)
