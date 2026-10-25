@@ -292,3 +292,34 @@ A targeted POM, factory, settings, and adapter pass identifies a concrete integr
 6. **Verify composition and deployment:** inspect the actual deployable module/reactor and runtime CDI wiring, then run the narrow document reactor tests plus an integration test against a local RustFS-compatible service before deprecating either implementation.
 
 No provider was replaced and no storage contract or runtime wiring was changed in this audit pass.
+
+
+## Sixth pass: currency identity and FX rate governance
+
+The repository contains three distinct responsibilities that should not be collapsed into one module:
+
+1. **Foundation currency value object** — `core/framework/foundation/.../Currency.java` normalizes a three-letter code and is suitable for dependency-light domain APIs. It does not provide display metadata, active/inactive lifecycle, or currency-specific decimal precision.
+2. **Finance currency registry and rate administration** — `finance/common/numou-finance-currency` persists currencies (including name, symbol, decimal places, active flag) and date-effective rates in Panache entities, exposes REST resources, and resolves rates by date with expiry checks.
+3. **Accounting FX policy** — `finance/accounting/accounting-capabilities/numou-accounting-currency` defines governed immutable rate records with rate type/status/effective timestamp/source provider, conversion requests with an explicit effective timestamp and rounding policy, and an `ExchangeRateProvider` boundary used by the accounting revaluation engine.
+
+These are not simple duplicate modules. The likely target is to reuse the foundation `Currency` identity across domain boundaries, retain a registry/administration adapter for currency metadata, and keep accounting-specific rate types, approvals, valuation and rounding policy in Accounting. A provider adapter can bridge the finance rate store to `ExchangeRateProvider` only after rate semantics and approval rules are aligned.
+
+### Concrete correctness risk in the inspected accounting conversion implementation
+
+The current `DefaultFxConversionService` stores registered rates in a map keyed only by source currency, target currency, and rate type. Although `ExchangeRate` contains `effectiveAt`, and `FxConversionRequest` requires an `effectiveAt`, the inspected conversion method does not compare those timestamps when selecting a direct or reciprocal rate. Registering another rate for the same pair/type replaces the previous one. Consequently, this in-memory implementation cannot represent historical rate selection and may return a rate that is not valid at the requested time. The tests should be reviewed and extended to cover this invariant before this service is used for historical accounting conversion. This is a source-level finding, not a claim that every production provider has the same defect.
+
+Additional semantics that need explicit mapping:
+- Finance rates use `LocalDate effectiveDate`, optional `expiryDate`, and an `active` boolean; Accounting rates use `Instant effectiveAt`, `ExchangeRateType`, and a richer lifecycle status.
+- Finance has a unique constraint on currency pair and effective date, which may be too restrictive if multiple rate types/sources must coexist; Accounting's model permits rate types but does not itself define persistence uniqueness.
+- Finance conversion chooses target decimal places from registry metadata with a fallback of 2 and uses `HALF_EVEN`; Accounting conversion takes a caller-provided `MonetaryRoundingPolicy`. These policies must remain explicit rather than being silently substituted.
+- Foundation's three-letter validation is syntax validation, not a canonical ISO-4217 registry check. Finance explicitly allows custom codes such as loyalty points. Do not force all existing custom currencies into an ISO-only rule without a compatibility policy.
+
+### Recommended next steps
+
+1. Add characterization tests for the accounting converter: effective timestamp before/at/after rate validity, multiple historical rates per pair/type, status transitions, direct-vs-reciprocal precedence, and rate source/audit identity.
+2. Correct the in-memory implementation so rate selection honors the request timestamp and governed rate lifecycle, or explicitly constrain/document it as a test/demo implementation and ensure production uses an `ExchangeRateProvider` implementation that does.
+3. Define one adapter contract from the Finance rate registry to Accounting's provider. Decide timezone/date cutover explicitly when mapping `Instant` to `LocalDate`.
+4. Separate currency metadata registry from currency identity; keep conversion precision, rounding, revaluation, and journal-posting policy in Accounting.
+5. Inspect downstream consumers and migrations before changing table constraints or consolidating persistence.
+
+No FX service or schema was changed in this audit pass.
