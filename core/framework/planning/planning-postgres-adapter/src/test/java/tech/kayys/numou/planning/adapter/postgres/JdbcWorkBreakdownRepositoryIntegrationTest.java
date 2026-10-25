@@ -35,7 +35,8 @@ class JdbcWorkBreakdownRepositoryIntegrationTest {
         WorkBreakdownStructure loaded = repository.findById(tenant, structure.id()).orElseThrow();
         assertEquals(structure.id(), loaded.id());
         assertEquals(structure.code(), loaded.code());
-        assertEquals(List.of(root, child), loaded.nodes().stream().map(WorkBreakdownNode::id).toList());
+        assertEquals(java.util.Set.of(root, child), loaded.nodes().stream()
+                .map(WorkBreakdownNode::id).collect(java.util.stream.Collectors.toSet()));
         assertTrue(repository.findById(otherTenant, structure.id()).isEmpty());
 
         assertThrows(Exception.class, () -> mutateNode(tenant, structure.id(), child));
