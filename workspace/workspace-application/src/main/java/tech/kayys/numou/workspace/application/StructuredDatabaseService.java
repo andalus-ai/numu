@@ -63,6 +63,59 @@ public final class StructuredDatabaseService {
         return table;
     }
 
+    /**
+     * Applies a reviewed schema proposal using compare-and-swap. Existing record values are preserved:
+     * only additive optional properties and metadata/label changes are allowed until record migration exists.
+     */
+    public DatabaseTable updateTableSchema(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId,
+                                           long expectedSchemaVersion, String proposedName,
+                                           List<DatabaseProperty> proposedProperties) {
+        requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        DatabaseTable current = repository.findTable(tenantId, databaseId, tableId)
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.UPDATE);
+        if (expectedSchemaVersion < 1 || current.schemaVersion() != expectedSchemaVersion) {
+            throw new IllegalArgumentException("stale table schema version; refresh before applying changes");
+        }
+        DatabaseTable candidate = new DatabaseTable(current.id(), current.tenantId(), current.databaseId(),
+                proposedName == null || proposedName.isBlank() ? current.name() : proposedName,
+                current.schemaVersion() + 1, proposedProperties);
+        validateSafeSchemaEvolution(current, candidate);
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_TABLE_SCHEMA_UPDATED", "DATABASE_TABLE",
+                tableId, candidate.schemaVersion(), "Applied compatible workspace table schema change");
+        if (!repository.updateTableSchema(candidate, expectedSchemaVersion, audit)) {
+            throw new IllegalStateException("table schema update conflicted with another update or duplicate name");
+        }
+        return candidate;
+    }
+
+    private static void validateSafeSchemaEvolution(DatabaseTable current, DatabaseTable candidate) {
+        Map<String, DatabaseProperty> proposed = new java.util.LinkedHashMap<>();
+        candidate.properties().forEach(property -> proposed.put(property.key(), property));
+        for (DatabaseProperty existing : current.properties()) {
+            DatabaseProperty next = proposed.get(existing.key());
+            if (next == null) throw new IllegalArgumentException("removing property '" + existing.key()
+                    + "' requires an explicit record migration");
+            if (existing.type() != next.type() || existing.required() != next.required()
+                    || !Objects.equals(existing.relatedTableId(), next.relatedTableId())) {
+                throw new IllegalArgumentException("changing type, requiredness, or relation target for property '"
+                        + existing.key() + "' requires an explicit record migration");
+            }
+            if ((existing.type() == tech.kayys.numou.workspace.domain.DatabasePropertyType.SELECT
+                    || existing.type() == tech.kayys.numou.workspace.domain.DatabasePropertyType.MULTI_SELECT)
+                    && !next.options().containsAll(existing.options())) {
+                throw new IllegalArgumentException("removing options from property '" + existing.key()
+                        + "' requires an explicit record migration");
+            }
+        }
+        for (DatabaseProperty property : candidate.properties()) {
+            if (current.properties().stream().noneMatch(existing -> existing.key().equals(property.key()))
+                    && property.required()) {
+                throw new IllegalArgumentException("new properties must be optional until existing records can be backfilled");
+            }
+        }
+    }
+
     public DatabaseRecord createRecord(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId,
                                        Map<String, Object> values) {
         requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
