@@ -127,6 +127,45 @@ class JdbcWarehouseRecoveryAuditExportJobRepositoryPostgresIT {
         assertEquals(8, claimed.version());
     }
 
+    @Test
+    void staleWorkerCannotOverwriteCheckpointAfterLeaseIsReclaimed() throws Exception {
+        Instant created = Instant.parse("2026-01-01T00:00:00Z");
+        String exportId = "fenced-" + UUID.randomUUID();
+        repository.insert(job(exportId, WarehouseRecoveryAuditExportJob.Status.REQUESTED,
+                created, null, null, 0));
+
+        var firstClaim = repository.claimNext("worker-stale", created, created.plusSeconds(120)).orElseThrow();
+        Instant reclaimTime = created.plusSeconds(300);
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "UPDATE warehouse_recovery_audit_export_job SET lease_until=?, updated_at=? WHERE tenant_id=? AND export_id=?")) {
+            statement.setTimestamp(1, java.sql.Timestamp.from(reclaimTime.minusSeconds(1)));
+            statement.setTimestamp(2, java.sql.Timestamp.from(reclaimTime));
+            statement.setString(3, firstClaim.tenantId());
+            statement.setString(4, exportId);
+            assertEquals(1, statement.executeUpdate());
+        }
+
+        var replacement = repository.claimNext("worker-replacement", reclaimTime,
+                reclaimTime.plusSeconds(120)).orElseThrow();
+        assertEquals(firstClaim.version() + 1, replacement.version());
+        assertEquals("worker-replacement", replacement.leaseOwner());
+
+        // Simulate the old process waking up and attempting to persist work based on its
+        // pre-reclaim version. The version predicate is the fencing token for every update.
+        var staleCheckpoint = firstClaim.checkpoint("worker-stale", "cursor-stale",
+                9, 4096, created.plusSeconds(30), created.plusSeconds(150));
+        assertFalse(repository.update(staleCheckpoint, firstClaim.version()),
+                "stale worker must lose the optimistic update after the replacement claim");
+
+        var persisted = repository.find(firstClaim.tenantId(), exportId).orElseThrow();
+        assertEquals("worker-replacement", persisted.leaseOwner());
+        assertEquals(replacement.version(), persisted.version());
+        assertNull(persisted.continuationCursor());
+        assertEquals(0, persisted.exportedEventCount());
+        assertEquals(0, persisted.exportedByteCount());
+    }
+
     private static Object claimAfterBarrier(String worker, Instant now,
             CountDownLatch ready, CountDownLatch start) {
         ready.countDown();
