@@ -92,6 +92,25 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void deletesOnlyOwnedSavedViewsAndRecordsAudit() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "View lifecycle");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Disposable",
+                DatabaseViewType.TABLE, Map.of(), List.of(), List.of("title"));
+        int before = repository.audit.size();
+        assertThrows(IllegalArgumentException.class, () -> service.deleteView(
+                tenant, UUID.randomUUID(), database.id(), view.id()));
+        assertTrue(repository.findView(tenant, database.id(), view.id()).isPresent());
+        service.deleteView(tenant, actor, database.id(), view.id());
+        assertTrue(repository.findView(tenant, database.id(), view.id()).isEmpty());
+        assertEquals(before + 1, repository.audit.size());
+        assertEquals("DATABASE_VIEW_DELETED", repository.audit.get(repository.audit.size() - 1).action());
+        assertThrows(IllegalArgumentException.class, () -> service.deleteView(
+                tenant, actor, database.id(), view.id()));
+    }
+
+    @Test
     void executesPersonalSavedViewWithFiltersAndTypedSorts() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Executable views");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
@@ -281,6 +300,14 @@ class StructuredDatabaseServiceTest {
         @Override public Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId) {
             return Optional.ofNullable(views.get(viewId)).filter(v -> v.tenantId().equals(tenantId)
                     && v.databaseId().equals(databaseId));
+        }
+        @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, AuditEntry entry) {
+            DatabaseView view = views.get(viewId);
+            if (view == null || !view.tenantId().equals(tenantId) || !view.databaseId().equals(databaseId)
+                    || !view.createdBy().equals(actorId)) return false;
+            views.remove(viewId);
+            audit.add(entry);
+            return true;
         }
         @Override public List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId) {
             return views.values().stream().filter(v -> v.tenantId().equals(tenantId)
