@@ -75,6 +75,25 @@ public final class WorkspacePorts {
   /** Deletes a personal view and its audit entry atomically, scoped to tenant/database/owner. */
   boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, long expectedRevision, AuditEntry audit);
  }
+ /**
+  * Durable control-plane port for staged structured-database migrations.
+  * Implementations must scope every operation by tenant and commit staged rows and progress atomically.
+  */
+ public interface StructuredDatabaseMigrationRepository {
+  boolean createMigrationJob(DatabaseSchemaMigrationJob job);
+  Optional<DatabaseSchemaMigrationJob> findMigrationJob(UUID tenantId, UUID migrationId);
+  List<DatabaseSchemaMigrationJob> findResumableMigrationJobs(UUID tenantId, int limit);
+  /** Claims a pending job using revision CAS; only one competing worker may succeed. */
+  boolean claimMigrationJob(UUID tenantId, UUID migrationId, long expectedRevision, UUID leaseToken, Instant leaseUntil, Instant updatedAt);
+  /**
+   * Persists a bounded idempotent batch and advances progress in one transaction.
+   * expectedRevision protects the checkpoint from competing workers; ready=true is valid only
+   * when every source record has a staged counterpart.
+   */
+  boolean stageMigrationBatch(UUID tenantId, UUID migrationId, long expectedRevision, UUID leaseToken,
+      List<DatabaseRecordMigrationStage> stages, UUID lastRecordId, boolean ready,
+      Instant leaseUntil, Instant updatedAt);
+ }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
  public enum Resource { WORKSPACE, SPACE, PAGE, ATTACHMENT, DATABASE, DATABASE_TABLE, DATABASE_RECORD }
  public enum Action { CREATE, READ, UPDATE, DELETE, ATTACH }
