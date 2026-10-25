@@ -70,6 +70,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/pom.xml install
       - name: Build and install full security reactor
         run: mvn -B -ntp -f security/pom.xml install
+      # Organization domain references the identity domain artifact. Install
+      # identity's contracts before building organization and downstream logistics.
+      - name: Build and install identity contracts
+        run: mvn -B -ntp -f identity/pom.xml install
       - name: Build and install organization contracts used by Courier
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
