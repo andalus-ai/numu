@@ -84,14 +84,15 @@ public final class WorkspacePorts {
   Optional<DatabaseSchemaMigrationJob> findMigrationJob(UUID tenantId, UUID migrationId);
   List<DatabaseSchemaMigrationJob> findResumableMigrationJobs(UUID tenantId, int limit);
   /** Claims a pending job using revision CAS; only one competing worker may succeed. */
-  boolean claimMigrationJob(UUID tenantId, UUID migrationId, long expectedRevision, Instant updatedAt);
+  boolean claimMigrationJob(UUID tenantId, UUID migrationId, long expectedRevision, UUID leaseToken, Instant leaseUntil, Instant updatedAt);
   /**
    * Persists a bounded idempotent batch and advances progress in one transaction.
    * expectedRevision protects the checkpoint from competing workers; ready=true is valid only
    * when every source record has a staged counterpart.
    */
-  boolean stageMigrationBatch(UUID tenantId, UUID migrationId, long expectedRevision,
-      List<DatabaseRecordMigrationStage> stages, UUID lastRecordId, boolean ready, Instant updatedAt);
+  boolean stageMigrationBatch(UUID tenantId, UUID migrationId, long expectedRevision, UUID leaseToken,
+      List<DatabaseRecordMigrationStage> stages, UUID lastRecordId, boolean ready,
+      Instant leaseUntil, Instant updatedAt);
  }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
  public enum Resource { WORKSPACE, SPACE, PAGE, ATTACHMENT, DATABASE, DATABASE_TABLE, DATABASE_RECORD }
