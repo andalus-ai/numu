@@ -20,6 +20,11 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -160,6 +165,57 @@ class WarehouseRecoveryAuditWorkerPostgresFilesystemRecoveryTest {
         assertEquals(1, count("warehouse_recovery_audit_archive_manifest", exportId));
         assertTrue(count("warehouse_recovery_audit_export_access", exportId) >= 2,
                 "claim/resume and verification access events should be durable");
+    }
+
+    @Test
+    void concurrentWorkerCannotProcessSameLiveLeaseOrDuplicateManifest() throws Exception {
+        String exportId = "concurrent-" + UUID.randomUUID();
+        String tenantId = "tenant-concurrent-it";
+        jobs.insert(new WarehouseRecoveryAuditExportJob(exportId, tenantId, "operator-it",
+                WarehouseRecoveryAuditExportJob.Status.REQUESTED, null, 0, 0, null, null,
+                NOW, NOW, null, null, 0));
+
+        CountDownLatch pageEntered = new CountDownLatch(1);
+        CountDownLatch releasePage = new CountDownLatch(1);
+        WarehouseExecutionAttemptRepository blockingOperations = (WarehouseExecutionAttemptRepository)
+                java.lang.reflect.Proxy.newProxyInstance(WarehouseExecutionAttemptRepository.class.getClassLoader(),
+                new Class<?>[]{WarehouseExecutionAttemptRepository.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("pageOperatorAuditEvents")) {
+                        pageEntered.countDown();
+                        if (!releasePage.await(10, TimeUnit.SECONDS))
+                            throw new IllegalStateException("timed out waiting to release blocked audit page");
+                        return new WarehouseRecoveryAuditPage(List.of(), null);
+                    }
+                    if (method.getName().equals("toString")) return "BlockingConcurrentRecoveryTestRepository";
+                    throw new UnsupportedOperationException(method.getName());
+                });
+        var firstWorker = new WarehouseRecoveryAuditExportWorker(
+                new WarehouseRecoveryOperationsService(blockingOperations), jobs, access, manifests,
+                new FilesystemWarehouseRecoveryAuditArtifactStore(artifactRoot),
+                new WarehouseRecoveryAuditArchiveVerifier(), Clock.fixed(NOW, ZoneOffset.UTC),
+                Duration.ofMinutes(2), 100);
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<Optional<WarehouseRecoveryAuditExportJob>> first =
+                    executor.submit(() -> firstWorker.runOne("worker-a"));
+            assertTrue(pageEntered.await(10, TimeUnit.SECONDS), "first worker should reach page retrieval");
+            var second = worker(jobs, new FilesystemWarehouseRecoveryAuditArtifactStore(artifactRoot))
+                    .runOne("worker-b");
+            assertTrue(second.isEmpty(), "second worker must not claim a job with a live lease");
+            releasePage.countDown();
+
+            var completed = first.get(10, TimeUnit.SECONDS).orElseThrow();
+            assertEquals(WarehouseRecoveryAuditExportJob.Status.COMPLETED, completed.status());
+            assertEquals(1, count("warehouse_recovery_audit_archive_manifest", exportId));
+            assertEquals(1, count("warehouse_recovery_audit_export_job", exportId));
+            var persisted = jobs.find(tenantId, exportId).orElseThrow();
+            assertEquals(WarehouseRecoveryAuditExportJob.Status.COMPLETED, persisted.status());
+            assertEquals(completed.exportedByteCount(), manifests.find(tenantId, exportId).orElseThrow().byteSize());
+        } finally {
+            releasePage.countDown();
+            executor.shutdownNow();
+        }
     }
 
     private WarehouseRecoveryAuditExportWorker worker(WarehouseRecoveryAuditExportJobRepository jobRepository,
