@@ -295,6 +295,26 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
         assertEquals(0, countRecords());
     }
 
+    @Test
+    void updatesTableSchemaWithCompareAndSwapAndAtomicAudit() throws SQLException {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseProperty title = property("title", DatabasePropertyType.TEXT, true, List.of(), null);
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(title));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        long auditBefore = countAuditRows();
+
+        DatabaseTable candidate = new DatabaseTable(table.id(), tenant, database.id(), "Work items", 2,
+                List.of(title, property("notes", DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertTrue(repository.updateTableSchema(candidate, 1,
+                audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_UPDATED", 2)));
+        assertEquals(2, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals("Work items", repository.findTable(tenant, database.id(), table.id()).orElseThrow().name());
+        assertEquals(2, repository.findTable(tenant, database.id(), table.id()).orElseThrow().properties().size());
+        assertFalse(repository.updateTableSchema(new DatabaseTable(table.id(), tenant, database.id(), "Stale", 2,
+                List.of(title)), 1, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_UPDATED", 2)));
+        assertEquals(auditBefore + 1, countAuditRows(), "only the winning schema update is audited");
+    }
+
     private WorkspaceDatabase createDatabase() {
         WorkspaceDatabase database = WorkspaceDatabase.create(tenant, workspaceId, actor, "Structured data", now);
         assertTrue(repository.saveDatabase(database,
