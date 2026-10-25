@@ -360,3 +360,49 @@ This means the visible application contract cannot select a context-specific bas
 Make the pricing context contract truthful end-to-end: first tests that pin current behavior, then evolve the price/adjustment lookup ports to accept a deliberately designed resolution context (or a narrower immutable lookup key derived from it), enforce offering eligibility at the requested time/channel, and provide compatibility overloads/adapters for current callers. Do not add persistence/schema changes until the existing adapters and deployable compositions are traced. The legacy Product cleanup should be a separate migration milestone after consumer and data evidence.
 
 No production code, database schema, or runtime wiring was changed in this audit pass; this is source-level architecture analysis only.
+
+
+## Eighth pass: Budget, Cost, Project Controls, and Accounting boundaries
+
+### Source-level ownership map
+
+- **Budget control capability** (`budget/budget-domain`, `budget/budget-application`) models budget versions/lines, commitments, actual amounts, availability checks, and control outcomes. The legacy-style `Budget` aggregate additionally tracks allocated, pre-encumbered, encumbered, and actual-spent `Money` against tenant, ledger, fiscal year, cost center, and account references.
+- **Planning cost evidence** (`core/framework/planning/planning-domain`) exposes approved, tenant-scoped evidence for budget-at-completion tied to a WBS node and baseline, plus cumulative actual-cost evidence as of a reporting date. Its adapter explicitly separates Planning from Finance/ERP/BoQ APIs. These are reporting inputs, not a second accounting ledger.
+- **Accounting Cost capability** (`finance/accounting/accounting-capabilities/numou-accounting-cost`) models cost centers, cost pools, cost entries and allocation basis. `CostAccountingService` currently keeps its state in in-memory maps/lists, records cost entries, allocates pools, and reports cost-entry totals. It should not be treated as durable financial posting infrastructure without inspecting its adapters/composition.
+- **Construction cost** (`construction/construction-domain`) has a `ConstructionCostEntry` associated with project, optional site/WBS node, construction cost type/source and amount. It is construction-context evidence and should remain an extension-specific source/record unless usage tracing proves it is intended as the authoritative financial transaction.
+- **General ledger/accounting** remains responsible for journal posting, financial-period controls, reconciliation, and statements. A budget control decision is not itself a journal posting, and a cost allocation is not authoritative merely because it produces a distribution map.
+
+### Distinct models are not automatically duplicates
+
+The repository contains at least two budget-shaped domain models with different semantics:
+
+1. `Budget` uses `Money` and explicit tenant/ledger/fiscal-year/cost-center/account references, with pre-encumbrance, encumbrance and actual-spend balances.
+2. `PlanningBudget` uses versioned planning lines with account code, dimensions, period and `BigDecimal` amount; the inspected model does not carry currency or tenant/ledger scope on the aggregate itself.
+
+These are not safe to merge by name alone. The second model needs a documented scope/currency contract before it can be assumed interchangeable with ledger-aware financial control. Likewise, a WBS baseline budget, a procurement commitment, a posted actual, a forecast, and a cost-center allocation represent different facts and must retain their provenance and lifecycle.
+
+### Concrete correctness risks found in inspected code
+
+- **Budget dimensions are not applied consistently in control totals.** `BudgetControlEngine.check(...)` resolves the allocation using account, dimensions and period, but sums open commitments with `commitments.openFor(id, account, period)`—the inspected call omits dimensions. If the repository method aggregates across dimensioned lines, one dimension can consume another dimension's availability; if it filters dimensions elsewhere, that behavior is not expressed by this call. The port/repository contract must be inspected and tested before deciding the exact fix.
+- **Currency consistency is not explicit in the legacy `Budget` checks.** `availableBalance()` subtracts `Money` amounts and `canReserve()` compares only numeric amounts. The inspected methods do not explicitly reject a request in a different currency from the allocation. Confirm `Money` arithmetic guards currencies and add aggregate-level tests so this invariant cannot depend on incidental implementation behavior.
+- **Budget lifecycle/version semantics need stronger evidence.** `PlanningBudget.activeVersion()` returns the last version regardless of whether it is approved/active, while `setLine` allows edits in DRAFT or REVIEW and writes to the current version. Do not assume this already provides immutable approved baselines; tests should establish whether approved versions can be mutated through version creation/state transitions and repository persistence.
+- **Actual recording is a thin write path.** `ActualService.record` validates only that the amount is nonnegative before delegating to `ActualRepository.add`. The contract shown does not convey source reference, currency, transaction time, accounting status, idempotency key, or reversal/correction semantics. It may be an intentionally small planning aggregate, but it is not enough by itself to establish accounting-grade actuals.
+- **Cost allocation lacks durable, explicit posting semantics in the inspected service.** `executeAllocation` calculates shares rounded to four decimal places, records entries sequentially, then clears the pool. The inspected method does not show a transaction boundary, durable allocation run/idempotency identifier, remainder reconciliation, or rollback/compensation if recording fails partway through. Do not use this implementation as proof of production-safe allocation without adapters and transaction tests.
+
+These are risks visible in the inspected source, not a claim that every deployment uses these in-memory paths or that no other layer supplies controls.
+
+### Target contracts and boundaries
+
+1. **Budget owns authorization of planned spend**: allocation, available balance, budget dimensions, commitment reservation/release/consumption, control policy and budget version/baseline rules.
+2. **Procurement owns procurement lifecycle**: requisition and purchase order statuses. Budget receives explicit reservation/encumbrance commands or events; it should not infer purchase state from private procurement tables.
+3. **Accounting owns posted financial facts**: journals, reversals, fiscal-period status, currency conversion policy, and reconciliation. A budget's actual-spend view should be reconciled/derived from explicitly identified accounting sources rather than treated as a competing ledger.
+4. **Cost accounting owns allocation policy and traceability**: cost pools, allocation bases, versioned weights, allocation runs, deterministic rounding/remainder handling, and links to source and resulting journal references. Posting the resulting entries must use an explicit accounting boundary.
+5. **Planning owns project-control interpretation**: baseline-aware budget-at-completion, approved cumulative actuals, forecasts, variance and earned-value/reporting calculations. It consumes source-tagged evidence; it must not write authoritative cost transactions into Finance.
+6. **Construction owns construction-specific classification**: site, construction cost type/source and WBS associations can enrich evidence, but generic budgeting and accounting should not require a construction site or BOQ.
+7. **Every financial evidence contract should state** tenant/scope, currency, amount precision, as-of/effective time, source reference, approval/reconciliation status, and correction/reversal semantics where applicable. Avoid generic `BigDecimal` amounts with implicit currency where the capability claims to represent financial values.
+
+### Recommended implementation milestone
+
+First add characterization tests for dimension-scoped commitments, cross-currency reservation attempts, approved-version immutability, partial allocation failure, rounding remainder, and duplicate actual/allocation submissions. Then fix the confirmed contract gaps in the owning modules, with explicit compatibility adapters. Before changing schemas or consolidating models, trace repository implementations, consumers, runtime wiring, transaction managers, and the accounting journal posting path.
+
+No production code, database schema, or runtime wiring was changed in this audit pass; this is source-level architecture analysis only.
