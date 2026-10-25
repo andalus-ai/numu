@@ -107,8 +107,7 @@ class CourierHttpOutboxIntegrationTest {
         assertEquals(tenantId + ":" + eventId, idempotencyKey.get());
         assertTrue(requestBody.get().contains("\"tenantId\":\"" + tenantId + "\""));
         assertTrue(requestBody.get().contains("\"payload\":{\"shipmentId\":\"M30\"}"));
-        assertEquals("integration-secret", publicationValue(tenantId, eventId, destination, "last_replayed_by") == null
-                ? "integration-secret" : "integration-secret"); // token is never persisted to publication state
+        assertEquals("Bearer integration-secret", authorization.get());
     }
 
     private static void insertEvent(UUID tenantId, UUID eventId, String destination) throws Exception {
