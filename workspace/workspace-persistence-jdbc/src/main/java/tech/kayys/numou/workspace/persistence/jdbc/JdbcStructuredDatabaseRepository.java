@@ -253,15 +253,17 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         });
     }
 
-    @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, AuditEntry audit) {
-        validateAudit(audit, tenantId, viewId, "DATABASE_VIEW", "DATABASE_VIEW_DELETED", 1);
+    @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, long expectedRevision, AuditEntry audit) {
+        validateAudit(audit, tenantId, viewId, "DATABASE_VIEW", "DATABASE_VIEW_DELETED", expectedRevision);
+        if (expectedRevision < 1) throw new IllegalArgumentException("expected saved-view revision must be positive");
         return atomic("delete structured database view", c -> {
             try (PreparedStatement p = c.prepareStatement(
-                    "DELETE FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=? AND created_by=?")) {
+                    "DELETE FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=? AND created_by=? AND revision=?")) {
                 p.setObject(1, tenantId);
                 p.setObject(2, databaseId);
                 p.setObject(3, viewId);
                 p.setObject(4, actorId);
+                p.setLong(5, expectedRevision);
                 if (p.executeUpdate() != 1) return false;
             }
             insertAudit(c, audit);
