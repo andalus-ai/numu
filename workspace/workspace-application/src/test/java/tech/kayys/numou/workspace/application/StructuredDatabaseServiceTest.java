@@ -76,6 +76,29 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void appliesOnlySafeAdditiveSchemaChangesWithRevisionAndAudit() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema update");
+        DatabaseProperty title = new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                DatabasePropertyType.TEXT, true, List.of(), null);
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(title));
+        DatabaseTable updated = service.updateTableSchema(tenant, actor, database.id(), table.id(), 1,
+                "Work items", List.of(title, new DatabaseProperty(UUID.randomUUID(), "notes", "Notes",
+                        DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertEquals(2, updated.schemaVersion());
+        assertEquals("Work items", updated.name());
+        assertEquals(2, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals("DATABASE_TABLE_SCHEMA_UPDATED", repository.audit.get(repository.audit.size() - 1).action());
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 1, "Stale", List.of(title)));
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 2, "Unsafe", List.of()));
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 2, "Required addition", List.of(title,
+                        new DatabaseProperty(UUID.randomUUID(), "owner", "Owner", DatabasePropertyType.TEXT,
+                                true, List.of(), null))));
+    }
+
+    @Test
     void createsAndListsValidatedPersonalSavedViews() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Saved views");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
@@ -429,6 +452,20 @@ class StructuredDatabaseServiceTest {
         @Override public boolean saveTable(DatabaseTable table, AuditEntry entry) {
             if (tables.putIfAbsent(table.id(), table) != null) return false;
             audit.add(entry); return true;
+        }
+        @Override public boolean updateTableSchema(DatabaseTable table, long expectedSchemaVersion, AuditEntry entry) {
+            DatabaseTable current = tables.get(table.id());
+            if (current == null || !current.tenantId().equals(table.tenantId())
+                    || !current.databaseId().equals(table.databaseId())
+                    || current.schemaVersion() != expectedSchemaVersion
+                    || table.schemaVersion() != expectedSchemaVersion + 1) return false;
+            if (tables.values().stream().anyMatch(existing -> !existing.id().equals(table.id())
+                    && existing.tenantId().equals(table.tenantId())
+                    && existing.databaseId().equals(table.databaseId())
+                    && existing.name().equals(table.name()))) return false;
+            tables.put(table.id(), table);
+            audit.add(entry);
+            return true;
         }
         @Override public Optional<DatabaseTable> findTable(UUID tenantId, UUID databaseId, UUID tableId) {
             return Optional.ofNullable(tables.get(tableId))
