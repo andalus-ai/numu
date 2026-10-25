@@ -142,6 +142,31 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void previewsProposedSchemaAndRejectsStaleSchemaVersion() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema preview");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false, List.of("todo", "done"), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Todo board",
+                DatabaseViewType.BOARD, Map.of("status", "todo"), List.of(), List.of("title", "status"), "status");
+
+        DatabaseSchemaChangePreview preview = service.previewSchemaChange(tenant, actor, database.id(), table.id(), 1,
+                "Tasks", List.of(new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                        DatabasePropertyType.TEXT, true, List.of(), null)));
+        assertEquals(1, preview.currentSchemaVersion());
+        assertEquals(2, preview.proposedSchemaVersion());
+        assertEquals(1, preview.totalViewCount());
+        assertEquals(0, preview.compatibleViewCount());
+        assertEquals(1, preview.incompatibleViewCount());
+        assertTrue(preview.viewResults().get(0).issues().stream().anyMatch(issue ->
+                issue.code() == DatabaseViewValidationIssue.Code.FILTER_PROPERTY_MISSING));
+        assertEquals(1, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals(1, repository.findView(tenant, database.id(), view.id()).orElseThrow().revision());
+        assertThrows(IllegalArgumentException.class, () -> service.previewSchemaChange(tenant, actor,
+                database.id(), table.id(), 2, "Tasks", List.of()));
+    }
+
+    @Test
     void diagnosesSchemaDriftAndRefusesExecutionWithoutDeletingSavedView() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema drift");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
