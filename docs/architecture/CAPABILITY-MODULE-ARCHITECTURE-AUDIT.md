@@ -240,3 +240,31 @@ Inspected source and POMs for:
 - Scope node repository and Planning WBS repository/activity-link use case.
 
 This remains source-level evidence, not a full repository-wide call graph. GitHub code-search results were unavailable for reliable global consumer counts, so no claim is made that every consumer or runtime path has been found. Next work should use targeted tree/source inspection and actual reactor builds where available, and should not retire modules until usage, schema, and deployment evidence is complete.
+
+
+## Third pass: legacy subscription consumer and persistence signals
+
+The legacy Finance subscription path is not just a domain class that happens to overlap by name. Source inspection confirms several migration-sensitive behaviors:
+
+- `SubscriptionResource` exposes `/api/subscriptions` endpoints to get by ID, list by billing account, list active subscriptions, create against a billing-account/product pair, update, and cancel.
+- `SubscriptionService` contains a daily scheduled job (`0 0 0 * * ?`) that changes active subscriptions with an elapsed end date to `EXPIRED`.
+- The legacy `Subscription`, `BillingAccount`, and `Product` are Panache entities. The model owns a separate product/price/tax representation, while Commerce subscription references the separate `ProductOfferingId` model.
+- The legacy module's POM directly brings in REST, Hibernate ORM Panache, and Quarkus Scheduler; it is not merely a shared domain artifact.
+- The recursive tree did not show dedicated SQL migration files under the legacy subscription module, and the inspected legacy module tree did not show tests. This is an inventory observation only; schema may be managed by global ORM configuration or another deployment module, and absence of visible tests is not proof of no external tests.
+
+**Conclusion:** treat the legacy module as an active compatibility surface until deployments prove otherwise. A safe migration must account for endpoint compatibility, the daily expiry scheduler, product-to-offering mapping, billing-account references, status/period semantics, pricing/tax calculations, and existing rows. Commerce's renewal policy and current-period model are not a drop-in replacement for legacy `endDate`/status semantics.
+
+### Subscription migration sequence (proposal, not yet implemented)
+
+1. **Inventory deployment and consumers:** identify applications that include `numou-subscription-core`, API gateway/routes, clients calling `/api/subscriptions`, and whether the scheduled job is enabled in any environment.
+2. **Establish canonical identifiers and mapping:** map legacy numeric Panache IDs, billing-account IDs, and product IDs to Commerce `SubscriptionId`, customer references, offering IDs, and billing-cycle/renewal policy. Define a stable mapping table or explicit legacy-ID field; do not assume identifiers can be cast.
+3. **Specify behavior compatibility:** write characterization tests for create/update/cancel, active listing, end-date expiry, price/tax totals, and timezone/date boundaries. Compare them to Commerce start/renew/cancel/entitlement behavior and decide which behaviors are preserved, deliberately changed, or delegated to Finance.
+4. **Introduce a compatibility facade:** keep the legacy REST contract while translating commands and responses to the canonical capability. Ensure the old and new schedulers cannot both mutate the same subscription population.
+5. **Migrate data and observe:** run a dry-run mapping report, verify counts and orphan references, migrate with rollback/reconciliation support, and compare status/period/price outputs before switching reads/writes.
+6. **Retire only with evidence:** remove the legacy module, entities, endpoints, and scheduler only after consumer inventory, migration verification, and deprecation window completion.
+
+### Additional ownership question: Product vs Product Offering
+
+The legacy Finance subscription's `Product` is a local sellable entity with name, price, taxable flag, and tax rate. Commerce uses `ProductOfferingId` and checks that the referenced offering is active before starting a subscription. This is another overlap candidate, but not necessarily a direct duplicate: a commercial offering may bundle catalog, lifecycle, and eligibility semantics that the old simple product lacks.
+
+**Recommendation:** do not extract a third generic product module yet. First make the catalog/offer/price/tax ownership map explicit: commerce catalog/offering should own what is sold and its eligibility; pricing should own price plans/price resolution if present; Finance should own tax determination and financial calculation/posting policy. Keep a compatibility adapter for legacy product records until that mapping is verified.
