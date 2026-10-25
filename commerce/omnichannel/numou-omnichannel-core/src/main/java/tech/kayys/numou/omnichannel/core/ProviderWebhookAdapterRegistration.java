@@ -29,5 +29,13 @@ public record ProviderWebhookAdapterRegistration(
             throw new IllegalArgumentException(
                     "generic raw-body HMAC verifier is incompatible with declared provider capabilities");
         }
+        if (capabilities.requiresTimestampValidation() && !verifier.validatesProviderTimestamp()) {
+            throw new IllegalArgumentException(
+                    "provider protocol requires timestamp validation but verifier does not declare it");
+        }
+        if (capabilities.requiresReplayProtection() && !verifier.enforcesReplayProtection()) {
+            throw new IllegalArgumentException(
+                    "provider protocol requires replay protection but verifier does not declare it");
+        }
     }
 }
