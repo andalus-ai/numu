@@ -99,7 +99,7 @@ class StructuredDatabaseServiceTest {
         DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Disposable",
                 DatabaseViewType.TABLE, Map.of(), List.of(), List.of("title"));
         int before = repository.audit.size();
-        assertThrows(IllegalArgumentException.class, () -> service.deleteView(
+        assertThrows(SecurityException.class, () -> service.deleteView(
                 tenant, UUID.randomUUID(), database.id(), view.id()));
         assertTrue(repository.findView(tenant, database.id(), view.id()).isPresent());
         service.deleteView(tenant, actor, database.id(), view.id());
