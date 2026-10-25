@@ -296,6 +296,38 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
     }
 
     @Test
+    void migratesRecordsAndSchemaInOneTransactionWithAudits() throws SQLException {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("legacy", DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        DatabaseRecord initial = DatabaseRecord.create(tenant, database.id(), table,
+                Map.of("title", "Task A", "legacy", "12.5"), now);
+        assertTrue(repository.saveRecord(initial, 0,
+                audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_CREATED", 1)));
+        long auditBefore = countAuditRows();
+
+        DatabaseTable candidate = new DatabaseTable(table.id(), tenant, database.id(), "Tasks v2", 2, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("amount", DatabasePropertyType.NUMBER, true, List.of(), null)));
+        DatabaseRecord migrated = initial.update(candidate, 1,
+                Map.of("title", "Task A", "amount", new BigDecimal("12.5")), now.plusSeconds(1));
+        assertTrue(repository.migrateTableSchema(candidate, 1, List.of(migrated),
+                audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_MIGRATED", 2),
+                List.of(audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2))));
+
+        DatabaseTable savedTable = repository.findTable(tenant, database.id(), table.id()).orElseThrow();
+        DatabaseRecord savedRecord = repository.findRecord(tenant, initial.id()).orElseThrow();
+        assertEquals(2, savedTable.schemaVersion());
+        assertEquals(List.of("title", "amount"), savedTable.properties().stream().map(DatabaseProperty::key).toList());
+        assertEquals(2, savedRecord.revision());
+        assertEquals(new BigDecimal("12.5"), savedRecord.values().get("amount"));
+        assertFalse(savedRecord.values().containsKey("legacy"));
+        assertEquals(auditBefore + 2, countAuditRows(), "record and schema mutations must both be audited");
+    }
+
+    @Test
     void updatesTableSchemaWithCompareAndSwapAndAtomicAudit() throws SQLException {
         WorkspaceDatabase database = createDatabase();
         DatabaseProperty title = property("title", DatabasePropertyType.TEXT, true, List.of(), null);
