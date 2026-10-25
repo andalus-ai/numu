@@ -60,6 +60,42 @@ class InboundWebhookIngestionServiceTest {
     }
 
     @Test
+    void verifierExceptionFailsClosedWithoutClaimingOrPersisting() {
+        AtomicInteger claims = new AtomicInteger();
+        AtomicInteger writes = new AtomicInteger();
+        ProviderWebhookVerifier verifier = new ProviderWebhookVerifier() {
+            @Override public String providerId() { return "test-provider"; }
+            @Override public WebhookVerificationResult verify(ProviderWebhookVerificationRequest request) {
+                throw new IllegalStateException("sensitive provider detail");
+            }
+        };
+        InboundPayloadStore payloads = new PayloadStoreFake() {
+            @Override public InboundPayloadReference store(ChannelContext c, byte[] b, String h, Instant expiry) {
+                writes.incrementAndGet();
+                return super.store(c, b, h, expiry);
+            }
+        };
+        var service = new InboundWebhookIngestionService(List.of(verifier),
+                (provider, envelope) -> {
+                    claims.incrementAndGet();
+                    return new InboxClaimResult(InboundEventKey.from(envelope, provider),
+                            InboxClaimDisposition.ACCEPTED, Optional.empty());
+                }, payloads,
+                (key, digest, ref, at) -> new InboundVerificationResult(
+                        InboundVerificationDisposition.VERIFIED, Optional.of(ref)),
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofHours(1));
+
+        var result = service.ingest(request("event-1", "order.created", "body"));
+
+        assertThat(result.disposition()).isEqualTo(InboundIngestionDisposition.REJECTED);
+        assertThat(result.reasonCode()).isEqualTo("VERIFICATION_FAILED");
+        assertThat(result.reasonCode()).doesNotContain("sensitive provider detail");
+        assertThat(result.payloadReference()).isEmpty();
+        assertThat(claims).hasValue(0);
+        assertThat(writes).hasValue(0);
+    }
+
+    @Test
     void duplicateDoesNotPersistSecondPayload() {
         AtomicInteger writes = new AtomicInteger();
         InboundEventInbox inbox = (provider, envelope) -> new InboxClaimResult(
