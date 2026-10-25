@@ -38,7 +38,11 @@ public class JdbcProofOfDeliveryTrackingProjector {
                 try (PreparedStatement claim = connection.prepareStatement("""
                         SELECT tenant_id, id, occurred_at,
                                payload ->> 'proofId' AS proof_id,
-                               payload ->> 'shipmentReference' AS shipment_reference
+                               payload ->> 'shipmentReference' AS shipment_reference,
+                               payload ->> 'deliveryAttemptReference' AS attempt_reference,
+                               payload ->> 'deliveredAt' AS delivered_at,
+                               payload ->> 'recipientLabel' AS recipient_label,
+                               payload ->> 'evidenceReference' AS evidence_reference
                         FROM courier_event_outbox
                         WHERE event_type = ?
                           AND published_at IS NULL
@@ -57,8 +61,13 @@ public class JdbcProofOfDeliveryTrackingProjector {
                             Timestamp occurredAt = rows.getTimestamp("occurred_at");
                             String proofId = rows.getString("proof_id");
                             String shipmentReference = rows.getString("shipment_reference");
+                            String attemptReference = rows.getString("attempt_reference");
+                            Timestamp deliveredAt = parseTimestamp(rows.getString("delivered_at"), "deliveredAt");
+                            String recipientLabel = rows.getString("recipient_label");
+                            String evidenceReference = rows.getString("evidence_reference");
                             try {
-                                projectOne(connection, tenantId, occurredAt, proofId, shipmentReference);
+                                projectOne(connection, tenantId, occurredAt, proofId, shipmentReference,
+                                        attemptReference, deliveredAt, recipientLabel, evidenceReference);
                                 try (PreparedStatement acknowledge = connection.prepareStatement("""
                                         UPDATE courier_event_outbox
                                         SET published_at = now(), attempt_count = attempt_count + 1,
@@ -95,9 +104,14 @@ public class JdbcProofOfDeliveryTrackingProjector {
     }
 
     private static void projectOne(Connection connection, UUID tenantId, Timestamp occurredAt,
-                                   String proofId, String shipmentReference) throws SQLException {
-        if (proofId == null || proofId.isBlank() || shipmentReference == null || shipmentReference.isBlank()) {
-            throw new IllegalArgumentException("POD outbox payload is missing proofId or shipmentReference");
+                                   String proofId, String shipmentReference, String attemptReference,
+                                   Timestamp deliveredAt, String recipientLabel, String evidenceReference)
+            throws SQLException {
+        if (proofId == null || proofId.isBlank() || shipmentReference == null || shipmentReference.isBlank()
+                || attemptReference == null || attemptReference.isBlank() || deliveredAt == null
+                || recipientLabel == null || recipientLabel.isBlank()
+                || evidenceReference == null || evidenceReference.isBlank()) {
+            throw new IllegalArgumentException("POD outbox payload is missing lifecycle fields");
         }
 
         UUID shipmentId;
@@ -116,6 +130,9 @@ public class JdbcProofOfDeliveryTrackingProjector {
                 shipmentId = row.getObject("id", UUID.class);
             }
         }
+
+        applyDeliveryOutcome(connection, tenantId, shipmentId, attemptReference, proofId,
+                deliveredAt, recipientLabel, evidenceReference);
 
         String idempotencyKey = "POD:" + proofId;
         try (PreparedStatement insert = connection.prepareStatement("""
@@ -154,6 +171,66 @@ public class JdbcProofOfDeliveryTrackingProjector {
                     throw new SQLException("POD idempotency key already represents a different tracking fact");
                 }
             }
+        }
+    }
+
+    private static void applyDeliveryOutcome(Connection connection, UUID tenantId, UUID shipmentId,
+                                              String attemptReference, String proofId, Timestamp deliveredAt,
+                                              String recipientLabel, String evidenceReference) throws SQLException {
+        String updateSql = """
+                UPDATE courier_delivery_tasks
+                SET status = 'DELIVERED',
+                    delivered_at = ?,
+                    recipient_name = ?,
+                    proof_reference = ?,
+                    failure_reason = NULL,
+                    updated_at = GREATEST(now(), updated_at, ?)
+                WHERE tenant_id = ? AND shipment_id = ? AND delivery_attempt_reference = ?
+                  AND status IN ('OUT_FOR_DELIVERY', 'DELIVERY_ATTEMPTED')
+                  AND out_for_delivery_at IS NOT NULL
+                  AND ? >= out_for_delivery_at
+                """;
+        try (PreparedStatement update = connection.prepareStatement(updateSql)) {
+            update.setTimestamp(1, deliveredAt);
+            update.setString(2, recipientLabel);
+            update.setString(3, evidenceReference);
+            update.setTimestamp(4, deliveredAt);
+            update.setObject(5, tenantId);
+            update.setObject(6, shipmentId);
+            update.setString(7, attemptReference);
+            update.setTimestamp(8, deliveredAt);
+            if (update.executeUpdate() == 1) return;
+        }
+
+        // Concurrent/replayed POD is accepted only if it is the exact outcome already persisted.
+        try (PreparedStatement verify = connection.prepareStatement("""
+                SELECT 1 FROM courier_delivery_tasks
+                WHERE tenant_id = ? AND shipment_id = ? AND delivery_attempt_reference = ?
+                  AND status = 'DELIVERED' AND proof_reference = ?
+                  AND recipient_name = ? AND delivered_at = ?
+                """)) {
+            verify.setObject(1, tenantId);
+            verify.setObject(2, shipmentId);
+            verify.setString(3, attemptReference);
+            verify.setString(4, evidenceReference);
+            verify.setString(5, recipientLabel);
+            verify.setTimestamp(6, deliveredAt);
+            try (ResultSet row = verify.executeQuery()) {
+                if (!row.next()) {
+                    throw new SQLException("POD does not match an active delivery attempt or conflicts with its outcome");
+                }
+            }
+        }
+    }
+
+    private static Timestamp parseTimestamp(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("POD outbox payload is missing " + field);
+        }
+        try {
+            return Timestamp.from(java.time.Instant.parse(value));
+        } catch (java.time.DateTimeException failure) {
+            throw new IllegalArgumentException("POD outbox payload has invalid " + field, failure);
         }
     }
 
