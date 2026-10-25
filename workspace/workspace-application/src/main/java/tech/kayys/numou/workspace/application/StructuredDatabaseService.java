@@ -268,6 +268,21 @@ public final class StructuredDatabaseService {
         return view;
     }
 
+    /** Deletes only the actor's own personal view; deletion and audit are one repository transaction. */
+    public void deleteView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId) {
+        requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        DatabaseView view = repository.findView(tenantId, databaseId, viewId)
+                .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
+        if (!view.createdBy().equals(actorId)) {
+            throw new IllegalArgumentException("saved view is personal and belongs to another actor");
+        }
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_VIEW_DELETED", "DATABASE_VIEW", viewId, 1,
+                "Deleted personal structured database view");
+        if (!repository.deleteView(tenantId, databaseId, viewId, actorId, audit)) {
+            throw new IllegalStateException("saved view was not deleted");
+        }
+    }
+
     public List<DatabaseView> findViews(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId) {
         requireDatabase(tenantId, actorId, databaseId, Action.READ);
         repository.findTable(tenantId, databaseId, tableId)

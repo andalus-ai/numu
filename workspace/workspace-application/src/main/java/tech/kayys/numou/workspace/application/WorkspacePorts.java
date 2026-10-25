@@ -64,6 +64,8 @@ public final class WorkspacePorts {
   boolean saveView(DatabaseView view, AuditEntry audit);
   Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId);
   List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId);
+  /** Deletes a personal view and its audit entry atomically, scoped to tenant/database/owner. */
+  boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, AuditEntry audit);
  }
  public interface AttachmentPolicy { /** Verifies that actor may reference this file in this tenant. */ String requireReadableFile(UUID tenantId,UUID actorId,String fileId); }
  public enum Resource { WORKSPACE, SPACE, PAGE, ATTACHMENT, DATABASE, DATABASE_TABLE, DATABASE_RECORD }
