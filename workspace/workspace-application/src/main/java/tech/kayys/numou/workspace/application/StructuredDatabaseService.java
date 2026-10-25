@@ -327,9 +327,9 @@ public final class StructuredDatabaseService {
         if (!view.createdBy().equals(actorId)) {
             throw new IllegalArgumentException("saved view is personal and belongs to another actor");
         }
-        AuditEntry audit = audit(tenantId, actorId, "DATABASE_VIEW_DELETED", "DATABASE_VIEW", viewId, 1,
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_VIEW_DELETED", "DATABASE_VIEW", viewId, view.revision(),
                 "Deleted personal structured database view");
-        if (!repository.deleteView(tenantId, databaseId, viewId, actorId, audit)) {
+        if (!repository.deleteView(tenantId, databaseId, viewId, actorId, view.revision(), audit)) {
             throw new IllegalStateException("saved view was not deleted");
         }
     }
