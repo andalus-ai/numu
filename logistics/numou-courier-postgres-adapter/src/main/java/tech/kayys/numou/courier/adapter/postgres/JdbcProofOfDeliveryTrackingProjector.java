@@ -131,8 +131,10 @@ public class JdbcProofOfDeliveryTrackingProjector {
             }
         }
 
-        applyDeliveryOutcome(connection, tenantId, shipmentId, attemptReference,
+        boolean taskTransitioned = applyDeliveryOutcome(connection, tenantId, shipmentId, attemptReference,
                 deliveredAt, recipientLabel, evidenceReference);
+        applyShipmentOutcome(connection, tenantId, shipmentId, shipmentReference, attemptReference,
+                proofId, deliveredAt, taskTransitioned);
 
         String idempotencyKey = "POD:" + proofId;
         try (PreparedStatement insert = connection.prepareStatement("""
@@ -174,9 +176,9 @@ public class JdbcProofOfDeliveryTrackingProjector {
         }
     }
 
-    private static void applyDeliveryOutcome(Connection connection, UUID tenantId, UUID shipmentId,
-                                              String attemptReference, Timestamp deliveredAt,
-                                              String recipientLabel, String evidenceReference) throws SQLException {
+    private static boolean applyDeliveryOutcome(Connection connection, UUID tenantId, UUID shipmentId,
+                                                 String attemptReference, Timestamp deliveredAt,
+                                                 String recipientLabel, String evidenceReference) throws SQLException {
         String updateSql = """
                 UPDATE courier_delivery_tasks
                 SET status = 'DELIVERED',
@@ -199,7 +201,7 @@ public class JdbcProofOfDeliveryTrackingProjector {
             update.setObject(6, shipmentId);
             update.setString(7, attemptReference);
             update.setTimestamp(8, deliveredAt);
-            if (update.executeUpdate() == 1) return;
+            if (update.executeUpdate() == 1) return true;
         }
 
         // Concurrent/replayed POD is accepted only if it is the exact outcome already persisted.
@@ -219,6 +221,78 @@ public class JdbcProofOfDeliveryTrackingProjector {
                 if (!row.next()) {
                     throw new SQLException("POD does not match an active delivery attempt or conflicts with its outcome");
                 }
+            }
+        }
+        return false;
+    }
+
+    private static void applyShipmentOutcome(Connection connection, UUID tenantId, UUID shipmentId,
+                                             String shipmentReference, String attemptReference, String proofId,
+                                             Timestamp deliveredAt, boolean taskTransitioned) throws SQLException {
+        if (!taskTransitioned) {
+            try (PreparedStatement verify = connection.prepareStatement("""
+                    SELECT 1 FROM courier_shipments
+                    WHERE tenant_id = ? AND id = ? AND status = 'DELIVERED' AND delivered_at = ?
+                    """)) {
+                verify.setObject(1, tenantId);
+                verify.setObject(2, shipmentId);
+                verify.setTimestamp(3, deliveredAt);
+                try (ResultSet row = verify.executeQuery()) {
+                    if (!row.next()) {
+                        throw new SQLException("delivery task is already delivered but shipment completion does not match");
+                    }
+                }
+            }
+            return;
+        }
+
+        try (PreparedStatement update = connection.prepareStatement("""
+                UPDATE courier_shipments
+                SET status = 'DELIVERED', delivered_at = ?, updated_at = GREATEST(now(), updated_at, ?)
+                WHERE tenant_id = ? AND id = ? AND status = 'BOOKED'
+                  AND EXISTS (
+                      SELECT 1 FROM courier_delivery_tasks task
+                      WHERE task.tenant_id = courier_shipments.tenant_id
+                        AND task.shipment_id = courier_shipments.id
+                        AND task.delivery_attempt_reference = ?
+                        AND task.status = 'DELIVERED' AND task.delivered_at = ?
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM courier_delivery_tasks active
+                      WHERE active.tenant_id = courier_shipments.tenant_id
+                        AND active.shipment_id = courier_shipments.id
+                        AND active.status IN ('ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERY_ATTEMPTED')
+                  )
+                """)) {
+            update.setTimestamp(1, deliveredAt);
+            update.setTimestamp(2, deliveredAt);
+            update.setObject(3, tenantId);
+            update.setObject(4, shipmentId);
+            update.setString(5, attemptReference);
+            update.setTimestamp(6, deliveredAt);
+            if (update.executeUpdate() != 1) {
+                throw new SQLException("shipment cannot be completed from its persisted lifecycle state");
+            }
+        }
+
+        try (PreparedStatement event = connection.prepareStatement("""
+                INSERT INTO courier_event_outbox
+                  (tenant_id, id, event_type, aggregate_type, aggregate_reference, occurred_at, payload)
+                VALUES (?, ?, 'courier.shipment.delivered.v1', 'shipment', ?, ?,
+                        jsonb_build_object('proofId', ?, 'shipmentId', ?, 'shipmentReference', ?,
+                                           'deliveryAttemptReference', ?, 'deliveredAt', ?))
+                """)) {
+            event.setObject(1, tenantId);
+            event.setObject(2, UUID.randomUUID());
+            event.setString(3, shipmentReference);
+            event.setTimestamp(4, deliveredAt);
+            event.setString(5, proofId);
+            event.setString(6, shipmentId.toString());
+            event.setString(7, shipmentReference);
+            event.setString(8, attemptReference);
+            event.setString(9, deliveredAt.toInstant().toString());
+            if (event.executeUpdate() != 1) {
+                throw new SQLException("shipment delivery event was not recorded");
             }
         }
     }
