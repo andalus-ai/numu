@@ -12,6 +12,7 @@ import tech.kayys.numou.workspace.domain.DatabaseTable;
 import tech.kayys.numou.workspace.domain.DatabaseView;
 import tech.kayys.numou.workspace.domain.DatabaseViewSort;
 import tech.kayys.numou.workspace.domain.DatabaseViewType;
+import tech.kayys.numou.workspace.domain.DatabaseViewValidationResult;
 import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
 
 import java.time.Clock;
