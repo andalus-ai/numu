@@ -148,6 +148,32 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
                 "conflicting retry must not alter durable artifact bytes");
     }
 
+    @Test
+    void rejectsReceiptWithUnexpectedTrailingFieldsWithoutChangingArtifact() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-malformed", "chunk-1", 0, chunk);
+        Path receipt = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-malformed"))
+                .resolve("chunks").resolve(hash("chunk-1") + ".receipt");
+        Files.writeString(receipt, Files.readString(receipt, StandardCharsets.UTF_8) + "unexpected\n", StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-malformed", "chunk-1", 0, chunk));
+        assertArrayEquals(chunk, store.open("tenant-a", "export-malformed").readAllBytes());
+    }
+
+    @Test
+    void rejectsReceiptWithCorruptedDigestWithoutChangingArtifact() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-corrupt", "chunk-1", 0, chunk);
+        Path receipt = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-corrupt"))
+                .resolve("chunks").resolve(hash("chunk-1") + ".receipt");
+        String receiptText = Files.readString(receipt, StandardCharsets.UTF_8);
+        int digestStart = receiptText.indexOf('\n', receiptText.indexOf('\n') + 1) + 1;
+        int digestEnd = receiptText.indexOf('\n', digestStart);
+        Files.writeString(receipt, receiptText.substring(0, digestStart) + "0".repeat(64) + receiptText.substring(digestEnd), StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-corrupt", "chunk-1", 0, chunk));
+        assertArrayEquals(chunk, store.open("tenant-a", "export-corrupt").readAllBytes());
+    }
     private record WarehouseSnapshot(long byteSize, String sha256Hex) {}
 
     private static String hash(String value) throws Exception {
