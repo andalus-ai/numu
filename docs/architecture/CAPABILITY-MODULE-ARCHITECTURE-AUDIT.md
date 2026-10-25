@@ -507,3 +507,98 @@ Evidence:
 ## Scope and limitations of this pass
 
 Inspected `AGENTS.md`, foundation tenant context/isolation contracts, Security's default tenant resolver, Identity's actor filter and membership adapter/port, the Tenancy tenant aggregate, Organization and OrganizationMembership aggregates, and Identity migration V1. This did not establish all database consumers, active runtime beans, API exposure, or deployed schema ownership. No code was changed in this pass; the section records source-backed risks and a safe evidence-gathering plan, not a claim that all adapters are insecure or that schema consolidation is already approved.
+
+
+## Tenth pass: Scheduling, Workforce, Resource Planning, and Progress
+
+This pass inspected the neutral Planning schedule/progress contracts, Planning's WBS/activity-link migration and use case, the Workforce organization reference, and Construction's labor requirement/assignment and progress measurement models. This is a targeted source review; it does not establish every module consumer or production composition.
+
+### AUD-011 — Planning already contains a reusable schedule/progress core; construction should integrate through references
+
+**Confidence: High for the inspected models.**
+
+Evidence:
+- `core/framework/planning/planning-domain` models schedule plans, activities, dependencies, baselines, progress observations, schedule forecasts/variance, and WBS progress snapshots.
+- `ScheduleActivity` uses neutral identifiers, names, dates, a generic `WorkItemReference`, and a position; it does not require a construction-specific BOQ or site.
+- `SchedulePlan` validates activity identity/code uniqueness and dependency endpoints/cycles, and captures baselines as snapshots rather than rewriting historical baselines.
+- `ActivityProgressObservation` is immutable and records as-of date, percentage, recorder, idempotency key, and optional source reference.
+- Planning exposes `LinkScheduleActivityToWorkBreakdownNode`, which links a schedule activity to a tenant-scoped WBS node through public application repositories. Migration V7 adds tenant/structure/node/plan/activity identity and foreign-key constraints.
+
+**Assessment:** Planning is the natural owner for generic schedule plans, activity dependencies, schedule baselines, and generic activity progress. Construction-specific progress measurement can remain an industry extension, but it should map approved/accepted evidence into Planning's generic progress contracts rather than introducing a second generic scheduler.
+
+**Recommendation:**
+1. Keep the schedule and WBS contracts neutral; use stable references and explicit application ports for construction-specific links.
+2. Specify how approved quantity-based measurements translate to percentage or quantity progress, including units, remeasurement/corrections, approval state, and as-of dates. Do not equate a BOQ quantity automatically with percent complete.
+3. Preserve immutable source provenance and idempotency across the integration so replaying an approved measurement cannot double-count progress.
+4. Verify all persistence adapters enforce tenant scope and prevent linking an activity to a node or plan outside the authorized tenant/scope.
+
+### AUD-012 — Construction labor demand is currently a construction-specific model, not a general capacity planner
+
+**Confidence: High for the inspected aggregate; medium on broader Workforce capability overlap.**
+
+Evidence:
+- Construction `LaborRequirement` is tied to `projectId` and `siteId`, with trade, worker count, required date, assignment list, and a requested/assigned status.
+- `LaborAssignment` stores a worker reference, trade, and assigned date.
+- In the inspected `assignWorker` method, an assignment is appended and the requirement becomes assigned when assignment count is greater than or equal to workers required. The method does not visibly reject duplicate worker assignments, enforce a positive worker requirement, validate assignment trade/date against the requirement, or prevent excess assignments.
+- The separate `workforce` capability has an employment-domain `OrganizationRef`, confirming that Workforce has its own neutral domain model, but this pass did not inspect enough Workforce contracts/adapters to establish a complete capacity/scheduling API.
+
+**Assessment:** Construction may own trade/site-specific labor demand and site assignment rules. Generic worker identity, employment, availability, qualifications, shifts, and capacity—where supported by Workforce—should not be duplicated inside Construction. The inspected aggregate exposes concrete invariant gaps worth characterizing, but this audit does not label them production defects without the command path and tests.
+
+**Recommendation:**
+1. Inspect the full Workforce public contract and consumers before deciding which generic scheduling/capacity concepts already exist.
+2. Add domain tests for zero/negative requested headcount, duplicate worker references, over-assignment, trade mismatch, assignment-date policy, and reassignment/removal behavior.
+3. If confirmed by product requirements, enforce requirement/assignment invariants in the aggregate and define how assignments are persisted atomically.
+4. Keep construction trade, site, project, and site-safety constraints in Construction; invoke generic Workforce contracts through public ports rather than importing Workforce persistence entities.
+
+### AUD-013 — Progress has multiple valid meanings and should not be collapsed into one universal record
+
+**Confidence: High for the inspected source models.**
+
+Evidence:
+- Planning's `ActivityProgressObservation` records percentage completion against a schedule activity and includes recorder, idempotency, and source-reference fields.
+- Construction's `ProgressMeasurement` records a dated quantity against a BOQ item and carries measurement type, remarks, and a workflow status beginning in DRAFT.
+- These records answer different questions: schedule activity completion versus measured physical quantity for a construction BOQ item. A measurement can be evidence for schedule progress, but it is not automatically the same datum.
+
+**Assessment:** A shared progress abstraction should not erase measurement units, measurement type, BOQ lineage, approval workflow, or quantity correction history. The neutral Planning model can consume a derived progress observation only after a policy or adapter establishes the conversion and approval rules.
+
+**Recommendation:**
+1. Keep raw domain evidence authoritative in the capability that owns it.
+2. Use an explicit projection/adapter from accepted construction measurement evidence to Planning progress observations; carry source reference, tenant, as-of date, and idempotency identity.
+3. Define correction and reversal behavior, late-arriving measurements, multiple measurements per period, and whether completion can regress after a correction.
+4. Test that draft/rejected measurements do not update accepted schedule progress and that duplicate delivery is idempotent.
+
+### AUD-014 — The current audit supports composition, not another universal Resource aggregate
+
+**Confidence: Medium; more Workforce and Asset contracts must be inspected.**
+
+The repository has separate domain concerns for workforce/employment, construction labor demand, asset availability/utilization, and neutral schedule activities. A worker, an asset, a work package, and a schedule activity have different lifecycles and constraints. A common identifier/reference or availability query can be useful, but one universal Resource aggregate would risk conflating employment/qualification, asset maintenance, schedule work, and project allocation.
+
+**Recommendation:**
+1. Prefer capability-owned resource records and explicit resource references.
+2. Introduce shared capacity/availability contracts only after comparing semantics for time zones, calendars, shifts, reservations, utilization, qualification, maintenance downtime, and conflict resolution.
+3. If a neutral reservation/capacity capability is justified, make it own only the shared invariant (for example, mutually exclusive reservation windows) and delegate eligibility/qualification to Workforce or Asset.
+4. Treat schedule planning as a consumer of availability, not the owner of workforce or asset master data.
+
+## Scheduling / Workforce / Progress disposition matrix
+
+| Concern | Candidate owner | Keep distinct from | Evidence/acceptance criteria |
+|---|---|---|---|
+| Generic schedule, dependencies, baseline | Planning | Construction-specific site/BOQ fields | Baseline immutability, dependency integrity, tenant-safe persistence |
+| Generic activity progress snapshots | Planning | Raw quantity measurement evidence | Approval mapping, as-of dates, source provenance, replay idempotency |
+| Construction quantity measurement | Construction | Schedule percentage complete | Units, approvals, corrections, BOQ lineage, no draft-to-actual leakage |
+| Employment, qualifications, worker availability | Workforce (verify public API) | Construction labor demand | Public contracts and consumer inventory; availability/qualification tests |
+| Construction trade/site labor demand | Construction | Generic workforce master data | Headcount and assignment invariants; atomic persistence |
+| Asset availability and maintenance | Asset | Worker availability and schedule activity | Time-window/conflict semantics and public availability contract |
+| Cross-capability resource reference | Foundation/public SPI where warranted | Universal resource lifecycle | Avoid new generic aggregate unless invariants are genuinely shared |
+
+## Proposed next milestone (not implemented by this audit)
+
+1. Inspect Workforce's public application/SPI contracts and persistence adapters; inventory consumers of employment, worker, qualification, and availability.
+2. Add focused invariant tests for Construction `LaborRequirement` and its command/persistence path before changing behavior.
+3. Define one integration contract for accepted construction measurement → Planning progress observation, with provenance, idempotency, correction, and tenant scope.
+4. Test Planning activity/WBS links against wrong-tenant nodes, wrong-plan activities, and repeated link commands; preserve existing uniqueness/foreign-key behavior.
+5. Decide whether a generic capacity/reservation contract is warranted only after comparing Workforce and Asset availability semantics; do not add a universal Resource model preemptively.
+
+## Scope and limitations of this pass
+
+Inspected `AGENTS.md`, Planning's schedule plan/activity/progress observation and WBS-link use case/migration, Workforce's organization reference, and Construction's labor requirement/assignment and progress measurement aggregates. This did not establish all Workforce APIs, resource consumers, database adapters, or deployed composition. No runtime code was changed and no tests were run; findings are source-backed review items and acceptance criteria, not a claim that the full integration has been verified.
