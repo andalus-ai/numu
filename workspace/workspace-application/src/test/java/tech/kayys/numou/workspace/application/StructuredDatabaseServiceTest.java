@@ -342,10 +342,10 @@ class StructuredDatabaseServiceTest {
             audit.add(entry);
             return true;
         }
-        @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, AuditEntry entry) {
+        @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, long expectedRevision, AuditEntry entry) {
             DatabaseView view = views.get(viewId);
             if (view == null || !view.tenantId().equals(tenantId) || !view.databaseId().equals(databaseId)
-                    || !view.createdBy().equals(actorId)) return false;
+                    || !view.createdBy().equals(actorId) || view.revision() != expectedRevision) return false;
             views.remove(viewId);
             audit.add(entry);
             return true;
