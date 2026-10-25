@@ -11,7 +11,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import javax.sql.DataSource;
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -40,6 +39,7 @@ class CourierHttpOutboxIntegrationTest {
     static final AtomicInteger requests = new AtomicInteger();
     static final AtomicReference<String> requestBody = new AtomicReference<>();
     static final AtomicReference<String> idempotencyKey = new AtomicReference<>();
+    static final AtomicReference<String> authorization = new AtomicReference<>();
 
     @BeforeAll
     static void startInfrastructure() throws Exception {
@@ -59,6 +59,7 @@ class CourierHttpOutboxIntegrationTest {
             try {
                 requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
                 idempotencyKey.set(exchange.getRequestHeaders().getFirst("Idempotency-Key"));
+                authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
                 requests.incrementAndGet();
                 int status = responseStatus.get();
                 exchange.sendResponseHeaders(status, -1);
