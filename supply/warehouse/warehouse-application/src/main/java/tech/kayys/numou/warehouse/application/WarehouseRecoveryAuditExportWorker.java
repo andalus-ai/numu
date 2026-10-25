@@ -122,9 +122,16 @@ public final class WarehouseRecoveryAuditExportWorker {
         WarehouseRecoveryAuditExportJob verifying=checkpoint.beginVerification(workerId,now,snapshot.location());
         if(!jobs.update(verifying,checkpoint.version()))
             throw new IllegalStateException("Verification transition lost optimistic version race");
-        WarehouseRecoveryAuditArchiveManifest manifest=new WarehouseRecoveryAuditArchiveManifest(
+        WarehouseRecoveryAuditArchiveManifest candidate=new WarehouseRecoveryAuditArchiveManifest(
                 verifying.exportId(),verifying.tenantId(),snapshot.location(),snapshot.sha256Hex(),
                 snapshot.byteSize(),verifying.exportedEventCount(),now,verifying.requestedBy());
+        Optional<WarehouseRecoveryAuditArchiveManifest> existing =
+                manifests.find(verifying.tenantId(),verifying.exportId());
+        WarehouseRecoveryAuditArchiveManifest manifest = existing.orElse(candidate);
+        if(!manifest.sameExportEvidence(candidate))
+            throw new IllegalStateException("Existing archive manifest conflicts with verified artifact or export checkpoint");
+
+        // On recovery, the persisted manifest is authoritative, including its original createdAt.
         WarehouseRecoveryAuditArchiveVerifier.VerificationResult result;
         try(InputStream input=artifacts.open(verifying.tenantId(),verifying.exportId())) {
             result=verifier.verify(manifest,input);
@@ -136,20 +143,7 @@ public final class WarehouseRecoveryAuditExportWorker {
                     WarehouseRecoveryAuditExportAccessEvent.Outcome.FAILURE,"ARCHIVE_CHECKSUM_MISMATCH");
             throw new IllegalStateException("Recovery audit archive failed integrity verification");
         }
-        Optional<WarehouseRecoveryAuditArchiveManifest> existing=manifests.find(verifying.tenantId(),verifying.exportId());
-        if(existing.isPresent()) {
-            WarehouseRecoveryAuditArchiveManifest saved=existing.get();
-            if(!saved.tenantId().equals(manifest.tenantId())
-                    ||!saved.exportId().equals(manifest.exportId())
-                    ||!saved.artifactLocation().equals(manifest.artifactLocation())
-                    ||!saved.sha256Hex().equals(manifest.sha256Hex())
-                    ||saved.byteSize()!=manifest.byteSize()
-                    ||saved.eventCount()!=manifest.eventCount()
-                    ||!saved.createdBy().equals(manifest.createdBy()))
-                throw new IllegalStateException("Existing archive manifest conflicts with verified artifact");
-        } else {
-            manifests.insert(manifest);
-        }
+        if(existing.isEmpty()) manifests.insert(manifest);
         WarehouseRecoveryAuditExportJob completed=verifying.complete(clock.instant());
         if(!jobs.update(completed,verifying.version()))
             throw new IllegalStateException("Completion transition lost optimistic version race");
