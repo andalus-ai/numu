@@ -602,3 +602,93 @@ The repository has separate domain concerns for workforce/employment, constructi
 ## Scope and limitations of this pass
 
 Inspected `AGENTS.md`, Planning's schedule plan/activity/progress observation and WBS-link use case/migration, Workforce's organization reference, and Construction's labor requirement/assignment and progress measurement aggregates. This did not establish all Workforce APIs, resource consumers, database adapters, or deployed composition. No runtime code was changed and no tests were run; findings are source-backed review items and acceptance criteria, not a claim that the full integration has been verified.
+
+
+## Eleventh pass: Workforce contracts and construction integration follow-through
+
+This pass deepened the previous review by reading the current Workforce worker, employment, qualification, worker-qualification, and timesheet aggregates; Construction labor requirement tests and handler; Construction progress measurement and command handler; and Planning's immutable progress observation and WBS/activity link use case.
+
+### AUD-015 — Construction labor requirement invariants are now present in the inspected main-branch source
+
+**Confidence: High for the current source and unit tests inspected.**
+
+Evidence:
+- `LaborRequirement` rejects non-positive headcount and blank trade.
+- `assignWorker` requires REQUESTED status, prevents assignments beyond headcount, requires a matching trade, rejects duplicate worker IDs, and transitions to ASSIGNED only at exact headcount.
+- `LaborRequirementTest` covers zero/negative headcount, blank trade, trade mismatch, duplicate workers, exact completion, and excess assignment.
+- The application handler persists the aggregate and then publishes its domain events.
+
+**Assessment:** The previously identified aggregate-level invariant gap appears addressed on the inspected `main` branch. Do not duplicate the fix. Remaining checks are whether repository persistence is atomic/optimistic-lock safe, whether tenant scope is enforced at the command/repository boundary, and whether event publication is durable when the process fails between persistence and publishing.
+
+**Recommendation:** Keep the existing invariant tests. Add persistence/concurrency and event-delivery tests only after inspecting the concrete repository and event-publisher implementations. Prefer an outbox or established transactional event mechanism if the runtime's consistency requirements demand it.
+
+### AUD-016 — Workforce owns worker/employment/qualification and time evidence, but no shared project-capacity contract was established
+
+**Confidence: High for inspected aggregates; medium for complete module coverage.**
+
+Evidence:
+- `Worker` is tenant-scoped and models worker identity reference, type, status, and audit metadata.
+- `Employment` models the worker's relationship to an organization, employment type, position reference, and lifecycle.
+- `Qualification` models a credential catalogue entry; `WorkerQualification` records a worker's credential, issue/expiry dates, certificate reference, and revocation status.
+- `Timesheet` records time for a worker/employment over a date range, with draft/submitted/approved/rejected states and entries classifying time against business contexts.
+- These are useful reusable Workforce primitives, but the inspected models do not by themselves provide a cross-capability availability calendar, shift/reservation conflict check, project capacity allocation, or a complete qualification-eligibility query.
+
+**Assessment:** Construction should reference a worker through a stable public identifier and use Workforce application contracts for eligibility where they exist. It should not import Workforce persistence entities. A generic capacity service remains unproven: timesheet actuals are not future availability, employment status is not assignment availability, and a qualification catalogue entry is not proof that a particular worker currently holds a valid qualification.
+
+**Recommendation:**
+1. Inventory Workforce SPI/application queries for worker status, employment status/date, current qualifications, and timesheet approval before designing a new contract.
+2. Define an eligibility query only for policy the consumer needs, returning a stable decision/evidence result rather than exposing repositories or aggregates.
+3. If future capacity is required, first specify calendar, timezone, shift, overlapping reservation, leave, assignment, and concurrency semantics; then decide whether Workforce owns availability or a separate planning capability owns reservations.
+4. Keep worker master data and qualification lifecycle in Workforce, project/site/trade demand in Construction, and schedule activities in Planning.
+
+### AUD-017 — Progress measurement recording is separate from approval and currently has no inspected Planning bridge
+
+**Confidence: High for the inspected command and aggregate.**
+
+Evidence:
+- `RecordProgressMeasurementHandler` creates a Construction `ProgressMeasurement`, saves it, and publishes its recorded event.
+- A new measurement begins in DRAFT; `submit` and `approve` are separate domain transitions. Approval raises `ProgressMeasurementApproved`.
+- Planning's `ActivityProgressObservation` requires activity ID, as-of date, percentage, recorded timestamp, recorder, idempotency key, and optional source reference.
+- The inspected Construction handler does not invoke Planning. The two inspected models have no direct conversion: a quantity is not inherently a percentage, and the Construction measurement does not expose the Planning observation's attribution/idempotency contract as part of the record command.
+
+**Assessment:** Do not automatically project every recorded measurement into schedule progress. The integration should consume approved evidence only, and needs an explicit quantity-to-progress policy supplied by the relevant BOQ item/measurement basis and activity mapping. Approval-event delivery must be idempotent.
+
+**Recommendation:**
+1. Define an application-level port/consumer contract for approved measurement evidence; keep Construction independent of Planning implementation classes.
+2. Require mapping metadata for BOQ item → schedule activity and a documented conversion policy (for example, accepted cumulative quantity / approved baseline quantity where units and scope match). Reject missing, incompatible, or zero/invalid denominator cases rather than guessing.
+3. Derive stable idempotency identity from the measurement and its approval/revision, and preserve source reference, tenant, as-of date, and actor attribution.
+4. Specify corrections/rejections/revocations and late events before treating a projection as authoritative; retain the raw measurement as source evidence.
+5. Test that DRAFT/SUBMITTED/REJECTED measurements do not create accepted progress observations, approval replay is idempotent, and a correction does not double-count cumulative quantity.
+
+### AUD-018 — WBS/activity linking validates in-memory ownership, but transaction and replay guarantees require adapter-level tests
+
+**Confidence: High for the inspected use case; medium for the database/runtime behavior.**
+
+Evidence:
+- `LinkScheduleActivityToWorkBreakdownNode` checks that the activity belongs to the supplied authorized plan, loads the WBS structure through a tenant-aware repository, verifies the node exists in that structure, then creates the link.
+- Migration V7 adds tenant/structure/node/plan/activity columns and foreign keys/constraints.
+- The use case does not itself show duplicate-link handling, a transaction boundary, or concurrent replay behavior; those may be enforced by the repository/database.
+
+**Recommendation:** Verify uniqueness and foreign keys against concurrent duplicate commands, ensure the supplied plan is loaded through an authorized tenant boundary (not merely passed by an untrusted caller), and confirm repository writes and event publication follow the application's transaction/outbox policy.
+
+## Workforce / Construction / Planning implementation disposition
+
+| Work item | Current disposition | Next acceptance criterion |
+|---|---|---|
+| LaborRequirement aggregate invariants | Present on inspected main branch; tests cover key cases | Persistence/concurrency and tenant-scope tests |
+| Worker/employment/qualification reuse | Reusable aggregates exist; full public query contract not yet established | Inventory SPI/application ports and consumers before new API |
+| Future worker capacity | Not established by inspected contracts | Define calendar, shift, leave, assignment, timezone and concurrency semantics first |
+| Construction measurement → Planning progress | No bridge found in inspected handler/model path | Approved-evidence contract, explicit conversion policy, idempotency and correction tests |
+| WBS/activity link integrity | Use-case ownership checks and database migration exist | Duplicate/concurrent command and tenant/transaction integration tests |
+
+## Proposed next implementation milestone (not implemented by this audit)
+
+1. Inspect concrete Construction repository, event publisher/outbox, and Planning observation repository implementations before choosing transaction boundaries.
+2. Add a public, transport-neutral approved-measurement evidence contract and consumer only after confirming module dependency direction and the existing event infrastructure.
+3. Require an explicit BOQ-item-to-activity mapping and a defined progress conversion policy; do not infer percentage from a raw quantity.
+4. Add replay, correction, wrong-tenant, and failure-recovery tests at the integration boundary.
+5. Keep the existing `LaborRequirement` invariants; extend only the missing adapter/transaction tests supported by the implementation.
+
+## Scope and limitations of this pass
+
+Inspected current `main` source for Construction labor requirement aggregate/tests/handler/repository port; Workforce Worker, Employment, Qualification, WorkerQualification, and Timesheet; Construction progress measurement aggregate/handler; Planning ActivityProgressObservation and WBS/activity link use case. This did not establish all concrete persistence implementations, runtime wiring, or event delivery guarantees. No runtime code was changed and no tests were run; the audit records a source-backed integration gap and next acceptance criteria.
