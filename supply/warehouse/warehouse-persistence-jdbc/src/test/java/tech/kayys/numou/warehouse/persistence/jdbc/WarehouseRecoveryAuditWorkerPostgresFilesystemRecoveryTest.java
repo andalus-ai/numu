@@ -168,13 +168,47 @@ class WarehouseRecoveryAuditWorkerPostgresFilesystemRecoveryTest {
                 java.lang.reflect.Proxy.newProxyInstance(WarehouseExecutionAttemptRepository.class.getClassLoader(),
                 new Class<?>[]{WarehouseExecutionAttemptRepository.class}, (proxy, method, args) -> {
                     if (method.getName().equals("pageOperatorAuditEvents"))
-                        return new WarehouseRecoveryAuditPage(List.of(), null);
+                        return new WarehouseRecoveryAuditPage(auditEvents, null);
                     if (method.getName().equals("toString")) return "PostgresFilesystemRecoveryTestRepository";
                     throw new UnsupportedOperationException(method.getName());
                 });
         return new WarehouseRecoveryAuditExportWorker(new WarehouseRecoveryOperationsService(operationsRepository),
                 jobRepository, access, manifests, artifactStore, new WarehouseRecoveryAuditArchiveVerifier(),
                 Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofMinutes(2), 100);
+    }
+
+
+    @Test
+    void persistsRealAuditRowsAndVerifiesCsvContentThroughPostgresManifest() throws Exception {
+        String exportId = "export-content-" + UUID.randomUUID();
+        String tenantId = "tenant-postgres-content";
+        WarehouseRecoveryAuditExportJob initial = new WarehouseRecoveryAuditExportJob(
+                exportId, tenantId, "operator-it", WarehouseRecoveryAuditExportJob.Status.REQUESTED,
+                null, 0, 0, null, null, NOW, NOW, null, null, 0);
+        jobs.insert(initial);
+        WarehouseRecoveryOperatorAuditEvent event = new WarehouseRecoveryOperatorAuditEvent(
+                tenantId, "=cmd,with,comma", "REPLAY", "operator-it", "quoted \"reason\", value",
+                1, 2, "correlation-content", NOW);
+
+        var worker = worker(jobs, new FilesystemWarehouseRecoveryAuditArtifactStore(artifactRoot), List.of(event));
+        var completed = worker.runOne("worker-content").orElseThrow();
+
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.COMPLETED, completed.status());
+        assertEquals(1, completed.exportedEventCount());
+        String csv;
+        try (var input = new FilesystemWarehouseRecoveryAuditArtifactStore(artifactRoot).open(tenantId, exportId)) {
+            csv = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        assertTrue(csv.startsWith("tenant_id,command_key,action,actor_id,reason,prior_version,resulting_version,correlation_id,occurred_at\n"));
+        assertTrue(csv.contains("\"'=cmd,with,comma\""),
+                "formula-like command keys must be neutralized and CSV-quoted");
+        assertTrue(csv.contains("\"quoted \"\"reason\"\", value\""),
+                "embedded quotes and commas must be escaped as valid CSV");
+        var manifest = manifests.find(tenantId, exportId).orElseThrow();
+        assertEquals(1, manifest.eventCount());
+        assertEquals(completed.exportedByteCount(), manifest.byteSize());
+        assertEquals(new FilesystemWarehouseRecoveryAuditArtifactStore(artifactRoot)
+                .inspect(tenantId, exportId).sha256Hex(), manifest.sha256Hex());
     }
 
     private int count(String table, String exportId) throws SQLException {
