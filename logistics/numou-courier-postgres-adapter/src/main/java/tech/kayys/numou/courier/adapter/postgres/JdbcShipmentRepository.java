@@ -35,6 +35,10 @@ public class JdbcShipmentRepository implements ShipmentRepository {
             return CompletableFuture.failedFuture(new IllegalArgumentException("tenantId and shipment are required"));
         if (!tenantId.equals(shipment.tenantId()))
             return CompletableFuture.failedFuture(new SecurityException("shipment tenant does not match repository tenant"));
+        if (shipment.status() == ShipmentStatus.DELIVERED) {
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "shipment delivery completion is managed by the proof-of-delivery projector"));
+        }
 
         String sql = """
             INSERT INTO courier_shipments (
@@ -43,8 +47,8 @@ public class JdbcShipmentRepository implements ShipmentRepository {
               sender_locality, sender_administrative_area, sender_postal_code, sender_country_code,
               recipient_contact_name, recipient_phone, recipient_address_line_1, recipient_address_line_2,
               recipient_locality, recipient_administrative_area, recipient_postal_code, recipient_country_code,
-              created_at, updated_at, booked_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              created_at, updated_at, booked_at, delivered_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT (tenant_id, id) DO UPDATE SET
               reference=EXCLUDED.reference, normalized_reference=EXCLUDED.normalized_reference,
               status=EXCLUDED.status, service_level=EXCLUDED.service_level,
@@ -56,7 +60,7 @@ public class JdbcShipmentRepository implements ShipmentRepository {
               recipient_address_line_1=EXCLUDED.recipient_address_line_1, recipient_address_line_2=EXCLUDED.recipient_address_line_2,
               recipient_locality=EXCLUDED.recipient_locality, recipient_administrative_area=EXCLUDED.recipient_administrative_area,
               recipient_postal_code=EXCLUDED.recipient_postal_code, recipient_country_code=EXCLUDED.recipient_country_code,
-              updated_at=EXCLUDED.updated_at, booked_at=EXCLUDED.booked_at
+              updated_at=EXCLUDED.updated_at, booked_at=EXCLUDED.booked_at, delivered_at=EXCLUDED.delivered_at
             WHERE courier_shipments.status = EXCLUDED.status
                OR (courier_shipments.status = 'DRAFT' AND EXCLUDED.status IN ('BOOKED', 'CANCELLED'))
                OR (courier_shipments.status = 'BOOKED' AND EXCLUDED.status = 'CANCELLED')
@@ -166,6 +170,7 @@ public class JdbcShipmentRepository implements ShipmentRepository {
                         ShipmentStatus.valueOf(row.getString("status")),
                         row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
                         row.getTimestamp("booked_at") == null ? null : row.getTimestamp("booked_at").toInstant(),
+                        row.getTimestamp("delivered_at") == null ? null : row.getTimestamp("delivered_at").toInstant(),
                         parcels);
                 return CompletableFuture.completedFuture(Optional.of(shipment));
             }
@@ -215,8 +220,10 @@ public class JdbcShipmentRepository implements ShipmentRepository {
         i = bindAddress(s, i, recipient);
         s.setTimestamp(i++, Timestamp.from(shipment.createdAt()));
         s.setTimestamp(i++, Timestamp.from(shipment.updatedAt()));
-        if (shipment.bookedAt() == null) s.setNull(i, Types.TIMESTAMP_WITH_TIMEZONE);
-        else s.setTimestamp(i, Timestamp.from(shipment.bookedAt()));
+        if (shipment.bookedAt() == null) s.setNull(i++, Types.TIMESTAMP_WITH_TIMEZONE);
+        else s.setTimestamp(i++, Timestamp.from(shipment.bookedAt()));
+        if (shipment.deliveredAt() == null) s.setNull(i, Types.TIMESTAMP_WITH_TIMEZONE);
+        else s.setTimestamp(i, Timestamp.from(shipment.deliveredAt()));
     }
 
     private static int bindAddress(PreparedStatement s, int i, ShipmentAddress a) throws SQLException {

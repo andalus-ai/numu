@@ -84,6 +84,34 @@ class ShipmentTest {
     }
 
     @Test
+    void shipmentDeliveryRequiresBookedStateAndPersistsAnImmutableOutcome() {
+        Shipment shipment = draft("NUM-1007");
+        shipment.addParcel(parcel("PIECE-1"), T0.plusSeconds(1));
+        assertThrows(IllegalStateException.class, () -> shipment.markDelivered(T0.plusSeconds(2)));
+        shipment.book(T0.plusSeconds(2));
+        shipment.markDelivered(T0.plusSeconds(3));
+
+        assertEquals(ShipmentStatus.DELIVERED, shipment.status());
+        assertEquals(T0.plusSeconds(3), shipment.deliveredAt());
+        assertThrows(IllegalStateException.class, () -> shipment.cancel(T0.plusSeconds(4)));
+        assertThrows(IllegalStateException.class, () -> shipment.markDelivered(T0.plusSeconds(4)));
+
+        Shipment restored = Shipment.reconstitute(shipment.id(), shipment.tenantId(), shipment.reference(),
+                shipment.sender(), shipment.recipient(), shipment.serviceLevel(), shipment.status(),
+                shipment.createdAt(), shipment.updatedAt(), shipment.bookedAt(), shipment.deliveredAt(),
+                shipment.parcels());
+        assertEquals(T0.plusSeconds(3), restored.deliveredAt());
+    }
+
+    @Test
+    void deliveredShipmentRequiresDeliveryTimestamp() {
+        assertThrows(IllegalArgumentException.class, () -> Shipment.reconstitute(
+                ShipmentId.generate(), TenantId.generate(), "NUM-1008", SENDER, RECIPIENT,
+                ServiceLevel.STANDARD, ShipmentStatus.DELIVERED, T0, T0.plusSeconds(2),
+                T0.plusSeconds(1), null, java.util.List.of(parcel("PIECE-1"))));
+    }
+
+    @Test
     void cancellationIsIdempotentAndBookingCannotBeCancelledBackwardsInTime() {
         Shipment shipment = draft("NUM-1004");
         shipment.addParcel(parcel("PIECE-1"), T0.plusSeconds(1));

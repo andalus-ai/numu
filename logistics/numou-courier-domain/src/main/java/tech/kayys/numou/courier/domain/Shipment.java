@@ -25,6 +25,7 @@ public final class Shipment {
     private final List<Parcel> parcels = new ArrayList<>();
     private Instant updatedAt;
     private Instant bookedAt;
+    private Instant deliveredAt;
 
     private Shipment(ShipmentId id, TenantId tenantId, String reference,
                      ShipmentAddress sender, ShipmentAddress recipient,
@@ -54,6 +55,16 @@ public final class Shipment {
                                         ServiceLevel serviceLevel, ShipmentStatus status,
                                         Instant createdAt, Instant updatedAt, Instant bookedAt,
                                         List<Parcel> persistedParcels) {
+        return reconstitute(id, tenantId, reference, sender, recipient, serviceLevel, status,
+                createdAt, updatedAt, bookedAt, null, persistedParcels);
+    }
+
+    /** Restores persisted state including the shipment-level delivery outcome. */
+    public static Shipment reconstitute(ShipmentId id, TenantId tenantId, String reference,
+                                        ShipmentAddress sender, ShipmentAddress recipient,
+                                        ServiceLevel serviceLevel, ShipmentStatus status,
+                                        Instant createdAt, Instant updatedAt, Instant bookedAt,
+                                        Instant deliveredAt, List<Parcel> persistedParcels) {
         Shipment shipment = new Shipment(id, tenantId, reference, sender, recipient, serviceLevel, createdAt);
         shipment.status = Objects.requireNonNull(status, "status must not be null");
         shipment.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
@@ -62,9 +73,17 @@ public final class Shipment {
             throw new IllegalArgumentException("booked shipment must have bookedAt");
         if (status == ShipmentStatus.DRAFT && bookedAt != null)
             throw new IllegalArgumentException("draft shipment cannot have bookedAt");
+        if (status == ShipmentStatus.DELIVERED && deliveredAt == null)
+            throw new IllegalArgumentException("delivered shipment must have deliveredAt");
+        if (status != ShipmentStatus.DELIVERED && deliveredAt != null)
+            throw new IllegalArgumentException("only delivered shipments may have deliveredAt");
+        if (deliveredAt != null && (bookedAt == null || deliveredAt.isBefore(bookedAt)
+                || deliveredAt.isAfter(updatedAt)))
+            throw new IllegalArgumentException("deliveredAt must be between bookedAt and updatedAt");
         if (bookedAt != null && (bookedAt.isBefore(createdAt) || bookedAt.isAfter(updatedAt)))
             throw new IllegalArgumentException("bookedAt must be between createdAt and updatedAt");
         shipment.bookedAt = bookedAt;
+        shipment.deliveredAt = deliveredAt;
         Set<ParcelId> ids = new HashSet<>();
         Set<String> references = new HashSet<>();
         for (Parcel parcel : Objects.requireNonNull(persistedParcels, "persistedParcels must not be null")) {
@@ -105,6 +124,26 @@ public final class Shipment {
         status = ShipmentStatus.CANCELLED;
     }
 
+    /** Marks a booked shipment delivered after the delivery workflow confirms its POD. */
+    public void markDelivered(Instant now) {
+        if (status == ShipmentStatus.DELIVERED) {
+            if (!Objects.equals(deliveredAt, now)) {
+                throw new IllegalStateException("shipment is already delivered at a different time");
+            }
+            return;
+        }
+        if (status != ShipmentStatus.BOOKED) {
+            throw new IllegalStateException("shipment cannot be delivered from " + status);
+        }
+        Instant next = monotonic(now);
+        if (bookedAt == null || next.isBefore(bookedAt)) {
+            throw new IllegalArgumentException("delivery time cannot precede booking");
+        }
+        deliveredAt = next;
+        updatedAt = next;
+        status = ShipmentStatus.DELIVERED;
+    }
+
     private Instant monotonic(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
         if (now.isBefore(updatedAt)) throw new IllegalArgumentException("updated time cannot move backwards");
@@ -129,5 +168,6 @@ public final class Shipment {
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
     public Instant bookedAt() { return bookedAt; }
+    public Instant deliveredAt() { return deliveredAt; }
     public List<Parcel> parcels() { return List.copyOf(parcels); }
 }

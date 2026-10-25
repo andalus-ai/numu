@@ -63,4 +63,28 @@ class CourierPodTrackingProjectorContractTest {
         assertTrue(migration.contains("SET delivery_attempt_reference = 'TASK:' || id::text"));
         assertTrue(migration.contains("UNIQUE INDEX uq_courier_delivery_attempt_reference"));
     }
+
+    @Test
+    void shipmentCompletionIsGuardedAndPublishesAnOutboxEventAtomically() throws IOException {
+        String projector = Files.readString(Path.of(
+                "src/main/java/tech/kayys/numou/courier/adapter/postgres/JdbcProofOfDeliveryTrackingProjector.java"),
+                StandardCharsets.UTF_8);
+        String migration = Files.readString(Path.of(
+                "src/main/resources/db/migration/V24__courier_shipment_delivery_completion.sql"),
+                StandardCharsets.UTF_8);
+        String repository = Files.readString(Path.of(
+                "src/main/java/tech/kayys/numou/courier/adapter/postgres/JdbcShipmentRepository.java"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(projector.contains("SET status = 'DELIVERED', delivered_at = ?"));
+        assertTrue(projector.contains("status = 'BOOKED'"));
+        assertTrue(projector.contains("AND NOT EXISTS ("));
+        assertTrue(projector.contains("'courier.shipment.delivered.v1'"));
+        assertTrue(projector.contains("delivery task is already delivered but shipment completion does not match"));
+        assertTrue(migration.contains("CHECK (status IN ('DRAFT', 'BOOKED', 'CANCELLED', 'DELIVERED'))"));
+        assertTrue(migration.contains("ck_courier_shipments_delivery_time"));
+        assertTrue(repository.contains("row.getTimestamp(\"delivered_at\")"));
+        assertTrue(repository.contains("delivered_at=EXCLUDED.delivered_at"));
+        assertTrue(repository.contains("shipment delivery completion is managed by the proof-of-delivery projector"));
+    }
 }

@@ -1,6 +1,6 @@
 package tech.kayys.numou.courier.domain;
 
-/** Booking lifecycle; physical movement is recorded separately by tracking events. */
+/** Shipment booking and terminal lifecycle states; tracking retains the detailed movement timeline. */
 public enum ShipmentStatus {
-    DRAFT, BOOKED, CANCELLED
+    DRAFT, BOOKED, CANCELLED, DELIVERED
 }
