@@ -51,6 +51,20 @@ public class JdbcCourierOutboxPublisher {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                // A process can die after claiming its final allowed attempt. Reap that expired lease
+                // into the terminal state instead of leaving an unclaimable PENDING row forever.
+                try (PreparedStatement reap = c.prepareStatement("""
+                        UPDATE courier_event_publications
+                        SET status = 'DEAD', lease_owner = NULL, lease_until = NULL,
+                            last_error = COALESCE(last_error, 'publication lease expired at retry limit'),
+                            updated_at = now()
+                        WHERE destination = ? AND status = 'PENDING'
+                          AND attempt_count >= ? AND lease_until < now()
+                        """)) {
+                    reap.setString(1, destination);
+                    reap.setInt(2, MAX_ATTEMPTS);
+                    reap.executeUpdate();
+                }
                 // This backfill is idempotent and independent from the projector's published_at.
                 try (PreparedStatement seed = c.prepareStatement("""
                         INSERT INTO courier_event_publications (tenant_id, event_id, destination)
