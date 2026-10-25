@@ -1,0 +1,78 @@
+name: Numou CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: numou-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  module-topology:
+    name: Module topology and parent resolution
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate capability reactor parent paths
+        run: python3 tools/verify-module-topology.py
+
+  framework-and-logistics:
+    name: Framework and Courier/Cargo verification
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: numou
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d numou"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Validate capability reactor parent paths
+        run: python3 tools/verify-module-topology.py
+      # Security SPI currently consumes the framework foundation application,
+      # while the reliability adapter consumes security SPI. Build this
+      # dependency chain in stages so Maven's local repository has the SPI
+      # before the complete framework reactor reaches the reliability adapter.
+      - name: Install framework foundation prerequisites
+        run: mvn -B -ntp -f core/framework/pom.xml -pl foundation -am install
+      - name: Build and install security contracts
+        run: mvn -B -ntp -f security/pom.xml install
+      - name: Build and install framework reactor
+        run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Build and install organization contracts used by Courier
+        run: mvn -B -ntp -f organization/pom.xml install
+      - name: Build and install quantity contracts
+        run: mvn -B -ntp -f quantity/pom.xml install
+      - name: Verify supply-chain reactor
+        run: mvn -B -ntp -f supply/pom.xml verify
+      - name: Verify Courier/Cargo reactor
+        run: mvn -B -ntp -f logistics/pom.xml verify
+      - name: Upload Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-test-reports
+          path: "**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
