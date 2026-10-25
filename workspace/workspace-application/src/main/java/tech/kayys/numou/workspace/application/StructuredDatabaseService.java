@@ -7,6 +7,8 @@ import tech.kayys.numou.workspace.application.WorkspacePorts.Resource;
 import tech.kayys.numou.workspace.application.WorkspacePorts.StructuredDatabaseRepository;
 import tech.kayys.numou.workspace.domain.DatabaseProperty;
 import tech.kayys.numou.workspace.domain.DatabaseRecord;
+import tech.kayys.numou.workspace.domain.DatabaseRecordMigrationResult;
+import tech.kayys.numou.workspace.domain.DatabaseSchemaMigrationPreview;
 import tech.kayys.numou.workspace.domain.DatabaseRecordPage;
 import tech.kayys.numou.workspace.domain.DatabaseTable;
 import tech.kayys.numou.workspace.domain.DatabaseView;
@@ -17,10 +19,12 @@ import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -314,6 +318,95 @@ public final class StructuredDatabaseService {
         return new tech.kayys.numou.workspace.domain.DatabaseSchemaChangePreview(tableId, current.schemaVersion(),
                 candidate.schemaVersion(), results, compatible, results.size() - compatible);
     }
+
+    /**
+     * Previews an explicit per-record replacement plan. Callers provide complete replacement values
+     * for every active record, making property removal, rename, and type conversion intentional.
+     * No data or schema is written. Record values are never included in the returned diagnostics.
+     */
+    public DatabaseSchemaMigrationPreview previewSchemaMigration(UUID tenantId, UUID actorId, UUID databaseId,
+            UUID tableId, long expectedSchemaVersion, String proposedName, List<DatabaseProperty> proposedProperties,
+            Map<UUID, Map<String, Object>> migratedValuesByRecord) {
+        return prepareSchemaMigration(tenantId, actorId, databaseId, tableId, expectedSchemaVersion,
+                proposedName, proposedProperties, migratedValuesByRecord).preview();
+    }
+
+    /** Applies a previously previewable explicit migration with schema and record CAS in one transaction. */
+    public DatabaseTable applySchemaMigration(UUID tenantId, UUID actorId, UUID databaseId, UUID tableId,
+            long expectedSchemaVersion, String proposedName, List<DatabaseProperty> proposedProperties,
+            Map<UUID, Map<String, Object>> migratedValuesByRecord) {
+        PreparedSchemaMigration prepared = prepareSchemaMigration(tenantId, actorId, databaseId, tableId,
+                expectedSchemaVersion, proposedName, proposedProperties, migratedValuesByRecord);
+        if (!prepared.preview().readyToApply()) {
+            throw new IllegalArgumentException("schema migration plan is invalid: "
+                    + prepared.preview().planIssues() + "; invalid records="
+                    + prepared.preview().recordResults().stream().filter(result -> !result.valid())
+                    .map(result -> result.recordId() + ":" + result.issues()).toList());
+        }
+        List<AuditEntry> recordAudits = prepared.migratedRecords().stream()
+                .map(record -> audit(tenantId, actorId, "DATABASE_RECORD_UPDATED", "DATABASE_RECORD",
+                        record.id(), record.revision(), "Migrated structured record for table schema change"))
+                .toList();
+        AuditEntry schemaAudit = audit(tenantId, actorId, "DATABASE_TABLE_SCHEMA_MIGRATED", "DATABASE_TABLE",
+                tableId, prepared.candidate().schemaVersion(), "Applied explicit record-aware schema migration");
+        if (!repository.migrateTableSchema(prepared.candidate(), expectedSchemaVersion,
+                prepared.migratedRecords(), schemaAudit, recordAudits)) {
+            throw new IllegalStateException("schema migration conflicted or violated a table constraint; no changes were applied");
+        }
+        return prepared.candidate();
+    }
+
+    private PreparedSchemaMigration prepareSchemaMigration(UUID tenantId, UUID actorId, UUID databaseId,
+            UUID tableId, long expectedSchemaVersion, String proposedName, List<DatabaseProperty> proposedProperties,
+            Map<UUID, Map<String, Object>> migratedValuesByRecord) {
+        requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        DatabaseTable current = repository.findTable(tenantId, databaseId, tableId)
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.UPDATE);
+        if (expectedSchemaVersion < 1 || current.schemaVersion() != expectedSchemaVersion) {
+            throw new IllegalArgumentException("stale table schema version; refresh before previewing migration");
+        }
+        DatabaseTable candidate = new DatabaseTable(current.id(), current.tenantId(), current.databaseId(),
+                proposedName == null || proposedName.isBlank() ? current.name() : proposedName,
+                current.schemaVersion() + 1, proposedProperties);
+        List<DatabaseRecord> existingRecords = repository.findRecordsForSchemaMigration(tenantId, databaseId, tableId);
+        Map<UUID, Map<String, Object>> inputs = migratedValuesByRecord == null ? Map.of() : migratedValuesByRecord;
+        Set<UUID> activeIds = existingRecords.stream().map(DatabaseRecord::id).collect(java.util.stream.Collectors.toSet());
+        List<String> planIssues = new ArrayList<>();
+        inputs.keySet().stream().filter(id -> id == null || !activeIds.contains(id))
+                .forEach(id -> planIssues.add("migration input references a record outside this active tenant table: " + id));
+        List<DatabaseRecordMigrationResult> recordResults = new ArrayList<>();
+        List<DatabaseRecord> migrated = new ArrayList<>();
+        for (DatabaseRecord record : existingRecords) {
+            List<String> issues = new ArrayList<>();
+            if (!inputs.containsKey(record.id())) {
+                issues.add("complete replacement values were not supplied for this active record");
+            } else {
+                try {
+                    Map<String, Object> values = inputs.get(record.id());
+                    if (values == null) throw new IllegalArgumentException("replacement values cannot be null");
+                    Instant clockNow = clock.instant();
+                    Instant now = clockNow.isBefore(record.updatedAt()) ? record.updatedAt() : clockNow;
+                    DatabaseRecord migratedRecord = record.update(candidate, record.revision(), values, now);
+                    validateRelationTargets(tenantId, actorId, candidate, migratedRecord.values());
+                    migrated.add(migratedRecord);
+                } catch (IllegalArgumentException | IllegalStateException invalid) {
+                    issues.add(invalid.getMessage() == null ? "replacement values are invalid" : invalid.getMessage());
+                }
+            }
+            recordResults.add(new DatabaseRecordMigrationResult(record.id(), record.revision(), issues));
+        }
+        SavedViewSchemaValidator validator = new SavedViewSchemaValidator(repository, accessPolicy);
+        List<DatabaseViewValidationResult> viewResults = findViews(tenantId, actorId, databaseId, tableId).stream()
+                .map(view -> validator.validateAgainstSchema(view, candidate)).toList();
+        DatabaseSchemaMigrationPreview preview = new DatabaseSchemaMigrationPreview(tableId,
+                current.schemaVersion(), candidate.schemaVersion(), existingRecords.size(), recordResults,
+                viewResults, planIssues);
+        return new PreparedSchemaMigration(candidate, List.copyOf(migrated), preview);
+    }
+
+    private record PreparedSchemaMigration(DatabaseTable candidate, List<DatabaseRecord> migratedRecords,
+                                            DatabaseSchemaMigrationPreview preview) {}
 
     /** Reports schema drift without mutating or deleting the saved view. */
     public DatabaseViewValidationResult validateView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId) {

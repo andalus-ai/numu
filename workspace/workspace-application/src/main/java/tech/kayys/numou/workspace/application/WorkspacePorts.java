@@ -55,6 +55,11 @@ public final class WorkspacePorts {
   boolean saveTable(DatabaseTable table, AuditEntry audit);
   /** Atomically advances a table schema and appends its audit event only when expectedSchemaVersion still matches. */
   boolean updateTableSchema(DatabaseTable table, long expectedSchemaVersion, AuditEntry audit);
+  /** Active records only; adapters must bound synchronous migrations and return deterministic order. */
+  List<DatabaseRecord> findRecordsForSchemaMigration(UUID tenantId, UUID databaseId, UUID tableId);
+  /** Atomically updates schema, migrated record revisions, and every corresponding audit row. */
+  boolean migrateTableSchema(DatabaseTable table, long expectedSchemaVersion, List<DatabaseRecord> migratedRecords,
+                             AuditEntry schemaAudit, List<AuditEntry> recordAudits);
   Optional<DatabaseTable> findTable(UUID tenantId, UUID databaseId, UUID tableId);
   Optional<DatabaseRecord> findRecord(UUID tenantId, UUID recordId);
   /** expectedRevision=0 means create-only; positive values require an atomic compare-and-swap. */
