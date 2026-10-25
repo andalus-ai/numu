@@ -50,12 +50,11 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
-      # Security SPI currently consumes the framework foundation application,
-      # while the reliability adapter consumes security SPI. Build this
-      # dependency chain in stages so Maven's local repository has the SPI
-      # before the complete framework reactor reaches the reliability adapter.
-      - name: Install framework foundation prerequisites
-        run: mvn -B -ntp -f core/framework/pom.xml -pl foundation -am install
+      # Security-domain consumes foundation domain and foundation-testing.
+      # Build the actual nested foundation reactor, not only its aggregator;
+      # selecting the aggregator alone leaves the required JARs uninstalled.
+      - name: Install framework foundation modules
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Build and install security contracts
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
