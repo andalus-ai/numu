@@ -296,6 +296,40 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
     }
 
     @Test
+    void staleRecordRevisionRollsBackSchemaAndAllMigrationAuditWrites() throws SQLException {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("legacy", DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        DatabaseRecord initial = DatabaseRecord.create(tenant, database.id(), table,
+                Map.of("title", "Task A", "legacy", "old"), now);
+        assertTrue(repository.saveRecord(initial, 0,
+                audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_CREATED", 1)));
+        DatabaseRecord concurrent = initial.update(table, 1, Map.of("title", "Concurrent", "legacy", "old"), now.plusSeconds(1));
+        assertTrue(repository.saveRecord(concurrent, 1,
+                audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2)));
+        long auditBeforeMigration = countAuditRows();
+
+        DatabaseTable candidate = new DatabaseTable(table.id(), tenant, database.id(), "Tasks v2", 2, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("new_value", DatabasePropertyType.TEXT, false, List.of(), null)));
+        DatabaseRecord staleMigration = initial.update(candidate, 1,
+                Map.of("title", "Task A", "new_value", "new"), now.plusSeconds(2));
+        assertThrows(IllegalStateException.class, () -> repository.migrateTableSchema(candidate, 1,
+                List.of(staleMigration), audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_MIGRATED", 2),
+                List.of(audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2))));
+
+        DatabaseTable unchanged = repository.findTable(tenant, database.id(), table.id()).orElseThrow();
+        DatabaseRecord persisted = repository.findRecord(tenant, initial.id()).orElseThrow();
+        assertEquals(1, unchanged.schemaVersion(), "schema update must roll back when any record CAS fails");
+        assertTrue(unchanged.properties().stream().anyMatch(property -> property.key().equals("legacy")));
+        assertEquals(2, persisted.revision());
+        assertEquals("Concurrent", persisted.values().get("title"));
+        assertEquals(auditBeforeMigration, countAuditRows(), "failed migration must append no migration audit rows");
+    }
+
+    @Test
     void migratesRecordsAndSchemaInOneTransactionWithAudits() throws SQLException {
         WorkspaceDatabase database = createDatabase();
         DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(
