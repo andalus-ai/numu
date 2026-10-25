@@ -35,8 +35,8 @@ class JdbcActivityProgressRepositoryIntegrationTest {
         assertTrue(progressRepository.append(plan.id(), first));
         assertFalse(progressRepository.append(plan.id(), observation(activity.id(), "daily-1", "25.00")));
         assertEquals(1, progressRepository.findHistory(plan.id(), activity.id()).size());
-        assertEquals(new BigDecimal("25.00"), progressRepository.findLatestAsOf(
-                plan.id(), activity.id(), LocalDate.of(2026, 5, 2)).orElseThrow().percentComplete());
+        assertEquals(0, new BigDecimal("25.00").compareTo(progressRepository.findLatestAsOf(
+                plan.id(), activity.id(), LocalDate.of(2026, 5, 2)).orElseThrow().percentComplete()));
 
         assertThrows(IllegalArgumentException.class,
                 () -> progressRepository.append(plan.id(), observation(activity.id(), "daily-1", "30")));
