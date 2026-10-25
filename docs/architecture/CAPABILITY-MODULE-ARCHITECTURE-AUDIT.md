@@ -706,6 +706,8 @@ Evidence from current `main`:
 
 **Risk:** a process failure after saving the aggregate but before durable event publication can leave approved evidence unavailable to downstream consumers. This is not proof that every runtime composition is unsafe; wiring and alternate implementations must be checked before changing the contract.
 
+A follow-up inspection also found that the existing `PgTransactionalCommandRunner`/`PgTransactionalCommandContext` transaction API is coupled to `BoqRevisionOperations` (the context exposes `boqRevisions()`), rather than providing a generic transactional repository/event-write contract for progress measurements. It demonstrates that transactional outbox writes are supported in the module, but it is not safe to assume the progress command can reuse that runner without extending or separating its transaction ports.
+
 **Disposition:** trace CDI/runtime bindings and all repository implementations before choosing a fix. If the command path is intended to be PostgreSQL-backed, persist the aggregate and event envelope in one database transaction; do not rely on a post-save in-memory event list as the durability boundary. Add a failure-injection test proving either atomic rollback or eventual outbox delivery.
 
 ## AUD-020 — Planning progress persistence has replay protection, but it is not yet a complete cross-capability evidence contract
