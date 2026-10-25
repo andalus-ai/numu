@@ -76,7 +76,10 @@ def scan(root, config_path=CONFIG_PATH):
                 if not any(artifact.startswith(prefix)
                            for prefix in rule["forbidden_dependency_artifact_prefixes"]):
                     continue
-                if scope in {"test", "provided"}:
+                # Test fixtures may reference extension types without making
+                # them part of the production capability dependency graph.
+                # 'provided' still affects compilation and is therefore forbidden.
+                if scope == "test":
                     continue
                 errors.append(
                     f"{pom.relative_to(root)}: capability rule '{rule['id']}' "
