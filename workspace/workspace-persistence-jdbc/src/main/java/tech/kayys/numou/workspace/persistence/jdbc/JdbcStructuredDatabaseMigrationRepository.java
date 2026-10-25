@@ -143,6 +143,26 @@ public final class JdbcStructuredDatabaseMigrationRepository implements Structur
                         && stagedRowsMatch(c, tenantId, migrationId, batch);
             }
             if (batch.size() > job.batchSize()) throw new IllegalArgumentException("batch exceeds job batchSize");
+            if (job.status() != DatabaseSchemaMigrationJob.Status.RUNNING) {
+                throw new IllegalStateException("migration job is not running");
+            }
+            // Pin every staged value to the source table and revision observed by the worker.
+            String sourceSql = """
+                    SELECT 1 FROM workspace_database_records
+                     WHERE tenant_id = ? AND database_id = ? AND table_id = ? AND id = ?
+                       AND revision = ? AND archived_at IS NULL
+                    """;
+            try (PreparedStatement p = c.prepareStatement(sourceSql)) {
+                for (DatabaseRecordMigrationStage stage : batch) {
+                    p.setObject(1, tenantId); p.setObject(2, job.databaseId());
+                    p.setObject(3, job.tableId()); p.setObject(4, stage.recordId());
+                    p.setLong(5, stage.expectedRecordRevision());
+                    try (ResultSet r = p.executeQuery()) {
+                        if (!r.next()) throw new IllegalStateException(
+                                "source record changed or no longer belongs to the migration table");
+                    }
+                }
+            }
 
             String insert = """
                     INSERT INTO workspace_database_schema_migration_records
