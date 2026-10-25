@@ -62,10 +62,10 @@ public class JdbcProofOfDeliveryTrackingProjector {
                             String proofId = rows.getString("proof_id");
                             String shipmentReference = rows.getString("shipment_reference");
                             String attemptReference = rows.getString("attempt_reference");
-                            Timestamp deliveredAt = parseTimestamp(rows.getString("delivered_at"), "deliveredAt");
                             String recipientLabel = rows.getString("recipient_label");
                             String evidenceReference = rows.getString("evidence_reference");
                             try {
+                                Timestamp deliveredAt = parseTimestamp(rows.getString("delivered_at"), "deliveredAt");
                                 projectOne(connection, tenantId, occurredAt, proofId, shipmentReference,
                                         attemptReference, deliveredAt, recipientLabel, evidenceReference);
                                 try (PreparedStatement acknowledge = connection.prepareStatement("""
@@ -131,7 +131,7 @@ public class JdbcProofOfDeliveryTrackingProjector {
             }
         }
 
-        applyDeliveryOutcome(connection, tenantId, shipmentId, attemptReference, proofId,
+        applyDeliveryOutcome(connection, tenantId, shipmentId, attemptReference,
                 deliveredAt, recipientLabel, evidenceReference);
 
         String idempotencyKey = "POD:" + proofId;
@@ -175,7 +175,7 @@ public class JdbcProofOfDeliveryTrackingProjector {
     }
 
     private static void applyDeliveryOutcome(Connection connection, UUID tenantId, UUID shipmentId,
-                                              String attemptReference, String proofId, Timestamp deliveredAt,
+                                              String attemptReference, Timestamp deliveredAt,
                                               String recipientLabel, String evidenceReference) throws SQLException {
         String updateSql = """
                 UPDATE courier_delivery_tasks
