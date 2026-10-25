@@ -62,6 +62,7 @@ public final class WorkspacePorts {
   /** Query with validated typed ordering; legacy adapters may retain deterministic default order. */
   default DatabaseRecordPage queryRecords(UUID tenantId, UUID databaseId, UUID tableId, java.util.Map<String, Object> filters, List<DatabaseViewSort> sorts, int limit, int offset) { return queryRecords(tenantId, databaseId, tableId, filters, limit, offset); }
   boolean saveView(DatabaseView view, AuditEntry audit);
+  boolean updateView(DatabaseView view, long expectedRevision, AuditEntry audit);
   Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId);
   List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId);
   /** Deletes a personal view and its audit entry atomically, scoped to tenant/database/owner. */
