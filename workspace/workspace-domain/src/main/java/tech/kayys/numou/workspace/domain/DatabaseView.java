@@ -19,6 +19,7 @@ public record DatabaseView(
         List<DatabaseViewSort> sorts,
         List<String> visibleProperties,
         String groupByProperty,
+        long revision,
         Instant createdAt,
         Instant updatedAt) {
     /** Backward-compatible constructor for non-grouped views and existing adapters. */
@@ -27,7 +28,16 @@ public record DatabaseView(
                         List<DatabaseViewSort> sorts, List<String> visibleProperties,
                         Instant createdAt, Instant updatedAt) {
         this(id, tenantId, databaseId, tableId, createdBy, name, type, filters, sorts,
-                visibleProperties, null, createdAt, updatedAt);
+                visibleProperties, null, 1, createdAt, updatedAt);
+    }
+
+    /** Backward-compatible constructor for callers that do not yet supply a revision. */
+    public DatabaseView(UUID id, UUID tenantId, UUID databaseId, UUID tableId, UUID createdBy,
+                        String name, DatabaseViewType type, Map<String, Object> filters,
+                        List<DatabaseViewSort> sorts, List<String> visibleProperties,
+                        String groupByProperty, Instant createdAt, Instant updatedAt) {
+        this(id, tenantId, databaseId, tableId, createdBy, name, type, filters, sorts,
+                visibleProperties, groupByProperty, 1, createdAt, updatedAt);
     }
 
     public DatabaseView {
@@ -48,6 +58,7 @@ public record DatabaseView(
         if (groupByProperty != null && type != DatabaseViewType.BOARD) {
             throw new IllegalArgumentException("only BOARD views can define a group-by property");
         }
+        if (revision < 1) throw new IllegalArgumentException("view revision must be positive");
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
         if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt cannot precede createdAt");
@@ -68,6 +79,15 @@ public record DatabaseView(
                                       List<DatabaseViewSort> sorts, List<String> visibleProperties,
                                       String groupByProperty, Instant now) {
         return new DatabaseView(UUID.randomUUID(), tenantId, databaseId, tableId, actorId, name, type,
-                filters, sorts, visibleProperties, groupByProperty, now, now);
+                filters, sorts, visibleProperties, groupByProperty, 1, now, now);
     }
+    public DatabaseView revise(String name, DatabaseViewType type, Map<String, Object> filters,
+                               List<DatabaseViewSort> sorts, List<String> visibleProperties,
+                               String groupByProperty, long expectedRevision, Instant now) {
+        if (expectedRevision != revision) throw new IllegalArgumentException("stale saved-view revision");
+        if (revision == Long.MAX_VALUE) throw new IllegalStateException("saved-view revision exhausted");
+        return new DatabaseView(id, tenantId, databaseId, tableId, createdBy, name, type, filters, sorts,
+                visibleProperties, groupByProperty, revision + 1, createdAt, now);
+    }
+
 }

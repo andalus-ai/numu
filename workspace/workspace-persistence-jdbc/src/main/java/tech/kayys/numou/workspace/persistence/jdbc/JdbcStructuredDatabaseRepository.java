@@ -195,7 +195,7 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
     @Override public boolean saveView(DatabaseView view, AuditEntry audit) {
         validateAudit(audit, view.tenantId(), view.id(), "DATABASE_VIEW", "DATABASE_VIEW_CREATED", 1);
         return atomic("save structured database view", c -> {
-            String sql = "INSERT INTO workspace_database_views(id,tenant_id,database_id,table_id,created_by,name,view_type,filters,sorts,visible_properties,group_by_property,created_at,updated_at) VALUES(?,?,?,?,?,?,?,CAST(? AS jsonb),CAST(? AS jsonb),CAST(? AS jsonb),?,?,?)";
+            String sql = "INSERT INTO workspace_database_views(id,tenant_id,database_id,table_id,created_by,name,view_type,filters,sorts,visible_properties,group_by_property,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,CAST(? AS jsonb),CAST(? AS jsonb),CAST(? AS jsonb),?,?,?,?)";
             try (PreparedStatement p = c.prepareStatement(sql)) {
                 p.setObject(1, view.id()); p.setObject(2, view.tenantId()); p.setObject(3, view.databaseId());
                 p.setObject(4, view.tableId()); p.setObject(5, view.createdBy()); p.setString(6, view.name());
@@ -203,8 +203,8 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
                 List<Map<String, Object>> sorts = view.sorts().stream().map(s -> Map.<String,Object>of(
                         "propertyKey", s.propertyKey(), "direction", s.direction().name())).toList();
                 p.setString(9, Json.write(sorts)); p.setString(10, Json.write(view.visibleProperties()));
-                p.setString(11, view.groupByProperty());
-                p.setTimestamp(12, Timestamp.from(view.createdAt())); p.setTimestamp(13, Timestamp.from(view.updatedAt()));
+                p.setString(11, view.groupByProperty()); p.setLong(12, view.revision());
+                p.setTimestamp(13, Timestamp.from(view.createdAt())); p.setTimestamp(14, Timestamp.from(view.updatedAt()));
                 p.executeUpdate();
             }
             insertAudit(c, audit);
@@ -213,7 +213,7 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
     }
 
     @Override public Optional<DatabaseView> findView(UUID tenantId, UUID databaseId, UUID viewId) {
-        String sql = "SELECT id,tenant_id,database_id,table_id,created_by,name,view_type,filters::text,sorts::text,visible_properties::text,group_by_property,created_at,updated_at FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=?";
+        String sql = "SELECT id,tenant_id,database_id,table_id,created_by,name,view_type,filters::text,sorts::text,visible_properties::text,group_by_property,revision,created_at,updated_at FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=?";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setObject(1, tenantId); p.setObject(2, databaseId); p.setObject(3, viewId);
             try (ResultSet r = p.executeQuery()) {
@@ -223,15 +223,47 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         } catch (SQLException e) { throw failure("find structured database view", e); }
     }
 
-    @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, AuditEntry audit) {
-        validateAudit(audit, tenantId, viewId, "DATABASE_VIEW", "DATABASE_VIEW_DELETED", 1);
+    @Override public boolean updateView(DatabaseView view, long expectedRevision, AuditEntry audit) {
+        if (expectedRevision < 1 || view.revision() != expectedRevision + 1) {
+            throw new IllegalArgumentException("updated view revision must increment the expected revision");
+        }
+        validateAudit(audit, view.tenantId(), view.id(), "DATABASE_VIEW", "DATABASE_VIEW_UPDATED", view.revision());
+        return atomic("update structured database view", c -> {
+            String sql = "UPDATE workspace_database_views SET name=?,view_type=?,filters=CAST(? AS jsonb),sorts=CAST(? AS jsonb),visible_properties=CAST(? AS jsonb),group_by_property=?,revision=?,updated_at=? WHERE tenant_id=? AND database_id=? AND id=? AND created_by=? AND revision=?";
+            try (PreparedStatement p = c.prepareStatement(sql)) {
+                p.setString(1, view.name());
+                p.setString(2, view.type().name());
+                p.setString(3, Json.write(view.filters()));
+                List<Map<String, Object>> sorts = view.sorts().stream().map(s -> Map.<String,Object>of(
+                        "propertyKey", s.propertyKey(), "direction", s.direction().name())).toList();
+                p.setString(4, Json.write(sorts));
+                p.setString(5, Json.write(view.visibleProperties()));
+                p.setString(6, view.groupByProperty());
+                p.setLong(7, view.revision());
+                p.setTimestamp(8, Timestamp.from(view.updatedAt()));
+                p.setObject(9, view.tenantId());
+                p.setObject(10, view.databaseId());
+                p.setObject(11, view.id());
+                p.setObject(12, view.createdBy());
+                p.setLong(13, expectedRevision);
+                if (p.executeUpdate() != 1) return false;
+            }
+            insertAudit(c, audit);
+            return true;
+        });
+    }
+
+    @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, long expectedRevision, AuditEntry audit) {
+        validateAudit(audit, tenantId, viewId, "DATABASE_VIEW", "DATABASE_VIEW_DELETED", expectedRevision);
+        if (expectedRevision < 1) throw new IllegalArgumentException("expected saved-view revision must be positive");
         return atomic("delete structured database view", c -> {
             try (PreparedStatement p = c.prepareStatement(
-                    "DELETE FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=? AND created_by=?")) {
+                    "DELETE FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=? AND created_by=? AND revision=?")) {
                 p.setObject(1, tenantId);
                 p.setObject(2, databaseId);
                 p.setObject(3, viewId);
                 p.setObject(4, actorId);
+                p.setLong(5, expectedRevision);
                 if (p.executeUpdate() != 1) return false;
             }
             insertAudit(c, audit);
@@ -240,7 +272,7 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
     }
 
     @Override public List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId) {
-        String sql = "SELECT id,tenant_id,database_id,table_id,created_by,name,view_type,filters::text,sorts::text,visible_properties::text,group_by_property,created_at,updated_at FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND table_id=? AND created_by=? ORDER BY name,id";
+        String sql = "SELECT id,tenant_id,database_id,table_id,created_by,name,view_type,filters::text,sorts::text,visible_properties::text,group_by_property,revision,created_at,updated_at FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND table_id=? AND created_by=? ORDER BY name,id";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setObject(1, tenantId); p.setObject(2, databaseId); p.setObject(3, tableId); p.setObject(4, actorId);
             try (ResultSet r = p.executeQuery()) {
@@ -262,7 +294,7 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         }).toList();
         List<String> visible = ((List<?>) Json.read(r.getString(10))).stream().map(String.class::cast).toList();
         return new DatabaseView(uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),uuid(r,5),r.getString(6),
-                DatabaseViewType.valueOf(r.getString(7)),filters,sorts,visible,r.getString(11),instant(r,12),instant(r,13));
+                DatabaseViewType.valueOf(r.getString(7)),filters,sorts,visible,r.getString(11),r.getLong(12),instant(r,13),instant(r,14));
     }
 
     private List<DatabaseProperty> readProperties(Connection c,UUID tenant,UUID db,UUID table) throws SQLException {
