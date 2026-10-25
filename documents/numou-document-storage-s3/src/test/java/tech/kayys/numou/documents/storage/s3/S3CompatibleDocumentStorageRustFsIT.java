@@ -65,13 +65,13 @@ class S3CompatibleDocumentStorageRustFsIT {
                 payload.length, "text/plain", sha256);
 
         assertEquals(payload.length, written.contentLength());
-        assertEquals("text/plain", written.contentType());
-        assertEquals(sha256, written.sha256());
+        assertEquals(java.util.Optional.of("text/plain"), written.contentType());
+        assertEquals(java.util.Optional.of(sha256), written.sha256());
         assertTrue(storage.head(key).isPresent());
 
         try (var object = storage.get(key).orElseThrow()) {
             assertArrayEquals(payload, object.content().readAllBytes());
-            assertEquals(sha256, object.metadata().sha256());
+            assertEquals(java.util.Optional.of(sha256), object.metadata().sha256());
         }
 
         assertTrue(storage.delete(key));
