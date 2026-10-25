@@ -30,13 +30,14 @@ RULES = {
 }
 
 
-def write_pom(root, relative, artifact, dependencies=""):
+def write_pom(root, relative, artifact, dependencies="", profiles=""):
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         '<?xml version="1.0"?><project xmlns="http://maven.apache.org/POM/4.0.0">'
         '<modelVersion>4.0.0</modelVersion>'
         f'<artifactId>{artifact}</artifactId><dependencies>{dependencies}</dependencies>'
+        f'<profiles>{profiles}</profiles>'
         '</project>',
         encoding="utf-8",
     )
@@ -98,6 +99,33 @@ class CapabilityBoundaryVerifierTest(unittest.TestCase):
         _, errors = MODULE.scan(self.root, self.rules)
         self.assertEqual(1, len(errors))
         self.assertIn("forbids provided-scoped dependency", errors[0])
+
+    def test_rejects_profile_scoped_reverse_dependency(self):
+        profile = (
+            '<profile><id>construction-integration</id><dependencies>'
+            '<dependency><groupId>tech.kayys.numou</groupId>'
+            '<artifactId>numou-construction-adapter</artifactId>'
+            '</dependency></dependencies></profile>'
+        )
+        write_pom(self.root, "project/project-domain/pom.xml", "numou-project-domain",
+                  profiles=profile)
+        _, errors = MODULE.scan(self.root, self.rules)
+        self.assertEqual(1, len(errors))
+        self.assertIn("profile 'construction-integration' dependencies", errors[0])
+        self.assertIn("numou-construction-adapter", errors[0])
+
+    def test_allows_profile_test_scoped_reference(self):
+        profile = (
+            '<profile><id>test-fixtures</id><dependencies>'
+            '<dependency><groupId>tech.kayys.numou</groupId>'
+            '<artifactId>numou-construction-domain</artifactId>'
+            '<scope>test</scope></dependency>'
+            '</dependencies></profile>'
+        )
+        write_pom(self.root, "project/project-domain/pom.xml", "numou-project-domain",
+                  profiles=profile)
+        _, errors = MODULE.scan(self.root, self.rules)
+        self.assertEqual([], errors)
 
     def test_rejects_malformed_pom(self):
         path = self.root / "project/project-domain/pom.xml"

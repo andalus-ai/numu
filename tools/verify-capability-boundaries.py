@@ -2,8 +2,9 @@
 """Enforce declared cross-capability Maven dependency-direction rules.
 
 Rules are intentionally explicit and incremental: this verifier checks direct
-POM dependencies only, and it does not claim that undeclared boundaries are
-automatically inferred from package names or repository layout.
+POM dependencies (including profile-specific dependencies), and it does not
+claim that undeclared boundaries are automatically inferred from package names
+or repository layout.
 """
 import json
 from pathlib import Path
@@ -43,6 +44,16 @@ def load_rules(path=CONFIG_PATH):
     return rules
 
 
+def declared_dependencies(project):
+    """Yield (dependency, location) for direct and profile-specific dependencies."""
+    for dep in project.findall("./m:dependencies/m:dependency", NS):
+        yield dep, "project dependencies"
+    for profile in project.findall("./m:profiles/m:profile", NS):
+        profile_id = child_text(profile, "id") or "<unnamed>"
+        for dep in profile.findall("./m:dependencies/m:dependency", NS):
+            yield dep, f"profile '{profile_id}' dependencies"
+
+
 def scan(root, config_path=CONFIG_PATH):
     """Return (checked_pom_count, errors) for configured dependency rules."""
     root = Path(root)
@@ -67,7 +78,7 @@ def scan(root, config_path=CONFIG_PATH):
             if not any(consumer_artifact.startswith(prefix)
                        for prefix in rule["consumer_artifact_prefixes"]):
                 continue
-            for dep in project.findall("./m:dependencies/m:dependency", NS):
+            for dep, location in declared_dependencies(project):
                 group = child_text(dep, "groupId")
                 artifact = child_text(dep, "artifactId")
                 scope = child_text(dep, "scope") or "compile"
@@ -82,9 +93,9 @@ def scan(root, config_path=CONFIG_PATH):
                 if scope == "test":
                     continue
                 errors.append(
-                    f"{pom.relative_to(root)}: capability rule '{rule['id']}' "
-                    f"forbids {scope}-scoped dependency {group}:{artifact}; "
-                    f"{rule['rationale']}"
+                    f"{pom.relative_to(root)}: {location}: capability rule "
+                    f"'{rule['id']}' forbids {scope}-scoped dependency "
+                    f"{group}:{artifact}; {rule['rationale']}"
                 )
 
     if checked == 0:
