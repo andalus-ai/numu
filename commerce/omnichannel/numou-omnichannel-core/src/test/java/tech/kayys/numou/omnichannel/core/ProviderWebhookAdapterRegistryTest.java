@@ -64,10 +64,16 @@ class ProviderWebhookAdapterRegistryTest {
     @Test
     void rejectsProviderSpecificVerifierWithoutRequiredTimestampAndReplayControls() {
         var requiredControls = providerSpecificCapabilities("timestamped-provider");
+
         assertThatThrownBy(() -> new ProviderWebhookAdapterRegistration(
-                requiredControls, providerSpecificVerifier("timestamped-provider", false, false)))
+                requiredControls, providerSpecificVerifier("timestamped-provider", false, true)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("requires timestamp validation");
+
+        assertThatThrownBy(() -> new ProviderWebhookAdapterRegistration(
+                requiredControls, providerSpecificVerifier("timestamped-provider", true, false)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("requires replay protection");
     }
 
     @Test
