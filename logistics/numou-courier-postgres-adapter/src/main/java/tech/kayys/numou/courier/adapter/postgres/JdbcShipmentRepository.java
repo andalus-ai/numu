@@ -35,6 +35,10 @@ public class JdbcShipmentRepository implements ShipmentRepository {
             return CompletableFuture.failedFuture(new IllegalArgumentException("tenantId and shipment are required"));
         if (!tenantId.equals(shipment.tenantId()))
             return CompletableFuture.failedFuture(new SecurityException("shipment tenant does not match repository tenant"));
+        if (shipment.status() == ShipmentStatus.DELIVERED) {
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "shipment delivery completion is managed by the proof-of-delivery projector"));
+        }
 
         String sql = """
             INSERT INTO courier_shipments (
@@ -59,7 +63,7 @@ public class JdbcShipmentRepository implements ShipmentRepository {
               updated_at=EXCLUDED.updated_at, booked_at=EXCLUDED.booked_at, delivered_at=EXCLUDED.delivered_at
             WHERE courier_shipments.status = EXCLUDED.status
                OR (courier_shipments.status = 'DRAFT' AND EXCLUDED.status IN ('BOOKED', 'CANCELLED'))
-               OR (courier_shipments.status = 'BOOKED' AND EXCLUDED.status IN ('CANCELLED', 'DELIVERED'))
+               OR (courier_shipments.status = 'BOOKED' AND EXCLUDED.status = 'CANCELLED')
             """;
         try (Connection connection = dataSource.getConnection()) {
             boolean oldAutoCommit = connection.getAutoCommit();
