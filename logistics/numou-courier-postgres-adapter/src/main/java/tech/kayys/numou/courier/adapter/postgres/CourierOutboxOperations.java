@@ -29,7 +29,9 @@ public class CourierOutboxOperations {
     public List<DestinationHealth> health(String actorReference, String destination) {
         validateActor(actorReference);
         validateDestination(destination);
-        requireAuthorizer().ifMayInspect(actorReference, destination);
+        CourierOutboxOperationsAuthorizer authorizer = requireAuthorizer();
+        if (!authorizer.mayInspect(actorReference, destination))
+            throw new SecurityException("actor is not authorized to inspect this courier destination");
         String sql = """
                 SELECT status,
                        count(*) AS total,
