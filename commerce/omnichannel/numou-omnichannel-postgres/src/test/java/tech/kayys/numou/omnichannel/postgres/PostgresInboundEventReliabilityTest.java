@@ -5,6 +5,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import tech.kayys.numou.omnichannel.core.InboundWorkItem;
+import tech.kayys.numou.omnichannel.core.ChannelContext;
+import tech.kayys.numou.omnichannel.core.ChannelType;
+import tech.kayys.numou.omnichannel.core.InboundEventEnvelope;
+import tech.kayys.numou.omnichannel.core.InboundEventInbox;
+import tech.kayys.numou.omnichannel.core.InboxClaimDisposition;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -38,6 +44,7 @@ class PostgresInboundEventReliabilityTest {
     private DataSource dataSource;
     private PostgresInboundEventProcessingStore processingStore;
     private PostgresInboundEventRecoveryStore recoveryStore;
+    private InboundEventInbox inbox;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -63,6 +70,7 @@ class PostgresInboundEventReliabilityTest {
         applyMigration("db/migration/V3__persist_verified_payload_reference.sql");
         processingStore = new PostgresInboundEventProcessingStore(dataSource);
         recoveryStore = new PostgresInboundEventRecoveryStore(dataSource);
+        inbox = new PostgresInboundEventInbox(dataSource);
     }
 
     @AfterEach
@@ -124,6 +132,26 @@ class PostgresInboundEventReliabilityTest {
         assertThat(stateOf("stale-ingestion")).isEqualTo("DEAD_LETTER");
         assertThat(errorCodeOf("stale-ingestion")).isEqualTo("INGESTION_INCOMPLETE");
         assertThat(stateOf("fresh-ingestion")).isEqualTo("RECEIVED");
+    }
+
+    @Test
+    void samePayloadRedeliveryReclaimsOnlyIncompleteIngestionAfterQuarantine() throws SQLException {
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        String eventId = "recoverable-ingestion";
+        String digest = "a".repeat(64);
+        insertEvent(eventId, "RECEIVED", now.minusSeconds(3600), false, 0);
+        assertThat(recoveryStore.quarantineStaleReceived(now.minusSeconds(300), now, 100)).isEqualTo(1);
+
+        ChannelContext context = ChannelContext.of(TenantId.of(tenant), null,
+                ChannelType.MARKETPLACE, "test-account", "redelivery");
+        InboundEventEnvelope envelope = new InboundEventEnvelope(context, eventId, "order.updated",
+                digest, now.plusSeconds(1), Optional.empty());
+
+        var result = inbox.claim("test-provider", envelope);
+
+        assertThat(result.disposition()).isEqualTo(InboxClaimDisposition.ACCEPTED);
+        assertThat(stateOf(eventId)).isEqualTo("RECEIVED");
+        assertThat(errorCodeOf(eventId)).isNull();
     }
 
     private void insertEvent(String eventId, String state, Instant receivedAt,

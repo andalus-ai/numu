@@ -39,6 +39,17 @@ public final class PostgresInboundEventInbox implements InboundEventInbox {
             DO NOTHING
             """;
 
+    private static final String RECLAIM_INCOMPLETE_SQL = """
+            UPDATE numou_omnichannel_inbound_event
+               SET state = 'RECEIVED', received_at = ?, updated_at = ?,
+                   last_error_code = NULL, next_attempt_at = NULL,
+                   lease_until = NULL, lease_token = NULL, attempt_count = 0
+             WHERE tenant_id = ? AND provider_id = ? AND provider_account_id = ?
+               AND external_event_id = ? AND payload_sha256 = ?
+               AND state = 'DEAD_LETTER' AND last_error_code = 'INGESTION_INCOMPLETE'
+               AND payload_reference IS NULL
+            """;
+
     private static final String SELECT_DIGEST_SQL = """
             SELECT payload_sha256
               FROM numou_omnichannel_inbound_event
@@ -96,12 +107,31 @@ public final class PostgresInboundEventInbox implements InboundEventInbox {
                         "Conflicting inbox row disappeared before its digest could be read");
             }
 
+            if (existingDigest.equalsIgnoreCase(envelope.payloadSha256())
+                    && reclaimIncomplete(connection, key, envelope)) {
+                return new InboxClaimResult(key, InboxClaimDisposition.ACCEPTED, Optional.empty());
+            }
+
             InboxClaimDisposition disposition = existingDigest.equalsIgnoreCase(envelope.payloadSha256())
                     ? InboxClaimDisposition.DUPLICATE
                     : InboxClaimDisposition.PAYLOAD_CONFLICT;
             return new InboxClaimResult(key, disposition, Optional.of(existingDigest));
         } catch (SQLException exception) {
             throw new IllegalStateException("Unable to claim inbound event in PostgreSQL inbox", exception);
+        }
+    }
+
+    private static boolean reclaimIncomplete(
+            Connection connection, InboundEventKey key, InboundEventEnvelope envelope) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(RECLAIM_INCOMPLETE_SQL)) {
+            statement.setTimestamp(1, Timestamp.from(envelope.receivedAt()));
+            statement.setTimestamp(2, Timestamp.from(envelope.receivedAt()));
+            statement.setString(3, key.tenantId().toString());
+            statement.setString(4, key.providerId());
+            statement.setString(5, key.providerAccountId());
+            statement.setString(6, key.externalEventId());
+            statement.setString(7, envelope.payloadSha256());
+            return statement.executeUpdate() == 1;
         }
     }
 
