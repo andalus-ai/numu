@@ -6,6 +6,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import tech.kayys.numou.documents.storage.local.LocalFileDocumentStorage;
 import tech.kayys.numou.documents.storage.s3.S3CompatibleDocumentStorage;
@@ -27,7 +28,7 @@ public final class DocumentStorageProviderFactory {
     }
 
     private static DocumentStorage createS3Compatible(DocumentStorageSettings settings) {
-        S3Client.Builder builder = S3Client.builder()
+        S3ClientBuilder builder = S3Client.builder()
                 .region(Region.of(settings.region()))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(settings.pathStyleAccess())
