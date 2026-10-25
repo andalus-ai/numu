@@ -134,7 +134,7 @@ public class JdbcCourierOutboxPublisher {
                     last_error = NULL, updated_at = now()
                 WHERE tenant_id = ? AND event_id = ? AND destination = ?
                   AND status = 'PENDING' AND lease_owner = ?
-                """, d, destination, workerId, null, null);
+                """, d, destination, workerId, null, null, null);
     }
 
     private void retry(Delivery d, String destination, String workerId, Exception failure) {
