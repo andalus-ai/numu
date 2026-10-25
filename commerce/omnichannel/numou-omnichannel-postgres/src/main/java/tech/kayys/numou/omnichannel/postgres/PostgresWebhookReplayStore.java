@@ -24,10 +24,44 @@ public final class PostgresWebhookReplayStore implements WebhookReplayStore {
              WHERE numou_omnichannel_webhook_replay.expires_at <= EXCLUDED.reserved_at
             """;
 
+    private static final String DELETE_EXPIRED_SQL = """
+            DELETE FROM numou_omnichannel_webhook_replay
+             WHERE ctid IN (
+                 SELECT ctid
+                   FROM numou_omnichannel_webhook_replay
+                  WHERE expires_at <= ?
+                  ORDER BY expires_at
+                  LIMIT ?
+             )
+            """;
+
     private final DataSource dataSource;
 
     public PostgresWebhookReplayStore(DataSource dataSource) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource must not be null");
+    }
+
+    /**
+     * Deletes at most {@code batchSize} expired rows. Invoke from a scheduled
+     * maintenance task; bounded batches avoid long-running cleanup transactions.
+     */
+    public int deleteExpired(java.time.Instant cutoff, int batchSize) {
+        Objects.requireNonNull(cutoff, "cutoff must not be null");
+        if (batchSize < 1 || batchSize > 10000) {
+            throw new IllegalArgumentException("batchSize must be between 1 and 10000");
+        }
+        try (Connection connection = dataSource.getConnection()) {
+            if (!connection.getAutoCommit()) {
+                throw new IllegalStateException("PostgresWebhookReplayStore requires auto-commit connections");
+            }
+            try (PreparedStatement statement = connection.prepareStatement(DELETE_EXPIRED_SQL)) {
+                statement.setTimestamp(1, Timestamp.from(cutoff));
+                statement.setInt(2, batchSize);
+                return statement.executeUpdate();
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to clean expired webhook replay keys in PostgreSQL", exception);
+        }
     }
 
     @Override
