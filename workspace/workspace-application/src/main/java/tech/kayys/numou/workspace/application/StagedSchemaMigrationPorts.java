@@ -14,7 +14,11 @@ public final class StagedSchemaMigrationPorts {
     private StagedSchemaMigrationPorts() {}
 
     public interface Repository {
-        boolean create(DatabaseSchemaMigrationJob job, AuditEntry audit);
+        /**
+         * Creates the job and audit row atomically. The adapter computes the authoritative active
+         * record count rather than trusting the proposal's progress fields.
+         */
+        Optional<DatabaseSchemaMigrationJob> create(DatabaseSchemaMigrationJob proposal, AuditEntry audit);
         Optional<DatabaseSchemaMigrationJob> find(UUID tenantId, UUID jobId);
 
         /**
