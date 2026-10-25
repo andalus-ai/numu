@@ -90,11 +90,12 @@ class CourierOutboxOperationsPostgresIT {
             workerB.setAutoCommit(false);
             try (PreparedStatement lock = workerA.prepareStatement("""
                     SELECT event_id FROM courier_event_publications
-                    WHERE tenant_id = ? AND destination = ?
-                    ORDER BY event_id LIMIT 1 FOR UPDATE
+                    WHERE tenant_id = ? AND destination = ? AND event_id = ?
+                    FOR UPDATE
                     """)) {
                 lock.setObject(1, tenant);
                 lock.setString(2, "concurrent-test");
+                lock.setObject(3, first);
                 try (ResultSet rs = lock.executeQuery()) {
                     assertTrue(rs.next());
                 }
