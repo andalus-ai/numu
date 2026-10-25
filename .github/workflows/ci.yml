@@ -49,6 +49,16 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      rustfs:
+        image: rustfs/rustfs:1.0.3
+        env:
+          RUSTFS_ACCESS_KEY: numou-ci-access
+          RUSTFS_SECRET_KEY: numou-ci-secret
+          RUSTFS_ADDRESS: ":9000"
+          RUSTFS_CONSOLE_ENABLE: "false"
+          RUSTFS_CHECK_UPDATE: "false"
+        ports:
+          - 9000:9000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -72,7 +82,23 @@ jobs:
         run: mvn -B -ntp -f security/pom.xml -pl security-spi -am install
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Wait for RustFS readiness
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:9000/health >/dev/null; then
+              echo "RustFS is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "RustFS did not become ready in time" >&2
+          exit 1
       - name: Verify document storage reactor
+        env:
+          NUMOU_RUSTFS_ENDPOINT: http://localhost:9000
+          NUMOU_RUSTFS_ACCESS_KEY: numou-ci-access
+          NUMOU_RUSTFS_SECRET_KEY: numou-ci-secret
+          NUMOU_RUSTFS_BUCKET: numou-document-integration
         run: mvn -B -ntp -f documents/pom.xml verify
       - name: Build and install full security reactor
         run: mvn -B -ntp -f security/pom.xml install
