@@ -223,6 +223,22 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         } catch (SQLException e) { throw failure("find structured database view", e); }
     }
 
+    @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, AuditEntry audit) {
+        validateAudit(audit, tenantId, viewId, "DATABASE_VIEW", "DATABASE_VIEW_DELETED", 1);
+        return atomic("delete structured database view", c -> {
+            try (PreparedStatement p = c.prepareStatement(
+                    "DELETE FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND id=? AND created_by=?")) {
+                p.setObject(1, tenantId);
+                p.setObject(2, databaseId);
+                p.setObject(3, viewId);
+                p.setObject(4, actorId);
+                if (p.executeUpdate() != 1) return false;
+            }
+            insertAudit(c, audit);
+            return true;
+        });
+    }
+
     @Override public List<DatabaseView> findViews(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId) {
         String sql = "SELECT id,tenant_id,database_id,table_id,created_by,name,view_type,filters::text,sorts::text,visible_properties::text,group_by_property,created_at,updated_at FROM workspace_database_views WHERE tenant_id=? AND database_id=? AND table_id=? AND created_by=? ORDER BY name,id";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {

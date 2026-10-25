@@ -32,9 +32,9 @@ public class JdbcDeliveryTaskRepository implements DeliveryTaskRepository {
 
         String sql = """
             INSERT INTO courier_delivery_tasks
-              (tenant_id, id, shipment_id, courier_reference, assigned_by, status, created_at, updated_at,
+              (tenant_id, id, shipment_id, delivery_attempt_reference, courier_reference, assigned_by, status, created_at, updated_at,
                out_for_delivery_at, last_attempt_at, delivered_at, recipient_name, proof_reference, failure_reason)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT (tenant_id, id) DO UPDATE SET
               status=EXCLUDED.status, updated_at=EXCLUDED.updated_at,
               out_for_delivery_at=EXCLUDED.out_for_delivery_at, last_attempt_at=EXCLUDED.last_attempt_at,
@@ -78,17 +78,18 @@ public class JdbcDeliveryTaskRepository implements DeliveryTaskRepository {
                     statement.setObject(1, tenantId.value());
                     statement.setObject(2, task.id().value());
                     statement.setObject(3, task.shipmentId().value());
-                    statement.setString(4, task.courierReference());
-                    statement.setString(5, task.assignedBy());
-                    statement.setString(6, task.status().name());
-                    statement.setTimestamp(7, Timestamp.from(task.createdAt()));
-                    statement.setTimestamp(8, Timestamp.from(task.updatedAt()));
-                    setInstant(statement, 9, task.outForDeliveryAt());
-                    setInstant(statement, 10, task.lastAttemptAt());
-                    setInstant(statement, 11, task.deliveredAt());
-                    statement.setString(12, task.recipientName());
-                    statement.setString(13, task.proofReference());
-                    statement.setString(14, task.failureReason());
+                    statement.setString(4, attemptReference(task.id()));
+                    statement.setString(5, task.courierReference());
+                    statement.setString(6, task.assignedBy());
+                    statement.setString(7, task.status().name());
+                    statement.setTimestamp(8, Timestamp.from(task.createdAt()));
+                    statement.setTimestamp(9, Timestamp.from(task.updatedAt()));
+                    setInstant(statement, 10, task.outForDeliveryAt());
+                    setInstant(statement, 11, task.lastAttemptAt());
+                    setInstant(statement, 12, task.deliveredAt());
+                    statement.setString(13, task.recipientName());
+                    statement.setString(14, task.proofReference());
+                    statement.setString(15, task.failureReason());
                     affected = statement.executeUpdate();
                 }
                 if (affected == 0) throw new IllegalStateException("delivery task lifecycle regression rejected");
@@ -162,6 +163,11 @@ public class JdbcDeliveryTaskRepository implements DeliveryTaskRepository {
         return count;
     }
 
+
+    /** Stable POD attempt identity shared with external proof-of-delivery submissions. */
+    static String attemptReference(DeliveryTaskId taskId) {
+        return "TASK:" + taskId.value();
+    }
 
     private static void appendOutbox(Connection connection, DeliveryTask task) throws SQLException {
         String eventType = switch (task.status()) {

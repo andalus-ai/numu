@@ -118,7 +118,8 @@ public class JdbcProofOfDeliveryStore implements ProofOfDeliveryStore {
             INSERT INTO courier_event_outbox
               (tenant_id, id, event_type, aggregate_type, aggregate_reference, occurred_at, payload)
             VALUES (?, ?, ?, 'shipment', ?, ?, jsonb_build_object(
-              'proofId', ?, 'shipmentReference', ?, 'deliveryAttemptReference', ?, 'deliveredAt', ?))
+              'proofId', ?, 'shipmentReference', ?, 'deliveryAttemptReference', ?, 'deliveredAt', ?,
+              'recipientLabel', ?, 'evidenceReference', ?))
             """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, command.tenantId().value());
@@ -130,6 +131,8 @@ public class JdbcProofOfDeliveryStore implements ProofOfDeliveryStore {
             statement.setString(7, command.shipmentReference());
             statement.setString(8, command.deliveryAttemptReference());
             statement.setString(9, command.deliveredAt().toString());
+            statement.setString(10, command.recipientLabel());
+            statement.setString(11, command.evidenceReference());
             if (statement.executeUpdate() != 1) {
                 throw new SQLException("proof-of-delivery outbox event was not inserted");
             }
