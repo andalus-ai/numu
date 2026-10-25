@@ -23,6 +23,10 @@ jobs:
           python-version: "3.12"
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
+      - name: Test domain dependency boundary verifier
+        run: python3 -m unittest tools/test-verify-domain-boundaries.py
+      - name: Enforce domain dependency boundaries
+        run: python3 tools/verify-domain-boundaries.py
 
   framework-and-logistics:
     name: Framework and Courier/Cargo verification
