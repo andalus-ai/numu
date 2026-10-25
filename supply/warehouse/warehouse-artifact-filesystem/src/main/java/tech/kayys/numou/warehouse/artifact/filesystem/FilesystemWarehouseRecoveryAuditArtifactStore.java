@@ -66,10 +66,15 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
             if (!Files.exists(artifact)) Files.createFile(artifact);
             String digest = sha256(bytes);
             if (Files.exists(receipt)) {
-                String[] parts = Files.readString(receipt, StandardCharsets.UTF_8).split("\\n", -1);
-                if (parts.length < 3 || !parts[0].equals(Long.toString(expectedOffset))
-                        || !parts[1].equals(Integer.toString(bytes.length)) || !parts[2].equals(digest))
-                    throw new IOException("Chunk id was already committed with different content");
+                String receiptText = Files.readString(receipt, StandardCharsets.UTF_8);
+                String[] parts = receiptText.split("\\n", -1);
+                // Receipt format is exactly: offset, byte length, SHA-256, final newline.
+                // Do not accept extra fields or truncated records as valid durable evidence.
+                if (parts.length != 4 || !parts[3].isEmpty()
+                        || !parts[0].equals(Long.toString(expectedOffset))
+                        || !parts[1].equals(Integer.toString(bytes.length))
+                        || !parts[2].matches("[0-9a-f]{64}") || !parts[2].equals(digest))
+                    throw new IOException("Chunk receipt is malformed or conflicts with retry content");
                 verifyRange(artifact, expectedOffset, bytes);
                 return snapshot(artifact);
             }
