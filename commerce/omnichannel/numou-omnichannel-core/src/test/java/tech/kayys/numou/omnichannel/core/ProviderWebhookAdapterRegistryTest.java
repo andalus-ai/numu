@@ -3,7 +3,6 @@ package tech.kayys.numou.omnichannel.core;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,6 +62,26 @@ class ProviderWebhookAdapterRegistryTest {
     }
 
     @Test
+    void rejectsProviderSpecificVerifierWithoutRequiredTimestampAndReplayControls() {
+        var requiredControls = providerSpecificCapabilities("timestamped-provider");
+        assertThatThrownBy(() -> new ProviderWebhookAdapterRegistration(
+                requiredControls, providerSpecificVerifier("timestamped-provider", false, false)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("requires timestamp validation");
+    }
+
+    @Test
+    void acceptsProviderSpecificVerifierOnlyWhenItDeclaresRequiredControls() {
+        var requiredControls = providerSpecificCapabilities("timestamped-provider");
+        var verifier = providerSpecificVerifier("timestamped-provider", true, true);
+
+        var registration = new ProviderWebhookAdapterRegistration(requiredControls, verifier);
+
+        assertThat(registration.verifier().validatesProviderTimestamp()).isTrue();
+        assertThat(registration.verifier().enforcesReplayProtection()).isTrue();
+    }
+
+    @Test
     void rejectsProviderIdentityMismatchAndDuplicateProviderIds() {
         assertThatThrownBy(() -> new ProviderWebhookAdapterRegistration(
                 genericCapabilities("shop-provider"), genericVerifier("other-provider")))
@@ -92,9 +111,41 @@ class ProviderWebhookAdapterRegistryTest {
                 true, false, false, true, ROUTE, true);
     }
 
+    private static ProviderWebhookCapabilities providerSpecificCapabilities(String providerId) {
+        return new ProviderWebhookCapabilities(
+                providerId,
+                ProviderWebhookCapabilities.SignatureScheme.PROVIDER_SPECIFIC,
+                false, true, true, true, ROUTE, true);
+    }
+
     private static ProviderWebhookVerifier genericVerifier(String providerId) {
         return new HmacSha256RawBodyWebhookVerifier(
                 providerId, "x-provider-signature", "sha256=",
                 (provider, account) -> Optional.of("test-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    private static ProviderWebhookVerifier providerSpecificVerifier(
+            String providerId, boolean timestampValidation, boolean replayProtection) {
+        return new ProviderWebhookVerifier() {
+            @Override
+            public String providerId() {
+                return providerId;
+            }
+
+            @Override
+            public WebhookVerificationResult verify(ProviderWebhookVerificationRequest request) {
+                return WebhookVerificationResult.success();
+            }
+
+            @Override
+            public boolean validatesProviderTimestamp() {
+                return timestampValidation;
+            }
+
+            @Override
+            public boolean enforcesReplayProtection() {
+                return replayProtection;
+            }
+        };
     }
 }
