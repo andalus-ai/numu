@@ -22,7 +22,8 @@ public class IdentityProviderConfigEntity extends PanacheEntityBase {
     @Column(nullable = false)
     public String type;
 
-    @Column(name = "connection_config_json", nullable = false)
+    // The owning PostgreSQL schema stores provider configuration as JSONB.
+    @Column(name = "connection_config_json", nullable = false, columnDefinition = "jsonb")
     public String connectionConfigJson;
 
     @Column(nullable = false)
