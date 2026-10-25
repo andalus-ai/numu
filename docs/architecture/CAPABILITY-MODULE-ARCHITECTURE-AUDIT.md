@@ -692,3 +692,41 @@ Evidence:
 ## Scope and limitations of this pass
 
 Inspected current `main` source for Construction labor requirement aggregate/tests/handler/repository port; Workforce Worker, Employment, Qualification, WorkerQualification, and Timesheet; Construction progress measurement aggregate/handler; Planning ActivityProgressObservation and WBS/activity link use case. This did not establish all concrete persistence implementations, runtime wiring, or event delivery guarantees. No runtime code was changed and no tests were run; the audit records a source-backed integration gap and next acceptance criteria.
+
+
+## AUD-019 — Construction progress measurement persistence and publication boundary is not proven atomic
+
+**Confidence: High for the inspected source path; medium for runtime composition.**
+
+Evidence from current `main`:
+
+- `RecordProgressMeasurementHandler` calls `repository.save(measurement)` and then invokes `eventPublisher.publish(saved.pullDomainEvents())` in a separate application-level step.
+- The Construction SPI exposes `ProgressMeasurementRepository` with project/item queries, but the repository tree contains no concrete adapter implementing that port under `construction/construction-adapter`; the only progress-related adapter path found there is the PostgreSQL outbox relay package.
+- Construction does have a transactional-outbox SPI and PostgreSQL relay infrastructure, but the inspected handler does not itself express a single transaction that persists the measurement and its outbox event together.
+
+**Risk:** a process failure after saving the aggregate but before durable event publication can leave approved evidence unavailable to downstream consumers. This is not proof that every runtime composition is unsafe; wiring and alternate implementations must be checked before changing the contract.
+
+**Disposition:** trace CDI/runtime bindings and all repository implementations before choosing a fix. If the command path is intended to be PostgreSQL-backed, persist the aggregate and event envelope in one database transaction; do not rely on a post-save in-memory event list as the durability boundary. Add a failure-injection test proving either atomic rollback or eventual outbox delivery.
+
+## AUD-020 — Planning progress persistence has replay protection, but it is not yet a complete cross-capability evidence contract
+
+**Confidence: High for inspected repository and test behavior.**
+
+Evidence from `JdbcActivityProgressRepository` and its integration test:
+
+- Appends are keyed by `(plan_id, idempotency_key)`. An identical business-payload replay returns `false`; reuse of the key with a different payload throws `IllegalArgumentException`.
+- Progress history is append-only in the tested path and is preserved when an activity is revised; a test also verifies that direct deletion of recorded observations is rejected by the database.
+- The observation records activity, as-of date, percentage, recorded timestamp, actor string, idempotency key, and optional source reference.
+- The repository API is plan-scoped, not tenant-scoped. The inspected code does not prove that callers have already authorized access to the plan or that a supplied activity belongs to that plan at append time.
+
+**Risk:** the Planning persistence primitive is useful for an adapter, but by itself does not validate that a source measurement was approved, that BOQ and activity scopes/units align, or that a source reference is authorized and unique. Its plan-scoped idempotency key also cannot substitute for source-event deduplication across multiple target plans.
+
+**Disposition:** retain this repository's current replay semantics. Build any Construction-to-Planning adapter around an explicit approved-evidence contract with source event/measurement identity, tenant and project context, target plan/activity mapping, recorded-by provenance, and a deterministic idempotency key. Enforce authorization and mapping validation in the application boundary, and test cross-tenant, cross-plan, conflicting replay, and failure recovery. Keep quantity-to-percentage conversion policy explicit and versionable.
+
+## Updated milestone gate — before implementing the bridge
+
+1. Locate or add the concrete Construction measurement repository and its runtime binding; if absent, treat that as a prerequisite rather than inventing a fake adapter.
+2. Establish whether Construction measurement persistence and outbox insertion can share a transaction with the current aggregate persistence design.
+3. Define the versioned, transport-neutral approved-evidence contract and a consumer owned by the integration/composition boundary—not by either domain aggregate.
+4. Validate that the WBS/activity link and BOQ-item mapping are explicit, authorized, tenant-safe, and stable under retries.
+5. Implement only after the above contract exists, with tests for approved-only processing, invalid mapping, duplicate delivery, conflicting replay, cross-tenant access, and relay/consumer failure recovery.
