@@ -107,8 +107,16 @@ public final class InboundWebhookIngestionService {
 
         byte[] body = request.rawBody();
         String digest = sha256(body);
-        WebhookVerificationResult verification = verifier.verify(new ProviderWebhookVerificationRequest(
-                request.providerId(), request.context().providerAccountId(), request.headers(), body));
+        WebhookVerificationResult verification;
+        try {
+            verification = Objects.requireNonNull(verifier.verify(new ProviderWebhookVerificationRequest(
+                    request.providerId(), request.context().providerAccountId(), request.headers(), body)),
+                    "verifier result must not be null");
+        } catch (RuntimeException exception) {
+            // Provider verification is a trust boundary: unexpected verifier failures must fail closed.
+            // Do not expose exception messages, signatures, or provider implementation details.
+            return result(InboundIngestionDisposition.REJECTED, "VERIFICATION_FAILED", null);
+        }
         if (!verification.verified()) {
             return result(InboundIngestionDisposition.REJECTED, verification.reasonCode(), null);
         }

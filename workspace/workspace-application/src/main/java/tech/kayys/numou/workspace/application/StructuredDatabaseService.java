@@ -327,6 +327,32 @@ public final class StructuredDatabaseService {
         return updated;
     }
 
+    /**
+     * Repairs a schema-incompatible personal view through the same revision/CAS and audit path as updates.
+     * The caller supplies the full replacement configuration so ambiguous changes are never guessed.
+     */
+    public DatabaseView repairView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId,
+                                   long expectedRevision, String name, DatabaseViewType type,
+                                   Map<String, Object> filters, List<DatabaseViewSort> sorts,
+                                   List<String> visibleProperties, String groupByProperty) {
+        DatabaseView current = repository.findView(tenantId, databaseId, viewId)
+                .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
+        if (!current.createdBy().equals(actorId)) {
+            throw new IllegalArgumentException("saved view is personal and belongs to another actor");
+        }
+        if (current.revision() != expectedRevision) {
+            throw new IllegalArgumentException("stale saved-view revision");
+        }
+        DatabaseViewValidationResult validation = validateView(tenantId, actorId, databaseId, viewId);
+        if (validation.valid()) {
+            throw new IllegalArgumentException("saved view is already compatible; use updateView for ordinary edits");
+        }
+        // updateView validates every replacement field against the current schema and writes the
+        // revision increment and audit event atomically through repository compare-and-swap.
+        return updateView(tenantId, actorId, databaseId, viewId, expectedRevision, name, type,
+                filters, sorts, visibleProperties, groupByProperty);
+    }
+
     /** Deletes only the actor's own personal view; deletion and audit are one repository transaction. */
     public void deleteView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId) {
         requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
