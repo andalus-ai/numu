@@ -55,6 +55,37 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
         assertEquals(1, manifests.saved.size(), "retry must reuse the already committed manifest");
     }
 
+    @Test
+    void rejectsConflictingManifestAfterCompletionCrashWithoutRewritingArtifact() throws Exception {
+        InMemoryJobs jobs = new InMemoryJobs(requestedJob());
+        jobs.failNextUpdateForStatus = WarehouseRecoveryAuditExportJob.Status.COMPLETED;
+        InMemoryArtifacts artifacts = new InMemoryArtifacts();
+        InMemoryManifests manifests = new InMemoryManifests();
+        WarehouseRecoveryAuditExportWorker worker = worker(jobs, artifacts, manifests, new InMemoryAccess());
+
+        // First attempt durably stores the manifest but cannot commit the COMPLETED job state.
+        assertThrows(WarehouseRecoveryAuditPersistenceException.class, () -> worker.runOne("worker-a"));
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.VERIFYING, jobs.current.status());
+        assertEquals(1, artifacts.physicalWrites);
+        assertEquals(1, manifests.saved.size());
+
+        WarehouseRecoveryAuditArchiveManifest persisted = manifests.saved.get(0);
+        WarehouseRecoveryAuditArchiveManifest conflicting = new WarehouseRecoveryAuditArchiveManifest(
+                persisted.exportId(), persisted.tenantId(), persisted.artifactLocation(),
+                "0".repeat(64), persisted.byteSize(), persisted.eventCount(),
+                persisted.createdAt(), persisted.createdBy());
+        manifests.saved.set(0, conflicting);
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> worker.runOne("worker-b"));
+        assertTrue(failure.getMessage().contains("manifest conflicts"));
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.FAILED, jobs.current.status());
+        assertEquals("EXPORT_PROCESSING_FAILURE", jobs.current.failureCode());
+        assertEquals(1, artifacts.physicalWrites, "manifest conflict must not rewrite durable artifact bytes");
+        assertEquals(1, manifests.saved.size(), "conflicting immutable manifest must not be replaced or duplicated");
+        assertEquals(conflicting, manifests.find(persisted.tenantId(), persisted.exportId()).orElseThrow());
+    }
+
     private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, InMemoryArtifacts artifacts,
             InMemoryManifests manifests, InMemoryAccess access) {
         return worker(jobs, artifacts, manifests, access, Clock.fixed(NOW, ZoneOffset.UTC));
