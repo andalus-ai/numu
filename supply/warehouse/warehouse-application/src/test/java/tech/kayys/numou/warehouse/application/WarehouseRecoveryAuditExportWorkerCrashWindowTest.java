@@ -86,6 +86,41 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
         assertEquals(conflicting, manifests.find(persisted.tenantId(), persisted.exportId()).orElseThrow());
     }
 
+    @Test
+    void rejectsArtifactSizeThatDiffersFromCommittedCheckpoint() throws Exception {
+        InMemoryJobs jobs = new InMemoryJobs(requestedJob());
+        InMemoryArtifacts durable = new InMemoryArtifacts();
+        InMemoryManifests manifests = new InMemoryManifests();
+        WarehouseRecoveryAuditArtifactStore inconsistent = new SnapshotTamperingArtifacts(durable, 1, null);
+        WarehouseRecoveryAuditExportWorker worker = worker(jobs, inconsistent, manifests, new InMemoryAccess());
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> worker.runOne("worker-size"));
+        assertTrue(failure.getMessage().contains("size differs from durable checkpoint"));
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.FAILED, jobs.current.status());
+        assertEquals("EXPORT_PROCESSING_FAILURE", jobs.current.failureCode());
+        assertEquals(1, durable.physicalWrites, "integrity failure must not rewrite durable bytes");
+        assertTrue(manifests.saved.isEmpty(), "manifest must not be persisted for a mismatched artifact size");
+    }
+
+    @Test
+    void rejectsArtifactChecksumMismatchWithoutPersistingManifest() throws Exception {
+        InMemoryJobs jobs = new InMemoryJobs(requestedJob());
+        InMemoryArtifacts durable = new InMemoryArtifacts();
+        InMemoryManifests manifests = new InMemoryManifests();
+        WarehouseRecoveryAuditArtifactStore inconsistent =
+                new SnapshotTamperingArtifacts(durable, 0, "0".repeat(64));
+        WarehouseRecoveryAuditExportWorker worker = worker(jobs, inconsistent, manifests, new InMemoryAccess());
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> worker.runOne("worker-checksum"));
+        assertTrue(failure.getMessage().contains("failed integrity verification"));
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.FAILED, jobs.current.status());
+        assertEquals("ARCHIVE_CHECKSUM_MISMATCH", jobs.current.failureCode());
+        assertEquals(1, durable.physicalWrites, "checksum failure must not append or rewrite the artifact");
+        assertTrue(manifests.saved.isEmpty(), "unverified artifact must not produce a manifest");
+    }
+
     private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, InMemoryArtifacts artifacts,
             InMemoryManifests manifests, InMemoryAccess access) {
         return worker(jobs, artifacts, manifests, access, Clock.fixed(NOW, ZoneOffset.UTC));
@@ -177,6 +212,30 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
         @Override public java.time.ZoneId getZone() { return ZoneOffset.UTC; }
         @Override public Clock withZone(java.time.ZoneId zone) { return this; }
         @Override public Instant instant() { return instant; }
+    }
+
+    private static final class SnapshotTamperingArtifacts implements WarehouseRecoveryAuditArtifactStore {
+        private final WarehouseRecoveryAuditArtifactStore delegate;
+        private final long sizeDelta;
+        private final String checksumOverride;
+        private SnapshotTamperingArtifacts(WarehouseRecoveryAuditArtifactStore delegate,
+                long sizeDelta, String checksumOverride) {
+            this.delegate = delegate;
+            this.sizeDelta = sizeDelta;
+            this.checksumOverride = checksumOverride;
+        }
+        @Override public ArtifactSnapshot appendChunk(String tenantId, String exportId, String chunkId,
+                long expectedOffset, byte[] bytes) throws IOException {
+            return delegate.appendChunk(tenantId, exportId, chunkId, expectedOffset, bytes);
+        }
+        @Override public ArtifactSnapshot inspect(String tenantId, String exportId) throws IOException {
+            ArtifactSnapshot snapshot = delegate.inspect(tenantId, exportId);
+            return new ArtifactSnapshot(snapshot.location(), snapshot.byteSize() + sizeDelta,
+                    checksumOverride == null ? snapshot.sha256Hex() : checksumOverride);
+        }
+        @Override public InputStream open(String tenantId, String exportId) throws IOException {
+            return delegate.open(tenantId, exportId);
+        }
     }
 
     private static final class InMemoryArtifacts implements WarehouseRecoveryAuditArtifactStore {
