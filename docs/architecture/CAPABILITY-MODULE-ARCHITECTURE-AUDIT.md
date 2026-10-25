@@ -323,3 +323,40 @@ Additional semantics that need explicit mapping:
 5. Inspect downstream consumers and migrations before changing table constraints or consolidating persistence.
 
 No FX service or schema was changed in this audit pass.
+
+
+## Seventh pass: Product, Offering, Catalog, and Pricing ownership
+
+This pass finds a useful target boundary, but also several compatibility models that must not be collapsed by renaming or deleting classes alone.
+
+### Current ownership evidenced in source
+
+- **Foundation Product** — `product/product-domain/.../product/Product.java` explicitly owns product identity, code/name/description, product type/status, and external identifiers. Its class documentation explicitly excludes price, tax, inventory, promotion, subscription, customer, channel, and GL account. This is the strongest canonical identity/lifecycle model in the inspected set.
+- **Commerce ProductOffering** — `commerce/offering/.../ProductOffering.java` references a foundation `ProductId` and owns commercial availability context: name, offering type, channel, optional seller, validity range, and offering status. That is distinct from the product's identity and lifecycle.
+- **Commerce Pricing** — `commerce/pricing/.../PriceList.java` owns a tenant-defined coded list and price entries keyed by `ProductOfferingId`; each `PriceEntry` stores a `Money`. The application has separate `PriceBookPort` and `OptionPricePort` contracts. This is a sensible separation from the product aggregate.
+- **Catalog Listing** — `product/product-catalog/.../CatalogListing.java` references foundation `ProductId` and owns catalog placement, publication status, display order, and title/description overrides. That is a distinct catalog concern.
+- **Legacy CatalogProduct** — `product/product-catalog/.../CatalogProduct.java` is deprecated, but still combines product identity/name/description with a price, SKU, stock level, and catalog lifecycle. Its own comments say it is retained for source compatibility. It should be treated as a migration/compatibility model, not evidence that the foundation Product should regain price or stock fields.
+- **Legacy subscription Product** — `finance/subscription/numou-subscription-core/.../Product.java` is a Panache persistence entity with name, price, taxable flag, and tax rate, and `Subscription.calculateTotal()` consumes its price. This is a separate legacy billing/subscription model, not the canonical commerce product contract.
+- **Accounting product port** — `finance/accounting/numou-accounting-application/.../ProductCatalogPort.java` describes a Catalog lookup for invoicing but its returned `ProductDetails` includes `unitPrice`, `currencyCode`, `taxCode`, and `taxable`. That may be a deliberate invoice snapshot contract, but it currently bundles catalog descriptive fields with price/tax facts and needs explicit provenance/ownership.
+
+### Concrete pricing-resolution contract gap
+
+The inspected `PricingContext` carries `offeringId`, `quantity`, `customerRef`, `channel`, `configuration`, and `at`. However, `PriceBookPort.findBasePrice` accepts only `offeringId`, and `ResolvePriceHandler` calls that port with only the ID. The handler also checks that the offering is ACTIVE but does not consult its validity range or compare the request's channel/time to the offering. Option adjustments are looked up by offering plus option group/code; the inspected `OptionPricePort` call does not pass quantity, customer, channel, or effective time either.
+
+This means the visible application contract cannot select a context-specific base price or option adjustment using the full pricing context. It may be acceptable for a deliberately flat in-memory implementation, but it is a correctness/contract limitation if the same resolver is expected to support scheduled prices, channel/customer segmentation, quantity tiers, or time-bounded offers. No claim is made that every production adapter has the same behavior; the application port signatures themselves currently prevent those adapters from receiving the missing context.
+
+### Target ownership and migration rules
+
+1. Keep foundation Product as identity and lifecycle; keep channel/seller/validity and commercial availability in Offering; keep price-list and adjustment rules in Pricing; keep placement/presentation in Catalog.
+2. Do not move legacy price/tax fields into foundation Product. Billing and Accounting may snapshot the effective commercial facts onto an invoice, but the contract should identify the source, currency, tax determination result, effective timestamp, and immutable snapshot/version used.
+3. Treat `CatalogProduct` and subscription's Panache `Product` as compatibility models until consumers, persisted rows, endpoint contracts, and deployment composition are inventoried. Preserve adapters and migration paths rather than deleting classes based only on deprecation or package names.
+4. Define a pricing-resolution context contract that makes time, channel, quantity, customer/segment, currency, and selected configuration available where rules require them. Fields should be optional only when the business semantics explicitly say the dimension is irrelevant; avoid silently ignoring supplied context.
+5. Validate offering availability at the requested effective time and channel in a clear owner: Offering can expose a domain-level eligibility decision or Pricing can call an explicit offering-eligibility contract. Do not duplicate the Offering state machine inside Pricing.
+6. Add characterization tests for active-but-not-yet-valid and expired offerings, channel mismatch, historical price selection, quantity/customer segmentation, option adjustments, and currency consistency before widening the API. Keep a flat-price adapter for simple compositions.
+7. Trace the Accounting invoice adapter and legacy subscription consumers before deciding whether invoice price/tax fields are snapshots or lookups. Tax calculation/financial posting remain Finance responsibilities; catalog description and product identity should not become tax policy.
+
+### Recommended next implementation milestone
+
+Make the pricing context contract truthful end-to-end: first tests that pin current behavior, then evolve the price/adjustment lookup ports to accept a deliberately designed resolution context (or a narrower immutable lookup key derived from it), enforce offering eligibility at the requested time/channel, and provide compatibility overloads/adapters for current callers. Do not add persistence/schema changes until the existing adapters and deployable compositions are traced. The legacy Product cleanup should be a separate migration milestone after consumer and data evidence.
+
+No production code, database schema, or runtime wiring was changed in this audit pass; this is source-level architecture analysis only.
