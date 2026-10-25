@@ -85,5 +85,6 @@ class CourierPodTrackingProjectorContractTest {
         assertTrue(migration.contains("ck_courier_shipments_delivery_time"));
         assertTrue(repository.contains("row.getTimestamp(\"delivered_at\")"));
         assertTrue(repository.contains("delivered_at=EXCLUDED.delivered_at"));
+        assertTrue(repository.contains("shipment delivery completion is managed by the proof-of-delivery projector"));
     }
 }
