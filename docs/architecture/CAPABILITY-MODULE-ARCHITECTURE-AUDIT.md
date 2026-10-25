@@ -406,3 +406,104 @@ These are risks visible in the inspected source, not a claim that every deployme
 First add characterization tests for dimension-scoped commitments, cross-currency reservation attempts, approved-version immutability, partial allocation failure, rounding remainder, and duplicate actual/allocation submissions. Then fix the confirmed contract gaps in the owning modules, with explicit compatibility adapters. Before changing schemas or consolidating models, trace repository implementations, consumers, runtime wiring, transaction managers, and the accounting journal posting path.
 
 No production code, database schema, or runtime wiring was changed in this audit pass; this is source-level architecture analysis only.
+
+
+## Ninth pass: Identity, Organization, and Tenancy boundaries
+
+This pass inspected the foundation tenant primitives, the Identity security adapter and membership contract, the Security tenant resolver, the Tenancy aggregate, and the Organization aggregate/membership model. It is a targeted source review, not a complete authorization call graph or proof of runtime bean composition.
+
+### AUD-007 — Tenant lifecycle and tenant authorization are distinct concerns, but legacy tenant persistence overlaps Identity
+
+**Confidence: High that separate lifecycle and authorization models exist; medium-high that persistence ownership needs clarification.**
+
+Evidence:
+- `tenancy/tenancy-domain` models `Tenant` as the platform tenant lifecycle aggregate, with provisioning/activation/suspension/deactivation, an optional `OrganizationRef`, and separate Membership, Settings, and Provisioning aggregates.
+- `security/security-application/DefaultTenantResolver` resolves a requested tenant only after membership verification. It prefers a store-backed `TenantMembershipResolver` when one is available and otherwise checks the principal's embedded memberships.
+- Identity implements `TenantMembershipResolver` through `IdentityTenantMembershipAdapter`, delegating to the Identity membership-management port.
+- However, the Identity adapter migration `V1__identity_rbac.sql` also creates a `tenants` table and `tenant_memberships` table. The Tenancy capability has its own tenant and membership domain models and in-memory repository implementations.
+
+**Assessment:** Tenant lifecycle/provisioning and membership authorization can be separate capabilities, but two tenant persistence/lifecycle representations may create competing authorities. The migration establishes that the overlap is more than similar naming; it does not by itself prove both schemas are independently used in production.
+
+**Recommendation:**
+1. Make Tenancy the candidate authority for tenant identity, lifecycle, settings, provisioning, and tenant-level membership lifecycle unless consumer/runtime evidence supports a different established owner.
+2. Keep Identity responsible for user identity, credentials/federation, roles/permissions, and identity/security operations. It may expose a membership-verification adapter, but should not silently maintain a second tenant lifecycle table.
+3. Define the membership contract precisely: authoritative active status, tenant suspension/deactivation behavior, invitation expiry, revocation timing, and cache/claim freshness.
+4. Before schema consolidation, trace all Identity repository/entity references to `tenants` and `tenant_memberships`, all Tenancy adapters and runtime composition, token claims, migrations, and any external APIs. If both are live, use an explicit migration/compatibility adapter rather than deleting tables.
+
+### AUD-008 — Organization is not the same boundary as Tenant, but the cross-reference contract needs to stay explicit
+
+**Confidence: High on the domain distinction; medium on lifecycle synchronization.**
+
+Evidence:
+- Foundation defines `OrganizationRef` as a neutral reference type and `TenantId` as the tenant boundary primitive.
+- Tenancy's `Tenant` aggregate holds only tenant identity/lifecycle and an optional `OrganizationRef`; its documentation explicitly excludes Organization details.
+- Organization's `Organization` aggregate has a required `TenantId`, legal/business identity fields, and its own ACTIVE/SUSPENDED/DISSOLVED lifecycle.
+- Organization membership references `OrganizationId` and `UserId`, with its own pending/active/suspended/revoked lifecycle.
+
+**Assessment:** This separation is directionally sound: a tenant is an isolation/customer boundary, while an organization is a legal or operational entity inside that boundary. An optional tenant-to-organization reference and organization-to-tenant ownership are not necessarily duplicates. They do, however, permit lifecycle states that need an explicit policy: for example, whether a suspended/dissolved organization may remain referenced by an active tenant, and whether an organization may be moved across tenants (the current aggregate fixes its tenant ID).
+
+**Recommendation:**
+1. Keep Organization as the owner of organization/legal-unit lifecycle and organizational membership; keep Tenancy as owner of tenant lifecycle and tenant provisioning.
+2. Treat `OrganizationRef` as an identifier/reference, not as a substitute for tenant authorization or proof that an organization is active.
+3. Specify and test the consistency rules for the optional Tenant.organization reference and Organization.tenantId, including dissolution, suspension, reassignment, deletion/retention, and event ordering.
+4. Keep cross-capability checks behind public ports/events; do not add Organization entity dependencies to the foundation domain or Tenancy aggregate.
+
+### AUD-009 — Tenant-scoped repository contracts are stronger than the universal persistence guarantee currently evidenced
+
+**Confidence: High that the contract exists; medium that all adapters enforce it.**
+
+Evidence:
+- Foundation's `TenantScopedRepository` contract states that operations are automatically bounded by the active execution tenant and callers do not supply tenant IDs.
+- `TenantIsolation.verify` fails closed when the current tenant is absent and rejects an aggregate whose tenant ID differs.
+- Foundation's adapter-level `TenantContext` uses request-scoped state when available and a `ThreadLocal` fallback outside a request, for compatibility with tests/startup/blocking worker threads. Its documentation says setting a different tenant after security binding throws.
+- Construction has separate tenant-scope migration and integration-test artifacts for transaction context, pool safety, tenant isolation, and row-level security boundaries, indicating that database transaction/session scope is a separate enforcement concern.
+- The existence of the generic repository contract and helper does not prove every repository adapter applies them to reads, updates, deletes, and background jobs.
+
+**Assessment:** Tenant isolation must be enforced at multiple boundaries: verified request identity, authorized tenant resolution, application/service checks, repository query predicates, and database transaction/RLS where supported. A domain helper alone cannot prevent a missing tenant predicate in a persistence adapter. Thread-local fallback also needs disciplined clearing and must not be assumed to propagate across asynchronous/reactive execution.
+
+**Recommendation:**
+1. Audit each tenant-scoped adapter for tenant predicates on find/list/update/delete and for tenant ownership checks before writes; include not-found behavior for cross-tenant identifiers.
+2. Verify tenant context propagation/clearing across reactive continuations, executor handoffs, scheduled jobs, message consumers, and request reuse. Avoid relying on a thread-local as the async context carrier.
+3. Keep RLS/transaction context as defense in depth where supported, with integration tests that exercise pooled connections and rollback/exception paths.
+4. Add architecture/test coverage for missing tenant context, cross-tenant ID access, stale/forged tenant claims, tenant suspension, and concurrent requests sharing pooled threads/connections.
+5. Do not assume a repository is safe solely because it implements `TenantScopedRepository`; verify its concrete adapter and composition path.
+
+### AUD-010 — Actor identity verification is explicit at one REST boundary; its coverage and trust chain need inventory
+
+**Confidence: High for the inspected filter behavior; medium on full endpoint coverage.**
+
+Evidence:
+- `VerifiedActorFilter` applies to `api/v1/` paths, rejects anonymous requests except login/federated-login flows, derives actor identity from the authenticated principal, and rejects a supplied `X-Actor-Id` that differs from that principal.
+- It canonicalizes the authenticated principal as a UUID. This prevents a caller from choosing an arbitrary actor ID at this filter boundary.
+- The filter's path condition is explicitly scoped to `api/v1`; it does not itself demonstrate equivalent actor binding for gRPC, message consumers, scheduled jobs, other REST namespaces, or events emitted outside this route tree.
+
+**Assessment:** This is a useful request-boundary safeguard, but it is not a universal identity/authorization policy. Endpoint security annotations, tenant resolution, resource-level authorization, and non-HTTP entry points must be audited separately. The authenticated subject format is also a contract: federation/provider adapters must consistently map external subjects to the platform UUID or intentionally use a separate immutable principal identifier.
+
+**Recommendation:**
+1. Inventory all inbound transports and route roots, then establish one documented actor-context contract per transport.
+2. Keep authentication (who is the actor), tenant resolution (which tenant may be used), and authorization (what action is allowed) as distinct checks.
+3. Test spoofed/missing actor headers, UUID canonicalization, federation subject mapping, gRPC identity propagation, and message/event actor provenance.
+4. Ensure system jobs and service accounts have explicit actor types/permissions rather than fabricating user UUIDs or bypassing authorization.
+
+## Identity / Organization / Tenancy disposition matrix
+
+| Concern | Candidate owner | Keep distinct from | Next evidence / acceptance criteria |
+|---|---|---|---|
+| User identity, credentials, federation | Identity | Tenant lifecycle and organization legal data | Trace user stores, federation subject mapping, API/runtime composition |
+| Tenant lifecycle, settings, provisioning | Tenancy | Organization lifecycle and user credentials | Trace tenant tables/entities and all provisioning consumers; define compatibility/migration |
+| Tenant membership lifecycle | Tenancy candidate; verify current authority | Organization membership and role assignment | Reconcile duplicate membership models, invitation expiry/revocation and active-state semantics |
+| Roles, permissions, policy evaluation | Identity/Security contracts | Tenant lifecycle and organization membership | Trace tenant-scoped role assignment, caches, and every transport boundary |
+| Legal/operational organization and units | Organization | Tenant isolation boundary | Define tenant/organization reference consistency and lifecycle policy |
+| Tenant context propagation and persistence isolation | Foundation contract + capability adapters + database enforcement | Domain ownership | Adapter-by-adapter query, async context, and RLS/connection-pool tests |
+
+## Proposed next milestone (not implemented by this audit)
+
+1. **Establish authority:** produce a table-level and runtime-composition inventory for `tenants`, `tenant_memberships`, Tenancy repositories, Identity membership repositories, and token/claim consumers.
+2. **Characterize behavior:** add/verify tests for membership status and expiry, suspended tenant handling, organization lifecycle consistency, actor spoofing, and tenant-context propagation across reactive/background execution.
+3. **Choose a migration seam:** if Tenancy is confirmed as the lifecycle owner, add a public Tenancy membership/tenant lookup contract and adapt Identity/Security to it without importing Tenancy persistence entities.
+4. **Enforce defense in depth:** prioritize concrete repository tenant predicates and transaction/RLS integration tests over adding another generic helper.
+5. **Migrate only with evidence:** preserve current endpoints, claims, persisted IDs, and role assignments through an adapter and data migration; do not drop Identity tenant tables before runtime and data ownership are proven.
+
+## Scope and limitations of this pass
+
+Inspected `AGENTS.md`, foundation tenant context/isolation contracts, Security's default tenant resolver, Identity's actor filter and membership adapter/port, the Tenancy tenant aggregate, Organization and OrganizationMembership aggregates, and Identity migration V1. This did not establish all database consumers, active runtime beans, API exposure, or deployed schema ownership. No code was changed in this pass; the section records source-backed risks and a safe evidence-gathering plan, not a claim that all adapters are insecure or that schema consolidation is already approved.
