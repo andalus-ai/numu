@@ -121,12 +121,12 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
         assertTrue(manifests.saved.isEmpty(), "unverified artifact must not produce a manifest");
     }
 
-    private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, InMemoryArtifacts artifacts,
+    private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, WarehouseRecoveryAuditArtifactStore artifacts,
             InMemoryManifests manifests, InMemoryAccess access) {
         return worker(jobs, artifacts, manifests, access, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
-    private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, InMemoryArtifacts artifacts,
+    private static WarehouseRecoveryAuditExportWorker worker(InMemoryJobs jobs, WarehouseRecoveryAuditArtifactStore artifacts,
             InMemoryManifests manifests, InMemoryAccess access, Clock clock) {
         WarehouseExecutionAttemptRepository repository = (WarehouseExecutionAttemptRepository)
                 java.lang.reflect.Proxy.newProxyInstance(WarehouseExecutionAttemptRepository.class.getClassLoader(),
