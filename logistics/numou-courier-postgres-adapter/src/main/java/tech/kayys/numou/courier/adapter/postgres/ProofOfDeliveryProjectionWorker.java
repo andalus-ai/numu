@@ -5,7 +5,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.util.concurrent.CompletionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,7 +42,7 @@ public class ProofOfDeliveryProjectionWorker {
             if (projected > 0) {
                 LOG.info(() -> "Projected " + projected + " proof-of-delivery tracking event(s)");
             }
-        } catch (CompletionException | RuntimeException failure) {
+        } catch (RuntimeException failure) {
             LOG.log(Level.SEVERE, "Proof-of-delivery tracking projection failed; eligible rows remain retryable",
                     failure);
         }
