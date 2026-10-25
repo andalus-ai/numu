@@ -119,8 +119,11 @@ class StructuredDatabaseServiceTest {
         service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Two", "status", "done"));
         service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Three"));
         DatabaseView board = service.createView(tenant, actor, database.id(), table.id(), "Task board",
-                DatabaseViewType.BOARD, Map.of(), List.of(), List.of("title", "status"));
-        DatabaseRecordBoard result = service.queryBoard(tenant, actor, database.id(), board.id(), "status", 20, 0);
+                DatabaseViewType.BOARD, Map.of(), List.of(), List.of("title", "status"), "status");
+        assertEquals("status", board.groupByProperty());
+        DatabaseRecordBoard result = service.queryBoard(tenant, actor, database.id(), board.id(), 20, 0);
+        assertThrows(IllegalArgumentException.class, () -> service.queryBoard(
+                tenant, actor, database.id(), board.id(), "title", 20, 0));
         assertEquals(3, result.totalRecords());
         assertEquals("status", result.groupByProperty());
         assertEquals(4, result.groups().size());
@@ -136,6 +139,9 @@ class StructuredDatabaseServiceTest {
                 tenant, actor, database.id(), tableView.id(), "status", 20, 0));
         assertThrows(IllegalArgumentException.class, () -> service.queryBoard(
                 tenant, actor, database.id(), board.id(), "title", 20, 0));
+        assertThrows(IllegalArgumentException.class, () -> service.createView(
+                tenant, actor, database.id(), table.id(), "Invalid grouped table",
+                DatabaseViewType.TABLE, Map.of(), List.of(), List.of(), "status"));
     }
 
     @Test
@@ -189,6 +195,35 @@ class StructuredDatabaseServiceTest {
         assertThrows(SecurityException.class,
                 () -> restricted.createRecord(tenant, actor, database.id(), sourceTable.id(),
                         Map.of("targets", List.of(target.id()))));
+    }
+
+    @Test
+    void boardProjectionKeepsPageBoundedAndReportsFilteredTotal() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Paged board");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false,
+                        List.of("todo", "doing", "done"), null)));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "One", "status", "todo"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Two", "status", "doing"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Three", "status", "done"));
+        DatabaseView board = service.createView(tenant, actor, database.id(), table.id(), "Paged board",
+                DatabaseViewType.BOARD, Map.of(), List.of(), List.of("title", "status"));
+
+        DatabaseRecordBoard firstPage = service.queryBoard(tenant, actor, database.id(), board.id(), "status", 1, 0);
+        assertEquals(3, firstPage.totalRecords());
+        assertEquals(1, firstPage.limit());
+        assertEquals(0, firstPage.offset());
+        assertEquals(1, firstPage.groups().stream().mapToInt(group -> group.records().size()).sum());
+
+        DatabaseRecordBoard lastPage = service.queryBoard(tenant, actor, database.id(), board.id(), "status", 1, 2);
+        assertEquals(3, lastPage.totalRecords());
+        assertEquals(2, lastPage.offset());
+        assertEquals(1, lastPage.groups().stream().mapToInt(group -> group.records().size()).sum());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.queryBoard(tenant, actor, database.id(), board.id(), "status", 201, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.queryBoard(tenant, actor, database.id(), board.id(), "status", 20, -1));
     }
 
     private static final class InMemoryRepository implements StructuredDatabaseRepository {

@@ -18,8 +18,18 @@ public record DatabaseView(
         Map<String, Object> filters,
         List<DatabaseViewSort> sorts,
         List<String> visibleProperties,
+        String groupByProperty,
         Instant createdAt,
         Instant updatedAt) {
+    /** Backward-compatible constructor for non-grouped views and existing adapters. */
+    public DatabaseView(UUID id, UUID tenantId, UUID databaseId, UUID tableId, UUID createdBy,
+                        String name, DatabaseViewType type, Map<String, Object> filters,
+                        List<DatabaseViewSort> sorts, List<String> visibleProperties,
+                        Instant createdAt, Instant updatedAt) {
+        this(id, tenantId, databaseId, tableId, createdBy, name, type, filters, sorts,
+                visibleProperties, null, createdAt, updatedAt);
+    }
+
     public DatabaseView {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(tenantId, "tenantId");
@@ -32,6 +42,12 @@ public record DatabaseView(
         filters = filters == null ? Map.of() : Map.copyOf(filters);
         sorts = sorts == null ? List.of() : List.copyOf(sorts);
         visibleProperties = visibleProperties == null ? List.of() : List.copyOf(visibleProperties);
+        if (groupByProperty != null && !groupByProperty.matches("[a-z][a-z0-9_]{0,62}")) {
+            throw new IllegalArgumentException("invalid group-by property");
+        }
+        if (groupByProperty != null && type != DatabaseViewType.BOARD) {
+            throw new IllegalArgumentException("only BOARD views can define a group-by property");
+        }
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
         if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt cannot precede createdAt");
@@ -43,7 +59,15 @@ public record DatabaseView(
     public static DatabaseView create(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId,
                                       String name, DatabaseViewType type, Map<String, Object> filters,
                                       List<DatabaseViewSort> sorts, List<String> visibleProperties, Instant now) {
+        return create(tenantId, databaseId, tableId, actorId, name, type, filters, sorts,
+                visibleProperties, null, now);
+    }
+
+    public static DatabaseView create(UUID tenantId, UUID databaseId, UUID tableId, UUID actorId,
+                                      String name, DatabaseViewType type, Map<String, Object> filters,
+                                      List<DatabaseViewSort> sorts, List<String> visibleProperties,
+                                      String groupByProperty, Instant now) {
         return new DatabaseView(UUID.randomUUID(), tenantId, databaseId, tableId, actorId, name, type,
-                filters, sorts, visibleProperties, now, now);
+                filters, sorts, visibleProperties, groupByProperty, now, now);
     }
 }
