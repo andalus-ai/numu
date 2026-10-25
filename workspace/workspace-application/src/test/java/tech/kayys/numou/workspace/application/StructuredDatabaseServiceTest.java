@@ -197,6 +197,35 @@ class StructuredDatabaseServiceTest {
                         Map.of("targets", List.of(target.id()))));
     }
 
+    @Test
+    void boardProjectionKeepsPageBoundedAndReportsFilteredTotal() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Paged board");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false,
+                        List.of("todo", "doing", "done"), null)));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "One", "status", "todo"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Two", "status", "doing"));
+        service.createRecord(tenant, actor, database.id(), table.id(), Map.of("title", "Three", "status", "done"));
+        DatabaseView board = service.createView(tenant, actor, database.id(), table.id(), "Paged board",
+                DatabaseViewType.BOARD, Map.of(), List.of(), List.of("title", "status"));
+
+        DatabaseRecordBoard firstPage = service.queryBoard(tenant, actor, database.id(), board.id(), "status", 1, 0);
+        assertEquals(3, firstPage.totalRecords());
+        assertEquals(1, firstPage.limit());
+        assertEquals(0, firstPage.offset());
+        assertEquals(1, firstPage.groups().stream().mapToInt(group -> group.records().size()).sum());
+
+        DatabaseRecordBoard lastPage = service.queryBoard(tenant, actor, database.id(), board.id(), "status", 1, 2);
+        assertEquals(3, lastPage.totalRecords());
+        assertEquals(2, lastPage.offset());
+        assertEquals(1, lastPage.groups().stream().mapToInt(group -> group.records().size()).sum());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.queryBoard(tenant, actor, database.id(), board.id(), "status", 201, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.queryBoard(tenant, actor, database.id(), board.id(), "status", 20, -1));
+    }
+
     private static final class InMemoryRepository implements StructuredDatabaseRepository {
         private List<DatabaseViewSort> lastSorts = List.of();
         private final Map<UUID, WorkspaceDatabase> databases = new HashMap<>();
