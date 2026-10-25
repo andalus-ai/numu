@@ -116,6 +116,62 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void diagnosesSchemaDriftAndRefusesExecutionWithoutDeletingSavedView() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema drift");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false, List.of("todo", "done"), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Drifting board",
+                DatabaseViewType.BOARD, Map.of("status", "todo"),
+                List.of(new DatabaseViewSort("status", DatabaseViewSort.Direction.ASC)),
+                List.of("title", "status"), "status");
+
+        // Simulate a schema migration that removes a property while leaving saved configuration intact.
+        repository.tables.put(table.id(), new DatabaseTable(table.id(), tenant, database.id(), "Tasks", 2,
+                List.of(new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                        DatabasePropertyType.TEXT, true, List.of(), null))));
+
+        DatabaseViewValidationResult result = service.validateView(tenant, actor, database.id(), view.id());
+        assertFalse(result.valid());
+        assertEquals(2, result.schemaVersion());
+        assertTrue(result.issues().stream().anyMatch(issue ->
+                issue.code() == DatabaseViewValidationIssue.Code.FILTER_PROPERTY_MISSING));
+        assertTrue(result.issues().stream().anyMatch(issue ->
+                issue.code() == DatabaseViewValidationIssue.Code.SORT_PROPERTY_MISSING));
+        assertTrue(result.issues().stream().anyMatch(issue ->
+                issue.code() == DatabaseViewValidationIssue.Code.VISIBLE_PROPERTY_MISSING));
+        assertTrue(result.issues().stream().anyMatch(issue ->
+                issue.code() == DatabaseViewValidationIssue.Code.GROUP_PROPERTY_MISSING));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> service.queryBoard(tenant, actor, database.id(), view.id(), 20, 0));
+        assertTrue(failure.getMessage().contains("FILTER_PROPERTY_MISSING"));
+        assertTrue(repository.findView(tenant, database.id(), view.id()).isPresent(),
+                "validation must not destructively delete the saved view");
+    }
+
+    @Test
+    void diagnosesSelectOptionDriftInSavedFilter() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Option drift");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT,
+                        false, List.of("todo", "done"), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Todo tasks",
+                DatabaseViewType.TABLE, Map.of("status", "todo"), List.of(), List.of("status"));
+
+        repository.tables.put(table.id(), new DatabaseTable(table.id(), tenant, database.id(), "Tasks", 2,
+                List.of(new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT,
+                        false, List.of("done"), null))));
+
+        DatabaseViewValidationResult result = service.validateView(tenant, actor, database.id(), view.id());
+        assertFalse(result.valid());
+        assertTrue(result.issues().stream().anyMatch(issue ->
+                issue.code() == DatabaseViewValidationIssue.Code.FILTER_VALUE_INVALID
+                        && "status".equals(issue.propertyKey())));
+        assertTrue(repository.findView(tenant, database.id(), view.id()).isPresent());
+    }
+
+    @Test
     void deletesOnlyOwnedSavedViewsAndRecordsAudit() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "View lifecycle");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(

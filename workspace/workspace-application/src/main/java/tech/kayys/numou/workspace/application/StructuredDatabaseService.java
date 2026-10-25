@@ -12,6 +12,7 @@ import tech.kayys.numou.workspace.domain.DatabaseTable;
 import tech.kayys.numou.workspace.domain.DatabaseView;
 import tech.kayys.numou.workspace.domain.DatabaseViewSort;
 import tech.kayys.numou.workspace.domain.DatabaseViewType;
+import tech.kayys.numou.workspace.domain.DatabaseViewValidationResult;
 import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
 
 import java.time.Clock;
@@ -140,16 +141,18 @@ public final class StructuredDatabaseService {
         if (!view.createdBy().equals(actorId)) {
             throw new IllegalArgumentException("saved view is personal and belongs to another actor");
         }
+        DatabaseViewValidationResult validation = validateView(tenantId, actorId, databaseId, viewId);
+        if (!validation.valid()) {
+            throw new IllegalStateException("saved view is incompatible with the current table schema: "
+                    + validation.issues().stream()
+                    .map(issue -> issue.code() + (issue.propertyKey() == null ? "" : "[" + issue.propertyKey() + "]"))
+                    .toList());
+        }
         DatabaseTable table = repository.findTable(tenantId, databaseId, view.tableId())
                 .orElseThrow(() -> new IllegalStateException("saved view table no longer exists"));
         accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, table.id(), Action.READ);
-        // Revalidate on every execution: saved configurations must never bypass current schema rules.
         Map<String, Object> filters = new java.util.LinkedHashMap<>();
-        view.filters().forEach((key, value) -> {
-            DatabaseProperty property = table.property(key);
-            if (value == null) throw new IllegalStateException("saved view contains a null filter");
-            filters.put(key, property.validateValue(value));
-        });
+        view.filters().forEach((key, value) -> filters.put(key, table.property(key).validateValue(value)));
         for (DatabaseViewSort sort : view.sorts()) table.property(sort.propertyKey());
         DatabaseRecordPage page = repository.queryRecords(tenantId, databaseId, table.id(),
                 Map.copyOf(filters), view.sorts(), limit, offset);
@@ -214,6 +217,11 @@ public final class StructuredDatabaseService {
         }
         return new tech.kayys.numou.workspace.domain.DatabaseRecordBoard(groupProperty.key(), groups,
                 page.total(), page.limit(), page.offset());
+    }
+
+    /** Reports schema drift without mutating or deleting the saved view. */
+    public DatabaseViewValidationResult validateView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId) {
+        return new SavedViewSchemaValidator(repository, accessPolicy).validate(tenantId, actorId, databaseId, viewId);
     }
 
     /** Creates a personal saved view after validating every referenced property against the current schema. */
