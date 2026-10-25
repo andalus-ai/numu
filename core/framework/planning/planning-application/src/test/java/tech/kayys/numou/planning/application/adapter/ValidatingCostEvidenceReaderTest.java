@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,7 +45,7 @@ class ValidatingCostEvidenceReaderTest {
     }
 
     @Test
-    void rejectsUnapprovedEvidenceAndDuplicateRows() {
+    void rejectsUnapprovedEvidenceAndDuplicateBudgetRows() {
         var unapproved = new ValidatingCostEvidenceReader(new StubReader(
                 List.of(budget(TENANT, STRUCTURE, NODE, BASELINE, CostEvidenceStatus.REJECTED)),
                 List.of()));
@@ -61,13 +62,45 @@ class ValidatingCostEvidenceReaderTest {
     }
 
     @Test
-    void rejectsActualCostFromAnotherReportingDate() {
-        var reader = new ValidatingCostEvidenceReader(new StubReader(
+    void rejectsActualCostFromAnotherReportingDateOrStructure() {
+        var wrongDate = new ValidatingCostEvidenceReader(new StubReader(
                 List.of(),
                 List.of(actual(TENANT, STRUCTURE, NODE, DATE.minusDays(1), CostEvidenceStatus.APPROVED))));
+        assertThrows(IllegalStateException.class,
+                () -> wrongDate.findApprovedActualCosts(TENANT, STRUCTURE, DATE, List.of(NODE)));
+
+        var wrongStructure = new ValidatingCostEvidenceReader(new StubReader(
+                List.of(),
+                List.of(actual(TENANT, UUID.randomUUID(), NODE, DATE, CostEvidenceStatus.APPROVED))));
+        assertThrows(IllegalStateException.class,
+                () -> wrongStructure.findApprovedActualCosts(TENANT, STRUCTURE, DATE, List.of(NODE)));
+    }
+
+    @Test
+    void rejectsCrossTenantActualCostEvidence() {
+        var reader = new ValidatingCostEvidenceReader(new StubReader(
+                List.of(),
+                List.of(actual(UUID.randomUUID(), STRUCTURE, NODE, DATE, CostEvidenceStatus.APPROVED))));
 
         assertThrows(IllegalStateException.class,
                 () -> reader.findApprovedActualCosts(TENANT, STRUCTURE, DATE, List.of(NODE)));
+    }
+
+    @Test
+    void rejectsDuplicateActualCostRowsAndNullRows() {
+        var duplicate = new ValidatingCostEvidenceReader(new StubReader(
+                List.of(),
+                List.of(
+                        actual(TENANT, STRUCTURE, NODE, DATE, CostEvidenceStatus.APPROVED),
+                        actual(TENANT, STRUCTURE, NODE, DATE, CostEvidenceStatus.APPROVED))));
+        assertThrows(IllegalStateException.class,
+                () -> duplicate.findApprovedActualCosts(TENANT, STRUCTURE, DATE, List.of(NODE)));
+
+        List<CumulativeActualCostEvidence> nullRow = new ArrayList<>();
+        nullRow.add(null);
+        var nullRowReader = new ValidatingCostEvidenceReader(new StubReader(List.of(), nullRow));
+        assertThrows(NullPointerException.class,
+                () -> nullRowReader.findApprovedActualCosts(TENANT, STRUCTURE, DATE, List.of(NODE)));
     }
 
     @Test
@@ -78,6 +111,20 @@ class ValidatingCostEvidenceReaderTest {
 
         assertThrows(IllegalStateException.class,
                 () -> reader.findApprovedBudgets(TENANT, STRUCTURE, BASELINE, List.of(NODE)));
+    }
+
+    @Test
+    void returnsImmutableSnapshotsRatherThanProviderOwnedLists() {
+        List<BudgetedCostEvidence> budgets = new ArrayList<>();
+        budgets.add(budget(TENANT, STRUCTURE, NODE, BASELINE, CostEvidenceStatus.APPROVED));
+        var reader = new ValidatingCostEvidenceReader(new StubReader(budgets, List.of()));
+
+        List<BudgetedCostEvidence> snapshot =
+                reader.findApprovedBudgets(TENANT, STRUCTURE, BASELINE, List.of(NODE));
+        budgets.clear();
+
+        assertEquals(1, snapshot.size());
+        assertThrows(UnsupportedOperationException.class, snapshot::clear);
     }
 
     private static BudgetedCostEvidence budget(
