@@ -5,7 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.ConflictException;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -57,7 +57,9 @@ public class ScheduleChangeOutboxReplayResource {
                 request.reason(),
                 Instant.now());
         if (!replayed) {
-            throw new ConflictException("Event is not currently eligible for dead-letter replay");
+            throw new WebApplicationException(
+                    "Event is not currently eligible for dead-letter replay",
+                    Response.Status.CONFLICT);
         }
         return Response.accepted(new ReplayAccepted(outboxId, "queued")).build();
     }
