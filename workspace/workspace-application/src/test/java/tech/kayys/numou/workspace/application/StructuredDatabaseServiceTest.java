@@ -92,6 +92,30 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void updatesSavedViewsWithOptimisticRevisionAndAudit() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "View updates");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false, List.of("todo", "done"), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "My tasks",
+                DatabaseViewType.TABLE, Map.of(), List.of(), List.of("title"));
+        DatabaseView updated = service.updateView(tenant, actor, database.id(), view.id(), 1,
+                "Completed tasks", DatabaseViewType.TABLE, Map.of("status", "done"),
+                List.of(new DatabaseViewSort("title", DatabaseViewSort.Direction.ASC)), List.of("title", "status"), null);
+        assertEquals(2, updated.revision());
+        assertEquals("Completed tasks", updated.name());
+        assertEquals("done", updated.filters().get("status"));
+        assertEquals("DATABASE_VIEW_UPDATED", repository.audit.get(repository.audit.size() - 1).action());
+        assertThrows(IllegalArgumentException.class, () -> service.updateView(
+                tenant, actor, database.id(), view.id(), 1, "Stale", DatabaseViewType.TABLE,
+                Map.of(), List.of(), List.of(), null));
+        assertEquals(2, repository.findView(tenant, database.id(), view.id()).orElseThrow().revision());
+        assertThrows(IllegalArgumentException.class, () -> service.updateView(
+                tenant, actor, database.id(), view.id(), 2, "Bad grouping", DatabaseViewType.TABLE,
+                Map.of(), List.of(), List.of(), "status"));
+    }
+
+    @Test
     void deletesOnlyOwnedSavedViewsAndRecordsAudit() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "View lifecycle");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
@@ -301,10 +325,27 @@ class StructuredDatabaseServiceTest {
             return Optional.ofNullable(views.get(viewId)).filter(v -> v.tenantId().equals(tenantId)
                     && v.databaseId().equals(databaseId));
         }
-        @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, AuditEntry entry) {
+        @Override public boolean updateView(DatabaseView view, long expectedRevision, AuditEntry entry) {
+            DatabaseView current = views.get(view.id());
+            if (current == null || !current.tenantId().equals(view.tenantId())
+                    || !current.databaseId().equals(view.databaseId())
+                    || !current.createdBy().equals(view.createdBy())
+                    || current.revision() != expectedRevision
+                    || view.revision() != expectedRevision + 1) return false;
+            boolean duplicate = views.values().stream().anyMatch(existing -> !existing.id().equals(view.id())
+                    && existing.tenantId().equals(view.tenantId())
+                    && existing.tableId().equals(view.tableId())
+                    && existing.createdBy().equals(view.createdBy())
+                    && existing.name().equals(view.name()));
+            if (duplicate) return false;
+            views.put(view.id(), view);
+            audit.add(entry);
+            return true;
+        }
+        @Override public boolean deleteView(UUID tenantId, UUID databaseId, UUID viewId, UUID actorId, long expectedRevision, AuditEntry entry) {
             DatabaseView view = views.get(viewId);
             if (view == null || !view.tenantId().equals(tenantId) || !view.databaseId().equals(databaseId)
-                    || !view.createdBy().equals(actorId)) return false;
+                    || !view.createdBy().equals(actorId) || view.revision() != expectedRevision) return false;
             views.remove(viewId);
             audit.add(entry);
             return true;
