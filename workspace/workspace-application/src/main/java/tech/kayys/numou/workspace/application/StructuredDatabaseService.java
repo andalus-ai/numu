@@ -219,6 +219,23 @@ public final class StructuredDatabaseService {
                 page.total(), page.limit(), page.offset());
     }
 
+    /**
+     * Validates every saved view owned by the actor for a table and returns a non-mutating impact report.
+     * Personal-view filtering is delegated to the repository port; no other actor's view metadata is exposed.
+     */
+    public tech.kayys.numou.workspace.domain.DatabaseTableViewImpactReport validateViewsForTable(
+            UUID tenantId, UUID actorId, UUID databaseId, UUID tableId) {
+        List<DatabaseView> views = findViews(tenantId, actorId, databaseId, tableId);
+        List<DatabaseViewValidationResult> results = views.stream()
+                .map(view -> validateView(tenantId, actorId, databaseId, view.id()))
+                .toList();
+        long valid = results.stream().filter(DatabaseViewValidationResult::valid).count();
+        return new tech.kayys.numou.workspace.domain.DatabaseTableViewImpactReport(
+                tableId, results.isEmpty() ? repository.findTable(tenantId, databaseId, tableId)
+                        .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database")).schemaVersion()
+                        : results.get(0).schemaVersion(), results, (int) valid, results.size() - (int) valid);
+    }
+
     /** Reports schema drift without mutating or deleting the saved view. */
     public DatabaseViewValidationResult validateView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId) {
         return new SavedViewSchemaValidator(repository, accessPolicy).validate(tenantId, actorId, databaseId, viewId);
