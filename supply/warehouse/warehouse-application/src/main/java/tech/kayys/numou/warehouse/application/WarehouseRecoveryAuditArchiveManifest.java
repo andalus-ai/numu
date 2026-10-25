@@ -24,6 +24,21 @@ public record WarehouseRecoveryAuditArchiveManifest(
         Objects.requireNonNull(createdAt, "createdAt");
         createdBy = required(createdBy, "createdBy");
     }
+    /**
+     * Compare immutable export evidence while allowing a retry to observe the original
+     * manifest creation time rather than synthesizing a new timestamp.
+     */
+    public boolean sameExportEvidence(WarehouseRecoveryAuditArchiveManifest other) {
+        return other != null
+                && exportId.equals(other.exportId)
+                && tenantId.equals(other.tenantId)
+                && artifactLocation.equals(other.artifactLocation)
+                && sha256Hex.equals(other.sha256Hex)
+                && byteSize == other.byteSize
+                && eventCount == other.eventCount
+                && createdBy.equals(other.createdBy);
+    }
+
     private static String required(String value, String name) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required");
         return value.trim();
