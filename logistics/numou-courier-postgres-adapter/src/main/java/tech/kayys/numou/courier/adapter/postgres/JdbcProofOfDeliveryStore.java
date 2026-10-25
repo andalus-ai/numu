@@ -18,9 +18,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
-/** JDBC adapter for append-only POD evidence and tenant-scoped idempotency. */
+/**
+ * JDBC adapter for append-only POD evidence and its transactional event outbox.
+ * A newly accepted evidence row and its outbox event commit or roll back together.
+ */
 @ApplicationScoped
 public class JdbcProofOfDeliveryStore implements ProofOfDeliveryStore {
+    private static final String POD_EVENT_TYPE = "courier.proof-of-delivery.recorded.v1";
     private final DataSource dataSource;
 
     @Inject
@@ -72,6 +76,7 @@ public class JdbcProofOfDeliveryStore implements ProofOfDeliveryStore {
                     inserted = statement.executeUpdate();
                 }
                 if (inserted == 1) {
+                    insertOutboxEvent(connection, command);
                     connection.commit();
                     return new Result(Outcome.ACCEPTED, command.proofId());
                 }
@@ -104,6 +109,29 @@ public class JdbcProofOfDeliveryStore implements ProofOfDeliveryStore {
                 throw failure;
             } finally {
                 try { connection.setAutoCommit(previousAutoCommit); } catch (SQLException ignored) { }
+            }
+        }
+    }
+
+    private void insertOutboxEvent(Connection connection, Command command) throws SQLException {
+        String sql = """
+            INSERT INTO courier_event_outbox
+              (tenant_id, id, event_type, aggregate_type, aggregate_reference, occurred_at, payload)
+            VALUES (?, ?, ?, 'shipment', ?, ?, jsonb_build_object(
+              'proofId', ?, 'shipmentReference', ?, 'deliveryAttemptReference', ?, 'deliveredAt', ?))
+            """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, command.tenantId().value());
+            statement.setObject(2, UUID.randomUUID());
+            statement.setString(3, POD_EVENT_TYPE);
+            statement.setString(4, command.shipmentReference());
+            statement.setTimestamp(5, Timestamp.from(command.occurredAt()));
+            statement.setString(6, command.proofId().toString());
+            statement.setString(7, command.shipmentReference());
+            statement.setString(8, command.deliveryAttemptReference());
+            statement.setString(9, command.deliveredAt().toString());
+            if (statement.executeUpdate() != 1) {
+                throw new SQLException("proof-of-delivery outbox event was not inserted");
             }
         }
     }
