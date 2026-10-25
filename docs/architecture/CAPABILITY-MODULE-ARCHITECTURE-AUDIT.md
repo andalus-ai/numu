@@ -732,3 +732,30 @@ Evidence from `JdbcActivityProgressRepository` and its integration test:
 3. Define the versioned, transport-neutral approved-evidence contract and a consumer owned by the integration/composition boundary—not by either domain aggregate.
 4. Validate that the WBS/activity link and BOQ-item mapping are explicit, authorized, tenant-safe, and stable under retries.
 5. Implement only after the above contract exists, with tests for approved-only processing, invalid mapping, duplicate delivery, conflicting replay, cross-tenant access, and relay/consumer failure recovery.
+
+
+## AUD-021 — The approved-measurement event does not carry enough evidence for a Planning consumer
+
+**Confidence: High for the inspected domain contract.**
+
+Evidence:
+
+- `ProgressMeasurementApproved` carries only event ID, timestamp, measurement ID, project ID, and BOQ item ID.
+- The source aggregate retains measurement date, measurement type, quantity, BOQ ID, remarks, and lifecycle status, but those values are not present in the approval event.
+- `RecordProgressMeasurementCommand` also has no tenant ID, authenticated actor ID, or command idempotency key. The inspected handler calls `ProgressMeasurement.record(...)`, saves the aggregate, and publishes its pulled domain events.
+- The existing Planning observation requires a target activity, as-of date, percentage, recorded timestamp, recorded-by identity, idempotency key, and optional source reference.
+
+**Risk:** a downstream consumer cannot reliably compute progress from the approval event alone. Fetching the aggregate by ID would introduce a cross-capability query dependency and a race with later corrections, while trusting a caller-supplied project/tenant identifier would not establish authorization. The event also does not identify a stable source revision or correction relationship.
+
+**Disposition:** do not expand the event by blindly serializing the entire aggregate. Define a versioned integration event or approved-evidence contract containing the minimum immutable approved facts needed by consumers: source measurement/event identity, project and BOQ/item scope, measured quantity and unit, measurement date/type, approval time, authorized tenant context, actor/provenance, and correction/reversal reference where supported. Tenant and actor must be resolved from authenticated application context, not accepted as trusted facts from an arbitrary payload. Establish whether approval is emitted only after durable persistence and outbox insertion. Require an explicit conversion policy and mapping service before creating Planning percentages.
+
+## Implementation readiness checklist — progress evidence
+
+The source review currently identifies prerequisites rather than a safe drop-in consumer:
+
+- [ ] Concrete Construction progress-measurement persistence and runtime binding.
+- [ ] Transaction-bound aggregate persistence plus outbox write, with tenant/actor context sourced from trusted application context.
+- [ ] Versioned immutable approval evidence with explicit quantity unit and correction semantics.
+- [ ] Authorized BOQ-item-to-Planning-activity mapping and a documented percentage conversion policy.
+- [ ] Idempotent consumer with source-event deduplication independent of target plan keys.
+- [ ] Integration tests for rollback/outbox recovery, duplicate and conflicting delivery, cross-tenant access, unmapped items, and correction/reversal behavior.
