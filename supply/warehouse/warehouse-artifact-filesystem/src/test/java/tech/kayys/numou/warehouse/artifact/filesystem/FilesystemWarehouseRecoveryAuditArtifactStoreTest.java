@@ -200,7 +200,62 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
         assertArrayEquals(java.util.Arrays.copyOf(chunk, chunk.length - 2), Files.readAllBytes(artifact),
                 "retry must not silently repair an artifact after a receipt has been committed");
     }
+    @Test
+    void retryOfLatestChunkDetectsCorruptionInAnEarlierChunk() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] first = "header\n".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "row-1\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-earlier-corrupt", "chunk-1", 0, first);
+        store.appendChunk("tenant-a", "export-earlier-corrupt", "chunk-2", first.length, second);
+
+        Path artifact = temporaryDirectory.resolve(hash("tenant-a"))
+                .resolve(hash("export-earlier-corrupt")).resolve("audit.csv");
+        byte[] changed = Files.readAllBytes(artifact);
+        changed[0] = (byte) 'H';
+        Files.write(artifact, changed);
+
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-earlier-corrupt",
+                "chunk-2", first.length, second));
+        assertArrayEquals(changed, Files.readAllBytes(artifact));
+    }
+
+    @Test
+    void rejectsOverlappingReceiptRangesEvenWhenEachRangeDigestMatches() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] first = "abc".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "def".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-overlap", "chunk-1", 0, first);
+        store.appendChunk("tenant-a", "export-overlap", "chunk-2", first.length, second);
+
+        Path directory = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-overlap"));
+        Path receipt = directory.resolve("chunks").resolve(hash("chunk-2") + ".receipt");
+        byte[] artifact = Files.readAllBytes(directory.resolve("audit.csv"));
+        byte[] range = java.util.Arrays.copyOfRange(artifact, 2, 5);
+        Files.writeString(receipt, "2\n3\n" + hashBytes(range) + "\n", StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-overlap"));
+    }
+
+    @Test
+    void rejectsGapBetweenCommittedReceiptRanges() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] first = "abc".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "def".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-gap", "chunk-1", 0, first);
+        store.appendChunk("tenant-a", "export-gap", "chunk-2", first.length, second);
+
+        Path directory = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-gap"));
+        Path receipt = directory.resolve("chunks").resolve(hash("chunk-2") + ".receipt");
+        byte[] artifact = Files.readAllBytes(directory.resolve("audit.csv"));
+        byte[] range = java.util.Arrays.copyOfRange(artifact, 4, 6);
+        Files.writeString(receipt, "4\n2\n" + hashBytes(range) + "\n", StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-gap"));
+    }
+
     private record WarehouseSnapshot(long byteSize, String sha256Hex) {}
+
+    private static String hashBytes(byte[] value) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+    }
 
     private static String hash(String value) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

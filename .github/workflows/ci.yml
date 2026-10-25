@@ -27,6 +27,10 @@ jobs:
         run: python3 tools/test-verify-domain-boundaries.py
       - name: Enforce domain dependency boundaries
         run: python3 tools/verify-domain-boundaries.py
+      - name: Test capability dependency-direction verifier
+        run: python3 tools/test-verify-capability-boundaries.py
+      - name: Enforce declared capability dependency directions
+        run: python3 tools/verify-capability-boundaries.py
 
   framework-and-logistics:
     name: Framework and Courier/Cargo verification

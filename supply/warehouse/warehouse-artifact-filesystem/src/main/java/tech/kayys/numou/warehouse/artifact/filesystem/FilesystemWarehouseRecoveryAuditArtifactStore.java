@@ -169,6 +169,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
         Path receipts = exportDirectory.resolve("chunks");
         if (!Files.isDirectory(receipts)) return;
         long artifactSize = Files.size(artifact);
+        java.util.List<ReceiptRange> ranges = new java.util.ArrayList<>();
         try (var files = Files.newDirectoryStream(receipts, "*.receipt")) {
             for (Path receipt : files) {
                 String text = Files.readString(receipt, StandardCharsets.UTF_8);
@@ -203,9 +204,26 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
                         sha256(actual).getBytes(StandardCharsets.US_ASCII))) {
                     throw new IOException("Artifact bytes do not match durable chunk receipt: " + receipt.getFileName());
                 }
+                ranges.add(new ReceiptRange(offset, end, receipt.getFileName().toString()));
             }
         }
+
+        // A crash can leave an unreceipted tail, but not a hole before a later committed receipt.
+        ranges.sort(java.util.Comparator.comparingLong(ReceiptRange::offset)
+                .thenComparingLong(ReceiptRange::end));
+        long committedEnd = 0;
+        for (ReceiptRange range : ranges) {
+            if (range.offset() != committedEnd) {
+                String reason = range.offset() < committedEnd ? "overlapping" : "non-contiguous";
+                throw new IOException("Durable chunk receipts contain " + reason + " ranges at "
+                        + range.receiptName());
+            }
+            // Empty chunks are accepted only at the current boundary.
+            if (range.end() > range.offset()) committedEnd = range.end();
+        }
     }
+
+    private record ReceiptRange(long offset, long end, String receiptName) {}
 
     private static void verifyRange(Path artifact, long offset, byte[] expected) throws IOException {
         long end;
