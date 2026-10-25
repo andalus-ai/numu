@@ -174,6 +174,32 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
         assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-corrupt", "chunk-1", 0, chunk));
         assertArrayEquals(chunk, store.open("tenant-a", "export-corrupt").readAllBytes());
     }
+    @Test
+    void inspectAndOpenRejectModifiedBytesCoveredByDurableReceipt() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-modified", "chunk-1", 0, chunk);
+        Path artifact = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-modified")).resolve("audit.csv");
+        byte[] changed = chunk.clone();
+        changed[0] = (byte) 'D';
+        Files.write(artifact, changed);
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-modified"));
+        assertThrows(IOException.class, () -> store.open("tenant-a", "export-modified"));
+        assertArrayEquals(changed, Files.readAllBytes(artifact), "detection must not rewrite corrupted bytes");
+    }
+
+    @Test
+    void inspectAndRetryRejectTruncatedArtifactCoveredByDurableReceipt() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-truncated", "chunk-1", 0, chunk);
+        Path artifact = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-truncated")).resolve("audit.csv");
+        Files.write(artifact, java.util.Arrays.copyOf(chunk, chunk.length - 2));
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-truncated"));
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-truncated", "chunk-1", 0, chunk));
+        assertArrayEquals(java.util.Arrays.copyOf(chunk, chunk.length - 2), Files.readAllBytes(artifact),
+                "retry must not silently repair an artifact after a receipt has been committed");
+    }
     private record WarehouseSnapshot(long byteSize, String sha256Hex) {}
 
     private static String hash(String value) throws Exception {
