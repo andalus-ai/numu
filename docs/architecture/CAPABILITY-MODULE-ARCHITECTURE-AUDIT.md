@@ -268,3 +268,26 @@ The legacy Finance subscription path is not just a domain class that happens to 
 The legacy Finance subscription's `Product` is a local sellable entity with name, price, taxable flag, and tax rate. Commerce uses `ProductOfferingId` and checks that the referenced offering is active before starting a subscription. This is another overlap candidate, but not necessarily a direct duplicate: a commercial offering may bundle catalog, lifecycle, and eligibility semantics that the old simple product lacks.
 
 **Recommendation:** do not extract a third generic product module yet. First make the catalog/offer/price/tax ownership map explicit: commerce catalog/offering should own what is sold and its eligibility; pricing should own price plans/price resolution if present; Finance should own tax determination and financial calculation/posting policy. Keep a compatibility adapter for legacy product records until that mapping is verified.
+
+
+## Fourth pass: subscription reactor and runtime composition evidence
+
+A targeted repository-tree and POM pass narrows what can be claimed about consumers:
+
+- `finance/subscription/pom.xml` includes `numou-subscription-core` as its only module, and `finance/pom.xml` includes the subscription aggregator. This proves the legacy API is part of the Finance Maven reactor, not that every Finance deployment enables it.
+- `commerce/subscription/pom.xml` separately aggregates the Commerce domain, SPI, application, and adapter. `commerce/pom.xml` includes this aggregator. The Commerce path is structurally layered, but a Maven aggregator alone does not prove a production runtime has wired its adapter or exposed an HTTP API.
+- The inspected `core/framework/pom.xml` aggregates platform capabilities such as Scope and Planning; it does not list Finance or Commerce as child modules. These are distinct reactor roots/aggregators, so a single root build or aggregator cannot be assumed to reveal runtime composition.
+- The inspected `product/product-runtime/pom.xml` does not declare either subscription artifact. Its description mentions subscription as a product-catalog use case, but that text is not evidence of a dependency or an active subscription consumer.
+- The repository tree identifies no dedicated migration directory beneath `finance/subscription/numou-subscription-core`. The repository-wide tree contains migration directories for other adapters, but this does not establish where legacy subscription tables are created in deployed environments.
+
+**Consumer inventory result:** this pass confirms module inclusion and the legacy endpoint/scheduler implementation, but it does **not** establish which deployed applications package the legacy artifact, which gateway routes publish `/api/subscriptions`, or which external clients call it. Available source search did not yield reliable cross-repository consumer results. Therefore the legacy API remains a compatibility risk, not a proven live production endpoint or a proven unused module.
+
+### Required evidence before choosing a migration
+
+1. Enumerate every deployable module and its resolved dependency tree for both subscription implementations; inspect profile-specific dependencies and runtime composition files.
+2. Inspect deployment configuration and gateway/API routing for `/api/subscriptions`, including authentication, tenant enforcement, and scheduler activation.
+3. Locate the actual schema owner for legacy `Subscription`, `BillingAccount`, and `Product` tables in ORM/Flyway/deployment configuration; capture row counts, foreign-key relationships, and backup/restore ownership in each target environment.
+4. Identify external API consumers through gateway logs, access logs, client SDK references, and operational telemetry rather than source search alone.
+5. Only after that evidence, choose one of three paths: retain legacy as a documented standalone capability, introduce a compatibility facade over Commerce, or migrate/deprecate the legacy API. The current evidence is insufficient to choose safely.
+
+**Architecture implication:** do not wire Commerce to legacy Panache entities or share their tables to speed up migration. Any compatibility facade should translate at the application boundary using an explicit ID mapping and contract tests; the two domain models and their lifecycle invariants should remain separate until behavior and data migration are verified.
