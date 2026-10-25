@@ -63,6 +63,41 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         });
     }
 
+    @Override public boolean updateTableSchema(DatabaseTable table, long expectedSchemaVersion, AuditEntry audit) {
+        if (expectedSchemaVersion < 1 || table.schemaVersion() != expectedSchemaVersion + 1) {
+            throw new IllegalArgumentException("table schema version must increment expected version exactly once");
+        }
+        validateAudit(audit, table.tenantId(), table.id(), "DATABASE_TABLE",
+                "DATABASE_TABLE_SCHEMA_UPDATED", table.schemaVersion());
+        return atomic("update database table schema and audit", c -> {
+            try (PreparedStatement p = c.prepareStatement(
+                    "UPDATE workspace_database_tables SET name=?,schema_version=?,updated_at=? WHERE tenant_id=? AND database_id=? AND id=? AND schema_version=?")) {
+                p.setString(1, table.name()); p.setLong(2, table.schemaVersion());
+                p.setTimestamp(3, Timestamp.from(audit.occurredAt())); p.setObject(4, table.tenantId());
+                p.setObject(5, table.databaseId()); p.setObject(6, table.id()); p.setLong(7, expectedSchemaVersion);
+                try { if (p.executeUpdate() != 1) return false; }
+                catch (SQLException e) { if (isConstraint(e)) return false; throw e; }
+            }
+            try (PreparedStatement p = c.prepareStatement(
+                    "DELETE FROM workspace_database_properties WHERE tenant_id=? AND database_id=? AND table_id=?")) {
+                p.setObject(1, table.tenantId()); p.setObject(2, table.databaseId()); p.setObject(3, table.id());
+                p.executeUpdate();
+            }
+            String sql = "INSERT INTO workspace_database_properties(tenant_id,database_id,table_id,property_id,property_key,label,property_type,required,options,related_table_id) VALUES(?,?,?,?,?,?,?, ?, CAST(? AS jsonb), ?)";
+            try (PreparedStatement p = c.prepareStatement(sql)) {
+                for (DatabaseProperty property : table.properties()) {
+                    p.setObject(1, table.tenantId()); p.setObject(2, table.databaseId()); p.setObject(3, table.id());
+                    p.setObject(4, property.id()); p.setString(5, property.key()); p.setString(6, property.label());
+                    p.setString(7, property.type().name()); p.setBoolean(8, property.required());
+                    p.setString(9, Json.write(property.options())); p.setObject(10, property.relatedTableId()); p.addBatch();
+                }
+                p.executeBatch();
+            }
+            insertAudit(c, audit);
+            return true;
+        });
+    }
+
     @Override public Optional<DatabaseTable> findTable(UUID tenantId,UUID databaseId,UUID tableId) {
         String sql="SELECT id,tenant_id,database_id,name,schema_version FROM workspace_database_tables WHERE tenant_id=? AND database_id=? AND id=?";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)) {

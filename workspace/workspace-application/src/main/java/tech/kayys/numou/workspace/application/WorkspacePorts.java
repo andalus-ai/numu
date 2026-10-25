@@ -53,6 +53,8 @@ public final class WorkspacePorts {
   boolean saveDatabase(WorkspaceDatabase database, AuditEntry audit);
   Optional<WorkspaceDatabase> findDatabase(UUID tenantId, UUID databaseId);
   boolean saveTable(DatabaseTable table, AuditEntry audit);
+  /** Atomically advances a table schema and appends its audit event only when expectedSchemaVersion still matches. */
+  boolean updateTableSchema(DatabaseTable table, long expectedSchemaVersion, AuditEntry audit);
   Optional<DatabaseTable> findTable(UUID tenantId, UUID databaseId, UUID tableId);
   Optional<DatabaseRecord> findRecord(UUID tenantId, UUID recordId);
   /** expectedRevision=0 means create-only; positive values require an atomic compare-and-swap. */
