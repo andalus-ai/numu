@@ -268,6 +268,57 @@ public final class StructuredDatabaseService {
         return view;
     }
 
+    /** Updates a personal saved view using revision compare-and-swap to prevent lost updates. */
+    public DatabaseView updateView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId,
+                                   long expectedRevision, String name, DatabaseViewType type,
+                                   Map<String, Object> filters, List<DatabaseViewSort> sorts,
+                                   List<String> visibleProperties, String groupByProperty) {
+        requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        DatabaseView current = repository.findView(tenantId, databaseId, viewId)
+                .orElseThrow(() -> new IllegalArgumentException("saved view not found"));
+        if (!current.createdBy().equals(actorId)) {
+            throw new IllegalArgumentException("saved view is personal and belongs to another actor");
+        }
+        if (current.revision() != expectedRevision) {
+            throw new IllegalArgumentException("stale saved-view revision");
+        }
+        DatabaseTable table = repository.findTable(tenantId, databaseId, current.tableId())
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, current.tableId(), Action.UPDATE);
+        Map<String, Object> validatedFilters = new java.util.LinkedHashMap<>();
+        if (filters != null) {
+            filters.forEach((key, value) -> {
+                DatabaseProperty property = table.property(key);
+                if (value == null) throw new IllegalArgumentException("null saved-view filters are not supported");
+                validatedFilters.put(key, property.validateValue(value));
+            });
+        }
+        List<DatabaseViewSort> validatedSorts = sorts == null ? List.of() : List.copyOf(sorts);
+        for (DatabaseViewSort sort : validatedSorts) table.property(sort.propertyKey());
+        List<String> visible = visibleProperties == null ? List.of() : List.copyOf(visibleProperties);
+        for (String key : visible) table.property(key);
+        if (visible.stream().distinct().count() != visible.size()) {
+            throw new IllegalArgumentException("visible properties must be unique");
+        }
+        if (groupByProperty != null) {
+            if (type != DatabaseViewType.BOARD) {
+                throw new IllegalArgumentException("only BOARD views can define a group-by property");
+            }
+            DatabaseProperty grouping = table.property(groupByProperty);
+            if (grouping.type() != tech.kayys.numou.workspace.domain.DatabasePropertyType.SELECT) {
+                throw new IllegalArgumentException("board grouping requires a SELECT property");
+            }
+        }
+        DatabaseView updated = current.revise(name, type, validatedFilters, validatedSorts, visible,
+                groupByProperty, expectedRevision, clock.instant());
+        AuditEntry audit = audit(tenantId, actorId, "DATABASE_VIEW_UPDATED", "DATABASE_VIEW", viewId,
+                updated.revision(), "Updated personal structured database view");
+        if (!repository.updateView(updated, expectedRevision, audit)) {
+            throw new IllegalStateException("saved view update conflicted with another update or duplicate name");
+        }
+        return updated;
+    }
+
     /** Deletes only the actor's own personal view; deletion and audit are one repository transaction. */
     public void deleteView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId) {
         requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
