@@ -268,3 +268,27 @@ The legacy Finance subscription path is not just a domain class that happens to 
 The legacy Finance subscription's `Product` is a local sellable entity with name, price, taxable flag, and tax rate. Commerce uses `ProductOfferingId` and checks that the referenced offering is active before starting a subscription. This is another overlap candidate, but not necessarily a direct duplicate: a commercial offering may bundle catalog, lifecycle, and eligibility semantics that the old simple product lacks.
 
 **Recommendation:** do not extract a third generic product module yet. First make the catalog/offer/price/tax ownership map explicit: commerce catalog/offering should own what is sold and its eligibility; pricing should own price plans/price resolution if present; Finance should own tax determination and financial calculation/posting policy. Keep a compatibility adapter for legacy product records until that mapping is verified.
+
+
+## Fifth pass: document storage configuration is not yet composed into the document runtime
+
+A targeted POM, factory, settings, and adapter pass identifies a concrete integration gap beyond the previously noted provider overlap:
+
+- The `document/` aggregator includes `numou-document`, `numou-document-application`, and `numou-document-adapter`. Its adapter directly depends on the application module and the AWS SDK, and contains the older `LocalDocumentStorage` and `S3DocumentStorage` implementations.
+- The separate `documents/` aggregator includes the new storage SPI, local provider, S3-compatible provider, and configuration factory. The configuration module depends on those providers and exposes `DocumentStorageProviderFactory.create(settings)`.
+- The inspected `document/numou-document-adapter/pom.xml` does not depend on `numou-document-storage-config` or the new SPI. Its runtime properties select the older implementation with `numou.document.storage=s3` in the prod profile; local storage is a default bean outside prod. The new settings record and factory are therefore not shown as the composition path for this adapter.
+- The contracts differ materially. The legacy `DocumentStoragePort` creates upload targets and supports metadata inspection/deletion, with tenant/session-scoped keys, expiry, upload token, expected size, and optional SHA-256 validation. The newer `DocumentStorage` SPI exposes object `put/get/head/delete`. The new S3-compatible provider is not a drop-in replacement for the upload-target protocol.
+- The new factory's `EXTERNAL` default endpoint is a local RustFS development endpoint; its settings reject non-HTTPS endpoints when `production=true`. These safeguards only apply when a host actually constructs and uses `DocumentStorageSettings` and the factory.
+
+**Conclusion:** the repository has both a configurable, provider-neutral storage subsystem and a document runtime with its own provider-selection path. The evidence supports an integration gap, not a claim that the new providers are entirely unused everywhere. Do not simply add a dependency or replace the bean: doing so could remove presigned upload support, upload-session checks, checksum validation, or document lifecycle guarantees.
+
+### Safe integration sequence
+
+1. **Choose the canonical composition boundary:** either add a bridge adapter from `DocumentStoragePort` to the new storage SPI, or extend the new SPI with an explicit upload-session/target protocol. Prefer the bridge if the existing upload API is stable and the new SPI is intended to remain a generic byte-object contract.
+2. **Preserve lifecycle guarantees:** tenant-scoped key generation, expiry, single-use upload sessions, content-type/size enforcement, checksum verification, and authorization must remain enforced at the document application boundary. The generic provider must not become an authorization boundary.
+3. **Preserve S3-compatible upload semantics:** confirm how the adapter obtains a presigned PUT URL, required headers, endpoint-aware URL generation, path-style access, and RustFS-compatible signing. The current generic factory constructs an `S3Client` but the inspected code does not construct an `S3Presigner`; this is a specific gap to resolve if the canonical path needs presigned uploads.
+4. **Unify provider selection:** bind `DOCUMENT_STORAGE`/application configuration to the settings type in one runtime composition module, make the legacy property behavior explicit, and fail startup on contradictory or incomplete settings. Avoid two independent selectors for the same runtime.
+5. **Add compatibility tests before switching:** run the same upload-target lifecycle tests against local storage and RustFS/S3-compatible storage, including expired/replayed tokens, size/checksum mismatch, tenant key isolation, deletion, unavailable provider startup, and presigned URL/header behavior.
+6. **Verify composition and deployment:** inspect the actual deployable module/reactor and runtime CDI wiring, then run the narrow document reactor tests plus an integration test against a local RustFS-compatible service before deprecating either implementation.
+
+No provider was replaced and no storage contract or runtime wiring was changed in this audit pass.
