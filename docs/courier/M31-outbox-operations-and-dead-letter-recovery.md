@@ -59,12 +59,12 @@ WHERE destination = :destination
   AND event_id = :event_id;
 
 -- Confirm the replay audit trail for a specific publication.
-SELECT actor, reason, action, created_at
+SELECT actor_reference, reason, action, occurred_at
 FROM courier_event_publication_audit
 WHERE destination = :destination
   AND tenant_id = :tenant_id
   AND event_id = :event_id
-ORDER BY created_at DESC;
+ORDER BY occurred_at DESC;
 ```
 
 Column names in operational queries should be checked against the deployed migration version before running them. Do not manually change status or reset attempt counters in production; use the authorized replay operation so that authorization and audit requirements remain intact.
