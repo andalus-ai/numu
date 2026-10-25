@@ -76,6 +76,29 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void appliesOnlySafeAdditiveSchemaChangesWithRevisionAndAudit() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema update");
+        DatabaseProperty title = new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                DatabasePropertyType.TEXT, true, List.of(), null);
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(title));
+        DatabaseTable updated = service.updateTableSchema(tenant, actor, database.id(), table.id(), 1,
+                "Work items", List.of(title, new DatabaseProperty(UUID.randomUUID(), "notes", "Notes",
+                        DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertEquals(2, updated.schemaVersion());
+        assertEquals("Work items", updated.name());
+        assertEquals(2, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals("DATABASE_TABLE_SCHEMA_UPDATED", repository.audit.get(repository.audit.size() - 1).action());
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 1, "Stale", List.of(title)));
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 2, "Unsafe", List.of()));
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 2, "Required addition", List.of(title,
+                        new DatabaseProperty(UUID.randomUUID(), "owner", "Owner", DatabasePropertyType.TEXT,
+                                true, List.of(), null))));
+    }
+
+    @Test
     void createsAndListsValidatedPersonalSavedViews() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Saved views");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
