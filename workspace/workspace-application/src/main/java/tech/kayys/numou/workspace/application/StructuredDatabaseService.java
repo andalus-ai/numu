@@ -19,10 +19,12 @@ import tech.kayys.numou.workspace.domain.WorkspaceDatabase;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -383,8 +385,11 @@ public final class StructuredDatabaseService {
                 try {
                     Map<String, Object> values = inputs.get(record.id());
                     if (values == null) throw new IllegalArgumentException("replacement values cannot be null");
-                    Instant now = clock.instant().isBefore(record.updatedAt()) ? record.updatedAt() : clock.instant();
-                    migrated.add(record.update(candidate, record.revision(), values, now));
+                    Instant clockNow = clock.instant();
+                    Instant now = clockNow.isBefore(record.updatedAt()) ? record.updatedAt() : clockNow;
+                    DatabaseRecord migratedRecord = record.update(candidate, record.revision(), values, now);
+                    validateRelationTargets(tenantId, actorId, candidate, migratedRecord.values());
+                    migrated.add(migratedRecord);
                 } catch (IllegalArgumentException | IllegalStateException invalid) {
                     issues.add(invalid.getMessage() == null ? "replacement values are invalid" : invalid.getMessage());
                 }
