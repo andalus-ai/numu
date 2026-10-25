@@ -370,9 +370,13 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         assertEquals(expected.startedAt(), actual.startedAt());
         assertEquals(expected.status(), actual.status());
         assertEquals(expected.resultingRevision(), actual.resultingRevision());
-        assertEquals(expected.completedAt() == null ? null : expected.completedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS),
-                actual.completedAt() == null ? null : actual.completedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        assertEquals(roundToPostgresMicros(expected.completedAt()),
+                roundToPostgresMicros(actual.completedAt()));
         assertEquals(expected.failureReason(), actual.failureReason());
+    }
+
+    private Instant roundToPostgresMicros(Instant value) {
+        return value == null ? null : value.plusNanos(500).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 
     private int outboxCount(UUID executionId, String eventType) throws Exception {
