@@ -56,5 +56,11 @@ class CourierPodTrackingProjectorContractTest {
         assertTrue(source.contains("POD does not match an active delivery attempt"));
         assertTrue(taskRepository.contains("return \"TASK:\" + taskId.value();"));
         assertTrue(podStore.contains("'recipientLabel', ?, 'evidenceReference', ?"));
+
+        String migration = Files.readString(Path.of(
+                "src/main/resources/db/migration/V23__courier_delivery_attempt_identity.sql"),
+                StandardCharsets.UTF_8);
+        assertTrue(migration.contains("SET delivery_attempt_reference = 'TASK:' || id::text"));
+        assertTrue(migration.contains("UNIQUE INDEX uq_courier_delivery_attempt_reference"));
     }
 }
