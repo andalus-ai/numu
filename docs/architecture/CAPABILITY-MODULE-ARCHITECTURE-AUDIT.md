@@ -171,3 +171,72 @@ Evidence:
 - Do not split a capability into a service solely for deployment fashion.
 - Do not claim full conformance based on POM names or architecture documents alone.
 - Follow `AGENTS.md`: inspect actual contracts, tests and consumers; preserve tenant/security/idempotency behavior; do not claim builds or tests were run unless verified.
+
+
+## Second pass: contract and lifecycle tracing
+
+This pass inspects representative ports, application services, persistence models, and module POMs for the four highest-priority candidates. It refines the initial findings: overlap in implementation does not always mean the capabilities themselves should be merged.
+
+### AUD-001 refinement — Document storage: duplicated providers, different contracts
+
+The older document application port, `DocumentStoragePort`, is not equivalent to the newer binary-storage SPI:
+- `DocumentStoragePort` exposes upload-target creation, metadata inspection, and deletion. Its upload target includes tenant/session/file metadata and an expiry.
+- `documents/numou-document-storage-spi/DocumentStorage` exposes server-side streaming `put/get/head/delete`, typed `StorageKey`, object metadata, and closeable object streams.
+- The newer local and S3-compatible providers depend only on the storage SPI. The older local/S3 implementations are wired as Quarkus adapters and use a separate provider-specific configuration model.
+- The document adapter also owns document entities, versions, upload sessions, identity-based access checks, and outbox publishing. Those are document lifecycle concerns and should not be moved into a generic object store.
+
+**Updated disposition:** consolidate provider implementations, not document lifecycle. The right design is likely a single canonical provider abstraction with an adapter capable of satisfying the document upload workflow (including presigned/client upload where supported). Do not mechanically replace the old port with the new SPI until differences in upload protocol, checksum enforcement, tenant-scoped keys, metadata, expiration, and S3-compatible presigning are resolved. Keep the document application port if it expresses a useful application-specific use case; adapt it to the canonical storage provider.
+
+**Evidence limitation:** this pass did not prove all production composition roots or downstream consumers have migrated to either implementation. Before code movement, trace Quarkus bean selection, configuration keys, module consumers, and deployment manifests.
+
+### AUD-002 refinement — Subscription: strong duplicate lifecycle ownership
+
+The legacy finance implementation has a full persistence and API path: `Subscription`, `SubscriptionService`, `SubscriptionResource`, `SubscriptionRepository`, `BillingAccount`, and `Product`. Its service mutates subscription quantity, negotiated price, end date, and status; the entity also calculates amount, tax, and total.
+
+The commerce capability has its own aggregate and application use cases for starting, renewing, cancelling, checking entitlements, and recording usage. It uses a subscription repository port and references a product offering by ID, keeping customer identity opaque and billing outside the aggregate.
+
+**Updated disposition:** high-priority canonical-owner decision. Commerce subscription is the better-shaped candidate for commercial subscription lifecycle, renewal and entitlement policy. Finance should own financial obligations and billing/receivables; a billing account is not a reason for Finance to own a second subscription lifecycle aggregate.
+
+**Still required before retirement:** identify any deployment that exposes the legacy REST resource, its database schema and table names, scheduled jobs, API clients, and billing integrations. If active, migrate via a compatibility facade and explicit data migration; do not delete the old module based only on the code shape.
+
+### AUD-003 refinement — Currency: separate concerns are plausible; rate record authority is not
+
+The finance-common service is a CRUD/application path for currency master data and date-effective exchange rates: it resolves currency entities by code, checks for an existing rate for a pair/date, and persists a rate entity. The accounting module instead has a framework-light `ExchangeRateProvider` contract for resolving a rate by source currency, target currency and date, plus conversion requests/results and conversion service policy.
+
+**Updated disposition:** do not merge the whole modules. A reasonable target is:
+- one authoritative currency identity/value-object vocabulary (the foundation `Currency` is already used by the accounting domain);
+- one governed source of exchange-rate records and a provider adapter implementing the accounting `ExchangeRateProvider`;
+- accounting-owned conversion policy, precision/rounding and financial valuation rules;
+- finance-common API/persistence retained only if it is the chosen master-data/rate-management owner, with its current endpoints adapted to the canonical records.
+
+**Unresolved risk:** the current two `ExchangeRate` models differ in effective-date representation, rate metadata, and persistence semantics. Determine whether the accounting model is a policy/value object or intended as a second stored record before deciding to extract or retire anything.
+
+### AUD-004 refinement — Scope and Planning WBS are not yet proven duplicates
+
+The initial comparison found a generic `BreakdownNode` in Scope and a `WorkBreakdownNode` in Planning. The second pass shows an important lifecycle difference:
+- Scope exposes node and structure repositories, tree-wide validation concerns, mutable structural writes, and a structure write-lock port.
+- Planning's `WorkBreakdownRepository` explicitly persists **immutable, tenant-scoped WBS snapshots**. Schedule activity linking loads a tenant's snapshot and checks that the referenced node exists before creating a schedule-to-node link.
+- Planning also owns progress snapshots/baselines and schedule/activity concepts.
+
+**Updated disposition:** do not merge these models blindly. Scope may own the canonical editable breakdown structure, while Planning owns immutable planning snapshots used for baselines, schedule associations, and reproducible progress reporting. The likely missing boundary is an explicit versioned snapshot/export contract from Scope into Planning, with stable structure/node IDs and provenance—not necessarily one shared aggregate or repository.
+
+**Next evidence needed:** inspect `WorkBreakdownStructure`, snapshot creation/version fields, all persistence adapters, and consumers. If Planning's snapshot is genuinely immutable and versioned, preserve it as a distinct read/model artifact. If it is actually a second editable source of truth, then plan a migration to the Scope-owned hierarchy.
+
+## Revised priority order
+
+| Priority | Work item | Why now | Safe next action |
+|---|---|---|---|
+| P0 | Subscription lifecycle ownership | Two complete application/API/domain paths with overlapping lifecycle fields and operations | Trace routes, DB schema, scheduled jobs and consumers; propose compatibility/migration plan |
+| P1 | Document storage provider consolidation | Two provider implementations per storage mode, but application ports have different semantics | Compare behavioral contracts and deployment composition; design one provider adapter path |
+| P1 | Currency and exchange-rate authority | Master-data/rate-management path and accounting conversion path overlap at the rate record | Define authoritative records and adapter contract; preserve accounting valuation policy |
+| P2 | Scope-to-Planning WBS snapshot contract | Different lifecycles may justify both models | Trace snapshot/version semantics; define versioned export/import contract rather than merging prematurely |
+
+## Scope of this second pass
+
+Inspected source and POMs for:
+- `DocumentStoragePort`, `DocumentStorage`, local and S3-compatible storage providers, and the document adapter POM;
+- legacy finance subscription entity/service and commerce subscription aggregate/repository port;
+- finance-common exchange-rate service and accounting exchange-rate provider;
+- Scope node repository and Planning WBS repository/activity-link use case.
+
+This remains source-level evidence, not a full repository-wide call graph. GitHub code-search results were unavailable for reliable global consumer counts, so no claim is made that every consumer or runtime path has been found. Next work should use targeted tree/source inspection and actual reactor builds where available, and should not retire modules until usage, schema, and deployment evidence is complete.
