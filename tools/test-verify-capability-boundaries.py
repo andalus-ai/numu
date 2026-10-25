@@ -11,13 +11,22 @@ SPEC.loader.exec_module(MODULE)
 
 RULES = {
     "version": 1,
-    "rules": [{
-        "id": "project-core-must-not-depend-on-construction",
-        "consumer_artifact_prefixes": ["numou-project-"],
-        "forbidden_dependency_artifact_prefixes": ["numou-construction-"],
-        "forbidden_dependency_group": "tech.kayys.numou",
-        "rationale": "neutral project core must not depend on construction",
-    }],
+    "rules": [
+        {
+            "id": "project-core-must-not-depend-on-construction",
+            "consumer_artifact_prefixes": ["numou-project-"],
+            "forbidden_dependency_artifact_prefixes": ["numou-construction-"],
+            "forbidden_dependency_group": "tech.kayys.numou",
+            "rationale": "neutral project core must not depend on construction",
+        },
+        {
+            "id": "quantity-core-must-not-depend-on-construction",
+            "consumer_artifact_prefixes": ["numou-quantity-"],
+            "forbidden_dependency_artifact_prefixes": ["numou-construction-"],
+            "forbidden_dependency_group": "tech.kayys.numou",
+            "rationale": "neutral quantity core must not depend on construction",
+        },
+    ],
 }
 
 
@@ -52,11 +61,23 @@ class CapabilityBoundaryVerifierTest(unittest.TestCase):
         self.assertEqual(1, len(errors))
         self.assertIn("neutral project core must not depend on construction", errors[0])
 
-    def test_allows_construction_to_depend_on_neutral_project(self):
-        write_pom(self.root, "construction/construction-domain/pom.xml",
-                  "numou-construction-domain",
+    def test_rejects_neutral_quantity_dependency_on_construction(self):
+        write_pom(self.root, "quantity/quantity-domain/pom.xml", "numou-quantity-domain",
                   '<dependency><groupId>tech.kayys.numou</groupId>'
-                  '<artifactId>numou-project-domain</artifactId></dependency>')
+                  '<artifactId>numou-construction-domain</artifactId></dependency>')
+        checked, errors = MODULE.scan(self.root, self.rules)
+        self.assertEqual(1, checked)
+        self.assertEqual(1, len(errors))
+        self.assertIn("neutral quantity core must not depend on construction", errors[0])
+
+    def test_allows_construction_to_depend_on_neutral_project_and_quantity(self):
+        write_pom(
+            self.root, "construction/construction-domain/pom.xml", "numou-construction-domain",
+            '<dependency><groupId>tech.kayys.numou</groupId>'
+            '<artifactId>numou-project-domain</artifactId></dependency>'
+            '<dependency><groupId>tech.kayys.numou</groupId>'
+            '<artifactId>numou-quantity-domain</artifactId></dependency>',
+        )
         checked, errors = MODULE.scan(self.root, self.rules)
         self.assertEqual(1, checked)
         self.assertEqual([], errors)
