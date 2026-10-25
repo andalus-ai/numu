@@ -165,6 +165,32 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
         assertEquals(1, artifacts.receiptCount, "recovery should leave one receipt for the retried logical chunk");
     }
 
+    @Test
+    void retriesArtifactInspectionFailureAfterFinalCheckpointWithoutRewritingBytes() throws Exception {
+        MutableClock clock = new MutableClock(NOW);
+        InMemoryJobs jobs = new InMemoryJobs(requestedJob());
+        InMemoryArtifacts durable = new InMemoryArtifacts();
+        FailOnceInspectArtifacts artifacts = new FailOnceInspectArtifacts(durable);
+        InMemoryManifests manifests = new InMemoryManifests();
+        WarehouseRecoveryAuditExportWorker worker = worker(jobs, artifacts, manifests, new InMemoryAccess(), clock);
+
+        assertThrows(IOException.class, () -> worker.runOne("worker-a"));
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.RUNNING, jobs.current.status());
+        assertNull(jobs.current.continuationCursor());
+        assertTrue(jobs.current.exportedByteCount() > 0,
+                "the final page checkpoint must remain durable when verification inspection fails");
+        assertEquals(1, durable.physicalWrites);
+        assertTrue(manifests.saved.isEmpty(), "manifest persistence must wait for artifact inspection and verification");
+
+        // A new process resumes the final checkpoint after the worker lease expires.
+        clock.advance(Duration.ofMinutes(3));
+        var recovered = worker.runOne("worker-b").orElseThrow();
+
+        assertEquals(WarehouseRecoveryAuditExportJob.Status.COMPLETED, recovered.status());
+        assertEquals(1, durable.physicalWrites, "recovery must inspect the existing artifact, not append it again");
+        assertEquals(1, manifests.saved.size());
+    }
+
     private static WarehouseRecoveryAuditExportJob requestedJob() {
         return new WarehouseRecoveryAuditExportJob("export-crash-test", "tenant-crash-test", "operator-test",
                 WarehouseRecoveryAuditExportJob.Status.REQUESTED, null, 0, 0, null, null,
@@ -233,6 +259,29 @@ class WarehouseRecoveryAuditExportWorkerCrashWindowTest {
             return new ArtifactSnapshot(snapshot.location(), snapshot.byteSize() + sizeDelta,
                     checksumOverride == null ? snapshot.sha256Hex() : checksumOverride);
         }
+        @Override public InputStream open(String tenantId, String exportId) throws IOException {
+            return delegate.open(tenantId, exportId);
+        }
+    }
+
+    private static final class FailOnceInspectArtifacts implements WarehouseRecoveryAuditArtifactStore {
+        private final WarehouseRecoveryAuditArtifactStore delegate;
+        private final AtomicBoolean fail = new AtomicBoolean(true);
+
+        private FailOnceInspectArtifacts(WarehouseRecoveryAuditArtifactStore delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override public ArtifactSnapshot appendChunk(String tenantId, String exportId, String chunkId,
+                long expectedOffset, byte[] bytes) throws IOException {
+            return delegate.appendChunk(tenantId, exportId, chunkId, expectedOffset, bytes);
+        }
+
+        @Override public ArtifactSnapshot inspect(String tenantId, String exportId) throws IOException {
+            if (fail.compareAndSet(true, false)) throw new IOException("Injected artifact inspection outage");
+            return delegate.inspect(tenantId, exportId);
+        }
+
         @Override public InputStream open(String tenantId, String exportId) throws IOException {
             return delegate.open(tenantId, exportId);
         }
