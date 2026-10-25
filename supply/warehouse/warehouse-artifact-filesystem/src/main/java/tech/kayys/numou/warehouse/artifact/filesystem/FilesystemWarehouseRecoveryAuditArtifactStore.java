@@ -64,6 +64,7 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
         try (FileChannel lockChannel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
              FileLock ignored = lockChannel.lock()) {
             if (!Files.exists(artifact)) Files.createFile(artifact);
+            verifyDurableReceipts(dir, artifact);
             String digest = sha256(bytes);
             if (Files.exists(receipt)) {
                 String receiptText = Files.readString(receipt, StandardCharsets.UTF_8);
@@ -130,12 +131,16 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
 
     @Override
     public ArtifactSnapshot inspect(String tenantId, String exportId) throws IOException {
-        return snapshot(existingArtifact(tenantId, exportId));
+        Path artifact = existingArtifact(tenantId, exportId);
+        verifyDurableReceipts(artifact.getParent(), artifact);
+        return snapshot(artifact);
     }
 
     @Override
     public InputStream open(String tenantId, String exportId) throws IOException {
-        return Files.newInputStream(existingArtifact(tenantId, exportId), StandardOpenOption.READ);
+        Path artifact = existingArtifact(tenantId, exportId);
+        verifyDurableReceipts(artifact.getParent(), artifact);
+        return Files.newInputStream(artifact, StandardOpenOption.READ);
     }
 
     private Path exportDirectory(String tenantId, String exportId) {
@@ -153,6 +158,53 @@ public final class FilesystemWarehouseRecoveryAuditArtifactStore implements Ware
 
     private static ArtifactSnapshot snapshot(Path artifact) throws IOException {
         return new ArtifactSnapshot(artifact.toUri().toString(), Files.size(artifact), sha256(artifact));
+    }
+
+    /**
+     * Verify every durable receipt against the artifact before exposing or extending it.
+     * Missing receipts are intentionally tolerated: a crash may occur after bytes are forced
+     * but before the receipt is atomically committed, and appendChunk can recover that window.
+     */
+    private static void verifyDurableReceipts(Path exportDirectory, Path artifact) throws IOException {
+        Path receipts = exportDirectory.resolve("chunks");
+        if (!Files.isDirectory(receipts)) return;
+        long artifactSize = Files.size(artifact);
+        try (var files = Files.newDirectoryStream(receipts, "*.receipt")) {
+            for (Path receipt : files) {
+                String text = Files.readString(receipt, StandardCharsets.UTF_8);
+                String[] parts = text.split("\\n", -1);
+                if (parts.length != 4 || !parts[3].isEmpty()
+                        || !parts[0].matches("0|[1-9][0-9]*")
+                        || !parts[1].matches("0|[1-9][0-9]*")
+                        || !parts[2].matches("[0-9a-f]{64}")) {
+                    throw new IOException("Malformed durable chunk receipt: " + receipt.getFileName());
+                }
+                final long offset;
+                final int length;
+                try {
+                    offset = Long.parseLong(parts[0]);
+                    length = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException invalid) {
+                    throw new IOException("Invalid durable chunk receipt numbers: " + receipt.getFileName(), invalid);
+                }
+                long end;
+                try {
+                    end = Math.addExact(offset, length);
+                } catch (ArithmeticException overflow) {
+                    throw new IOException("Durable chunk receipt offset overflow: " + receipt.getFileName(), overflow);
+                }
+                if (offset < 0 || length < 0 || end > artifactSize)
+                    throw new IOException("Durable chunk receipt exceeds artifact bounds: " + receipt.getFileName());
+                byte[] actual = new byte[length];
+                try (FileChannel channel = FileChannel.open(artifact, StandardOpenOption.READ)) {
+                    readFully(channel, ByteBuffer.wrap(actual), offset);
+                }
+                if (!MessageDigest.isEqual(parts[2].getBytes(StandardCharsets.US_ASCII),
+                        sha256(actual).getBytes(StandardCharsets.US_ASCII))) {
+                    throw new IOException("Artifact bytes do not match durable chunk receipt: " + receipt.getFileName());
+                }
+            }
+        }
     }
 
     private static void verifyRange(Path artifact, long offset, byte[] expected) throws IOException {
