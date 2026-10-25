@@ -236,6 +236,32 @@ public final class StructuredDatabaseService {
                         : results.get(0).schemaVersion(), results, (int) valid, results.size() - (int) valid);
     }
 
+    /**
+     * Previews a proposed table schema against all of the actor's saved views. The expected version
+     * prevents callers from reviewing a candidate based on a schema that has already changed.
+     * This operation is read-only; applying the schema remains a separate, version-checked operation.
+     */
+    public tech.kayys.numou.workspace.domain.DatabaseSchemaChangePreview previewSchemaChange(
+            UUID tenantId, UUID actorId, UUID databaseId, UUID tableId, long expectedSchemaVersion,
+            String proposedName, List<DatabaseProperty> proposedProperties) {
+        requireDatabase(tenantId, actorId, databaseId, Action.UPDATE);
+        DatabaseTable current = repository.findTable(tenantId, databaseId, tableId)
+                .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+        accessPolicy.require(tenantId, actorId, Resource.DATABASE_TABLE, tableId, Action.UPDATE);
+        if (expectedSchemaVersion < 1 || current.schemaVersion() != expectedSchemaVersion) {
+            throw new IllegalArgumentException("stale table schema version; refresh before previewing changes");
+        }
+        DatabaseTable candidate = new DatabaseTable(current.id(), current.tenantId(), current.databaseId(),
+                proposedName == null || proposedName.isBlank() ? current.name() : proposedName,
+                current.schemaVersion() + 1, proposedProperties);
+        SavedViewSchemaValidator validator = new SavedViewSchemaValidator(repository, accessPolicy);
+        List<DatabaseViewValidationResult> results = findViews(tenantId, actorId, databaseId, tableId).stream()
+                .map(view -> validator.validateAgainstSchema(view, candidate)).toList();
+        int compatible = (int) results.stream().filter(DatabaseViewValidationResult::valid).count();
+        return new tech.kayys.numou.workspace.domain.DatabaseSchemaChangePreview(tableId, current.schemaVersion(),
+                candidate.schemaVersion(), results, compatible, results.size() - compatible);
+    }
+
     /** Reports schema drift without mutating or deleting the saved view. */
     public DatabaseViewValidationResult validateView(UUID tenantId, UUID actorId, UUID databaseId, UUID viewId) {
         return new SavedViewSchemaValidator(repository, accessPolicy).validate(tenantId, actorId, databaseId, viewId);

@@ -159,6 +159,56 @@ class CourierOutboxEndToEndTest {
                 "intruder", "unauthorized attempt", ref.tenantId(), ref.eventId(), ref.destination()));
     }
 
+    @Test
+    void repeatedTransportFailuresMovePublicationToDeadLetterAtRetryLimit() throws Exception {
+        EventRef ref = insertEvent("retry-exhaustion");
+        JdbcCourierOutboxPublisher relay = new JdbcCourierOutboxPublisher(dataSource);
+        AtomicInteger attempts = new AtomicInteger();
+
+        for (int expectedAttempt = 1; expectedAttempt <= 12; expectedAttempt++) {
+            execute("UPDATE courier_event_publications SET available_at = now() WHERE tenant_id = ? AND event_id = ? AND destination = ?",
+                    ref);
+            assertEquals(0, relay.publishBatch(ref.destination(), "worker-exhaustion", 1,
+                    (destination, event) -> {
+                        attempts.incrementAndGet();
+                        throw new IllegalStateException("persistent gateway outage");
+                    }));
+            assertEquals(expectedAttempt, statusInt(ref, "attempt_count"));
+            if (expectedAttempt < 12) {
+                assertEquals("PENDING", status(ref, "status"));
+            }
+        }
+
+        assertEquals(12, attempts.get());
+        assertEquals("DEAD", status(ref, "status"));
+        assertTrue(status(ref, "last_error").contains("persistent gateway outage"));
+        assertNull(status(ref, "lease_owner"));
+        assertNull(status(ref, "lease_until"));
+    }
+
+    @Test
+    void expiredLeaseAtRetryLimitIsReapedToDeadLetterWithoutAnotherSend() throws Exception {
+        EventRef ref = insertEvent("expired-final-lease");
+        execute("""
+                UPDATE courier_event_publications
+                SET attempt_count = 12, lease_owner = 'crashed-final-worker',
+                    lease_until = now() - interval '1 second', last_error = 'final attempt outcome unknown'
+                WHERE tenant_id = ? AND event_id = ? AND destination = ?
+                """, ref);
+        AtomicInteger sends = new AtomicInteger();
+
+        assertEquals(0, new JdbcCourierOutboxPublisher(dataSource).publishBatch(
+                ref.destination(), "reaper-worker", 10,
+                (destination, event) -> sends.incrementAndGet()));
+
+        assertEquals(0, sends.get());
+        assertEquals("DEAD", status(ref, "status"));
+        assertEquals(12, statusInt(ref, "attempt_count"));
+        assertNull(status(ref, "lease_owner"));
+        assertNull(status(ref, "lease_until"));
+        assertTrue(status(ref, "last_error").contains("final attempt outcome unknown"));
+    }
+
     private static EventRef insertEvent(String suffix) throws Exception {
         UUID tenant = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
