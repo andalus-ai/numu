@@ -112,6 +112,36 @@ class ReservationDomainTest {
                 .isInstanceOf(NoAvailabilityException.class);
     }
 
+
+    @Test
+    void customDurationAndResourceTagsAreEnforcedByLedger() {
+        final var day = LocalDate.of(2026, 10, 9);
+        final var ledger = AvailabilityLedger.open(facilityId, day, now);
+        final var start = LocalDateTime.of(2026, 10, 9, 18, 0).atZone(zone).toInstant();
+        final var liftBay = new BookableResource(ResourceId.generate(), "Lift Bay", 1, 4, Set.of(), Set.of("LIFT", "diagnostics"));
+        final var ordinaryBay = new BookableResource(ResourceId.generate(), "General Bay", 1, 4, Set.of(), Set.of("general"));
+
+        assertThat(ledger.canAccommodate(PartySize.of(2), start, Duration.ofHours(2), Set.of("lift"),
+                rules, List.of(ordinaryBay))).isFalse();
+        assertThat(ledger.canAccommodate(PartySize.of(2), start, Duration.ofHours(2), Set.of("lift"),
+                rules, List.of(liftBay))).isTrue();
+
+        ledger.allocate(ReservationId.generate(), PartySize.of(2), start, Duration.ofHours(3),
+                Set.of("lift"), rules, List.of(liftBay), now);
+        assertThat(ledger.canAccommodate(PartySize.of(2), start.plus(Duration.ofHours(2)), Duration.ofMinutes(30),
+                Set.of("lift"), rules, List.of(liftBay))).isFalse();
+    }
+
+    @Test
+    void customDurationMustBePositive() {
+        final var ledger = AvailabilityLedger.open(facilityId, LocalDate.of(2026, 10, 9), now);
+        final var start = LocalDateTime.of(2026, 10, 9, 18, 0).atZone(zone).toInstant();
+        final var resource = new BookableResource(ResourceId.generate(), "Lift Bay", 1, 4, Set.of(), Set.of("lift"));
+
+        assertThatThrownBy(() -> ledger.canAccommodate(PartySize.of(2), start, Duration.ZERO,
+                Set.of("lift"), rules, List.of(resource))).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void checkInAndComplete() {
         final var start = LocalDateTime.of(2026, 10, 9, 18, 0).atZone(zone).toInstant();
