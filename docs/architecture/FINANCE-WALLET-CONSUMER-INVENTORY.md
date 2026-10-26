@@ -79,3 +79,41 @@ Test persistence restart, duplicate and out-of-order callbacks, concurrent credi
 - Forcing all domains to support overdraft, holds, withdrawal or stored-value behavior.
 - Creating a wallet microservice by default; an in-process capability is the baseline.
 - Claiming that the initial source-tree review proves builds, database guarantees or legal compliance.
+
+
+## MOB-EXTRACT-0 — Persistence and idempotency evidence update
+
+**Review scope:** current source tree for PgWalletRepository, PgLedgerRepository, WalletService, WalletRepository, LedgerRepository, UnitOfWork, DefaultUnitOfWork, PgUnitOfWork, and migrations V302/V303. This is source inspection, not a successful runtime or database verification.
+
+### Verified strengths
+
+- V302__wallet_operation_idempotency.sql checks historical (tenant_id, wallet_id, ref) duplicates and aborts rather than silently choosing a financial record, then adds a unique index over those columns.
+- V303__wallet_request_fingerprint.sql persists request_fingerprint; WalletService builds a SHA-256 fingerprint from operation kind, normalized signed amount, memo, and operation context (including the hold reference for capture/release).
+- WalletService.mutate first queries the ledger by tenant/wallet/reference, compares an existing entry's kind, amount, memo and nonblank fingerprint, then either treats an identical replay as already applied or rejects conflicting reuse.
+- PgLedgerRepository.append uses the Hibernate Reactive session and ON CONFLICT DO NOTHING; its class comment says the ledger append joins the wallet change's transaction. The unique index supplies a durable operation-reference constraint independently of the aggregate's bounded recent-reference set.
+- WalletService.mutate composes wallets.save, ledger.append, and event publication inside uow.execute(...). PgWalletRepository uses the shared tenant-scoped, versioned aggregate-document store. These are intended transaction seams, but the repository comments explicitly condition production readiness on integration verification.
+- The shared UnitOfWork port is framework-neutral. PgUnitOfWork uses Panache.withTransaction, which is a more appropriate transaction boundary than assuming the default in-memory DefaultUnitOfWork itself provides database atomicity.
+
+### Open correctness and production-readiness gates
+
+1. **Real PostgreSQL transaction proof remains outstanding.** Source composition alone does not prove that PgDocumentRepository save, ledger insert, and event handling use the same reactive session/transaction in the deployed Quarkus wiring. Add Testcontainers/PostgreSQL integration tests that force failure after wallet save and after ledger append, then verify all affected durable rows roll back together.
+2. **Event durability is not established by this path.** WalletService calls events.publish(tenantId, raised) after save and ledger append, still inside the unit-of-work callback. The inspected sources do not establish that this sink writes a transactional outbox row on the same database transaction. A direct broker publish is not an atomic commit guarantee. Verify the concrete DomainEventSink binding and use a transactional outbox or explicitly document a different durable mechanism before extraction.
+3. **Concurrent same-key commands need an integration race test.** The unique index and aggregate optimistic version are promising controls, but the inspected code alone does not prove that two concurrent operations cannot both alter a balance while one ledger insert is ignored by ON CONFLICT DO NOTHING. Test same-key/same-payload and same-key/conflicting-payload races, and verify final balance, ledger rows, and events.
+4. **Tenant/RLS behavior must be verified with the real runtime role.** The repository query includes tenant ID, and TenantTransaction.run is used for ledger methods. This does not independently prove database row-level security, tenant context propagation across reactive thread hops, or that every wallet command is authorized for the owner/account. Verify HTTP-to-database isolation under the production-like application role.
+5. **DefaultUnitOfWork is not a database transaction manager.** It uses a ThreadLocal context and synchronization hooks. Do not treat it as a substitute for PgUnitOfWork; separately verify context propagation with Mutiny and ensure the runtime injects the intended implementation.
+6. **Operation-reference scope needs an explicit contract.** The unique index scopes a reference to tenant + wallet, across movement kinds. This is defensible if all callers share that namespace, but the public contract should specify it. The fingerprint compatibility path accepts historical blank fingerprints, so those rows cannot be checked against the original request payload.
+7. **ON CONFLICT DO NOTHING can hide the reason for a collision.** It covers any applicable unique/exclusion conflict, not only a duplicate entry ID. The application should distinguish an identical durable replay from a conflicting operation reference, including concurrent races, by rereading and comparing the winning row before reporting success.
+8. **Wallet balance/ledger reconciliation remains required.** Ledger append stores balance_after and sequence, but no source review or runtime test here proves sequence uniqueness, no gaps, balance-to-ledger reconciliation, or safe repair procedures.
+9. **Launch gaps remain material.** mobility/docs/GAPS.md states the Quarkus/framework layer has not been compiled in its authoring environment and calls out missing provider sandbox verification, automated real-money payouts, legal/regulatory review, push delivery, onboarding/KYC, safety operations, and load/chaos testing. These are not solved by the database idempotency migrations.
+
+### Required next test milestone
+
+- [ ] Compile the actual Mobility Maven reactor with the repository's supported JDK/Maven and resolve framework-layer compile failures first.
+- [ ] Run PostgreSQL integration tests with the real migrations and production-like application role.
+- [ ] Prove wallet-document update + ledger append + durable event/outbox insertion commit or roll back atomically.
+- [ ] Race identical and conflicting idempotency references across independent transactions; assert the final balance, wallet version, ledger, and emitted event count.
+- [ ] Verify tenant isolation and RLS under HTTP/runtime context, including reactive thread hops.
+- [ ] Verify outbox relay/retry and downstream inbox behavior, or document the actual equivalent durable event mechanism.
+- [ ] Record commands, environment prerequisites, exact results, and failures; do not infer test success from source or historical test counts.
+
+**Extraction gate:** do not create or migrate a shared finance/wallet production contract yet. The durable unique index and request fingerprint are meaningful progress, but transaction/outbox composition, concurrent conflict behavior, tenant isolation, and a compiled runtime still need real integration evidence.
