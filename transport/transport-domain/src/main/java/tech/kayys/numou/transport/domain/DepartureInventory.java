@@ -149,8 +149,9 @@ public final class DepartureInventory {
     private int maxOccupiedAcrossSegment(int from, int to, Instant now) {
         int maximum = 0;
         for (int leg = from; leg < to; leg++) {
+            int legStart = leg;
             int occupiedOnLeg = holds.stream()
-                    .filter(hold -> hold.overlaps(leg, leg + 1))
+                    .filter(hold -> hold.overlaps(legStart, legStart + 1))
                     .filter(hold -> hold.consumesCapacityAt(now))
                     .mapToInt(PassengerHold::passengerCount)
                     .sum();
