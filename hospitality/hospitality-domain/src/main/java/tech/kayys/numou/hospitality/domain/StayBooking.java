@@ -19,13 +19,14 @@ public final class StayBooking {
     private final LocalDate checkOut;
     private final int guestCount;
     private final UUID quoteId;
+    private final String currency;
     private final String idempotencyKey;
     private final Instant createdAt;
     private final Instant holdExpiresAt;
     private StayBookingStatus status;
 
     private StayBooking(UUID id, String tenantId, String customerId, UUID listingId, UUID unitId,
-                        LocalDate checkIn, LocalDate checkOut, int guestCount, UUID quoteId,
+                        LocalDate checkIn, LocalDate checkOut, int guestCount, UUID quoteId, String currency,
                         String idempotencyKey, Instant createdAt, Instant holdExpiresAt) {
         this.id = Objects.requireNonNull(id, "id");
         this.tenantId = requireText(tenantId, "tenantId");
@@ -38,6 +39,7 @@ public final class StayBooking {
         if (guestCount < 1) throw new IllegalArgumentException("guestCount must be positive");
         this.guestCount = guestCount;
         this.quoteId = Objects.requireNonNull(quoteId, "quoteId");
+        this.currency = requireText(currency, "currency");
         this.idempotencyKey = requireText(idempotencyKey, "idempotencyKey");
         if (this.idempotencyKey.length() > 200) throw new IllegalArgumentException("idempotencyKey must not exceed 200 characters");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
@@ -51,7 +53,7 @@ public final class StayBooking {
         Objects.requireNonNull(quote, "quote");
         if (quote.isExpiredAt(now)) throw new IllegalArgumentException("Cannot create booking from expired quote");
         return new StayBooking(id, tenantId, customerId, quote.listingId(), quote.unitId(), quote.checkIn(),
-                quote.checkOut(), quote.guestCount(), quote.id(), idempotencyKey, now, holdExpiresAt);
+                quote.checkOut(), quote.guestCount(), quote.id(), quote.currency(), idempotencyKey, now, holdExpiresAt);
     }
 
     public void confirm(Instant now) {
@@ -86,6 +88,7 @@ public final class StayBooking {
     public LocalDate checkOut() { return checkOut; }
     public int guestCount() { return guestCount; }
     public UUID quoteId() { return quoteId; }
+    public String currency() { return currency; }
     public String idempotencyKey() { return idempotencyKey; }
     public Instant createdAt() { return createdAt; }
     public Instant holdExpiresAt() { return holdExpiresAt; }
@@ -98,7 +101,8 @@ public final class StayBooking {
                 && checkIn.equals(quote.checkIn())
                 && checkOut.equals(quote.checkOut())
                 && guestCount == quote.guestCount()
-                && quoteId.equals(quote.id());
+                && quoteId.equals(quote.id())
+                && currency.equals(quote.currency());
     }
 
     private static String requireText(String value, String name) {
