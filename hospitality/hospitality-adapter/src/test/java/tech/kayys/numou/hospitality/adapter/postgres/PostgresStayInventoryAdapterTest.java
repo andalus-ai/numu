@@ -203,14 +203,14 @@ class PostgresStayInventoryAdapterTest {
              Statement statement = connection.createStatement()) {
             statement.execute("""
                     CREATE OR REPLACE FUNCTION hospitality_test_fail_booking_night_insert()
-                    RETURNS trigger AS $
-                    BEGIN
-                        IF NEW.stay_date = DATE '2030-09-11' THEN
-                            RAISE EXCEPTION 'injected booking-night insert failure';
+                    RETURNS trigger
+                    LANGUAGE plpgsql
+                    AS 'BEGIN
+                        IF NEW.stay_date = DATE ''2030-09-11'' THEN
+                            RAISE EXCEPTION ''injected booking-night insert failure'';
                         END IF;
                         RETURN NEW;
-                    END;
-                    $ LANGUAGE plpgsql
+                    END;'
                     """);
             statement.execute("""
                     CREATE TRIGGER hospitality_test_fail_booking_night_insert
