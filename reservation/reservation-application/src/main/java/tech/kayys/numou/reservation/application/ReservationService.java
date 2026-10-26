@@ -182,22 +182,19 @@ public final class ReservationService {
         }
         if (idempotencyKey != null) {
             final var repository = (IdempotentReservationRepository) reservations;
-            final String fingerprint = ReservationRequestFingerprint.of(
-                    new ReservationRequestFingerprint.CreateReservationCommand(
-                            tenantId.toString(), fId.value().toString(), customer, party.value(), startsAt,
-                            serviceDuration, normalizedSource, notes, normalizedRequirements, tags));
-            // Resolve committed retries before consulting live availability or resource discovery.
-            return repository.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing -> {
-                if (existing.isPresent()) {
-                    return repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, existing.get())
-                            .map(result -> ReservationView.of(result.reservation()));
-                }
-                return bookConstrainedAfterIdempotencyLookup(tenantId, fId, id, customer, party, startsAt,
-                        normalizedSource, notes, normalizedRequirements, serviceDuration, tags, idempotencyKey);
-            });
+            final String fingerprint = reservationFingerprint(tenantId, fId, customer, party, startsAt,
+                    serviceDuration, normalizedSource, notes, normalizedRequirements, tags);
+            // A committed replay must not depend on current availability or resource discovery.
+            return repository.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing ->
+                    existing.<Uni<ReservationView>>map(reservation ->
+                            repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, reservation)
+                                    .map(result -> ReservationView.of(result.reservation())))
+                            .orElseGet(() -> bookConstrainedAfterIdempotencyLookup(tenantId, fId, id, customer,
+                                    party, startsAt, normalizedSource, notes, normalizedRequirements, serviceDuration,
+                                    tags, idempotencyKey)));
         }
-        return bookConstrainedAfterIdempotencyLookup(tenantId, fId, id, customer, party, startsAt,
-                normalizedSource, notes, normalizedRequirements, serviceDuration, tags, null);
+        return bookConstrainedAfterIdempotencyLookup(tenantId, fId, id, customer, party, startsAt, normalizedSource,
+                notes, normalizedRequirements, serviceDuration, tags, null);
     }
 
     private Uni<ReservationView> bookConstrainedAfterIdempotencyLookup(
@@ -221,6 +218,15 @@ public final class ReservationService {
         );
     }
 
+    private String reservationFingerprint(UUID tenantId, FacilityId facilityId, CustomerContact customer,
+                                          PartySize party, Instant startsAt, Duration duration, BookingSource source,
+                                          String notes, Set<String> requirements, Set<String> requiredResourceTags) {
+        return ReservationRequestFingerprint.of(
+                new ReservationRequestFingerprint.CreateReservationCommand(
+                        tenantId.toString(), facilityId.value().toString(), customer, party.value(), startsAt,
+                        duration, source, notes, requirements, requiredResourceTags));
+    }
+
     private Uni<ReservationView> doBookIdempotently(UUID tenantId, FacilityId facilityId, ReservationId id,
                                                      CustomerContact customer, PartySize party, Instant startsAt,
                                                      BookingSource source, String notes, Set<String> requirements,
@@ -228,10 +234,8 @@ public final class ReservationService {
                                                      String idempotencyKey, BookingRules rules,
                                                      List<BookableResource> resList) {
         var repository = (IdempotentReservationRepository) reservations;
-        final String fingerprint = ReservationRequestFingerprint.of(
-                new ReservationRequestFingerprint.CreateReservationCommand(
-                        tenantId.toString(), facilityId.value().toString(), customer, party.value(), startsAt,
-                        requestedDuration, source, notes, requirements, requiredResourceTags));
+        final String fingerprint = reservationFingerprint(tenantId, facilityId, customer, party, startsAt,
+                requestedDuration, source, notes, requirements, requiredResourceTags);
         return repository.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing -> {
             if (existing.isPresent()) {
                 // The atomic repository compares fingerprints and returns the canonical reservation.
