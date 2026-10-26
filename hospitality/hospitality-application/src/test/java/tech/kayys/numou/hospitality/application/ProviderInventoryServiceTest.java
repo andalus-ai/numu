@@ -61,8 +61,7 @@ class ProviderInventoryServiceTest {
                 });
 
         assertThatThrownBy(() -> service.provision(command("provider-attacker")).await().indefinitely())
-                .hasRootCauseInstanceOf(ProviderInventoryService.class)
-                .or().isInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
         assertThat(provisioned).isFalse();
     }
 
