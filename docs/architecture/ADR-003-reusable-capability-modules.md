@@ -59,6 +59,10 @@ These are composition examples, not a mandate to deploy each item separately. Ex
 5. Representative monolith and distributed compositions reuse the same contracts and business rules.
 6. A capability can be consumed without pulling unrelated capabilities or infrastructure by default.
 
+## Implementation contract
+
+The detailed artifact-role, dependency-direction, composition-profile, persistence-boundary, and reuse-evidence requirements are maintained in [Capability Packaging and Composition Contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md). That contract is normative for new work and incremental migrations; it does not imply that existing modules already comply.
+
 ## Consequences
 
 - The shared framework parent remains at core/framework/pom.xml until a deliberate root build-layout migration is designed.
