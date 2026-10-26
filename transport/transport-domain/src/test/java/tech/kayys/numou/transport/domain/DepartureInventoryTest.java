@@ -111,6 +111,19 @@ class DepartureInventoryTest {
     }
 
     @Test
+    void rejectsDuplicateHoldIdsAcrossDifferentIdempotencyKeys() {
+        DepartureInventory start = inventory(2);
+        UUID holdId = UUID.randomUUID();
+        DepartureInventory.HoldResult first = start.hold(holdId, "req-1", "fp-1",
+                1, 2, 1, EXPIRY, NOW);
+
+        assertThatThrownBy(() -> first.inventory().hold(holdId, "req-2", "fp-2",
+                2, 3, 1, EXPIRY, NOW))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already in use");
+    }
+
+    @Test
     void onlyPublishedDeparturesCanHaveInventory() {
         TransportRoute route = new TransportRoute(UUID.randomUUID(), "tenant-a", "R-2", "Route",
                 List.of(
