@@ -251,6 +251,80 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
         assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-gap"));
     }
 
+    @Test
+    void repairsPartialLaterChunkAfterRestartWithoutChangingCommittedPrefix() throws Exception {
+        byte[] first = "header\\n".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "row-123\\n".getBytes(StandardCharsets.UTF_8);
+        Path exportDirectory = temporaryDirectory.resolve(hash("tenant-tail")).resolve(hash("export-tail"));
+        Files.createDirectories(exportDirectory.resolve("chunks"));
+
+        var firstProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        firstProcess.appendChunk("tenant-tail", "export-tail", "chunk-1", 0, first);
+
+        // Simulate a crash after part of chunk 2 was written, but before its receipt was committed.
+        byte[] partial = java.util.Arrays.copyOf(second, 4);
+        Files.write(exportDirectory.resolve("audit.csv"),
+                concat(first, partial));
+
+        var restartedProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        var recovered = restartedProcess.appendChunk("tenant-tail", "export-tail", "chunk-2", first.length, second);
+
+        assertEquals(first.length + second.length, recovered.byteSize());
+        assertArrayEquals(concat(first, second),
+                restartedProcess.open("tenant-tail", "export-tail").readAllBytes());
+        assertEquals(recovered.sha256Hex(), restartedProcess.inspect("tenant-tail", "export-tail").sha256Hex());
+    }
+
+    @Test
+    void refusesConflictingPartialLaterChunkWithoutModifyingDurablePrefixOrTail() throws Exception {
+        byte[] first = "header\\n".getBytes(StandardCharsets.UTF_8);
+        byte[] intended = "row-123\\n".getBytes(StandardCharsets.UTF_8);
+        byte[] conflictingPrefix = "ROw".getBytes(StandardCharsets.UTF_8);
+        Path exportDirectory = temporaryDirectory.resolve(hash("tenant-tail-conflict")).resolve(hash("export-tail-conflict"));
+        Files.createDirectories(exportDirectory.resolve("chunks"));
+
+        var firstProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        firstProcess.appendChunk("tenant-tail-conflict", "export-tail-conflict", "chunk-1", 0, first);
+        byte[] damagedTail = concat(first, conflictingPrefix);
+        Files.write(exportDirectory.resolve("audit.csv"), damagedTail);
+
+        var restartedProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        assertThrows(IOException.class, () -> restartedProcess.appendChunk("tenant-tail-conflict",
+                "export-tail-conflict", "chunk-2", first.length, intended));
+        assertArrayEquals(damagedTail, Files.readAllBytes(exportDirectory.resolve("audit.csv")),
+                "a mismatching unreceipted tail must not be overwritten or extended");
+        assertArrayEquals(first, java.util.Arrays.copyOf(
+                Files.readAllBytes(exportDirectory.resolve("audit.csv")), first.length),
+                "previously committed bytes must remain untouched");
+    }
+
+    @Test
+    void ignoresOrphanedTemporaryReceiptFromInterruptedReceiptCommit() throws Exception {
+        byte[] chunk = "durable-row\\n".getBytes(StandardCharsets.UTF_8);
+        Path exportDirectory = temporaryDirectory.resolve(hash("tenant-temp")).resolve(hash("export-temp"));
+        Path receiptDirectory = exportDirectory.resolve("chunks");
+        Files.createDirectories(receiptDirectory);
+        Files.write(exportDirectory.resolve("audit.csv"), chunk);
+        // A process may stop after writing the temp receipt but before the atomic rename.
+        Files.writeString(receiptDirectory.resolve(".receipt-interrupted.tmp"), "partial receipt",
+                StandardCharsets.UTF_8);
+
+        var restartedProcess = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        var recovered = restartedProcess.appendChunk("tenant-temp", "export-temp", "chunk-1", 0, chunk);
+
+        assertEquals(chunk.length, recovered.byteSize());
+        assertArrayEquals(chunk, restartedProcess.open("tenant-temp", "export-temp").readAllBytes());
+        try (var files = Files.list(receiptDirectory)) {
+            assertEquals(1L, files.filter(p -> p.getFileName().toString().endsWith(".receipt")).count());
+        }
+    }
+
+    private static byte[] concat(byte[] first, byte[] second) {
+        byte[] combined = java.util.Arrays.copyOf(first, first.length + second.length);
+        System.arraycopy(second, 0, combined, first.length, second.length);
+        return combined;
+    }
+
     private record WarehouseSnapshot(long byteSize, String sha256Hex) {}
 
     private static String hashBytes(byte[] value) throws Exception {
