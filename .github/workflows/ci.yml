@@ -68,6 +68,11 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
+      # Install the parent POM before independent reactors install artifacts whose
+      # published POMs inherit from numou-framework. A child reactor resolving its
+      # parent through relativePath does not install that parent into the local repo.
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Build and install security contracts used by framework adapters
