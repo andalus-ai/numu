@@ -162,7 +162,7 @@ public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, S
         return async(() -> {
             String sql = "WITH due AS (SELECT tenant_id, booking_id FROM hospitality_stay_booking " +
                     "WHERE booking_status='HELD' AND hold_expires_at <= ? " +
-                    "ORDER BY hold_expires_at, tenant_id, booking_id FOR UPDATE SKIP LOCKED LIMIT ?) " +
+                    "ORDER BY hold_expires_at, tenant_id, booking_id LIMIT ? FOR UPDATE SKIP LOCKED) " +
                     "UPDATE hospitality_stay_booking b SET booking_status='EXPIRED' FROM due " +
                     "WHERE b.tenant_id=due.tenant_id AND b.booking_id=due.booking_id AND b.booking_status='HELD'";
             try (Connection connection = dataSource.getConnection();
