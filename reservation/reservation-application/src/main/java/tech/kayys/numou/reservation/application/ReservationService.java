@@ -180,20 +180,51 @@ public final class ReservationService {
             return Uni.createFrom().failure(new IllegalStateException(
                     "Idempotency key supplied but reservation repository does not support atomic idempotency"));
         }
-        return rulesPort.rulesFor(tenantId, fId).flatMap(rules ->
-                resourceDirectory.resourcesFor(tenantId, fId).flatMap(resList ->
+        if (idempotencyKey != null) {
+            final var repository = (IdempotentReservationRepository) reservations;
+            final String fingerprint = reservationFingerprint(tenantId, fId, customer, party, startsAt,
+                    serviceDuration, normalizedSource, notes, normalizedRequirements, tags);
+            // A committed replay must not depend on current availability or resource discovery.
+            return repository.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing ->
+                    existing.<Uni<ReservationView>>map(reservation ->
+                            repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, reservation)
+                                    .map(result -> ReservationView.of(result.reservation())))
+                            .orElseGet(() -> bookConstrainedAfterIdempotencyLookup(tenantId, fId, id, customer,
+                                    party, startsAt, normalizedSource, notes, normalizedRequirements, serviceDuration,
+                                    tags, idempotencyKey)));
+        }
+        return bookConstrainedAfterIdempotencyLookup(tenantId, fId, id, customer, party, startsAt, normalizedSource,
+                notes, normalizedRequirements, serviceDuration, tags, null);
+    }
+
+    private Uni<ReservationView> bookConstrainedAfterIdempotencyLookup(
+            UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer, PartySize party,
+            Instant startsAt, BookingSource source, String notes, Set<String> requirements, Duration serviceDuration,
+            Set<String> requiredResourceTags, String idempotencyKey) {
+        return rulesPort.rulesFor(tenantId, facilityId).flatMap(rules ->
+                resourceDirectory.resourcesFor(tenantId, facilityId).flatMap(resList ->
                         ConflictRetry.run(MAX_ATTEMPTS, () -> uow.execute(() -> {
                             if (idempotencyKey == null) {
-                                return doBook(tenantId, fId, id, customer, party, startsAt, normalizedSource, notes,
-                                        normalizedRequirements, serviceDuration, tags, rules, resList);
+                                return doBook(tenantId, facilityId, id, customer, party, startsAt, source, notes,
+                                        requirements, serviceDuration, requiredResourceTags, rules, resList);
                             }
-                            return doBookIdempotently(tenantId, fId, id, customer, party, startsAt, normalizedSource,
-                                    notes, normalizedRequirements, serviceDuration, tags, idempotencyKey, rules, resList);
+                            return doBookIdempotently(tenantId, facilityId, id, customer, party, startsAt, source,
+                                    notes, requirements, serviceDuration, requiredResourceTags, idempotencyKey,
+                                    rules, resList);
                         })).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
                                 Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), List.of()))
                         )
                 )
         );
+    }
+
+    private String reservationFingerprint(UUID tenantId, FacilityId facilityId, CustomerContact customer,
+                                          PartySize party, Instant startsAt, Duration duration, BookingSource source,
+                                          String notes, Set<String> requirements, Set<String> requiredResourceTags) {
+        return ReservationRequestFingerprint.of(
+                new ReservationRequestFingerprint.CreateReservationCommand(
+                        tenantId.toString(), facilityId.value().toString(), customer, party.value(), startsAt,
+                        duration, source, notes, requirements, requiredResourceTags));
     }
 
     private Uni<ReservationView> doBookIdempotently(UUID tenantId, FacilityId facilityId, ReservationId id,
@@ -203,10 +234,8 @@ public final class ReservationService {
                                                      String idempotencyKey, BookingRules rules,
                                                      List<BookableResource> resList) {
         var repository = (IdempotentReservationRepository) reservations;
-        final String fingerprint = ReservationRequestFingerprint.of(
-                new ReservationRequestFingerprint.CreateReservationCommand(
-                        tenantId.toString(), facilityId.value().toString(), customer, party.value(), startsAt,
-                        requestedDuration, source, notes, requirements, requiredResourceTags));
+        final String fingerprint = reservationFingerprint(tenantId, facilityId, customer, party, startsAt,
+                requestedDuration, source, notes, requirements, requiredResourceTags);
         return repository.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing -> {
             if (existing.isPresent()) {
                 // The atomic repository compares fingerprints and returns the canonical reservation.
