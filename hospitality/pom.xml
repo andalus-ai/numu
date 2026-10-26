@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>tech.kayys.numou</groupId><artifactId>numou-framework</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../core/framework/pom.xml</relativePath></parent>
+  <artifactId>numou-hospitality</artifactId><packaging>pom</packaging>
+  <name>Numou Hospitality Capability</name>
+  <description>Accommodation listings, stay-specific policies and hospitality workflows composed with shared capabilities.</description>
+  <modules><module>hospitality-domain</module></modules>
+</project>
