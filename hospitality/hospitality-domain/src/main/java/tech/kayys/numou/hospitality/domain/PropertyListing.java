@@ -39,8 +39,8 @@ public final class PropertyListing {
     /** Updates operational details. Published listings must be suspended before editing. */
     public void updateDetails(String title, String address, String timeZone, LocalTime checkInFrom,
                               LocalTime checkInUntil, LocalTime checkOutTime) {
-        if (status == ListingStatus.PUBLISHED) {
-            throw new IllegalStateException("Suspend a published listing before editing its details");
+        if (status != ListingStatus.DRAFT && status != ListingStatus.SUSPENDED) {
+            throw new IllegalStateException("Only draft or suspended listings can be edited");
         }
         String validatedTitle = requireText(title, "title");
         String validatedAddress = requireText(address, "address");
