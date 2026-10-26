@@ -50,6 +50,7 @@ public class IdentityOutboxEntity extends PanacheEntityBase {
     @Column(nullable = false)
     public String status;
 
-    @Column(name = "last_error")
+    // Migration V1 defines last_error as TEXT so relay diagnostics can retain full failure details.
+    @Column(name = "last_error", columnDefinition = "text")
     public String lastError;
 }

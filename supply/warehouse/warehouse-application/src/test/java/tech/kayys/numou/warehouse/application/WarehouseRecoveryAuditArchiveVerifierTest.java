@@ -40,6 +40,35 @@ class WarehouseRecoveryAuditArchiveVerifierTest {
         assertTrue(verifier.verify(valid, new ByteArrayInputStream(new byte[0])).verified());
     }
 
+    @Test
+    void persistedManifestEvidenceIsStableAcrossVerificationRetries() throws Exception {
+        byte[] bytes = "durable archive".getBytes(StandardCharsets.UTF_8);
+        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        var original = new WarehouseRecoveryAuditArchiveManifest("export-1", "tenant-a",
+                "archive://tenant-a/export-1", hash, bytes.length, 7,
+                Instant.parse("2026-01-01T00:00:00Z"), "operator-1");
+        var retryCandidate = new WarehouseRecoveryAuditArchiveManifest("export-1", "tenant-a",
+                "archive://tenant-a/export-1", hash, bytes.length, 7,
+                Instant.parse("2026-01-02T00:00:00Z"), "operator-1");
+
+        assertTrue(original.sameExportEvidence(retryCandidate));
+        assertTrue(verifier.verify(original, new ByteArrayInputStream(bytes)).verified());
+    }
+
+    @Test
+    void persistedManifestRejectsCheckpointOrArtifactEvidenceDrift() throws Exception {
+        byte[] bytes = "durable archive".getBytes(StandardCharsets.UTF_8);
+        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        var original = new WarehouseRecoveryAuditArchiveManifest("export-1", "tenant-a",
+                "archive://tenant-a/export-1", hash, bytes.length, 7,
+                Instant.parse("2026-01-01T00:00:00Z"), "operator-1");
+        var changed = new WarehouseRecoveryAuditArchiveManifest("export-1", "tenant-a",
+                "archive://tenant-a/export-1", hash, bytes.length, 8,
+                Instant.parse("2026-01-01T00:00:00Z"), "operator-1");
+
+        assertFalse(original.sameExportEvidence(changed));
+    }
+
     private static WarehouseRecoveryAuditArchiveManifest manifest(byte[] bytes, long declaredSize) throws Exception {
         String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         return new WarehouseRecoveryAuditArchiveManifest("export-1", "tenant-a", "archive://tenant-a/export-1",

@@ -76,6 +76,92 @@ class StructuredDatabaseServiceTest {
     }
 
     @Test
+    void previewsAndAppliesExplicitRecordAwareSchemaMigration() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Migration");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "legacy", "Legacy amount", DatabasePropertyType.TEXT, false, List.of(), null)));
+        DatabaseRecord record = service.createRecord(tenant, actor, database.id(), table.id(),
+                Map.of("title", "Task A", "legacy", "12.50"));
+        service.createView(tenant, actor, database.id(), table.id(), "Legacy view", DatabaseViewType.TABLE,
+                Map.of(), List.of(), List.of("title", "legacy"));
+        List<DatabaseProperty> proposed = List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "amount", "Amount", DatabasePropertyType.NUMBER, true, List.of(), null));
+        Map<UUID, Map<String, Object>> plan = Map.of(record.id(), Map.of("title", "Task A", "amount", new java.math.BigDecimal("12.50")));
+
+        DatabaseSchemaMigrationPreview preview = service.previewSchemaMigration(tenant, actor, database.id(),
+                table.id(), 1, "Tasks v2", proposed, plan);
+        assertTrue(preview.readyToApply());
+        assertEquals(1, preview.activeRecordCount());
+        assertEquals(1, preview.validRecordCount());
+        assertEquals(1, preview.incompatibleViewCount(), "saved-view impact is reported without deleting the view");
+
+        DatabaseTable migrated = service.applySchemaMigration(tenant, actor, database.id(), table.id(),
+                1, "Tasks v2", proposed, plan);
+        assertEquals(2, migrated.schemaVersion());
+        DatabaseRecord saved = repository.findRecord(tenant, record.id()).orElseThrow();
+        assertEquals(2, saved.revision());
+        assertEquals(new java.math.BigDecimal("12.50"), saved.values().get("amount"));
+        assertFalse(saved.values().containsKey("legacy"));
+        assertEquals("DATABASE_TABLE_SCHEMA_MIGRATED",
+                repository.audit.get(repository.audit.size() - 1).action());
+        assertFalse(service.validateView(tenant, actor, database.id(),
+                repository.views.values().stream().filter(v -> v.name().equals("Legacy view")).findFirst().orElseThrow().id()).valid());
+    }
+
+    @Test
+    void invalidOrIncompleteRecordMigrationPlanCannotMutateSchemaOrRecords() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Invalid migration");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "legacy", "Legacy", DatabasePropertyType.TEXT, false, List.of(), null)));
+        DatabaseRecord record = service.createRecord(tenant, actor, database.id(), table.id(),
+                Map.of("title", "Task A", "legacy", "not-a-number"));
+        List<DatabaseProperty> proposed = List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "amount", "Amount", DatabasePropertyType.NUMBER, true, List.of(), null));
+        DatabaseSchemaMigrationPreview invalid = service.previewSchemaMigration(tenant, actor, database.id(),
+                table.id(), 1, "Tasks v2", proposed,
+                Map.of(record.id(), Map.of("title", "Task A", "amount", "not-a-number")));
+        assertFalse(invalid.readyToApply());
+        assertEquals(1, invalid.invalidRecordCount());
+        assertThrows(IllegalArgumentException.class, () -> service.applySchemaMigration(tenant, actor,
+                database.id(), table.id(), 1, "Tasks v2", proposed,
+                Map.of(record.id(), Map.of("title", "Task A", "amount", "not-a-number"))));
+        assertEquals(1, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals(1, repository.findRecord(tenant, record.id()).orElseThrow().revision());
+
+        DatabaseSchemaMigrationPreview missing = service.previewSchemaMigration(tenant, actor, database.id(),
+                table.id(), 1, "Tasks v2", proposed, Map.of());
+        assertFalse(missing.readyToApply());
+        assertEquals(1, missing.invalidRecordCount());
+    }
+
+    @Test
+    void appliesOnlySafeAdditiveSchemaChangesWithRevisionAndAudit() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema update");
+        DatabaseProperty title = new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                DatabasePropertyType.TEXT, true, List.of(), null);
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(title));
+        DatabaseTable updated = service.updateTableSchema(tenant, actor, database.id(), table.id(), 1,
+                "Work items", List.of(title, new DatabaseProperty(UUID.randomUUID(), "notes", "Notes",
+                        DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertEquals(2, updated.schemaVersion());
+        assertEquals("Work items", updated.name());
+        assertEquals(2, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals("DATABASE_TABLE_SCHEMA_UPDATED", repository.audit.get(repository.audit.size() - 1).action());
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 1, "Stale", List.of(title)));
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 2, "Unsafe", List.of()));
+        assertThrows(IllegalArgumentException.class, () -> service.updateTableSchema(tenant, actor,
+                database.id(), table.id(), 2, "Required addition", List.of(title,
+                        new DatabaseProperty(UUID.randomUUID(), "owner", "Owner", DatabasePropertyType.TEXT,
+                                true, List.of(), null))));
+    }
+
+    @Test
     void createsAndListsValidatedPersonalSavedViews() {
         WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Saved views");
         DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
@@ -139,6 +225,31 @@ class StructuredDatabaseServiceTest {
         assertTrue(report.views().stream().anyMatch(result -> result.viewId().equals(invalid.id()) && !result.valid()));
         assertEquals(1, repository.findView(tenant, database.id(), valid.id()).orElseThrow().revision());
         assertEquals(1, repository.findView(tenant, database.id(), invalid.id()).orElseThrow().revision());
+    }
+
+    @Test
+    void previewsProposedSchemaAndRejectsStaleSchemaVersion() {
+        WorkspaceDatabase database = service.createDatabase(tenant, workspace, actor, "Schema preview");
+        DatabaseTable table = service.createTable(tenant, actor, database.id(), "Tasks", List.of(
+                new DatabaseProperty(UUID.randomUUID(), "title", "Title", DatabasePropertyType.TEXT, true, List.of(), null),
+                new DatabaseProperty(UUID.randomUUID(), "status", "Status", DatabasePropertyType.SELECT, false, List.of("todo", "done"), null)));
+        DatabaseView view = service.createView(tenant, actor, database.id(), table.id(), "Todo board",
+                DatabaseViewType.BOARD, Map.of("status", "todo"), List.of(), List.of("title", "status"), "status");
+
+        DatabaseSchemaChangePreview preview = service.previewSchemaChange(tenant, actor, database.id(), table.id(), 1,
+                "Tasks", List.of(new DatabaseProperty(UUID.randomUUID(), "title", "Title",
+                        DatabasePropertyType.TEXT, true, List.of(), null)));
+        assertEquals(1, preview.currentSchemaVersion());
+        assertEquals(2, preview.proposedSchemaVersion());
+        assertEquals(1, preview.totalViewCount());
+        assertEquals(0, preview.compatibleViewCount());
+        assertEquals(1, preview.incompatibleViewCount());
+        assertTrue(preview.viewResults().get(0).issues().stream().anyMatch(issue ->
+                issue.code() == DatabaseViewValidationIssue.Code.FILTER_PROPERTY_MISSING));
+        assertEquals(1, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals(1, repository.findView(tenant, database.id(), view.id()).orElseThrow().revision());
+        assertThrows(IllegalArgumentException.class, () -> service.previewSchemaChange(tenant, actor,
+                database.id(), table.id(), 2, "Tasks", List.of()));
     }
 
     @Test
@@ -405,9 +516,47 @@ class StructuredDatabaseServiceTest {
             if (tables.putIfAbsent(table.id(), table) != null) return false;
             audit.add(entry); return true;
         }
+        @Override public boolean updateTableSchema(DatabaseTable table, long expectedSchemaVersion, AuditEntry entry) {
+            DatabaseTable current = tables.get(table.id());
+            if (current == null || !current.tenantId().equals(table.tenantId())
+                    || !current.databaseId().equals(table.databaseId())
+                    || current.schemaVersion() != expectedSchemaVersion
+                    || table.schemaVersion() != expectedSchemaVersion + 1) return false;
+            if (tables.values().stream().anyMatch(existing -> !existing.id().equals(table.id())
+                    && existing.tenantId().equals(table.tenantId())
+                    && existing.databaseId().equals(table.databaseId())
+                    && existing.name().equals(table.name()))) return false;
+            tables.put(table.id(), table);
+            audit.add(entry);
+            return true;
+        }
         @Override public Optional<DatabaseTable> findTable(UUID tenantId, UUID databaseId, UUID tableId) {
             return Optional.ofNullable(tables.get(tableId))
                     .filter(t -> t.tenantId().equals(tenantId) && t.databaseId().equals(databaseId));
+        }
+        @Override public List<DatabaseRecord> findRecordsForSchemaMigration(UUID tenantId, UUID databaseId, UUID tableId) {
+            return records.values().stream().filter(record -> record.tenantId().equals(tenantId)
+                    && record.databaseId().equals(databaseId) && record.tableId().equals(tableId))
+                    .sorted(Comparator.comparing(DatabaseRecord::id)).toList();
+        }
+        @Override public boolean migrateTableSchema(DatabaseTable table, long expectedSchemaVersion,
+                List<DatabaseRecord> migratedRecords, AuditEntry schemaAudit, List<AuditEntry> recordAudits) {
+            DatabaseTable current = tables.get(table.id());
+            if (current == null || current.schemaVersion() != expectedSchemaVersion
+                    || table.schemaVersion() != expectedSchemaVersion + 1
+                    || migratedRecords.size() != recordAudits.size()) return false;
+            for (DatabaseRecord migrated : migratedRecords) {
+                DatabaseRecord existing = records.get(migrated.id());
+                if (existing == null || existing.revision() != migrated.revision() - 1
+                        || !existing.tenantId().equals(table.tenantId())
+                        || !existing.databaseId().equals(table.databaseId())
+                        || !existing.tableId().equals(table.id())) return false;
+            }
+            tables.put(table.id(), table);
+            migratedRecords.forEach(record -> records.put(record.id(), record));
+            audit.addAll(recordAudits);
+            audit.add(schemaAudit);
+            return true;
         }
         @Override public Optional<DatabaseRecord> findRecord(UUID tenantId, UUID recordId) {
             return Optional.ofNullable(records.get(recordId)).filter(r -> r.tenantId().equals(tenantId));

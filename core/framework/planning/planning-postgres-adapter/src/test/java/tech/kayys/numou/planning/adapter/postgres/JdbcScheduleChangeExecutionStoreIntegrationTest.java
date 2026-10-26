@@ -32,11 +32,11 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         ScheduleChangeExecution applied = executions.applyAtomically(f.request, f.target, applying);
         assertEquals(ScheduleChangeExecution.Status.APPLIED, applied.status());
         assertEquals(2, plans.findById(f.base.id()).orElseThrow().revision());
-        assertEquals(applied, executions.findByExecutionId(f.executionId).orElseThrow());
+        assertReceiptEquivalent(applied, executions.findByExecutionId(f.executionId).orElseThrow());
         assertEquals(1, outboxCount(f.executionId, "ScheduleChangeApplied"));
 
         ScheduleChangeExecution replay = executions.applyAtomically(f.request, f.target, applying);
-        assertEquals(applied, replay);
+        assertReceiptEquivalent(applied, replay);
         assertEquals(2, plans.findById(f.base.id()).orElseThrow().revision());
         assertEquals(1, outboxCount(f.executionId, "ScheduleChangeApplied"));
     }
@@ -55,7 +55,7 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
 
         assertEquals(ScheduleChangeExecution.Status.CONFLICT, conflict.status());
         assertEquals("Concurrent writer", plans.findById(f.base.id()).orElseThrow().name());
-        assertEquals(conflict, executions.findByExecutionId(f.executionId).orElseThrow());
+        assertReceiptEquivalent(conflict, executions.findByExecutionId(f.executionId).orElseThrow());
         assertEquals(1, outboxCount(f.executionId, "ScheduleChangeConflicted"));
         assertEquals(0, outboxCount(f.executionId, "ScheduleChangeApplied"));
     }
@@ -93,8 +93,8 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
             assertEquals(1, java.util.stream.Stream.of(a, b)
                     .filter(r -> r.status() == ScheduleChangeExecution.Status.CONFLICT).count());
             assertEquals(2, plans.findById(f.base.id()).orElseThrow().revision());
-            assertEquals(a, executions.findByExecutionId(firstId).orElseThrow());
-            assertEquals(b, executions.findByExecutionId(secondId).orElseThrow());
+            assertReceiptEquivalent(a, executions.findByExecutionId(firstId).orElseThrow());
+            assertReceiptEquivalent(b, executions.findByExecutionId(secondId).orElseThrow());
         } finally {
             start.countDown();
             pool.shutdownNow();
@@ -150,7 +150,7 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
         var claimed = outboxRelayStore.claimDue(1000, now, now.plusSeconds(30), token);
         var event = claimed.stream().filter(e -> e.executionId().equals(f.executionId)).findFirst().orElseThrow();
         assertEquals("ScheduleChangeApplied", event.eventType());
-        assertTrue(event.payload().contains("\"executionId\":\"" + f.executionId + "\""));
+        assertTrue(event.payload().contains(f.executionId.toString()));
         assertEquals(token, event.claimToken());
 
         assertFalse(outboxRelayStore.markPublished(event.outboxId(), UUID.randomUUID(), now));
@@ -356,6 +356,27 @@ class JdbcScheduleChangeExecutionStoreIntegrationTest {
                 UUID.randomUUID(), "operator", "  ", Instant.now()));
         assertThrows(IllegalArgumentException.class, () -> outboxRelayStore.replayDeadLetter(
                 UUID.randomUUID(), "operator", "r".repeat(501), Instant.now()));
+    }
+
+    private void assertReceiptEquivalent(ScheduleChangeExecution expected, ScheduleChangeExecution actual) {
+        assertEquals(expected.executionId(), actual.executionId());
+        assertEquals(expected.requestId(), actual.requestId());
+        assertEquals(expected.tenantId(), actual.tenantId());
+        assertEquals(expected.structureId(), actual.structureId());
+        assertEquals(expected.planId(), actual.planId());
+        assertEquals(expected.baseRevision(), actual.baseRevision());
+        assertEquals(expected.targetRevision(), actual.targetRevision());
+        assertEquals(expected.initiatedBy(), actual.initiatedBy());
+        assertEquals(expected.startedAt(), actual.startedAt());
+        assertEquals(expected.status(), actual.status());
+        assertEquals(expected.resultingRevision(), actual.resultingRevision());
+        assertEquals(roundToPostgresMicros(expected.completedAt()),
+                roundToPostgresMicros(actual.completedAt()));
+        assertEquals(expected.failureReason(), actual.failureReason());
+    }
+
+    private Instant roundToPostgresMicros(Instant value) {
+        return value == null ? null : value.plusNanos(500).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 
     private int outboxCount(UUID executionId, String eventType) throws Exception {

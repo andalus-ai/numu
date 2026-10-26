@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "neutral-project-must-not-depend-on-construction",
+      "consumer_artifact_prefixes": [
+        "numou-project-"
+      ],
+      "forbidden_dependency_artifact_prefixes": [
+        "numou-construction-"
+      ],
+      "forbidden_dependency_group": "tech.kayys.numou",
+      "rationale": "The neutral Project capability is reusable across industries; construction specializes it and must depend inward on Project contracts, never the reverse."
+    },
+    {
+      "id": "neutral-quantity-must-not-depend-on-construction",
+      "consumer_artifact_prefixes": [
+        "numou-quantity-"
+      ],
+      "forbidden_dependency_artifact_prefixes": [
+        "numou-construction-"
+      ],
+      "forbidden_dependency_group": "tech.kayys.numou",
+      "rationale": "Quantity, units and quantity-schedule primitives are industry-neutral; construction BOQ and takeoff semantics must depend on these primitives, never the reverse."
+    }
+  ]
+}

@@ -148,7 +148,114 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
                 "conflicting retry must not alter durable artifact bytes");
     }
 
+    @Test
+    void rejectsReceiptWithUnexpectedTrailingFieldsWithoutChangingArtifact() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-malformed", "chunk-1", 0, chunk);
+        Path receipt = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-malformed"))
+                .resolve("chunks").resolve(hash("chunk-1") + ".receipt");
+        Files.writeString(receipt, Files.readString(receipt, StandardCharsets.UTF_8) + "unexpected\n", StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-malformed", "chunk-1", 0, chunk));
+        assertArrayEquals(chunk, store.open("tenant-a", "export-malformed").readAllBytes());
+    }
+
+    @Test
+    void rejectsReceiptWithCorruptedDigestWithoutChangingArtifact() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-corrupt", "chunk-1", 0, chunk);
+        Path receipt = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-corrupt"))
+                .resolve("chunks").resolve(hash("chunk-1") + ".receipt");
+        String receiptText = Files.readString(receipt, StandardCharsets.UTF_8);
+        int digestStart = receiptText.indexOf('\n', receiptText.indexOf('\n') + 1) + 1;
+        int digestEnd = receiptText.indexOf('\n', digestStart);
+        Files.writeString(receipt, receiptText.substring(0, digestStart) + "0".repeat(64) + receiptText.substring(digestEnd), StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-corrupt", "chunk-1", 0, chunk));
+        assertArrayEquals(chunk, store.open("tenant-a", "export-corrupt").readAllBytes());
+    }
+    @Test
+    void inspectAndOpenRejectModifiedBytesCoveredByDurableReceipt() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-modified", "chunk-1", 0, chunk);
+        Path artifact = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-modified")).resolve("audit.csv");
+        byte[] changed = chunk.clone();
+        changed[0] = (byte) 'D';
+        Files.write(artifact, changed);
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-modified"));
+        assertThrows(IOException.class, () -> store.open("tenant-a", "export-modified"));
+        assertArrayEquals(changed, Files.readAllBytes(artifact), "detection must not rewrite corrupted bytes");
+    }
+
+    @Test
+    void inspectAndRetryRejectTruncatedArtifactCoveredByDurableReceipt() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] chunk = "durable-row\\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-truncated", "chunk-1", 0, chunk);
+        Path artifact = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-truncated")).resolve("audit.csv");
+        Files.write(artifact, java.util.Arrays.copyOf(chunk, chunk.length - 2));
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-truncated"));
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-truncated", "chunk-1", 0, chunk));
+        assertArrayEquals(java.util.Arrays.copyOf(chunk, chunk.length - 2), Files.readAllBytes(artifact),
+                "retry must not silently repair an artifact after a receipt has been committed");
+    }
+    @Test
+    void retryOfLatestChunkDetectsCorruptionInAnEarlierChunk() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] first = "header\n".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "row-1\n".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-earlier-corrupt", "chunk-1", 0, first);
+        store.appendChunk("tenant-a", "export-earlier-corrupt", "chunk-2", first.length, second);
+
+        Path artifact = temporaryDirectory.resolve(hash("tenant-a"))
+                .resolve(hash("export-earlier-corrupt")).resolve("audit.csv");
+        byte[] changed = Files.readAllBytes(artifact);
+        changed[0] = (byte) 'H';
+        Files.write(artifact, changed);
+
+        assertThrows(IOException.class, () -> store.appendChunk("tenant-a", "export-earlier-corrupt",
+                "chunk-2", first.length, second));
+        assertArrayEquals(changed, Files.readAllBytes(artifact));
+    }
+
+    @Test
+    void rejectsOverlappingReceiptRangesEvenWhenEachRangeDigestMatches() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] first = "abc".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "def".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-overlap", "chunk-1", 0, first);
+        store.appendChunk("tenant-a", "export-overlap", "chunk-2", first.length, second);
+
+        Path directory = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-overlap"));
+        Path receipt = directory.resolve("chunks").resolve(hash("chunk-2") + ".receipt");
+        byte[] artifact = Files.readAllBytes(directory.resolve("audit.csv"));
+        byte[] range = java.util.Arrays.copyOfRange(artifact, 2, 5);
+        Files.writeString(receipt, "2\n3\n" + hashBytes(range) + "\n", StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-overlap"));
+    }
+
+    @Test
+    void rejectsGapBetweenCommittedReceiptRanges() throws Exception {
+        var store = new FilesystemWarehouseRecoveryAuditArtifactStore(temporaryDirectory);
+        byte[] first = "abc".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "def".getBytes(StandardCharsets.UTF_8);
+        store.appendChunk("tenant-a", "export-gap", "chunk-1", 0, first);
+        store.appendChunk("tenant-a", "export-gap", "chunk-2", first.length, second);
+
+        Path directory = temporaryDirectory.resolve(hash("tenant-a")).resolve(hash("export-gap"));
+        Path receipt = directory.resolve("chunks").resolve(hash("chunk-2") + ".receipt");
+        byte[] artifact = Files.readAllBytes(directory.resolve("audit.csv"));
+        byte[] range = java.util.Arrays.copyOfRange(artifact, 4, 6);
+        Files.writeString(receipt, "4\n2\n" + hashBytes(range) + "\n", StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> store.inspect("tenant-a", "export-gap"));
+    }
+
     private record WarehouseSnapshot(long byteSize, String sha256Hex) {}
+
+    private static String hashBytes(byte[] value) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+    }
 
     private static String hash(String value) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

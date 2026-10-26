@@ -295,6 +295,92 @@ class JdbcStructuredDatabaseRepositoryPostgresTest {
         assertEquals(0, countRecords());
     }
 
+    @Test
+    void staleRecordRevisionRollsBackSchemaAndAllMigrationAuditWrites() throws SQLException {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("legacy", DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        DatabaseRecord initial = DatabaseRecord.create(tenant, database.id(), table,
+                Map.of("title", "Task A", "legacy", "old"), now);
+        assertTrue(repository.saveRecord(initial, 0,
+                audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_CREATED", 1)));
+        DatabaseRecord concurrent = initial.update(table, 1, Map.of("title", "Concurrent", "legacy", "old"), now.plusSeconds(1));
+        assertTrue(repository.saveRecord(concurrent, 1,
+                audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2)));
+        long auditBeforeMigration = countAuditRows();
+
+        DatabaseTable candidate = new DatabaseTable(table.id(), tenant, database.id(), "Tasks v2", 2, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("new_value", DatabasePropertyType.TEXT, false, List.of(), null)));
+        DatabaseRecord staleMigration = initial.update(candidate, 1,
+                Map.of("title", "Task A", "new_value", "new"), now.plusSeconds(2));
+        assertThrows(IllegalStateException.class, () -> repository.migrateTableSchema(candidate, 1,
+                List.of(staleMigration), audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_MIGRATED", 2),
+                List.of(audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2))));
+
+        DatabaseTable unchanged = repository.findTable(tenant, database.id(), table.id()).orElseThrow();
+        DatabaseRecord persisted = repository.findRecord(tenant, initial.id()).orElseThrow();
+        assertEquals(1, unchanged.schemaVersion(), "schema update must roll back when any record CAS fails");
+        assertTrue(unchanged.properties().stream().anyMatch(property -> property.key().equals("legacy")));
+        assertEquals(2, persisted.revision());
+        assertEquals("Concurrent", persisted.values().get("title"));
+        assertEquals(auditBeforeMigration, countAuditRows(), "failed migration must append no migration audit rows");
+    }
+
+    @Test
+    void migratesRecordsAndSchemaInOneTransactionWithAudits() throws SQLException {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("legacy", DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        DatabaseRecord initial = DatabaseRecord.create(tenant, database.id(), table,
+                Map.of("title", "Task A", "legacy", "12.5"), now);
+        assertTrue(repository.saveRecord(initial, 0,
+                audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_CREATED", 1)));
+        long auditBefore = countAuditRows();
+
+        DatabaseTable candidate = new DatabaseTable(table.id(), tenant, database.id(), "Tasks v2", 2, List.of(
+                property("title", DatabasePropertyType.TEXT, true, List.of(), null),
+                property("amount", DatabasePropertyType.NUMBER, true, List.of(), null)));
+        DatabaseRecord migrated = initial.update(candidate, 1,
+                Map.of("title", "Task A", "amount", new BigDecimal("12.5")), now.plusSeconds(1));
+        assertTrue(repository.migrateTableSchema(candidate, 1, List.of(migrated),
+                audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_MIGRATED", 2),
+                List.of(audit(initial.id(), "DATABASE_RECORD", "DATABASE_RECORD_UPDATED", 2))));
+
+        DatabaseTable savedTable = repository.findTable(tenant, database.id(), table.id()).orElseThrow();
+        DatabaseRecord savedRecord = repository.findRecord(tenant, initial.id()).orElseThrow();
+        assertEquals(2, savedTable.schemaVersion());
+        assertEquals(List.of("title", "amount"), savedTable.properties().stream().map(DatabaseProperty::key).toList());
+        assertEquals(2, savedRecord.revision());
+        assertEquals(new BigDecimal("12.5"), savedRecord.values().get("amount"));
+        assertFalse(savedRecord.values().containsKey("legacy"));
+        assertEquals(auditBefore + 2, countAuditRows(), "record and schema mutations must both be audited");
+    }
+
+    @Test
+    void updatesTableSchemaWithCompareAndSwapAndAtomicAudit() throws SQLException {
+        WorkspaceDatabase database = createDatabase();
+        DatabaseProperty title = property("title", DatabasePropertyType.TEXT, true, List.of(), null);
+        DatabaseTable table = new DatabaseTable(UUID.randomUUID(), tenant, database.id(), "Tasks", 1, List.of(title));
+        assertTrue(repository.saveTable(table, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_CREATED", 1)));
+        long auditBefore = countAuditRows();
+
+        DatabaseTable candidate = new DatabaseTable(table.id(), tenant, database.id(), "Work items", 2,
+                List.of(title, property("notes", DatabasePropertyType.TEXT, false, List.of(), null)));
+        assertTrue(repository.updateTableSchema(candidate, 1,
+                audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_UPDATED", 2)));
+        assertEquals(2, repository.findTable(tenant, database.id(), table.id()).orElseThrow().schemaVersion());
+        assertEquals("Work items", repository.findTable(tenant, database.id(), table.id()).orElseThrow().name());
+        assertEquals(2, repository.findTable(tenant, database.id(), table.id()).orElseThrow().properties().size());
+        assertFalse(repository.updateTableSchema(new DatabaseTable(table.id(), tenant, database.id(), "Stale", 2,
+                List.of(title)), 1, audit(table.id(), "DATABASE_TABLE", "DATABASE_TABLE_SCHEMA_UPDATED", 2)));
+        assertEquals(auditBefore + 1, countAuditRows(), "only the winning schema update is audited");
+    }
+
     private WorkspaceDatabase createDatabase() {
         WorkspaceDatabase database = WorkspaceDatabase.create(tenant, workspaceId, actor, "Structured data", now);
         assertTrue(repository.saveDatabase(database,

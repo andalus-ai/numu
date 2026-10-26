@@ -63,6 +63,122 @@ public final class JdbcStructuredDatabaseRepository implements StructuredDatabas
         });
     }
 
+    @Override public boolean updateTableSchema(DatabaseTable table, long expectedSchemaVersion, AuditEntry audit) {
+        if (expectedSchemaVersion < 1 || table.schemaVersion() != expectedSchemaVersion + 1) {
+            throw new IllegalArgumentException("table schema version must increment expected version exactly once");
+        }
+        validateAudit(audit, table.tenantId(), table.id(), "DATABASE_TABLE",
+                "DATABASE_TABLE_SCHEMA_UPDATED", table.schemaVersion());
+        return atomic("update database table schema and audit", c -> {
+            try (PreparedStatement p = c.prepareStatement(
+                    "UPDATE workspace_database_tables SET name=?,schema_version=?,updated_at=? WHERE tenant_id=? AND database_id=? AND id=? AND schema_version=?")) {
+                p.setString(1, table.name()); p.setLong(2, table.schemaVersion());
+                p.setTimestamp(3, Timestamp.from(audit.occurredAt())); p.setObject(4, table.tenantId());
+                p.setObject(5, table.databaseId()); p.setObject(6, table.id()); p.setLong(7, expectedSchemaVersion);
+                try { if (p.executeUpdate() != 1) return false; }
+                catch (SQLException e) { if (isConstraint(e)) return false; throw e; }
+            }
+            try (PreparedStatement p = c.prepareStatement(
+                    "DELETE FROM workspace_database_properties WHERE tenant_id=? AND database_id=? AND table_id=?")) {
+                p.setObject(1, table.tenantId()); p.setObject(2, table.databaseId()); p.setObject(3, table.id());
+                p.executeUpdate();
+            }
+            String sql = "INSERT INTO workspace_database_properties(tenant_id,database_id,table_id,property_id,property_key,label,property_type,required,options,related_table_id) VALUES(?,?,?,?,?,?,?, ?, CAST(? AS jsonb), ?)";
+            try (PreparedStatement p = c.prepareStatement(sql)) {
+                for (DatabaseProperty property : table.properties()) {
+                    p.setObject(1, table.tenantId()); p.setObject(2, table.databaseId()); p.setObject(3, table.id());
+                    p.setObject(4, property.id()); p.setString(5, property.key()); p.setString(6, property.label());
+                    p.setString(7, property.type().name()); p.setBoolean(8, property.required());
+                    p.setString(9, Json.write(property.options())); p.setObject(10, property.relatedTableId()); p.addBatch();
+                }
+                p.executeBatch();
+            }
+            insertAudit(c, audit);
+            return true;
+        });
+    }
+
+    @Override public List<DatabaseRecord> findRecordsForSchemaMigration(UUID tenantId, UUID databaseId, UUID tableId) {
+        try (Connection c = dataSource.getConnection()) {
+            DatabaseTable schema = findTable(c, tenantId, databaseId, tableId)
+                    .orElseThrow(() -> new IllegalArgumentException("table not found in tenant database"));
+            List<DatabaseRecord> records = new ArrayList<>();
+            try (PreparedStatement p = c.prepareStatement(
+                    "SELECT id,tenant_id,database_id,table_id,revision,record_data::text,created_at,updated_at FROM workspace_database_records WHERE tenant_id=? AND database_id=? AND table_id=? AND archived_at IS NULL ORDER BY id LIMIT 5001")) {
+                p.setObject(1, tenantId); p.setObject(2, databaseId); p.setObject(3, tableId);
+                try (ResultSet r = p.executeQuery()) {
+                    while (r.next()) {
+                        records.add(new DatabaseRecord(uuid(r,1), uuid(r,2), uuid(r,3), uuid(r,4), r.getLong(5),
+                                decodeValues(schema, r.getString(6)), instant(r,7), instant(r,8)));
+                    }
+                }
+            }
+            if (records.size() > 5000) {
+                throw new IllegalStateException("synchronous schema migration is limited to 5000 active records; use a staged migration workflow");
+            }
+            return List.copyOf(records);
+        } catch (SQLException e) { throw failure("load records for schema migration", e); }
+    }
+
+    @Override public boolean migrateTableSchema(DatabaseTable table, long expectedSchemaVersion,
+            List<DatabaseRecord> migratedRecords, AuditEntry schemaAudit, List<AuditEntry> recordAudits) {
+        if (expectedSchemaVersion < 1 || table.schemaVersion() != expectedSchemaVersion + 1) {
+            throw new IllegalArgumentException("table schema version must increment expected version exactly once");
+        }
+        List<DatabaseRecord> records = migratedRecords == null ? List.of() : List.copyOf(migratedRecords);
+        List<AuditEntry> audits = recordAudits == null ? List.of() : List.copyOf(recordAudits);
+        if (records.size() != audits.size()) throw new IllegalArgumentException("one audit entry is required per migrated record");
+        validateAudit(schemaAudit, table.tenantId(), table.id(), "DATABASE_TABLE",
+                "DATABASE_TABLE_SCHEMA_MIGRATED", table.schemaVersion());
+        for (int i = 0; i < records.size(); i++) {
+            DatabaseRecord record = records.get(i);
+            if (!record.tenantId().equals(table.tenantId()) || !record.databaseId().equals(table.databaseId())
+                    || !record.tableId().equals(table.id()) || record.revision() < 2) {
+                throw new IllegalArgumentException("migrated record does not belong to the target table or revision is invalid");
+            }
+            validateAudit(audits.get(i), record.tenantId(), record.id(), "DATABASE_RECORD",
+                    "DATABASE_RECORD_UPDATED", record.revision());
+        }
+        return atomic("migrate table schema, records, and audit", c -> {
+            try (PreparedStatement p = c.prepareStatement(
+                    "UPDATE workspace_database_tables SET name=?,schema_version=?,updated_at=? WHERE tenant_id=? AND database_id=? AND id=? AND schema_version=?")) {
+                p.setString(1, table.name()); p.setLong(2, table.schemaVersion());
+                p.setTimestamp(3, Timestamp.from(schemaAudit.occurredAt())); p.setObject(4, table.tenantId());
+                p.setObject(5, table.databaseId()); p.setObject(6, table.id()); p.setLong(7, expectedSchemaVersion);
+                try { if (p.executeUpdate() != 1) return false; }
+                catch (SQLException e) { if (isConstraint(e)) return false; throw e; }
+            }
+            try (PreparedStatement p = c.prepareStatement(
+                    "DELETE FROM workspace_database_properties WHERE tenant_id=? AND database_id=? AND table_id=?")) {
+                p.setObject(1, table.tenantId()); p.setObject(2, table.databaseId()); p.setObject(3, table.id());
+                p.executeUpdate();
+            }
+            String propertySql = "INSERT INTO workspace_database_properties(tenant_id,database_id,table_id,property_id,property_key,label,property_type,required,options,related_table_id) VALUES(?,?,?,?,?,?,?, ?, CAST(? AS jsonb), ?)";
+            try (PreparedStatement p = c.prepareStatement(propertySql)) {
+                for (DatabaseProperty property : table.properties()) {
+                    p.setObject(1, table.tenantId()); p.setObject(2, table.databaseId()); p.setObject(3, table.id());
+                    p.setObject(4, property.id()); p.setString(5, property.key()); p.setString(6, property.label());
+                    p.setString(7, property.type().name()); p.setBoolean(8, property.required());
+                    p.setString(9, Json.write(property.options())); p.setObject(10, property.relatedTableId()); p.addBatch();
+                }
+                p.executeBatch();
+            }
+            try (PreparedStatement p = c.prepareStatement(
+                    "UPDATE workspace_database_records SET revision=?,record_data=CAST(? AS jsonb),updated_at=? WHERE tenant_id=? AND database_id=? AND table_id=? AND id=? AND revision=? AND archived_at IS NULL")) {
+                for (DatabaseRecord record : records) {
+                    p.setLong(1, record.revision()); p.setString(2, Json.write(record.values()));
+                    p.setTimestamp(3, Timestamp.from(record.updatedAt())); p.setObject(4, record.tenantId());
+                    p.setObject(5, record.databaseId()); p.setObject(6, record.tableId()); p.setObject(7, record.id());
+                    p.setLong(8, record.revision() - 1);
+                    if (p.executeUpdate() != 1) throw new IllegalStateException("record changed during schema migration; transaction rolled back");
+                }
+            }
+            for (AuditEntry audit : audits) insertAudit(c, audit);
+            insertAudit(c, schemaAudit);
+            return true;
+        });
+    }
+
     @Override public Optional<DatabaseTable> findTable(UUID tenantId,UUID databaseId,UUID tableId) {
         String sql="SELECT id,tenant_id,database_id,name,schema_version FROM workspace_database_tables WHERE tenant_id=? AND database_id=? AND id=?";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)) {

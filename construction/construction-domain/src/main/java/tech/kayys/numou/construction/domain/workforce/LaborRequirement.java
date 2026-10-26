@@ -22,7 +22,10 @@ public final class LaborRequirement extends AbstractAggregateRoot<LaborRequireme
         super(id);
         this.projectId = Objects.requireNonNull(projectId);
         this.siteId = Objects.requireNonNull(siteId);
-        this.trade = Objects.requireNonNull(trade);
+        Objects.requireNonNull(trade, "Trade cannot be null");
+        if (trade.isBlank()) throw new IllegalArgumentException("Trade cannot be blank");
+        this.trade = trade.trim();
+        if (workersRequired <= 0) throw new IllegalArgumentException("Workers required must be positive");
         this.workersRequired = workersRequired;
         this.requiredDate = Objects.requireNonNull(requiredDate);
         this.status = LaborRequirementStatus.REQUESTED;
@@ -35,8 +38,21 @@ public final class LaborRequirement extends AbstractAggregateRoot<LaborRequireme
     }
 
     public void assignWorker(LaborAssignment assignment) {
-        assignments.add(Objects.requireNonNull(assignment));
+        Objects.requireNonNull(assignment, "Labor assignment cannot be null");
+        if (status != LaborRequirementStatus.REQUESTED) {
+            throw new IllegalStateException("Workers can only be assigned to a requested labor requirement");
+        }
         if (assignments.size() >= workersRequired) {
+            throw new IllegalStateException("Labor requirement is already fully assigned");
+        }
+        if (!trade.equalsIgnoreCase(assignment.trade().trim())) {
+            throw new IllegalArgumentException("Assigned worker trade must match the labor requirement");
+        }
+        if (assignments.stream().anyMatch(existing -> existing.workerRefId().equals(assignment.workerRefId()))) {
+            throw new IllegalArgumentException("Worker is already assigned to this labor requirement");
+        }
+        assignments.add(assignment);
+        if (assignments.size() == workersRequired) {
             status = LaborRequirementStatus.ASSIGNED;
         }
     }
