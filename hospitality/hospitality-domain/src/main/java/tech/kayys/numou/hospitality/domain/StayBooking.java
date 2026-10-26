@@ -56,6 +56,17 @@ public final class StayBooking {
                 quote.checkOut(), quote.guestCount(), quote.id(), quote.currency(), idempotencyKey, now, holdExpiresAt);
     }
 
+    /** Rehydrates a persisted booking snapshot; intended for persistence adapters. */
+    public static StayBooking restore(UUID id, String tenantId, String customerId, UUID listingId, UUID unitId,
+                                      LocalDate checkIn, LocalDate checkOut, int guestCount, UUID quoteId,
+                                      String currency, String idempotencyKey, Instant createdAt,
+                                      Instant holdExpiresAt, StayBookingStatus status) {
+        StayBooking booking = new StayBooking(id, tenantId, customerId, listingId, unitId, checkIn, checkOut,
+                guestCount, quoteId, currency, idempotencyKey, createdAt, holdExpiresAt);
+        booking.status = Objects.requireNonNull(status, "status");
+        return booking;
+    }
+
     public void confirm(Instant now) {
         Objects.requireNonNull(now, "now");
         if (status != StayBookingStatus.HELD) throw new IllegalStateException("Only held bookings can be confirmed");
