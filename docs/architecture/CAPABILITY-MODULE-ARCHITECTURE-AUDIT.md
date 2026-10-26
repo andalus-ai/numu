@@ -759,3 +759,28 @@ The source review currently identifies prerequisites rather than a safe drop-in 
 - [ ] Authorized BOQ-item-to-Planning-activity mapping and a documented percentage conversion policy.
 - [ ] Idempotent consumer with source-event deduplication independent of target plan keys.
 - [ ] Integration tests for rollback/outbox recovery, duplicate and conflicting delivery, cross-tenant access, unmapped items, and correction/reversal behavior.
+
+
+## AUD-022 — The inspected progress application exposes recording but no approval command path
+
+**Confidence: High for the current tracked application package; runtime-wide absence remains unproven.**
+
+Evidence from the current main tree:
+
+- The tracked construction-application/.../progress package contains RecordProgressMeasurementCommand and RecordProgressMeasurementHandler; no progress approval command or approval handler is present in that package.
+- ProgressMeasurement.approve() is the only inspected application-domain transition that raises ProgressMeasurementApproved; it requires the aggregate to be in SUBMITTED state.
+- The recording handler constructs a new aggregate in DRAFT, saves it, and publishes the events raised during recording. It does not submit or approve the measurement.
+- The inspected ProgressMeasurementRepository contract does not expose a dedicated save-and-publish transaction boundary, and the current tracked construction adapter tree has no concrete implementation of that repository.
+
+**Risk:** the approval event contract may be well-defined on paper while no application command path can persist a submitted measurement, authorize an approver, transition it to APPROVED, and durably emit the approval evidence. A consumer built before this lifecycle path exists could be untestable in a real composition or encourage bypassing the domain lifecycle.
+
+**Disposition:** do not add an approval handler that simply loads and mutates an aggregate through an assumed repository API. First define the supported lifecycle commands and authorization policy, then implement persistence and runtime composition together. Approval must verify current persisted state, authorized actor/tenant scope, and concurrency/version expectations; the approved transition and its versioned outbox event must commit atomically. Keep recording, submission, approval, rejection, and correction/reversal as distinct transitions.
+
+### Acceptance criteria for the approval lifecycle milestone
+
+- [ ] Explicit application commands/handlers for submission and approval (and rejection where supported), with actor and tenant derived from trusted execution context.
+- [ ] A concrete repository implementation and composition/runtime binding for the lifecycle operations.
+- [ ] Optimistic concurrency or equivalent protection against two approvers or a stale approval racing a rejection/correction.
+- [ ] One transaction for the aggregate state transition and immutable outbox event; no direct broker publication as the durability boundary.
+- [ ] Tests proving invalid state transitions fail, unauthorized/cross-tenant approval is rejected, concurrent transitions cannot both win, and failed outbox insertion rolls back the approval.
+- [ ] An integration test demonstrates that only persisted, approved evidence can reach the downstream integration contract.
