@@ -46,7 +46,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             "V18__workspace_board_view_grouping.sql",
             "V19__workspace_saved_view_revision.sql",
             "V20__workspace_staged_schema_migrations.sql",
-            "V21__workspace_schema_migration_worker_leases.sql"
+            "V21__workspace_schema_migration_worker_leases.sql",
+            "V22__workspace_staged_migration_scope_integrity.sql"
     );
 
     @Test
@@ -76,6 +77,11 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             assertTrue(columnExists(connection, "workspace_database_schema_migrations", "lease_token"));
             assertTrue(columnExists(connection, "workspace_database_schema_migrations", "lease_until"));
             assertTrue(indexExists(connection, "ix_workspace_schema_migrations_expired_lease"));
+            assertTrue(columnExists(connection, "workspace_database_schema_migration_records", "database_id"));
+            assertTrue(columnExists(connection, "workspace_database_schema_migration_records", "table_id"));
+            assertTrue(constraintExists(connection, "fk_workspace_schema_migration_record_job_scope"));
+            assertTrue(constraintExists(connection, "fk_workspace_schema_migration_record_source_scope"));
+            assertTrue(indexExists(connection, "ix_workspace_schema_migration_records_table"));
             assertTrue(columnExists(connection, "workspace_database_views", "group_by_property"));
             assertTrue(columnExists(connection, "workspace_database_views", "revision"));
             assertTrue(constraintExists(connection, "ck_workspace_database_view_revision_positive"));
