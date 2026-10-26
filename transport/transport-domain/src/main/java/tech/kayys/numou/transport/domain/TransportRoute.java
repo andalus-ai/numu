@@ -1,10 +1,8 @@
 package tech.kayys.numou.transport.domain;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -38,16 +36,13 @@ public record TransportRoute(
         }
         List<RouteStop> ordered = new ArrayList<>(stops);
         ordered.sort(java.util.Comparator.comparingInt(RouteStop::sequence));
-        Set<UUID> stopIds = new HashSet<>();
         for (int i = 0; i < ordered.size(); i++) {
             RouteStop stop = Objects.requireNonNull(ordered.get(i), "stop");
             if (stop.sequence() != i + 1) {
                 throw new IllegalArgumentException("route stop sequences must be unique and contiguous starting at 1");
             }
-            if (!stopIds.add(stop.stopId())) {
-                throw new IllegalArgumentException("a stop may appear only once in a route");
-            }
         }
+        // A circular route may visit the same physical stop more than once at different sequences.
         stops = List.copyOf(ordered);
     }
 
