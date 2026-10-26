@@ -35,10 +35,15 @@ public final class ServiceOffering {
 
     public void revise(String name, String description, ServiceCategory category, int durationMinutes) {
         requireNotRetired();
-        this.name = requiredText(name, "name");
-        this.description = description == null ? "" : description.trim();
-        this.category = Objects.requireNonNull(category, "category");
-        this.estimatedDurationMinutes = positiveDuration(durationMinutes);
+        // Validate the complete revision before mutating so a rejected change cannot partially apply.
+        String validatedName = requiredText(name, "name");
+        String validatedDescription = description == null ? "" : description.trim();
+        ServiceCategory validatedCategory = Objects.requireNonNull(category, "category");
+        int validatedDuration = positiveDuration(durationMinutes);
+        this.name = validatedName;
+        this.description = validatedDescription;
+        this.category = validatedCategory;
+        this.estimatedDurationMinutes = validatedDuration;
     }
 
     public void activate() {
@@ -49,9 +54,7 @@ public final class ServiceOffering {
     }
 
     public void retire() {
-        if (status == ServiceOfferingStatus.RETIRED) {
-            return;
-        }
+        if (status == ServiceOfferingStatus.RETIRED) return;
         status = ServiceOfferingStatus.RETIRED;
     }
 

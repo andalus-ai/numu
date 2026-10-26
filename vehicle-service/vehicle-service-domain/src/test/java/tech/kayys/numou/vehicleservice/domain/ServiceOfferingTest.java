@@ -31,4 +31,18 @@ class ServiceOfferingTest {
         assertThatIllegalStateException().isThrownBy(() -> offering.revise("Again", "", ServiceCategory.OTHER, 20));
         assertThatIllegalStateException().isThrownBy(offering::activate);
     }
+
+    @Test
+    void rejectedRevisionDoesNotPartiallyMutateTheOffering() {
+        ServiceOffering offering = ServiceOffering.create(ServiceOfferingId.generate(), "tenant-a", "OIL",
+                "Oil service", "original", ServiceCategory.ROUTINE_MAINTENANCE, 30);
+
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                offering.revise("Changed name", "changed", ServiceCategory.OTHER, -1));
+
+        assertThat(offering.name()).isEqualTo("Oil service");
+        assertThat(offering.description()).isEqualTo("original");
+        assertThat(offering.category()).isEqualTo(ServiceCategory.ROUTINE_MAINTENANCE);
+        assertThat(offering.estimatedDurationMinutes()).isEqualTo(30);
+    }
 }
