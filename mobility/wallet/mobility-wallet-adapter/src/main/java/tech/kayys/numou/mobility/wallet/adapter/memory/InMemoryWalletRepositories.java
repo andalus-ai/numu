@@ -39,6 +39,13 @@ public final class InMemoryWalletRepositories {
         }
 
         @Override
+        public Uni<java.util.Optional<LedgerEntry>> findByRef(UUID tenantId, WalletId wallet, String ref) {
+            return Uni.createFrom().item(() -> byId.entrySet().stream()
+                    .filter(e -> e.getKey().tenant().equals(tenantId) && e.getValue().walletId().equals(wallet.value()) && e.getValue().ref().equals(ref))
+                    .map(Map.Entry::getValue).findFirst());
+        }
+
+        @Override
         public Uni<List<LedgerEntry>> history(UUID tenantId, WalletId wallet, int limit) {
             return Uni.createFrom().item(() -> byId.entrySet().stream()
                     .filter(e -> e.getKey().tenant().equals(tenantId) && e.getValue().walletId().equals(wallet.value()))
