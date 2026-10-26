@@ -19,4 +19,30 @@ class WebhookVerificationResultTest {
         assertThatThrownBy(() -> WebhookVerificationResult.rejected("VERIFIED"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void acceptsStableUppercaseMachineReadableReasonCodes() {
+        assertThat(WebhookVerificationResult.rejected("INVALID_SIGNATURE").reasonCode())
+                .isEqualTo("INVALID_SIGNATURE");
+        assertThat(WebhookVerificationResult.rejected("REPLAY_PROTECTION_UNAVAILABLE").reasonCode())
+                .isEqualTo("REPLAY_PROTECTION_UNAVAILABLE");
+    }
+
+    @Test
+    void rejectsFreeTextAndPotentiallySensitiveReasonCodes() {
+        assertThatThrownBy(() -> WebhookVerificationResult.rejected("signature invalid"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> WebhookVerificationResult.rejected("INVALID_SIGNATURE: secret=abc"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> WebhookVerificationResult.rejected("INVALID-SIGNATURE"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> WebhookVerificationResult.rejected("a".repeat(101)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void trimsReasonCodeBeforeValidating() {
+        assertThat(WebhookVerificationResult.rejected(" INVALID_SIGNATURE ").reasonCode())
+                .isEqualTo("INVALID_SIGNATURE");
+    }
 }
