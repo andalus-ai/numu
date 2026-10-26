@@ -74,6 +74,9 @@ public final class DepartureInventory {
             }
             return new HoldResult(current, existing, false);
         }
+        if (current.holds.stream().anyMatch(existing -> existing.id().equals(holdId))) {
+            throw new IllegalArgumentException("passenger hold id is already in use");
+        }
 
         int occupied = current.holds.stream()
                 .filter(h -> h.overlaps(fromSequence, toSequence))
