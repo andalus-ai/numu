@@ -23,6 +23,7 @@ import tech.kayys.numou.hospitality.domain.StayBooking;
 import tech.kayys.numou.hospitality.domain.StayBookingStatus;
 import tech.kayys.numou.hospitality.spi.AtomicStayHoldPort;
 import tech.kayys.numou.hospitality.spi.StayBookingRepository;
+import tech.kayys.numou.hospitality.spi.StayInventoryProvisioningPort;
 
 /**
  * PostgreSQL implementation of multi-night inventory holds.
@@ -35,13 +36,69 @@ import tech.kayys.numou.hospitality.spi.StayBookingRepository;
  * <p>Blocking JDBC work is dispatched to the caller-supplied executor. The host application
  * must configure a bounded worker pool and run the supplied schema migration before use.</p>
  */
-public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, StayBookingRepository {
+public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, StayBookingRepository, StayInventoryProvisioningPort {
     private final DataSource dataSource;
     private final Executor jdbcExecutor;
 
     public PostgresStayInventoryAdapter(DataSource dataSource, Executor jdbcExecutor) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.jdbcExecutor = Objects.requireNonNull(jdbcExecutor, "jdbcExecutor");
+    }
+
+    @Override
+    public Uni<Void> provision(String tenantId, UUID listingId, UUID unitId,
+                               LocalDate checkIn, LocalDate checkOut, int capacity) {
+        if (tenantId == null || tenantId.isBlank()) {
+            return Uni.createFrom().failure(new IllegalArgumentException("tenantId must not be blank"));
+        }
+        Objects.requireNonNull(listingId, "listingId");
+        Objects.requireNonNull(unitId, "unitId");
+        Objects.requireNonNull(checkIn, "checkIn");
+        Objects.requireNonNull(checkOut, "checkOut");
+        if (!checkOut.isAfter(checkIn)) {
+            return Uni.createFrom().failure(new IllegalArgumentException("checkOut must be after checkIn"));
+        }
+        if (capacity < 1) {
+            return Uni.createFrom().failure(new IllegalArgumentException("capacity must be positive"));
+        }
+        return async(() -> {
+            List<LocalDate> dates = nights(checkIn, checkOut);
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    String sql = "INSERT INTO hospitality_inventory_night (tenant_id,listing_id,unit_id,stay_date,capacity) " +
+                            "VALUES (?,?,?,?,?) ON CONFLICT (tenant_id,unit_id,stay_date) DO UPDATE SET capacity=EXCLUDED.capacity " +
+                            "WHERE hospitality_inventory_night.listing_id=EXCLUDED.listing_id AND EXCLUDED.capacity >= (" +
+                            "SELECT COUNT(*) FROM hospitality_stay_booking_night n JOIN hospitality_stay_booking b " +
+                            "ON b.tenant_id=n.tenant_id AND b.booking_id=n.booking_id " +
+                            "WHERE n.tenant_id=EXCLUDED.tenant_id AND n.unit_id=EXCLUDED.unit_id AND n.stay_date=EXCLUDED.stay_date " +
+                            "AND (b.booking_status='CONFIRMED' OR (b.booking_status='HELD' AND b.hold_expires_at>CURRENT_TIMESTAMP)))";
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        for (LocalDate date : dates) {
+                            statement.setString(1, tenantId.trim());
+                            statement.setObject(2, listingId);
+                            statement.setObject(3, unitId);
+                            statement.setDate(4, Date.valueOf(date));
+                            statement.setInt(5, capacity);
+                            if (statement.executeUpdate() != 1) {
+                                throw new IllegalArgumentException(
+                                        "Capacity cannot be reduced below active bookings or listing ownership differs for " + date);
+                            }
+                        }
+                    }
+                    connection.commit();
+                    return null;
+                } catch (RuntimeException | SQLException exception) {
+                    rollback(connection, exception);
+                    if (exception instanceof RuntimeException runtimeException) throw runtimeException;
+                    throw persistenceFailure((SQLException) exception);
+                } finally {
+                    try { connection.setAutoCommit(true); } catch (SQLException ignored) { /* closing connection */ }
+                }
+            } catch (SQLException exception) {
+                throw persistenceFailure(exception);
+            }
+        });
     }
 
     @Override
