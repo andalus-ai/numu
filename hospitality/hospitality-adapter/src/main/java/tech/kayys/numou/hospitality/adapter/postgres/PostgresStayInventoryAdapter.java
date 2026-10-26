@@ -24,6 +24,7 @@ import tech.kayys.numou.hospitality.domain.StayBookingStatus;
 import tech.kayys.numou.hospitality.spi.AtomicStayHoldPort;
 import tech.kayys.numou.hospitality.spi.StayBookingRepository;
 import tech.kayys.numou.hospitality.spi.StayInventoryProvisioningPort;
+import tech.kayys.numou.hospitality.spi.StayBookingLifecyclePort;
 
 /**
  * PostgreSQL implementation of multi-night inventory holds.
@@ -36,7 +37,7 @@ import tech.kayys.numou.hospitality.spi.StayInventoryProvisioningPort;
  * <p>Blocking JDBC work is dispatched to the caller-supplied executor. The host application
  * must configure a bounded worker pool and run the supplied schema migration before use.</p>
  */
-public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, StayBookingRepository, StayInventoryProvisioningPort {
+public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, StayBookingRepository, StayInventoryProvisioningPort, StayBookingLifecyclePort {
     private final DataSource dataSource;
     private final Executor jdbcExecutor;
 
@@ -137,6 +138,129 @@ public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, S
                 throw persistenceFailure(exception);
             }
         });
+    }
+
+
+    @Override
+    public Uni<Optional<StayBooking>> confirm(String tenantId, UUID bookingId, Instant now) {
+        requireLifecycleArguments(tenantId, bookingId, now);
+        return async(() -> transitionBooking(tenantId, bookingId, now, LifecycleAction.CONFIRM));
+    }
+
+    @Override
+    public Uni<Optional<StayBooking>> cancel(String tenantId, UUID bookingId, Instant now) {
+        requireLifecycleArguments(tenantId, bookingId, now);
+        return async(() -> transitionBooking(tenantId, bookingId, now, LifecycleAction.CANCEL));
+    }
+
+    @Override
+    public Uni<Integer> expireDue(Instant now, int batchSize) {
+        Objects.requireNonNull(now, "now");
+        if (batchSize < 1 || batchSize > 1000) {
+            return Uni.createFrom().failure(new IllegalArgumentException("batchSize must be between 1 and 1000"));
+        }
+        return async(() -> {
+            String sql = "WITH due AS (SELECT tenant_id, booking_id FROM hospitality_stay_booking " +
+                    "WHERE booking_status='HELD' AND hold_expires_at <= ? " +
+                    "ORDER BY hold_expires_at, tenant_id, booking_id FOR UPDATE SKIP LOCKED LIMIT ?) " +
+                    "UPDATE hospitality_stay_booking b SET booking_status='EXPIRED' FROM due " +
+                    "WHERE b.tenant_id=due.tenant_id AND b.booking_id=due.booking_id AND b.booking_status='HELD'";
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setTimestamp(1, Timestamp.from(now));
+                statement.setInt(2, batchSize);
+                return statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw persistenceFailure(exception);
+            }
+        });
+    }
+
+    private Optional<StayBooking> transitionBooking(String tenantId, UUID bookingId, Instant now,
+                                                    LifecycleAction action) {
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                String select = "SELECT * FROM hospitality_stay_booking WHERE tenant_id=? AND booking_id=? FOR UPDATE";
+                StayBooking booking;
+                try (PreparedStatement statement = connection.prepareStatement(select)) {
+                    statement.setString(1, tenantId.trim());
+                    statement.setObject(2, bookingId);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        if (!rs.next()) {
+                            connection.commit();
+                            return Optional.empty();
+                        }
+                        booking = readBooking(rs);
+                    }
+                }
+
+                StayBookingStatus current = booking.status();
+                StayBookingStatus target = current;
+                if (action == LifecycleAction.CONFIRM) {
+                    if (current == StayBookingStatus.HELD) {
+                        target = now.isBefore(booking.holdExpiresAt())
+                                ? StayBookingStatus.CONFIRMED : StayBookingStatus.EXPIRED;
+                    } else if (current != StayBookingStatus.CONFIRMED) {
+                        throw new InvalidStayBookingTransitionException(current, action.name());
+                    }
+                } else {
+                    if (current == StayBookingStatus.CANCELLED) {
+                        target = StayBookingStatus.CANCELLED;
+                    } else if (current == StayBookingStatus.HELD) {
+                        target = now.isBefore(booking.holdExpiresAt())
+                                ? StayBookingStatus.CANCELLED : StayBookingStatus.EXPIRED;
+                    } else if (current == StayBookingStatus.CONFIRMED) {
+                        target = StayBookingStatus.CANCELLED;
+                    } else {
+                        throw new InvalidStayBookingTransitionException(current, action.name());
+                    }
+                }
+
+                if (target != current) {
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "UPDATE hospitality_stay_booking SET booking_status=? WHERE tenant_id=? AND booking_id=? AND booking_status=?")) {
+                        statement.setString(1, target.name());
+                        statement.setString(2, tenantId.trim());
+                        statement.setObject(3, bookingId);
+                        statement.setString(4, current.name());
+                        if (statement.executeUpdate() != 1) {
+                            throw new IllegalStateException("Booking lifecycle changed concurrently; retry the command");
+                        }
+                    }
+                    booking = StayBooking.restore(booking.id(), booking.tenantId(), booking.customerId(),
+                            booking.listingId(), booking.unitId(), booking.checkIn(), booking.checkOut(),
+                            booking.guestCount(), booking.quoteId(), booking.currency(), booking.idempotencyKey(),
+                            booking.createdAt(), booking.holdExpiresAt(), target);
+                }
+                connection.commit();
+                return Optional.of(booking);
+            } catch (RuntimeException | SQLException exception) {
+                rollback(connection, exception);
+                if (exception instanceof RuntimeException runtimeException) throw runtimeException;
+                throw persistenceFailure((SQLException) exception);
+            } finally {
+                try { connection.setAutoCommit(true); } catch (SQLException ignored) { /* closing connection */ }
+            }
+        } catch (SQLException exception) {
+            throw persistenceFailure(exception);
+        }
+    }
+
+    private static void requireLifecycleArguments(String tenantId, UUID bookingId, Instant now) {
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalArgumentException("tenantId must not be blank");
+        }
+        Objects.requireNonNull(bookingId, "bookingId");
+        Objects.requireNonNull(now, "now");
+    }
+
+    private enum LifecycleAction { CONFIRM, CANCEL }
+
+    public static final class InvalidStayBookingTransitionException extends RuntimeException {
+        public InvalidStayBookingTransitionException(StayBookingStatus current, String action) {
+            super("Cannot " + action.toLowerCase(java.util.Locale.ROOT) + " booking in status " + current);
+        }
     }
 
     private StayBooking createHoldTransactionally(StayBooking proposed) {
