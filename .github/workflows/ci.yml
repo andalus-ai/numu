@@ -50,6 +50,10 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
+      - name: Build and install foundation capabilities
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Build and install security contracts used by framework adapters
+        run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
       - name: Build and install organization contracts used by Courier
