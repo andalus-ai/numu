@@ -166,15 +166,17 @@ public final class JdbcStructuredDatabaseMigrationRepository implements Structur
 
             String insert = """
                     INSERT INTO workspace_database_schema_migration_records
-                    (tenant_id, migration_id, record_id, expected_record_revision, migrated_record_data, staged_at)
-                    VALUES (?, ?, ?, ?, CAST(? AS jsonb), ?)
+                    (tenant_id, migration_id, database_id, table_id, record_id, expected_record_revision, migrated_record_data, staged_at)
+                    VALUES (?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?)
                     ON CONFLICT (tenant_id, migration_id, record_id) DO NOTHING
                     """;
             try (PreparedStatement p = c.prepareStatement(insert)) {
                 for (DatabaseRecordMigrationStage stage : batch) {
-                    p.setObject(1, tenantId); p.setObject(2, migrationId); p.setObject(3, stage.recordId());
-                    p.setLong(4, stage.expectedRecordRevision()); p.setString(5, stage.migratedRecordDataJson());
-                    p.setTimestamp(6, Timestamp.from(stage.stagedAt())); p.addBatch();
+                    p.setObject(1, tenantId); p.setObject(2, migrationId);
+                    p.setObject(3, job.databaseId()); p.setObject(4, job.tableId());
+                    p.setObject(5, stage.recordId()); p.setLong(6, stage.expectedRecordRevision());
+                    p.setString(7, stage.migratedRecordDataJson());
+                    p.setTimestamp(8, Timestamp.from(stage.stagedAt())); p.addBatch();
                 }
                 p.executeBatch();
             }

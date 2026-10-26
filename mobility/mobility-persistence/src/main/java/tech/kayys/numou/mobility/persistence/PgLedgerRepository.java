@@ -27,8 +27,8 @@ import java.util.UUID;
 public class PgLedgerRepository implements LedgerRepository {
 
     static final String INSERT = """
-            INSERT INTO wallet_ledger (tenant_id, entry_id, wallet_id, kind, amount, balance_after, ref, memo, at, seq)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) ON CONFLICT DO NOTHING""";
+            INSERT INTO wallet_ledger (tenant_id, entry_id, wallet_id, kind, amount, balance_after, ref, memo, at, seq, request_fingerprint)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ON CONFLICT DO NOTHING""";
     static final String BY_REF = """
             SELECT CAST(row_to_json(l) AS text) FROM wallet_ledger l WHERE tenant_id = ?1 AND wallet_id = ?2 AND ref = ?3 LIMIT 1""";
     static final String HISTORY = """
@@ -45,7 +45,7 @@ public class PgLedgerRepository implements LedgerRepository {
         return TenantTransaction.run(tenantId, () -> Panache.getSession().flatMap(s -> s.createNativeQuery(INSERT)
                 .setParameter(1, tenantId).setParameter(2, e.id()).setParameter(3, e.walletId()).setParameter(4, e.kind().name())
                 .setParameter(5, e.amount()).setParameter(6, e.balanceAfter()).setParameter(7, e.ref()).setParameter(8, e.memo())
-                .setParameter(9, e.at().atOffset(ZoneOffset.UTC)).setParameter(10, e.seq()).executeUpdate().replaceWithVoid()));
+                .setParameter(9, e.at().atOffset(ZoneOffset.UTC)).setParameter(10, e.seq()).setParameter(11, e.requestFingerprint()).executeUpdate().replaceWithVoid()));
     }
 
     @Override
@@ -75,7 +75,8 @@ public class PgLedgerRepository implements LedgerRepository {
             final JsonNode n = mapper.readTree(json);
             return new LedgerEntry(UUID.fromString(n.get("entry_id").asText()), UUID.fromString(n.get("wallet_id").asText()),
                     LedgerEntry.Kind.valueOf(n.get("kind").asText()), new BigDecimal(n.get("amount").asText()), new BigDecimal(n.get("balance_after").asText()),
-                    n.get("ref").asText(), n.get("memo").asText(), OffsetDateTime.parse(n.get("at").asText()).toInstant(), n.get("seq").asLong());
+                    n.get("ref").asText(), n.get("memo").asText(), OffsetDateTime.parse(n.get("at").asText()).toInstant(), n.get("seq").asLong(),
+                    n.hasNonNull("request_fingerprint") ? n.get("request_fingerprint").asText() : "");
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Corrupt ledger row", e);
         }

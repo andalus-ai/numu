@@ -40,7 +40,8 @@ class JdbcStructuredDatabaseMigrationRepositoryPostgresTest {
             "V15__workspace_audit_history_append_only.sql", "V16__workspace_structured_databases.sql",
             "V17__workspace_database_views.sql", "V18__workspace_board_view_grouping.sql",
             "V19__workspace_saved_view_revision.sql", "V20__workspace_staged_schema_migrations.sql",
-            "V21__workspace_schema_migration_worker_leases.sql");
+            "V21__workspace_schema_migration_worker_leases.sql",
+            "V22__workspace_staged_migration_scope_integrity.sql");
 
     @Test
     void stagesTenantScopedBatchAtomicallyAndRejectsChangedSourceRevision() throws Exception {
