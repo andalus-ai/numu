@@ -43,7 +43,7 @@ class InMemoryReservationIdempotencyTest {
 
         assertThatThrownBy(() -> repository.saveIdempotently(tenant, "request-1", "fingerprint-b", candidate())
                 .await().indefinitely())
-                .hasCauseInstanceOf(IdempotentReservationRepository.IdempotencyKeyConflictException.class);
+                .isInstanceOf(IdempotentReservationRepository.IdempotencyKeyConflictException.class);
         assertThat(repository.allOf(tenant)).hasSize(1);
     }
 
