@@ -39,7 +39,11 @@ class DepartureInventoryTest {
 
         assertThat(afterSecond.remainingCapacity(1, 2, NOW)).isEqualTo(1);
         assertThat(afterSecond.remainingCapacity(2, 3, NOW)).isEqualTo(1);
-        assertThat(afterSecond.remainingCapacity(1, 3, NOW)).isEqualTo(0);
+        assertThat(afterSecond.remainingCapacity(1, 3, NOW)).isEqualTo(1);
+
+        DepartureInventory.HoldResult throughPassenger = afterSecond.hold(UUID.randomUUID(), "req-3",
+                "fingerprint-3", 1, 3, 1, EXPIRY, NOW);
+        assertThat(throughPassenger.inventory().remainingCapacity(1, 3, NOW)).isEqualTo(0);
     }
 
     @Test
