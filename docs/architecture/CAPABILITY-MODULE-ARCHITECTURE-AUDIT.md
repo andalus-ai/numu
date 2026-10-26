@@ -784,3 +784,30 @@ Evidence from the current main tree:
 - [ ] One transaction for the aggregate state transition and immutable outbox event; no direct broker publication as the durability boundary.
 - [ ] Tests proving invalid state transitions fail, unauthorized/cross-tenant approval is rejected, concurrent transitions cannot both win, and failed outbox insertion rolls back the approval.
 - [ ] An integration test demonstrates that only persisted, approved evidence can reach the downstream integration contract.
+
+
+## AUD-023 — The existing transactional command abstraction is BOQ-specific and has no demonstrated progress-command integration
+
+**Confidence: High for the inspected SPI and PostgreSQL adapter; medium for whole-repository runtime usage.**
+
+Evidence from current main source:
+
+- TransactionalCommandContext combines generic idempotency reservation/completion, event-outbox insertion, and a BOQ-only boqRevisions() operation.
+- PgTransactionalCommandContext requires a BoqRevisionOperations instance in its constructor, and PgTransactionalCommandRunner creates that dependency through PgBoqRevisionOperationsFactory for every callback.
+- The PostgreSQL adapter documentation explicitly says the runner is deliberately not a CDI bean and must be constructed explicitly; the construction progress handler does not accept or invoke TransactionalCommandRunner.
+- The existing outbox envelope requires tenantId, while RecordProgressMeasurementCommand and the inspected progress events do not carry trusted tenant/actor context or a command idempotency key.
+
+**Risk:** reusing the existing runner for progress would couple the progress lifecycle to BOQ revision persistence, while bypassing it retains the separate save-then-publish failure window. Simply adding a ProgressMeasurementOperations method to the existing context would expand an already mixed abstraction and still would not solve trusted context or aggregate persistence.
+
+**Disposition:** introduce a generic transaction-bound command context only as part of a coherent implementation milestone, not as a speculative standalone abstraction. Separate cross-cutting idempotency/outbox/transaction capabilities from BOQ revision operations, and let each capability-specific repository operation be supplied by an explicit transaction-bound adapter. Preserve same-connection semantics and ensure unsupported operations are not silently available or stubbed. Compose the progress lifecycle explicitly rather than assuming CDI discovery.
+
+### Acceptance criteria for the transaction seam
+
+- [ ] Generic transaction context contains only truly cross-cutting transaction-scoped capabilities; BOQ revision operations move behind a BOQ-specific port/factory.
+- [ ] A transaction-bound progress repository can load and persist lifecycle state using the same connection as outbox insertion.
+- [ ] Tenant identity, actor identity, command idempotency key, and request fingerprint are derived/validated at the application boundary and passed explicitly to the transaction.
+- [ ] Approval state transition uses compare-and-set/version checking and the outbox event is inserted in the same transaction.
+- [ ] Runtime composition explicitly wires the progress command handler, repository, transaction runner, and outbox serializer; no assumption of automatic CDI registration.
+- [ ] Tests prove rollback on aggregate/outbox failure, duplicate command replay, conflicting idempotency-key reuse, and concurrent approval behavior.
+
+This finding does not prescribe a new universal repository abstraction for every capability; it calls for a narrow, transaction-bound seam that meets the progress lifecycle's demonstrated durability requirements.
