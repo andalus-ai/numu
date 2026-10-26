@@ -5,5 +5,5 @@
   <artifactId>numou-hospitality</artifactId><packaging>pom</packaging>
   <name>Numou Hospitality Capability</name>
   <description>Accommodation listings, stay-specific policies and hospitality workflows composed with shared capabilities.</description>
-  <modules><module>hospitality-domain</module></modules>
+  <modules><module>hospitality-domain</module><module>hospitality-spi</module><module>hospitality-application</module></modules>
 </project>
