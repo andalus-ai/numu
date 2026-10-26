@@ -7,6 +7,7 @@ import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import tech.kayys.numou.aggregate.domain.ConcurrencyConflictException;
 import tech.kayys.numou.aggregate.persistence.TenantTransaction;
 import tech.kayys.numou.mobility.wallet.domain.LedgerEntry;
 import tech.kayys.numou.mobility.wallet.domain.WalletId;
@@ -20,8 +21,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Wallet ledger on the Hibernate session, so the append joins the wallet change's transaction. A replayed entry collides on the
- * deterministic entry id and is ignored ({@code ON CONFLICT DO NOTHING}); the table rejects UPDATE/DELETE/TRUNCATE. NOT COMPILED in sandbox.
+ * Wallet ledger on the Hibernate session, so the append joins the wallet change's transaction.
+ * Replayed inserts are detected by the service before mutation; a database conflict here must abort
+ * the transaction so a wallet balance cannot commit without its matching ledger entry.
  */
 @ApplicationScoped
 public class PgLedgerRepository implements LedgerRepository {
@@ -45,7 +47,19 @@ public class PgLedgerRepository implements LedgerRepository {
         return TenantTransaction.run(tenantId, () -> Panache.getSession().flatMap(s -> s.createNativeQuery(INSERT)
                 .setParameter(1, tenantId).setParameter(2, e.id()).setParameter(3, e.walletId()).setParameter(4, e.kind().name())
                 .setParameter(5, e.amount()).setParameter(6, e.balanceAfter()).setParameter(7, e.ref()).setParameter(8, e.memo())
-                .setParameter(9, e.at().atOffset(ZoneOffset.UTC)).setParameter(10, e.seq()).setParameter(11, e.requestFingerprint()).executeUpdate().replaceWithVoid()));
+                .setParameter(9, e.at().atOffset(ZoneOffset.UTC)).setParameter(10, e.seq()).setParameter(11, e.requestFingerprint())
+                .executeUpdate().invoke(PgLedgerRepository::requireInserted).replaceWithVoid()));
+    }
+
+    /**
+     * A zero-row insert means a primary/unique key conflict was suppressed by ON CONFLICT DO NOTHING.
+     * Treat it as an optimistic concurrency conflict: the surrounding unit of work rolls back and
+     * WalletService retries from fresh persisted state, where it can classify a replay or key misuse.
+     */
+    static void requireInserted(int rows) {
+        if (rows != 1) {
+            throw new ConcurrencyConflictException("Wallet ledger append conflicted with an existing entry; retry the wallet operation");
+        }
     }
 
     @Override
