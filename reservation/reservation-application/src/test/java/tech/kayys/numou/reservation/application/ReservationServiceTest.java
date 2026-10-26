@@ -16,9 +16,11 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReservationServiceTest {
 
@@ -28,6 +30,7 @@ class ReservationServiceTest {
     private final AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-10-09T06:00:00Z"));
     private final DomainClock clock = now::get;
     private final AtomicInteger publishedEventCount = new AtomicInteger();
+    private final AtomicBoolean bookingDependenciesAvailable = new AtomicBoolean(true);
 
     private InMemoryReservationRepositories.Reservations reservations;
     private InMemoryReservationRepositories.Ledgers ledgers;
@@ -49,7 +52,10 @@ class ReservationServiceTest {
                 new BookableResource(room2, "Room 102", 1, 2, Set.of(room1))
         );
 
-        final ResourceDirectoryPort directory = (t, f) -> Uni.createFrom().item(resourceList);
+        bookingDependenciesAvailable.set(true);
+        final ResourceDirectoryPort directory = (t, f) -> bookingDependenciesAvailable.get()
+                ? Uni.createFrom().item(resourceList)
+                : Uni.createFrom().failure(new IllegalStateException("resource directory unavailable"));
 
         final var schedule = Map.of(
                 DayOfWeek.FRIDAY, List.of(new OperatingWindow("Day", LocalTime.of(8, 0), LocalTime.of(22, 0), LocalTime.of(20, 0)))
@@ -64,7 +70,9 @@ class ReservationServiceTest {
                 Duration.ofMinutes(15), Duration.ofMinutes(15), schedule
         );
 
-        final BookingRulesPort rulesPort = (t, f) -> Uni.createFrom().item(rules);
+        final BookingRulesPort rulesPort = (t, f) -> bookingDependenciesAvailable.get()
+                ? Uni.createFrom().item(rules)
+                : Uni.createFrom().failure(new IllegalStateException("booking rules unavailable"));
         final UnitOfWork uow = new UnitOfWork() {
             @Override
             public <R> Uni<R> execute(Supplier<Uni<R>> work) {
@@ -115,14 +123,30 @@ class ReservationServiceTest {
                 Duration.ofMinutes(60), Set.of(), BookingSource.WEB, "oil change",
                 Set.of("vehicle-service"), "vehicle-booking-42").await().indefinitely();
         final int eventsAfterCreate = publishedEventCount.get();
+        bookingDependenciesAvailable.set(false);
 
         final var replay = service.bookWithConstraints(tenant, facility, customer, 1, start,
-                Duration.ofMinutes(60), Set.of("LIFT"), BookingSource.WEB, "oil change",
+                Duration.ofMinutes(60), Set.of(), BookingSource.WEB, "oil change",
                 Set.of("vehicle-service"), "vehicle-booking-42").await().indefinitely();
 
         assertThat(replay.id()).isEqualTo(first.id());
         assertThat(reservations.allOf(tenant)).hasSize(1);
         assertThat(publishedEventCount.get()).isEqualTo(eventsAfterCreate);
+    }
+
+    @Test
+    void reusingIdempotencyKeyForDifferentRequestIsRejected() {
+        final var start = LocalDateTime.of(2026, 10, 9, 14, 0).atZone(zone).toInstant();
+        final var customer = new CustomerContact("Workshop Customer", "+6281112233", "customer@example.com");
+        service.bookWithConstraints(tenant, facility, customer, 1, start,
+                Duration.ofMinutes(60), Set.of(), BookingSource.WEB, "oil change",
+                Set.of("vehicle-service"), "vehicle-booking-43").await().indefinitely();
+
+        assertThatThrownBy(() -> service.bookWithConstraints(tenant, facility, customer, 1, start,
+                Duration.ofMinutes(60), Set.of("LIFT"), BookingSource.WEB, "oil change",
+                Set.of("vehicle-service"), "vehicle-booking-43").await().indefinitely())
+                .isInstanceOf(tech.kayys.numou.reservation.spi.IdempotentReservationRepository.IdempotencyKeyConflictException.class);
+        assertThat(reservations.allOf(tenant)).hasSize(1);
     }
 
     @Test
