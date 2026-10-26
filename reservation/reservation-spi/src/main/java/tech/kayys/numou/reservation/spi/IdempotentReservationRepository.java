@@ -3,6 +3,7 @@ package tech.kayys.numou.reservation.spi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.reservation.domain.Reservation;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,14 +26,28 @@ public interface IdempotentReservationRepository extends ReservationRepository {
      * Atomically saves the reservation and binds the key to the request fingerprint.
      *
      * <ul>
-     *   <li>If the key is unused, persists the reservation and returns it.</li>
-     *   <li>If the key was used for the same fingerprint, returns the original reservation.</li>
+     *   <li>If the key is unused, persists the candidate and returns it with {@code created=true}.</li>
+     *   <li>If the key was used for the same fingerprint, returns the original reservation with
+     *       {@code created=false}.</li>
      *   <li>If the key was used for a different fingerprint, fails with
      *       {@link IdempotencyKeyConflictException}.</li>
      * </ul>
+     *
+     * <p>The {@code created} flag is part of the contract so callers can suppress duplicate
+     * domain-event publication and other create-only side effects on a replay.</p>
      */
-    Uni<Reservation> saveIdempotently(UUID tenantId, String idempotencyKey,
-                                      String requestFingerprint, Reservation candidate);
+    Uni<IdempotentSaveResult> saveIdempotently(UUID tenantId, String idempotencyKey,
+                                               String requestFingerprint, Reservation candidate);
+
+    /**
+     * Outcome of an atomic idempotent save. The reservation is the canonical stored aggregate,
+     * which may differ from the candidate when this operation is a replay.
+     */
+    record IdempotentSaveResult(Reservation reservation, boolean created) {
+        public IdempotentSaveResult {
+            Objects.requireNonNull(reservation, "reservation cannot be null");
+        }
+    }
 
     /** Raised when a key is reused for a semantically different command. */
     final class IdempotencyKeyConflictException extends RuntimeException {
