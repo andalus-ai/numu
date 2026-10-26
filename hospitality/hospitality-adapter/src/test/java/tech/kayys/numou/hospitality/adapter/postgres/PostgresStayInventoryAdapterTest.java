@@ -188,6 +188,101 @@ class PostgresStayInventoryAdapterTest {
         assertThat(adapter.expireDue(Instant.now(), 1).await().indefinitely()).isZero();
     }
 
+    @Test
+    void failedNightInsertRollsBackBookingAndEarlierNightRows() throws Exception {
+        String tenant = "tenant-rollback";
+        UUID listing = UUID.randomUUID();
+        UUID unit = UUID.randomUUID();
+        LocalDate checkIn = LocalDate.of(2030, 9, 10);
+        LocalDate checkOut = checkIn.plusDays(2);
+        adapter.provision(tenant, listing, unit, checkIn, checkOut, 1).await().indefinitely();
+        StayBooking proposed = booking(tenant, "customer-rollback", listing, unit,
+                checkIn, checkOut, "rollback-key");
+
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE OR REPLACE FUNCTION hospitality_test_fail_booking_night_insert()
+                    RETURNS trigger AS $
+                    BEGIN
+                        IF NEW.stay_date = DATE '2030-09-11' THEN
+                            RAISE EXCEPTION 'injected booking-night insert failure';
+                        END IF;
+                        RETURN NEW;
+                    END;
+                    $ LANGUAGE plpgsql
+                    """);
+            statement.execute("""
+                    CREATE TRIGGER hospitality_test_fail_booking_night_insert
+                    BEFORE INSERT ON hospitality_stay_booking_night
+                    FOR EACH ROW EXECUTE FUNCTION hospitality_test_fail_booking_night_insert()
+                    """);
+        }
+
+        try {
+            assertThatThrownBy(() -> adapter.createHoldAtomically(proposed, proposed.holdExpiresAt())
+                    .await().indefinitely()).isInstanceOf(RuntimeException.class);
+
+            assertThat(adapter.findById(tenant, proposed.id()).await().indefinitely()).isEmpty();
+            try (Connection connection = dataSource.getConnection();
+                 var statement = connection.prepareStatement(
+                         "SELECT COUNT(*) FROM hospitality_stay_booking_night WHERE tenant_id=? AND booking_id=?")) {
+                statement.setString(1, tenant);
+                statement.setObject(2, proposed.id());
+                try (var rows = statement.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getLong(1)).isZero();
+                }
+            }
+        } finally {
+            try (Connection connection = dataSource.getConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.execute("DROP TRIGGER IF EXISTS hospitality_test_fail_booking_night_insert ON hospitality_stay_booking_night");
+                statement.execute("DROP FUNCTION IF EXISTS hospitality_test_fail_booking_night_insert()");
+            }
+        }
+    }
+
+    @Test
+    void confirmRacingExpiryLeavesExactlyOneTerminalLifecycleOutcome() throws Exception {
+        String tenant = "tenant-confirm-expiry-race";
+        UUID listing = UUID.randomUUID();
+        UUID unit = UUID.randomUUID();
+        LocalDate checkIn = LocalDate.of(2030, 10, 10);
+        LocalDate checkOut = checkIn.plusDays(1);
+        adapter.provision(tenant, listing, unit, checkIn, checkOut, 1).await().indefinitely();
+
+        Instant createdAt = Instant.now().minusSeconds(7200);
+        Instant holdExpiresAt = createdAt.plusSeconds(1800);
+        StayQuote quote = new StayQuote(UUID.randomUUID(), listing, unit, checkIn, checkOut, 1, "IDR",
+                List.of(new BigDecimal("100000")), BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("100000"), "policy-v1", createdAt, createdAt.plusSeconds(3600));
+        StayBooking booking = StayBooking.held(UUID.randomUUID(), tenant, "customer-race", quote,
+                "confirm-expiry-race-key", createdAt, holdExpiresAt);
+        adapter.createHoldAtomically(booking, holdExpiresAt).await().indefinitely();
+
+        Instant confirmAt = holdExpiresAt.minusSeconds(1);
+        Instant expiryAt = holdExpiresAt.plusSeconds(1);
+        CompletableFuture<Optional<StayBooking>> confirm = CompletableFuture.supplyAsync(
+                () -> adapter.confirm(tenant, booking.id(), confirmAt).await().indefinitely(), callers);
+        CompletableFuture<Integer> expiry = CompletableFuture.supplyAsync(
+                () -> adapter.expireDue(expiryAt, 1).await().indefinitely(), callers);
+
+        confirm.handle((value, failure) -> null).get(15, TimeUnit.SECONDS);
+        expiry.get(15, TimeUnit.SECONDS);
+        Optional<StayBooking> persisted = adapter.findById(tenant, booking.id()).await().indefinitely();
+
+        assertThat(persisted).isPresent();
+        assertThat(persisted.orElseThrow().status())
+                .isIn(StayBookingStatus.CONFIRMED, StayBookingStatus.EXPIRED);
+        if (persisted.orElseThrow().status() == StayBookingStatus.CONFIRMED) {
+            assertThat(adapter.expireDue(expiryAt, 1).await().indefinitely()).isZero();
+        } else {
+            assertThatThrownBy(() -> adapter.confirm(tenant, booking.id(), confirmAt).await().indefinitely())
+                    .hasRootCauseInstanceOf(PostgresStayInventoryAdapter.InvalidStayBookingTransitionException.class);
+        }
+    }
+
     private boolean attemptHold(StayBooking booking) {
         try {
             adapter.createHoldAtomically(booking, booking.holdExpiresAt()).await().indefinitely();
