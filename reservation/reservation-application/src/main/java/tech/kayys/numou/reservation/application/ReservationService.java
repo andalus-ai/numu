@@ -98,14 +98,23 @@ public final class ReservationService {
     private Uni<ReservationView> doBook(UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer,
                                         PartySize party, Instant startsAt, BookingSource source, String notes,
                                         Set<String> requirements, BookingRules rules, List<BookableResource> resList) {
+        return doBook(tenantId, facilityId, id, customer, party, startsAt, source, notes, requirements,
+                rules.turnTimeFor(party), Set.of(), rules, resList);
+    }
+
+    private Uni<ReservationView> doBook(UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer,
+                                        PartySize party, Instant startsAt, BookingSource source, String notes,
+                                        Set<String> requirements, java.time.Duration requestedDuration,
+                                        Set<String> requiredResourceTags, BookingRules rules, List<BookableResource> resList) {
         final var day = startsAt.atZone(rules.zone()).toLocalDate();
         final var now = clock.now();
         return ledgers.findOrCreate(tenantId, facilityId, day, now).flatMap(ledger -> {
-            if (!ledger.canAccommodate(party, startsAt, rules, resList)) {
-                throw new NoAvailabilityException("No resource available for " + party.value() + " capacity at " + startsAt);
+            if (!ledger.canAccommodate(party, startsAt, requestedDuration, requiredResourceTags, rules, resList)) {
+                throw new NoAvailabilityException("No resource matching capacity and required capabilities at " + startsAt);
             }
-            final var res = Reservation.request(id, facilityId, customer, party, startsAt, source, notes, requirements, rules, now);
-            final var alloc = ledger.allocate(id, party, startsAt, rules, resList, now);
+            final var res = Reservation.request(id, facilityId, customer, party, startsAt, source, notes, requirements,
+                    requestedDuration, rules, now);
+            final var alloc = ledger.allocate(id, party, startsAt, requestedDuration, requiredResourceTags, rules, resList, now);
             res.assignResources(alloc.resourceIds(), now);
 
             return reservations.save(tenantId, res)
@@ -128,6 +137,35 @@ public final class ReservationService {
                         ).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
                                 alternatives(tenantId, fId, party, startsAt, rules, resList).flatMap(alts ->
                                         Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), alts)))
+                        )
+                )
+        );
+    }
+
+    /**
+     * Books a domain-specific service using its own duration and required resource capabilities.
+     * Allocation remains authoritative inside the existing unit-of-work boundary.
+     */
+    public Uni<ReservationView> bookWithConstraints(UUID tenantId, UUID facilityId, CustomerContact customer,
+                                                   int partySize, Instant startsAt, java.time.Duration serviceDuration,
+                                                   Set<String> requiredResourceTags, BookingSource source,
+                                                   String notes, Set<String> requirements) {
+        Objects.requireNonNull(serviceDuration, "serviceDuration cannot be null");
+        if (serviceDuration.isZero() || serviceDuration.isNegative()) {
+            return Uni.createFrom().failure(new IllegalArgumentException("serviceDuration must be positive"));
+        }
+        final var fId = FacilityId.of(facilityId);
+        final var party = PartySize.of(partySize);
+        final var id = ReservationId.generate();
+        final var tags = requiredResourceTags == null ? Set.<String>of() : Set.copyOf(requiredResourceTags);
+        return rulesPort.rulesFor(tenantId, fId).flatMap(rules ->
+                resourceDirectory.resourcesFor(tenantId, fId).flatMap(resList ->
+                        ConflictRetry.run(MAX_ATTEMPTS, () ->
+                                uow.execute(() -> doBook(tenantId, fId, id, customer, party, startsAt,
+                                        source == null ? BookingSource.WEB : source, notes,
+                                        requirements == null ? Set.of() : requirements, serviceDuration, tags, rules, resList))
+                        ).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
+                                Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), List.of()))
                         )
                 )
         );
