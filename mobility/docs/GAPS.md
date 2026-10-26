@@ -124,3 +124,63 @@ This review follows the repository's `AGENTS.md`, ADR-003, and `docs/architectur
 5. **Validate product completeness separately:** rider/driver/ops clients, KYC evidence, live SOS operations, push/masked calling, multi-city policy, load testing and scheduled/shared/multi-stop rides remain product/launch gaps, not reasons to duplicate platform capabilities.
 
 **Scope note:** this is an ownership and source-tree audit. The matrix intentionally distinguishes confirmed current ownership from candidates requiring contract-level inspection. No code, schema, public API or module dependency was changed by this audit text alone.
+
+
+## Contract-level reuse audit — wallet/payment and driver/fleet (2026-10-26)
+
+This follow-up inspects concrete domain contracts in the current `main` source tree. It is still a source review; no build or runtime test was executed here.
+
+### 1. Mobility Wallet vs shared Payment and Accounting
+
+**Evidence inspected**
+- `mobility/wallet/mobility-wallet-domain/.../Wallet.java`
+- `mobility/wallet/mobility-wallet-domain/pom.xml`
+- `mobility/wallet/mobility-wallet-application/pom.xml`
+- `finance/payment/numou-payment-core/.../Payment.java`
+- `finance/payment/numou-payment-core/.../PaymentRefund.java`
+
+**Decision: keep the Mobility operational wallet as a separate domain for now; integrate shared payment execution behind a port. Do not replace it with the current Payment entity.**
+
+The Mobility `Wallet` is a versioned domain aggregate with currency fraction digits, available-balance holds, idempotent operation references, captures that can leave a negative balance/shortfall after service delivery, overdraft policy, frozen state, and owner kinds for rider/driver/platform. Those are operational balance and settlement invariants.
+
+The inspected shared `finance/payment` `Payment` is a Quarkus Hibernate/Panache persistence entity for a payment transaction: invoice, payment method, amount, provider/gateway references, payment status and metadata. `PaymentRefund` records gateway refund state. The inspected contract does not itself provide the wallet's per-owner balance, hold lifecycle, overdraft/debt, cash-ride commission accounting, or immutable operational ledger semantics. A name match is not contract equivalence.
+
+**Boundary to implement**
+- Mobility application owns a small `ExternalPaymentPort` (or equivalent existing port if one already exists) for top-up/payment-intent execution, provider status, refund/reversal and callback correlation.
+- A shared payment adapter implements that port and translates provider states; it must not mutate Mobility wallet balances directly from untrusted callbacks.
+- Wallet credit occurs only after verified, idempotent confirmation, keyed by a stable provider/payment reference. Duplicate callbacks and retries must be harmless.
+- Ride fare capture, cash commission/debt, driver earnings and platform allocations remain Mobility settlement rules until a separately reviewed reusable wallet/ledger contract can represent the same invariants.
+- Add a separate accounting-posting integration only when the accounting contract and chart-of-accounts mapping are known. Reconcile postings to wallet movements; do not treat provider payment records as the general ledger.
+- Before switching adapters, test duplicate/out-of-order callbacks, partial and failed refunds, currency/fraction-digit mismatches, provider timeouts, reversals, and tenant/merchant isolation.
+
+**Important risk:** `Wallet` keeps only the last `MAX_REFS = 500` operation references in the aggregate. That is a bounded replay window, not a permanent global idempotency ledger. Before launch, verify whether persistence/outbox/inbox provides durable uniqueness for older replayed references and whether this bounded behavior is intentional. Do not silently assume the in-memory set alone guarantees forever-idempotency.
+
+### 2. Mobility Driver/Vehicle vs Fleet
+
+**Evidence inspected**
+- `mobility/driver/mobility-driver-domain/.../Driver.java`
+- `mobility/driver/mobility-driver-domain/.../Vehicle.java`
+- `logistics/numou-fleet/.../domain/model/Driver.java`
+- `logistics/numou-fleet/.../domain/model/Vehicle.java`
+
+**Decision: confirmed overlap in the broad concepts, but not a safe direct aggregate substitution. Establish ownership/reference integration before adding further vehicle master or maintenance behavior to Mobility.**
+
+Mobility's driver aggregate is deliberately focused on ride-hailing: onboarding approval/rejection, ONLINE/OFFLINE/ON_TRIP state, atomic claim/release against a ride, dispatch acceptance/cancellation signals and ride rating. Its embedded `Vehicle` is a compact ride-recognition record (type, plate, model, color).
+
+Fleet's driver aggregate is a workforce/fleet record with employment, licence, training, incidents, schedules, assignments and availability. Fleet's vehicle aggregate is substantially broader: registration/VIN, insurance, specifications, current driver/assignment, odometer/usage, maintenance history, documents, alerts and telematics. These represent overlapping driver/vehicle master data but different aggregate responsibilities and lifecycle depth.
+
+**Boundary to implement**
+- Fleet should be the candidate system of record for fleet-owned vehicle identity, registration/compliance evidence, maintenance/inspection status and general vehicle assignment where the operator actually manages a fleet.
+- Mobility should retain ride-specific driver approval/eligibility, real-time online state, current ride claim, dispatch ranking signals and rider-facing recognition snapshot.
+- Link via stable external `VehicleId` / `DriverId` references and an adapter/projection, not direct cross-domain entity imports or shared database writes.
+- A private/independent driver-partner who is not managed as part of an operator fleet must remain supportable; Fleet cannot become a mandatory runtime dependency for all Mobility deployments.
+- Define an eligibility contract: Mobility must reject a vehicle/driver when required compliance is expired, vehicle is unavailable/maintenance-blocked, or a fleet assignment is incompatible. Do not conflate Fleet's `AVAILABLE/ASSIGNED` status with Mobility's `ONLINE/ON_TRIP` state.
+- Avoid duplicating KYC document storage; use shared Document for evidence files and let Fleet/Mobility retain their own domain decisions and references.
+
+### Next implementation gates
+
+1. Inspect existing Mobility wallet SPI and integration wiring before adding any new port; reuse an existing compatible port rather than duplicating it.
+2. Trace the actual shared payment gateway capabilities and current wallet top-up flow end-to-end; add an adapter only where a concrete gap is confirmed.
+3. Define a versioned Fleet-to-Mobility eligibility/reference contract and migration strategy before changing persisted Mobility driver/vehicle fields.
+4. Add contract tests for callback idempotency and vehicle eligibility transitions before enabling either integration in production.
+5. Keep these changes in one coherent milestone PR after the contract and runtime tests are ready; this document does not claim the integrations have been implemented.
