@@ -112,7 +112,7 @@ class ReservationServiceTest {
         final var customer = new CustomerContact("Workshop Customer", "+6281112233", "customer@example.com");
 
         final var first = service.bookWithConstraints(tenant, facility, customer, 1, start,
-                Duration.ofMinutes(60), Set.of("LIFT"), BookingSource.WEB, "oil change",
+                Duration.ofMinutes(60), Set.of(), BookingSource.WEB, "oil change",
                 Set.of("vehicle-service"), "vehicle-booking-42").await().indefinitely();
         final int eventsAfterCreate = publishedEventCount.get();
 
