@@ -53,14 +53,13 @@ public final class WorkshopWorkOrder {
     }
 
     public void schedule() {
-        if (status != WorkshopWorkOrderStatus.APPROVED) {
-            throw invalidTransition("schedule");
-        }
+        if (status != WorkshopWorkOrderStatus.APPROVED) throw invalidTransition("schedule");
         status = WorkshopWorkOrderStatus.SCHEDULED;
     }
 
     public void assignTechnician(UUID technicianId) {
-        if (status == WorkshopWorkOrderStatus.IN_PROGRESS || isTerminal()) {
+        if (status == WorkshopWorkOrderStatus.IN_PROGRESS
+                || status == WorkshopWorkOrderStatus.READY_FOR_PICKUP || isTerminal()) {
             throw invalidTransition("assign technician");
         }
         assignedTechnicianId = Objects.requireNonNull(technicianId, "technicianId");
@@ -73,7 +72,11 @@ public final class WorkshopWorkOrder {
         if (assignedTechnicianId == null) {
             throw new IllegalStateException("A technician must be assigned before work starts");
         }
-        startedAt = Objects.requireNonNull(now, "now");
+        Instant started = Objects.requireNonNull(now, "now");
+        if (started.isBefore(createdAt)) {
+            throw new IllegalArgumentException("now cannot be before work-order creation time");
+        }
+        startedAt = started;
         status = WorkshopWorkOrderStatus.IN_PROGRESS;
     }
 
@@ -90,10 +93,12 @@ public final class WorkshopWorkOrder {
     }
 
     public void complete(Instant now) {
-        if (status != WorkshopWorkOrderStatus.READY_FOR_PICKUP) {
-            throw invalidTransition("complete");
+        if (status != WorkshopWorkOrderStatus.READY_FOR_PICKUP) throw invalidTransition("complete");
+        Instant completed = Objects.requireNonNull(now, "now");
+        if (startedAt == null || completed.isBefore(startedAt)) {
+            throw new IllegalArgumentException("completion time cannot be before start time");
         }
-        completedAt = Objects.requireNonNull(now, "now");
+        completedAt = completed;
         status = WorkshopWorkOrderStatus.COMPLETED;
     }
 
