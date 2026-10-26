@@ -3,7 +3,7 @@
 - **Status:** Evidence-based assessment; extraction decisions remain provisional
 - **Repository:** `andalus-ai/numu`
 - **Scope:** Reuse of shipment lifecycle by e-commerce, fulfillment, logistics, and enterprise applications
-- **Related:** [ADR-003](ADR-003-reusable-capability-modules.md), [Capability packaging contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md), [Capability module architecture audit](CAPABILITY-MODULE-ARCHITECTURE-AUDIT.md)
+- **Related:** [ADR-003](ADR-003-reusable-capability-modules.md), [Capability packaging contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md), [Capability module architecture audit](CAPABILITY-MODULE-ARCHITECTURE-AUDIT.md), [M39 extraction and composition contract](SHIPMENT-CAPABILITY-EXTRACTION-AND-COMPOSITION.md)
 
 ## 1. Goal
 
