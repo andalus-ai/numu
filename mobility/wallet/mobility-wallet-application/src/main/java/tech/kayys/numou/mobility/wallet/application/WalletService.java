@@ -142,7 +142,15 @@ public final class WalletService {
     private Uni<WalletView> mutate(UUID tenantId, OwnerKind kind, UUID ownerId, LedgerEntry.Kind entryKind, String ref, String memo,
                                    BigDecimal signedAmount, Op op) {
         final var id = WalletId.forOwner(kind, ownerId);
-        return ConflictRetry.run(MAX_ATTEMPTS, () -> uow.execute(() -> wallets.find(tenantId, id)
+        return ConflictRetry.run(MAX_ATTEMPTS, () -> uow.execute(() -> ledger.findByRef(tenantId, id, ref).flatMap(existing -> {
+            if (existing.isPresent()) {
+                final LedgerEntry prior = existing.get();
+                if (prior.kind() != entryKind || prior.amount().compareTo(signedAmount) != 0 || !prior.memo().equals(memo == null ? "" : memo)) {
+                    return Uni.createFrom().failure(new BusinessRuleViolation("Idempotency reference was already used for a different wallet operation"));
+                }
+                return wallets.find(tenantId, id).map(o -> o.map(WalletView::of).orElseGet(() -> WalletView.of(newWallet(kind, ownerId, clock.now()))));
+            }
+            return wallets.find(tenantId, id)
                 .map(o -> o.orElseGet(() -> newWallet(kind, ownerId, clock.now()))).flatMap(w -> {
                     final var now = clock.now();
                     final var result = op.apply(w, now);
@@ -156,7 +164,8 @@ public final class WalletService {
                                 return raised.isEmpty() ? Uni.createFrom().voidItem() : events.publish(tenantId, raised);
                             })
                             .replaceWith(WalletView.of(w));
-                })));
+                }));
+        })));
     }
 
     private Wallet newWallet(OwnerKind kind, UUID ownerId, Instant now) {
