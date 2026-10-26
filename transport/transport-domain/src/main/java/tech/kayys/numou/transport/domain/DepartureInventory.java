@@ -78,11 +78,7 @@ public final class DepartureInventory {
             throw new IllegalArgumentException("passenger hold id is already in use");
         }
 
-        int occupied = current.holds.stream()
-                .filter(h -> h.overlaps(fromSequence, toSequence))
-                .filter(h -> h.consumesCapacityAt(now))
-                .mapToInt(PassengerHold::passengerCount)
-                .sum();
+        int occupied = current.maxOccupiedAcrossSegment(fromSequence, toSequence, now);
         if (occupied + passengerCount > capacity) {
             throw new CapacityUnavailableException(capacity, occupied, passengerCount,
                     fromSequence, toSequence);
@@ -141,17 +137,26 @@ public final class DepartureInventory {
         Objects.requireNonNull(now, "now");
         validateSegment(fromSequence, toSequence);
         DepartureInventory current = expireDue(now);
-        int occupied = current.holds.stream()
-                .filter(h -> h.overlaps(fromSequence, toSequence))
-                .filter(h -> h.consumesCapacityAt(now))
-                .mapToInt(PassengerHold::passengerCount)
-                .sum();
+        int occupied = current.maxOccupiedAcrossSegment(fromSequence, toSequence, now);
         return capacity - occupied;
     }
 
     public Optional<PassengerHold> holdByIdempotencyKey(String key) {
         String normalized = requireText(key, "idempotencyKey");
         return holds.stream().filter(h -> h.idempotencyKey().equals(normalized)).findFirst();
+    }
+
+    private int maxOccupiedAcrossSegment(int from, int to, Instant now) {
+        int maximum = 0;
+        for (int leg = from; leg < to; leg++) {
+            int occupiedOnLeg = holds.stream()
+                    .filter(hold -> hold.overlaps(leg, leg + 1))
+                    .filter(hold -> hold.consumesCapacityAt(now))
+                    .mapToInt(PassengerHold::passengerCount)
+                    .sum();
+            maximum = Math.max(maximum, occupiedOnLeg);
+        }
+        return maximum;
     }
 
     private PassengerHold findHold(UUID id) {
