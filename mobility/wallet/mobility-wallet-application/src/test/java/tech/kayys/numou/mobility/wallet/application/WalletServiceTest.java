@@ -45,6 +45,26 @@ class WalletServiceTest {
     }
 
     @Test
+    void reusingAnIdempotencyReferenceWithDifferentPayloadIsRejected() {
+        final var rider = UUID.randomUUID();
+        svc.credit(tenant, OwnerKind.RIDER, rider, bd("1000"), "stable-key", "top-up").await().indefinitely();
+        assertThatThrownBy(() -> svc.credit(tenant, OwnerKind.RIDER, rider, bd("2000"), "stable-key", "top-up").await().indefinitely())
+                .isInstanceOf(BusinessRuleViolation.class);
+        assertThat(svc.view(tenant, OwnerKind.RIDER, rider).await().indefinitely().balance()).isEqualByComparingTo("1000");
+        assertThat(ledger.size()).isEqualTo(1);
+    }
+
+    @Test
+    void oldReferenceRemainsIdempotentAfterAggregateReferenceCacheEvictsIt() {
+        final var rider = UUID.randomUUID();
+        svc.credit(tenant, OwnerKind.RIDER, rider, bd("1000"), "old-key", "top-up").await().indefinitely();
+        for (int i = 0; i < 510; i++) svc.credit(tenant, OwnerKind.RIDER, rider, bd("1"), "later-" + i, "top-up").await().indefinitely();
+        final var replay = svc.credit(tenant, OwnerKind.RIDER, rider, bd("1000"), "old-key", "top-up").await().indefinitely();
+        assertThat(replay.balance()).isEqualByComparingTo("1510");
+        assertThat(ledger.size()).isEqualTo(511);
+    }
+
+    @Test
     void holdCaptureReleaseFlowWritesALedger() {
         final var rider = UUID.randomUUID();
         svc.credit(tenant, OwnerKind.RIDER, rider, bd("100000"), "t", "").await().indefinitely();
