@@ -15,6 +15,9 @@ import tech.kayys.numou.mobility.wallet.spi.WalletRepository;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -63,25 +66,25 @@ public final class WalletService {
 
     /** Adds money (payment-gateway top-up, driver earning, platform share). {@code ref} makes it idempotent. */
     public Uni<WalletView> credit(UUID tenantId, OwnerKind kind, UUID ownerId, BigDecimal amount, String ref, String memo) {
-        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.CREDIT, ref, memo, amount, (w, now) -> w.credit(ref, amount, now));
+        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.CREDIT, ref, memo, amount, "credit", (w, now) -> w.credit(ref, amount, now));
     }
 
     /** Debits within the overdraft limit. */
     public Uni<WalletView> debit(UUID tenantId, OwnerKind kind, UUID ownerId, BigDecimal amount, String ref, String memo) {
-        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.DEBIT, ref, memo, amount.negate(), (w, now) -> w.debit(ref, amount, now));
+        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.DEBIT, ref, memo, amount.negate(), "debit", (w, now) -> w.debit(ref, amount, now));
     }
 
     public Uni<WalletView> hold(UUID tenantId, OwnerKind kind, UUID ownerId, BigDecimal amount, String holdRef) {
-        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.HOLD, holdRef, "hold", amount, (w, now) -> w.hold(holdRef, amount, now));
+        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.HOLD, holdRef, "hold", amount, "hold", (w, now) -> w.hold(holdRef, amount, now));
     }
 
     /** Charges {@code amount} against the hold {@code holdRef} (the debt-tolerant path: see {@link Wallet#capture}). */
     public Uni<WalletView> capture(UUID tenantId, OwnerKind kind, UUID ownerId, BigDecimal amount, String holdRef, String ref, String memo) {
-        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.CAPTURE, ref, memo, amount.negate(), (w, now) -> w.capture(holdRef, ref, amount, now));
+        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.CAPTURE, ref, memo, amount.negate(), "capture|holdRef=" + holdRef, (w, now) -> w.capture(holdRef, ref, amount, now));
     }
 
     public Uni<WalletView> release(UUID tenantId, OwnerKind kind, UUID ownerId, String holdRef, String ref) {
-        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.RELEASE, ref, "release", BigDecimal.ZERO, (w, now) -> w.release(holdRef, ref, now));
+        return mutate(tenantId, kind, ownerId, LedgerEntry.Kind.RELEASE, ref, "release", BigDecimal.ZERO, "release|holdRef=" + holdRef, (w, now) -> w.release(holdRef, ref, now));
     }
 
     /** Driver withdrawal to a bank account. The payout itself is executed by a separate disbursement service. */
@@ -89,7 +92,7 @@ public final class WalletService {
         if (amount.compareTo(minPayout) < 0) {
             return Uni.createFrom().failure(new BusinessRuleViolation("Minimum payout is " + minPayout.toPlainString()));
         }
-        return mutate(tenantId, OwnerKind.DRIVER, driverId, LedgerEntry.Kind.DEBIT, ref, "payout", amount.negate(), (w, now) -> {
+        return mutate(tenantId, OwnerKind.DRIVER, driverId, LedgerEntry.Kind.DEBIT, ref, "payout", amount.negate(), "payout", (w, now) -> {
             if (w.balance().subtract(amount).signum() < 0) {
                 throw new tech.kayys.numou.mobility.wallet.domain.InsufficientFundsException("Insufficient balance"); // payouts never use the overdraft
             }
@@ -102,7 +105,7 @@ public final class WalletService {
         final UUID shard = platformShardOwner(tenantId, shardKey);
         return signedAmount.signum() >= 0
                 ? credit(tenantId, OwnerKind.PLATFORM, shard, signedAmount, ref, memo)
-                : mutate(tenantId, OwnerKind.PLATFORM, shard, LedgerEntry.Kind.DEBIT, ref, memo, signedAmount,
+                : mutate(tenantId, OwnerKind.PLATFORM, shard, LedgerEntry.Kind.DEBIT, ref, memo, signedAmount, "platformMove-debit",
                         (w, now) -> w.debit(ref, signedAmount.negate(), now));
     }
 
@@ -140,12 +143,13 @@ public final class WalletService {
     // ---------------------------------------------------------------- internals
 
     private Uni<WalletView> mutate(UUID tenantId, OwnerKind kind, UUID ownerId, LedgerEntry.Kind entryKind, String ref, String memo,
-                                   BigDecimal signedAmount, Op op) {
+                                   BigDecimal signedAmount, String operationContext, Op op) {
         final var id = WalletId.forOwner(kind, ownerId);
         return ConflictRetry.run(MAX_ATTEMPTS, () -> uow.execute(() -> ledger.findByRef(tenantId, id, ref).flatMap(existing -> {
             if (existing.isPresent()) {
                 final LedgerEntry prior = existing.get();
-                if (prior.kind() != entryKind || prior.amount().compareTo(signedAmount) != 0 || !prior.memo().equals(memo == null ? "" : memo)) {
+                if (prior.kind() != entryKind || prior.amount().compareTo(signedAmount) != 0 || !prior.memo().equals(memo == null ? "" : memo)
+                        || (!prior.requestFingerprint().isBlank() && !prior.requestFingerprint().equals(requestFingerprint(entryKind, signedAmount, memo, operationContext)))) {
                     return Uni.createFrom().failure(new BusinessRuleViolation("Idempotency reference was already used for a different wallet operation"));
                 }
                 return wallets.find(tenantId, id).map(o -> o.map(WalletView::of).orElseGet(() -> WalletView.of(newWallet(kind, ownerId, clock.now()))));
@@ -158,7 +162,7 @@ public final class WalletService {
                         return Uni.createFrom().item(WalletView.of(w)); // replayed ref: nothing changed, nothing to save
                     }
                     return wallets.save(tenantId, w)
-                            .flatMap(x -> ledger.append(tenantId, LedgerEntry.of(id, entryKind, signedAmount, w.balance(), ref, memo, now, w.storedVersion())))
+                            .flatMap(x -> ledger.append(tenantId, LedgerEntry.of(id, entryKind, signedAmount, w.balance(), ref, memo, now, w.storedVersion(), requestFingerprint(entryKind, signedAmount, memo, operationContext))))
                             .flatMap(x -> {
                                 final var raised = w.pullDomainEvents();
                                 return raised.isEmpty() ? Uni.createFrom().voidItem() : events.publish(tenantId, raised);
@@ -166,6 +170,16 @@ public final class WalletService {
                             .replaceWith(WalletView.of(w));
                 }));
         })));
+    }
+
+    private String requestFingerprint(LedgerEntry.Kind kind, BigDecimal signedAmount, String memo, String operationContext) {
+        final String canonical = kind.name() + "\n" + signedAmount.stripTrailingZeros().toPlainString() + "\n"
+                + (memo == null ? "" : memo) + "\n" + operationContext;
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
     }
 
     private Wallet newWallet(OwnerKind kind, UUID ownerId, Instant now) {
