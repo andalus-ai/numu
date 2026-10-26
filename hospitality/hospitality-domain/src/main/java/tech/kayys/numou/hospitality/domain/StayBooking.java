@@ -101,7 +101,8 @@ public final class StayBooking {
                 && checkIn.equals(quote.checkIn())
                 && checkOut.equals(quote.checkOut())
                 && guestCount == quote.guestCount()
-                && quoteId.equals(quote.id());
+                && quoteId.equals(quote.id())
+                && currency.equals(quote.currency());
     }
 
     private static String requireText(String value, String name) {
