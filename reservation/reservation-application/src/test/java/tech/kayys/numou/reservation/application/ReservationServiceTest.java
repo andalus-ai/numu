@@ -15,6 +15,7 @@ import tech.kayys.numou.reservation.spi.ResourceDirectoryPort;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,6 +27,7 @@ class ReservationServiceTest {
     private final ZoneId zone = ZoneId.of("Asia/Jakarta");
     private final AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-10-09T06:00:00Z"));
     private final DomainClock clock = now::get;
+    private final AtomicInteger publishedEventCount = new AtomicInteger();
 
     private InMemoryReservationRepositories.Reservations reservations;
     private InMemoryReservationRepositories.Ledgers ledgers;
@@ -69,7 +71,11 @@ class ReservationServiceTest {
                 return work.get();
             }
         };
-        final DomainEventSink events = (t, evts) -> Uni.createFrom().voidItem();
+        publishedEventCount.set(0);
+        final DomainEventSink events = (t, evts) -> {
+            publishedEventCount.addAndGet(evts.size());
+            return Uni.createFrom().voidItem();
+        };
 
         service = new ReservationService(reservations, ledgers, directory, rulesPort, uow, events, clock);
     }
@@ -98,6 +104,25 @@ class ReservationServiceTest {
         service.complete(tenant, view.id()).await().indefinitely();
         final var completed = service.booking(tenant, view.id()).await().indefinitely();
         assertThat(completed.status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void constrainedBookingReplayDoesNotAllocateOrPublishEventsTwice() {
+        final var start = LocalDateTime.of(2026, 10, 9, 14, 0).atZone(zone).toInstant();
+        final var customer = new CustomerContact("Workshop Customer", "+6281112233", "customer@example.com");
+
+        final var first = service.bookWithConstraints(tenant, facility, customer, 1, start,
+                Duration.ofMinutes(60), Set.of(), BookingSource.WEB, "oil change",
+                Set.of("vehicle-service"), "vehicle-booking-42").await().indefinitely();
+        final int eventsAfterCreate = publishedEventCount.get();
+
+        final var replay = service.bookWithConstraints(tenant, facility, customer, 1, start,
+                Duration.ofMinutes(60), Set.of("LIFT"), BookingSource.WEB, "oil change",
+                Set.of("vehicle-service"), "vehicle-booking-42").await().indefinitely();
+
+        assertThat(replay.id()).isEqualTo(first.id());
+        assertThat(reservations.allOf(tenant)).hasSize(1);
+        assertThat(publishedEventCount.get()).isEqualTo(eventsAfterCreate);
     }
 
     @Test

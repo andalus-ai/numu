@@ -8,6 +8,7 @@ import tech.kayys.numou.reservation.domain.*;
 import tech.kayys.numou.reservation.spi.BookingRulesPort;
 import tech.kayys.numou.reservation.spi.DomainEventSink;
 import tech.kayys.numou.reservation.spi.LedgerRepository;
+import tech.kayys.numou.reservation.spi.IdempotentReservationRepository;
 import tech.kayys.numou.reservation.spi.ReservationRepository;
 import tech.kayys.numou.reservation.spi.ResourceDirectoryPort;
 
@@ -150,6 +151,18 @@ public final class ReservationService {
                                                    int partySize, Instant startsAt, java.time.Duration serviceDuration,
                                                    Set<String> requiredResourceTags, BookingSource source,
                                                    String notes, Set<String> requirements) {
+        return bookWithConstraints(tenantId, facilityId, customer, partySize, startsAt, serviceDuration,
+                requiredResourceTags, source, notes, requirements, null);
+    }
+
+    /**
+     * Books a domain-specific service with an optional tenant-scoped idempotency key.
+     * Repositories used with a key must implement the atomic idempotency contract.
+     */
+    public Uni<ReservationView> bookWithConstraints(UUID tenantId, UUID facilityId, CustomerContact customer,
+                                                   int partySize, Instant startsAt, Duration serviceDuration,
+                                                   Set<String> requiredResourceTags, BookingSource source,
+                                                   String notes, Set<String> requirements, String idempotencyKey) {
         Objects.requireNonNull(serviceDuration, "serviceDuration cannot be null");
         if (serviceDuration.isZero() || serviceDuration.isNegative()) {
             return Uni.createFrom().failure(new IllegalArgumentException("serviceDuration must be positive"));
@@ -158,17 +171,70 @@ public final class ReservationService {
         final var party = PartySize.of(partySize);
         final var id = ReservationId.generate();
         final var tags = requiredResourceTags == null ? Set.<String>of() : Set.copyOf(requiredResourceTags);
+        final var normalizedSource = source == null ? BookingSource.WEB : source;
+        final var normalizedRequirements = requirements == null ? Set.<String>of() : Set.copyOf(requirements);
+        if (idempotencyKey != null && idempotencyKey.isBlank()) {
+            return Uni.createFrom().failure(new IllegalArgumentException("idempotencyKey cannot be blank"));
+        }
+        if (idempotencyKey != null && !(reservations instanceof IdempotentReservationRepository)) {
+            return Uni.createFrom().failure(new IllegalStateException(
+                    "Idempotency key supplied but reservation repository does not support atomic idempotency"));
+        }
         return rulesPort.rulesFor(tenantId, fId).flatMap(rules ->
                 resourceDirectory.resourcesFor(tenantId, fId).flatMap(resList ->
-                        ConflictRetry.run(MAX_ATTEMPTS, () ->
-                                uow.execute(() -> doBook(tenantId, fId, id, customer, party, startsAt,
-                                        source == null ? BookingSource.WEB : source, notes,
-                                        requirements == null ? Set.of() : requirements, serviceDuration, tags, rules, resList))
-                        ).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
+                        ConflictRetry.run(MAX_ATTEMPTS, () -> uow.execute(() -> {
+                            if (idempotencyKey == null) {
+                                return doBook(tenantId, fId, id, customer, party, startsAt, normalizedSource, notes,
+                                        normalizedRequirements, serviceDuration, tags, rules, resList);
+                            }
+                            return doBookIdempotently(tenantId, fId, id, customer, party, startsAt, normalizedSource,
+                                    notes, normalizedRequirements, serviceDuration, tags, idempotencyKey, rules, resList);
+                        })).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
                                 Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), List.of()))
                         )
                 )
         );
+    }
+
+    private Uni<ReservationView> doBookIdempotently(UUID tenantId, FacilityId facilityId, ReservationId id,
+                                                     CustomerContact customer, PartySize party, Instant startsAt,
+                                                     BookingSource source, String notes, Set<String> requirements,
+                                                     Duration requestedDuration, Set<String> requiredResourceTags,
+                                                     String idempotencyKey, BookingRules rules,
+                                                     List<BookableResource> resList) {
+        var repository = (IdempotentReservationRepository) reservations;
+        final String fingerprint = ReservationRequestFingerprint.of(
+                new ReservationRequestFingerprint.CreateReservationCommand(
+                        tenantId.toString(), facilityId.value().toString(), customer, party.value(), startsAt,
+                        requestedDuration, source, notes, requirements, requiredResourceTags));
+        return repository.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing -> {
+            if (existing.isPresent()) {
+                // The atomic repository compares fingerprints and returns the canonical reservation.
+                return repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, existing.get())
+                        .map(result -> ReservationView.of(result.reservation()));
+            }
+            final var day = startsAt.atZone(rules.zone()).toLocalDate();
+            final var now = clock.now();
+            return ledgers.findOrCreate(tenantId, facilityId, day, now).flatMap(ledger -> {
+                if (!ledger.canAccommodate(party, startsAt, requestedDuration, requiredResourceTags, rules, resList)) {
+                    throw new NoAvailabilityException("No resource matching capacity and required capabilities at " + startsAt);
+                }
+                final var candidate = Reservation.request(id, facilityId, customer, party, startsAt, source, notes,
+                        requirements, requestedDuration, rules, now);
+                final var allocation = ledger.allocate(id, party, startsAt, requestedDuration, requiredResourceTags,
+                        rules, resList, now);
+                candidate.assignResources(allocation.resourceIds(), now);
+                return repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, candidate).flatMap(result -> {
+                    if (!result.created()) {
+                        // A concurrent request won this key; discard this attempt's unpersisted allocation/events.
+                        return Uni.createFrom().item(ReservationView.of(result.reservation()));
+                    }
+                    return ledgers.save(tenantId, ledger)
+                            .flatMap(ignored -> publishEvents(tenantId, result.reservation(), ledger))
+                            .map(ignored -> ReservationView.of(result.reservation()));
+                });
+            });
+        });
     }
 
     public Uni<Void> confirmDeposit(UUID tenantId, UUID reservationId, String paymentRef) {
