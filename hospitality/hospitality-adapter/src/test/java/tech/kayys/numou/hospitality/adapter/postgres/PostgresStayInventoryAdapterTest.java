@@ -162,6 +162,32 @@ class PostgresStayInventoryAdapterTest {
                 .hasRootCauseInstanceOf(PostgresStayInventoryAdapter.IdempotencyConflictException.class);
     }
 
+    @Test
+    void expiryTransitionsOnlyDueHeldBookings() {
+        String tenant = "tenant-expiry";
+        UUID listing = UUID.randomUUID();
+        UUID unit = UUID.randomUUID();
+        LocalDate checkIn = LocalDate.of(2030, 8, 10);
+        LocalDate checkOut = checkIn.plusDays(1);
+        adapter.provision(tenant, listing, unit, checkIn, checkOut, 2).await().indefinitely();
+
+        Instant createdAt = Instant.now().minusSeconds(7200);
+        Instant holdExpiresAt = createdAt.plusSeconds(1800);
+        StayQuote quote = new StayQuote(UUID.randomUUID(), listing, unit, checkIn, checkOut, 1, "IDR",
+                List.of(new BigDecimal("100000")), BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("100000"), "policy-v1", createdAt, createdAt.plusSeconds(3600));
+        StayBooking expired = StayBooking.held(UUID.randomUUID(), tenant, "customer-expired", quote,
+                "expired-key", createdAt, holdExpiresAt);
+        adapter.createHoldAtomically(expired, holdExpiresAt).await().indefinitely();
+
+        int changed = adapter.expireDue(Instant.now(), 1).await().indefinitely();
+
+        assertThat(changed).isEqualTo(1);
+        assertThat(adapter.findById(tenant, expired.id()).await().indefinitely())
+                .get().extracting(StayBooking::status).isEqualTo(StayBookingStatus.EXPIRED);
+        assertThat(adapter.expireDue(Instant.now(), 1).await().indefinitely()).isZero();
+    }
+
     private boolean attemptHold(StayBooking booking) {
         try {
             adapter.createHoldAtomically(booking, booking.holdExpiresAt()).await().indefinitely();
