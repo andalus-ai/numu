@@ -314,7 +314,9 @@ class FilesystemWarehouseRecoveryAuditArtifactStoreTest {
 
         assertEquals(chunk.length, recovered.byteSize());
         assertArrayEquals(chunk, restartedProcess.open("tenant-temp", "export-temp").readAllBytes());
-        assertEquals(1, Files.list(receiptDirectory).filter(p -> p.getFileName().toString().endsWith(".receipt")).count());
+        try (var files = Files.list(receiptDirectory)) {
+            assertEquals(1L, files.filter(p -> p.getFileName().toString().endsWith(".receipt")).count());
+        }
     }
 
     private static byte[] concat(byte[] first, byte[] second) {
