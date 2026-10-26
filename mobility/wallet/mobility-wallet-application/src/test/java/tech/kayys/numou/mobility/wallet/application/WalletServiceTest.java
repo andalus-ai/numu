@@ -65,6 +65,19 @@ class WalletServiceTest {
     }
 
     @Test
+    void captureReferenceCannotBeReusedForAnotherHold() {
+        final var rider = UUID.randomUUID();
+        svc.credit(tenant, OwnerKind.RIDER, rider, bd("5000"), "funds", "").await().indefinitely();
+        svc.hold(tenant, OwnerKind.RIDER, rider, bd("1000"), "hold-a").await().indefinitely();
+        svc.hold(tenant, OwnerKind.RIDER, rider, bd("1000"), "hold-b").await().indefinitely();
+        svc.capture(tenant, OwnerKind.RIDER, rider, bd("500"), "hold-a", "capture-key", "ride").await().indefinitely();
+        assertThatThrownBy(() -> svc.capture(tenant, OwnerKind.RIDER, rider, bd("500"), "hold-b", "capture-key", "ride").await().indefinitely())
+                .isInstanceOf(BusinessRuleViolation.class);
+        assertThat(svc.view(tenant, OwnerKind.RIDER, rider).await().indefinitely().balance()).isEqualByComparingTo("4500");
+        assertThat(ledger.size()).isEqualTo(4);
+    }
+
+    @Test
     void holdCaptureReleaseFlowWritesALedger() {
         final var rider = UUID.randomUUID();
         svc.credit(tenant, OwnerKind.RIDER, rider, bd("100000"), "t", "").await().indefinitely();
