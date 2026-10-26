@@ -129,12 +129,14 @@ Event names are proposed contract examples, not existing repository events. Fina
 
 ### M2 — Reservation and capacity-safe scheduling
 
-- Integrate existing scheduling contracts or add only the missing resource/capacity contract.
-- Implement availability query, expiring slot holds, confirm/reschedule/cancel/no-show policies, idempotency and conflict protection.
-- Cover branch calendars, holidays, time zones, service duration/buffers, mechanic skills, bay/equipment requirements and concurrent booking attempts.
-- Add customer and provider API adapters only according to existing repository conventions.
+**Current implementation slice:** `vehicle-service-application` defines customer appointment use cases to find candidate slots and book a service. It resolves an active, tenant-scoped service offering, carries its estimated duration and resource requirements into the reservation port, and requires a tenant-scoped idempotency key. Availability is advisory; the reservation adapter must enforce capacity atomically on commit.
 
-**Acceptance:** concurrency tests prove capacity is never exceeded; expired holds release capacity; retries do not duplicate reservations or events.
+- Reuse the existing reservation capability as the capacity authority; do not create a second booking aggregate or ledger.
+- Implement an adapter to the reservation application only after its current capacity/resource contract can enforce service-specific duration and required resource tags. The existing generic reservation API currently uses its own booking rules/resource directory and does not by itself prove those workshop-specific constraints are enforced.
+- Next, implement expiring slot holds, confirm/reschedule/cancel/no-show policies, and provider API adapters according to existing conventions.
+- Cover branch calendars, holidays, time zones, buffers, mechanic skills, bay/equipment requirements and concurrent booking attempts.
+
+**Acceptance:** concurrency tests prove capacity is never exceeded; expired holds release capacity; retries do not duplicate reservations or events; integration tests prove service duration and resource tags are enforced by the reservation adapter.
 
 ### M3 — Workshop work orders and customer approvals
 
