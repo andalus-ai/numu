@@ -17,7 +17,8 @@ public record BookableResource(
         String label,
         int minCapacity,
         int maxCapacity,
-        Set<ResourceId> combinableWith
+        Set<ResourceId> combinableWith,
+        Set<String> tags
 ) {
     public BookableResource {
         Objects.requireNonNull(id, "ResourceId cannot be null");
@@ -26,6 +27,21 @@ public record BookableResource(
             throw new IllegalArgumentException("Resource capacity must satisfy 1 <= min <= max");
         }
         combinableWith = combinableWith == null ? Set.of() : Set.copyOf(combinableWith);
+        tags = tags == null ? Set.of() : tags.stream().filter(Objects::nonNull).map(String::trim)
+                .filter(tag -> !tag.isEmpty()).map(String::toLowerCase).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    /** Backward-compatible constructor for resources without explicit capability tags. */
+    public BookableResource(ResourceId id, String label, int minCapacity, int maxCapacity,
+                            Set<ResourceId> combinableWith) {
+        this(id, label, minCapacity, maxCapacity, combinableWith, Set.of());
+    }
+
+    public boolean hasAllTags(Set<String> requiredTags) {
+        if (requiredTags == null || requiredTags.isEmpty()) return true;
+        var normalized = requiredTags.stream().filter(Objects::nonNull).map(String::trim)
+                .filter(tag -> !tag.isEmpty()).map(String::toLowerCase).collect(java.util.stream.Collectors.toSet());
+        return tags.containsAll(normalized);
     }
 
     public boolean canJoin(BookableResource other) {

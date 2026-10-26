@@ -78,13 +78,21 @@ public final class AvailabilityLedger extends ReservationAggregate<LedgerId> {
      */
     public Allocation allocate(ReservationId reservationId, PartySize party, Instant start,
                               BookingRules rules, List<BookableResource> resources, Instant now) {
+        return allocate(reservationId, party, start, rules.turnTimeFor(party), Set.of(), rules, resources, now);
+    }
+
+    /** Allocates using a requested duration and required resource capabilities. */
+    public Allocation allocate(ReservationId reservationId, PartySize party, Instant start, java.time.Duration duration,
+                              Set<String> requiredTags, BookingRules rules, List<BookableResource> resources, Instant now) {
+        Objects.requireNonNull(duration, "duration cannot be null");
+        if (duration.isZero() || duration.isNegative()) throw new IllegalArgumentException("duration must be positive");
         final var existing = allocationOf(reservationId);
         if (existing.isPresent()) {
             return existing.get();
         }
         requireSameDay(start, rules);
-        final var range = blockedRange(party, start, rules);
-        final var fit = bestFit(party, range, resources)
+        final var range = blockedRange(start, duration, rules);
+        final var fit = bestFit(party, range, resources, requiredTags)
                 .orElseThrow(() -> new NoAvailabilityException(
                         "No resource available for " + party.value() + " capacity at " + start));
         final var allocation = new Allocation(reservationId, fit, range);
@@ -97,11 +105,17 @@ public final class AvailabilityLedger extends ReservationAggregate<LedgerId> {
 
     /** Dry run: could this party be accommodated at {@code start}? */
     public boolean canAccommodate(PartySize party, Instant start, BookingRules rules, List<BookableResource> resources) {
+        return canAccommodate(party, start, rules.turnTimeFor(party), Set.of(), rules, resources);
+    }
+
+    /** Dry run using the requested duration and required resource capabilities. */
+    public boolean canAccommodate(PartySize party, Instant start, java.time.Duration duration, Set<String> requiredTags,
+                                  BookingRules rules, List<BookableResource> resources) {
+        Objects.requireNonNull(duration, "duration cannot be null");
+        if (duration.isZero() || duration.isNegative()) throw new IllegalArgumentException("duration must be positive");
         final var local = start.atZone(rules.zone()).toLocalDate();
-        if (!local.equals(day)) {
-            return false;
-        }
-        return bestFit(party, blockedRange(party, start, rules), resources).isPresent();
+        if (!local.equals(day)) return false;
+        return bestFit(party, blockedRange(start, duration, rules), resources, requiredTags).isPresent();
     }
 
     public void release(ReservationId reservationId, Instant now) {
@@ -117,17 +131,19 @@ public final class AvailabilityLedger extends ReservationAggregate<LedgerId> {
         }
     }
 
-    private TimeRange blockedRange(PartySize party, Instant start, BookingRules rules) {
-        return TimeRange.of(start, rules.turnTimeFor(party).plus(rules.cleanupBuffer()));
+    private TimeRange blockedRange(Instant start, java.time.Duration duration, BookingRules rules) {
+        return TimeRange.of(start, duration.plus(rules.cleanupBuffer()));
     }
 
-    private Optional<Set<ResourceId>> bestFit(PartySize party, TimeRange window, List<BookableResource> all) {
+    private Optional<Set<ResourceId>> bestFit(PartySize party, TimeRange window, List<BookableResource> all,
+                                               Set<String> requiredTags) {
         final var busy = allocations.stream()
                 .filter(a -> a.blocked().overlaps(window))
                 .flatMap(a -> a.resourceIds().stream())
                 .collect(Collectors.toSet());
 
-        final var available = all.stream().filter(r -> !busy.contains(r.id())).toList();
+        final var available = all.stream().filter(r -> !busy.contains(r.id()))
+                .filter(r -> r.hasAllTags(requiredTags)).toList();
 
         // 1. Single resource best fit
         final var single = available.stream()
