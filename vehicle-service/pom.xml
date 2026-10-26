@@ -15,5 +15,6 @@
     <description>Vehicle service and workshop domain extension composed with existing Numou capabilities.</description>
     <modules>
         <module>vehicle-service-domain</module>
+        <module>vehicle-service-application</module>
     </modules>
 </project>
