@@ -811,3 +811,57 @@ Evidence from current main source:
 - [ ] Tests prove rollback on aggregate/outbox failure, duplicate command replay, conflicting idempotency-key reuse, and concurrent approval behavior.
 
 This finding does not prescribe a new universal repository abstraction for every capability; it calls for a narrow, transaction-bound seam that meets the progress lifecycle's demonstrated durability requirements.
+
+## AUD-024 — Mobility extraction candidates and ownership boundaries
+
+**Status:** Source-tree architecture review; no code moved by this finding.  
+**Confidence:** High for the inspected Mobility contracts and Maven aggregator; medium for repository-wide duplicate-consumer claims because static source inspection is not a complete runtime dependency analysis.
+
+### Observed structure
+
+The mobility/pom.xml reactor currently composes the Mobility kernel, pricing, wallet domain/SPI/application/adapter, driver domain/SPI/application/adapter, ride domain/SPI/application/adapter, integration, persistence, and API. This is a useful modular-monolith composition boundary. It does not imply that each artifact must become a separately deployed service.
+
+The inspected contracts show:
+
+- mobility/kernel/geo contains LatLng, GeoCell, GeoMath, MovementRules, PathSimplifier, Polyline, ServiceArea, and RoutingPort. These are candidates for reuse, but the package also contains Mobility-oriented IDs and VehicleType; no evidence from this review establishes an existing cross-domain consumer of the geographic primitives.
+- mobility/driver owns an operational driver-partner aggregate. Its Driver manages verification, online/offline/on-trip state, ride claims, acceptance/rating statistics, cancellation suspension, and a Mobility Vehicle value object.
+- logistics/numou-fleet has separate, broader driver and vehicle aggregates covering workforce/employment, licences, compliance, ownership/registration, insurance, maintenance, assignment, and telematics. Similar field names do not make these aggregates interchangeable.
+- mobility/mobility-pricing contains FareCalculator, FareQuote, FinalFare, FareSchedule, SurgePolicy, Promo, cancellation rules, and settlement calculations. These policies are coupled to ride pricing and settlement; extracting the entire module as a generic pricing engine would conflate distinct product semantics.
+- mobility/integration/WalletBackedPayments implements the Ride PaymentsPort using WalletService. This is a positive explicit integration seam: Ride does not need to import the Wallet aggregate directly.
+- mobility/wallet/.../Wallet contains generic-looking balance and hold concepts, but also OwnerKind, overdraft and post-service capture/shortfall behavior. Its documented in-aggregate operation-reference history is bounded (MAX_REFS = 500); therefore this set alone cannot prove lifetime idempotency. The wallet also owns Mobility-specific eligibility semantics such as canBook() and canAcceptCash().
+- mobility/docs/GAPS.md explicitly records that a substantial framework layer was not compiled in its authoring environment and that provider sandbox verification and operational launch work remain. The documented historical test count must not be treated as current Maven/production verification.
+
+### Candidate disposition
+
+| Candidate | Disposition | Evidence gate / boundary |
+|---|---|---|
+| Wallet balance, holds, captures, movements and durable idempotency | **Extract by staged migration into the planned finance/wallet capability** | First prove DB-level uniqueness, atomic balance-plus-ledger writes, optimistic concurrency, tenant scoping, restart/replay behavior, and compatibility for Mobility's shortfall/overdraft policy. Keep fare settlement and booking/cash eligibility in Mobility. Do not move the aggregate unchanged. |
+| Geographic primitives and routing contracts | **Defer extraction; define a candidate shared geo/routing contract** | First inventory actual non-Mobility consumers and their required coordinate systems, distance semantics, service-area geometry, route options, timeouts, and provider error/fallback behavior. Separate generic primitives from Mobility IDs, vehicle types and dispatch rules. No new root-level geo module is justified solely by possible future reuse. |
+| Driver location and proximity index | **Extract the contract only when a second real consumer is confirmed** | Keep storage behind a replaceable port. Define tenant scope, freshness, coordinate privacy, availability meaning, query bounds, stale-record handling and backend consistency. Dispatch eligibility and ride claim remain Mobility-owned. |
+| Fare/quote primitives | **Reuse selectively; keep fare policy in Mobility** | Money rounding and immutable quote-snapshot patterns may be shared if their contracts match. Surge, promo eligibility, cancellation fee, fare cap, commission and settlement equations remain Mobility-specific. |
+| Driver and vehicle master data | **Keep operational aggregates separate; integrate through stable identity/registry contracts** | Logistics Fleet is authoritative for fleet/workforce/compliance only if product ownership explicitly says so. Mobility remains authoritative for its live driver availability and ride claim. Define field ownership and event/API contracts before synchronizing records; never share mutable aggregates or persistence tables. |
+| Notification delivery and messaging | **Reuse existing platform capabilities where available** | Inventory existing Messaging and notification contracts before adding adapters. Ride offer timing, participant authorization, masking, and ride-chat retention remain Mobility policies. |
+| Payment execution and accounting | **Reuse existing Finance Payment and Accounting capabilities through ports/events** | Payment provider state, operational wallet movements and balanced accounting journals remain distinct lifecycles. No direct table access across capabilities. |
+| Ride, dispatch, trip evidence, safety, refunds and ride settlement | **Keep inside Mobility** | These invariants form a coherent ride-hailing product capability. Extract only a stable neutral primitive when a second real consumer and matching semantics are demonstrated. |
+| Mobility API/runtime, composition and persistence adapters | **Keep as composition/infrastructure** | Runtime and provider wiring should be replaceable; it must not leak framework or persistence dependencies into domain modules. Validate the framework layer with the real Maven reactor and integration environment before launch claims. |
+
+### Recommended milestone sequence
+
+1. **MOB-EXTRACT-0 — Evidence and runtime verification:** inspect all relevant POM dependency edges and source imports; inventory geo/location and wallet consumers across Mobility, Courier/Logistics, Hospitality, Vehicle Service, Finance, and other existing modules; run the narrowest supported Maven builds and integration tests in an environment with the declared dependencies. Record verified results separately from historical documentation.
+2. **MOB-EXTRACT-1 — Wallet safety gate:** inspect PostgreSQL wallet and ledger persistence, unique constraints, transaction boundaries, and request fingerprints. Add adversarial concurrency/replay tests before defining the shared wallet public contract. Coordinate with ADR-006 and the Finance wallet consumer inventory.
+3. **MOB-EXTRACT-2 — Neutral geo/location contracts:** only after consumer inventory confirms at least two real use cases, define the minimal transport-neutral contracts and keep current Mobility APIs as compatibility adapters during migration.
+4. **MOB-EXTRACT-3 — Driver/Fleet source-of-truth contract:** document field-level ownership, lifecycle events, and synchronization semantics; no aggregate consolidation.
+5. **MOB-EXTRACT-4 — Selective pricing/messaging reuse:** adopt existing shared contracts where semantics match; otherwise retain product-owned policy.
+6. **MOB-EXTRACT-5 — Production readiness:** resolve the outstanding compile/integration, payment sandbox, notification delivery, regulatory, operations, load and recovery gaps documented by Mobility before claiming launch readiness.
+
+### Acceptance criteria
+
+- [ ] Each extraction candidate has a named owning capability, a real current consumer, and a documented public contract.
+- [ ] No extraction introduces reverse dependencies from shared capabilities into Mobility, Logistics, or other product modules.
+- [ ] Existing Mobility APIs and persisted data remain compatible during staged migration, or a reviewed migration plan documents the break.
+- [ ] Wallet tests cover concurrent mutation, durable replay after restart, conflicting key reuse, tenant isolation, ledger consistency, and shortfall/overdraft compatibility.
+- [ ] Geo/location tests cover boundaries, stale fixes, tenant isolation, deterministic query semantics, and fallback/provider failures.
+- [ ] Driver/Fleet integration documents the authoritative source for each shared field and never shares mutable aggregate instances or internal tables.
+- [ ] Maven/build and integration results are reported from actual current runs; historical test totals and source-only inspection are not represented as fresh verification.
+
+**Decision:** the only immediate extraction target is the staged Finance Wallet effort already governed by ADR-006, and even that remains gated on persistence/idempotency evidence. Geo, location, driver/vehicle registry, pricing primitives, and messaging are candidate contracts—not approved wholesale moves. Keep Mobility's ride lifecycle and commercial policies intact.
