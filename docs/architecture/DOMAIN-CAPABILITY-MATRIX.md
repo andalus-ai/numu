@@ -65,3 +65,22 @@ A capability is not considered generalized merely because its package was rename
 - persistence tests for tenant isolation, rollback, concurrency and idempotent retries where applicable;
 - at least one construction workflow and one non-construction workflow consuming the neutral contract;
 - migration and compatibility tests for existing construction records and public APIs.
+
+
+## Finance wallet ownership and extension boundary
+
+| Capability | Shared responsibility | Domain-specific responsibility | Boundary / non-goal |
+|---|---|---|---|
+| Finance Wallet (target capability; implementation not implied by this row) | Candidate neutral account identity, currency/precision, explicitly defined available balance, supported holds, immutable movements, durable idempotency, freeze/restriction primitives and reconciliation references | Mobility fare capture/shortfall, driver earnings and cash commission; Commerce/Hospitality credits, deposits and provider payouts; Logistics advances/settlements; any Syirkah contractual allocation | Do not make negative balances, withdrawal, interest/profit treatment, safeguarding or payout universally enabled. Each use case must declare policy and legal/operational profile |
+| Payment execution | Provider/method execution, provider status, refund/reversal workflow and verified callback correlation | Domain-specific payment intent, allowed methods, capture timing, refund eligibility and compensation | Payment transaction state is not wallet balance state and is not a general-ledger journal |
+| Accounting | Journal posting, chart-of-accounts mapping, period controls, financial reporting and reconciliation | Source-to-account mapping and domain-specific recognition/classification | A wallet movement is not automatically a balanced journal entry; avoid direct cross-capability table writes |
+
+### Finance wallet dependency rules
+
+1. The target shared wallet capability belongs under `finance/wallet`; consumers depend on its documented public domain/application contracts, never Mobility wallet internals or payment/accounting persistence entities.
+2. The shared kernel is not a legal product classification. The host/product profile must define authorization, limits, KYC/KYB, safeguarding, payout/withdrawal, dispute, audit-retention and reporting requirements where applicable.
+3. Domain extensions own business decisions such as whether a balance may become negative, whether funds are withdrawable, when holds expire, and whether a movement is eligible for settlement.
+4. Payment execution, operational wallet movements and Accounting journals retain separate identifiers, lifecycles and idempotency scopes; connect them through explicit ports and reconciliation.
+5. Do not migrate the Mobility aggregate until durable replay protection, concurrent mutation, tenant isolation, migration compatibility and domain-specific shortfall behavior are tested.
+6. Validate reuse with at least two real consumers whose shared invariants are demonstrated; do not generalize solely from similar class or field names.
+7. This section records target ownership only. It does not claim that `finance/wallet` or its production adapters have already been implemented.
