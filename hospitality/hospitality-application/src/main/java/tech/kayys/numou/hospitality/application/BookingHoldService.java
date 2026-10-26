@@ -65,8 +65,7 @@ public final class BookingHoldService {
                         // The port owns the race between concurrent requests with the same key.
                         // It must atomically enforce key uniqueness and reserve all requested nights.
                         return holds.createHoldAtomically(proposed, expiry).flatMap(created -> {
-                            if (!created.id().equals(proposed.id())
-                                    || !created.tenantId().equals(command.tenantId())
+                            if (!created.tenantId().equals(command.tenantId())
                                     || !created.customerId().equals(command.customerId())
                                     || !created.idempotencyKey().equals(command.idempotencyKey())
                                     || !created.matches(quote, command.customerId())
@@ -86,7 +85,8 @@ public final class BookingHoldService {
                 && prior.unitId().equals(stay.unitId())
                 && prior.checkIn().equals(stay.checkIn())
                 && prior.checkOut().equals(stay.checkOut())
-                && prior.guestCount() == stay.guestCount();
+                && prior.guestCount() == stay.guestCount()
+                && prior.currency().equalsIgnoreCase(command.currency());
     }
 
     private static Instant min(Instant a, Instant b) {
