@@ -8,6 +8,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
@@ -43,7 +44,7 @@ public final class ShipmentCapability {
         )).toList();
         BookShipmentCommand command = new BookShipmentCommand(
                 tenant, shipmentId, request.reference(), request.sender().toDomain(),
-                request.recipient().toDomain(), ServiceLevel.valueOf(request.serviceLevel().trim().toUpperCase()),
+                request.recipient().toDomain(), ServiceLevel.valueOf(request.serviceLevel().trim().toUpperCase(Locale.ROOT)),
                 parcels, request.occurredAt());
         return booking.handle(command).thenApply(ShipmentCapability::view);
     }
