@@ -1,6 +1,5 @@
 package tech.kayys.payment.api;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
