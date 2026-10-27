@@ -1,7 +1,5 @@
 package tech.kayys.numou.transport.runtime;
 
-import java.util.Objects;
-
 /**
  * Verified caller context supplied by the host's authentication integration.
  *
@@ -29,7 +27,9 @@ public record TransportIdentityContext(String tenantId, String actorId) {
     }
 
     private static String required(String value, String label, int maxLength) {
-        Objects.requireNonNull(value, label);
+        if (value == null) {
+            throw new SecurityException(label + " is required");
+        }
         String normalized = value.trim();
         if (normalized.isEmpty() || normalized.length() > maxLength) {
             throw new SecurityException(label + " must contain 1-" + maxLength + " characters");
