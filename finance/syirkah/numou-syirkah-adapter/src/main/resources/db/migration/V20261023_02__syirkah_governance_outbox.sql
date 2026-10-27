@@ -1,4 +1,4 @@
--- Syirkah maker-checker approvals and transactional outbox (tenant-scoped, RLS fail-closed like V300).
+-- Syirkah maker-checker approvals and transactional outbox (tenant-scoped, RLS fail-closed like V20261023_01).
 
 CREATE TABLE IF NOT EXISTS syirkah_ledger_approval (
     approval_id uuid        PRIMARY KEY,

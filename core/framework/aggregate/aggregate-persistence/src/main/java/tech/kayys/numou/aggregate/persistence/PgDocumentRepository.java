@@ -38,12 +38,24 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
 
     private static final String INSERT = """
             INSERT INTO aggregate_document (tenant_id, kind, id, version, venue_id, ref_id, starts_at, status, doc)
-            VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, CAST(?8 AS jsonb))
+            VALUES (?1, ?2, ?3, 1,
+                    CASE WHEN ?10 THEN NULL ELSE CAST(?4 AS uuid) END,
+                    CASE WHEN ?11 THEN NULL ELSE CAST(?5 AS uuid) END,
+                    CASE WHEN ?12 THEN NULL ELSE CAST(?6 AS timestamptz) END,
+                    CASE WHEN ?13 THEN NULL ELSE CAST(?7 AS varchar) END,
+                    CAST(?8 AS jsonb))
             ON CONFLICT DO NOTHING""";
     private static final String UPDATE = """
             UPDATE aggregate_document
-            SET version = version + 1, venue_id = ?4, ref_id = ?5, starts_at = ?6, status = ?7, doc = CAST(?8 AS jsonb), updated_at = now()
+            SET version = version + 1,
+                venue_id = CASE WHEN ?10 THEN NULL ELSE CAST(?4 AS uuid) END,
+                ref_id = CASE WHEN ?11 THEN NULL ELSE CAST(?5 AS uuid) END,
+                starts_at = CASE WHEN ?12 THEN NULL ELSE CAST(?6 AS timestamptz) END,
+                status = CASE WHEN ?13 THEN NULL ELSE CAST(?7 AS varchar) END,
+                doc = CAST(?8 AS jsonb), updated_at = now()
             WHERE tenant_id = ?1 AND kind = ?2 AND id = ?3 AND version = ?9""";
+    private static final UUID NULL_UUID = new UUID(0L, 0L);
+
     private static final String SELECT = """
             SELECT CAST(version AS text) || ':' || CAST(doc AS text) FROM aggregate_document
             WHERE tenant_id = ?1 AND kind = ?2 AND id = ?3""";

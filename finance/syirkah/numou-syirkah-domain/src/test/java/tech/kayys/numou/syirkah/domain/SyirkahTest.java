@@ -15,6 +15,7 @@ import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -2043,4 +2044,166 @@ class SyirkahTest {
                 assertEquals(NOW, s.getUpdatedAt());
                 assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
         }
+
+    // ------------------------------------------------------------------ correcting an older close
+
+    private static List<CloseId> ids(int n) {
+        List<CloseId> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            out.add(CloseId.generate());
+        }
+        return out;
+    }
+
+    @Test
+    void correctingAnOlderCloseReplaysLaterClosesAndTurnsOverpaymentIntoLiability() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot c1 = close(s, JAN1, JAN31, profit(40_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(20_000_000), "p1a", NOW);
+        s.distributeProfit(B, idr(20_000_000), "p1b", NOW);
+        CloseSnapshot c2 = close(s, LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
+                profit(20_000_000), ProfitDisposition.DISTRIBUTE);
+
+        List<CloseId> newIds = ids(2);
+        List<CloseSnapshot> replaced = s.correctClose(c1.id(), newIds, profit(10_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertEquals(2, replaced.size());
+        assertEquals(CloseStatus.REVERSED, s.close(c1.id()).status());
+        assertEquals(CloseStatus.REVERSED, s.close(c2.id()).status());
+        assertEquals(c1.id(), replaced.get(0).supersedes());
+        assertEquals(c2.id(), replaced.get(1).supersedes());
+        assertEquals(idr(10_000_000), replaced.get(0).netResult());
+        assertEquals(idr(20_000_000), replaced.get(1).netResult()); // later close keeps its own recorded result
+        // entitlement 5M + 10M = 15M each, 20M already paid: 5M each is owed back
+        assertEquals(0, idr(0).compareTo(s.position(A).payable()));
+        assertEquals(0, idr(5_000_000).compareTo(s.position(A).liability()));
+        assertEquals(0, idr(5_000_000).compareTo(s.position(B).liability()));
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+        assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
+        // the corrected history can itself be corrected again at its latest close
+        s.correctLatestClose(newIds.get(1), CloseId.generate(), profit(20_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
+    }
+
+    @Test
+    void correctingAnEarlierLossRecomputesTheImpairmentRepairOfLaterCloses() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot c1 = close(s, JAN1, JAN31, loss(40_000_000), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot c2 = close(s, LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
+                profit(30_000_000), ProfitDisposition.DISTRIBUTE);
+        // the 30M profit only repaired impaired capital: nothing distributable yet
+        assertEquals(0, idr(0).compareTo(c2.lines().get(0).profitShare()));
+        assertEquals(0, idr(15_000_000).compareTo(c2.lines().get(0).capitalRestored()));
+
+        List<CloseSnapshot> r = s.correctClose(c1.id(), ids(2), profit(10_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        // with no impairment left the same 30M is entirely distributable profit
+        assertEquals(0, idr(15_000_000).compareTo(r.get(1).lines().get(0).profitShare()));
+        assertEquals(0, idr(0).compareTo(r.get(1).lines().get(0).capitalRestored()));
+        assertEquals(0, idr(20_000_000).compareTo(s.position(A).payable())); // 5M + 15M
+        assertTrue(s.reconcile().balanced());
+        assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
+    }
+
+    @Test
+    void correctingAnOlderCloseIsAllOrNothingAndGuarded() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot c1 = close(s, JAN1, JAN31, profit(40_000_000), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot c2 = close(s, LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
+                profit(20_000_000), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot before = s.snapshot();
+
+        List<CloseId> reused = new ArrayList<>(ids(1));
+        reused.add(c2.id());
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(c1.id(), reused, profit(1), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW));
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(c1.id(), ids(1), profit(1), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW)); // needs one id per replayed close
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(c1.id(), ids(2), profit(1),
+                ManagerFault.of(idr(1), "x"), ProfitDisposition.DISTRIBUTE, NOW)); // fault needs a loss (and mudharabah)
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(CloseId.generate(), ids(1), profit(1),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW)); // unknown close
+        assertEquals(before, s.snapshot()); // every refusal left the aggregate untouched
+    }
+
+    // ------------------------------------------------------------------ asset-by-asset liquidation
+
+    private static LiquidationResult liquidate(Syirkah s, LiquidationInput in) {
+        s.startLiquidation(NOW);
+        return s.liquidate(in, ManagerFault.none(), NOW);
+    }
+
+    @Test
+    void assetBySaleLiquidationGivesTheSameResultAsTheAggregateAndKeepsTheBreakdown() {
+        LocalDate date = LocalDate.parse("2026-03-31");
+        LiquidationInput bySales = LiquidationInput.fromSales(List.of(
+                AssetSale.toPartner("machine", idr(30_000_000), A),
+                AssetSale.toOutsider("stock", idr(90_000_000), true)), idr(20_000_000), date);
+        assertEquals(idr(120_000_000), bySales.assetProceeds());
+        assertTrue(bySales.shufahOffered());
+
+        Syirkah a = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        Syirkah b = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        LiquidationResult r1 = liquidate(a, bySales);
+        LiquidationResult r2 = liquidate(b, new LiquidationInput(idr(120_000_000), idr(20_000_000), true, date));
+        assertEquals(r2.payouts(), r1.payouts());
+        assertEquals(r2.netResult(), r1.netResult());
+        assertEquals(2, r1.input().sales().size());
+        assertTrue(r1.hashIsValid());
+        // the breakdown is part of the audit fingerprint; the aggregate-only form keeps its own
+        assertNotEquals(r1.hash(), r2.hash());
+        assertEquals(a.snapshot(), Syirkah.restore(a.snapshot()).snapshot());
+    }
+
+    @Test
+    void anOutsiderSaleWithoutASyufahOfferBlocksLiquidation() {
+        LiquidationInput in = LiquidationInput.fromSales(List.of(
+                AssetSale.toPartner("machine", idr(30_000_000), A),
+                AssetSale.toOutsider("stock", idr(90_000_000), false)), idr(0), LocalDate.parse("2026-03-31"));
+        assertFalse(in.shufahOffered());
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(in, ManagerFault.none(), NOW));
+    }
+
+    @Test
+    void liquidationInputRejectsInconsistentBreakdowns() {
+        LocalDate d = LocalDate.parse("2026-03-31");
+        List<AssetSale> sales = List.of(AssetSale.toOutsider("stock", idr(10), true));
+        assertThrows(IllegalArgumentException.class, () -> new LiquidationInput(idr(11), idr(0), true, d, sales));
+        assertThrows(IllegalArgumentException.class, () -> new LiquidationInput(idr(10), idr(0), false, d, sales));
+        assertThrows(IllegalArgumentException.class, () -> LiquidationInput.fromSales(List.of(), idr(0), d));
+        assertThrows(IllegalArgumentException.class, () -> AssetSale.toPartner("x", idr(1), null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new AssetSale("x", idr(1), AssetSale.Buyer.OUTSIDER, A, true));
+        assertThrows(IllegalArgumentException.class, () -> AssetSale.toOutsider(" ", idr(1), true));
+    }
+
+    @Test
+    void aBuyerWhoIsNotAPartnerIsRejected() {
+        LiquidationInput in = LiquidationInput.fromSales(List.of(AssetSale.toPartner("machine", idr(10), C)), idr(0),
+                LocalDate.parse("2026-03-31"));
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(in, ManagerFault.none(), NOW));
+    }
+
+    @Test
+    void tamperingWithARecordedSaleIsDetectedOnRestore() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        LiquidationResult r = liquidate(s, LiquidationInput.fromSales(List.of(
+                AssetSale.toOutsider("stock", idr(120_000_000), true)), idr(0), LocalDate.parse("2026-03-31")));
+        Syirkah.Snapshot snap = s.snapshot();
+        LiquidationInput altered = new LiquidationInput(r.input().assetProceeds(), r.input().externalDebts(), true,
+                r.input().liquidationDate(), List.of(AssetSale.toPartner("stock", idr(120_000_000), A)));
+        LiquidationResult forged = new LiquidationResult(altered, r.residual(), r.netResult(), r.lines(), r.payouts(),
+                r.completedAt(), r.hash());
+        Syirkah.Snapshot bad = new Syirkah.Snapshot(snap.id(), snap.tenantId(), snap.scale(), snap.status(),
+                snap.closedSinceRevision(), snap.contracts(), snap.movements(), snap.closes(), forged,
+                snap.version(), snap.createdAt(), snap.updatedAt());
+        assertThrows(IllegalStateException.class, () -> Syirkah.restore(bad));
+    }
 }

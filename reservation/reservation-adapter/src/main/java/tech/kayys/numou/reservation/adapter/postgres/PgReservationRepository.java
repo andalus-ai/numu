@@ -46,7 +46,6 @@ public final class PgReservationRepository implements IdempotentReservationRepos
         Objects.requireNonNull(reservation, "reservation");
         long expected = reservation.storedVersion();
         long next = expected + 1;
-        reservation.markStored(next);
         Reservation.Snapshot s = reservation.snapshot();
         String sql = expected == 0
                 ? """
@@ -72,6 +71,7 @@ public final class PgReservationRepository implements IdempotentReservationRepos
             if (rows.rowCount() != 1) {
                 throw new OptimisticReservationWriteException("Reservation was concurrently modified: " + s.id());
             }
+            reservation.markStored(next);
             return null;
         });
     }
