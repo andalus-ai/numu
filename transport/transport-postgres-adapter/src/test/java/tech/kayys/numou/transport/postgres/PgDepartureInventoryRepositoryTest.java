@@ -7,7 +7,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tech.kayys.numou.transport.domain.DepartureInventory;
-import tech.kayys.numou.transport.domain.PassengerHold;
 import tech.kayys.numou.transport.domain.RouteStatus;
 import tech.kayys.numou.transport.domain.RouteStop;
 import tech.kayys.numou.transport.domain.ScheduledDeparture;
@@ -15,12 +14,17 @@ import tech.kayys.numou.transport.domain.ScheduledStopTime;
 import tech.kayys.numou.transport.domain.TransportRoute;
 import tech.kayys.numou.transport.spi.InventoryConcurrencyException;
 
-import org.postgresql.ds.PGSimpleDataSource;
-
 import java.io.IOException;
+import javax.sql.DataSource;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.time.Instant;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -32,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers(disabledWithoutDocker = true)
-class PgDepartureInventoryRepositoryIT {
+class PgDepartureInventoryRepositoryTest {
     private static final Instant NOW = Instant.parse("2026-10-27T02:00:00Z");
     private static final Instant EXPIRES = NOW.plusSeconds(300);
 
@@ -44,12 +48,10 @@ class PgDepartureInventoryRepositoryIT {
 
     @BeforeAll
     static void createSchema() throws IOException, java.sql.SQLException {
-        dataSource = new PGSimpleDataSource();
-        dataSource.setURL(POSTGRES.getJdbcUrl());
-        dataSource.setUser(POSTGRES.getUsername());
-        dataSource.setPassword(POSTGRES.getPassword());
+        dataSource = new DriverManagerDataSource(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         String migration;
-        try (var stream = PgDepartureInventoryRepositoryIT.class.getResourceAsStream(
+        try (var stream = PgDepartureInventoryRepositoryTest.class.getResourceAsStream(
                 "/db/migration/V1__transport_departure_inventory.sql")) {
             if (stream == null) throw new IllegalStateException("inventory migration resource is missing");
             migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
@@ -140,29 +142,100 @@ class PgDepartureInventoryRepositoryIT {
     }
 
     @Test
-    void rollsBackVersionUpdateWhenHoldInsertViolatesIdempotencyConstraint() {
+    void rollsBackVersionUpdateWhenHoldInsertFails() throws java.sql.SQLException {
+        DepartureInventory initial = inventory("tenant-a", UUID.randomUUID(), 2);
+        repository.create(initial);
+        DepartureInventory current = repository.find("tenant-a", initial.departureId()).orElseThrow();
+
+        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE OR REPLACE FUNCTION fail_transport_hold_insert() RETURNS trigger AS $$
+                    BEGIN
+                        IF NEW.idempotency_key = 'force-rollback' THEN
+                            RAISE EXCEPTION 'forced inventory hold insert failure';
+                        END IF;
+                        RETURN NEW;
+                    END;
+                    $$ LANGUAGE plpgsql
+                    """);
+            statement.execute("""
+                    CREATE TRIGGER transport_test_fail_hold_insert
+                    BEFORE INSERT ON transport_passenger_hold
+                    FOR EACH ROW EXECUTE FUNCTION fail_transport_hold_insert()
+                    """);
+        }
+
+        try {
+            DepartureInventory candidate = current.hold(UUID.randomUUID(), "force-rollback", "fp-rollback",
+                    1, 3, 1, EXPIRES, NOW).inventory();
+            assertThatThrownBy(() -> repository.save(candidate, current.version()))
+                    .isInstanceOf(IllegalStateException.class);
+
+            DepartureInventory afterRollback = repository.find("tenant-a", initial.departureId()).orElseThrow();
+            assertThat(afterRollback.version()).isEqualTo(current.version());
+            assertThat(afterRollback.holds()).isEmpty();
+        } finally {
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                statement.execute("DROP TRIGGER IF EXISTS transport_test_fail_hold_insert ON transport_passenger_hold");
+                statement.execute("DROP FUNCTION IF EXISTS fail_transport_hold_insert()");
+            }
+        }
+    }
+
+    @Test
+    void refusesSnapshotsThatOmitPersistedHoldHistory() {
         DepartureInventory initial = inventory("tenant-a", UUID.randomUUID(), 2);
         repository.create(initial);
         DepartureInventory loaded = repository.find("tenant-a", initial.departureId()).orElseThrow();
-        DepartureInventory first = loaded.hold(UUID.randomUUID(), "duplicate-key", "fingerprint-1",
+        DepartureInventory withHold = loaded.hold(UUID.randomUUID(), "booking-1", "fp-1",
                 1, 2, 1, EXPIRES, NOW).inventory();
-        repository.save(first, loaded.version());
+        repository.save(withHold, loaded.version());
 
         DepartureInventory current = repository.find("tenant-a", initial.departureId()).orElseThrow();
-        PassengerHold conflicting = new PassengerHold(UUID.randomUUID(), "duplicate-key", "fingerprint-2",
-                2, 3, 1, EXPIRES, tech.kayys.numou.transport.domain.PassengerHoldStatus.HELD, NOW, NOW);
-        DepartureInventory invalidSnapshot = DepartureInventory.reconstitute(current.tenantId(),
-                current.departureId(), current.capacity(), current.stopCount(), current.version() + 1,
-                List.of(conflicting));
+        DepartureInventory missingHistory = DepartureInventory.reconstitute(current.tenantId(),
+                current.departureId(), current.capacity(), current.stopCount(), current.version() + 1, List.of());
 
-        assertThatThrownBy(() -> repository.save(invalidSnapshot, current.version()))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> repository.save(missingHistory, current.version()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot omit persisted hold history");
+        DepartureInventory afterAttempt = repository.find("tenant-a", initial.departureId()).orElseThrow();
+        assertThat(afterAttempt.version()).isEqualTo(current.version());
+        assertThat(afterAttempt.holds()).hasSize(1);
+    }
 
-        DepartureInventory afterRollback = repository.find("tenant-a", initial.departureId()).orElseThrow();
-        assertThat(afterRollback.version()).isEqualTo(current.version());
-        assertThat(afterRollback.holds()).hasSize(1);
-        assertThat(afterRollback.holds().get(0).idempotencyKey()).isEqualTo("duplicate-key");
-        assertThat(afterRollback.holds().get(0).requestFingerprint()).isEqualTo("fingerprint-1");
+    private static final class DriverManagerDataSource implements DataSource {
+        private final String url;
+        private final String username;
+        private final String password;
+
+        private DriverManagerDataSource(String url, String username, String password) {
+            this.url = url;
+            this.username = username;
+            this.password = password;
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            return DriverManager.getConnection(url, username, password);
+        }
+
+        @Override
+        public Connection getConnection(String username, String password) throws SQLException {
+            return DriverManager.getConnection(url, username, password);
+        }
+
+        @Override public PrintWriter getLogWriter() throws SQLException { return DriverManager.getLogWriter(); }
+        @Override public void setLogWriter(PrintWriter out) throws SQLException { DriverManager.setLogWriter(out); }
+        @Override public void setLoginTimeout(int seconds) throws SQLException { DriverManager.setLoginTimeout(seconds); }
+        @Override public int getLoginTimeout() throws SQLException { return DriverManager.getLoginTimeout(); }
+        @Override public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+            throw new SQLFeatureNotSupportedException("parent logger is not supported");
+        }
+        @Override public <T> T unwrap(Class<T> iface) throws SQLException {
+            if (iface.isInstance(this)) return iface.cast(this);
+            throw new SQLException("not a wrapper for " + iface.getName());
+        }
+        @Override public boolean isWrapperFor(Class<?> iface) { return iface.isInstance(this); }
     }
 
     private boolean saveAfterGate(DepartureInventory candidate, int expectedVersion,
