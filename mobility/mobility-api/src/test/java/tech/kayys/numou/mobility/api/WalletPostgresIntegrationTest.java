@@ -1,5 +1,7 @@
 package tech.kayys.numou.mobility.api;
 
+import io.quarkus.test.vertx.RunOnVertxContext;
+import io.quarkus.test.vertx.UniAsserter;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
 import io.vertx.mutiny.sqlclient.SqlConnection;
@@ -24,9 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Exercises the production WalletService against the real PostgreSQL repositories and transaction boundary.
  * Run with -Ppg-integration against a dedicated database with the Mobility and framework migrations applied.
  *
- * All assertions are scheduled through UniAsserter so Hibernate Reactive/Panache and Mutiny execute
- * on a Vert.x context. Calling await().indefinitely() from the JUnit thread has no Vert.x context
- * and fails before the wallet command can be exercised.
+ * <p>All test operations execute asynchronously on a Vert.x context, as required by Hibernate Reactive Panache.
  */
 @io.quarkus.test.junit.QuarkusTest
 class WalletPostgresIntegrationTest {
@@ -42,16 +42,14 @@ class WalletPostgresIntegrationTest {
         String ref = "it-replay-" + UUID.randomUUID();
 
         asserter.execute(() -> wallets.credit(tenant, OwnerKind.RIDER, owner,
-                new BigDecimal("1200"), ref, "integration"));
+                new BigDecimal("1200"), ref, "integration").replaceWithVoid());
         asserter.assertThat(() -> wallets.credit(tenant, OwnerKind.RIDER, owner,
                 new BigDecimal("1200"), ref, "integration"), replay -> assertAmount("1200", replay.balance()));
-        asserter.assertThat(() -> ledgerCount(tenant, ref), count -> assertEquals(1L, count));
-        asserter.assertThat(() -> outboxCount(tenant), count -> assertTrue(count >= 1L,
-                "the credit should emit an outbox event"));
-        asserter.assertThat(() -> wallets.history(tenant, OwnerKind.RIDER, owner, 20), history -> {
-            long matching = history.stream().filter(entry -> ref.equals(entry.ref())).count();
-            assertEquals(1L, matching);
-        });
+        asserter.assertEquals(() -> ledgerCount(tenant, ref), 1L);
+        asserter.assertThat(() -> outboxCount(tenant), count ->
+                assertTrue(count >= 1L, "the credit should emit an outbox event"));
+        asserter.assertEquals(() -> wallets.history(tenant, OwnerKind.RIDER, owner, 20)
+                .map(entries -> entries.stream().filter(entry -> ref.equals(entry.ref())).count()), 1L);
     }
 
     @Test
@@ -67,7 +65,7 @@ class WalletPostgresIntegrationTest {
                 .asTuple().replaceWithVoid());
         asserter.assertThat(() -> wallets.view(tenant, OwnerKind.RIDER, owner),
                 view -> assertAmount("2500", view.balance()));
-        asserter.assertThat(() -> ledgerCount(tenant, ref), count -> assertEquals(1L, count));
+        asserter.assertEquals(() -> ledgerCount(tenant, ref), 1L);
     }
 
     @Test
@@ -78,12 +76,14 @@ class WalletPostgresIntegrationTest {
         String ref = "it-conflict-" + UUID.randomUUID();
 
         asserter.execute(() -> wallets.credit(tenant, OwnerKind.RIDER, owner,
-                new BigDecimal("1000"), ref, "integration"));
-        asserter.assertFailedWith(() -> wallets.credit(tenant, OwnerKind.RIDER, owner,
-                new BigDecimal("2000"), ref, "integration"), BusinessRuleViolation.class);
+                new BigDecimal("1000"), ref, "integration").replaceWithVoid());
+        asserter.assertEquals(() -> wallets.credit(tenant, OwnerKind.RIDER, owner,
+                new BigDecimal("2000"), ref, "integration")
+                .onItem().transformToUni(ignored -> Uni.createFrom().item(false))
+                .onFailure(BusinessRuleViolation.class).recoverWithItem(true), true);
         asserter.assertThat(() -> wallets.view(tenant, OwnerKind.RIDER, owner),
                 view -> assertAmount("1000", view.balance()));
-        asserter.assertThat(() -> ledgerCount(tenant, ref), count -> assertEquals(1L, count));
+        asserter.assertEquals(() -> ledgerCount(tenant, ref), 1L);
     }
 
     @Test
@@ -93,15 +93,19 @@ class WalletPostgresIntegrationTest {
         UUID owner = UUID.randomUUID();
         String ref = "it-rollback-" + UUID.randomUUID();
 
-        asserter.assertFailedWith(() -> unitOfWork.execute(() ->
+        asserter.assertEquals(() -> unitOfWork.execute(() ->
                 wallets.credit(tenant, OwnerKind.RIDER, owner, new BigDecimal("900"), ref, "integration")
                         .flatMap(ignored -> Uni.createFrom().<WalletView>failure(
-                                new IllegalStateException("injected wallet transaction failure")))),
-                IllegalStateException.class);
+                                new IllegalStateException("injected wallet transaction failure"))))
+                .onItem().transformToUni(ignored -> Uni.createFrom().item(false))
+                .onFailure(IllegalStateException.class).recoverWithItem(failure -> {
+                    assertTrue(failure.getMessage().contains("injected wallet transaction failure"));
+                    return true;
+                }), true);
         asserter.assertThat(() -> wallets.view(tenant, OwnerKind.RIDER, owner),
                 view -> assertAmount("0", view.balance()));
-        asserter.assertThat(() -> ledgerCount(tenant, ref), count -> assertEquals(0L, count));
-        asserter.assertThat(() -> outboxCount(tenant), count -> assertEquals(0L, count));
+        asserter.assertEquals(() -> ledgerCount(tenant, ref), 0L);
+        asserter.assertEquals(() -> outboxCount(tenant), 0L);
     }
 
     @Test
@@ -113,11 +117,11 @@ class WalletPostgresIntegrationTest {
         String ref = "it-tenant-" + UUID.randomUUID();
 
         asserter.execute(() -> wallets.credit(tenantA, OwnerKind.RIDER, owner,
-                new BigDecimal("700"), ref, "tenant A"));
+                new BigDecimal("700"), ref, "tenant A").replaceWithVoid());
         asserter.assertThat(() -> wallets.view(tenantB, OwnerKind.RIDER, owner),
                 view -> assertAmount("0", view.balance()));
-        asserter.assertThat(() -> ledgerCount(tenantB, ref), count -> assertEquals(0L, count));
-        asserter.assertThat(() -> ledgerCount(tenantA, ref), count -> assertEquals(1L, count));
+        asserter.assertEquals(() -> ledgerCount(tenantB, ref), 0L);
+        asserter.assertEquals(() -> ledgerCount(tenantA, ref), 1L);
     }
 
     private static void assertAmount(String expected, BigDecimal actual) {
