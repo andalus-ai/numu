@@ -14,12 +14,16 @@ import tech.kayys.numou.transport.domain.ScheduledStopTime;
 import tech.kayys.numou.transport.domain.TransportRoute;
 import tech.kayys.numou.transport.spi.InventoryConcurrencyException;
 
-import org.postgresql.ds.PGSimpleDataSource;
-
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.time.Instant;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -43,10 +47,8 @@ class PgDepartureInventoryRepositoryTest {
 
     @BeforeAll
     static void createSchema() throws IOException, java.sql.SQLException {
-        dataSource = new PGSimpleDataSource();
-        dataSource.setURL(POSTGRES.getJdbcUrl());
-        dataSource.setUser(POSTGRES.getUsername());
-        dataSource.setPassword(POSTGRES.getPassword());
+        dataSource = new DriverManagerDataSource(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         String migration;
         try (var stream = PgDepartureInventoryRepositoryTest.class.getResourceAsStream(
                 "/db/migration/V1__transport_departure_inventory.sql")) {
@@ -198,6 +200,41 @@ class PgDepartureInventoryRepositoryTest {
         DepartureInventory afterAttempt = repository.find("tenant-a", initial.departureId()).orElseThrow();
         assertThat(afterAttempt.version()).isEqualTo(current.version());
         assertThat(afterAttempt.holds()).hasSize(1);
+    }
+
+    private static final class DriverManagerDataSource implements DataSource {
+        private final String url;
+        private final String username;
+        private final String password;
+
+        private DriverManagerDataSource(String url, String username, String password) {
+            this.url = url;
+            this.username = username;
+            this.password = password;
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            return DriverManager.getConnection(url, username, password);
+        }
+
+        @Override
+        public Connection getConnection(String username, String password) throws SQLException {
+            return DriverManager.getConnection(url, username, password);
+        }
+
+        @Override public PrintWriter getLogWriter() throws SQLException { return DriverManager.getLogWriter(); }
+        @Override public void setLogWriter(PrintWriter out) throws SQLException { DriverManager.setLogWriter(out); }
+        @Override public void setLoginTimeout(int seconds) throws SQLException { DriverManager.setLoginTimeout(seconds); }
+        @Override public int getLoginTimeout() throws SQLException { return DriverManager.getLoginTimeout(); }
+        @Override public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+            throw new SQLFeatureNotSupportedException("parent logger is not supported");
+        }
+        @Override public <T> T unwrap(Class<T> iface) throws SQLException {
+            if (iface.isInstance(this)) return iface.cast(this);
+            throw new SQLException("not a wrapper for " + iface.getName());
+        }
+        @Override public boolean isWrapperFor(Class<?> iface) { return iface.isInstance(this); }
     }
 
     private boolean saveAfterGate(DepartureInventory candidate, int expectedVersion,
