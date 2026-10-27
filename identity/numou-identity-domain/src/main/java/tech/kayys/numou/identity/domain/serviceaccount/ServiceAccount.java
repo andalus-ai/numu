@@ -40,6 +40,9 @@ public final class ServiceAccount extends AbstractAggregateRoot<ServiceAccountId
         this.id = id;
         this.tenantId = tenantId;
         this.name = requireText(name, "name");
+        if (description != null && description.length() > 255) {
+            throw new IllegalArgumentException("description cannot exceed 255 characters");
+        }
         this.description = description;
         this.ownerUserId = ownerUserId;
         this.enabled = enabled;
