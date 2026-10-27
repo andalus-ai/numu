@@ -66,6 +66,15 @@ public final class PgDepartureInventoryRepository implements DepartureInventoryR
                         AND EXCLUDED.updated_at >= stored.updated_at)
               )
             """;
+    private static final String FIND_DUE_INVENTORIES = """
+            SELECT DISTINCT i.tenant_id, i.departure_id
+            FROM transport_departure_inventory i
+            JOIN transport_passenger_hold h
+              ON h.tenant_id = i.tenant_id AND h.departure_id = i.departure_id
+            WHERE h.status = 'HELD' AND h.expires_at <= ?
+            ORDER BY i.tenant_id, i.departure_id
+            LIMIT ?
+            """;
     private static final String FIND_HOLD_IDS = """
             SELECT hold_id FROM transport_passenger_hold
             WHERE tenant_id = ? AND departure_id = ?
@@ -98,6 +107,28 @@ public final class PgDepartureInventoryRepository implements DepartureInventoryR
             List<PassengerHold> holds = loadHolds(connection, tenant, departureId);
             return Optional.of(DepartureInventory.reconstitute(
                     tenant, departureId, capacity, stopCount, version, holds));
+        });
+    }
+
+    @Override
+    public List<DepartureInventoryRepository.InventoryKey> findDueInventories(java.time.Instant now, int limit) {
+        Objects.requireNonNull(now, "now");
+        if (limit < 1 || limit > 10_000) {
+            throw new IllegalArgumentException("limit must be between 1 and 10000");
+        }
+        return transaction(Connection.TRANSACTION_READ_COMMITTED, true, connection -> {
+            List<DepartureInventoryRepository.InventoryKey> due = new ArrayList<>();
+            try (PreparedStatement statement = connection.prepareStatement(FIND_DUE_INVENTORIES)) {
+                statement.setTimestamp(1, Timestamp.from(now));
+                statement.setInt(2, limit);
+                try (ResultSet rows = statement.executeQuery()) {
+                    while (rows.next()) {
+                        due.add(new DepartureInventoryRepository.InventoryKey(
+                                rows.getString("tenant_id"), rows.getObject("departure_id", UUID.class)));
+                    }
+                }
+            }
+            return List.copyOf(due);
         });
     }
 
