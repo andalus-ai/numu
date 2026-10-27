@@ -1,30 +1,46 @@
-# Reservation PostgreSQL transaction boundary
+# PostgreSQL reservation repositories
 
-The reservation adapter's PostgreSQL foundation establishes the schema and shared-connection transaction primitive. It does not by itself constitute the production repository implementation.
+The PostgreSQL adapter now provides connection-bound implementations of
+`IdempotentReservationRepository` and `LedgerRepository`:
 
-## Required composition
+- `PgReservationRepository` performs tenant-scoped reads, optimistic-version writes,
+  and atomic tenant-scoped idempotency-key arbitration.
+- `PgLedgerRepository` inserts or reuses the unique facility/day ledger row and locks
+  it with `SELECT ... FOR UPDATE` before allocation work.
+- Both require a transaction-scoped `SqlConnection`; neither obtains a connection from
+  `PgPool`. Construct both inside the same `PgReservationTransactionRunner` callback.
 
-A booking transaction must construct or obtain reservation and ledger repository implementations bound to the SqlConnection passed to PgReservationTransactionRunner.inTransaction. The idempotency-key insert, reservation snapshot write, availability-ledger update, and outbox insert must all use that same connection.
+Example composition pattern:
 
-Do not use pool-level repository calls inside this callback. A pool-level call can borrow another connection and commit independently, defeating rollback guarantees.
+```java
+transactionRunner.inTransaction(connection -> {
+    var reservations = new PgReservationRepository(connection);
+    var ledgers = new PgLedgerRepository(connection);
+    // Invoke the reservation application workflow with these transaction-scoped ports.
+    // Do not let the ports escape this callback or publish external effects before commit.
+    return command.execute(reservations, ledgers);
+});
+```
 
-## Required write ordering
+## Concurrency and idempotency
 
-1. Lock/load the tenant-scoped facility/day ledger (create it safely if absent).
-2. Re-evaluate capacity against the locked ledger state.
-3. Write the reservation snapshot and allocation/ledger snapshot.
-4. Bind the tenant-scoped idempotency key to the reservation using the unique key constraint.
-5. Insert domain events into reservation_outbox_event.
-6. Commit once; dispatch outbox events only after commit.
+The database unique constraint on `(tenant_id, idempotency_key)` arbitrates concurrent
+retries. The key is inserted before the reservation row; the migration's deferred FK
+allows both writes to commit or roll back together. A replay compares the stored
+fingerprint and returns the canonical persisted reservation, while a different
+fingerprint fails with `IdempotencyKeyConflictException`.
 
-The idempotency conflict path must compare the canonical request fingerprint and return the stored reservation only for a matching request. The foreign key is deferred so a reservation and its key can be inserted in either order within the same transaction.
+The daily ledger's unique `(tenant_id, facility_id, ledger_day)` constraint handles
+first-creation races. Locking that row serializes allocations for the same facility/day,
+provided the caller performs find/allocate/save in the same database transaction.
 
-## Not yet implemented by this change
+## Remaining production gates
 
-- JSON serialization/deserialization and optimistic-locking repository implementations.
-- Ledger row locking and the absent-row race strategy.
-- Outbox dispatcher/lease worker.
-- Wiring ReservationService to a transaction-scoped repository composition.
-- PostgreSQL integration tests.
-
-Until these are implemented and verified, the in-memory adapter remains the only complete repository implementation and production atomicity must not be claimed.
+These classes are connection-bound persistence adapters, but the existing application
+composition must still inject them into the actual `ReservationService` command path
+through a transaction-aware unit of work. The generic `UnitOfWork` must not be assumed
+to share a connection unless its implementation explicitly guarantees it. Outbox
+insertion/dispatch, PostgreSQL integration tests for contention and rollback, JSON
+snapshot round-trip tests, and the end-to-end transaction wiring remain required before
+this is considered production-ready. Do not publish domain events externally before the
+transaction commits.

@@ -168,7 +168,7 @@ public final class WalletService {
                                 return raised.isEmpty() ? Uni.createFrom().voidItem() : events.publish(tenantId, raised);
                             })
                             .replaceWith(WalletView.of(w));
-                })
+                });
         })));
     }
 
