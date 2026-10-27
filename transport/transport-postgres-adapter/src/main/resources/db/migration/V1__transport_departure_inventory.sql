@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS transport_passenger_hold (
     CONSTRAINT fk_transport_hold_inventory
         FOREIGN KEY (tenant_id, departure_id)
         REFERENCES transport_departure_inventory (tenant_id, departure_id),
-    CHECK (to_sequence <= 1000000),
     CHECK (expires_at > created_at),
     CHECK (updated_at >= created_at)
 );
