@@ -183,6 +183,27 @@ class PgDepartureInventoryRepositoryTest {
     }
 
     @Test
+    void dueInventoryScanIsBoundedAndOnlyReturnsInventoriesWithExpiredHeldClaims() {
+        UUID dueId = UUID.randomUUID();
+        UUID futureId = UUID.randomUUID();
+        DepartureInventory due = inventory("tenant-a", dueId, 2);
+        DepartureInventory future = inventory("tenant-b", futureId, 2);
+        repository.create(due);
+        repository.create(future);
+        DepartureInventory dueHold = due.hold(UUID.randomUUID(), "due-key", "due-fingerprint",
+                1, 3, 1, NOW.minusSeconds(1), NOW.minusSeconds(60)).inventory();
+        DepartureInventory futureHold = future.hold(UUID.randomUUID(), "future-key", "future-fingerprint",
+                1, 3, 1, EXPIRES, NOW).inventory();
+        repository.save(dueHold, due.version());
+        repository.save(futureHold, future.version());
+
+        assertThat(repository.findDueInventories(NOW, 1))
+                .containsExactly(new tech.kayys.numou.transport.spi.DepartureInventoryRepository.InventoryKey(
+                        "tenant-a", dueId));
+        assertThat(repository.findDueInventories(NOW, 10)).hasSize(1);
+    }
+
+    @Test
     void refusesSnapshotsThatOmitPersistedHoldHistory() {
         DepartureInventory initial = inventory("tenant-a", UUID.randomUUID(), 2);
         repository.create(initial);
