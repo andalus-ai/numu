@@ -37,6 +37,9 @@ public class HoldExpiryScheduler {
 
     @PostConstruct
     void initializeMetrics() {
+        if (batchSize < 1 || batchSize > 10_000) {
+            throw new IllegalStateException("numou.transport.expiry.batch-size must be between 1 and 10000");
+        }
         runs = Counter.builder("numou.transport.hold.expiry.runs")
                 .description("Number of hold-expiration scheduler executions").register(meters);
         expired = Counter.builder("numou.transport.hold.expiry.transitions")
@@ -55,7 +58,7 @@ public class HoldExpiryScheduler {
         runs.increment();
         try {
             int count = bookings.expireDueHolds(batchSize);
-            expired.increment(count);
+            if (count > 0) expired.increment(count);
             if (count > 0) {
                 LOG.infof("Transport hold expiry completed: transitioned=%d batchSize=%d", count, batchSize);
             }
