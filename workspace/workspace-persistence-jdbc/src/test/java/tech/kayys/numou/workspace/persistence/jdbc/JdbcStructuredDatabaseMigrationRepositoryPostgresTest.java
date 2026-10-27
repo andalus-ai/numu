@@ -49,7 +49,7 @@ class JdbcStructuredDatabaseMigrationRepositoryPostgresTest {
         applyMigrations(dataSource);
         UUID tenant = UUID.randomUUID(), otherTenant = UUID.randomUUID(), workspace = UUID.randomUUID();
         UUID actor = UUID.randomUUID(), database = UUID.randomUUID(), table = UUID.randomUUID(), record = UUID.randomUUID();
-        Instant now = Instant.parse("2026-10-25T10:00:00Z");
+        Instant now = Instant.now().minusSeconds(120);
         insertSourceRows(dataSource, tenant, workspace, actor, database, table, record, now);
 
         JdbcStructuredDatabaseMigrationRepository repository = new JdbcStructuredDatabaseMigrationRepository(dataSource);
@@ -125,11 +125,9 @@ class JdbcStructuredDatabaseMigrationRepositoryPostgresTest {
         DatabaseSchemaMigrationJob claimed = repository.findMigrationJob(tenant, migrationId).orElseThrow();
         assertEquals(2, claimed.revision());
         assertEquals(DatabaseSchemaMigrationJob.Status.RUNNING, claimed.status());
-        assertTrue(repository.findResumableMigrationJobs(tenant, 10).isEmpty(),
-                "an unexpired running job is not resumable");
-
         Instant afterExpiry = firstExpiry.plusSeconds(1);
-        assertEquals(1, repository.findResumableMigrationJobs(tenant, 10).size());
+        assertEquals(1, repository.findResumableMigrationJobs(tenant, 10).size(),
+                "an expired running job must be discoverable for recovery");
         UUID recoveryLease = UUID.randomUUID();
         assertTrue(repository.claimMigrationJob(tenant, migrationId, 2, recoveryLease,
                 afterExpiry.plusSeconds(60), afterExpiry),
