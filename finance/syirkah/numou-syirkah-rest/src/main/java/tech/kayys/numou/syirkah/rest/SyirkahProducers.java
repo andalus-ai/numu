@@ -1,15 +1,15 @@
-package tech.kayys.numou.syirkah.rest;
+package tech.kayys.numou.numourest;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
-import tech.kayys.numou.syirkah.adapter.persistence.*;
-import tech.kayys.numou.syirkah.application.SyirkahAccountMap;
-import tech.kayys.numou.syirkah.application.SyirkahApplicationService;
-import tech.kayys.numou.syirkah.application.governance.GovernedSyirkahService;
-import tech.kayys.numou.syirkah.application.ops.SyirkahIntegrityAuditor;
-import tech.kayys.numou.syirkah.application.port.JournalPostingPort;
+import tech.kayys.numou.numouadapter.persistence.*;
+import tech.kayys.numou.numouapplication.SyirkahAccountMap;
+import tech.kayys.numou.numouapplication.SyirkahApplicationService;
+import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
+import tech.kayys.numou.numouapplication.ops.SyirkahIntegrityAuditor;
+import tech.kayys.numou.numouapplication.port.JournalPostingPort;
 
 import javax.sql.DataSource;
 import java.time.Clock;

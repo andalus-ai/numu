@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.rest;
+package tech.kayys.numou.numourest;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
@@ -6,7 +6,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.numou.syirkah.rest.SyirkahDtos.*;
+import tech.kayys.numou.numourest.SyirkahDtos.*;
 
 import java.net.URI;
 

@@ -1,4 +1,4 @@
-package tech.kayys.numou.syirkah.rest;
+package tech.kayys.numou.numourest;
 
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
@@ -9,8 +9,8 @@ import org.jboss.logging.Logger;
 import tech.kayys.numou.foundation.adapter.rest.ErrorResponse;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
-import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
-import tech.kayys.numou.syirkah.domain.SyirkahNotFoundException;
+import tech.kayys.numou.numouapplication.port.SyirkahRepository;
+import tech.kayys.numou.numoudomain.SyirkahNotFoundException;
 
 
 /**

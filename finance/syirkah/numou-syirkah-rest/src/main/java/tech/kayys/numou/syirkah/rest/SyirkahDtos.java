@@ -1,10 +1,10 @@
-package tech.kayys.numou.syirkah.rest;
+package tech.kayys.numou.numourest;
 
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.syirkah.application.governance.PendingApproval;
-import tech.kayys.numou.syirkah.application.query.SyirkahSummary;
-import tech.kayys.numou.syirkah.domain.*;
+import tech.kayys.numou.numouapplication.governance.PendingApproval;
+import tech.kayys.numou.numouapplication.query.SyirkahSummary;
+import tech.kayys.numou.numoudomain.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;

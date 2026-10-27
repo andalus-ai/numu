@@ -1,6 +1,6 @@
 package tech.kayys.numou.numouapplication.governance;
 
-import tech.kayys.numou.syirkah.domain.SyirkahNotFoundException;
+import tech.kayys.numou.numoudomain.SyirkahNotFoundException;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;

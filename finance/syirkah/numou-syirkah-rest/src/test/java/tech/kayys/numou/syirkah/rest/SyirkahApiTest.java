@@ -1,15 +1,15 @@
-package tech.kayys.numou.syirkah.rest;
+package tech.kayys.numou.numourest;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.numou.syirkah.adapter.memory.*;
-import tech.kayys.numou.syirkah.application.SyirkahAccountMap;
-import tech.kayys.numou.syirkah.application.SyirkahApplicationService;
-import tech.kayys.numou.syirkah.application.governance.GovernedSyirkahService;
-import tech.kayys.numou.syirkah.application.ops.SyirkahIntegrityAuditor;
-import tech.kayys.numou.syirkah.domain.SyirkahPostingPlan;
-import tech.kayys.numou.syirkah.rest.SyirkahDtos.*;
+import tech.kayys.numou.numouadapter.memory.*;
+import tech.kayys.numou.numouapplication.SyirkahAccountMap;
+import tech.kayys.numou.numouapplication.SyirkahApplicationService;
+import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
+import tech.kayys.numou.numouapplication.ops.SyirkahIntegrityAuditor;
+import tech.kayys.numou.numoudomain.SyirkahPostingPlan;
+import tech.kayys.numou.numourest.SyirkahDtos.*;
 
 import java.math.BigDecimal;
 import java.time.Clock;

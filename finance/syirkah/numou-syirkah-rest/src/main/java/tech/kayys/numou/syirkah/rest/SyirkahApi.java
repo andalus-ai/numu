@@ -1,16 +1,16 @@
-package tech.kayys.numou.syirkah.rest;
+package tech.kayys.numou.numourest;
 
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
-import tech.kayys.numou.syirkah.application.SyirkahApplicationService;
-import tech.kayys.numou.syirkah.application.command.Commands;
-import tech.kayys.numou.syirkah.application.governance.GovernedSyirkahService;
-import tech.kayys.numou.syirkah.application.ops.SyirkahIntegrityAuditor;
-import tech.kayys.numou.syirkah.application.port.SyirkahCatalogPort;
-import tech.kayys.numou.syirkah.application.query.SyirkahSummary;
-import tech.kayys.numou.syirkah.domain.*;
-import tech.kayys.numou.syirkah.rest.SyirkahDtos.*;
+import tech.kayys.numou.numouapplication.SyirkahApplicationService;
+import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
+import tech.kayys.numou.numouapplication.ops.SyirkahIntegrityAuditor;
+import tech.kayys.numou.numouapplication.port.SyirkahCatalogPort;
+import tech.kayys.numou.numouapplication.query.SyirkahSummary;
+import tech.kayys.numou.numoudomain.*;
+import tech.kayys.numou.numourest.SyirkahDtos.*;
 
 import java.util.*;
 
