@@ -118,7 +118,7 @@ class PgAggregateStoredVersionTest {
     }
 
     private static SqlConnection connectionWithExecute(java.util.function.Supplier<Uni<RowSet<Row>>> execute) {
-        PreparedQuery<Row> query = proxy(PreparedQuery.class, (method, args) -> {
+        PreparedQuery<RowSet<Row>> query = proxy(PreparedQuery.class, (method, args) -> {
             if (method.equals("execute")) return execute.get();
             return defaultValue(method);
         });
