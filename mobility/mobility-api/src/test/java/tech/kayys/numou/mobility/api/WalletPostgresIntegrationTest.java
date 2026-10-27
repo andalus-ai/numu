@@ -15,8 +15,9 @@ import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Exercises the production WalletService against the real PostgreSQL repositories and transaction boundary.
@@ -39,11 +40,12 @@ class WalletPostgresIntegrationTest {
         var replay = wallets.credit(tenant, OwnerKind.RIDER, owner, new BigDecimal("1200"), ref, "integration")
                 .await().indefinitely();
 
-        assertThat(replay.balance()).isEqualByComparingTo("1200");
-        assertThat(ledgerCount(tenant, ref)).isEqualTo(1);
-        assertThat(outboxCount(tenant)).isGreaterThanOrEqualTo(1);
-        assertThat(wallets.history(tenant, OwnerKind.RIDER, owner, 20).await().indefinitely())
-                .filteredOn(entry -> ref.equals(entry.ref())).hasSize(1);
+        assertAmount("1200", replay.balance());
+        assertEquals(1L, ledgerCount(tenant, ref));
+        assertTrue(outboxCount(tenant) >= 1L, "the credit should emit an outbox event");
+        long matchingHistoryEntries = wallets.history(tenant, OwnerKind.RIDER, owner, 20)
+                .await().indefinitely().stream().filter(entry -> ref.equals(entry.ref())).count();
+        assertEquals(1L, matchingHistoryEntries);
     }
 
     @Test
@@ -57,9 +59,9 @@ class WalletPostgresIntegrationTest {
                 wallets.credit(tenant, OwnerKind.RIDER, owner, new BigDecimal("2500"), ref, "integration"))
                 .asTuple().await().indefinitely();
 
-        assertThat(wallets.view(tenant, OwnerKind.RIDER, owner).await().indefinitely().balance())
-                .isEqualByComparingTo("2500");
-        assertThat(ledgerCount(tenant, ref)).isEqualTo(1);
+        assertAmount("2500", wallets.view(tenant, OwnerKind.RIDER, owner)
+                .await().indefinitely().balance());
+        assertEquals(1L, ledgerCount(tenant, ref));
     }
 
     @Test
@@ -70,13 +72,12 @@ class WalletPostgresIntegrationTest {
         wallets.credit(tenant, OwnerKind.RIDER, owner, new BigDecimal("1000"), ref, "integration")
                 .await().indefinitely();
 
-        assertThatThrownBy(() -> wallets.credit(tenant, OwnerKind.RIDER, owner,
-                new BigDecimal("2000"), ref, "integration").await().indefinitely())
-                .isInstanceOf(BusinessRuleViolation.class);
+        assertThrows(BusinessRuleViolation.class, () -> wallets.credit(tenant, OwnerKind.RIDER, owner,
+                new BigDecimal("2000"), ref, "integration").await().indefinitely());
 
-        assertThat(wallets.view(tenant, OwnerKind.RIDER, owner).await().indefinitely().balance())
-                .isEqualByComparingTo("1000");
-        assertThat(ledgerCount(tenant, ref)).isEqualTo(1);
+        assertAmount("1000", wallets.view(tenant, OwnerKind.RIDER, owner)
+                .await().indefinitely().balance());
+        assertEquals(1L, ledgerCount(tenant, ref));
     }
 
     @Test
@@ -85,18 +86,18 @@ class WalletPostgresIntegrationTest {
         UUID owner = UUID.randomUUID();
         String ref = "it-rollback-" + UUID.randomUUID();
 
-        assertThatThrownBy(() -> unitOfWork.execute(() ->
-                wallets.credit(tenant, OwnerKind.RIDER, owner, new BigDecimal("900"), ref, "integration")
-                        .flatMap(ignored -> Uni.createFrom().<WalletView>failure(
-                                new IllegalStateException("injected wallet transaction failure"))))
-                .await().indefinitely())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("injected wallet transaction failure");
+        IllegalStateException failure = assertThrows(IllegalStateException.class, () ->
+                unitOfWork.execute(() ->
+                        wallets.credit(tenant, OwnerKind.RIDER, owner, new BigDecimal("900"), ref, "integration")
+                                .flatMap(ignored -> Uni.createFrom().<WalletView>failure(
+                                        new IllegalStateException("injected wallet transaction failure"))))
+                        .await().indefinitely());
+        assertTrue(failure.getMessage().contains("injected wallet transaction failure"));
 
-        assertThat(wallets.view(tenant, OwnerKind.RIDER, owner).await().indefinitely().balance())
-                .isEqualByComparingTo("0");
-        assertThat(ledgerCount(tenant, ref)).isZero();
-        assertThat(outboxCount(tenant)).isZero();
+        assertAmount("0", wallets.view(tenant, OwnerKind.RIDER, owner)
+                .await().indefinitely().balance());
+        assertEquals(0L, ledgerCount(tenant, ref));
+        assertEquals(0L, outboxCount(tenant));
     }
 
     @Test
@@ -109,10 +110,15 @@ class WalletPostgresIntegrationTest {
         wallets.credit(tenantA, OwnerKind.RIDER, owner, new BigDecimal("700"), ref, "tenant A")
                 .await().indefinitely();
 
-        assertThat(wallets.view(tenantB, OwnerKind.RIDER, owner).await().indefinitely().balance())
-                .isEqualByComparingTo("0");
-        assertThat(ledgerCount(tenantB, ref)).isZero();
-        assertThat(ledgerCount(tenantA, ref)).isEqualTo(1);
+        assertAmount("0", wallets.view(tenantB, OwnerKind.RIDER, owner)
+                .await().indefinitely().balance());
+        assertEquals(0L, ledgerCount(tenantB, ref));
+        assertEquals(1L, ledgerCount(tenantA, ref));
+    }
+
+    private static void assertAmount(String expected, BigDecimal actual) {
+        assertEquals(0, new BigDecimal(expected).compareTo(actual),
+                "expected monetary amount " + expected + " but was " + actual);
     }
 
     private long ledgerCount(UUID tenantId, String ref) {
