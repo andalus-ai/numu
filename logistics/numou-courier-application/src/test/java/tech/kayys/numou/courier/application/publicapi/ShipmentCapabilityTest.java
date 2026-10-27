@@ -54,7 +54,7 @@ class ShipmentCapabilityTest {
                 .toCompletableFuture().join();
 
         assertEquals(1, page.events().size());
-        assertEquals(eventId.toString(), page.events().getFirst().eventId());
+        assertEquals(eventId.toString(), page.events().get(0).eventId());
         assertEquals("ARRIVED_AT_HUB", page.events().getFirst().type());
         assertEquals(new ShipmentCapability.TrackingPosition(occurredAt, eventId.toString()), page.nextBefore());
         verify(tracking).findByShipment(tenant, shipment, cursor, 20);
