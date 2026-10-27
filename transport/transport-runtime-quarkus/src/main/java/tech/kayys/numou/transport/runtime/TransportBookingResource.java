@@ -12,8 +12,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.openapi.annotations.Operation;
-import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import io.quarkus.security.identity.SecurityIdentity;
 import tech.kayys.numou.transport.application.DepartureBookingService;
 import tech.kayys.numou.transport.domain.PassengerHold;
@@ -32,7 +30,6 @@ import java.util.UUID;
 @Path("/v1/transport/departures/{departureId}/holds")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-@Tag(name = "Transport booking")
 public class TransportBookingResource {
     @Inject
     DepartureBookingService bookings;
@@ -53,8 +50,6 @@ public class TransportBookingResource {
     long maxHoldDurationSeconds;
 
     @POST
-    @Operation(summary = "Create a passenger-capacity hold",
-            description = "Requires Idempotency-Key and a verified tenant/actor identity context.")
     public Response createHold(@PathParam("departureId") UUID departureId,
                                @HeaderParam("Idempotency-Key") String idempotencyKey,
                                CreateHoldRequest request) {
@@ -82,7 +77,6 @@ public class TransportBookingResource {
 
     @POST
     @Path("/{holdId}/confirm")
-    @Operation(summary = "Confirm an active passenger-capacity hold")
     public HoldResponse confirm(@PathParam("departureId") UUID departureId,
                                 @PathParam("holdId") UUID holdId) {
         TransportIdentityContext caller = caller();
@@ -91,7 +85,6 @@ public class TransportBookingResource {
 
     @POST
     @Path("/{holdId}/release")
-    @Operation(summary = "Release a passenger-capacity hold")
     public HoldResponse release(@PathParam("departureId") UUID departureId,
                                 @PathParam("holdId") UUID holdId) {
         TransportIdentityContext caller = caller();
