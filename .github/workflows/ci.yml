@@ -109,6 +109,11 @@ jobs:
       - name: Build and install full security reactor
         run: mvn -B -ntp -f security/pom.xml install
       - name: Verify Mobility reactor and wallet PostgreSQL invariants
+        id: mobility_verify
+        # Mobility is an independent reactor. Preserve the failure result, but let
+        # identity/organization/supply/logistics verification run so one capability
+        # cannot hide regressions in another.
+        continue-on-error: true
         env:
           DB_HOST: localhost
           DB_PORT: "5432"
@@ -131,6 +136,13 @@ jobs:
         run: mvn -B -ntp -f supply/pom.xml verify
       - name: Verify Courier/Cargo reactor
         run: mvn -B -ntp -f logistics/pom.xml verify
+      # Fail the overall job only after downstream independent reactors have had
+      # their chance to run and publish their test reports.
+      - name: Propagate isolated Mobility verification failure
+        if: always() && steps.mobility_verify.outcome == 'failure'
+        run: |
+          echo "::error::Mobility reactor verification failed; see the Mobility step above."
+          exit 1
       - name: Upload Maven test reports
         if: always()
         uses: actions/upload-artifact@v4
