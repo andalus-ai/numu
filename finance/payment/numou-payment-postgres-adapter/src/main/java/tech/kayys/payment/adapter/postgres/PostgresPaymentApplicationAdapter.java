@@ -1,7 +1,6 @@
 package tech.kayys.payment.adapter.postgres;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -20,7 +19,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +35,6 @@ import java.util.UUID;
 @ApplicationScoped
 public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final TypeReference<Map<String, String>> STRING_MAP = new TypeReference<>() { };
 
     private final DataSource dataSource;
 
@@ -53,6 +50,7 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
         }
         String fingerprint = PaymentRequestFingerprint.sha256(command);
         return inTransaction(connection -> {
+            ensurePersistableAmount(command.amount());
             UUID candidateId = UUID.randomUUID();
             String insert = """
                     INSERT INTO payment_obligation (
@@ -127,6 +125,7 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
         String tenant = command.tenantId();
         UUID paymentId = parseUuid(command.paymentId(), "paymentId");
         String fingerprint = refundFingerprint(command);
+        ensurePersistableAmount(command.amount());
         return inTransaction(connection -> {
             // Lock the tenant-owned payment row to serialize refund-limit checks.
             BigDecimal paymentAmount;
@@ -147,6 +146,13 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
                     paymentAmount = result.getBigDecimal("amount");
                     currency = result.getString("currency").trim();
                 }
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(? || ':' || ?, 0))")) {
+                statement.setString(1, tenant);
+                statement.setString(2, command.idempotencyKey());
+                statement.execute();
             }
 
             try (PreparedStatement statement = connection.prepareStatement("""
@@ -174,10 +180,6 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
                                 result.getTimestamp("updated_at").toInstant());
                     }
                 }
-            }
-
-            if (!currency.equals(commandCurrencyForPayment(currency))) {
-                throw new PaymentOperationRejectedException("Refund currency must match the payment currency");
             }
 
             BigDecimal alreadyCommitted;
@@ -218,8 +220,21 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
             insertOutbox(connection, tenant, "REFUND", refundId, "PAYMENT_REFUND_REQUESTED",
                     Map.of("refundId", refundId.toString(), "paymentId", paymentId.toString(),
                             "amount", command.amount().toPlainString(), "currency", currency));
-            return new RefundOperation(tenant, refundId.toString(), paymentId.toString(),
-                    command.amount(), currency, RefundStatus.REQUESTED, Instant.now());
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    SELECT updated_at FROM payment_refund_operation
+                    WHERE tenant_id = ? AND refund_id = ?
+                    """)) {
+                statement.setString(1, tenant);
+                statement.setObject(2, refundId);
+                try (ResultSet result = statement.executeQuery()) {
+                    if (!result.next()) {
+                        throw new IllegalStateException("Created refund could not be reloaded");
+                    }
+                    return new RefundOperation(tenant, refundId.toString(), paymentId.toString(),
+                            command.amount(), currency, RefundStatus.REQUESTED,
+                            result.getTimestamp("updated_at").toInstant());
+                }
+            }
         });
     }
 
@@ -320,15 +335,20 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
         }
     }
 
+    private static void ensurePersistableAmount(BigDecimal amount) {
+        int fractionalDigits = Math.max(0, amount.stripTrailingZeros().scale());
+        int integerDigits = Math.max(0, amount.precision() - amount.scale());
+        if (fractionalDigits > 18 || integerDigits > 20) {
+            throw new PaymentOperationRejectedException(
+                    "Amount exceeds PostgreSQL payment precision (20 integer and 18 fractional digits)");
+        }
+    }
+
     private static String required(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");
         }
         return value.trim();
-    }
-
-    private static String commandCurrencyForPayment(String currency) {
-        return currency;
     }
 
     private static IllegalStateException persistenceFailure(String operation, SQLException cause) {
