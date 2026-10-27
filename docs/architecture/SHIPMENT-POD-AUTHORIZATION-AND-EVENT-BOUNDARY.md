@@ -1,6 +1,7 @@
 # M41 — Shipment POD, authorization, and event-boundary review
 
 - **Status:** Source-level review; implementation and runtime verification remain pending.
+- **Related:** [M42 consumer inventory and contract readiness](SHIPMENT-CONSUMER-INVENTORY-AND-CONTRACT-READINESS.md).
 - **Depends on:** M39 shipment extraction/composition contract and M40 dependency/persistence trace.
 - **Scope:** Proof-of-delivery (POD) command boundary, tracking projection, tenant context, and implications for a reusable Shipment capability.
 - **Non-goal:** This review does not declare the existing courier workflow production-ready or authorize moving classes/tables.
