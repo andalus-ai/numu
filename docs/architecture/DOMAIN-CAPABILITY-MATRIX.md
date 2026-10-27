@@ -12,6 +12,7 @@ This matrix describes target ownership, not a claim that every capability is alr
 
 ## Capability ownership
 
+| Geo | Coordinate reference/units, validated geographic primitives, approximate great-circle distance, geographic bounds and future provider-neutral spatial contracts | PostGIS storage/indexes, geocoding/routing provider adapters, versioned administrative-boundary datasets | Do not treat straight-line distance as road distance/ETA; do not make map vendors or precise location logging mandatory for consumers |
 | Capability | Neutral core responsibility | Extension responsibility | Boundary / non-goal |
 |---|---|---|---|
 | Project identity and lifecycle | Identity, name, description, lifecycle, ownership references, project profile and generic governance | Construction site context; software product/repository context; manufacturing plant/order context | No mandatory site, drawing, repository, sprint, production line or permit fields on the generic Project |
