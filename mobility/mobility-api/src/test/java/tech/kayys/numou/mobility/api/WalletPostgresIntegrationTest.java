@@ -2,12 +2,10 @@ package tech.kayys.numou.mobility.api;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
-import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.SqlConnection;
 import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
-import tech.kayys.numou.aggregate.persistence.TenantTransaction;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.mobility.wallet.application.WalletService;
@@ -43,6 +41,7 @@ class WalletPostgresIntegrationTest {
 
         assertThat(replay.balance()).isEqualByComparingTo("1200");
         assertThat(ledgerCount(tenant, ref)).isEqualTo(1);
+        assertThat(outboxCount(tenant)).isGreaterThanOrEqualTo(1);
         assertThat(wallets.history(tenant, OwnerKind.RIDER, owner, 20).await().indefinitely())
                 .filteredOn(entry -> ref.equals(entry.ref())).hasSize(1);
     }
@@ -97,6 +96,7 @@ class WalletPostgresIntegrationTest {
         assertThat(wallets.view(tenant, OwnerKind.RIDER, owner).await().indefinitely().balance())
                 .isEqualByComparingTo("0");
         assertThat(ledgerCount(tenant, ref)).isZero();
+        assertThat(outboxCount(tenant)).isZero();
     }
 
     @Test
@@ -120,6 +120,15 @@ class WalletPostgresIntegrationTest {
                 .flatMap(ignored -> connection.preparedQuery(
                                 "SELECT count(*) AS n FROM wallet_ledger WHERE tenant_id=$1 AND ref=$2")
                         .execute(Tuple.of(tenantId, ref))
+                        .map(rows -> rows.iterator().next().getLong("n"))))
+                .await().indefinitely();
+    }
+
+    private long outboxCount(UUID tenantId) {
+        return pool.withTransaction(connection -> setTenant(connection, tenantId)
+                .flatMap(ignored -> connection.preparedQuery(
+                                "SELECT count(*) AS n FROM platform_outbox WHERE tenant_id=$1")
+                        .execute(Tuple.of(tenantId))
                         .map(rows -> rows.iterator().next().getLong("n"))))
                 .await().indefinitely();
     }
