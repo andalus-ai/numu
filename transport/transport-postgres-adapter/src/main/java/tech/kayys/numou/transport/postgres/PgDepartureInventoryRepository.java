@@ -58,6 +58,17 @@ public final class PgDepartureInventoryRepository implements DepartureInventoryR
               AND stored.passenger_count = EXCLUDED.passenger_count
               AND stored.expires_at = EXCLUDED.expires_at
               AND stored.created_at = EXCLUDED.created_at
+              AND (
+                    (stored.status = EXCLUDED.status AND stored.updated_at = EXCLUDED.updated_at)
+                    OR (stored.status = 'HELD' AND EXCLUDED.status IN ('CONFIRMED', 'RELEASED', 'EXPIRED')
+                        AND EXCLUDED.updated_at >= stored.updated_at)
+                    OR (stored.status = 'CONFIRMED' AND EXCLUDED.status = 'RELEASED'
+                        AND EXCLUDED.updated_at >= stored.updated_at)
+              )
+            """;
+    private static final String FIND_HOLD_IDS = """
+            SELECT hold_id FROM transport_passenger_hold
+            WHERE tenant_id = ? AND departure_id = ?
             """;
 
     private final DataSource dataSource;
@@ -135,6 +146,7 @@ public final class PgDepartureInventoryRepository implements DepartureInventoryR
                             "inventory version changed or inventory was not found; reload before retrying");
                 }
             }
+            ensureHistoryRetained(connection, inventory);
             persistHolds(connection, inventory);
             return null;
         });
@@ -163,6 +175,24 @@ public final class PgDepartureInventoryRepository implements DepartureInventoryR
             }
         }
         return List.copyOf(holds);
+    }
+
+    private void ensureHistoryRetained(Connection connection, DepartureInventory inventory) throws SQLException {
+        java.util.Set<UUID> suppliedIds = inventory.holds().stream()
+                .map(PassengerHold::id)
+                .collect(java.util.stream.Collectors.toSet());
+        try (PreparedStatement statement = connection.prepareStatement(FIND_HOLD_IDS)) {
+            statement.setString(1, inventory.tenantId());
+            statement.setObject(2, inventory.departureId());
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    UUID persistedId = rows.getObject("hold_id", UUID.class);
+                    if (!suppliedIds.contains(persistedId)) {
+                        throw new IllegalArgumentException("inventory snapshot cannot omit persisted hold history");
+                    }
+                }
+            }
+        }
     }
 
     private void persistHolds(Connection connection, DepartureInventory inventory) throws SQLException {
