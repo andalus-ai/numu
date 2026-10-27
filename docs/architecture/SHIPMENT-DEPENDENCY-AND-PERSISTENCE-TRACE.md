@@ -2,7 +2,7 @@
 
 - **Status:** Source-level trace; extraction remains blocked on additional consumer/runtime verification
 - **Repository:** `andalus-ai/numu`
-- **Related:** [M38 reuse audit](SHIPMENT-CAPABILITY-REUSE-AUDIT.md), [M39 extraction contract](SHIPMENT-CAPABILITY-EXTRACTION-AND-COMPOSITION.md), [Capability packaging contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md)
+- **Related:** [M38 reuse audit](SHIPMENT-CAPABILITY-REUSE-AUDIT.md), [M39 extraction contract](SHIPMENT-CAPABILITY-EXTRACTION-AND-COMPOSITION.md), [M41 POD authorization and event boundary](SHIPMENT-POD-AUTHORIZATION-AND-EVENT-BOUNDARY.md), [Capability packaging contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md)
 - **Evidence basis:** Current `main` source files and migration scripts inspected for this milestone. This is not a complete repository-wide static-analysis report and does not claim tests passed.
 
 ## 1. Executive finding
