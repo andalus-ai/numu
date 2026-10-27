@@ -6,7 +6,7 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 |---|---|
 | `numou-syirkah-domain` | `Syirkah` aggregate, `SyirkahContract` (versioned akad + fiqh validation), `ProfitLossAllocator`, `Apportionment`, append-only `PartnerMovement`s, hashed `CloseSnapshot`s, liquidation, `SyirkahPostingPlan` |
 | `numou-syirkah-application` | `SyirkahApplicationService`, commands, ports (`SyirkahRepository`, `JournalPostingPort`, `EventPublisherPort`, `TransactionPort`) |
-| `numou-syirkah-adapter` | in-memory reference adapters, `JournalEntryPostingAdapter` (posts to numou `JournalEntry`), PostgreSQL `V300__syirkah.sql` |
+| `numou-syirkah-adapter` | in-memory reference adapters, `JournalEntryPostingAdapter` (posts to numou `JournalEntry`), PostgreSQL `V20261023_01__syirkah.sql` |
 
 ## Fiqh rules → where enforced
 
@@ -47,7 +47,7 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 
 ## Known limits (be aware before production)
 
-* No JDBC/Panache repository yet: only the schema (`V300`, tables prefixed `syirkah_ledger_` so they coexist with the accounting module's own `syirkah_*` tables; verified on PostgreSQL 16 as a non-superuser) and the in-memory adapter. A repository maps `Syirkah.Snapshot` ⇄ tables; contracts/closes are stored as JSONB.
+* No JDBC/Panache repository yet: only the schema (`V20261023_01`, tables prefixed `syirkah_ledger_` so they coexist with the accounting module's own `syirkah_*` tables; verified on PostgreSQL 16 as a non-superuser) and the in-memory adapter. A repository maps `Syirkah.Snapshot` ⇄ tables; contracts/closes are stored as JSONB.
 * Correcting an older (non-latest) close is intentionally unsupported; close the current period with an adjusting result instead.
 * Liquidation treats all assets as already converted to cash (`LiquidationInput`); asset-by-asset sale/syuf'ah bookkeeping is out of scope.
 * Mufawadhah conditions follow the Hanafi rule (equal capital and work); other madhhab variants would need a policy switch.
@@ -64,7 +64,7 @@ still opened with `Commands.Open`; the front end's contract versions do not carr
 ## PostgreSQL persistence
 
 `JdbcSyirkahRepository` + `JdbcUnitOfWork` (package `adapter.persistence`, plain `java.sql`) persist the ledger into
-`V300__syirkah.sql`:
+`V20261023_01__syirkah.sql`:
 
 - Contract versions, closes and the liquidation result are jsonb via `SyirkahJsonCodec` (lossless: amounts keep their
   scale); movements are rows. Only new rows are inserted; the one allowed update is a close going ACTIVE → REVERSED.
@@ -77,8 +77,8 @@ still opened with `Commands.Open`; the front end's contract versions do not carr
   `SYIRKAH_PG_PASSWORD` are set (role must not be superuser/BYPASSRLS).
 `JdbcApprovalPort` (maker-checker requests; payload = the exact command, decided once, frozen by trigger) and
 `JdbcOutboxEventPublisher` (events written in the ledger's transaction; `published_at` stamped once by an external
-relay) use `V301__syirkah_governance_outbox.sql`. Note: V300/V301 sort *before* the date-style `V2026…` migrations
-already in this repository; enable Flyway `outOfOrder` (or renumber) when applying to a database that already has them.
+relay) use `V20261023_02__syirkah_governance_outbox.sql`. The migrations use the date-style versions (`V20261023_01`, `_02`) so they sort after the other modules'
+migrations; if you ship them later than a newer migration, enable Flyway `outOfOrder`.
 
 ## Operations
 

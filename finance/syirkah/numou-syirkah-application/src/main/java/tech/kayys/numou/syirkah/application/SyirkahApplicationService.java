@@ -7,6 +7,7 @@ import tech.kayys.numou.numouapplication.port.EventPublisherPort;
 import tech.kayys.numou.numouapplication.port.JournalPostingPort;
 import tech.kayys.numou.numouapplication.port.SyirkahRepository;
 import tech.kayys.numou.numouapplication.port.TransactionPort;
+import tech.kayys.numou.numoudomain.SyirkahNotFoundException;
 import tech.kayys.numou.numoudomain.CloseId;
 import tech.kayys.numou.numoudomain.CloseSnapshot;
 import tech.kayys.numou.numoudomain.LiquidationResult;
@@ -146,7 +147,7 @@ public class SyirkahApplicationService {
 
     private Syirkah load(TenantId tenant, SyirkahId id) {
         return repository.find(tenant, id)
-                .orElseThrow(() -> new BusinessRuleViolation("syirkah not found: " + id.value()));
+                .orElseThrow(() -> new SyirkahNotFoundException("syirkah not found: " + id.value()));
     }
 
     private Instant now() {

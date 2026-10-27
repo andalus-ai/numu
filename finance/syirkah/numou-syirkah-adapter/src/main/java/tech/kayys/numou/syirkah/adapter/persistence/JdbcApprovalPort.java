@@ -15,10 +15,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * PostgreSQL maker-checker store (V301). Tenant-scoped through RLS. A request
- * can be inserted once and decided
- * once: the trigger freezes it after PENDING, and {@link #save} turns an
- * attempt to re-decide into an error.
+ * PostgreSQL maker-checker store (V20261023_02). Tenant-scoped through RLS. A request can be inserted once and decided
+ * once: the trigger freezes it after PENDING, and {@link #save} turns an attempt to re-decide into an error.
  */
 public class JdbcApprovalPort implements ApprovalPort {
 

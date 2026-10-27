@@ -643,7 +643,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
 
     public CloseSnapshot close(CloseId id) {
         return closes.stream().filter(c -> c.id().equals(id)).findFirst()
-                .orElseThrow(() -> new BusinessRuleViolation("unknown close " + id.value()));
+                .orElseThrow(() -> new SyirkahNotFoundException("unknown close " + id.value()));
     }
 
     public PartnerPosition position(PartnerId partner) {
@@ -976,7 +976,7 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
             }
         }
         if (!found) {
-            throw new BusinessRuleViolation("close not found: " + target.value());
+            throw new SyirkahNotFoundException("close not found: " + target.value());
         }
         if (cascade.size() == 1) {
             if (replacementIds.size() != 1) {

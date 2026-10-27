@@ -1,5 +1,6 @@
 package tech.kayys.numou.numouapplication.governance;
 
+import tech.kayys.numou.syirkah.domain.SyirkahNotFoundException;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
@@ -105,7 +106,7 @@ public class GovernedSyirkahService {
     }
 
     private PendingApproval load(TenantId tenant, UUID id) {
-        return approvals.find(tenant, id).orElseThrow(() -> new BusinessRuleViolation("approval not found: " + id));
+        return approvals.find(tenant, id).orElseThrow(() -> new SyirkahNotFoundException("approval not found: " + id));
     }
 
     private static void requirePending(PendingApproval p) {

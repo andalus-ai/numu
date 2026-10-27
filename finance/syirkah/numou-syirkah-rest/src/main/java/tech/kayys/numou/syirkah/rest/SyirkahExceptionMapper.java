@@ -10,8 +10,8 @@ import tech.kayys.numou.foundation.adapter.rest.ErrorResponse;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
 import tech.kayys.numou.syirkah.application.port.SyirkahRepository;
+import tech.kayys.numou.syirkah.domain.SyirkahNotFoundException;
 
-import java.util.NoSuchElementException;
 
 /**
  * One place that turns failures into HTTP. Rule violations are the caller's to fix (422); stale or conflicting
@@ -28,32 +28,38 @@ public class SyirkahExceptionMapper implements ExceptionMapper<Throwable> {
         if (t instanceof WebApplicationException w) {
             return w.getResponse();
         }
+        int status = statusOf(t);
+        if (status == 500) {
+            String ref = java.util.UUID.randomUUID().toString();
+            LOG.errorf(t, "Unhandled syirkah failure, ref=%s", ref);
+            return body(500, "INTERNAL_ERROR", "Unexpected failure, reference " + ref);
+        }
+        return body(status, CODES.get(status), t.getMessage());
+    }
+
+    private static final java.util.Map<Integer, String> CODES = java.util.Map.of(400, "BAD_REQUEST",
+            403, "FORBIDDEN", 404, "NOT_FOUND", 409, "CONFLICT", 422, "RULE_VIOLATION");
+
+    /** Pure classification, kept separate from the HTTP types so it is testable without a JAX-RS runtime. */
+    static int statusOf(Throwable t) {
+        if (t instanceof SyirkahNotFoundException) {
+            return 404;
+        }
         if (t instanceof BusinessRuleViolation) {
             String m = t.getMessage() == null ? "" : t.getMessage();
-            if (m.contains(" not found") || m.startsWith("unknown ")) {
-                return body(404, "NOT_FOUND", m);
-            }
-            if (m.contains(" already ")) {
-                return body(409, "CONFLICT", m);
-            }
-            return body(422, "RULE_VIOLATION", m);
+            return m.contains(" already ") ? 409 : 422;
         }
         if (t instanceof InvalidStateException || t instanceof IllegalStateException
                 || t instanceof SyirkahRepository.ConcurrentModificationException) {
-            return body(409, "CONFLICT", t.getMessage());
-        }
-        if (t instanceof NoSuchElementException) {
-            return body(404, "NOT_FOUND", t.getMessage());
+            return 409;
         }
         if (t instanceof IllegalArgumentException) {
-            return body(400, "BAD_REQUEST", t.getMessage());
+            return 400;
         }
         if (t instanceof SecurityException) {
-            return body(403, "FORBIDDEN", t.getMessage());
+            return 403;
         }
-        String ref = java.util.UUID.randomUUID().toString();
-        LOG.errorf(t, "Unhandled syirkah failure, ref=%s", ref);
-        return body(500, "INTERNAL_ERROR", "Unexpected failure, reference " + ref);
+        return 500;
     }
 
     private static Response body(int status, String code, String message) {
