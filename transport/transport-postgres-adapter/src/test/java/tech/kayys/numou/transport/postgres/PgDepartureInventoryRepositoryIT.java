@@ -7,7 +7,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tech.kayys.numou.transport.domain.DepartureInventory;
-import tech.kayys.numou.transport.domain.PassengerHold;
 import tech.kayys.numou.transport.domain.RouteStatus;
 import tech.kayys.numou.transport.domain.RouteStop;
 import tech.kayys.numou.transport.domain.ScheduledDeparture;
@@ -140,29 +139,65 @@ class PgDepartureInventoryRepositoryIT {
     }
 
     @Test
-    void rollsBackVersionUpdateWhenHoldInsertViolatesIdempotencyConstraint() {
+    void rollsBackVersionUpdateWhenHoldInsertFails() throws java.sql.SQLException {
+        DepartureInventory initial = inventory("tenant-a", UUID.randomUUID(), 2);
+        repository.create(initial);
+        DepartureInventory current = repository.find("tenant-a", initial.departureId()).orElseThrow();
+
+        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE OR REPLACE FUNCTION fail_transport_hold_insert() RETURNS trigger AS $$
+                    BEGIN
+                        IF NEW.idempotency_key = 'force-rollback' THEN
+                            RAISE EXCEPTION 'forced inventory hold insert failure';
+                        END IF;
+                        RETURN NEW;
+                    END;
+                    $$ LANGUAGE plpgsql
+                    """);
+            statement.execute("""
+                    CREATE TRIGGER transport_test_fail_hold_insert
+                    BEFORE INSERT ON transport_passenger_hold
+                    FOR EACH ROW EXECUTE FUNCTION fail_transport_hold_insert()
+                    """);
+        }
+
+        try {
+            DepartureInventory candidate = current.hold(UUID.randomUUID(), "force-rollback", "fp-rollback",
+                    1, 3, 1, EXPIRES, NOW).inventory();
+            assertThatThrownBy(() -> repository.save(candidate, current.version()))
+                    .isInstanceOf(IllegalStateException.class);
+
+            DepartureInventory afterRollback = repository.find("tenant-a", initial.departureId()).orElseThrow();
+            assertThat(afterRollback.version()).isEqualTo(current.version());
+            assertThat(afterRollback.holds()).isEmpty();
+        } finally {
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                statement.execute("DROP TRIGGER IF EXISTS transport_test_fail_hold_insert ON transport_passenger_hold");
+                statement.execute("DROP FUNCTION IF EXISTS fail_transport_hold_insert()");
+            }
+        }
+    }
+
+    @Test
+    void refusesSnapshotsThatOmitPersistedHoldHistory() {
         DepartureInventory initial = inventory("tenant-a", UUID.randomUUID(), 2);
         repository.create(initial);
         DepartureInventory loaded = repository.find("tenant-a", initial.departureId()).orElseThrow();
-        DepartureInventory first = loaded.hold(UUID.randomUUID(), "duplicate-key", "fingerprint-1",
+        DepartureInventory withHold = loaded.hold(UUID.randomUUID(), "booking-1", "fp-1",
                 1, 2, 1, EXPIRES, NOW).inventory();
-        repository.save(first, loaded.version());
+        repository.save(withHold, loaded.version());
 
         DepartureInventory current = repository.find("tenant-a", initial.departureId()).orElseThrow();
-        PassengerHold conflicting = new PassengerHold(UUID.randomUUID(), "duplicate-key", "fingerprint-2",
-                2, 3, 1, EXPIRES, tech.kayys.numou.transport.domain.PassengerHoldStatus.HELD, NOW, NOW);
-        DepartureInventory invalidSnapshot = DepartureInventory.reconstitute(current.tenantId(),
-                current.departureId(), current.capacity(), current.stopCount(), current.version() + 1,
-                List.of(conflicting));
+        DepartureInventory missingHistory = DepartureInventory.reconstitute(current.tenantId(),
+                current.departureId(), current.capacity(), current.stopCount(), current.version() + 1, List.of());
 
-        assertThatThrownBy(() -> repository.save(invalidSnapshot, current.version()))
-                .isInstanceOf(IllegalStateException.class);
-
-        DepartureInventory afterRollback = repository.find("tenant-a", initial.departureId()).orElseThrow();
-        assertThat(afterRollback.version()).isEqualTo(current.version());
-        assertThat(afterRollback.holds()).hasSize(1);
-        assertThat(afterRollback.holds().get(0).idempotencyKey()).isEqualTo("duplicate-key");
-        assertThat(afterRollback.holds().get(0).requestFingerprint()).isEqualTo("fingerprint-1");
+        assertThatThrownBy(() -> repository.save(missingHistory, current.version()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot omit persisted hold history");
+        DepartureInventory afterAttempt = repository.find("tenant-a", initial.departureId()).orElseThrow();
+        assertThat(afterAttempt.version()).isEqualTo(current.version());
+        assertThat(afterAttempt.holds()).hasSize(1);
     }
 
     private boolean saveAfterGate(DepartureInventory candidate, int expectedVersion,
