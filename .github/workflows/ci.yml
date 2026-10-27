@@ -166,14 +166,18 @@ jobs:
           CREATE ROLE syirkah_app LOGIN PASSWORD 'syirkah_app' NOSUPERUSER NOBYPASSRLS;
           GRANT ALL ON SCHEMA public TO syirkah_app;
           SQL
-      - name: Verify syirkah modules and the modules they depend on
+      # Upstream finance modules are compiled and installed without running their
+      # tests: this job verifies syirkah. Their own tests belong to their own job.
+      - name: Install modules that syirkah depends on (no tests)
+        run: mvn -B -ntp -f finance/pom.xml -pl syirkah/numou-syirkah-rest -am install -Dmaven.test.skip=true
+      - name: Verify syirkah modules
         env:
           SYIRKAH_PG_URL: jdbc:postgresql://localhost:5432/numou
           SYIRKAH_PG_USER: syirkah_app
           SYIRKAH_PG_PASSWORD: syirkah_app
         run: |
           set -o pipefail
-          mvn -B -ntp -f finance/pom.xml -pl syirkah/numou-syirkah-rest -am verify 2>&1 | tee syirkah-mvn.log || {
+          mvn -B -ntp -f finance/syirkah/pom.xml verify 2>&1 | tee syirkah-mvn.log || {
             grep -E "ERROR|BUILD|Reactor Summary|FAIL" syirkah-mvn.log | head -12 | while read -r line; do echo "::error::${line:0:400}"; done
             exit 1
           }
