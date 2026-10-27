@@ -1,8 +1,9 @@
 # M42 — Shipment consumer inventory and public-contract readiness
 
-- **Status:** Repository-tree and selected-source inventory baseline; exhaustive consumer proof is not yet complete.
+- **Status:** M42 inventory baseline; M43 implements the initial in-process application facade, while exhaustive consumer proof remains incomplete.
 - **Depends on:** M39 extraction/composition contract, M40 dependency/persistence trace, M41 POD authorization/event-boundary review.
 - **Decision:** Preserve the current shipment implementation as the single source of truth. Do not split artifacts, database ownership, or migration history until the remaining consumers and composition paths are verified.
+- **Implemented follow-up:** [M43 Shipment public application contract](SHIPMENT-PUBLIC-APPLICATION-CONTRACT.md).
 
 ## 1. Current capability packaging
 
