@@ -2,6 +2,7 @@ package tech.kayys.payment.api;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Currency;
 import java.util.Objects;
 
 /**
@@ -28,11 +29,20 @@ public record PaymentObligation(
             throw new IllegalArgumentException("amount must be positive");
         }
         currency = required(currency, "currency");
+        validateCurrency(currency);
+        Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(updatedAt, "updatedAt");
+    }
+
+    private static void validateCurrency(String currency) {
         if (!currency.matches("[A-Z]{3}")) {
             throw new IllegalArgumentException("currency must be an uppercase ISO-4217 code");
         }
-        Objects.requireNonNull(status, "status");
-        Objects.requireNonNull(updatedAt, "updatedAt");
+        try {
+            Currency.getInstance(currency);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("unsupported ISO-4217 currency: " + currency, exception);
+        }
     }
 
     private static String required(String value, String field) {
