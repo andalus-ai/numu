@@ -78,6 +78,7 @@ class DepartureBookingServiceTest {
         PassengerHold hold = service.hold(new DepartureBookingService.HoldCommand("tenant-a",
                 fixture.departureId, "expire-me", 1, 3, 1, NOW.plusSeconds(30)));
         fixture.clockAdvanceTo(NOW.plusSeconds(30));
+        service = fixture.service();
 
         assertThatThrownBy(() -> service.confirm("tenant-a", fixture.departureId, hold.id()))
                 .isInstanceOf(IllegalStateException.class)
@@ -93,6 +94,7 @@ class DepartureBookingServiceTest {
         service.hold(new DepartureBookingService.HoldCommand("tenant-a", fixture.departureId,
                 "due-one", 1, 3, 1, NOW.plusSeconds(5)));
         fixture.clockAdvanceTo(NOW.plusSeconds(5));
+        service = fixture.service();
 
         assertThat(service.expireDueHolds(10)).isEqualTo(1);
         assertThat(service.expireDueHolds(10)).isZero();
