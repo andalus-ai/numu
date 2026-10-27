@@ -80,9 +80,12 @@ jobs:
         run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
-      # Security application consumes the framework cache API, which is a separate reactor.
+      # Security consumes cache contracts and observability API/application artifacts
+      # from separate framework reactors. Install these before building the security reactor.
       - name: Build and install cache contracts used by security
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
+      - name: Build and install observability contracts used by security
+        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
       - name: Build and install security contracts used by framework adapters
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
