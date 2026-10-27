@@ -14,6 +14,8 @@ Base path: `/api/v1`
 | GET | `/pages/{pageId}` | Read a page |
 | PUT | `/pages/{pageId}` | Update a page using `expectedRevision` |
 | GET | `/pages/{pageId}/history` | Read immutable revision history |
+| POST | `/pages/{pageId}/history/restore` | Restore a historical snapshot as a new revision, guarded by `expectedCurrentRevision` |
+| GET | `/spaces/{spaceId}/pages?parentPageId={id}` | List direct children; omit `parentPageId` to list root pages |
 
 Successful create operations return `201 Created` with a resource location. Revision conflicts preserve the application API's `409` response. Application validation and access errors are mapped to HTTP responses without exposing server-side exception details.
 
