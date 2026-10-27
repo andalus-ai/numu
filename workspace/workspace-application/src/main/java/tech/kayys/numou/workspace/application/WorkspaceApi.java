@@ -15,10 +15,8 @@ public final class WorkspaceApi {
  public SpaceView createSpace(UUID workspaceId,CreateSpaceRequest request){Objects.requireNonNull(workspaceId);Objects.requireNonNull(request);var a=currentActor();return SpaceView.from(call(()->service.createSpace(a.tenantId(),a.actorId(),workspaceId,request.name(),request.slug())));}
  public PageView createPage(UUID workspaceId,UUID spaceId,CreatePageRequest request){Objects.requireNonNull(workspaceId);Objects.requireNonNull(spaceId);Objects.requireNonNull(request);var a=currentActor();List<PageBlock> blocks=blocks(request.blocks());return PageView.from(call(()->service.createPage(a.tenantId(),a.actorId(),workspaceId,spaceId,request.parentPageId(),request.title(),blocks)));}
  public PageView getPage(UUID pageId){Objects.requireNonNull(pageId);var a=currentActor();return PageView.from(call(()->service.readPage(a.tenantId(),a.actorId(),pageId)));}
- public List<PageView> listChildren(UUID spaceId,UUID parentPageId){Objects.requireNonNull(spaceId);var a=currentActor();return call(()->service.listChildren(a.tenantId(),a.actorId(),spaceId,parentPageId).stream().map(PageView::from).toList());}
  public PageView updatePage(UUID pageId,UpdatePageRequest request){Objects.requireNonNull(pageId);Objects.requireNonNull(request);var a=currentActor();List<PageBlock> blocks=blocks(request.blocks());return PageView.from(call(()->service.updatePage(a.tenantId(),a.actorId(),pageId,request.expectedRevision(),request.title(),blocks,request.changeSummary())));}
  public List<RevisionView> getPageHistory(UUID pageId){Objects.requireNonNull(pageId);var a=currentActor();return call(()->service.pageHistory(a.tenantId(),a.actorId(),pageId).stream().map(RevisionView::from).toList());}
- public PageView restorePageRevision(UUID pageId,RestorePageRevisionRequest request){Objects.requireNonNull(pageId);Objects.requireNonNull(request);var a=currentActor();return PageView.from(call(()->service.restorePageRevision(a.tenantId(),a.actorId(),pageId,request.sourceRevision(),request.expectedCurrentRevision())));}
  private static List<PageBlock> blocks(List<BlockRequest> requests){return requests==null?List.of():requests.stream().map(BlockRequest::toDomain).toList();}
  private AuthenticatedActor currentActor(){AuthenticatedActor a=identity.currentActor();if(a==null||a.tenantId()==null||a.actorId()==null)throw new ApiException(401,"An authenticated tenant and actor are required");return a;}
  private static <T>T call(Operation<T> op){try{return op.run();}catch(WorkspaceService.RevisionConflictException e){throw new ApiException(409,e.getMessage(),e);}catch(SecurityException e){throw new ApiException(403,"Access denied",e);}catch(IllegalArgumentException e){throw new ApiException(400,e.getMessage(),e);}}
@@ -29,7 +27,6 @@ public final class WorkspaceApi {
  public record CreateSpaceRequest(String name,String slug){}
  public record CreatePageRequest(UUID parentPageId,String title,List<BlockRequest> blocks){}
  public record UpdatePageRequest(long expectedRevision,String title,List<BlockRequest> blocks,String changeSummary){}
- public record RestorePageRevisionRequest(long sourceRevision,long expectedCurrentRevision){}
  public record BlockRequest(UUID id,String type,String text,int position,Map<String,String> attributes){
   public PageBlock toDomain(){BlockType parsed;try{parsed=BlockType.valueOf(Objects.requireNonNull(type,"block type").trim().toUpperCase(java.util.Locale.ROOT));}catch(RuntimeException e){throw new IllegalArgumentException("Unsupported block type: "+type,e);}return new PageBlock(id==null?UUID.randomUUID():id,parsed,text,position,attributes);}
  }
