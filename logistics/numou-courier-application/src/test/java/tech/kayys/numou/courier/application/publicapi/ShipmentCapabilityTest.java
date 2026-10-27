@@ -22,7 +22,7 @@ class ShipmentCapabilityTest {
         TenantId tenant = TenantId.generate();
         ShipmentId shipmentId = ShipmentId.generate();
         when(shipments.findById(tenant, shipmentId)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-        ShipmentCapability capability = new ShipmentCapability(mock(BookShipmentHandler.class), shipments,
+        ShipmentCapability capability = new ShipmentCapability(new BookShipmentHandler(mock(ShipmentRepository.class)), shipments,
                 mock(TrackingEventRepository.class));
 
         Optional<ShipmentCapability.ShipmentView> result = capability
