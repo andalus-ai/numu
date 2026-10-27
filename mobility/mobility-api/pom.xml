@@ -12,6 +12,11 @@
     <artifactId>numou-mobility-api</artifactId>
     <name>Mobility - API (Quarkus service)</name>
     <description>Rider, driver, wallet and ops REST API, sweeper, event consumer and composition for the ride-hailing service.</description>
+    <properties>
+        <!-- Real PostgreSQL wallet integration tests are opt-in; they require a migrated test database. -->
+        <pg.integration.excludes>**/*PostgresIntegrationTest.java</pg.integration.excludes>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
@@ -146,7 +151,26 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>${pg.integration.excludes}</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>pg-integration</id>
+            <properties>
+                <pg.integration.excludes>__none__</pg.integration.excludes>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>
