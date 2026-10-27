@@ -88,7 +88,7 @@ class PostgresPaymentApplicationAdapterTest {
     }
 
     @Test
-    void keyReuseForDifferentSemanticRequestConflicts() {
+    void keyReuseForDifferentSemanticRequestConflicts() throws Exception {
         adapter.createOrGet(command("tenant-a", "order-123", "key-1", "120.00"));
 
         assertThatThrownBy(() -> adapter.createOrGet(
@@ -121,7 +121,7 @@ class PostgresPaymentApplicationAdapterTest {
     }
 
     @Test
-    void refundRetryIsIdempotentAndCumulativeRefundCannotExceedPayment() {
+    void refundRetryIsIdempotentAndCumulativeRefundCannotExceedPayment() throws Exception {
         var payment = adapter.createOrGet(command("tenant-refund", "order-refund", "payment-key", "100.00"));
         RequestPaymentRefund refund = new RequestPaymentRefund(
                 "tenant-refund", payment.paymentId(), "refund-key-1", new BigDecimal("60.00"), "customer request");
