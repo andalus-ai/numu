@@ -3,6 +3,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>tech.kayys.numou</groupId>
         <artifactId>numou-finance</artifactId>
@@ -13,7 +14,6 @@
     <artifactId>finance-payment</artifactId>
     <packaging>pom</packaging>
     <name>Finance - Payment Engine</name>
-
 
     <dependencyManagement>
         <dependencies>
@@ -61,6 +61,7 @@
     </dependencyManagement>
 
     <modules>
+        <module>numou-payment-api</module>
         <module>numou-payment-gateway</module>
         <module>numou-payment-method</module>
         <module>numou-payment-core</module>
