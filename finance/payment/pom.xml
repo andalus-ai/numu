@@ -34,6 +34,11 @@
             </dependency>
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-payment-postgres-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-payment-gateway</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -65,19 +70,17 @@
         <module>numou-payment-gateway</module>
         <module>numou-payment-method</module>
         <module>numou-payment-core</module>
+        <module>numou-payment-postgres-adapter</module>
         <module>numou-payment-merchant</module>
         <module>numou-payment-grpc</module>
         <module>numou-payment-rest</module>
         <module>processor</module>
         <!--
             PARKED (see Framework/README.md, "Parked legacy modules"):
-            numou-payment-fnb and numou-payment-util still import
-            jakarta.* plus tech.kayys.payment.model, tech.kayys.sy.tenant
-            and tech.kayys.transaction.domain - APIs none of which exist
-            in this workspace. They predate the reactor and were never
-            built by it. Re-adding them is a migration task: declare the
-            real Quarkus/Panache dependencies, map their code onto the
-            current payment-core contracts, then list them here again.
+            numou-payment-fnb and numou-payment-util still import jakarta.* plus
+            tech.kayys.payment.model, tech.kayys.sy.tenant and
+            tech.kayys.transaction.domain APIs none of which exist in this workspace.
+            Re-adding them is a migration task.
         -->
     </modules>
 </project>
