@@ -24,4 +24,4 @@ The application module still depends on the existing courier domain artifact. Th
 
 ## Verification status
 
-The new application contract and unit tests are committed in the M43 branch. Repository-level Maven execution and CI have not been run from this GitHub-only editing session; passing tests are not claimed. Before treating the contract as stable, run the logistics reactor tests and complete the source-wide consumer, authentication, and dependency inventory described in M42.
+M44 adds behavioral tests for booking delegation, aggregate/parcel mapping, tenant-explicit lookup, composite tracking cursors, and request bounds. See [M44 Shipment contract behavioral verification](SHIPMENT-CONTRACT-VERIFICATION.md). The M43 GitHub Actions run was cancelled after the PR merged, so no passing Maven result is claimed. Before treating the contract as stable, run the logistics reactor tests and complete the source-wide consumer, authentication, and dependency inventory described in M42.
