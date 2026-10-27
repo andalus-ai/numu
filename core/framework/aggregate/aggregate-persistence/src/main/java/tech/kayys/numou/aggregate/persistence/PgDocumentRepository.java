@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
+import org.hibernate.query.TypedParameterValue;
+import org.hibernate.type.StandardBasicTypes;
 import tech.kayys.numou.foundation.domain.identifier.DomainId;
 import tech.kayys.numou.aggregate.domain.ConcurrencyConflictException;
 import tech.kayys.numou.aggregate.domain.VersionedAggregate;
@@ -22,8 +24,7 @@ import java.util.function.Function;
  * via row-level security (see V200). The SQL shapes are the ones verified on PostgreSQL 16.
  *
  * <p>Uses the Hibernate Reactive session (not a second pool) so every statement runs in the caller's
- * unit-of-work transaction, which is what makes aggregate + outbox atomic. NOT COMPILED in sandbox: check the
- * native-query parameter binding for your Hibernate Reactive version.
+ * unit-of-work transaction, which is what makes aggregate + outbox atomic.
  *
  * @param <S> snapshot record (plain types only; JavaTimeModule must be registered on the ObjectMapper)
  */
@@ -89,8 +90,11 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
         return TenantTransaction.run(tenantId, () -> Panache.getSession().flatMap(s -> {
             final var q = s.createNativeQuery(expected == 0 ? INSERT : UPDATE)
                     .setParameter(1, tenantId).setParameter(2, kind).setParameter(3, aggregate.id().value())
-                    .setParameter(4, ix.venueId()).setParameter(5, ix.refId()).setParameter(6, utc(ix.startsAt()))
-                    .setParameter(7, ix.status()).setParameter(8, json);
+                    .setParameter(4, new TypedParameterValue<>(StandardBasicTypes.UUID, ix.venueId()))
+                    .setParameter(5, new TypedParameterValue<>(StandardBasicTypes.UUID, ix.refId()))
+                    .setParameter(6, new TypedParameterValue<>(StandardBasicTypes.OFFSET_DATE_TIME, utc(ix.startsAt())))
+                    .setParameter(7, new TypedParameterValue<>(StandardBasicTypes.STRING, ix.status()))
+                    .setParameter(8, json);
             if (expected != 0) {
                 q.setParameter(9, expected);
             }
