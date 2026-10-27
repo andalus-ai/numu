@@ -1,7 +1,10 @@
 package tech.kayys.numou.mobility.kernel.geo;
 
 import org.junit.jupiter.api.Test;
+import tech.kayys.numou.geo.domain.GeoDistance;
 import tech.kayys.numou.geo.domain.GeoPoint;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -28,6 +31,31 @@ class LatLngGeoCompatibilityTest {
         assertThatIllegalArgumentException().isThrownBy(() -> new LatLng(Double.NaN, 0));
         assertThatIllegalArgumentException().isThrownBy(() -> new LatLng(0, Double.POSITIVE_INFINITY));
         assertThatIllegalArgumentException().isThrownBy(() -> LatLng.fromGeoPoint(null));
+    }
+
+    @Test
+    void sharedDistanceMatchesGeoDomainForCityAndAntimeridianCases() {
+        LatLng jakarta = new LatLng(-6.2088, 106.8456);
+        LatLng bandung = new LatLng(-6.9175, 107.6191);
+        LatLng nearEastDateline = new LatLng(10, 179.9);
+        LatLng nearWestDateline = new LatLng(10, -179.9);
+
+        assertThat(GeoMath.haversineMeters(jakarta, bandung))
+                .isEqualTo(GeoDistance.metersBetween(jakarta.toGeoPoint(), bandung.toGeoPoint()));
+        assertThat(GeoMath.haversineMeters(nearEastDateline, nearWestDateline))
+                .isEqualTo(GeoDistance.metersBetween(nearEastDateline.toGeoPoint(), nearWestDateline.toGeoPoint()));
+    }
+
+    @Test
+    void pathLengthContinuesToSumGreatCircleSegments() {
+        LatLng a = new LatLng(0, 0);
+        LatLng b = new LatLng(0, 1);
+        LatLng c = new LatLng(1, 1);
+
+        assertThat(GeoMath.pathLengthMeters(List.of())).isZero();
+        assertThat(GeoMath.pathLengthMeters(List.of(a))).isZero();
+        assertThat(GeoMath.pathLengthMeters(List.of(a, b, c)))
+                .isEqualTo(GeoMath.haversineMeters(a, b) + GeoMath.haversineMeters(b, c));
     }
 
     @Test
