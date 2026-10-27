@@ -31,7 +31,8 @@ public record LiquidationResult(LiquidationInput input, Money residual, Money ne
      */
     public static String computeHash(LiquidationInput input, Money residual, Money netResult,
             List<AllocationLine> lines, List<Payout> payouts, Instant completedAt) {
-        StringBuilder canonical = new StringBuilder("liquidation-v2|")
+        // v3 additionally binds the asset-by-asset breakdown; results without one keep the v2 fingerprint
+        StringBuilder canonical = new StringBuilder(input.sales().isEmpty() ? "liquidation-v2|" : "liquidation-v3|")
                 .append(input.assetProceeds().currency().code()).append(':')
                 .append(input.assetProceeds().amount().stripTrailingZeros().toPlainString()).append('|')
                 .append(input.externalDebts().currency().code()).append(':')
@@ -42,6 +43,10 @@ public record LiquidationResult(LiquidationInput input, Money residual, Money ne
                 .append(netResult.currency().code()).append(':')
                 .append(netResult.amount().stripTrailingZeros().toPlainString()).append('|')
                 .append(completedAt).append('|');
+        if (!input.sales().isEmpty()) {
+            input.sales().forEach(sale -> canonical.append(sale.canonical()).append(';'));
+            canonical.append('|');
+        }
         lines.forEach(line -> canonical.append(line.canonical()).append(';'));
         canonical.append('|');
         payouts.forEach(payout -> canonical.append(payout.partner().value()).append(':')

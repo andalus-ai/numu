@@ -22,14 +22,10 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Runs against a real PostgreSQL. Enable with
- * SYIRKAH_PG_URL=jdbc:postgresql://host/db plus SYIRKAH_PG_USER and
- * SYIRKAH_PG_PASSWORD. The user must NOT be a superuser and must not have
- * BYPASSRLS, otherwise row-level security
- * is silently skipped and the tenant checks below prove nothing (the test
- * asserts this).
- * The schema is created from db/migration/V300__syirkah.sql if absent (run once
- * as the table owner).
+ * Runs against a real PostgreSQL. Enable with SYIRKAH_PG_URL=jdbc:postgresql://host/db plus SYIRKAH_PG_USER and
+ * SYIRKAH_PG_PASSWORD. The user must NOT be a superuser and must not have BYPASSRLS, otherwise row-level security
+ * is silently skipped and the tenant checks below prove nothing (the test asserts this).
+ * The schema is created from db/migration/V20261023_01__syirkah.sql if absent (run once as the table owner).
  */
 @EnabledIfEnvironmentVariable(named = "SYIRKAH_PG_URL", matches = ".+")
 class JdbcSyirkahRepositoryIT {
@@ -60,9 +56,8 @@ class JdbcSyirkahRepositoryIT {
             rs = st.executeQuery("select to_regclass('syirkah_ledger') is not null");
             rs.next();
             if (!rs.getBoolean(1)) {
-                for (String script : List.of("V300__syirkah.sql", "V301__syirkah_governance_outbox.sql")) {
-                    try (InputStream in = JdbcSyirkahRepositoryIT.class
-                            .getResourceAsStream("/db/migration/" + script)) {
+                for (String script : List.of("V20261023_01__syirkah.sql", "V20261023_02__syirkah_governance_outbox.sql")) {
+                    try (InputStream in = JdbcSyirkahRepositoryIT.class.getResourceAsStream("/db/migration/" + script)) {
                         st.execute(new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8));
                     }
                 }
@@ -131,8 +126,7 @@ class JdbcSyirkahRepositoryIT {
         repo.save(a, v);
         close(b, 2_000_000, 0);
         assertThrows(SyirkahRepository.ConcurrentModificationException.class, () -> repo.save(b, v));
-        // the failed save must not leave the in-memory aggregate claiming the next
-        // version
+        // the failed save must not leave the in-memory aggregate claiming the next version
         assertEquals(v, b.getVersion());
         // and nothing of b was stored
         assertEquals(1, repo.find(tenant, s.id()).orElseThrow().closes().size());
@@ -150,8 +144,7 @@ class JdbcSyirkahRepositoryIT {
         Syirkah mine = repo.find(owner, s.id()).orElseThrow();
         int v = mine.getVersion();
         close(mine, 1_000_000, 0);
-        // pretend to be another tenant: same id, forged tenant -> RLS hides the row, so
-        // it reads as a conflict
+        // pretend to be another tenant: same id, forged tenant -> RLS hides the row, so it reads as a conflict
         Syirkah.Snapshot snap = mine.snapshot();
         Syirkah forged = Syirkah.restore(new Syirkah.Snapshot(snap.id(), other, snap.scale(), snap.status(),
                 snap.closedSinceRevision(), snap.contracts(), snap.movements(), snap.closes(), snap.liquidation(),

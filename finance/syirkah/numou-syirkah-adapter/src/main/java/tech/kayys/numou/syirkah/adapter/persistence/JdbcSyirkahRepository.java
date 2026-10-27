@@ -13,23 +13,16 @@ import java.time.ZoneOffset;
 import java.util.*;
 
 /**
- * PostgreSQL repository for the syirkah ledger (schema:
- * db/migration/V300__syirkah.sql).
+ * PostgreSQL repository for the syirkah ledger (schema: db/migration/V20261023_01__syirkah.sql).
  *
  * <ul>
- * <li>Tenant isolation: every statement runs after
- * {@code set_config('app.tenant_id', ..., true)}; the RLS
- * policies then hide other tenants' rows, and a wrong tenant simply finds
- * nothing.</li>
- * <li>Optimistic locking: {@code UPDATE ... WHERE version = expected}; the
- * update also takes the row lock, so
- * concurrent savers of one syirkah serialise before appending.</li>
- * <li>Append-only: only contracts, movements and closes not yet stored are
- * inserted; the only update to an
- * existing child row is a close going ACTIVE to REVERSED. The DB triggers
- * enforce both.</li>
- * <li>Load re-derives everything through {@link Syirkah#restore}, which
- * re-verifies every hash chain.</li>
+ *   <li>Tenant isolation: every statement runs after {@code set_config('app.tenant_id', ..., true)}; the RLS
+ *       policies then hide other tenants' rows, and a wrong tenant simply finds nothing.</li>
+ *   <li>Optimistic locking: {@code UPDATE ... WHERE version = expected}; the update also takes the row lock, so
+ *       concurrent savers of one syirkah serialise before appending.</li>
+ *   <li>Append-only: only contracts, movements and closes not yet stored are inserted; the only update to an
+ *       existing child row is a close going ACTIVE to REVERSED. The DB triggers enforce both.</li>
+ *   <li>Load re-derives everything through {@link Syirkah#restore}, which re-verifies every hash chain.</li>
  * </ul>
  */
 public class JdbcSyirkahRepository implements SyirkahRepository {
@@ -145,8 +138,7 @@ public class JdbcSyirkahRepository implements SyirkahRepository {
                 return null;
             });
         } catch (RuntimeException e) {
-            // keep the in-memory aggregate consistent with what is stored: the save did not
-            // happen
+            // keep the in-memory aggregate consistent with what is stored: the save did not happen
             syirkah.setVersion(before.version());
             throw e;
         }
@@ -200,8 +192,7 @@ public class JdbcSyirkahRepository implements SyirkahRepository {
                             + expectedVersion + " (changed concurrently, or not found for this tenant)");
                 }
             }
-            // the UPDATE holds the row lock: these reads cannot race another saver of the
-            // same syirkah
+            // the UPDATE holds the row lock: these reads cannot race another saver of the same syirkah
             storedMovements = scalarLong(c, "SELECT coalesce(max(sequence),0) FROM syirkah_ledger_movement"
                     + " WHERE syirkah_id = ?", sid);
             storedContracts = (int) scalarLong(c, "SELECT coalesce(max(version),0) FROM syirkah_ledger_contract"
