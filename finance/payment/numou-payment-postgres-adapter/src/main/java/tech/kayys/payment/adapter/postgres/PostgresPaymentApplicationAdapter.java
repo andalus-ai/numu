@@ -37,10 +37,13 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final DataSource dataSource;
+    private final PaymentTenantAuthorizationPort tenantAuthorization;
 
     @Inject
-    public PostgresPaymentApplicationAdapter(DataSource dataSource) {
+    public PostgresPaymentApplicationAdapter(DataSource dataSource,
+                                             PaymentTenantAuthorizationPort tenantAuthorization) {
         this.dataSource = dataSource;
+        this.tenantAuthorization = tenantAuthorization;
     }
 
     @Override
@@ -48,6 +51,7 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
         if (command == null) {
             throw new IllegalArgumentException("command must not be null");
         }
+        tenantAuthorization.authorizeTenant(command.tenantId());
         String fingerprint = PaymentRequestFingerprint.sha256(command);
         return inTransaction(connection -> {
             ensurePersistableAmount(command.amount());
@@ -109,6 +113,7 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
     @Override
     public Optional<PaymentObligation> find(String tenantId, String paymentId) {
         String tenant = required(tenantId, "tenantId");
+        tenantAuthorization.authorizeTenant(tenant);
         UUID id = parseUuid(paymentId, "paymentId");
         try (Connection connection = dataSource.getConnection()) {
             return findPayment(connection, tenant, id);
@@ -123,6 +128,7 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
             throw new IllegalArgumentException("command must not be null");
         }
         String tenant = command.tenantId();
+        tenantAuthorization.authorizeTenant(tenant);
         UUID paymentId = parseUuid(command.paymentId(), "paymentId");
         String fingerprint = refundFingerprint(command);
         ensurePersistableAmount(command.amount());
