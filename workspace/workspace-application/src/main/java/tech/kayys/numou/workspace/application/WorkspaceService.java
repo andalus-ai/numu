@@ -113,44 +113,6 @@ public final class WorkspaceService {
   identity(tenant,actor); pages.findPage(tenant,pageId).orElseThrow(()->new IllegalArgumentException("Page not found for tenant"));
   access.require(tenant,actor,Resource.PAGE,pageId,Action.READ); return pages.history(tenant,pageId);
  }
- /**
-  * Restores content from an immutable historical snapshot by creating a new revision.
-  * The caller must provide the current revision observed by the editor so a restore cannot
-  * silently overwrite a concurrent edit.
-  */
- public Page restorePageRevision(UUID tenant, UUID actor, UUID pageId,
-                                 long sourceRevision, long expectedCurrentRevision) {
-  identity(tenant, actor);
-  if (sourceRevision < 1) throw new IllegalArgumentException("sourceRevision must be positive");
-  if (expectedCurrentRevision < 1) throw new IllegalArgumentException("expectedCurrentRevision must be positive");
-  Page current = pages.findPage(tenant, pageId)
-          .orElseThrow(() -> new IllegalArgumentException("Page not found for tenant"));
-  access.require(tenant, actor, Resource.PAGE, pageId, Action.UPDATE);
-  if (current.revision() != expectedCurrentRevision) {
-   throw new RevisionConflictException(pageId, expectedCurrentRevision, current.revision());
-  }
-  PageRevision source = pages.history(tenant, pageId).stream()
-          .filter(revision -> revision.revision() == sourceRevision)
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("Historical revision not found for tenant and page"));
-  Instant now = clock.instant();
-  String summary = "Restored from revision " + sourceRevision;
-  Page restored = current.revise(source.title(), validateFiles(tenant, actor, source.blocks()), now);
-  PageRevision snapshot = PageRevision.snapshot(restored, actor, now, summary);
-  AuditEntry event = entry("PAGE_REVISION_RESTORED", tenant, actor, "PAGE", pageId,
-          restored.revision(), summary, now);
-  boolean saved;
-  if (pages instanceof AuditedMutationRepository tx) {
-   saved = tx.savePageWithRevision(restored, snapshot, expectedCurrentRevision, event);
-  } else if (allowNonAtomicAuditFallback) {
-   saved = pages.saveWithRevision(restored, snapshot, expectedCurrentRevision);
-   if (saved) audit.record(event);
-  } else {
-   throw new IllegalStateException("Atomic audited page restores require AuditedMutationRepository");
-  }
-  if (!saved) throw new RevisionConflictException(pageId, expectedCurrentRevision, current.revision());
-  return restored;
- }
  private List<PageBlock> validateFiles(UUID tenant,UUID actor,List<PageBlock> blocks) {
   List<PageBlock> safe=blocks==null?List.of():List.copyOf(blocks);
   return safe.stream().map(b->{if(b.type()!=BlockType.FILE)return b;String id=attachments.requireReadableFile(tenant,actor,b.attributes().get("fileId"));return new PageBlock(b.id(),b.type(),b.text(),b.position(),Map.of("fileId",id));}).toList();
