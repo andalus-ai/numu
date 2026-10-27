@@ -47,7 +47,11 @@ class PostgresPaymentApplicationAdapterTest {
         postgres.setUser(POSTGRES.getUsername());
         postgres.setPassword(POSTGRES.getPassword());
         dataSource = postgres;
-        adapter = new PostgresPaymentApplicationAdapter(dataSource);
+        adapter = new PostgresPaymentApplicationAdapter(dataSource, tenant -> {
+            if ("blocked".equals(tenant)) {
+                throw new SecurityException("Tenant access denied");
+            }
+        });
         callers = Executors.newFixedThreadPool(6);
         try (InputStream migration = getClass().getResourceAsStream(
                 "/db/migration/V1__payment_obligations_and_outbox.sql")) {
@@ -73,6 +77,12 @@ class PostgresPaymentApplicationAdapterTest {
     void tearDown() throws InterruptedException {
         callers.shutdownNow();
         assertThat(callers.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    void hostAuthorizationIsRequiredBeforeTenantOperations() {
+        assertThatThrownBy(() -> adapter.createOrGet(command("blocked", "order-1", "key-1", "1.00")))
+                .isInstanceOf(SecurityException.class);
     }
 
     @Test
