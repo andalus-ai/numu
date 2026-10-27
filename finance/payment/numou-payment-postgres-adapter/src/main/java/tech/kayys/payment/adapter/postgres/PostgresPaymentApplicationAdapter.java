@@ -308,15 +308,23 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
     }
 
     private static String refundFingerprint(RequestPaymentRefund command) {
-        String canonical = command.tenantId() + "\u0000" + command.paymentId() + "\u0000"
-                + command.amount().stripTrailingZeros().toPlainString() + "\u0000" + command.reason();
         try {
-            return java.util.HexFormat.of().formatHex(
-                    java.security.MessageDigest.getInstance("SHA-256")
-                            .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            updateDigest(digest, "numou-refund-request-v1");
+            updateDigest(digest, command.tenantId());
+            updateDigest(digest, command.paymentId());
+            updateDigest(digest, command.amount().stripTrailingZeros().toPlainString());
+            updateDigest(digest, command.reason());
+            return java.util.HexFormat.of().formatHex(digest.digest());
         } catch (java.security.NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    private static void updateDigest(java.security.MessageDigest digest, String value) {
+        byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        digest.update(java.nio.ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+        digest.update(bytes);
     }
 
     private static String toJson(Object value) {
