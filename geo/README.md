@@ -29,8 +29,9 @@ Consumers should depend on Geo only when its public semantics are appropriate. T
 
 - **M1:** standalone domain artifact, validated point/bounds primitives, spherical distance, tests and ownership documentation.
 - **M2:** audit consumer semantics and document compatibility/migration boundaries.
-- **M3 (this change):** explicit Mobility `LatLng` conversion to/from the shared Geo point, validation/precision compatibility tests, and cross-reactor CI installation order. No existing Mobility public method signatures are removed.
-- **Next:** inspect and verify Geo/Mobility reactor CI, then consider extracting only proven shared math. Do not add PostGIS, geocoding, routing, a universal Location aggregate, or polygon services without concrete consumer requirements and a separate milestone.
+- **M3:** explicit Mobility `LatLng` conversion to/from the shared Geo point, validation/precision compatibility tests, and cross-reactor CI installation order. No existing Mobility public method signatures were removed.
+- **M4 (this change):** Mobility's great-circle distance delegates to Geo's canonical haversine implementation while preserving `GeoMath` signatures and the public Earth-radius constant. City-distance and antimeridian compatibility tests protect behavior. Mobility's local projection, offset helper, movement, grid, route-estimation and service-area policies remain Mobility-owned.
+- **Next:** verify the Geo and Mobility Maven reactors in CI before broadening adoption. Do not add PostGIS, geocoding, routing, a universal Location aggregate, or polygon services without concrete consumer requirements and a separate milestone.
 
 ## Security and operational constraints
 
