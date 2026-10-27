@@ -1,22 +1,21 @@
 package tech.kayys.numou.mobility.kernel.geo;
 
+import tech.kayys.numou.geo.domain.GeoDistance;
+
 import java.util.List;
 
 /** Spherical-earth geometry. Accurate to ~0.5% - ample for dispatch, geofences and distance accumulation. */
 public final class GeoMath {
 
-    public static final double EARTH_RADIUS_M = 6_371_008.8;
+    /** Retained for source compatibility; canonical value is owned by Geo. */
+    public static final double EARTH_RADIUS_M = GeoDistance.EARTH_RADIUS_METERS;
     public static final double METERS_PER_DEGREE_LAT = Math.PI * EARTH_RADIUS_M / 180.0;
 
     private GeoMath() { }
 
+    /** Delegates the shared great-circle calculation to the provider-neutral Geo domain. */
     public static double haversineMeters(LatLng a, LatLng b) {
-        final double p1 = Math.toRadians(a.lat());
-        final double p2 = Math.toRadians(b.lat());
-        final double dp = p2 - p1;
-        final double dl = Math.toRadians(b.lng() - a.lng());
-        final double h = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-        return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1.0, Math.sqrt(h)));
+        return GeoDistance.metersBetween(a.toGeoPoint(), b.toGeoPoint());
     }
 
     public static double pathLengthMeters(List<LatLng> path) {

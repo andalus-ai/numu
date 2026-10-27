@@ -15,5 +15,9 @@
     <description>Scheduled passenger transport catalog and operations, composed with reusable booking and finance capabilities.</description>
     <modules>
         <module>transport-domain</module>
+        <module>transport-spi</module>
+        <module>transport-application</module>
+        <module>transport-runtime-quarkus</module>
+        <module>transport-postgres-adapter</module>
     </modules>
 </project>

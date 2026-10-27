@@ -128,6 +128,26 @@ class DepartureInventoryTest {
     }
 
     @Test
+    void reconstitutesValidSnapshotsAndRejectsDuplicateIdempotencyKeys() {
+        DepartureInventory start = inventory(2);
+        DepartureInventory.HoldResult first = start.hold(UUID.randomUUID(), "req-1", "fp-1",
+                1, 2, 1, EXPIRY, NOW);
+        DepartureInventory restored = DepartureInventory.reconstitute(first.inventory().tenantId(),
+                first.inventory().departureId(), first.inventory().capacity(), first.inventory().stopCount(),
+                first.inventory().version(), first.inventory().holds());
+
+        assertThat(restored.holds()).containsExactlyElementsOf(first.inventory().holds());
+
+        PassengerHold duplicateKey = new PassengerHold(UUID.randomUUID(), "req-1", "different-fingerprint",
+                2, 3, 1, EXPIRY, PassengerHoldStatus.HELD, NOW, NOW);
+        assertThatThrownBy(() -> DepartureInventory.reconstitute(restored.tenantId(), restored.departureId(),
+                restored.capacity(), restored.stopCount(), restored.version(),
+                List.of(restored.holds().get(0), duplicateKey)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("duplicate idempotency key");
+    }
+
+    @Test
     void onlyPublishedDeparturesCanHaveInventory() {
         TransportRoute route = new TransportRoute(UUID.randomUUID(), "tenant-a", "R-2", "Route",
                 List.of(

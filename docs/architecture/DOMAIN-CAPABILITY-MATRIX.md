@@ -14,6 +14,7 @@ This matrix describes target ownership, not a claim that every capability is alr
 
 | Capability | Neutral core responsibility | Extension responsibility | Boundary / non-goal |
 |---|---|---|---|
+| Geo | Coordinate reference/units, validated geographic primitives, approximate great-circle distance, geographic bounds and future provider-neutral spatial contracts | PostGIS storage/indexes, geocoding/routing provider adapters, versioned administrative-boundary datasets | Do not treat straight-line distance as road distance/ETA; do not make map vendors or precise location logging mandatory for consumers |
 | Project identity and lifecycle | Identity, name, description, lifecycle, ownership references, project profile and generic governance | Construction site context; software product/repository context; manufacturing plant/order context | No mandatory site, drawing, repository, sprint, production line or permit fields on the generic Project |
 | Scope breakdown / WBS | Hierarchical structures, stable IDs, parent/child integrity, ordering, codes/labels, structure type and revision references | Construction work packages/trades; software epics/features; manufacturing work breakdown | Do not require quantities or a construction WBS node type in the neutral model |
 | Work items | Generic work item identity, title, description, lifecycle, owner, priority, dates, labels and links | Stories, defects, pull requests, site activities, inspection actions and production tasks | Avoid one enum containing every industry's workflow state |

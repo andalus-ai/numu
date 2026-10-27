@@ -59,4 +59,23 @@
             <artifactId>quarkus-hibernate-validator</artifactId>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <!-- Publish a Jandex index so consuming Quarkus applications can discover
+                 this reusable adapter's CDI beans and SmallRye Config mappings. -->
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>3.2.7</version>
+                <executions>
+                    <execution>
+                        <id>make-jandex-index</id>
+                        <goals>
+                            <goal>jandex</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
