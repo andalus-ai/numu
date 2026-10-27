@@ -70,4 +70,25 @@ class WorkspacePageHistoryRestoreTest {
                 new RestorePageRevisionRequest(99, page.revision())));
         assertEquals(400, invalid.status());
     }
+
+    @Test
+    void pageTreeNavigationReturnsOnlyChildrenOfRequestedParent() {
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        WorkspaceApi api = new WorkspaceApi(new WorkspaceApiTest.Fixture().service(),
+                () -> new AuthenticatedActor(tenant, actor));
+        WorkspaceView workspace = api.createWorkspace(new CreateWorkspaceRequest("Team", ""));
+        SpaceView space = api.createSpace(workspace.id(), new CreateSpaceRequest("General", "general"));
+        PageView root = api.createPage(workspace.id(), space.id(),
+                new CreatePageRequest(null, "Root", List.of()));
+        PageView child = api.createPage(workspace.id(), space.id(),
+                new CreatePageRequest(root.id(), "Child", List.of()));
+        api.createPage(workspace.id(), space.id(), new CreatePageRequest(null, "Sibling", List.of()));
+
+        List<PageView> children = api.listChildren(space.id(), root.id());
+
+        assertEquals(1, children.size());
+        assertEquals(child.id(), children.get(0).id());
+        assertEquals(root.id(), children.get(0).parentPageId());
+    }
 }
