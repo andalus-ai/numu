@@ -2043,4 +2043,88 @@ class SyirkahTest {
                 assertEquals(NOW, s.getUpdatedAt());
                 assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
         }
+
+    // ------------------------------------------------------------------ correcting an older close
+
+    private static List<CloseId> ids(int n) {
+        List<CloseId> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            out.add(CloseId.generate());
+        }
+        return out;
+    }
+
+    @Test
+    void correctingAnOlderCloseReplaysLaterClosesAndTurnsOverpaymentIntoLiability() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot c1 = close(s, JAN1, JAN31, profit(40_000_000), ProfitDisposition.DISTRIBUTE);
+        s.distributeProfit(A, idr(20_000_000), "p1a", NOW);
+        s.distributeProfit(B, idr(20_000_000), "p1b", NOW);
+        CloseSnapshot c2 = close(s, LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
+                profit(20_000_000), ProfitDisposition.DISTRIBUTE);
+
+        List<CloseId> newIds = ids(2);
+        List<CloseSnapshot> replaced = s.correctClose(c1.id(), newIds, profit(10_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+
+        assertEquals(2, replaced.size());
+        assertEquals(CloseStatus.REVERSED, s.close(c1.id()).status());
+        assertEquals(CloseStatus.REVERSED, s.close(c2.id()).status());
+        assertEquals(c1.id(), replaced.get(0).supersedes());
+        assertEquals(c2.id(), replaced.get(1).supersedes());
+        assertEquals(idr(10_000_000), replaced.get(0).netResult());
+        assertEquals(idr(20_000_000), replaced.get(1).netResult()); // later close keeps its own recorded result
+        // entitlement 5M + 10M = 15M each, 20M already paid: 5M each is owed back
+        assertEquals(0, idr(0).compareTo(s.position(A).payable()));
+        assertEquals(0, idr(5_000_000).compareTo(s.position(A).liability()));
+        assertEquals(0, idr(5_000_000).compareTo(s.position(B).liability()));
+        assertTrue(s.reconcile().balanced());
+        assertTrue(s.verifyIntegrity().isEmpty());
+        assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
+        // the corrected history can itself be corrected again at its latest close
+        s.correctLatestClose(newIds.get(1), CloseId.generate(), profit(20_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
+    }
+
+    @Test
+    void correctingAnEarlierLossRecomputesTheImpairmentRepairOfLaterCloses() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot c1 = close(s, JAN1, JAN31, loss(40_000_000), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot c2 = close(s, LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
+                profit(30_000_000), ProfitDisposition.DISTRIBUTE);
+        // the 30M profit only repaired impaired capital: nothing distributable yet
+        assertEquals(0, idr(0).compareTo(c2.lines().get(0).profitShare()));
+        assertEquals(0, idr(15_000_000).compareTo(c2.lines().get(0).capitalRestored()));
+
+        List<CloseSnapshot> r = s.correctClose(c1.id(), ids(2), profit(10_000_000), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW);
+        // with no impairment left the same 30M is entirely distributable profit
+        assertEquals(0, idr(15_000_000).compareTo(r.get(1).lines().get(0).profitShare()));
+        assertEquals(0, idr(0).compareTo(r.get(1).lines().get(0).capitalRestored()));
+        assertEquals(0, idr(20_000_000).compareTo(s.position(A).payable())); // 5M + 15M
+        assertTrue(s.reconcile().balanced());
+        assertEquals(s.snapshot(), Syirkah.restore(s.snapshot()).snapshot());
+    }
+
+    @Test
+    void correctingAnOlderCloseIsAllOrNothingAndGuarded() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        CloseSnapshot c1 = close(s, JAN1, JAN31, profit(40_000_000), ProfitDisposition.DISTRIBUTE);
+        CloseSnapshot c2 = close(s, LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"),
+                profit(20_000_000), ProfitDisposition.DISTRIBUTE);
+        Syirkah.Snapshot before = s.snapshot();
+
+        List<CloseId> reused = new ArrayList<>(ids(1));
+        reused.add(c2.id());
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(c1.id(), reused, profit(1), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW));
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(c1.id(), ids(1), profit(1), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, NOW)); // needs one id per replayed close
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(c1.id(), ids(2), profit(1),
+                ManagerFault.of(idr(1), "x"), ProfitDisposition.DISTRIBUTE, NOW)); // fault needs a loss (and mudharabah)
+        assertThrows(BusinessRuleViolation.class, () -> s.correctClose(CloseId.generate(), ids(1), profit(1),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW)); // unknown close
+        assertEquals(before, s.snapshot()); // every refusal left the aggregate untouched
+    }
 }

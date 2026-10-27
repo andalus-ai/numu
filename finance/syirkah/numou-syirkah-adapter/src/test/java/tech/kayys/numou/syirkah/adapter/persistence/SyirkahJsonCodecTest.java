@@ -39,8 +39,7 @@ class SyirkahJsonCodecTest {
     private static Syirkah history() {
         Syirkah s = Syirkah.open(SyirkahId.generate(), TenantId.generate(), mudharabah(), 2, T0);
         FinancialResult profit = FinancialResult.of(idr("30000000.00"), idr("5000000.00"), idr("0.00"), idr("0.00"));
-        CloseSnapshot c1 = s.closePeriod(CloseId.generate(), LocalDate.parse("2026-01-01"),
-                LocalDate.parse("2026-01-31"),
+        CloseSnapshot c1 = s.closePeriod(CloseId.generate(), LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
                 profit, ManagerFault.none(), ProfitDisposition.RETAIN, T0.plusSeconds(1));
         FinancialResult loss = FinancialResult.of(idr("0.00"), idr("12000000.00"), idr("0.00"), idr("0.00"));
         s.closePeriod(CloseId.generate(), LocalDate.parse("2026-02-01"), LocalDate.parse("2026-02-28"), loss,
@@ -111,8 +110,7 @@ class SyirkahJsonCodecTest {
         m.put("n", new BigDecimal("-12.3400"));
         m.put("l", List.of(true, false));
         m.put("z", null);
-        assertEquals("{\"s\":\"a\\\"b\\\\c\\n\\t\\u0001é\",\"n\":-12.3400,\"l\":[true,false],\"z\":null}",
-                Json.write(m));
+        assertEquals("{\"s\":\"a\\\"b\\\\c\\n\\t\\u0001é\",\"n\":-12.3400,\"l\":[true,false],\"z\":null}", Json.write(m));
         Object back = Json.read(Json.write(m));
         assertEquals(m.get("s"), ((Map<?, ?>) back).get("s"));
         assertEquals(0, new BigDecimal("-12.3400").compareTo((BigDecimal) ((Map<?, ?>) back).get("n")));
@@ -131,11 +129,15 @@ class SyirkahJsonCodecTest {
                         CloseId.generate(), fr, ManagerFault.of(idr("5.00"), "why"), ProfitDisposition.RETAIN),
                 new tech.kayys.numou.numouapplication.command.Commands.CorrectClose(t, id, CloseId.generate(),
                         CloseId.generate(), fr, ManagerFault.none(), ProfitDisposition.DISTRIBUTE),
+                new tech.kayys.numou.numouapplication.command.Commands.CorrectClose(t, id, CloseId.generate(),
+                        CloseId.generate(), fr, ManagerFault.none(), ProfitDisposition.DISTRIBUTE,
+                        List.of(CloseId.generate(), CloseId.generate())),
                 new tech.kayys.numou.numouapplication.command.Commands.StartLiquidation(t, id),
                 new tech.kayys.numou.numouapplication.command.Commands.Liquidate(t, id,
                         new LiquidationInput(idr("9.00"), idr("1.00"), true, LocalDate.parse("2026-05-05")),
                         ManagerFault.none()));
         var kinds = List.of(tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.REVISE_CONTRACT,
+                tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.CORRECT_CLOSE,
                 tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.CORRECT_CLOSE,
                 tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.CORRECT_CLOSE,
                 tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.START_LIQUIDATION,

@@ -91,3 +91,13 @@ already in this repository; enable Flyway `outOfOrder` (or renumber) when applyi
   `FOR UPDATE SKIP LOCKED`, delivered to a sink, and marked published in the same transaction; a failing sink keeps
   order and resumes at the failed event. Consumers must de-duplicate on `eventId`; use one relay per tenant when strict
   order matters. The relay runs per tenant because the outbox is row-level-secured per tenant.
+## Correcting an older close
+
+`Syirkah.correctClose(target, replacementIds, …)` corrects any effective close, not only the latest. Every effective
+close from the target onwards is reversed and replayed (the target with the corrected figures, later ones with their own
+recorded results), because later allocations depend on the capital state the corrected close leaves behind: impairment is
+repaired before profit exists, retained profit becomes capital. Distributions already paid stay as paid; whatever a
+partner holds beyond his recomputed entitlement becomes an `OVERPAYMENT_TO_LIABILITY`. The correction is rehearsed on a
+restored copy first, so a refused correction leaves the aggregate untouched. It is refused after an akad revision or
+after a liability settlement. Through the application service, `Commands.CorrectClose.laterReplacements` carries the ids
+for the replayed closes (empty = latest close, unchanged behaviour); the maker-checker payload stores them too.

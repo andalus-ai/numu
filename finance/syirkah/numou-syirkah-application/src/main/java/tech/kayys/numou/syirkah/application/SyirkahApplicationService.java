@@ -7,6 +7,7 @@ import tech.kayys.numou.numouapplication.port.EventPublisherPort;
 import tech.kayys.numou.numouapplication.port.JournalPostingPort;
 import tech.kayys.numou.numouapplication.port.SyirkahRepository;
 import tech.kayys.numou.numouapplication.port.TransactionPort;
+import tech.kayys.numou.numoudomain.CloseId;
 import tech.kayys.numou.numoudomain.CloseSnapshot;
 import tech.kayys.numou.numoudomain.LiquidationResult;
 import tech.kayys.numou.numoudomain.PartnerMovement;
@@ -23,10 +24,8 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * Use cases. Each command runs in one transaction: load -> mutate aggregate ->
- * save with optimistic
- * version -> post journals (idempotent per movement) -> publish events
- * (outbox).
+ * Use cases. Each command runs in one transaction: load -> mutate aggregate -> save with optimistic
+ * version -> post journals (idempotent per movement) -> publish events (outbox).
  */
 public class SyirkahApplicationService {
 
@@ -38,8 +37,8 @@ public class SyirkahApplicationService {
     private final Clock clock;
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
-            EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
-            Clock clock) {
+                                     EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
+                                     Clock clock) {
         this.repository = Objects.requireNonNull(repository);
         this.journal = Objects.requireNonNull(journal);
         this.events = Objects.requireNonNull(events);
@@ -49,7 +48,7 @@ public class SyirkahApplicationService {
     }
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
-            EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts) {
+                                     EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts) {
         this(repository, journal, events, tx, accounts, Clock.system(ZoneOffset.UTC));
     }
 
@@ -91,8 +90,12 @@ public class SyirkahApplicationService {
     }
 
     public CloseSnapshot correctClose(Commands.CorrectClose c) {
-        return mutate(c.tenant(), c.id(), s -> s.correctLatestClose(c.target(), c.replacement(), c.corrected(),
-                c.fault(), c.disposition(), now()));
+        return mutate(c.tenant(), c.id(), s -> {
+            List<CloseId> ids = new ArrayList<>();
+            ids.add(c.replacement());
+            ids.addAll(c.laterReplacements());
+            return s.correctClose(c.target(), ids, c.corrected(), c.fault(), c.disposition(), now()).get(0);
+        });
     }
 
     public void startLiquidation(Commands.StartLiquidation c) {
@@ -147,8 +150,7 @@ public class SyirkahApplicationService {
     }
 
     private Instant now() {
-        // microsecond precision: the persisted timestamps (and the audit hashes over
-        // them) must survive a store
+        // microsecond precision: the persisted timestamps (and the audit hashes over them) must survive a store
         return clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 }

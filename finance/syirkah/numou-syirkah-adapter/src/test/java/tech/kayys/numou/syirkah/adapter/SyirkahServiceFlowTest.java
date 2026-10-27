@@ -94,6 +94,35 @@ class SyirkahServiceFlowTest {
     }
 
     @Test
+    void correctingAnOlderCloseKeepsJournalsBalancedAndLedgerConsistent() {
+        SyirkahId id = openOne();
+        CloseId c1 = CloseId.generate();
+        service.closePeriod(new Commands.ClosePeriod(tenant, id, c1, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-31"), FinancialResult.of(idr(20_000_000), idr(0), idr(0), idr(0)),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE));
+        service.distributeProfit(new Commands.DistributeProfit(tenant, id, A, idr(8_000_000), "a1"));
+        service.distributeProfit(new Commands.DistributeProfit(tenant, id, B, idr(12_000_000), "b1"));
+        service.closePeriod(new Commands.ClosePeriod(tenant, id, CloseId.generate(), LocalDate.parse("2026-02-01"),
+                LocalDate.parse("2026-02-28"), FinancialResult.of(idr(10_000_000), idr(0), idr(0), idr(0)),
+                ManagerFault.none(), ProfitDisposition.DISTRIBUTE));
+
+        CloseSnapshot replaced = service.correctClose(new Commands.CorrectClose(tenant, id, c1, CloseId.generate(),
+                FinancialResult.of(idr(5_000_000), idr(0), idr(0), idr(0)), ManagerFault.none(),
+                ProfitDisposition.DISTRIBUTE, List.of(CloseId.generate())));
+        assertEquals(c1, replaced.supersedes());
+
+        Syirkah s = service.get(tenant, id);
+        assertTrue(s.verifyIntegrity().isEmpty());
+        assertTrue(s.reconcile().balanced());
+        // entitlement: A 2M + 4M = 6M, paid 8M -> owes 2M ; B 3M + 6M = 9M, paid 12M -> owes 3M
+        assertEquals(0, new BigDecimal("2000000").compareTo(s.position(A).liability().amount()));
+        assertEquals(0, new BigDecimal("3000000").compareTo(s.position(B).liability().amount()));
+        BigDecimal all = journal.trialBalance("IDR").values().stream().map(Money::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, BigDecimal.ZERO.compareTo(all));
+    }
+
+    @Test
     void retryingADistributionDoesNotDoublePay() {
         SyirkahId id = openOne();
         service.closePeriod(new Commands.ClosePeriod(tenant, id, CloseId.generate(), LocalDate.parse("2026-01-01"),

@@ -351,6 +351,9 @@ public final class SyirkahJsonCodec {
                 o.put("corrected", financialResult(c.corrected()));
                 o.put("fault", fault(c.fault()));
                 o.put("disposition", c.disposition().name());
+                List<Object> later = new ArrayList<>();
+                c.laterReplacements().forEach(r -> later.add(r.value().toString()));
+                o.put("laterReplacements", later);
             }
             case START_LIQUIDATION -> {
                 // no parameters
@@ -378,7 +381,7 @@ public final class SyirkahJsonCodec {
                 return new Commands.CorrectClose(tenant, id, new CloseId(UUID.fromString(str(o, "target"))),
                         new CloseId(UUID.fromString(str(o, "replacement"))),
                         financialResult(obj(req(o, "corrected"), "corrected")), faultOrNull(o),
-                        ProfitDisposition.valueOf(str(o, "disposition")));
+                        ProfitDisposition.valueOf(str(o, "disposition")), laterReplacements(o));
             }
             case START_LIQUIDATION -> {
                 return new Commands.StartLiquidation(tenant, id);
@@ -389,6 +392,17 @@ public final class SyirkahJsonCodec {
             }
             default -> throw new IllegalArgumentException("unknown approval kind " + kind);
         }
+    }
+
+    /** Absent in payloads written before cascade corrections existed. */
+    private static List<CloseId> laterReplacements(Map<String, Object> o) {
+        List<CloseId> out = new ArrayList<>();
+        if (o.containsKey("laterReplacements")) {
+            for (Object x : list(o, "laterReplacements")) {
+                out.add(new CloseId(UUID.fromString((String) x)));
+            }
+        }
+        return out;
     }
 
     private static Map<String, Object> financialResult(FinancialResult r) {
