@@ -3,6 +3,7 @@
 - **Status:** Extraction contract and implementation gates
 - **Repository:** `andalus-ai/numu`
 - **Depends on:** M38 Shipment Capability Reuse Audit; Capability Packaging and Composition Contract
+- **Follow-up evidence:** [M40 Shipment Dependency and Persistence Trace](SHIPMENT-DEPENDENCY-AND-PERSISTENCE-TRACE.md)
 - **Scope:** Define the safe first extraction slice and executable acceptance evidence before moving existing shipment classes or changing persistence.
 
 ## 1. Outcome
