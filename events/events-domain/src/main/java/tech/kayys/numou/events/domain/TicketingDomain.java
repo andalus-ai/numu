@@ -111,8 +111,8 @@ public final class TicketingDomain {
         public String currency() { return currency; }
         public BigDecimal unitPrice() { return unitPrice; }
         public int capacity() { return capacity; }
-        public int held() { return held; }
-        public int sold() { return sold; }
+        public synchronized int held() { return held; }
+        public synchronized int sold() { return sold; }
         public synchronized int available() { return capacity - held - sold; }
     }
 
@@ -164,6 +164,9 @@ public final class TicketingDomain {
             String reference = required(trustedPaymentReference, "trustedPaymentReference");
             expireIfDue(now);
             if (status == BookingStatus.CONFIRMED && reference.equals(paymentReference)) return;
+            if (status == BookingStatus.EXPIRED) {
+                throw new IllegalStateException("booking hold expired before payment confirmation");
+            }
             if (status != BookingStatus.HELD && status != BookingStatus.PAYMENT_PENDING) {
                 throw new IllegalStateException("booking cannot be confirmed from " + status);
             }
