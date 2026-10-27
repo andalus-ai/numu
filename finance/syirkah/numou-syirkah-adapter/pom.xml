@@ -15,7 +15,7 @@
     <name>Numou Syirkah - Adapter</name>
     <description>
         In-memory reference adapters (repository, outbox, transactions), the bridge that posts syirkah
-        movements as numou JournalEntry aggregates, and the PostgreSQL migration (db/migration/V300).
+        movements as numou JournalEntry aggregates, and the PostgreSQL migration (db/migration/V20261023_01).
     </description>
 
     <dependencies>

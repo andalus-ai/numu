@@ -6,7 +6,7 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 |---|---|
 | `numou-syirkah-domain` | `Syirkah` aggregate, `SyirkahContract` (versioned akad + fiqh validation), `ProfitLossAllocator`, `Apportionment`, append-only `PartnerMovement`s, hashed `CloseSnapshot`s, liquidation, `SyirkahPostingPlan` |
 | `numou-syirkah-application` | `SyirkahApplicationService`, commands, ports (`SyirkahRepository`, `JournalPostingPort`, `EventPublisherPort`, `TransactionPort`) |
-| `numou-syirkah-adapter` | in-memory reference adapters, `JournalEntryPostingAdapter` (posts to numou `JournalEntry`), PostgreSQL `V300__syirkah.sql` |
+| `numou-syirkah-adapter` | in-memory reference adapters, `JournalEntryPostingAdapter` (posts to numou `JournalEntry`), PostgreSQL `V20261023_01__syirkah.sql` |
 
 ## Fiqh rules → where enforced
 
@@ -47,7 +47,7 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 
 ## Known limits (be aware before production)
 
-* No JDBC/Panache repository yet: only the schema (`V300`, tables prefixed `syirkah_ledger_` so they coexist with the accounting module's own `syirkah_*` tables; verified on PostgreSQL 16 as a non-superuser) and the in-memory adapter. A repository maps `Syirkah.Snapshot` ⇄ tables; contracts/closes are stored as JSONB.
+* No JDBC/Panache repository yet: only the schema (`V20261023_01`, tables prefixed `syirkah_ledger_` so they coexist with the accounting module's own `syirkah_*` tables; verified on PostgreSQL 16 as a non-superuser) and the in-memory adapter. A repository maps `Syirkah.Snapshot` ⇄ tables; contracts/closes are stored as JSONB.
 * Correcting an older (non-latest) close is intentionally unsupported; close the current period with an adjusting result instead.
 * Liquidation treats all assets as already converted to cash (`LiquidationInput`); asset-by-asset sale/syuf'ah bookkeeping is out of scope.
 * Mufawadhah conditions follow the Hanafi rule (equal capital and work); other madhhab variants would need a policy switch.
@@ -64,7 +64,7 @@ still opened with `Commands.Open`; the front end's contract versions do not carr
 ## PostgreSQL persistence
 
 `JdbcSyirkahRepository` + `JdbcUnitOfWork` (package `adapter.persistence`, plain `java.sql`) persist the ledger into
-`V300__syirkah.sql`:
+`V20261023_01__syirkah.sql`:
 
 - Contract versions, closes and the liquidation result are jsonb via `SyirkahJsonCodec` (lossless: amounts keep their
   scale); movements are rows. Only new rows are inserted; the one allowed update is a close going ACTIVE → REVERSED.
@@ -77,8 +77,8 @@ still opened with `Commands.Open`; the front end's contract versions do not carr
   `SYIRKAH_PG_PASSWORD` are set (role must not be superuser/BYPASSRLS).
 `JdbcApprovalPort` (maker-checker requests; payload = the exact command, decided once, frozen by trigger) and
 `JdbcOutboxEventPublisher` (events written in the ledger's transaction; `published_at` stamped once by an external
-relay) use `V301__syirkah_governance_outbox.sql`. Note: V300/V301 sort *before* the date-style `V2026…` migrations
-already in this repository; enable Flyway `outOfOrder` (or renumber) when applying to a database that already has them.
+relay) use `V20261023_02__syirkah_governance_outbox.sql`. The migrations use the date-style versions (`V20261023_01`, `_02`) so they sort after the other modules'
+migrations; if you ship them later than a newer migration, enable Flyway `outOfOrder`.
 
 ## Operations
 
@@ -91,3 +91,48 @@ already in this repository; enable Flyway `outOfOrder` (or renumber) when applyi
   `FOR UPDATE SKIP LOCKED`, delivered to a sink, and marked published in the same transaction; a failing sink keeps
   order and resumes at the failed event. Consumers must de-duplicate on `eventId`; use one relay per tenant when strict
   order matters. The relay runs per tenant because the outbox is row-level-secured per tenant.
+## Correcting an older close
+
+`Syirkah.correctClose(target, replacementIds, …)` corrects any effective close, not only the latest. Every effective
+close from the target onwards is reversed and replayed (the target with the corrected figures, later ones with their own
+recorded results), because later allocations depend on the capital state the corrected close leaves behind: impairment is
+repaired before profit exists, retained profit becomes capital. Distributions already paid stay as paid; whatever a
+partner holds beyond his recomputed entitlement becomes an `OVERPAYMENT_TO_LIABILITY`. The correction is rehearsed on a
+restored copy first, so a refused correction leaves the aggregate untouched. It is refused after an akad revision or
+after a liability settlement. Through the application service, `Commands.CorrectClose.laterReplacements` carries the ids
+for the replayed closes (empty = latest close, unchanged behaviour); the maker-checker payload stores them too.
+
+## Asset-by-asset liquidation
+
+`LiquidationInput.fromSales(sales, debts, date)` records each asset sale (`AssetSale`: description, proceeds, buyer
+PARTNER/OUTSIDER, hak syuf'ah offered). Syuf'ah is therefore checked per asset: a sale to an outsider without a prior
+offer makes `shufahOffered` false and blocks the liquidation; a sale to a partner is that offer taken up and the buyer
+must be a partner of the current akad. Proceeds and the syuf'ah flag are derived from the sales and cross-checked by the
+constructor, so they cannot disagree. Results with a breakdown use the `liquidation-v3` audit fingerprint (the sales are
+tamper-evident); results without one keep `liquidation-v2` and an unchanged JSON shape, so existing data is untouched.
+
+## REST API (`numou-syirkah-rest`)
+
+Base path `/api/v1/syirkah`. Tenant and actor are taken **only** from the verified `RequestContextHolder`
+(a header-supplied, unverified tenant is rejected with 403); request bodies never carry them.
+
+| Method & path | Role | Purpose |
+|---|---|---|
+| `POST /` | operator | open a syirkah (optional client `syirkahId` makes a retry fail loudly instead of duplicating) |
+| `GET /`, `GET /{id}` | any | cursor-paged list (`status`, `cursor`, `limit` ≤ 200); detail with positions |
+| `POST /{id}/closes`, `GET /{id}/closes` | operator / any | close a period; list closes |
+| `POST /{id}/distributions`, `/settlements` | operator | pay out profit; settle a partner liability |
+| `GET /{id}/reconciliation`, `/integrity`, `GET /audit` | any / approver+auditor | equity identity, hash chain, tenant-wide audit |
+| `GET /{id}/partners/{p}/statement.csv`, `/closes/{c}/report.csv` | any | CSV exports |
+| `POST /{id}/revisions`, `/corrections`, `/liquidation/start`, `/liquidation` | operator | **governed**: returns `202` with a pending approval |
+| `GET /approvals`, `POST /approvals/{id}/approve`, `/reject` | approver | decide; maker ≠ checker is enforced in the domain service |
+
+Roles (`syirkah-operator`, `syirkah-approver`, `syirkah-auditor`) use `@RolesAllowed`; the deployment needs
+`quarkus-security` with an identity provider (without one the endpoints stay closed, which is the safe default).
+Errors: rule violation 422, not found 404, conflict / stale version 409, bad input 400, no verified tenant 403,
+anything else 500 with a reference id and no internals.
+
+The contract is published as `META-INF/openapi.yaml` (served by quarkus-smallrye-openapi if present; usable to generate a client).
+
+`SyirkahProducers` wires the JDBC adapters. A deployment must supply its own `JournalPostingPort` and
+`SyirkahAccountMap` beans, so a missing ledger gateway fails at start-up rather than silently.

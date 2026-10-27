@@ -9,6 +9,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -85,6 +86,21 @@ public class WorkspaceResource {
     }
 
     @GET
+    @Path("/spaces/{spaceId}/pages")
+    public List<WorkspaceApi.PageView> listPages(@PathParam("spaceId") UUID spaceId,
+                                                 @QueryParam("parentPageId") UUID parentPageId) {
+        return api.listChildren(spaceId, parentPageId);
+    }
+
+    @POST
+    @Path("/pages/{pageId}/history/restore")
+    public WorkspaceApi.PageView restorePageRevision(@PathParam("pageId") UUID pageId,
+                                                      @Valid RestorePageRevisionRequest request) {
+        return api.restorePageRevision(pageId, new WorkspaceApi.RestorePageRevisionRequest(
+                request.sourceRevision(), request.expectedCurrentRevision()));
+    }
+
+    @GET
     @Path("/pages/{pageId}/history")
     public List<WorkspaceApi.RevisionView> getPageHistory(@PathParam("pageId") UUID pageId) {
         return api.getPageHistory(pageId);
@@ -96,6 +112,7 @@ public class WorkspaceResource {
                                     List<@Valid BlockRequest> blocks) {}
     public record UpdatePageRequest(long expectedRevision, @NotBlank String title,
                                     List<@Valid BlockRequest> blocks, String changeSummary) {}
+    public record RestorePageRevisionRequest(long sourceRevision, long expectedCurrentRevision) {}
     public record BlockRequest(UUID id, @NotBlank String type, String text, int position,
                                Map<String, String> attributes) {
         WorkspaceApi.BlockRequest toApplicationRequest() {

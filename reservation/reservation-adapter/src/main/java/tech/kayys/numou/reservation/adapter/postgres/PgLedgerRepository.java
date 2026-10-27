@@ -48,7 +48,6 @@ public final class PgLedgerRepository implements LedgerRepository {
         Objects.requireNonNull(ledger, "ledger");
         long expected = ledger.storedVersion();
         long next = expected + 1;
-        ledger.markStored(next);
         AvailabilityLedger.Snapshot s = ledger.snapshot();
         String sql = expected == 0
                 ? """
@@ -76,6 +75,7 @@ public final class PgLedgerRepository implements LedgerRepository {
                 throw new PgReservationRepository.OptimisticReservationWriteException(
                         "Availability ledger was concurrently modified: " + s.ledgerId());
             }
+            ledger.markStored(next);
             return null;
         });
     }

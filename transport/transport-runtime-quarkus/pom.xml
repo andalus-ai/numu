@@ -11,7 +11,7 @@
     </parent>
     <artifactId>numou-transport-runtime-quarkus</artifactId>
     <name>Transport - Optional Quarkus Runtime Adapter</name>
-    <description>Optional Quarkus composition for PostgreSQL inventory and scheduled hold expiry.</description>
+    <description>Optional Quarkus composition for PostgreSQL inventory, hold expiry, and authenticated booking HTTP endpoints.</description>
     <dependencies>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
@@ -38,6 +38,14 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-jdbc-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-security</artifactId>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -12,6 +12,7 @@ import tech.kayys.numou.numoudomain.SyirkahContract;
 import tech.kayys.numou.numoudomain.SyirkahId;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 /** Command objects of the syirkah use cases. */
@@ -38,8 +39,21 @@ public final class Commands {
     public record ReviseContract(TenantId tenant, SyirkahId id, SyirkahContract next, Set<PartnerId> approvals) {
     }
 
+    /**
+     * Corrects an effective close. {@code laterReplacements} are the fresh ids for every later effective close that
+     * has to be replayed (chronological order); empty when the target is the latest close.
+     */
     public record CorrectClose(TenantId tenant, SyirkahId id, CloseId target, CloseId replacement,
+                               FinancialResult corrected, ManagerFault fault, ProfitDisposition disposition,
+                               List<CloseId> laterReplacements) {
+        public CorrectClose {
+            laterReplacements = laterReplacements == null ? List.of() : List.copyOf(laterReplacements);
+        }
+
+        public CorrectClose(TenantId tenant, SyirkahId id, CloseId target, CloseId replacement,
             FinancialResult corrected, ManagerFault fault, ProfitDisposition disposition) {
+            this(tenant, id, target, replacement, corrected, fault, disposition, List.of());
+        }
     }
 
     public record StartLiquidation(TenantId tenant, SyirkahId id) {

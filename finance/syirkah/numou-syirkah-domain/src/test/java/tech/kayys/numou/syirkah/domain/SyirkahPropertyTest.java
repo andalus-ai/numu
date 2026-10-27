@@ -25,6 +25,8 @@ import static tech.kayys.numou.numoudomain.Fixtures.*;
 class SyirkahPropertyTest {
 
     private static final int RUNS = 1500;
+    private int olderCorrections;
+    private int multiCloseCascades;
 
     private static PartnerId pid(int i) {
         return PartnerId.of(String.format("00000000-0000-0000-0000-%012d", i + 1));
@@ -80,6 +82,9 @@ class SyirkahPropertyTest {
                 throw new AssertionError("seed " + seed + ": " + e, e);
             }
         }
+        // the generator must really exercise correcting older closes, otherwise this test proves nothing about them
+        assertTrue(olderCorrections > 200, "older-close corrections exercised: " + olderCorrections);
+        assertTrue(multiCloseCascades > 100, "multi-close cascades exercised: " + multiCloseCascades);
     }
 
     private void runOne(Random r) {
@@ -107,7 +112,7 @@ class SyirkahPropertyTest {
         CloseSnapshot last = null;
         int ops = 3 + r.nextInt(12);
         for (int i = 0; i < ops; i++) {
-            int op = r.nextInt(5);
+            int op = r.nextInt(6);
             try {
                 if (op <= 1 || last == null) {
                     long rev = r.nextInt(5_000_000);
@@ -127,6 +132,23 @@ class SyirkahPropertyTest {
                     if (pay.isPositive()) {
                         long part = Math.max(1, pay.amount().longValue() / (1 + r.nextInt(3)));
                         s.distributeProfit(p, idr(part), "d" + i, NOW);
+                    }
+                } else if (op == 5) {
+                    List<CloseSnapshot> active = s.closes().stream()
+                            .filter(x -> x.status() == CloseStatus.ACTIVE).toList();
+                    int from = r.nextInt(active.size());
+                    List<CloseId> ids = new ArrayList<>();
+                    for (int k = from; k < active.size(); k++) {
+                        ids.add(CloseId.generate());
+                    }
+                    long rev = r.nextInt(5_000_000);
+                    java.util.List<CloseSnapshot> replaced = s.correctClose(active.get(from).id(), ids,
+                            result(rev, rev / 3, 0, 0), ManagerFault.none(),
+                            r.nextBoolean() ? ProfitDisposition.RETAIN : ProfitDisposition.DISTRIBUTE, NOW);
+                    last = replaced.get(replaced.size() - 1);
+                    olderCorrections++;
+                    if (replaced.size() > 1) {
+                        multiCloseCascades++;
                     }
                 } else if (op == 3) {
                     long rev = r.nextInt(5_000_000);
