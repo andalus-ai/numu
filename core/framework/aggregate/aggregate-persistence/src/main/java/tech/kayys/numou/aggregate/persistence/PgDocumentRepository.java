@@ -39,10 +39,10 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
     private static final String INSERT = """
             INSERT INTO aggregate_document (tenant_id, kind, id, version, venue_id, ref_id, starts_at, status, doc)
             VALUES (?1, ?2, ?3, 1,
-                    CASE WHEN ?10 THEN NULL ELSE CAST(?4 AS uuid) END,
-                    CASE WHEN ?11 THEN NULL ELSE CAST(?5 AS uuid) END,
-                    CASE WHEN ?12 THEN NULL ELSE CAST(?6 AS timestamptz) END,
-                    CASE WHEN ?13 THEN NULL ELSE CAST(?7 AS varchar) END,
+                    CASE WHEN ?9 THEN NULL ELSE CAST(?4 AS uuid) END,
+                    CASE WHEN ?10 THEN NULL ELSE CAST(?5 AS uuid) END,
+                    CASE WHEN ?11 THEN NULL ELSE CAST(?6 AS timestamptz) END,
+                    CASE WHEN ?12 THEN NULL ELSE CAST(?7 AS varchar) END,
                     CAST(?8 AS jsonb))
             ON CONFLICT DO NOTHING""";
     private static final String UPDATE = """
@@ -54,8 +54,6 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
                 status = CASE WHEN ?13 THEN NULL ELSE CAST(?7 AS varchar) END,
                 doc = CAST(?8 AS jsonb), updated_at = now()
             WHERE tenant_id = ?1 AND kind = ?2 AND id = ?3 AND version = ?9""";
-    private static final UUID NULL_UUID = new UUID(0L, 0L);
-
     private static final String SELECT = """
             SELECT CAST(version AS text) || ':' || CAST(doc AS text) FROM aggregate_document
             WHERE tenant_id = ?1 AND kind = ?2 AND id = ?3""";
@@ -107,8 +105,19 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
                     .setParameter(6, new TypedParameterValue<>(StandardBasicTypes.OFFSET_DATE_TIME, utc(ix.startsAt())))
                     .setParameter(7, new TypedParameterValue<>(StandardBasicTypes.STRING, ix.status()))
                     .setParameter(8, json);
-            if (expected != 0) {
-                q.setParameter(9, expected);
+            if (expected == 0) {
+                // INSERT uses positions 9-12 for null flags; every ordinal parameter must be contiguous.
+                q.setParameter(9, ix.venueId() == null)
+                        .setParameter(10, ix.refId() == null)
+                        .setParameter(11, ix.startsAt() == null)
+                        .setParameter(12, ix.status() == null);
+            } else {
+                // UPDATE uses position 9 for the expected version and 10-13 for null flags.
+                q.setParameter(9, expected)
+                        .setParameter(10, ix.venueId() == null)
+                        .setParameter(11, ix.refId() == null)
+                        .setParameter(12, ix.startsAt() == null)
+                        .setParameter(13, ix.status() == null);
             }
             return q.executeUpdate().flatMap(rows -> {
                 if (rows != 1) { // 0 rows: someone else changed (or created) it first
