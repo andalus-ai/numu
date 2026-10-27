@@ -110,6 +110,17 @@ jobs:
         run: mvn -B -ntp -f documents/pom.xml verify
       - name: Build and install full security reactor
         run: mvn -B -ntp -f security/pom.xml install
+      - name: Verify Mobility reactor and wallet PostgreSQL invariants
+        env:
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_NAME: numou_mobility_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_SSLMODE: disable
+        run: |
+          PGPASSWORD=postgres createdb -h localhost -U postgres numou_mobility_test
+          mvn -B -ntp -f mobility/pom.xml -Ppg-integration verify
       # Organization domain references the identity domain artifact. Install
       # identity's contracts before building organization and downstream logistics.
       - name: Build and install identity contracts
