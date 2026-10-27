@@ -124,9 +124,12 @@ jobs:
         run: |
           PGPASSWORD=postgres createdb -h localhost -U postgres numou_mobility_test
           mvn -B -ntp -f mobility/pom.xml -Ppg-integration verify
-      # Organization domain references the identity domain artifact. Install
-      # identity's contracts before building organization and downstream logistics.
+      # Mobility is an independent reactor and its failure is propagated only at
+      # the end of this job. Explicitly allow the first downstream reactor to run
+      # after that isolated failure; if this install fails, normal success() gating
+      # still prevents consumers from running against missing identity artifacts.
       - name: Build and install identity contracts
+        if: ${{ always() && steps.mobility_verify.outcome != 'cancelled' && steps.mobility_verify.outcome != 'skipped' }}
         run: mvn -B -ntp -f identity/pom.xml install
       - name: Build and install organization contracts used by Courier
         run: mvn -B -ntp -f organization/pom.xml install
