@@ -101,7 +101,7 @@ public final class DepartureBookingService {
 
     private <T> T execute(String tenantId, UUID departureId,
                           BiFunction<DepartureInventory, Instant, Mutation<T>> command) {
-        requireTenant(tenantId);
+        tenantId = requireTenant(tenantId);
         Objects.requireNonNull(departureId, "departureId");
         Objects.requireNonNull(command, "command");
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
