@@ -12,7 +12,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -72,19 +71,22 @@ public final class PgDepartureInventoryRepository implements DepartureInventoryR
         String tenant = requireTenant(tenantId);
         Objects.requireNonNull(departureId, "departureId");
         return transaction(Connection.TRANSACTION_REPEATABLE_READ, true, connection -> {
+            int capacity;
+            int stopCount;
+            int version;
             try (PreparedStatement statement = connection.prepareStatement(FIND_INVENTORY)) {
                 statement.setString(1, tenant);
                 statement.setObject(2, departureId);
                 try (ResultSet row = statement.executeQuery()) {
                     if (!row.next()) return Optional.empty();
-                    int capacity = row.getInt("capacity");
-                    int stopCount = row.getInt("stop_count");
-                    int version = Math.toIntExact(row.getLong("version"));
-                    List<PassengerHold> holds = loadHolds(connection, tenant, departureId);
-                    return Optional.of(DepartureInventory.reconstitute(
-                            tenant, departureId, capacity, stopCount, version, holds));
+                    capacity = row.getInt("capacity");
+                    stopCount = row.getInt("stop_count");
+                    version = Math.toIntExact(row.getLong("version"));
                 }
             }
+            List<PassengerHold> holds = loadHolds(connection, tenant, departureId);
+            return Optional.of(DepartureInventory.reconstitute(
+                    tenant, departureId, capacity, stopCount, version, holds));
         });
     }
 
