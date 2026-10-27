@@ -220,6 +220,9 @@ public final class DepartureInventory {
         Objects.requireNonNull(value, field);
         String normalized = value.trim();
         if (normalized.isEmpty()) throw new IllegalArgumentException(field + " must not be blank");
+        if ("tenantId".equals(field) && normalized.length() > 128) {
+            throw new IllegalArgumentException("tenantId must not exceed 128 characters");
+        }
         return normalized;
     }
 
