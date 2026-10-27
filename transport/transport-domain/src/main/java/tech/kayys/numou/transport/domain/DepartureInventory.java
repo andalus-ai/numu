@@ -49,6 +49,32 @@ public final class DepartureInventory {
     }
 
     /**
+     * Reconstitutes a persisted snapshot after validating its identity and hold keys.
+     * Infrastructure must still use optimistic concurrency when saving the snapshot.
+     */
+    public static DepartureInventory reconstitute(String tenantId, UUID departureId, int capacity,
+                                                  int stopCount, int version, List<PassengerHold> holds) {
+        Objects.requireNonNull(holds, "holds");
+        java.util.Set<UUID> ids = new java.util.HashSet<>();
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        for (PassengerHold hold : holds) {
+            Objects.requireNonNull(hold, "hold");
+            if (hold.toSequence() > stopCount) {
+                throw new IllegalArgumentException("persisted hold segment exceeds inventory stop count");
+            }
+            if (!ids.add(hold.id())) {
+                throw new IllegalArgumentException("duplicate passenger hold id in persisted inventory");
+            }
+            if (!keys.add(hold.idempotencyKey())) {
+                throw new IllegalArgumentException("duplicate idempotency key in persisted inventory");
+            }
+        }
+        List<PassengerHold> ordered = new ArrayList<>(holds);
+        ordered.sort(Comparator.comparing(PassengerHold::createdAt).thenComparing(PassengerHold::id));
+        return new DepartureInventory(tenantId, departureId, capacity, stopCount, version, ordered);
+    }
+
+    /**
      * Attempts a hold, returning the updated aggregate and the canonical hold.
      * Replaying the same key/fingerprint returns the original hold without allocating twice.
      */
