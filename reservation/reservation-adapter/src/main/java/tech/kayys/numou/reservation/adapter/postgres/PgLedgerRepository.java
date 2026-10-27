@@ -55,6 +55,11 @@ public final class PgLedgerRepository implements LedgerRepository {
                   INSERT INTO reservation_availability_ledger
                     (tenant_id, ledger_id, facility_id, ledger_day, aggregate_version, snapshot, created_at, updated_at)
                   VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+                  ON CONFLICT (tenant_id, ledger_id) DO UPDATE
+                     SET aggregate_version = EXCLUDED.aggregate_version,
+                         snapshot = EXCLUDED.snapshot,
+                         updated_at = EXCLUDED.updated_at
+                   WHERE reservation_availability_ledger.aggregate_version = 0
                   """
                 : """
                   UPDATE reservation_availability_ledger
