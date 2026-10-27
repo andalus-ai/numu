@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS payment_obligation (
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_payment_obligation_tenant_idempotency UNIQUE (tenant_id, idempotency_key)
+    CONSTRAINT uq_payment_obligation_tenant_idempotency UNIQUE (tenant_id, idempotency_key),
+    CONSTRAINT uq_payment_obligation_tenant_payment UNIQUE (tenant_id, payment_id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_payment_obligation_tenant_reference
@@ -25,7 +26,7 @@ CREATE INDEX IF NOT EXISTS ix_payment_obligation_tenant_reference
 CREATE TABLE IF NOT EXISTS payment_refund_operation (
     refund_id UUID PRIMARY KEY,
     tenant_id VARCHAR(200) NOT NULL,
-    payment_id UUID NOT NULL REFERENCES payment_obligation(payment_id) ON DELETE RESTRICT,
+    payment_id UUID NOT NULL,
     idempotency_key VARCHAR(255) NOT NULL,
     request_fingerprint CHAR(64) NOT NULL,
     amount NUMERIC(38, 18) NOT NULL CHECK (amount > 0),
@@ -34,7 +35,9 @@ CREATE TABLE IF NOT EXISTS payment_refund_operation (
     refund_status VARCHAR(16) NOT NULL CHECK (refund_status IN ('REQUESTED', 'PENDING', 'SUCCEEDED', 'FAILED', 'UNKNOWN')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_payment_refund_tenant_idempotency UNIQUE (tenant_id, idempotency_key)
+    CONSTRAINT uq_payment_refund_tenant_idempotency UNIQUE (tenant_id, idempotency_key),
+    CONSTRAINT fk_payment_refund_tenant_payment FOREIGN KEY (tenant_id, payment_id)
+        REFERENCES payment_obligation (tenant_id, payment_id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS ix_payment_refund_tenant_payment
