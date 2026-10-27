@@ -43,7 +43,7 @@ class PgDepartureInventoryRepositoryTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
-    private static PgSimpleDataSource dataSource;
+    private static DataSource dataSource;
     private PgDepartureInventoryRepository repository;
 
     @BeforeAll
