@@ -101,3 +101,12 @@ partner holds beyond his recomputed entitlement becomes an `OVERPAYMENT_TO_LIABI
 restored copy first, so a refused correction leaves the aggregate untouched. It is refused after an akad revision or
 after a liability settlement. Through the application service, `Commands.CorrectClose.laterReplacements` carries the ids
 for the replayed closes (empty = latest close, unchanged behaviour); the maker-checker payload stores them too.
+
+## Asset-by-asset liquidation
+
+`LiquidationInput.fromSales(sales, debts, date)` records each asset sale (`AssetSale`: description, proceeds, buyer
+PARTNER/OUTSIDER, hak syuf'ah offered). Syuf'ah is therefore checked per asset: a sale to an outsider without a prior
+offer makes `shufahOffered` false and blocks the liquidation; a sale to a partner is that offer taken up and the buyer
+must be a partner of the current akad. Proceeds and the syuf'ah flag are derived from the sales and cross-checked by the
+constructor, so they cannot disagree. Results with a breakdown use the `liquidation-v3` audit fingerprint (the sales are
+tamper-evident); results without one keep `liquidation-v2` and an unchanged JSON shape, so existing data is untouched.

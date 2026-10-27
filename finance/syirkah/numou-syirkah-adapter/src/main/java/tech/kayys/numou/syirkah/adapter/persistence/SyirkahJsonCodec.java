@@ -140,12 +140,7 @@ public final class SyirkahJsonCodec {
 
     private static Map<String, Object> liquidation(LiquidationResult r) {
         Map<String, Object> o = new LinkedHashMap<>();
-        Map<String, Object> in = new LinkedHashMap<>();
-        in.put("assetProceeds", money(r.input().assetProceeds()));
-        in.put("externalDebts", money(r.input().externalDebts()));
-        in.put("shufahOffered", r.input().shufahOffered());
-        in.put("liquidationDate", r.input().liquidationDate().toString());
-        o.put("input", in);
+        o.put("input", liquidationInput(r.input()));
         o.put("residual", money(r.residual()));
         o.put("netResult", money(r.netResult()));
         List<Object> lines = new ArrayList<>();
@@ -314,9 +309,7 @@ public final class SyirkahJsonCodec {
     }
 
     private static LiquidationResult liquidation(Map<String, Object> o) {
-        Map<String, Object> in = obj(req(o, "input"), "input");
-        LiquidationInput input = new LiquidationInput(money(in, "assetProceeds"), money(in, "externalDebts"),
-                bool(in, "shufahOffered"), LocalDate.parse(str(in, "liquidationDate")));
+        LiquidationInput input = liquidationInput(obj(req(o, "input"), "input"));
         List<LiquidationResult.Payout> payouts = new ArrayList<>();
         for (Object x : list(o, "payouts")) {
             Map<String, Object> m = obj(x, "payout");
@@ -425,12 +418,35 @@ public final class SyirkahJsonCodec {
         in.put("externalDebts", money(i.externalDebts()));
         in.put("shufahOffered", i.shufahOffered());
         in.put("liquidationDate", i.liquidationDate().toString());
+        if (!i.sales().isEmpty()) { // omitted when empty so documents written before asset sales stay byte-identical
+            List<Object> sales = new ArrayList<>();
+            for (AssetSale sale : i.sales()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("description", sale.description());
+                m.put("proceeds", money(sale.proceeds()));
+                m.put("buyer", sale.buyer().name());
+                m.put("buyerPartner", sale.buyerPartner() == null ? null : sale.buyerPartner().value().toString());
+                m.put("shufahOffered", sale.shufahOffered());
+                sales.add(m);
+            }
+            in.put("sales", sales);
+        }
         return in;
     }
 
     private static LiquidationInput liquidationInput(Map<String, Object> in) {
+        List<AssetSale> sales = new ArrayList<>();
+        if (in.containsKey("sales")) {
+            for (Object x : list(in, "sales")) {
+                Map<String, Object> m = obj(x, "sale");
+                String buyer = optStr(m, "buyerPartner");
+                sales.add(new AssetSale(str(m, "description"), money(m, "proceeds"),
+                        AssetSale.Buyer.valueOf(str(m, "buyer")), buyer == null ? null : pid(buyer),
+                        bool(m, "shufahOffered")));
+            }
+        }
         return new LiquidationInput(money(in, "assetProceeds"), money(in, "externalDebts"),
-                bool(in, "shufahOffered"), LocalDate.parse(str(in, "liquidationDate")));
+                bool(in, "shufahOffered"), LocalDate.parse(str(in, "liquidationDate")), sales);
     }
 
     private static ManagerFault faultOrNull(Map<String, Object> o) {

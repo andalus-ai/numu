@@ -500,6 +500,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         if (!result.input().shufahOffered()) {
             throw new IllegalStateException("stored liquidation does not confirm that partners were offered hak syuf'ah");
         }
+        for (AssetSale sale : result.input().sales()) {
+            if (sale.buyerPartner() != null && !knownPartners.contains(sale.buyerPartner())) {
+                throw new IllegalStateException("stored liquidation sale names a buyer absent from current akad");
+            }
+        }
         List<Money> amounts = new ArrayList<>();
         amounts.add(result.input().assetProceeds());
         amounts.add(result.input().externalDebts());
@@ -1090,6 +1095,11 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         }
         if (!input.shufahOffered()) {
             throw new BusinessRuleViolation("hak syuf'ah: partners must be offered the assets before sale to outsiders");
+        }
+        for (AssetSale sale : input.sales()) {
+            if (sale.buyerPartner() != null && !contract().partnerIds().contains(sale.buyerPartner())) {
+                throw new BusinessRuleViolation("a partner who buys an asset must be a partner of the current akad");
+            }
         }
         LocalDate latestCloseEnd = closes.stream()
                 .filter(close -> close.status() == CloseStatus.ACTIVE)

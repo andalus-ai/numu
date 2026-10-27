@@ -160,4 +160,25 @@ class SyirkahJsonCodecTest {
         String json = Json.write(m);
         assertTrue(json.contains("\"netResult\":{\"amount\":12.50,\"currency\":\"IDR\"}"), json);
     }
+
+    @Test
+    void liquidationWithAssetSalesRoundTripsAndLegacyShapeIsUnchanged() {
+        Syirkah s = Syirkah.open(SyirkahId.generate(), TenantId.generate(), mudharabah(), 0, T0);
+        s.startLiquidation(T0.plusSeconds(1));
+        LiquidationResult withSales = s.liquidate(LiquidationInput.fromSales(List.of(
+                AssetSale.toPartner("machine", idr("10"), OWNER),
+                AssetSale.toOutsider("stock", idr("120000000"), true)), idr("5"), LocalDate.parse("2026-03-31")),
+                ManagerFault.none(), T0.plusSeconds(2));
+        String json = SyirkahJsonCodec.encodeLiquidation(withSales);
+        assertTrue(json.contains("\"sales\""));
+        assertEquals(withSales, SyirkahJsonCodec.decodeLiquidation(json));
+        assertTrue(SyirkahJsonCodec.decodeLiquidation(json).hashIsValid());
+
+        Syirkah legacy = Syirkah.open(SyirkahId.generate(), TenantId.generate(), mudharabah(), 0, T0);
+        legacy.startLiquidation(T0.plusSeconds(1));
+        LiquidationResult plain = legacy.liquidate(new LiquidationInput(idr("100000000"), idr("0"), true,
+                LocalDate.parse("2026-03-31")), ManagerFault.none(), T0.plusSeconds(2));
+        assertFalse(SyirkahJsonCodec.encodeLiquidation(plain).contains("sales"));
+        assertEquals(plain, SyirkahJsonCodec.decodeLiquidation(SyirkahJsonCodec.encodeLiquidation(plain)));
+    }
 }

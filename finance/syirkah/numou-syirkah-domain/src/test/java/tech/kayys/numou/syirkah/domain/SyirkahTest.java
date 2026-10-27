@@ -15,6 +15,7 @@ import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -2126,5 +2127,83 @@ class SyirkahTest {
         assertThrows(BusinessRuleViolation.class, () -> s.correctClose(CloseId.generate(), ids(1), profit(1),
                 ManagerFault.none(), ProfitDisposition.DISTRIBUTE, NOW)); // unknown close
         assertEquals(before, s.snapshot()); // every refusal left the aggregate untouched
+    }
+
+    // ------------------------------------------------------------------ asset-by-asset liquidation
+
+    private static LiquidationResult liquidate(Syirkah s, LiquidationInput in) {
+        s.startLiquidation(NOW);
+        return s.liquidate(in, ManagerFault.none(), NOW);
+    }
+
+    @Test
+    void assetBySaleLiquidationGivesTheSameResultAsTheAggregateAndKeepsTheBreakdown() {
+        LocalDate date = LocalDate.parse("2026-03-31");
+        LiquidationInput bySales = LiquidationInput.fromSales(List.of(
+                AssetSale.toPartner("machine", idr(30_000_000), A),
+                AssetSale.toOutsider("stock", idr(90_000_000), true)), idr(20_000_000), date);
+        assertEquals(idr(120_000_000), bySales.assetProceeds());
+        assertTrue(bySales.shufahOffered());
+
+        Syirkah a = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        Syirkah b = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        LiquidationResult r1 = liquidate(a, bySales);
+        LiquidationResult r2 = liquidate(b, new LiquidationInput(idr(120_000_000), idr(20_000_000), true, date));
+        assertEquals(r2.payouts(), r1.payouts());
+        assertEquals(r2.netResult(), r1.netResult());
+        assertEquals(2, r1.input().sales().size());
+        assertTrue(r1.hashIsValid());
+        // the breakdown is part of the audit fingerprint; the aggregate-only form keeps its own
+        assertNotEquals(r1.hash(), r2.hash());
+        assertEquals(a.snapshot(), Syirkah.restore(a.snapshot()).snapshot());
+    }
+
+    @Test
+    void anOutsiderSaleWithoutASyufahOfferBlocksLiquidation() {
+        LiquidationInput in = LiquidationInput.fromSales(List.of(
+                AssetSale.toPartner("machine", idr(30_000_000), A),
+                AssetSale.toOutsider("stock", idr(90_000_000), false)), idr(0), LocalDate.parse("2026-03-31"));
+        assertFalse(in.shufahOffered());
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(in, ManagerFault.none(), NOW));
+    }
+
+    @Test
+    void liquidationInputRejectsInconsistentBreakdowns() {
+        LocalDate d = LocalDate.parse("2026-03-31");
+        List<AssetSale> sales = List.of(AssetSale.toOutsider("stock", idr(10), true));
+        assertThrows(IllegalArgumentException.class, () -> new LiquidationInput(idr(11), idr(0), true, d, sales));
+        assertThrows(IllegalArgumentException.class, () -> new LiquidationInput(idr(10), idr(0), false, d, sales));
+        assertThrows(IllegalArgumentException.class, () -> LiquidationInput.fromSales(List.of(), idr(0), d));
+        assertThrows(IllegalArgumentException.class, () -> AssetSale.toPartner("x", idr(1), null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new AssetSale("x", idr(1), AssetSale.Buyer.OUTSIDER, A, true));
+        assertThrows(IllegalArgumentException.class, () -> AssetSale.toOutsider(" ", idr(1), true));
+    }
+
+    @Test
+    void aBuyerWhoIsNotAPartnerIsRejected() {
+        LiquidationInput in = LiquidationInput.fromSales(List.of(AssetSale.toPartner("machine", idr(10), C)), idr(0),
+                LocalDate.parse("2026-03-31"));
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        s.startLiquidation(NOW);
+        assertThrows(BusinessRuleViolation.class, () -> s.liquidate(in, ManagerFault.none(), NOW));
+    }
+
+    @Test
+    void tamperingWithARecordedSaleIsDetectedOnRestore() {
+        Syirkah s = open(inan(100_000_000, 100_000_000, ratio(A, 50, B, 50)));
+        LiquidationResult r = liquidate(s, LiquidationInput.fromSales(List.of(
+                AssetSale.toOutsider("stock", idr(120_000_000), true)), idr(0), LocalDate.parse("2026-03-31")));
+        Syirkah.Snapshot snap = s.snapshot();
+        LiquidationInput altered = new LiquidationInput(r.input().assetProceeds(), r.input().externalDebts(), true,
+                r.input().liquidationDate(), List.of(AssetSale.toPartner("stock", idr(120_000_000), A)));
+        LiquidationResult forged = new LiquidationResult(altered, r.residual(), r.netResult(), r.lines(), r.payouts(),
+                r.completedAt(), r.hash());
+        Syirkah.Snapshot bad = new Syirkah.Snapshot(snap.id(), snap.tenantId(), snap.scale(), snap.status(),
+                snap.closedSinceRevision(), snap.contracts(), snap.movements(), snap.closes(), forged,
+                snap.version(), snap.createdAt(), snap.updatedAt());
+        assertThrows(IllegalStateException.class, () -> Syirkah.restore(bad));
     }
 }
