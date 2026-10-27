@@ -102,6 +102,47 @@ class JdbcStructuredDatabaseMigrationRepositoryPostgresTest {
         assertEquals(0, stillRunning.stagedRecords());
     }
 
+    @Test
+    void workerLeaseHasSingleWinnerAndExpiredLeaseCanBeReclaimed() throws Exception {
+        DataSource dataSource = dataSource();
+        applyMigrations(dataSource);
+        UUID tenant = UUID.randomUUID(), workspace = UUID.randomUUID();
+        UUID actor = UUID.randomUUID(), database = UUID.randomUUID(), table = UUID.randomUUID(), record = UUID.randomUUID();
+        Instant now = Instant.parse("2026-10-25T10:00:00Z");
+        insertSourceRows(dataSource, tenant, workspace, actor, database, table, record, now);
+
+        JdbcStructuredDatabaseMigrationRepository repository = new JdbcStructuredDatabaseMigrationRepository(dataSource);
+        UUID migrationId = UUID.randomUUID();
+        assertTrue(repository.createMigrationJob(job(migrationId, tenant, database, table, actor, now, 1)));
+
+        UUID firstLease = UUID.randomUUID();
+        UUID competingLease = UUID.randomUUID();
+        Instant firstExpiry = now.plusSeconds(60);
+        assertTrue(repository.claimMigrationJob(tenant, migrationId, 1, firstLease, firstExpiry, now));
+        assertFalse(repository.claimMigrationJob(tenant, migrationId, 1, competingLease, firstExpiry, now.plusSeconds(1)),
+                "a competing worker with a stale revision must not steal an active lease");
+
+        DatabaseSchemaMigrationJob claimed = repository.findMigrationJob(tenant, migrationId).orElseThrow();
+        assertEquals(2, claimed.revision());
+        assertEquals(DatabaseSchemaMigrationJob.Status.RUNNING, claimed.status());
+        assertTrue(repository.findResumableMigrationJobs(tenant, 10).isEmpty(),
+                "an unexpired running job is not resumable");
+
+        Instant afterExpiry = firstExpiry.plusSeconds(1);
+        assertEquals(1, repository.findResumableMigrationJobs(tenant, 10).size());
+        UUID recoveryLease = UUID.randomUUID();
+        assertTrue(repository.claimMigrationJob(tenant, migrationId, 2, recoveryLease,
+                afterExpiry.plusSeconds(60), afterExpiry),
+                "a worker may reclaim an expired lease using the latest job revision");
+        assertFalse(repository.claimMigrationJob(tenant, migrationId, 2, firstLease,
+                afterExpiry.plusSeconds(60), afterExpiry),
+                "the expired lease token must not reclaim the job after recovery");
+
+        DatabaseSchemaMigrationJob recovered = repository.findMigrationJob(tenant, migrationId).orElseThrow();
+        assertEquals(3, recovered.revision());
+        assertEquals(DatabaseSchemaMigrationJob.Status.RUNNING, recovered.status());
+    }
+
     private DatabaseSchemaMigrationJob job(UUID id, UUID tenant, UUID database, UUID table, UUID actor,
                                            Instant now, long total) {
         return new DatabaseSchemaMigrationJob(id, tenant, database, table, actor, 1, 2,
