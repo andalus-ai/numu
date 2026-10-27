@@ -16,6 +16,7 @@
     <modules>
         <module>transport-domain</module>
         <module>transport-spi</module>
+        <module>transport-application</module>
         <module>transport-postgres-adapter</module>
     </modules>
 </project>
