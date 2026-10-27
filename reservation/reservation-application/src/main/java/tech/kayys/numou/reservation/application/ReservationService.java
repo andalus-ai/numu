@@ -42,11 +42,6 @@ public final class ReservationService {
             DomainEventSink events,
             DomainClock clock
     ) {
-        this.reservations = Objects.requireNonNull(reservations, "reservations cannot be null");
-        this.ledgers = Objects.requireNonNull(ledgers, "ledgers cannot be null");
-        this.resourceDirectory = Objects.requireNonNull(resourceDirectory, "resourceDirectory cannot be null");
-        this.rulesPort = Objects.requireNonNull(rulesPort, "rulesPort cannot be null");
-        this.uow = Objects.requireNonNull(uow, "uow cannot be null");
         this(reservations, ledgers, resourceDirectory, rulesPort, uow, events, clock, null);
     }
 
@@ -96,10 +91,15 @@ public final class ReservationService {
         return rulesPort.rulesFor(cmd.tenantId(), fId).flatMap(rules ->
                 resourceDirectory.resourcesFor(cmd.tenantId(), fId).flatMap(resList ->
                         ConflictRetry.run(MAX_ATTEMPTS, () ->
-                                executeBookingTransaction(context -> doBook(cmd.tenantId(), fId, id, customer, party, cmd.startsAt(),
-                                        cmd.source() == null ? BookingSource.WEB : cmd.source(),
-                                        cmd.notes(), cmd.dietary() == null ? Set.of() : cmd.dietary(), rules, resList,
-                                        context))
+                                executeBookingTransaction(
+                                        context -> doBook(cmd.tenantId(), fId, id, customer, party, cmd.startsAt(),
+                                                cmd.source() == null ? BookingSource.WEB : cmd.source(),
+                                                cmd.notes(), cmd.dietary() == null ? Set.of() : cmd.dietary(),
+                                                rules, resList, context),
+                                        () -> doBook(cmd.tenantId(), fId, id, customer, party, cmd.startsAt(),
+                                                cmd.source() == null ? BookingSource.WEB : cmd.source(),
+                                                cmd.notes(), cmd.dietary() == null ? Set.of() : cmd.dietary(),
+                                                rules, resList))
                         ).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
                                 alternatives(cmd.tenantId(), fId, party, cmd.startsAt(), rules, resList).flatMap(alts ->
                                         Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), alts)))
@@ -136,13 +136,10 @@ public final class ReservationService {
     }
 
     private Uni<ReservationView> executeBookingTransaction(
-            java.util.function.Function<ReservationTransactionContext, Uni<ReservationView>> work) {
+            java.util.function.Function<ReservationTransactionContext, Uni<ReservationView>> work,
+            java.util.function.Supplier<Uni<ReservationView>> legacyWork) {
         if (transactionRunner != null) return transactionRunner.execute(work);
-        if (!(reservations instanceof tech.kayys.numou.reservation.spi.IdempotentReservationRepository idempotent)) {
-            return Uni.createFrom().failure(new IllegalStateException(
-                    "Reservation transaction context requires an idempotent reservation repository"));
-        }
-        return uow.execute(() -> work.apply(new ReservationTransactionContext(idempotent, ledgers, events)));
+        return uow.execute(legacyWork);
     }
 
     private Uni<ReservationView> doBook(UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer,
