@@ -110,3 +110,27 @@ offer makes `shufahOffered` false and blocks the liquidation; a sale to a partne
 must be a partner of the current akad. Proceeds and the syuf'ah flag are derived from the sales and cross-checked by the
 constructor, so they cannot disagree. Results with a breakdown use the `liquidation-v3` audit fingerprint (the sales are
 tamper-evident); results without one keep `liquidation-v2` and an unchanged JSON shape, so existing data is untouched.
+
+## REST API (`numou-syirkah-rest`)
+
+Base path `/api/v1/syirkah`. Tenant and actor are taken **only** from the verified `RequestContextHolder`
+(a header-supplied, unverified tenant is rejected with 403); request bodies never carry them.
+
+| Method & path | Role | Purpose |
+|---|---|---|
+| `POST /` | operator | open a syirkah (optional client `syirkahId` makes a retry fail loudly instead of duplicating) |
+| `GET /`, `GET /{id}` | any | cursor-paged list (`status`, `cursor`, `limit` ≤ 200); detail with positions |
+| `POST /{id}/closes`, `GET /{id}/closes` | operator / any | close a period; list closes |
+| `POST /{id}/distributions`, `/settlements` | operator | pay out profit; settle a partner liability |
+| `GET /{id}/reconciliation`, `/integrity`, `GET /audit` | any / approver+auditor | equity identity, hash chain, tenant-wide audit |
+| `GET /{id}/partners/{p}/statement.csv`, `/closes/{c}/report.csv` | any | CSV exports |
+| `POST /{id}/revisions`, `/corrections`, `/liquidation/start`, `/liquidation` | operator | **governed**: returns `202` with a pending approval |
+| `GET /approvals`, `POST /approvals/{id}/approve`, `/reject` | approver | decide; maker ≠ checker is enforced in the domain service |
+
+Roles (`syirkah-operator`, `syirkah-approver`, `syirkah-auditor`) use `@RolesAllowed`; the deployment needs
+`quarkus-security` with an identity provider (without one the endpoints stay closed, which is the safe default).
+Errors: rule violation 422, not found 404, conflict / stale version 409, bad input 400, no verified tenant 403,
+anything else 500 with a reference id and no internals.
+
+`SyirkahProducers` wires the JDBC adapters. A deployment must supply its own `JournalPostingPort` and
+`SyirkahAccountMap` beans, so a missing ledger gateway fails at start-up rather than silently.

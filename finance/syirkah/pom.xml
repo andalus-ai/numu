@@ -26,5 +26,6 @@
         <module>numou-syirkah-domain</module>
         <module>numou-syirkah-application</module>
         <module>numou-syirkah-adapter</module>
+        <module>numou-syirkah-rest</module>
     </modules>
 </project>

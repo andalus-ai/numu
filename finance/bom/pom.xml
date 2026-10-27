@@ -63,6 +63,11 @@
                 <artifactId>numou-syirkah-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-syirkah-rest</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
 
             <dependency>
