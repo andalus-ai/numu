@@ -86,8 +86,8 @@ public final class Geofence extends AbstractAggregateRoot<GeofenceId> {
     private void calculateBounds() {
         if (points.isEmpty()) return;
         
-        double minLat = Double.MAX_VALUE, maxLat = Double.MIN_VALUE;
-        double minLon = Double.MAX_VALUE, maxLon = Double.MIN_VALUE;
+        double minLat = Double.POSITIVE_INFINITY, maxLat = Double.NEGATIVE_INFINITY;
+        double minLon = Double.POSITIVE_INFINITY, maxLon = Double.NEGATIVE_INFINITY;
         
         for (GeofencePoint point : points) {
             minLat = Math.min(minLat, point.getLatitude());
