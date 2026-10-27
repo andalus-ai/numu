@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS payment_obligation (
     idempotency_key VARCHAR(255) NOT NULL,
     request_fingerprint CHAR(64) NOT NULL,
     caller_reference VARCHAR(255) NOT NULL,
-    amount NUMERIC(19, 4) NOT NULL CHECK (amount > 0),
+    amount NUMERIC(38, 18) NOT NULL CHECK (amount > 0),
     currency CHAR(3) NOT NULL,
     payment_status VARCHAR(32) NOT NULL CHECK (payment_status IN (
         'CREATED', 'REQUIRES_CUSTOMER_ACTION', 'PENDING', 'SUCCEEDED',
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS payment_refund_operation (
     payment_id UUID NOT NULL REFERENCES payment_obligation(payment_id) ON DELETE RESTRICT,
     idempotency_key VARCHAR(255) NOT NULL,
     request_fingerprint CHAR(64) NOT NULL,
-    amount NUMERIC(19, 4) NOT NULL CHECK (amount > 0),
+    amount NUMERIC(38, 18) NOT NULL CHECK (amount > 0),
     currency CHAR(3) NOT NULL,
     reason VARCHAR(1000) NOT NULL,
     refund_status VARCHAR(16) NOT NULL CHECK (refund_status IN ('REQUESTED', 'PENDING', 'SUCCEEDED', 'FAILED', 'UNKNOWN')),
