@@ -1,0 +1,386 @@
+openapi: 3.0.3
+info:
+  title: Numou Syirkah API
+  version: 1.0.0
+  description: >
+    Syirkah (Islamic partnership) accounting. Tenant and actor are taken from the authenticated request context,
+    never from the payload. Contract revisions, close corrections and liquidation are governed: they return 202
+    with a pending approval that a different person must approve.
+servers:
+  - url: /api/v1/syirkah
+security:
+  - bearer: []
+tags:
+  - name: Syirkah
+  - name: Governed
+  - name: Approvals
+paths:
+  /:
+    get:
+      tags: [Syirkah]
+      summary: List syirkahs (cursor paged)
+      description: "Roles: operator, approver, auditor."
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [ACTIVE, LIQUIDATING, TERMINATED]}}
+        - {name: cursor, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200": {description: Page, content: {application/json: {schema: {$ref: "#/components/schemas/Page"}}}}
+        default: {$ref: "#/components/responses/Error"}
+    post:
+      tags: [Syirkah]
+      summary: Open a syirkah
+      description: "Role: operator. A client-supplied syirkahId that already exists is rejected with 409."
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/OpenRequest"}}}}
+      responses:
+        "201":
+          description: Created
+          headers: {Location: {schema: {type: string}}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/SyirkahView"}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    get:
+      tags: [Syirkah]
+      summary: Detail with partner positions
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/SyirkahView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/closes:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    get:
+      tags: [Syirkah]
+      summary: All closes, including reversed ones
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/CloseView"}}}}}
+        default: {$ref: "#/components/responses/Error"}
+    post:
+      tags: [Syirkah]
+      summary: Close a period (role operator)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ClosePeriodRequest"}}}}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/CloseView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/closes/{closeId}/report.csv:
+    parameters: [{$ref: "#/components/parameters/Id"}, {name: closeId, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      tags: [Syirkah]
+      summary: Close report as CSV
+      responses:
+        "200": {description: CSV, content: {text/csv: {schema: {type: string}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/partners/{partnerId}/statement.csv:
+    parameters: [{$ref: "#/components/parameters/Id"}, {name: partnerId, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      tags: [Syirkah]
+      summary: Partner statement as CSV
+      responses:
+        "200": {description: CSV, content: {text/csv: {schema: {type: string}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/distributions:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Syirkah]
+      summary: Pay out profit to a partner (role operator)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PaymentRequest"}}}}
+      responses:
+        "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/SyirkahView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/settlements:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Syirkah]
+      summary: Settle a partner liability (role operator)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PaymentRequest"}}}}
+      responses:
+        "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/SyirkahView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/reconciliation:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    get:
+      tags: [Syirkah]
+      summary: Independent equity cross-check
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/ReconciliationView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/integrity:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    get:
+      tags: [Syirkah]
+      summary: Verify hash chains and invariants
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IntegrityView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /audit:
+    get:
+      tags: [Syirkah]
+      summary: Integrity audit across the tenant (roles approver, auditor)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AuditView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/revisions:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Governed]
+      summary: Propose a new contract version (role operator)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ReviseRequest"}}}}
+      responses: {"202": {$ref: "#/components/responses/Pending"}, default: {$ref: "#/components/responses/Error"}}
+  /{id}/corrections:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Governed]
+      summary: Propose correcting an effective close (role operator)
+      description: >
+        Later closes are replayed. replacementCloseIds must contain one id per effective close from the target
+        onwards, or be omitted to have ids generated.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/CorrectCloseRequest"}}}}
+      responses: {"202": {$ref: "#/components/responses/Pending"}, default: {$ref: "#/components/responses/Error"}}
+  /{id}/liquidation/start:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Governed]
+      summary: Propose starting liquidation (role operator)
+      responses: {"202": {$ref: "#/components/responses/Pending"}, default: {$ref: "#/components/responses/Error"}}
+  /{id}/liquidation:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Governed]
+      summary: Propose the liquidation itself (role operator)
+      description: Prefer per-asset sales so hak syuf'ah is checked asset by asset.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/LiquidateRequest"}}}}
+      responses: {"202": {$ref: "#/components/responses/Pending"}, default: {$ref: "#/components/responses/Error"}}
+  /approvals:
+    get:
+      tags: [Approvals]
+      summary: Pending approvals (roles approver, auditor)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/ApprovalView"}}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /approvals/{approvalId}/approve:
+    parameters: [{name: approvalId, in: path, required: true, schema: {type: string, format: uuid}}]
+    post:
+      tags: [Approvals]
+      summary: Approve and execute (role approver; the maker cannot approve)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/ApprovalView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /approvals/{approvalId}/reject:
+    parameters: [{name: approvalId, in: path, required: true, schema: {type: string, format: uuid}}]
+    post:
+      tags: [Approvals]
+      summary: Reject with a reason (role approver)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/RejectRequest"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/ApprovalView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer}
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+  responses:
+    Pending:
+      description: Accepted; a pending approval was created
+      headers: {Location: {schema: {type: string}}}
+      content: {application/json: {schema: {$ref: "#/components/schemas/ApprovalView"}}}
+    Error:
+      description: "400 bad input, 403 no verified tenant, 404 not found, 409 conflict or stale state, 422 rule violation, 500 unexpected"
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+  schemas:
+    Error:
+      type: object
+      properties: {code: {type: string}, message: {type: string}, status: {type: integer}}
+    Amount: {type: string, format: decimal, description: Plain decimal in the syirkah's currency, example: "1500000.00"}
+    PartnerDto:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        role: {type: string, description: PartnerRole name}
+        contributesWork: {type: boolean}
+    CapitalDto:
+      type: object
+      required: [partner, kind, amount]
+      properties:
+        partner: {type: string, format: uuid}
+        kind: {type: string, description: CapitalKind name, example: CASH}
+        amount: {type: number}
+        valuationNote: {type: string, nullable: true}
+    ContractDto:
+      type: object
+      required: [version, type, currency, partners, nisbahPercent, effectiveFrom]
+      properties:
+        version: {type: integer, minimum: 1}
+        type: {type: string, enum: [INAN, ABDAN, MUDHARABAH, WUJUH, MUFAWADHAH]}
+        currency: {type: string, example: IDR}
+        partners: {type: array, items: {$ref: "#/components/schemas/PartnerDto"}}
+        capital: {type: array, items: {$ref: "#/components/schemas/CapitalDto"}}
+        nisbahPercent: {type: object, additionalProperties: {type: number}, description: Partner id to percent; must total 100}
+        profitBasis: {type: string, default: NET_PROFIT}
+        lossSharing: {type: object, additionalProperties: {type: number}, description: Only for abdan or wujuh}
+        declaredClauses: {type: array, items: {type: string}}
+        witnesses: {type: array, items: {type: string}}
+        ijabQabulRecorded: {type: boolean}
+        effectiveFrom: {type: string, format: date}
+    OpenRequest:
+      type: object
+      required: [contract]
+      properties:
+        syirkahId: {type: string, format: uuid, description: Optional, makes creation retry-safe}
+        amountScale: {type: integer, description: Decimal places of the currency, example: 2}
+        contract: {$ref: "#/components/schemas/ContractDto"}
+    FinancialResultDto:
+      type: object
+      required: [revenue]
+      properties:
+        revenue: {type: number}
+        directCosts: {type: number}
+        operatingCosts: {type: number}
+        otherCosts: {type: number}
+    ManagerFaultDto:
+      type: object
+      properties:
+        negligentOrBreach: {type: boolean}
+        attributableLoss: {type: number}
+        reason: {type: string}
+    ClosePeriodRequest:
+      type: object
+      required: [periodStart, periodEnd, result, disposition]
+      properties:
+        closeId: {type: string, format: uuid}
+        periodStart: {type: string, format: date}
+        periodEnd: {type: string, format: date}
+        result: {$ref: "#/components/schemas/FinancialResultDto"}
+        fault: {$ref: "#/components/schemas/ManagerFaultDto"}
+        disposition: {type: string, enum: [DISTRIBUTE, RETAIN]}
+    PaymentRequest:
+      type: object
+      required: [partnerId, amount]
+      properties:
+        partnerId: {type: string, format: uuid}
+        amount: {type: number}
+        reference: {type: string}
+    ReviseRequest:
+      type: object
+      required: [next]
+      properties:
+        next: {$ref: "#/components/schemas/ContractDto"}
+        approvals: {type: array, items: {type: string, format: uuid}, description: Partners who agreed; must be all of them}
+    CorrectCloseRequest:
+      type: object
+      required: [targetCloseId, corrected, disposition]
+      properties:
+        targetCloseId: {type: string, format: uuid}
+        replacementCloseIds: {type: array, items: {type: string, format: uuid}}
+        corrected: {$ref: "#/components/schemas/FinancialResultDto"}
+        fault: {$ref: "#/components/schemas/ManagerFaultDto"}
+        disposition: {type: string, enum: [DISTRIBUTE, RETAIN]}
+    AssetSaleDto:
+      type: object
+      required: [description, proceeds, buyer]
+      properties:
+        description: {type: string}
+        proceeds: {type: number}
+        buyer: {type: string, enum: [PARTNER, OUTSIDER]}
+        buyerPartner: {type: string, format: uuid, nullable: true}
+        shufahOffered: {type: boolean}
+    LiquidateRequest:
+      type: object
+      required: [liquidationDate]
+      properties:
+        sales: {type: array, items: {$ref: "#/components/schemas/AssetSaleDto"}}
+        assetProceeds: {type: number, description: Aggregate form, used only when sales is empty}
+        shufahOffered: {type: boolean}
+        externalDebts: {type: number}
+        liquidationDate: {type: string, format: date}
+        fault: {$ref: "#/components/schemas/ManagerFaultDto"}
+    RejectRequest:
+      type: object
+      required: [reason]
+      properties: {reason: {type: string}}
+    PositionView:
+      type: object
+      properties:
+        partnerId: {type: string, format: uuid}
+        name: {type: string}
+        capitalBasis: {type: number}
+        capitalBalance: {type: number}
+        profitPayable: {type: number}
+        liability: {type: number}
+    SummaryView:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        type: {type: string}
+        currency: {type: string}
+        status: {type: string, enum: [ACTIVE, LIQUIDATING, TERMINATED]}
+        contractVersion: {type: integer}
+        partnerCount: {type: integer}
+        closeCount: {type: integer}
+        latestCloseEnd: {type: string, format: date, nullable: true}
+        version: {type: integer, description: Optimistic-lock version}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    SyirkahView:
+      type: object
+      properties:
+        summary: {$ref: "#/components/schemas/SummaryView"}
+        contract: {$ref: "#/components/schemas/ContractDto"}
+        positions: {type: array, items: {$ref: "#/components/schemas/PositionView"}}
+    Page:
+      type: object
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/SummaryView"}}
+        nextCursor: {type: string, format: uuid, nullable: true}
+    CloseView:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        sequence: {type: integer}
+        periodStart: {type: string, format: date}
+        periodEnd: {type: string, format: date}
+        contractVersion: {type: integer}
+        netResult: {type: number}
+        disposition: {type: string}
+        status: {type: string, enum: [ACTIVE, REVERSED]}
+        supersedes: {type: string, format: uuid, nullable: true}
+        closedAt: {type: string, format: date-time}
+        hash: {type: string}
+    ReconciliationView:
+      type: object
+      properties:
+        balanced: {type: boolean}
+        partnerEquity: {type: number}
+        netCashContributed: {type: number}
+        recognizedResult: {type: number}
+        difference: {type: number}
+    IntegrityView:
+      type: object
+      properties:
+        ok: {type: boolean}
+        problems: {type: array, items: {type: string}}
+    ApprovalView:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        syirkahId: {type: string, format: uuid}
+        kind: {type: string, enum: [REVISE_CONTRACT, CORRECT_CLOSE, START_LIQUIDATION, LIQUIDATE]}
+        maker: {type: string}
+        proposedAt: {type: string, format: date-time}
+        status: {type: string, enum: [PENDING, APPROVED, REJECTED]}
+        checker: {type: string, nullable: true}
+        decidedAt: {type: string, format: date-time, nullable: true}
+        note: {type: string, nullable: true}
+    AuditView:
+      type: object
+      properties:
+        checked: {type: integer}
+        ok: {type: boolean}
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              syirkahId: {type: string, format: uuid}
+              problems: {type: array, items: {type: string}}

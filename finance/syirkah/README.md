@@ -132,5 +132,7 @@ Roles (`syirkah-operator`, `syirkah-approver`, `syirkah-auditor`) use `@RolesAll
 Errors: rule violation 422, not found 404, conflict / stale version 409, bad input 400, no verified tenant 403,
 anything else 500 with a reference id and no internals.
 
+The contract is published as `META-INF/openapi.yaml` (served by quarkus-smallrye-openapi if present; usable to generate a client).
+
 `SyirkahProducers` wires the JDBC adapters. A deployment must supply its own `JournalPostingPort` and
 `SyirkahAccountMap` beans, so a missing ledger gateway fails at start-up rather than silently.
