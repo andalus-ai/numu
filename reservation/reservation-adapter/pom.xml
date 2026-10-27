@@ -10,8 +10,8 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>numou-reservation-adapter</artifactId>
-    <name>Reservation - In-memory Adapter</name>
-    <description>In-memory snapshot repositories with concurrency conflict simulation for generic bookings.</description>
+    <name>Reservation - Persistence Adapters</name>
+    <description>Reservation persistence adapters, including in-memory and transaction-scoped PostgreSQL infrastructure.</description>
     <dependencies>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
@@ -31,6 +31,10 @@
         <dependency>
             <groupId>io.smallrye.reactive</groupId>
             <artifactId>mutiny</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-reactive-pg-client</artifactId>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
