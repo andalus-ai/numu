@@ -22,8 +22,11 @@ import java.util.function.Function;
  * via row-level security (see V200). The SQL shapes are the ones verified on PostgreSQL 16.
  *
  * <p>Uses the Hibernate Reactive session (not a second pool) so every statement runs in the caller's
- * unit-of-work transaction, which is what makes aggregate + outbox atomic. NOT COMPILED in sandbox: check the
- * native-query parameter binding for your Hibernate Reactive version.
+ * unit-of-work transaction, which is what makes aggregate + outbox atomic.
+ *
+ * <p>Nullable index values are represented by non-null typed sentinels plus explicit null flags. This avoids
+ * Hibernate Reactive's untyped-null parameter path, which attempts JDBC parameter metadata that the reactive
+ * driver does not support.
  *
  * @param <S> snapshot record (plain types only; JavaTimeModule must be registered on the ObjectMapper)
  */
@@ -37,12 +40,24 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
 
     private static final String INSERT = """
             INSERT INTO aggregate_document (tenant_id, kind, id, version, venue_id, ref_id, starts_at, status, doc)
-            VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, CAST(?8 AS jsonb))
+            VALUES (?1, ?2, ?3, 1,
+                    CASE WHEN ?10 THEN NULL ELSE CAST(?4 AS uuid) END,
+                    CASE WHEN ?11 THEN NULL ELSE CAST(?5 AS uuid) END,
+                    CASE WHEN ?12 THEN NULL ELSE CAST(?6 AS timestamptz) END,
+                    CASE WHEN ?13 THEN NULL ELSE CAST(?7 AS varchar) END,
+                    CAST(?8 AS jsonb))
             ON CONFLICT DO NOTHING""";
     private static final String UPDATE = """
             UPDATE aggregate_document
-            SET version = version + 1, venue_id = ?4, ref_id = ?5, starts_at = ?6, status = ?7, doc = CAST(?8 AS jsonb), updated_at = now()
+            SET version = version + 1,
+                venue_id = CASE WHEN ?10 THEN NULL ELSE CAST(?4 AS uuid) END,
+                ref_id = CASE WHEN ?11 THEN NULL ELSE CAST(?5 AS uuid) END,
+                starts_at = CASE WHEN ?12 THEN NULL ELSE CAST(?6 AS timestamptz) END,
+                status = CASE WHEN ?13 THEN NULL ELSE CAST(?7 AS varchar) END,
+                doc = CAST(?8 AS jsonb), updated_at = now()
             WHERE tenant_id = ?1 AND kind = ?2 AND id = ?3 AND version = ?9""";
+    private static final UUID NULL_UUID = new UUID(0L, 0L);
+
     private static final String SELECT = """
             SELECT CAST(version AS text) || ':' || CAST(doc AS text) FROM aggregate_document
             WHERE tenant_id = ?1 AND kind = ?2 AND id = ?3""";
@@ -89,8 +104,15 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
         return TenantTransaction.run(tenantId, () -> Panache.getSession().flatMap(s -> {
             final var q = s.createNativeQuery(expected == 0 ? INSERT : UPDATE)
                     .setParameter(1, tenantId).setParameter(2, kind).setParameter(3, aggregate.id().value())
-                    .setParameter(4, ix.venueId()).setParameter(5, ix.refId()).setParameter(6, utc(ix.startsAt()))
-                    .setParameter(7, ix.status()).setParameter(8, json);
+                    .setParameter(4, ix.venueId() == null ? NULL_UUID : ix.venueId())
+                    .setParameter(5, ix.refId() == null ? NULL_UUID : ix.refId())
+                    .setParameter(6, utc(ix.startsAt()) == null ? OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC) : utc(ix.startsAt()))
+                    .setParameter(7, ix.status() == null ? "" : ix.status())
+                    .setParameter(8, json)
+                    .setParameter(10, ix.venueId() == null)
+                    .setParameter(11, ix.refId() == null)
+                    .setParameter(12, ix.startsAt() == null)
+                    .setParameter(13, ix.status() == null);
             if (expected != 0) {
                 q.setParameter(9, expected);
             }
