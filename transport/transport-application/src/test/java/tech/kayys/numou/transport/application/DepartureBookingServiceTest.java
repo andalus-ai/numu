@@ -78,9 +78,9 @@ class DepartureBookingServiceTest {
         PassengerHold hold = service.hold(new DepartureBookingService.HoldCommand("tenant-a",
                 fixture.departureId, "expire-me", 1, 3, 1, NOW.plusSeconds(30)));
         fixture.clockAdvanceTo(NOW.plusSeconds(30));
-        service = fixture.service();
+        DepartureBookingService expiredService = fixture.service();
 
-        assertThatThrownBy(() -> service.confirm("tenant-a", fixture.departureId, hold.id()))
+        assertThatThrownBy(() -> expiredService.confirm("tenant-a", fixture.departureId, hold.id()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("only an active hold");
         assertThat(fixture.repository.find("tenant-a", fixture.departureId).orElseThrow()
