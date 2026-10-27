@@ -26,7 +26,7 @@ import java.util.UUID;
  * derives tenant and actor from trusted authentication context. Request DTOs intentionally
  * do not accept tenant or actor identifiers.
  */
-@Path("/api/v1/workspaces")
+@Path("/api/v1")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class WorkspaceResource {
@@ -38,6 +38,7 @@ public class WorkspaceResource {
     }
 
     @POST
+    @Path("/workspaces")
     public Response createWorkspace(@Valid CreateWorkspaceRequest request) {
         var created = api.createWorkspace(new WorkspaceApi.CreateWorkspaceRequest(
                 request.name(), request.description()));
@@ -46,7 +47,7 @@ public class WorkspaceResource {
     }
 
     @POST
-    @Path("/{workspaceId}/spaces")
+    @Path("/workspaces/{workspaceId}/spaces")
     public Response createSpace(@PathParam("workspaceId") UUID workspaceId,
                                 @Valid CreateSpaceRequest request) {
         var created = api.createSpace(workspaceId,
@@ -56,7 +57,7 @@ public class WorkspaceResource {
     }
 
     @POST
-    @Path("/{workspaceId}/spaces/{spaceId}/pages")
+    @Path("/workspaces/{workspaceId}/spaces/{spaceId}/pages")
     public Response createPage(@PathParam("workspaceId") UUID workspaceId,
                                @PathParam("spaceId") UUID spaceId,
                                @Valid CreatePageRequest request) {
