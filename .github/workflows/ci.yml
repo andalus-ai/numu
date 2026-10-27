@@ -73,13 +73,11 @@ jobs:
       # parent through relativePath does not install that parent into the local repo.
       - name: Install framework parent POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
-      # Install the parent POM before independent reactors install artifacts whose
-      # published POMs inherit from numou-framework. A child reactor resolving its
-      # parent through relativePath does not install that parent into the local repo.
-      - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      # Install cross-reactor capability contracts before consumers that depend on them.
+      - name: Verify and install Geo capability
+        run: mvn -B -ntp -f geo/pom.xml install
       # Security consumes cache contracts and observability API/application artifacts
       # from separate framework reactors. Install these before building the security reactor.
       - name: Build and install cache contracts used by security
