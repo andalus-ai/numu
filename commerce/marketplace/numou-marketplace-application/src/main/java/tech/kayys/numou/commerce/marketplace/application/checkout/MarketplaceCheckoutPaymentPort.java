@@ -6,6 +6,11 @@ import java.util.Optional;
 
 /** Provider-neutral anti-corruption port. UNKNOWN/PENDING are never treated as payment failure. */
 public interface MarketplaceCheckoutPaymentPort {
+    /** Payment capability definitively rejected creation; no payment operation was accepted. */
+    final class PaymentRejectedException extends RuntimeException {
+        public PaymentRejectedException(String message, Throwable cause) { super(message, cause); }
+    }
+
     PaymentResult createOrGet(String tenantId, String idempotencyKey, String orderReference,
                               BigDecimal amount, String currency);
     Optional<PaymentResult> find(String tenantId, String paymentId);
