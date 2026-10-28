@@ -82,6 +82,37 @@ class WorkforceCommandHandlerTest {
     }
 
     @Test
+    void shouldRejectDuplicateWorkerForSamePersonAndTenant() {
+        var tenantId = TenantId.generate();
+        var personId = UUID.randomUUID();
+
+        var first = registerWorkerHandler.handle(
+                new RegisterWorkerCommand(tenantId, personId, WorkerType.EMPLOYEE, "admin")
+        ).await().indefinitely();
+        var second = registerWorkerHandler.handle(
+                new RegisterWorkerCommand(tenantId, personId, WorkerType.CONTRACTOR, "admin")
+        ).await().indefinitely();
+
+        assertThat(first.isSuccess()).isTrue();
+        assertThat(second.isSuccess()).isFalse();
+    }
+
+    @Test
+    void shouldAllowSamePersonToHaveWorkerRecordInDifferentTenants() {
+        var personId = UUID.randomUUID();
+
+        var first = registerWorkerHandler.handle(
+                new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.EMPLOYEE, "admin")
+        ).await().indefinitely();
+        var second = registerWorkerHandler.handle(
+                new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.CONTRACTOR, "admin")
+        ).await().indefinitely();
+
+        assertThat(first.isSuccess()).isTrue();
+        assertThat(second.isSuccess()).isTrue();
+    }
+
+    @Test
     void shouldStartEmploymentForActiveWorker() {
         var personId = UUID.randomUUID();
         var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(personId, WorkerType.EMPLOYEE, "admin"))
