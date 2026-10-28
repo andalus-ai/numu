@@ -46,7 +46,7 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
                     disabled_at = NULL
                 WHERE notification_push_device.tenant_id = EXCLUDED.tenant_id
                   AND notification_push_device.recipient_id = EXCLUDED.recipient_id
-                RETURNING """ + COLUMNS;
+                """ + "RETURNING " + COLUMNS;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, device.id());
