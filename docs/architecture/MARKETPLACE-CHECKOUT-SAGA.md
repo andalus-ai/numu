@@ -62,3 +62,8 @@ The marketplace application now includes `PaymentCapabilityCheckoutAdapter`, whi
 An authoritative `PaymentOperationRejectedException` is translated to a known checkout rejection so the coordinator can compensate known inventory reservations. Other runtime failures remain ambiguous and retain reservations for reconciliation.
 
 The inventory adapter is intentionally not declared production-ready yet. The current inventory application exposes idempotent reservation creation, but its public contract does not provide a durable lookup by reservation command key, and the repository's only concrete inventory adapter is in-memory. Marketplace must not wire this into multi-instance production checkout until the inventory capability exposes and implements durable command-key recovery and a persistent adapter is available.
+
+
+## Inventory command recovery contract
+
+The inventory application now exposes tenant-scoped lookup by the same stable `InventoryCommandKey` used to create a reservation. Recovery returns the current reservation lifecycle state, including released or expired reservations; callers must not interpret a missing result from an adapter with weak consistency as proof that a timed-out reservation did not commit. The in-memory adapter supports this contract for tests and single-process use only. A persistent inventory adapter must implement lookup atomically with durable command-key receipts before checkout can be enabled for multi-instance production traffic.

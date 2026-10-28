@@ -33,6 +33,10 @@ public interface InventoryRepository {
     default InventoryReservation reserveIfAvailable(InventoryCommandKey key, InventoryReservation reservation) {
         throw new UnsupportedOperationException("This adapter does not implement idempotent reservations");
     }
+    /** Returns the reservation created by this idempotent command, including released/expired outcomes. */
+    default java.util.Optional<InventoryReservation> findReservationByCommandKey(InventoryCommandKey key) {
+        throw new UnsupportedOperationException("This adapter does not implement reservation command recovery");
+    }
     default InventoryReservation findReservation(ReservationId id) {
         throw new UnsupportedOperationException("This adapter does not implement reservations");
     }
