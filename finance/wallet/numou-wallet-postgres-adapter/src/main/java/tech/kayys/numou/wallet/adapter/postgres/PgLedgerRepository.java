@@ -80,7 +80,7 @@ public class PgLedgerRepository implements LedgerRepository {
                 .map(rows -> rows.stream().map(this::parse).toList())));
     }
 
-    private LedgerEntry parse(String json) {
+    LedgerEntry parse(String json) {
         try {
             JsonNode node = mapper.readTree(json);
             return new LedgerEntry(UUID.fromString(node.get("entry_id").asText()), UUID.fromString(node.get("wallet_id").asText()),
