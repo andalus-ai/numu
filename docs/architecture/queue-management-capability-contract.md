@@ -267,3 +267,35 @@ Not yet confirmed:
 - Runtime security composition and tenant-context enforcement for the proposed public commands.
 
 The M0 issue remains open until these are resolved or explicitly documented as follow-up decisions. Do not start M1 production implementation solely on the initial path inventory.
+
+## 15. Source-level audit update (2026-10-28)
+
+This section records source/POM evidence checked after the initial contract was merged. It is an audit checkpoint, not a claim that M0 is complete.
+
+### Reactor and ownership evidence
+
+| Path | Verified repository fact | Queue design consequence |
+|---|---|---|
+| `scheduling/pom.xml` | Standalone `numou-scheduling` reactor with domain, SPI, application, and adapter modules. | Scheduling remains an optional integration for appointments/availability; a queue ticket is not a Schedule. |
+| `workforce/pom.xml` | Standalone Workforce reactor with domain, SPI, application, adapter, and HRIS modules. | Queue dispatch can query/coordinate eligible workers through a public port; it must not own workforce identity, skills, or employment records. |
+| `vehicle-service/pom.xml` | Separate Vehicle Service reactor with domain and application modules. | Vehicle-service appointments/work orders are source-owned; queue integration should use references and commands/events. |
+| `support/pom.xml` | Separate Support reactor with domain, application, and API modules. | Support tickets retain their own lifecycle; operational queues may reference them without changing their authoritative status. |
+| `logistics/pom.xml` | Logistics reactor includes fleet and courier domain/application/Postgres modules. | Courier dispatch remains a domain adapter/use case, not the universal queue model. |
+| `core/framework/reliability/reliability-spi/.../IdempotencyStorePort.java` | Reliability provides scoped atomic claims, result recording, and claim release. | Reuse the public reliability contract where its persistence and transaction semantics fit. Scope keys by tenant and operation. |
+| `core/framework/reliability/reliability-application/.../IdempotentExecutor.java` | Duplicate completed requests replay a result; duplicates in progress are rejected rather than executed twice. | This protects command retries, but does not make selecting the next entry atomic. |
+| `core/framework/foundation/numou-foundation-adapter/.../TenantContext.java` | Tenant context accessor is adapter-layer compatibility infrastructure and can use request context/thread-local fallback. | Domain aggregates and policies must receive tenant identity explicitly; they must not import this adapter. |
+| `asset/numou-asset-domain/.../MaintenanceWorkOrder.java` | Maintenance work orders are a distinct aggregate with their own tenant, assignment, status, and lifecycle. | Queue entries should reference the source work-order ID and a snapshot/reference as needed, not become a second work-order record. |
+
+### Queue-specific correctness implications
+
+1. A tenant-scoped idempotency key prevents duplicate execution of the same command, but does not prevent two different `CallNext` commands from claiming the same entry.
+2. The queue repository/transaction boundary must atomically select and claim an eligible entry, with an explicit concurrency strategy (for example row locking or optimistic version compare-and-set) and deterministic tie-breaking.
+3. Queue domain code must remain framework-neutral. Tenant and actor IDs should be explicit command/context values validated at the application boundary; persistence, HTTP, CDI, broker, and static tenant access belong in adapters.
+4. Queue Management should publish durable state-change events through an appropriate outbox/transactional mechanism only after the repository's transaction and event publication conventions are confirmed. The existing reliability subsystem is a candidate, not an assumed dependency until its module graph and compatibility are verified.
+5. The recursive repository tree contains many maintenance/work-order and reliability paths but no obvious dedicated Queue/Waitlist reactor. This is path-level evidence only; a behavior search across source/tests remains necessary before claiming there is no existing equivalent.
+
+### M0 status after this update
+
+**Completed:** initial ownership/boundary proposal; first-pass reactor inventory for Scheduling, Workforce, Vehicle Service, Support, Logistics, Reliability, and Asset Maintenance; identification of the adapter-layer tenant-context boundary and the distinction between idempotency and queue-claim concurrency.
+
+**Still open:** search all likely packages/tests for implicit queue-like behavior; inspect public integration interfaces and actual adapter dependency edges; verify migration/architecture-test conventions; identify CI commands and obtain a real Maven baseline; then select the smallest reactor shape. No runtime tests were run as part of this documentation update. M1 implementation must wait for these checks or clearly record any remaining limitation before code is introduced.
