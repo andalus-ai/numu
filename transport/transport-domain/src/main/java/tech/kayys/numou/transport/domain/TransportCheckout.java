@@ -44,7 +44,11 @@ public record TransportCheckout(
         if (passengerCount < 1) throw new IllegalArgumentException("passengerCount must be positive");
         Objects.requireNonNull(amount, "amount");
         if (amount.signum() <= 0) throw new IllegalArgumentException("amount must be positive");
+        if (amount.stripTrailingZeros().scale() > 4 || amount.precision() > 19) {
+            throw new IllegalArgumentException("amount exceeds supported precision (19 digits, 4 decimal places)");
+        }
         currency = required(currency, "currency");
+        if (!currency.matches("[A-Z]{3}")) throw new IllegalArgumentException("currency must be uppercase ISO-4217");
         try {
             Currency.getInstance(currency);
         } catch (IllegalArgumentException exception) {
@@ -78,7 +82,7 @@ public record TransportCheckout(
         if (status != TransportCheckoutStatus.REQUESTED && status != TransportCheckoutStatus.HOLD_CREATED) {
             throw new IllegalStateException("cannot attach a hold from state " + status);
         }
-        return copy(nextHoldId, paymentId, TransportCheckoutStatus.HOLD_CREATED, now);
+        return copy(nextHoldId, paymentId, paymentActionUri, TransportCheckoutStatus.HOLD_CREATED, now);
     }
 
     public TransportCheckout withPayment(String nextPaymentId, String nextPaymentActionUri,
