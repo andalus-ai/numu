@@ -20,7 +20,6 @@ public record ProgramMembership(
         tenantId = required(tenantId, "tenantId");
         Objects.requireNonNull(programId, "programId is required");
         Objects.requireNonNull(partnerId, "partnerId is required");
-        if (programId.equals(partnerId)) throw new IllegalArgumentException("programId and partnerId must be distinct identities");
         Objects.requireNonNull(status, "status is required");
         Objects.requireNonNull(createdAt, "createdAt is required");
         Objects.requireNonNull(updatedAt, "updatedAt is required");
