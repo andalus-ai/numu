@@ -8,6 +8,7 @@ import java.util.UUID;
 /** Immutable checkout saga snapshot. Version is used for durable compare-and-set updates. */
 public record MarketplaceCheckout(
         UUID id, String tenantId, UUID orderId, String idempotencyKey, String requestFingerprint,
+        String warehouseReference, Instant reservationExpiresAt,
         MarketplaceCheckoutStatus status, Map<String, String> reservationIds, String paymentId,
         String failureCode, String failureDetail, long version, Instant createdAt, Instant updatedAt) {
 
@@ -29,8 +30,14 @@ public record MarketplaceCheckout(
     }
 
     public static MarketplaceCheckout start(UUID id, String tenantId, UUID orderId, String key,
-                                             String fingerprint, Instant now) {
-        return new MarketplaceCheckout(id, tenantId, orderId, key, fingerprint,
+                                             String fingerprint, String warehouseReference,
+                                             Instant reservationExpiresAt, Instant now) {
+        String warehouse = required(warehouseReference, "warehouseReference");
+        Objects.requireNonNull(reservationExpiresAt, "reservationExpiresAt");
+        if (!reservationExpiresAt.isAfter(now)) {
+            throw new IllegalArgumentException("reservationExpiresAt must be after checkout creation");
+        }
+        return new MarketplaceCheckout(id, tenantId, orderId, key, fingerprint, warehouse, reservationExpiresAt,
                 MarketplaceCheckoutStatus.RESERVING_INVENTORY, Map.of(), null, null, null, 0, now, now);
     }
 
@@ -87,14 +94,16 @@ public record MarketplaceCheckout(
 
     public MarketplaceCheckout withVersion(long nextVersion) {
         return new MarketplaceCheckout(id, tenantId, orderId, idempotencyKey, requestFingerprint,
-                status, reservationIds, paymentId, failureCode, failureDetail, nextVersion, createdAt, updatedAt);
+                warehouseReference, reservationExpiresAt, status, reservationIds, paymentId,
+                failureCode, failureDetail, nextVersion, createdAt, updatedAt);
     }
 
     private MarketplaceCheckout revise(MarketplaceCheckoutStatus next, Map<String, String> reservations,
                                        String payment, String code, String detail, Instant now) {
         if (now.isBefore(updatedAt)) throw new IllegalArgumentException("updatedAt cannot move backwards");
         return new MarketplaceCheckout(id, tenantId, orderId, idempotencyKey, requestFingerprint,
-                next, reservations, payment, code, detail, version, createdAt, now);
+                warehouseReference, reservationExpiresAt, next, reservations, payment, code, detail,
+                version, createdAt, now);
     }
 
     private void requireStatus(MarketplaceCheckoutStatus expected) {
