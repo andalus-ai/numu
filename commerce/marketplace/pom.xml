@@ -15,5 +15,6 @@
     <description>Reusable marketplace capabilities, composed optionally into commerce products.</description>
     <modules>
         <module>numou-marketplace-domain</module>
+        <module>numou-marketplace-application</module>
     </modules>
 </project>
