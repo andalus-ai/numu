@@ -23,6 +23,10 @@ Implements syirkah accounting per *hukum muamalah* on top of numou (DDD + hexago
 | Retain vs distribute profit at close | `ProfitDisposition` (`PROFIT_RETAINED` moves payable → capital) |
 | Liquidation: sell assets (hak syuf'ah offered), pay all debts, then claims; remainder − capital = profit by nisbah or loss by capital; undistributed profit covers later loss | `Syirkah.liquidate` |
 
+## Akad formation (Hukum Muamalah Bab X, XI, XVIII)
+
+`AkadFormationChecker` checks that an akad was validly formed and properly written, from an `AkadFormation` record kept apart from `SyirkahContract` (so the contract's canonical form and stored hashes do not change) and a `FormationPolicy` for the choices the book leaves open (witness rule, multi-akad, optional minimum age). Each `FormationFinding` carries a code, a book reference and an `AkadDefect`: `BATIL` (defect in a rukun or one of the seven in'iqad conditions), `FASAD` (unclear terms, coercion), `INCOMPLETE` (missing party data, ijab and qabul wording, sections or witnesses, which the book lists as deviations without calling them batil) or `UNCLASSIFIED` (contract violations the book does not classify here, awaiting the Sharia adviser). Software cannot decide lawfulness or sound mind: it requires the determination to be recorded and blocks a negative one. `SyirkahApplicationService.openWithFormation` refuses to open on any finding; plain `open` is unchanged and does not run the checks (roadmap gate B needs that path closed). The formation record is not persisted yet.
+
 ## Reports and export
 
 `Syirkah.closeReport(closeId)` (result build-up, frozen terms, per-partner outcome), `capitalRollForward(from, to)` (opening + contributions − returns + retained + restored − losses = closing, per partner) and `statement(partner)`. `CsvExport` writes RFC 4180 CSV and neutralises spreadsheet formula injection in user-supplied text (names, references). PDF/XLSX rendering is left to the presentation layer.
