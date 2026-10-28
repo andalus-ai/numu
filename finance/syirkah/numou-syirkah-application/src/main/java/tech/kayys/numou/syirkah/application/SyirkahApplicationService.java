@@ -3,6 +3,7 @@ package tech.kayys.numou.numouapplication;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.numouapplication.command.Commands;
+import tech.kayys.numou.numouapplication.port.AkadFormationPort;
 import tech.kayys.numou.numouapplication.port.EventPublisherPort;
 import tech.kayys.numou.numouapplication.port.JournalPostingPort;
 import tech.kayys.numou.numouapplication.port.SyirkahRepository;
@@ -40,16 +41,27 @@ public class SyirkahApplicationService {
     private final SyirkahAccountMap accounts;
     private final Clock clock;
     private final FormationEnforcement enforcement;
+    private final AkadFormationPort formations;
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
                                      EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
                                      Clock clock) {
-        this(repository, journal, events, tx, accounts, clock, FormationEnforcement.OFF);
+        this(repository, journal, events, tx, accounts, clock, FormationEnforcement.OFF, null);
     }
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
                                      EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
                                      Clock clock, FormationEnforcement enforcement) {
+        this(repository, journal, events, tx, accounts, clock, enforcement, null);
+    }
+
+    /**
+     * @param formations where the akad formation record is kept when a syirkah is opened with
+     *                   {@link #openWithFormation}; null keeps no record (the checks still run)
+     */
+    public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
+                                     EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
+                                     Clock clock, FormationEnforcement enforcement, AkadFormationPort formations) {
         this.repository = Objects.requireNonNull(repository);
         this.journal = Objects.requireNonNull(journal);
         this.events = Objects.requireNonNull(events);
@@ -57,6 +69,7 @@ public class SyirkahApplicationService {
         this.accounts = Objects.requireNonNull(accounts);
         this.clock = Objects.requireNonNull(clock);
         this.enforcement = Objects.requireNonNull(enforcement, "enforcement");
+        this.formations = formations;
     }
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
@@ -93,7 +106,13 @@ public class SyirkahApplicationService {
      */
     public Syirkah openWithFormation(Commands.Open c, AkadFormation formation, FormationPolicy policy) {
         AkadFormationChecker.requirePassing(c.contract(), formation, policy);
-        return openChecked(c);
+        return tx.inTransaction(() -> {
+            Syirkah s = openChecked(c);
+            if (formations != null) {
+                formations.record(c.tenant(), c.id(), formation, policy, now());
+            }
+            return s;
+        });
     }
 
     public CloseSnapshot closePeriod(Commands.ClosePeriod c) {
