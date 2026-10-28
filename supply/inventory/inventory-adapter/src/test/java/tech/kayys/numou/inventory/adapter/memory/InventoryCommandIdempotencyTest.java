@@ -5,6 +5,8 @@ import tech.kayys.numou.inventory.domain.inventory.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import tech.kayys.numou.inventory.domain.reservation.InventoryReservation;
+import tech.kayys.numou.inventory.domain.reservation.ReservationStatus;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -58,6 +60,39 @@ class InventoryCommandIdempotencyTest {
         assertEquals(outbound.id(), replay.get(0).id());
         assertEquals(inbound.id(), replay.get(1).id());
         assertEquals(3, repository.findByItem(item).size());
+    }
+
+    @Test
+    void reservation_command_can_be_recovered_after_lost_response() {
+        var repository = new InMemoryInventoryRepository();
+        var item = ItemId.generate();
+        var warehouse = WarehouseId.generate();
+        repository.saveMovement(movement(item, warehouse, MovementType.RECEIPT, new BigDecimal("10"), "OPENING"));
+        var key = new InventoryCommandKey("tenant-1", "checkout-line-1");
+        var requested = InventoryReservation.create("tenant-1", item, warehouse,
+                new BigDecimal("2"), "EA", "order-line-1", Instant.now().plusSeconds(300));
+
+        var created = repository.reserveIfAvailable(key, requested);
+        var recovered = repository.findReservationByCommandKey(key).orElseThrow();
+
+        assertEquals(created.id(), recovered.id());
+        assertEquals(ReservationStatus.ACTIVE, recovered.status());
+        assertTrue(repository.findReservationByCommandKey(new InventoryCommandKey("tenant-1", "missing")).isEmpty());
+    }
+
+    @Test
+    void reservation_command_key_replay_preserves_terminal_reservation_for_reconciliation() {
+        var repository = new InMemoryInventoryRepository();
+        var item = ItemId.generate();
+        var warehouse = WarehouseId.generate();
+        repository.saveMovement(movement(item, warehouse, MovementType.RECEIPT, new BigDecimal("10"), "OPENING"));
+        var key = new InventoryCommandKey("tenant-1", "checkout-line-2");
+        var requested = InventoryReservation.create("tenant-1", item, warehouse,
+                new BigDecimal("2"), "EA", "order-line-2", Instant.now().plusSeconds(300));
+        var created = repository.reserveIfAvailable(key, requested);
+        repository.updateReservation(created.release());
+
+        assertEquals(ReservationStatus.RELEASED, repository.findReservationByCommandKey(key).orElseThrow().status());
     }
 
     private static InventoryMovement movement(ItemId item, WarehouseId warehouse, MovementType type,
