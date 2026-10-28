@@ -76,6 +76,15 @@ public record PushDevice(
         return disabledAt == null;
     }
 
+    /** Prevent accidental disclosure of provider credentials through logging. */
+    @Override
+    public String toString() {
+        return "PushDevice[id=" + id + ", tenantId=" + tenantId + ", recipientId=" + recipientId
+                + ", token=[REDACTED], platform=" + platform + ", appInstance=" + appInstance
+                + ", createdAt=" + createdAt + ", updatedAt=" + updatedAt
+                + ", disabledAt=" + disabledAt + "]";
+    }
+
     public enum Platform {
         ANDROID,
         IOS,
