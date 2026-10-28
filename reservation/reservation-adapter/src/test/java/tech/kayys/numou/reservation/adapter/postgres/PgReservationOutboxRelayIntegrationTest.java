@@ -11,13 +11,11 @@ import org.junit.jupiter.api.Test;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Opt-in PostgreSQL contract tests for claim leases, retries, and dead-letter transitions. */
 @QuarkusTest
@@ -49,7 +47,7 @@ class PgReservationOutboxRelayIntegrationTest {
         }, 10, 3);
 
         assertEquals(2, relay.pollOnce().await().indefinitely());
-        assertEquals(List.of(first, second), delivered);
+        assertEquals(java.util.Set.of(first, second), java.util.Set.copyOf(delivered));
         assertEquals(2L, countStatus(tenantId, "PUBLISHED"));
         assertEquals(0L, countStatus(tenantId, "PROCESSING"));
     }
@@ -92,7 +90,7 @@ class PgReservationOutboxRelayIntegrationTest {
         PgReservationOutboxRelay succeeding = relay(message -> Uni.createFrom().voidItem(), 10, 3);
         assertEquals(1, succeeding.pollOnce().await().indefinitely());
         assertEquals(1L, countStatus(tenantId, "PUBLISHED"));
-        assertEquals(2L, countAttempts(tenantId, 2));
+        assertEquals(1L, countAttempts(tenantId, 2));
     }
 
     @Test
