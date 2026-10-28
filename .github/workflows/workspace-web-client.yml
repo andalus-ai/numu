@@ -1,0 +1,38 @@
+name: Workspace Web Client
+
+on:
+  pull_request:
+    paths:
+      - "workspace/web-client/**"
+      - ".github/workflows/workspace-web-client.yml"
+  push:
+    branches: [main]
+    paths:
+      - "workspace/web-client/**"
+      - ".github/workflows/workspace-web-client.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-client:
+    name: Web client unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workspace/web-client
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Test API client
+        run: npm test
+      - name: Validate browser JavaScript syntax
+        run: |
+          node --check src/api.js
+          node --check src/app.js
+          node --check scripts/serve.mjs
