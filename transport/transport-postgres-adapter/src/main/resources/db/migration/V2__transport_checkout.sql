@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS transport_checkout (
     hold_expires_at     TIMESTAMPTZ NOT NULL,
     hold_id             UUID NOT NULL,
     payment_id          VARCHAR(256),
+    payment_action_uri  TEXT,
     status              VARCHAR(32) NOT NULL CHECK (status IN (
         'REQUESTED', 'HOLD_CREATED', 'PAYMENT_PENDING', 'PAYMENT_ACTION_REQUIRED',
         'PAYMENT_SUCCEEDED', 'PAYMENT_FAILED', 'CANCELLED', 'RECONCILIATION_REQUIRED'
