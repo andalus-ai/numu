@@ -65,7 +65,8 @@ public final class MarketplaceCheckoutService {
             if (!reservationExpiresAt.isAfter(now))
                 throw new IllegalArgumentException("reservation expiry must be in the future for a new checkout");
             MarketplaceCheckout proposed = MarketplaceCheckout.start(
-                    UUID.randomUUID(), tenantId, orderId, idempotencyKey, fingerprint, now);
+                    UUID.randomUUID(), tenantId, orderId, idempotencyKey, fingerprint,
+                    warehouseReference, reservationExpiresAt, now);
             checkout = checkouts.createOrGet(proposed);
         }
         if (!checkout.orderId().equals(orderId) || !checkout.requestFingerprint().equals(fingerprint)) {
@@ -82,6 +83,11 @@ public final class MarketplaceCheckoutService {
             checkout = reserveAll(order, checkout, warehouseReference, reservationExpiresAt);
             if (checkout.status() != MarketplaceCheckoutStatus.RESERVING_INVENTORY) return checkout;
         }
+        return proceedAfterReservations(tenantId, order, checkout);
+    }
+
+    private MarketplaceCheckout proceedAfterReservations(String tenantId, MarketplaceOrder order,
+                                                           MarketplaceCheckout checkout) {
         if (total(order).signum() == 0) {
             return save(checkout, checkout.readyWithoutPayment(clock.instant()));
         }
@@ -172,8 +178,23 @@ public final class MarketplaceCheckoutService {
         return switch (checkout.status()) {
             case AWAITING_PAYMENT, RECONCILIATION_REQUIRED -> reconcile(tenantId, checkout);
             case COMPENSATION_REQUIRED -> retryCompensation(checkout);
-            case RESERVING_INVENTORY, READY_FOR_FULFILLMENT, FAILED -> checkout;
+            case RESERVING_INVENTORY -> recoverInventoryReservation(tenantId, checkout);
+            case READY_FOR_FULFILLMENT, FAILED -> checkout;
         };
+    }
+
+    private MarketplaceCheckout recoverInventoryReservation(String tenantId, MarketplaceCheckout checkout) {
+        if (checkout.warehouseReference() == null || checkout.reservationExpiresAt() == null) {
+            return save(checkout, checkout.reconciliationRequired("CHECKOUT_REQUEST_SNAPSHOT_MISSING",
+                    "Legacy checkout lacks its immutable warehouse/expiry snapshot; operator reconciliation required",
+                    clock.instant()));
+        }
+        MarketplaceOrder order = orders.findByTenantAndId(tenantId, checkout.orderId())
+                .orElseThrow(() -> new IllegalArgumentException("Marketplace order not found"));
+        MarketplaceCheckout resumed = reserveAll(order, checkout,
+                checkout.warehouseReference(), checkout.reservationExpiresAt());
+        if (resumed.status() != MarketplaceCheckoutStatus.RESERVING_INVENTORY) return resumed;
+        return proceedAfterReservations(tenantId, order, resumed);
     }
 
     private MarketplaceCheckout retryCompensation(MarketplaceCheckout checkout) {
@@ -190,7 +211,8 @@ public final class MarketplaceCheckoutService {
     }
 
     private MarketplaceCheckout reconcile(String tenantId, MarketplaceCheckout checkout) {
-        if ("RESERVATION_OUTCOME_UNKNOWN".equals(checkout.failureCode())) {
+        if ("RESERVATION_OUTCOME_UNKNOWN".equals(checkout.failureCode())
+                || "CHECKOUT_REQUEST_SNAPSHOT_MISSING".equals(checkout.failureCode())) {
             // Do not start payment until inventory has been reconciled by the inventory adapter/operator.
             return checkout;
         }
