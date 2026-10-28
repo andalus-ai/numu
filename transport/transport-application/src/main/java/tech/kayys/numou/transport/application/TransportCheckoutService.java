@@ -13,8 +13,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -80,6 +82,32 @@ public final class TransportCheckoutService {
                     .orElseThrow(() -> duplicateOrRace);
             return resume(requireSameRequest(winner, fingerprint));
         }
+    }
+
+    /**
+     * Reconciles a bounded batch of old, nonterminal checkouts. Updated snapshots move their
+     * updatedAt forward even when Payment is still pending, so the next poll observes backoff
+     * instead of hammering the same provider operation on every scheduler tick.
+     *
+     * @return number of checkouts successfully inspected (individual failures are reported to the
+     * caller so the runtime can record a failure metric and continue in a later tick)
+     */
+    public int reconcileDue(Duration minimumAge, int batchSize) {
+        Objects.requireNonNull(minimumAge, "minimumAge");
+        if (minimumAge.isNegative() || minimumAge.isZero() || minimumAge.compareTo(Duration.ofHours(24)) > 0) {
+            throw new IllegalArgumentException("minimumAge must be between 0 and 24 hours");
+        }
+        if (batchSize < 1 || batchSize > 1_000) {
+            throw new IllegalArgumentException("batchSize must be between 1 and 1000");
+        }
+        Instant cutoff = clock.instant().minus(minimumAge);
+        List<TransportCheckout> due = checkouts.findStaleNonTerminal(cutoff, batchSize);
+        int inspected = 0;
+        for (TransportCheckout checkout : due) {
+            refresh(checkout.tenantId(), checkout.checkoutId());
+            inspected++;
+        }
+        return inspected;
     }
 
     /** Reads checkout state without contacting Payment or mutating inventory. */
@@ -153,9 +181,8 @@ public final class TransportCheckoutService {
             case CREATED, PENDING, UNKNOWN -> next = TransportCheckoutStatus.PAYMENT_PENDING;
             default -> next = TransportCheckoutStatus.RECONCILIATION_REQUIRED;
         }
-        if (checkout.status() == next && Objects.equals(checkout.paymentActionUri(), payment.actionUri())) {
-            return checkout;
-        }
+        // Persist the last successful reconciliation time even when provider status is unchanged.
+        // The updatedAt field is the bounded poller's retry/backoff cursor.
         return saveOrReload(checkout, checkout.withPayment(checkout.paymentId(), payment.actionUri(),
                 next, clock.instant()));
     }
