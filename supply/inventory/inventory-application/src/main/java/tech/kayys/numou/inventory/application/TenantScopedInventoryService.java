@@ -3,6 +3,7 @@ package tech.kayys.numou.inventory.application;
 import tech.kayys.numou.inventory.domain.inventory.*;
 import tech.kayys.numou.inventory.domain.reservation.*;
 import tech.kayys.numou.inventory.spi.TenantInventoryRepositoryProvider;
+import tech.kayys.numou.inventory.spi.InventoryRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
