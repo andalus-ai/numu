@@ -46,6 +46,21 @@ class MarketplaceCheckoutServiceTest {
     }
 
     @Test
+    void ambiguousReservationOutcomeBlocksPaymentAndDoesNotReleaseStock() {
+        Fixture f = new Fixture(MarketplaceCheckoutPaymentPort.PaymentState.SUCCEEDED, false, true);
+        MarketplaceOrder twoLineOrder = acceptedOrder(List.of(line("line-1", "produce-1"),
+                line("line-2", "produce-2")));
+        f.orders.orders.put(twoLineOrder.id(), twoLineOrder);
+
+        MarketplaceCheckout result = f.service.checkout("tenant-a", "buyer-actor", twoLineOrder.id(),
+                "checkout-key-ambiguous", "warehouse-1", NOW.plusSeconds(900));
+
+        assertEquals(MarketplaceCheckoutStatus.RECONCILIATION_REQUIRED, result.status());
+        assertEquals(0, f.payments.createCalls);
+        assertTrue(f.inventory.released.isEmpty(), "uncertain reservation must not be treated as rejection");
+    }
+
+    @Test
     void failedReservationReleasesKnownReservationsAndNeverCreatesPayment() {
         Fixture f = new Fixture(MarketplaceCheckoutPaymentPort.PaymentState.SUCCEEDED, true);
         MarketplaceOrder twoLineOrder = acceptedOrder(List.of(line("line-1", "produce-1"),
@@ -79,8 +94,12 @@ class MarketplaceCheckoutServiceTest {
         final MarketplaceCheckoutService service;
 
         Fixture(MarketplaceCheckoutPaymentPort.PaymentState paymentState, boolean failSecondLine) {
+            this(paymentState, failSecondLine, false);
+        }
+        Fixture(MarketplaceCheckoutPaymentPort.PaymentState paymentState, boolean failSecondLine,
+                boolean ambiguousSecondLine) {
             orders.orders.put(order.id(), order);
-            inventory = new FakeInventory(failSecondLine);
+            inventory = new FakeInventory(failSecondLine, ambiguousSecondLine);
             payments = new FakePayments(paymentState);
             MarketplaceOrderAuthorization auth = new MarketplaceOrderAuthorization() {
                 @Override public void requireBuyer(String tenant, String actor, MarketplaceOrder value) {
@@ -138,10 +157,15 @@ class MarketplaceCheckoutServiceTest {
         final Map<String, String> byKey = new HashMap<>();
         final java.util.Set<String> released = new java.util.HashSet<>();
         final boolean failSecondLine;
-        FakeInventory(boolean failSecondLine) { this.failSecondLine = failSecondLine; }
+        final boolean ambiguousSecondLine;
+        FakeInventory(boolean failSecondLine, boolean ambiguousSecondLine) {
+            this.failSecondLine = failSecondLine;
+            this.ambiguousSecondLine = ambiguousSecondLine;
+        }
         @Override public String reserve(String tenant, String warehouse, MarketplaceOrderLine line,
                                         BigDecimal quantity, Instant expiry, String key) {
             if (failSecondLine && line.lineId().equals("line-2")) throw new MarketplaceCheckoutInventoryPort.ReservationRejectedException("out of stock");
+            if (ambiguousSecondLine && line.lineId().equals("line-2")) throw new IllegalStateException("reservation response timed out");
             return byKey.computeIfAbsent(tenant + ":" + key, k -> {
                 String id = "reservation-" + reservations.size();
                 reservations.put(id, line.lineId()); return id;
