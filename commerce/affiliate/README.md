@@ -73,3 +73,16 @@ The repository now defines the application/SPI contracts and orchestration workf
 ## M6 implementation boundary and remaining production work
 
 This milestone adds the payout domain lifecycle and application/SPI contracts, including Wallet/Payment orchestration and destination verification boundaries. Concrete persistence/migrations, audit-event storage, operator approval and hold policies, settlement batch aggregation/scheduling, bank/wallet destination management, provider adapters, rate/fee/tax handling, and end-to-end integration/concurrency tests remain required before production use. Do not mark a payout paid based solely on a submission response or a locally updated record.
+
+## M7 — Settlement batch and maker-checker foundation
+
+- Groups requested payout intents into a single-currency settlement batch with immutable payout/partner/amount snapshots and a computed total.
+- Rejects duplicate payout IDs, mixed currencies, mismatched totals, cross-tenant payout reads, and payouts that are not in the requested state.
+- Uses tenant-scoped idempotency for batch creation; the durable repository must atomically prevent a payout from being assigned to more than one active batch and compare-and-set batch versions.
+- Adds explicit approval, submission, completion, partial-completion, cancellation, and reconciliation states.
+- Enforces maker-checker separation: the actor who created a batch cannot approve it.
+- This milestone does not initiate transfers or mark payouts paid. Wallet/Payment remains responsible for actual movement and provider reconciliation.
+
+## M7 production boundary
+
+The current implementation provides domain/application/SPI contracts and domain invariant tests. It is not production-complete until backed by durable storage/migrations, audit-event persistence, atomic payout-to-batch reservation, policy-driven thresholds/schedules, authorization checks, batch execution/reconciliation workers, and database concurrency/integration tests. The deployment must not expose `beginSubmission` as a money-moving operation until an executor safely coordinates each payout and persists per-item outcomes.

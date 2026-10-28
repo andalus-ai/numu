@@ -31,7 +31,7 @@ public class PgLedgerRepository implements LedgerRepository {
 
     static final String INSERT = """
             INSERT INTO wallet_ledger (tenant_id, entry_id, wallet_id, kind, amount, balance_after, ref, memo, at, seq, request_fingerprint)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ON CONFLICT DO NOTHING""";
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ON CONFLICT (tenant_id, entry_id) DO NOTHING""";
     static final String BY_REF = """
             SELECT CAST(row_to_json(l) AS text) FROM wallet_ledger l WHERE tenant_id = ?1 AND wallet_id = ?2 AND ref = ?3 LIMIT 1""";
     static final String HISTORY = """
@@ -49,12 +49,15 @@ public class PgLedgerRepository implements LedgerRepository {
                 .setParameter(1, tenantId).setParameter(2, entry.id()).setParameter(3, entry.walletId()).setParameter(4, entry.kind().name())
                 .setParameter(5, entry.amount()).setParameter(6, entry.balanceAfter()).setParameter(7, entry.ref()).setParameter(8, entry.memo())
                 .setParameter(9, entry.at().atOffset(ZoneOffset.UTC)).setParameter(10, entry.seq()).setParameter(11, entry.requestFingerprint())
-                .executeUpdate().invoke(PgLedgerRepository::requireInserted).replaceWithVoid()));
+                .executeUpdate().invoke(PgLedgerRepository::validateInsertResult).replaceWithVoid()));
     }
 
-    static void requireInserted(int rows) {
-        if (rows != 1) {
-            throw new ConcurrencyConflictException("Wallet ledger append conflicted with an existing entry; retry the wallet operation");
+    static void validateInsertResult(int rows) {
+        // A replay of the exact same ledger entry is a documented no-op. Other uniqueness
+        // violations (for example, reusing an operation ref for a different entry) still fail
+        // the SQL statement and abort the surrounding transaction.
+        if (rows < 0 || rows > 1) {
+            throw new ConcurrencyConflictException("Wallet ledger append affected an unexpected number of rows: " + rows);
         }
     }
 
