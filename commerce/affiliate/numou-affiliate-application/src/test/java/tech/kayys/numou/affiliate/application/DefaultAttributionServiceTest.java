@@ -40,7 +40,7 @@ class DefaultAttributionServiceTest {
             }
             @Override
             public java.util.concurrent.CompletionStage<Optional<AttributionDecision>> findBySourceEvent(
-                    String tenantId, String sourceType, String sourceId, String eventId) {
+                    String tenantId, UUID programId, String sourceType, String sourceId, String eventId) {
                 return CompletableFuture.completedFuture(Optional.empty());
             }
         };
@@ -74,7 +74,7 @@ class DefaultAttributionServiceTest {
             }
             @Override
             public java.util.concurrent.CompletionStage<Optional<AttributionDecision>> findBySourceEvent(
-                    String tenantId, String sourceType, String sourceId, String eventId) {
+                    String tenantId, UUID programId, String sourceType, String sourceId, String eventId) {
                 assertEquals(TENANT, tenantId);
                 return CompletableFuture.completedFuture(Optional.of(stored));
             }
@@ -106,7 +106,7 @@ class DefaultAttributionServiceTest {
             }
             @Override
             public java.util.concurrent.CompletionStage<Optional<AttributionDecision>> findBySourceEvent(
-                    String tenantId, String sourceType, String sourceId, String eventId) {
+                    String tenantId, UUID programId, String sourceType, String sourceId, String eventId) {
                 return CompletableFuture.completedFuture(Optional.empty());
             }
         };
