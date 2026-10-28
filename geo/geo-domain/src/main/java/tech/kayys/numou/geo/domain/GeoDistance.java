@@ -35,11 +35,14 @@ public final class GeoDistance {
     /** Sum great-circle segment lengths for a path; an empty or one-point path has zero length. */
     public static double pathLengthMeters(List<GeoPoint> points) {
         Objects.requireNonNull(points, "points");
+        // Validate every element, including the single-point path case where the segment loop
+        // would otherwise never dereference the point.
+        for (GeoPoint point : points) {
+            Objects.requireNonNull(point, "path point");
+        }
         double total = 0.0;
         for (int index = 1; index < points.size(); index++) {
-            total += metersBetween(
-                    Objects.requireNonNull(points.get(index - 1), "path point"),
-                    Objects.requireNonNull(points.get(index), "path point"));
+            total += metersBetween(points.get(index - 1), points.get(index));
         }
         return total;
     }
