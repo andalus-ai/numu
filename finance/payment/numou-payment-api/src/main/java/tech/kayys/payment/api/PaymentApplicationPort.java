@@ -35,6 +35,15 @@ public interface PaymentApplicationPort {
     Optional<PaymentObligation> find(String tenantId, String paymentId);
 
     /**
+     * Applies a provider outcome only after a trusted provider adapter has
+     * verified the callback/signature and resolved the provider account. The
+     * adapter must additionally match tenant, payment reference, amount and
+     * currency. Browser redirects and unverified callback payloads are not
+     * valid inputs. Replaying the same provider event is idempotent.
+     */
+    PaymentObligation applyVerifiedOutcome(VerifiedPaymentOutcome outcome);
+
+    /**
      * Requests a full or partial refund. The returned status describes the
      * refund operation, not necessarily final provider settlement.
      */
