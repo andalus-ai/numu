@@ -236,11 +236,12 @@ public final class ReservationService {
         if (idempotencyKey != null && idempotencyKey.isBlank()) {
             return Uni.createFrom().failure(new IllegalArgumentException("idempotencyKey cannot be blank"));
         }
-        if (idempotencyKey != null && !(reservations instanceof IdempotentReservationRepository)) {
+        if (idempotencyKey != null && transactionRunner == null
+                && !(reservations instanceof IdempotentReservationRepository)) {
             return Uni.createFrom().failure(new IllegalStateException(
                     "Idempotency key supplied but reservation repository does not support atomic idempotency"));
         }
-        if (idempotencyKey != null) {
+        if (idempotencyKey != null && transactionRunner == null) {
             final var repository = (IdempotentReservationRepository) reservations;
             final String fingerprint = reservationFingerprint(tenantId, fId, customer, party, startsAt,
                     serviceDuration, normalizedSource, notes, normalizedRequirements, tags);
@@ -331,7 +332,7 @@ public final class ReservationService {
                 final var allocation = ledger.allocate(id, party, startsAt, requestedDuration, requiredResourceTags,
                         rules, resList, now);
                 candidate.assignResources(allocation.resourceIds(), now);
-                return repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, candidate).flatMap(result -> {
+                return reservationStore.saveIdempotently(tenantId, idempotencyKey, fingerprint, candidate).flatMap(result -> {
                     if (!result.created()) {
                         // A concurrent request won this key; discard this attempt's unpersisted allocation/events.
                         return Uni.createFrom().item(ReservationView.of(result.reservation()));
