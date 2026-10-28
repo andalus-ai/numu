@@ -215,7 +215,8 @@ public final class PgTicketBookingStore implements TicketBookingStore {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                BookingSnapshot current = find(c, tenant, bookingId, true);
+                // Use the same lock order as hold/confirm: inventory row first, booking row second.
+                BookingSnapshot current = find(c, tenant, bookingId, false);
                 lockInventory(c, tenant, current.eventId(), current.productId());
                 current = find(c, tenant, bookingId, true);
                 if ("RELEASED".equals(current.status()) || "EXPIRED".equals(current.status())) {
