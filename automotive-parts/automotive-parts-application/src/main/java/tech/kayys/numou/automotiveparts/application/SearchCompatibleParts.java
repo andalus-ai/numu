@@ -55,9 +55,10 @@ public final class SearchCompatibleParts {
                 .filter(candidate -> candidate.fitment().matches(query.vehicle(), query.asOf()))
                 .collect(java.util.stream.Collectors.groupingBy(
                         PartFitment::productId,
-                        java.util.TreeMap.comparingById(Comparator.comparing(id -> id.value().toString())),
+                        java.util.LinkedHashMap::new,
                         java.util.stream.Collectors.toList()))
                 .entrySet().stream()
+                .sorted(Comparator.comparing(entry -> entry.getKey().value().toString()))
                 .map(entry -> new Result(entry.getKey(), entry.getValue()))
                 .toList();
     }
