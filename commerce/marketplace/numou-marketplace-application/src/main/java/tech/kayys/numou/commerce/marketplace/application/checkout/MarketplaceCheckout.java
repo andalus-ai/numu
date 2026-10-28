@@ -60,6 +60,14 @@ public record MarketplaceCheckout(
                 paymentId, null, null, now);
     }
 
+    /** Zero-total orders may proceed after stock is reserved without creating a zero-value payment. */
+    public MarketplaceCheckout readyWithoutPayment(Instant now) {
+        requireStatus(MarketplaceCheckoutStatus.RESERVING_INVENTORY);
+        if (paymentId != null) throw new IllegalStateException("A payment operation already exists");
+        return revise(MarketplaceCheckoutStatus.READY_FOR_FULFILLMENT, reservationIds,
+                null, null, null, now);
+    }
+
     public MarketplaceCheckout fail(String code, String detail, Instant now) {
         if (status == MarketplaceCheckoutStatus.READY_FOR_FULFILLMENT)
             throw new IllegalStateException("Completed checkout cannot fail");
