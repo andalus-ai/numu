@@ -1,20 +1,28 @@
 # Affiliate & Partner Capability
 
-This is the initial, deployment-neutral affiliate foundation. It is a capability boundary, not a mandate to run a separate service.
+This is a reusable, deployment-neutral affiliate capability, not a mandate to run a separate service.
 
-## M2 scope
+## M2 — Core setup foundation
 
-- Tenant-scoped affiliate program lifecycle.
-- Partner registration/approval lifecycle.
-- Program membership lifecycle.
-- Normalized referral codes and link disablement.
-- Tenant-scoped repository ports and an application setup contract carrying actor, idempotency, and correlation context.
+- Tenant-scoped affiliate program, partner, program membership, and referral-link lifecycles.
+- Normalized referral codes and explicit tenant/actor/idempotency/correlation command context.
+- Repository contracts require tenant-scoped lookups; concrete adapters must enforce tenant scope and uniqueness atomically.
 
-## Explicit non-goals in this milestone
+## M3 — Attribution foundation
 
-- Attribution windows, last/first/multi-touch policy, and conversion ingestion (M3).
-- Commission plans/calculation, approval, reversals, disputes, and payable ledger (M4).
-- Payment-provider execution, wallet balances, and accounting postings (M5 integrations).
-- HTTP endpoints, database migrations, and production persistence adapters. Those must follow existing reactor/runtime conventions and have integration tests before being considered production-ready.
+- Immutable, versioned attribution policies with first-touch and last-touch strategies.
+- Deterministic selection from eligible touchpoints, bounded by a policy window and conversion timestamp.
+- Immutable decisions record source correlation and policy version, and distinguish attributed from unattributed outcomes.
+- Application orchestration checks for an existing decision, requires an authoritative qualified conversion, resolves the effective policy, loads a bounded touchpoint set, and uses atomic `saveOrGet` to converge concurrent replays.
+- Source adapters must provide a verified qualifying conversion; client redirects and untrusted status payloads are not evidence.
+- Decision repository contract specifies an atomic unique key and exact-replay behavior.
 
-The application contract is intentionally not backed by a fake in-memory or provider implementation. Consumers must compose an implementation through explicit adapters. All repository methods require tenant scope; implementations must enforce it in the query and add optimistic concurrency and uniqueness guarantees at the persistence boundary.
+## Not yet production-complete
+
+- Concrete persistence adapters and transaction isolation for uniqueness/concurrency.
+- Durable ingestion/outbox, backfill and reconciliation jobs.
+- Commission calculation, liability accounting, reversals, disputes, payout and provider execution.
+- HTTP endpoints and partner/operator UI.
+- Identity/tenant authorization adapter implementation, retention policy, and deployment-specific observability.
+
+Those pieces must follow existing reactor/runtime conventions and have integration tests before they are considered production-ready. Do not expose raw personal identifiers as subject keys; use a tenant-scoped opaque/pseudonymous key under a documented privacy/retention policy.
