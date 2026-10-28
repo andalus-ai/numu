@@ -11,6 +11,7 @@ import tech.kayys.payment.api.PaymentRequestFingerprint;
 import tech.kayys.payment.api.PaymentStatus;
 import tech.kayys.payment.api.RefundOperation;
 import tech.kayys.payment.api.RefundStatus;
+import tech.kayys.payment.api.VerifiedPaymentOutcome;
 import tech.kayys.payment.api.RequestPaymentRefund;
 
 import javax.sql.DataSource;
@@ -108,6 +109,184 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
                 }
             }
         });
+    }
+
+    @Override
+    public PaymentObligation applyVerifiedOutcome(VerifiedPaymentOutcome outcome) {
+        if (outcome == null) {
+            throw new IllegalArgumentException("outcome must not be null");
+        }
+        String tenant = required(outcome.tenantId(), "tenantId");
+        tenantAuthorization.authorizeTenant(tenant);
+        UUID paymentId = parseUuid(outcome.paymentId(), "paymentId");
+        String fingerprint = providerOutcomeFingerprint(outcome);
+        return inTransaction(connection -> {
+            BigDecimal expectedAmount;
+            String expectedCurrency;
+            PaymentStatus currentStatus;
+            String existingProviderReference;
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    SELECT amount, currency, payment_status, provider_reference
+                    FROM payment_obligation
+                    WHERE tenant_id = ? AND payment_id = ?
+                    FOR UPDATE
+                    """)) {
+                statement.setString(1, tenant);
+                statement.setObject(2, paymentId);
+                try (ResultSet result = statement.executeQuery()) {
+                    if (!result.next()) {
+                        throw new PaymentOperationRejectedException(
+                                "Payment does not exist within the supplied tenant");
+                    }
+                    expectedAmount = result.getBigDecimal("amount");
+                    expectedCurrency = result.getString("currency").trim();
+                    currentStatus = PaymentStatus.valueOf(result.getString("payment_status"));
+                    existingProviderReference = result.getString("provider_reference");
+                }
+            }
+
+            if (expectedAmount.compareTo(outcome.amount()) != 0
+                    || !expectedCurrency.equals(outcome.currency())) {
+                throw new PaymentOperationRejectedException(
+                        "Verified provider amount/currency does not match the payment obligation");
+            }
+            if (existingProviderReference != null
+                    && !existingProviderReference.equals(outcome.providerReference())) {
+                throw new PaymentOperationRejectedException(
+                        "Provider reference does not match the payment obligation");
+            }
+
+            int inserted;
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    INSERT INTO payment_provider_event_inbox (
+                        inbox_id, tenant_id, provider_name, provider_event_id, payment_id,
+                        request_fingerprint, provider_occurred_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (tenant_id, provider_name, provider_event_id) DO NOTHING
+                    """)) {
+                statement.setObject(1, UUID.randomUUID());
+                statement.setString(2, tenant);
+                statement.setString(3, outcome.providerName());
+                statement.setString(4, outcome.providerEventId());
+                statement.setObject(5, paymentId);
+                statement.setString(6, fingerprint);
+                statement.setTimestamp(7, java.sql.Timestamp.from(outcome.occurredAt()));
+                inserted = statement.executeUpdate();
+            }
+            if (inserted == 0) {
+                try (PreparedStatement statement = connection.prepareStatement("""
+                        SELECT payment_id, request_fingerprint
+                        FROM payment_provider_event_inbox
+                        WHERE tenant_id = ? AND provider_name = ? AND provider_event_id = ?
+                        """)) {
+                    statement.setString(1, tenant);
+                    statement.setString(2, outcome.providerName());
+                    statement.setString(3, outcome.providerEventId());
+                    try (ResultSet result = statement.executeQuery()) {
+                        if (!result.next()) {
+                            throw new IllegalStateException("Provider event conflict row disappeared");
+                        }
+                        if (!paymentId.equals(result.getObject("payment_id", UUID.class))
+                                || !fingerprint.equals(result.getString("request_fingerprint"))) {
+                            throw new IdempotencyConflictException(
+                                    "Provider event ID was reused with a different payment outcome");
+                        }
+                    }
+                }
+                return findPayment(connection, tenant, paymentId)
+                        .orElseThrow(() -> new IllegalStateException("Payment disappeared after event replay"));
+            }
+
+            PaymentStatus target = outcome.status();
+            if (target == currentStatus) {
+                return findPayment(connection, tenant, paymentId)
+                        .orElseThrow(() -> new IllegalStateException("Payment disappeared after provider event"));
+            }
+            if (!isAllowedProviderTransition(currentStatus, target)) {
+                throw new PaymentOperationRejectedException(
+                        "Provider outcome transition is not allowed: " + currentStatus + " -> " + target);
+            }
+
+            boolean lateSuccess = target == PaymentStatus.SUCCEEDED
+                    && (currentStatus == PaymentStatus.FAILED
+                    || currentStatus == PaymentStatus.CANCELLED
+                    || currentStatus == PaymentStatus.EXPIRED);
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    UPDATE payment_obligation
+                    SET payment_status = ?, provider_reference = COALESCE(provider_reference, ?),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE tenant_id = ? AND payment_id = ?
+                    """)) {
+                statement.setString(1, target.name());
+                statement.setString(2, outcome.providerReference());
+                statement.setString(3, tenant);
+                statement.setObject(4, paymentId);
+                if (statement.executeUpdate() != 1) {
+                    throw new IllegalStateException("Payment state update affected an unexpected row count");
+                }
+            }
+
+            String eventType = lateSuccess
+                    ? "PAYMENT_LATE_SUCCESS_REQUIRES_RECONCILIATION"
+                    : "PAYMENT_STATUS_CHANGED:" + fingerprint.substring(0, 24);
+            insertOutbox(connection, tenant, "PAYMENT", paymentId, eventType,
+                    Map.of("paymentId", paymentId.toString(),
+                            "providerName", outcome.providerName(),
+                            "providerEventId", outcome.providerEventId(),
+                            "providerReference", outcome.providerReference(),
+                            "previousStatus", currentStatus.name(),
+                            "status", target.name(),
+                            "amount", outcome.amount().toPlainString(),
+                            "currency", outcome.currency(),
+                            "occurredAt", outcome.occurredAt().toString()));
+            return findPayment(connection, tenant, paymentId)
+                    .orElseThrow(() -> new IllegalStateException("Updated payment could not be reloaded"));
+        });
+    }
+
+    private static boolean isAllowedProviderTransition(PaymentStatus current, PaymentStatus target) {
+        if (target == PaymentStatus.PARTIALLY_REFUNDED || target == PaymentStatus.REFUNDED
+                || target == PaymentStatus.CREATED) {
+            return false;
+        }
+        return switch (current) {
+            case CREATED -> target == PaymentStatus.REQUIRES_CUSTOMER_ACTION
+                    || target == PaymentStatus.PENDING || target == PaymentStatus.SUCCEEDED
+                    || target == PaymentStatus.FAILED || target == PaymentStatus.CANCELLED
+                    || target == PaymentStatus.EXPIRED || target == PaymentStatus.UNKNOWN;
+            case REQUIRES_CUSTOMER_ACTION -> target == PaymentStatus.PENDING
+                    || target == PaymentStatus.SUCCEEDED || target == PaymentStatus.FAILED
+                    || target == PaymentStatus.CANCELLED || target == PaymentStatus.EXPIRED
+                    || target == PaymentStatus.UNKNOWN;
+            case PENDING -> target == PaymentStatus.SUCCEEDED || target == PaymentStatus.FAILED
+                    || target == PaymentStatus.CANCELLED || target == PaymentStatus.EXPIRED
+                    || target == PaymentStatus.UNKNOWN;
+            case UNKNOWN -> target == PaymentStatus.REQUIRES_CUSTOMER_ACTION
+                    || target == PaymentStatus.PENDING || target == PaymentStatus.SUCCEEDED
+                    || target == PaymentStatus.FAILED || target == PaymentStatus.CANCELLED
+                    || target == PaymentStatus.EXPIRED;
+            case FAILED, CANCELLED, EXPIRED -> target == PaymentStatus.SUCCEEDED;
+            case SUCCEEDED, PARTIALLY_REFUNDED, REFUNDED -> false;
+        };
+    }
+
+    private static String providerOutcomeFingerprint(VerifiedPaymentOutcome outcome) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            updateDigest(digest, "numou-verified-payment-outcome-v1");
+            updateDigest(digest, outcome.tenantId());
+            updateDigest(digest, outcome.paymentId());
+            updateDigest(digest, outcome.providerName());
+            updateDigest(digest, outcome.providerEventId());
+            updateDigest(digest, outcome.providerReference());
+            updateDigest(digest, outcome.amount().stripTrailingZeros().toPlainString());
+            updateDigest(digest, outcome.currency());
+            updateDigest(digest, outcome.status().name());
+            updateDigest(digest, outcome.occurredAt().toString());
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     @Override

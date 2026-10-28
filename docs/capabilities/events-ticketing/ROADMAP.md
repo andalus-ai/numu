@@ -73,6 +73,8 @@ Verify `AGENTS.md`, ADRs, capability matrix, payment public API and adapter, Res
 ### M3 — Payment orchestration
 Integrate through the public Payment application contract. Add provider execution, signed callback verification, durable delivery, reconciliation and explicit state transitions in the owning payment capability/adapters. Test duplicate/out-of-order callbacks, amount/currency mismatch, timeouts, late provider success, refund limits and tenant isolation. **Acceptance:** deterministic reconciliation and observable operator-actionable unknown outcomes.
 
+**Current implementation update:** the shared Payment API now has a verified-provider-outcome command and the PostgreSQL adapter persists provider event IDs in a tenant-scoped inbox, validates amount/currency/reference against the obligation, applies explicit state transitions under a payment-row lock, and emits a transactional outbox event. Late success after an expired/cancelled/failed state emits an operator-reconciliation event rather than a normal success event. This is a transition/persistence foundation only: it does not verify provider signatures itself, execute provider requests, publish the outbox, or complete Events booking orchestration. A provider-specific adapter must authenticate and verify callbacks before invoking this contract.
+
 ### M4 — Ticket issuance and check-in
 Add idempotent ticket issuance, secure tokens, attendee assignment, transfer/revocation policies, scanner validation and duplicate-scan controls. Integrate optional delivery through ports/outbox. **Acceptance:** no duplicate ticket per entitlement; revoked tickets fail; concurrent scans cannot double-admit.
 
