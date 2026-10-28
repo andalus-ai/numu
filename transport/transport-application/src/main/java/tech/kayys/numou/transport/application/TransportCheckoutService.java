@@ -1,5 +1,6 @@
 package tech.kayys.numou.transport.application;
 
+import tech.kayys.numou.transport.domain.HoldNotActiveException;
 import tech.kayys.numou.transport.domain.PassengerHold;
 import tech.kayys.numou.transport.domain.TransportCheckout;
 import tech.kayys.numou.transport.domain.TransportCheckoutStatus;
@@ -128,20 +129,18 @@ public final class TransportCheckoutService {
                 try {
                     bookings.confirm(checkout.tenantId(), checkout.departureId(), checkout.holdId());
                     next = TransportCheckoutStatus.PAYMENT_SUCCEEDED;
-                } catch (RuntimeException cannotConfirm) {
+                } catch (HoldNotActiveException cannotConfirm) {
                     // Payment may settle after capacity expires. Never claim a booking succeeded
                     // without confirmed capacity; require refund/manual reconciliation.
                     next = TransportCheckoutStatus.RECONCILIATION_REQUIRED;
                 }
             }
             case FAILED, CANCELLED, EXPIRED -> {
-                try {
-                    bookings.release(checkout.tenantId(), checkout.departureId(), checkout.holdId());
-                    next = payment.status() == TransportPaymentPort.PaymentState.CANCELLED
-                            ? TransportCheckoutStatus.CANCELLED : TransportCheckoutStatus.PAYMENT_FAILED;
-                } catch (RuntimeException cannotRelease) {
-                    next = TransportCheckoutStatus.RECONCILIATION_REQUIRED;
-                }
+                // Infrastructure failures propagate so the pending checkout can be retried;
+                // only a confirmed business-state mismatch is terminal reconciliation work.
+                bookings.release(checkout.tenantId(), checkout.departureId(), checkout.holdId());
+                next = payment.status() == TransportPaymentPort.PaymentState.CANCELLED
+                        ? TransportCheckoutStatus.CANCELLED : TransportCheckoutStatus.PAYMENT_FAILED;
             }
             case REQUIRES_CUSTOMER_ACTION -> next = TransportCheckoutStatus.PAYMENT_ACTION_REQUIRED;
             case CREATED, PENDING, UNKNOWN -> next = TransportCheckoutStatus.PAYMENT_PENDING;
