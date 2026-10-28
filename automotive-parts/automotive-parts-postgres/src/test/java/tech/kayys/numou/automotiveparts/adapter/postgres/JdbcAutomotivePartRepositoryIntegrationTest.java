@@ -11,6 +11,7 @@ import tech.kayys.numou.automotiveparts.domain.AutomotivePartProfile;
 import tech.kayys.numou.automotiveparts.domain.PartFitment;
 import tech.kayys.numou.automotiveparts.domain.PartReference;
 import tech.kayys.numou.automotiveparts.domain.PartReferenceType;
+import tech.kayys.numou.automotiveparts.domain.PartSubstitution;
 import tech.kayys.numou.automotiveparts.domain.VehicleFitment;
 import tech.kayys.numou.automotiveparts.domain.VehicleSpecification;
 import tech.kayys.numou.product.domain.product.ProductId;
@@ -86,6 +87,37 @@ class JdbcAutomotivePartRepositoryIntegrationTest {
         assertTrue(repository.findFitmentCandidates("tenant-a",
                 new VehicleSpecification("ID", "Toyota", "Avanza", "GEN-2", 2022, "2NR", null),
                 LocalDate.of(2026, 1, 1)).isEmpty());
+    }
+
+
+    @Test
+    void substitutionsAreTenantScopedEffectiveDatedAndIdempotent() {
+        ProductId source = ProductId.generate();
+        ProductId replacement = ProductId.generate();
+        ProductId otherTenantSource = ProductId.generate();
+        ProductId otherTenantReplacement = ProductId.generate();
+        repository.saveProfile(profile("tenant-a", source, new PartReference(PartReferenceType.OEM, "SOURCE-1")));
+        repository.saveProfile(profile("tenant-a", replacement, new PartReference(PartReferenceType.OEM, "REPLACEMENT-1")));
+        repository.saveProfile(profile("tenant-b", otherTenantSource, new PartReference(PartReferenceType.OEM, "SOURCE-2")));
+        repository.saveProfile(profile("tenant-b", otherTenantReplacement, new PartReference(PartReferenceType.OEM, "REPLACEMENT-2")));
+
+        PartSubstitution rule = new PartSubstitution("tenant-a", source, replacement,
+                PartSubstitution.SubstitutionKind.APPROVED_EQUIVALENT, true, "Verified equivalent",
+                LocalDate.of(2025, 1, 1), LocalDate.of(2027, 12, 31));
+        repository.saveSubstitution(rule);
+        repository.saveSubstitution(rule);
+
+        var matches = repository.findSubstitutions("tenant-a", source, LocalDate.of(2026, 10, 1));
+        assertEquals(1, matches.size());
+        assertEquals(replacement, matches.getFirst().substituteProductId());
+        assertTrue(matches.getFirst().requiresTechnicianApproval());
+        assertTrue(repository.findSubstitutions("tenant-a", source, LocalDate.of(2028, 1, 1)).isEmpty());
+        assertTrue(repository.findSubstitutions("tenant-b", source, LocalDate.of(2026, 10, 1)).isEmpty());
+
+        assertThrows(IllegalStateException.class, () -> repository.saveSubstitution(
+                new PartSubstitution("tenant-a", source, otherTenantReplacement,
+                        PartSubstitution.SubstitutionKind.CONDITIONAL, true, "cross tenant must fail",
+                        LocalDate.of(2025, 1, 1), null)));
     }
 
     private static AutomotivePartProfile profile(String tenant, ProductId id, PartReference reference) {
