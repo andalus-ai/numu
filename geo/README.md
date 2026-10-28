@@ -39,8 +39,10 @@ Inventory's existing `BigDecimal` coordinate model is not migrated by this capab
 - **M2:** audit consumer semantics and document compatibility/migration boundaries.
 - **M3:** explicit Mobility `LatLng` conversion to/from the shared Geo point, validation/precision compatibility tests, and cross-reactor CI installation order.
 - **M4:** Mobility's great-circle distance delegates to Geo's canonical haversine implementation while preserving `GeoMath` signatures and the public Earth-radius constant.
-- **M5 (this change):** extract precision-5 encoded-polyline encoding/decoding into the neutral Geo domain; add configurable resolution-aware angular grid cells; retain the Mobility `Polyline` and `GeoCell` APIs as compatibility facades; centralize path-length validation and accumulation; add shared and cross-capability regression tests.
-- **Next:** add reusable geometry operations or provider-neutral routing/geocoding ports only after consumer contracts, coordinate semantics, antimeridian/polar behavior, provider failure models, and data-sharing rules are audited. Do not silently turn straight-line estimates into road routes or move ride policies into Geo.
+- **M5:** extract precision-5 encoded-polyline encoding/decoding into the neutral Geo domain; add configurable resolution-aware angular grid cells; retain the Mobility `Polyline` and `GeoCell` APIs as compatibility facades; centralize path-length validation and accumulation; add shared and cross-capability regression tests.
+- **M6:** preserve consumer coordinate compatibility, including Inventory's precision-sensitive `BigDecimal` model and explicit boundary tests.
+- **M7 (contract proposal):** define provider-neutral spatial query semantics before adding query APIs or database adapters. See [Spatial Query Contract M7](docs/SPATIAL-QUERY-CONTRACT-M7.md). This document is a design contract, not evidence that a query port or adapter already exists.
+- **Next:** choose one concrete consumer query, then implement the minimal provider-neutral port and one adapter with exact-predicate, antimeridian/polar, tenancy, ordering and failure-mode tests. Add other adapters only when a real deployment needs them. Do not silently turn straight-line estimates into road routes or move consumer policies into Geo.
 
 ## Compatibility and security
 

@@ -76,7 +76,20 @@ class PostgresPaymentApplicationAdapterTest {
             }
         }
         try (InputStream migration = getClass().getResourceAsStream(
-                "/db/migration/V2__verified_payment_outcome_inbox.sql")) {
+                "/db/migration/V2__payment_outbox_leases_and_dead_letters.sql")) {
+            if (migration == null) {
+                throw new IllegalStateException("Payment outbox lease migration was not packaged");
+            }
+            String sql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
+            try (Connection connection = dataSource.getConnection();
+                 Statement statement = connection.createStatement()) {
+                for (String command : sql.split(";")) {
+                    if (!command.isBlank()) statement.execute(command);
+                }
+            }
+        }
+        try (InputStream migration = getClass().getResourceAsStream(
+                "/db/migration/V3__verified_payment_outcome_inbox.sql")) {
             if (migration == null) {
                 throw new IllegalStateException("Verified payment event inbox migration was not packaged");
             }
