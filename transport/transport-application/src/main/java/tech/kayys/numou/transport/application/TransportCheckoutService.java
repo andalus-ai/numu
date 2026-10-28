@@ -70,7 +70,7 @@ public final class TransportCheckoutService {
         TransportCheckout proposed = new TransportCheckout(command.tenantId(), UUID.randomUUID(),
                 command.idempotencyKey(), fingerprint, command.departureId(), quote.quoteId(),
                 command.fromSequence(), command.toSequence(), command.passengerCount(),
-                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null,
+                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null, null,
                 TransportCheckoutStatus.REQUESTED, 0, now, now);
         try {
             checkouts.create(proposed);
@@ -86,6 +86,7 @@ public final class TransportCheckoutService {
     public TransportCheckout refresh(String tenantId, UUID checkoutId) {
         TransportCheckout checkout = checkouts.find(tenantId, checkoutId)
                 .orElseThrow(() -> new IllegalArgumentException("checkout not found"));
+        if (isTerminal(checkout.status())) return checkout;
         if (checkout.paymentId() == null) return resume(checkout);
         return reconcile(checkout);
     }
@@ -108,7 +109,7 @@ public final class TransportCheckoutService {
             if (current.status() == TransportCheckoutStatus.HOLD_CREATED) {
                 TransportPaymentPort.PaymentSnapshot payment = payments.createOrGet(paymentCommand(current));
                 verifyPayment(current, payment, false);
-                current = saveOrReload(current, current.withPayment(payment.paymentId(),
+                current = saveOrReload(current, current.withPayment(payment.paymentId(), payment.actionUri(),
                         TransportCheckoutStatus.PAYMENT_PENDING, clock.instant()));
             }
             if (current.status() == TransportCheckoutStatus.PAYMENT_PENDING
@@ -146,8 +147,11 @@ public final class TransportCheckoutService {
             case CREATED, PENDING, UNKNOWN -> next = TransportCheckoutStatus.PAYMENT_PENDING;
             default -> next = TransportCheckoutStatus.RECONCILIATION_REQUIRED;
         }
-        if (checkout.status() == next) return checkout;
-        return persistStatus(checkout, next);
+        if (checkout.status() == next && Objects.equals(checkout.paymentActionUri(), payment.actionUri())) {
+            return checkout;
+        }
+        return saveOrReload(checkout, checkout.withPayment(checkout.paymentId(), payment.actionUri(),
+                next, clock.instant()));
     }
 
     private TransportCheckout persistStatus(TransportCheckout current, TransportCheckoutStatus status) {
