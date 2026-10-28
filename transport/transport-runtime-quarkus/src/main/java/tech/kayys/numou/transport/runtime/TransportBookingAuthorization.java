@@ -80,6 +80,7 @@ public class TransportBookingAuthorization {
         CONFIRM_HOLD("confirm", "transport.booking.hold", ActionType.UPDATE),
         RELEASE_HOLD("release", "transport.booking.hold", ActionType.UPDATE),
         CREATE_CHECKOUT("create", "transport.booking.checkout", ActionType.CREATE),
+        READ_CHECKOUT("read", "transport.booking.checkout", ActionType.READ),
         REFRESH_CHECKOUT("refresh", "transport.booking.checkout", ActionType.PERFORM);
 
         private final String permissionAction;
