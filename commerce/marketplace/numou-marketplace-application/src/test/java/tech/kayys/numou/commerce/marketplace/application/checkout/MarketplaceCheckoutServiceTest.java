@@ -35,6 +35,22 @@ class MarketplaceCheckoutServiceTest {
     }
 
     @Test
+    void zeroTotalOrderDoesNotCreatePaymentObligation() {
+        Fixture f = new Fixture(MarketplaceCheckoutPaymentPort.PaymentState.SUCCEEDED, false);
+        MarketplaceOrder freeOrder = acceptedOrder(List.of(new MarketplaceOrderLine("free-line", "sample",
+                "offer-sample", "seller-1", "Free sample", BigDecimal.ONE, "item",
+                BigDecimal.ZERO, "IDR")));
+        f.orders.orders.put(freeOrder.id(), freeOrder);
+
+        MarketplaceCheckout result = f.service.checkout("tenant-a", "buyer-actor", freeOrder.id(),
+                "checkout-free", "warehouse-1", NOW.plusSeconds(900));
+
+        assertEquals(MarketplaceCheckoutStatus.READY_FOR_FULFILLMENT, result.status());
+        assertNull(result.paymentId());
+        assertEquals(0, f.payments.createCalls);
+    }
+
+    @Test
     void unknownPaymentOutcomeRetainsReservationAndRequiresReconciliation() {
         Fixture f = new Fixture(MarketplaceCheckoutPaymentPort.PaymentState.UNKNOWN, false);
         MarketplaceCheckout result = f.service.checkout("tenant-a", "buyer-actor", f.order.id(),
