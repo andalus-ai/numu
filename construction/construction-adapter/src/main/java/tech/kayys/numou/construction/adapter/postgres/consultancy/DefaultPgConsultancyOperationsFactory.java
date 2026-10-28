@@ -166,6 +166,70 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
                             : Optional.empty());
         }
 
+        @Override
+        public Uni<ConsultancyDeliverable> updateDeliverable(
+                String tenantId, ConsultancyDeliverable deliverable) {
+            requireText(tenantId, "tenantId");
+            Objects.requireNonNull(deliverable, "deliverable");
+            String sql = switch (deliverable.status()) {
+                case DRAFT -> """
+                        UPDATE construction_consultancy_deliverable
+                           SET title = $3, description = $4, revision = $5, status = 'DRAFT',
+                               reviewed_by_organization_id = NULL, review_comment = NULL, updated_at = now()
+                         WHERE tenant_id = $1 AND deliverable_id = $2 AND revision = $5 - 1
+                           AND status = 'REJECTED'
+                        RETURNING tenant_id, deliverable_id, engagement_id, client_organization_id,
+                            consultant_organization_id, code, title, description, revision, status,
+                            reviewed_by_organization_id, review_comment
+                        """;
+                case SUBMITTED -> """
+                        UPDATE construction_consultancy_deliverable
+                           SET status = 'SUBMITTED', reviewed_by_organization_id = NULL,
+                               review_comment = NULL, updated_at = now()
+                         WHERE tenant_id = $1 AND deliverable_id = $2 AND revision = $3
+                           AND status = 'DRAFT'
+                        RETURNING tenant_id, deliverable_id, engagement_id, client_organization_id,
+                            consultant_organization_id, code, title, description, revision, status,
+                            reviewed_by_organization_id, review_comment
+                        """;
+                case ACCEPTED -> """
+                        UPDATE construction_consultancy_deliverable
+                           SET status = 'ACCEPTED', reviewed_by_organization_id = $4,
+                               review_comment = $5, updated_at = now()
+                         WHERE tenant_id = $1 AND deliverable_id = $2 AND revision = $3
+                           AND status = 'SUBMITTED'
+                        RETURNING tenant_id, deliverable_id, engagement_id, client_organization_id,
+                            consultant_organization_id, code, title, description, revision, status,
+                            reviewed_by_organization_id, review_comment
+                        """;
+                case REJECTED -> """
+                        UPDATE construction_consultancy_deliverable
+                           SET status = 'REJECTED', reviewed_by_organization_id = $4,
+                               review_comment = $5, updated_at = now()
+                         WHERE tenant_id = $1 AND deliverable_id = $2 AND revision = $3
+                           AND status = 'SUBMITTED'
+                        RETURNING tenant_id, deliverable_id, engagement_id, client_organization_id,
+                            consultant_organization_id, code, title, description, revision, status,
+                            reviewed_by_organization_id, review_comment
+                        """;
+            };
+            Tuple parameters = switch (deliverable.status()) {
+                case DRAFT -> Tuple.of(tenantId, deliverable.id().value(),
+                        deliverable.title(), deliverable.description(), deliverable.revision());
+                case SUBMITTED -> Tuple.of(tenantId, deliverable.id().value(), deliverable.revision());
+                case ACCEPTED, REJECTED -> Tuple.of(tenantId, deliverable.id().value(),
+                        deliverable.revision(), deliverable.reviewedByOrganizationId(),
+                        deliverable.reviewComment());
+            };
+            return connection.preparedQuery(sql).execute(parameters).map(rows -> {
+                if (!rows.iterator().hasNext()) {
+                    throw new ConcurrentConsultancyDeliverableUpdateException(
+                            "Deliverable changed concurrently or lifecycle transition is no longer valid");
+                }
+                return mapDeliverable(rows.iterator().next());
+            });
+        }
+
         /**
          * Conditional updates are the concurrency boundary: only a transition from the
          * expected persisted state can win. A stale aggregate cannot overwrite a newer
@@ -231,6 +295,13 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
 
         private static void requireText(String value, String name) {
             if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required");
+        }
+    }
+
+    /** Indicates a tenant-scoped deliverable compare-and-set did not match current persisted state. */
+    public static final class ConcurrentConsultancyDeliverableUpdateException extends RuntimeException {
+        public ConcurrentConsultancyDeliverableUpdateException(String message) {
+            super(message);
         }
     }
 

@@ -62,6 +62,13 @@ public interface TransactionalCommandContext {
                     "Transactional consultancy deliverable lookups are not implemented by this adapter"));
         }
 
+        /** Updates a deliverable using a tenant-scoped lifecycle compare-and-set. */
+        default Uni<ConsultancyDeliverable> updateDeliverable(
+                String tenantId, ConsultancyDeliverable deliverable) {
+            return Uni.createFrom().failure(new UnsupportedOperationException(
+                    "Transactional consultancy deliverable updates are not implemented by this adapter"));
+        }
+
         /** Updates an existing tenant-scoped engagement in the same command transaction. */
         default Uni<ConsultancyEngagement> updateEngagement(String tenantId, ConsultancyEngagement engagement) {
             return Uni.createFrom().failure(new UnsupportedOperationException(
