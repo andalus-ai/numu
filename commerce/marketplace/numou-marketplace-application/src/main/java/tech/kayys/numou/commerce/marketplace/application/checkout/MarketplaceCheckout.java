@@ -46,7 +46,8 @@ public record MarketplaceCheckout(
 
     public MarketplaceCheckout awaitingPayment(String paymentId, Instant now) {
         if (status != MarketplaceCheckoutStatus.RESERVING_INVENTORY
-                && status != MarketplaceCheckoutStatus.AWAITING_PAYMENT)
+                && status != MarketplaceCheckoutStatus.AWAITING_PAYMENT
+                && status != MarketplaceCheckoutStatus.RECONCILIATION_REQUIRED)
             throw new IllegalStateException("Cannot request payment from " + status);
         return revise(MarketplaceCheckoutStatus.AWAITING_PAYMENT, reservationIds,
                 required(paymentId, "paymentId"), null, null, now);
