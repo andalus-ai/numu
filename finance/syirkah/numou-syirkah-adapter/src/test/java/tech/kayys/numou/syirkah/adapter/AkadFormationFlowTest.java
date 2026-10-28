@@ -6,6 +6,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
 import tech.kayys.numou.numouadapter.memory.CollectingEventPublisher;
+import tech.kayys.numou.numouadapter.memory.InMemoryAkadFormationPort;
 import tech.kayys.numou.numouadapter.memory.InMemoryJournalPostingPort;
 import tech.kayys.numou.numouadapter.memory.InMemorySyirkahRepository;
 import tech.kayys.numou.numouadapter.memory.LocalTransactionPort;
@@ -98,5 +99,24 @@ class AkadFormationFlowTest {
         strict.openWithFormation(new Commands.Open(tenant, checked, contract(), 0), formation(true),
                 FormationPolicy.bookDefault());
         assertTrue(repo.find(tenant, checked).isPresent());
+    }
+
+    @Test
+    void theFormationRecordIsKeptOnlyWhenTheSyirkahOpens() {
+        InMemoryAkadFormationPort store = new InMemoryAkadFormationPort();
+        SyirkahApplicationService withStore = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), new LocalTransactionPort(), accounts, Clock.system(ZoneOffset.UTC),
+                FormationEnforcement.REQUIRED, store);
+        SyirkahId bad = SyirkahId.generate();
+        assertThrows(BusinessRuleViolation.class, () -> withStore.openWithFormation(
+                new Commands.Open(tenant, bad, contract(), 0), formation(false), FormationPolicy.bookDefault()));
+        assertEquals(false, store.find(tenant, bad).isPresent());
+
+        SyirkahId good = SyirkahId.generate();
+        withStore.openWithFormation(new Commands.Open(tenant, good, contract(), 0), formation(true),
+                FormationPolicy.bookDefault());
+        var recorded = store.find(tenant, good).orElseThrow();
+        assertEquals(formation(true), recorded.formation());
+        assertEquals(FormationPolicy.bookDefault(), recorded.policy());
     }
 }
