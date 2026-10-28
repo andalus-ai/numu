@@ -29,6 +29,7 @@
         <module>wallet/numou-wallet-domain</module>
         <module>wallet/numou-wallet-application</module>
         <module>wallet/numou-wallet-adapter</module>
+        <module>wallet/numou-wallet-postgres-adapter</module>
     </modules>
 
     <build>
