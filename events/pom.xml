@@ -15,5 +15,8 @@
     <description>Reusable event-ticketing domain with channel-neutral booking and multi-technology admission credentials.</description>
     <modules>
         <module>events-domain</module>
+        <module>events-spi</module>
+        <module>events-application</module>
+        <module>events-postgres-adapter</module>
     </modules>
 </project>
