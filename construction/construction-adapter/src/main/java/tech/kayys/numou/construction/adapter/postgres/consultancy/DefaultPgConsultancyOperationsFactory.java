@@ -174,9 +174,9 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
             String sql = switch (deliverable.status()) {
                 case DRAFT -> """
                         UPDATE construction_consultancy_deliverable
-                           SET title = $4, description = $5, revision = $6, status = 'DRAFT',
+                           SET title = $3, description = $4, revision = $5, status = 'DRAFT',
                                reviewed_by_organization_id = NULL, review_comment = NULL, updated_at = now()
-                         WHERE tenant_id = $1 AND deliverable_id = $2 AND revision = $6 - 1
+                         WHERE tenant_id = $1 AND deliverable_id = $2 AND revision = $5 - 1
                            AND status = 'REJECTED'
                         RETURNING tenant_id, deliverable_id, engagement_id, client_organization_id,
                             consultant_organization_id, code, title, description, revision, status,
@@ -214,7 +214,7 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
                         """;
             };
             Tuple parameters = switch (deliverable.status()) {
-                case DRAFT -> Tuple.of(tenantId, deliverable.id().value(), deliverable.revision() - 1,
+                case DRAFT -> Tuple.of(tenantId, deliverable.id().value(),
                         deliverable.title(), deliverable.description(), deliverable.revision());
                 case SUBMITTED -> Tuple.of(tenantId, deliverable.id().value(), deliverable.revision());
                 case ACCEPTED, REJECTED -> Tuple.of(tenantId, deliverable.id().value(),
