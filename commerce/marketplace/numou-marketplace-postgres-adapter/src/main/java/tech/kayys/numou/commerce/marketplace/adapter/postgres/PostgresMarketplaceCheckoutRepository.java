@@ -90,6 +90,34 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
     }
 
     @Override
+    public java.util.List<MarketplaceCheckout> findRecoverable(String tenantId, int limit) {
+        requireTenant(tenantId);
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     SELECT checkout_id
+                     FROM marketplace_checkout
+                     WHERE tenant_id = ?
+                       AND checkout_status IN ('AWAITING_PAYMENT', 'RECONCILIATION_REQUIRED', 'COMPENSATION_REQUIRED')
+                     ORDER BY updated_at ASC, checkout_id ASC
+                     LIMIT ?
+                     """)) {
+            statement.setString(1, tenantId);
+            statement.setInt(2, limit);
+            java.util.List<MarketplaceCheckout> candidates = new java.util.ArrayList<>();
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    UUID id = result.getObject("checkout_id", UUID.class);
+                    load(connection, tenantId, id).ifPresent(candidates::add);
+                }
+            }
+            return java.util.List.copyOf(candidates);
+        } catch (SQLException e) {
+            throw failure("Could not list recoverable marketplace checkouts", e);
+        }
+    }
+
+    @Override
     public boolean saveIfVersion(String tenantId, UUID checkoutId, long expectedVersion,
                                  MarketplaceCheckout replacement) {
         requireTenant(tenantId);

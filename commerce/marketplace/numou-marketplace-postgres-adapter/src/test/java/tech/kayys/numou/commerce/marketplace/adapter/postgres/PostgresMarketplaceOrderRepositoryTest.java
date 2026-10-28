@@ -128,6 +128,13 @@ class PostgresMarketplaceOrderRepositoryTest {
         assertEquals("reservation-1", loaded.reservationIds().get("line-1"));
         assertTrue(checkoutRepository.findByTenantAndId("tenant-b", created.id()).isEmpty());
         assertFalse(checkoutRepository.saveIfVersion("tenant-a", created.id(), 0, withReservation));
+
+        MarketplaceCheckout awaiting = loaded.awaitingPayment("payment-1", now.plusSeconds(2));
+        assertTrue(checkoutRepository.saveIfVersion("tenant-a", created.id(), 1, awaiting));
+        assertEquals(1, checkoutRepository.findRecoverable("tenant-a", 10).size());
+        assertEquals("tenant-a", checkoutRepository.findRecoverable("tenant-a", 10).get(0).tenantId());
+        assertTrue(checkoutRepository.findRecoverable("tenant-b", 10).isEmpty());
+
         assertThrows(IllegalStateException.class, () -> checkoutRepository.createOrGet(
                 MarketplaceCheckout.start(UUID.randomUUID(), "tenant-a", order.id(), "checkout-saga-1",
                         "b".repeat(64), now)));
