@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.aggregate.persistence.PgDocumentRepository;
-import tech.kayys.numou.mobility.wallet.domain.Wallet;
-import tech.kayys.numou.mobility.wallet.domain.WalletId;
-import tech.kayys.numou.mobility.wallet.spi.WalletRepository;
+import tech.kayys.numou.wallet.domain.Wallet;
+import tech.kayys.numou.wallet.domain.WalletId;
+import tech.kayys.numou.wallet.spi.WalletRepository;
 
 /**
  * PostgreSQL-backed wallet aggregate repository.

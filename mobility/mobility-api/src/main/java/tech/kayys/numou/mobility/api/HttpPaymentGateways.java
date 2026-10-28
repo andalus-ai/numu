@@ -8,7 +8,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.numou.mobility.wallet.spi.PaymentGateway;
+import tech.kayys.numou.wallet.spi.PaymentGateway;
 
 import java.math.BigDecimal;
 import java.time.Duration;

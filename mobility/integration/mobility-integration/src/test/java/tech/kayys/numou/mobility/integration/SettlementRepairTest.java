@@ -4,7 +4,7 @@ import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.mobility.pricing.PaymentMethod;
 import tech.kayys.numou.mobility.ride.spi.PaymentsPort;
-import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
+import tech.kayys.numou.wallet.domain.OwnerKind;
 
 import java.math.BigDecimal;
 import java.util.UUID;
