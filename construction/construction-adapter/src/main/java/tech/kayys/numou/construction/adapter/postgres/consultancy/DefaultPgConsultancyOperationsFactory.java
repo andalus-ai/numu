@@ -165,4 +165,11 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
             if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required");
         }
     }
+
+    /** Indicates a tenant-scoped lifecycle compare-and-set did not match current persisted state. */
+    public static final class ConcurrentConsultancyEngagementUpdateException extends RuntimeException {
+        public ConcurrentConsultancyEngagementUpdateException(String message) {
+            super(message);
+        }
+    }
 }
