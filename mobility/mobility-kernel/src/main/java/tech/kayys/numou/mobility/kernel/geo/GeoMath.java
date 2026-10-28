@@ -18,12 +18,9 @@ public final class GeoMath {
         return GeoDistance.metersBetween(a.toGeoPoint(), b.toGeoPoint());
     }
 
+    /** Delegates path validation and segment accumulation to the shared Geo domain. */
     public static double pathLengthMeters(List<LatLng> path) {
-        double total = 0;
-        for (int i = 1; i < path.size(); i++) {
-            total += haversineMeters(path.get(i - 1), path.get(i));
-        }
-        return total;
+        return GeoDistance.pathLengthMeters(path.stream().map(LatLng::toGeoPoint).toList());
     }
 
     /** Point moved by the given metres north/east (small distances; used by tests and simulators). */

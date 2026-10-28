@@ -9,9 +9,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.aggregate.domain.ConcurrencyConflictException;
 import tech.kayys.numou.aggregate.persistence.TenantTransaction;
-import tech.kayys.numou.mobility.wallet.domain.LedgerEntry;
-import tech.kayys.numou.mobility.wallet.domain.WalletId;
-import tech.kayys.numou.mobility.wallet.spi.LedgerRepository;
+import tech.kayys.numou.wallet.domain.LedgerEntry;
+import tech.kayys.numou.wallet.domain.WalletId;
+import tech.kayys.numou.wallet.spi.LedgerRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;

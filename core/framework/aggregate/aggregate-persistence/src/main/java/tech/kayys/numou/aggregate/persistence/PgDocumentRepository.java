@@ -104,7 +104,7 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
                     .setParameter(5, new TypedParameterValue<>(StandardBasicTypes.UUID, ix.refId()))
                     .setParameter(6, new TypedParameterValue<>(StandardBasicTypes.OFFSET_DATE_TIME, utc(ix.startsAt())))
                     .setParameter(7, new TypedParameterValue<>(StandardBasicTypes.STRING, ix.status()))
-                    .setParameter(8, json);
+                    .setParameter(8, new TypedParameterValue<>(StandardBasicTypes.STRING, json));
             if (expected == 0) {
                 // INSERT uses positions 9-12 for null flags; every ordinal parameter must be contiguous.
                 q.setParameter(9, ix.venueId() == null)

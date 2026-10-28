@@ -81,6 +81,22 @@ public final class TenantScopedInventoryService {
                 quantity, uom, sourceReference, expiresAt);
     }
 
+    public InventoryReservation reserve(String tenantId, InventoryCommandKey key, ItemId itemId, WarehouseId warehouseId,
+                                        BigDecimal quantity, String uom, String sourceReference, Instant expiresAt) {
+        String normalizedTenant = requireTenant(tenantId);
+        return service(normalizedTenant).reserve(normalizedTenant, scopedKey(normalizedTenant, key), itemId, warehouseId, quantity, uom, sourceReference, expiresAt);
+    }
+
+    public InventoryReservation findReservation(String tenantId, ReservationId reservationId) {
+        String normalizedTenant = requireTenant(tenantId);
+        return service(normalizedTenant).findReservation(normalizedTenant, reservationId);
+    }
+
+    public InventoryReservation releaseReservationIfActive(String tenantId, ReservationId reservationId) {
+        String normalizedTenant = requireTenant(tenantId);
+        return service(normalizedTenant).releaseReservationIfActive(normalizedTenant, reservationId);
+    }
+
     public InventoryReservation releaseReservation(String tenantId, ReservationId reservationId) {
         String normalizedTenant = requireTenant(tenantId);
         return service(normalizedTenant).releaseReservation(normalizedTenant, reservationId);

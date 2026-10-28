@@ -11,8 +11,8 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import tech.kayys.numou.mobility.wallet.application.PayoutService;
-import tech.kayys.numou.mobility.wallet.application.TopUpService;
+import tech.kayys.numou.wallet.application.PayoutService;
+import tech.kayys.numou.wallet.application.TopUpService;
 
 import java.util.HashMap;
 import java.util.Locale;

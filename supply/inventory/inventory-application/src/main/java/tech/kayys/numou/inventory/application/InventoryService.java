@@ -114,6 +114,15 @@ public final class InventoryService {
         repository.postTransferIfAvailable(key, outbound, inbound, quantity);
     }
 
+    /** Idempotent reservation creation using a stable caller command key. */
+    public InventoryReservation reserve(String tenantId, InventoryCommandKey key, ItemId itemId, WarehouseId warehouseId,
+                                        BigDecimal quantity, String uom, String sourceReference, Instant expiresAt) {
+        Objects.requireNonNull(key, "Command key is required"); requirePositive(quantity, "Reserved quantity");
+        Objects.requireNonNull(tenantId, "Tenant id is required");
+        if (tenantId.isBlank()) throw new IllegalArgumentException("Tenant id must not be blank");
+        return repository.reserveIfAvailable(key, InventoryReservation.create(tenantId, itemId, warehouseId, quantity, uom, sourceReference, expiresAt));
+    }
+
     public InventoryReservation reserve(String tenantId, ItemId itemId, WarehouseId warehouseId,
                                         BigDecimal quantity, String uom, String sourceReference, Instant expiresAt) {
         requirePositive(quantity, "Reserved quantity");
@@ -122,6 +131,16 @@ public final class InventoryService {
         return repository.reserveIfAvailable(InventoryReservation.create(
                 tenantId, itemId, warehouseId, quantity, uom, sourceReference, expiresAt));
     }
+
+    /** Idempotently releases an active reservation; already released/expired reservations are returned unchanged. */
+    public InventoryReservation releaseReservationIfActive(String tenantId, ReservationId id) {
+        InventoryReservation current = reservationForTenant(tenantId, id);
+        if (current.status() == ReservationStatus.RELEASED || current.status() == ReservationStatus.EXPIRED) return current;
+        if (current.status() != ReservationStatus.ACTIVE) throw new IllegalStateException("Cannot release reservation in state " + current.status());
+        return repository.updateReservation(current.release());
+    }
+
+    public InventoryReservation findReservation(String tenantId, ReservationId id) { return reservationForTenant(tenantId, id); }
 
     public InventoryReservation releaseReservation(String tenantId, ReservationId id) {
         InventoryReservation current = reservationForTenant(tenantId, id);
