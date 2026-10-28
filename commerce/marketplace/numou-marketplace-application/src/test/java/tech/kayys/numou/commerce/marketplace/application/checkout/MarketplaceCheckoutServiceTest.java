@@ -160,6 +160,9 @@ class MarketplaceCheckoutServiceTest {
         @Override public Optional<MarketplaceCheckout> findByTenantAndId(String tenant, UUID id) {
             return Optional.ofNullable(byId.get(id)).filter(c -> c.tenantId().equals(tenant));
         }
+        @Override public Optional<MarketplaceCheckout> findByTenantAndKey(String tenant, String key) {
+            return Optional.ofNullable(byKey.get(tenant + ":" + key));
+        }
         @Override public synchronized boolean saveIfVersion(String tenant, UUID id, long expected, MarketplaceCheckout next) {
             MarketplaceCheckout current = byId.get(id);
             if (current == null || !current.tenantId().equals(tenant) || current.version() != expected) return false;
