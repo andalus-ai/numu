@@ -119,6 +119,23 @@ class WalletDomainTest {
     }
 
     @Test
+    void openingWalletRejectsInvalidCurrencyPrecisionAndTimestampConfiguration() {
+        final var owner = UUID.randomUUID();
+        assertThatThrownBy(() -> Wallet.open(OwnerKind.RIDER, owner, " ", 0, bd("0"), T))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("currency");
+        assertThatThrownBy(() -> Wallet.open(OwnerKind.RIDER, owner, "IDR", -1, bd("0"), T))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fractionDigits");
+        assertThatThrownBy(() -> Wallet.open(OwnerKind.RIDER, owner, "IDR", 10, bd("0"), T))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fractionDigits");
+        assertThatThrownBy(() -> Wallet.open(OwnerKind.RIDER, owner, "IDR", 0, bd("0"), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("now");
+    }
+
+    @Test
     void walletIdIsDeterministicPerOwner() {
         final var owner = UUID.randomUUID();
         assertThat(WalletId.forOwner(OwnerKind.RIDER, owner)).isEqualTo(WalletId.forOwner(OwnerKind.RIDER, owner));
