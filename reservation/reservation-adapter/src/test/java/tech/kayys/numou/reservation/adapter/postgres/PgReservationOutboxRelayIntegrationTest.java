@@ -94,6 +94,38 @@ class PgReservationOutboxRelayIntegrationTest {
     }
 
     @Test
+    void successfulPublishWithExpiredLeaseIsRedeliveredUntilAckSucceeds() {
+        UUID tenantId = UUID.randomUUID();
+        UUID eventId = insertEvent(tenantId, "publish-ack-gap");
+        List<UUID> published = new CopyOnWriteArrayList<>();
+        ReservationOutboxPublisher publisher = message -> {
+            published.add(message.eventId());
+            if (published.size() == 1) {
+                // Model a worker whose lease expires after the external destination accepted
+                // the event but before the worker can commit its database acknowledgement.
+                return pool.preparedQuery("""
+                        UPDATE reservation_outbox_event
+                           SET lease_until = clock_timestamp() - INTERVAL '1 second'
+                         WHERE event_id = $1 AND lease_owner = $2
+                        """).execute(Tuple.of(message.eventId(), message.leaseOwner()))
+                        .replaceWithVoid();
+            }
+            return Uni.createFrom().voidItem();
+        };
+        PgReservationOutboxRelay relay = relay(publisher, 10, 3);
+
+        // The first external publish happened, but the stale lease must not acknowledge it.
+        assertEquals(0, relay.pollOnce().await().indefinitely());
+        assertEquals(1L, countStatus(tenantId, "PROCESSING"));
+
+        // A later poll reclaims the expired lease and delivers the same stable event ID again.
+        assertEquals(1, relay.pollOnce().await().indefinitely());
+        assertEquals(List.of(eventId, eventId), published);
+        assertEquals(1L, countStatus(tenantId, "PUBLISHED"));
+        assertEquals(2L, countAttempts(tenantId, 2));
+    }
+
+    @Test
     void concurrentPollersClaimDifferentRowsWithoutDoubleClaiming() {
         UUID tenantId = UUID.randomUUID();
         insertEvent(tenantId, "parallel");
