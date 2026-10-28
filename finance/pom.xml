@@ -25,7 +25,10 @@
         <module>subscription</module>
         <module>syirkah</module>
         <module>tax</module>
-        <module>wallet</module>
+        <module>wallet/numou-wallet-spi</module>
+        <module>wallet/numou-wallet-domain</module>
+        <module>wallet/numou-wallet-application</module>
+        <module>wallet/numou-wallet-adapter</module>
     </modules>
 
     <build>
