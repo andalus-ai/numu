@@ -45,6 +45,12 @@ public interface TransactionalCommandContext {
         Uni<ConsultancyEngagement> saveEngagement(String tenantId, ConsultancyEngagement engagement);
         Uni<Optional<ConsultancyEngagement>> findEngagement(
                 String tenantId, ConsultancyEngagementId engagementId);
+
+        /** Updates an existing tenant-scoped engagement in the same command transaction. */
+        default Uni<ConsultancyEngagement> updateEngagement(String tenantId, ConsultancyEngagement engagement) {
+            return Uni.createFrom().failure(new UnsupportedOperationException(
+                    "Transactional consultancy engagement updates are not implemented by this adapter"));
+        }
     }
 
     /** Transaction-bound BOQ operations; adapter must use this context's connection. */
