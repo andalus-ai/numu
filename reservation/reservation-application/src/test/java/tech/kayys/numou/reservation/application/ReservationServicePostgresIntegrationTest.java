@@ -3,7 +3,6 @@ package tech.kayys.numou.reservation.application;
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
-import io.vertx.mutiny.sqlclient.SqlConnection;
 import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
