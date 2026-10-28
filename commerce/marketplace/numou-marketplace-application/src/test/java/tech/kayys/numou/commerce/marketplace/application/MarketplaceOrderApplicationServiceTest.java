@@ -54,7 +54,7 @@ class MarketplaceOrderApplicationServiceTest {
         InMemoryOrders orders = new InMemoryOrders();
         MarketplaceOrderApplicationService service = service(orders, new AllowAll());
         MarketplaceOrder order = service.create("tenant-a", "buyer-actor", "buyer-a", List.of(line()), "IDR");
-        orders.forceStatus(order.id(), order.submit(NOW));
+        orders.concurrentTransitionOnNextReplace = true;
 
         assertThrows(MarketplaceOrderConcurrentModificationException.class,
                 () -> service.submit("tenant-a", "buyer-actor", order.id()));
@@ -120,6 +120,7 @@ class MarketplaceOrderApplicationServiceTest {
 
     private static final class InMemoryOrders implements MarketplaceOrderRepository {
         private final Map<UUID, MarketplaceOrder> data = new HashMap<>();
+        private boolean concurrentTransitionOnNextReplace;
 
         @Override public void create(MarketplaceOrder order) {
             if (data.putIfAbsent(order.id(), order) != null) throw new IllegalStateException("duplicate order");
@@ -132,12 +133,17 @@ class MarketplaceOrderApplicationServiceTest {
                                                         MarketplaceOrderStatus expected,
                                                         MarketplaceOrder replacement) {
             MarketplaceOrder current = data.get(orderId);
+            if (concurrentTransitionOnNextReplace && current != null) {
+                concurrentTransitionOnNextReplace = false;
+                data.put(orderId, current.submit(NOW));
+                current = data.get(orderId);
+            }
             if (current == null || !current.tenantId().equals(tenantId)
                     || current.status() != expected || !replacement.id().equals(orderId)
                     || !replacement.tenantId().equals(tenantId)) return false;
             data.put(orderId, replacement);
             return true;
         }
-        void forceStatus(UUID id, MarketplaceOrder order) { data.put(id, order); }
+    
     }
 }

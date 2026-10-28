@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>tech.kayys.numou</groupId>
+    <artifactId>numou-framework</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../core/framework/pom.xml</relativePath>
+  </parent>
+  <artifactId>numou-notification</artifactId>
+  <packaging>pom</packaging>
+  <name>Numou Notification Capability</name>
+  <description>Reusable, transport-neutral notification and inbox capability.</description>
+  <modules>
+    <module>notification-domain</module>
+    <module>notification-application</module>
+    <module>notification-persistence-jdbc</module>
+  </modules>
+</project>

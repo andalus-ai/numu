@@ -374,7 +374,7 @@ class StructuredDatabaseServiceTest {
         assertEquals(1, page.total());
         assertEquals("todo", page.records().get(0).values().get("status"));
         assertEquals(List.of(new DatabaseViewSort("title", DatabaseViewSort.Direction.ASC)), repository.lastSorts);
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(SecurityException.class,
                 () -> service.queryRecordsByView(tenant, UUID.randomUUID(), database.id(), view.id(), 20, 0));
     }
 

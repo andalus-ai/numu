@@ -13,9 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -80,6 +83,49 @@ public final class TransportCheckoutService {
                     .orElseThrow(() -> duplicateOrRace);
             return resume(requireSameRequest(winner, fingerprint));
         }
+    }
+
+    /**
+     * Reconciles a bounded batch of old, nonterminal checkouts. Updated snapshots move their
+     * updatedAt forward even when Payment is still pending, so the next poll observes backoff
+     * instead of hammering the same provider operation on every scheduler tick.
+     *
+     * @return bounded batch outcome; failed items are delayed for the next retry window when possible
+     */
+    public ReconciliationResult reconcileDue(Duration minimumAge, int batchSize) {
+        Objects.requireNonNull(minimumAge, "minimumAge");
+        if (minimumAge.isNegative() || minimumAge.isZero() || minimumAge.compareTo(Duration.ofHours(24)) > 0) {
+            throw new IllegalArgumentException("minimumAge must be between 0 and 24 hours");
+        }
+        if (batchSize < 1 || batchSize > 1_000) {
+            throw new IllegalArgumentException("batchSize must be between 1 and 1000");
+        }
+        Instant cutoff = clock.instant().minus(minimumAge);
+        List<TransportCheckout> due = checkouts.findStaleNonTerminal(cutoff, batchSize);
+        int succeeded = 0;
+        int failed = 0;
+        List<UUID> failedCheckoutIds = new ArrayList<>();
+        for (TransportCheckout checkout : due) {
+            try {
+                refresh(checkout.tenantId(), checkout.checkoutId());
+                succeeded++;
+            } catch (RuntimeException failure) {
+                failed++;
+                failedCheckoutIds.add(checkout.checkoutId());
+                // Advance the retry cursor so one broken provider/checkout cannot monopolize
+                // every bounded batch. Do not overwrite a concurrent transition.
+                try {
+                    TransportCheckout latest = checkouts.find(checkout.tenantId(), checkout.checkoutId())
+                            .orElse(null);
+                    if (latest != null && !isTerminal(latest.status())) {
+                        checkouts.save(latest.withStatus(latest.status(), clock.instant()), latest.version());
+                    }
+                } catch (RuntimeException retryCursorFailure) {
+                    failure.addSuppressed(retryCursorFailure);
+                }
+            }
+        }
+        return new ReconciliationResult(due.size(), succeeded, failed, failedCheckoutIds);
     }
 
     /** Reads checkout state without contacting Payment or mutating inventory. */
@@ -153,9 +199,8 @@ public final class TransportCheckoutService {
             case CREATED, PENDING, UNKNOWN -> next = TransportCheckoutStatus.PAYMENT_PENDING;
             default -> next = TransportCheckoutStatus.RECONCILIATION_REQUIRED;
         }
-        if (checkout.status() == next && Objects.equals(checkout.paymentActionUri(), payment.actionUri())) {
-            return checkout;
-        }
+        // Persist the last successful reconciliation time even when provider status is unchanged.
+        // The updatedAt field is the bounded poller's retry/backoff cursor.
         return saveOrReload(checkout, checkout.withPayment(checkout.paymentId(), payment.actionUri(),
                 next, clock.instant()));
     }
@@ -221,6 +266,18 @@ public final class TransportCheckoutService {
                     .digest(canonical.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    public record ReconciliationResult(int attempted, int succeeded, int failed, List<UUID> failedCheckoutIds) {
+        public ReconciliationResult {
+            if (attempted < 0 || succeeded < 0 || failed < 0 || succeeded + failed != attempted) {
+                throw new IllegalArgumentException("reconciliation result counts are inconsistent");
+            }
+            failedCheckoutIds = List.copyOf(Objects.requireNonNull(failedCheckoutIds, "failedCheckoutIds"));
+            if (failedCheckoutIds.size() != failed) {
+                throw new IllegalArgumentException("failed checkout IDs must match failed count");
+            }
         }
     }
 
