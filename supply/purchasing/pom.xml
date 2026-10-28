@@ -16,5 +16,6 @@
     <modules>
         <module>numou-purchasing-domain</module>
         <module>numou-purchasing-spi</module>
+        <module>numou-purchasing-application</module>
     </modules>
 </project>
