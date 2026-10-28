@@ -31,7 +31,7 @@ class PgTicketBookingStoreTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
-    private static PgSimpleDataSource dataSource;
+    private static PGSimpleDataSource dataSource;
     private PgTicketBookingStore store;
     private TicketBookingService service;
 
