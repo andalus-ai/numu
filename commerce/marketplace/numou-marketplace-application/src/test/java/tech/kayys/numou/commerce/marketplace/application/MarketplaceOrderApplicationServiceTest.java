@@ -23,14 +23,16 @@ class MarketplaceOrderApplicationServiceTest {
     private static final Instant NOW = Instant.parse("2026-10-28T00:00:00Z");
 
     @Test
-    void createAndSubmitAreTenantScopedAndPersistedThroughPort() {
+    void createSubmitAndSellerAcceptUseTenantScopedPersistence() {
         InMemoryOrders orders = new InMemoryOrders();
         MarketplaceOrderApplicationService service = service(orders, new AllowAll());
-        MarketplaceOrder created = service.create("tenant-a", "buyer-a", List.of(line()), "IDR");
+        MarketplaceOrder created = service.create("tenant-a", "buyer-actor", "buyer-a", List.of(line()), "IDR");
 
         assertEquals(MarketplaceOrderStatus.CREATED, created.status());
         assertEquals(MarketplaceOrderStatus.SUBMITTED,
-                service.submit("tenant-a", "buyer-a", created.id()).status());
+                service.submit("tenant-a", "buyer-actor", created.id()).status());
+        assertEquals(MarketplaceOrderStatus.SELLER_ACCEPTED,
+                service.sellerAccept("tenant-a", "seller-actor", "seller-1", created.id()).status());
         assertTrue(orders.findByTenantAndId("tenant-a", created.id()).isPresent());
         assertTrue(orders.findByTenantAndId("tenant-b", created.id()).isEmpty());
     }
@@ -39,10 +41,10 @@ class MarketplaceOrderApplicationServiceTest {
     void tenantMismatchDoesNotRevealOrder() {
         InMemoryOrders orders = new InMemoryOrders();
         MarketplaceOrderApplicationService service = service(orders, new AllowAll());
-        MarketplaceOrder order = service.create("tenant-a", "buyer-a", List.of(line()), "IDR");
+        MarketplaceOrder order = service.create("tenant-a", "buyer-actor", "buyer-a", List.of(line()), "IDR");
 
         assertThrows(IllegalArgumentException.class,
-                () -> service.submit("tenant-b", "buyer-a", order.id()));
+                () -> service.submit("tenant-b", "buyer-actor", order.id()));
         assertEquals(MarketplaceOrderStatus.CREATED,
                 orders.findByTenantAndId("tenant-a", order.id()).orElseThrow().status());
     }
@@ -51,11 +53,11 @@ class MarketplaceOrderApplicationServiceTest {
     void concurrentStatusChangeIsReportedRatherThanOverwritten() {
         InMemoryOrders orders = new InMemoryOrders();
         MarketplaceOrderApplicationService service = service(orders, new AllowAll());
-        MarketplaceOrder order = service.create("tenant-a", "buyer-a", List.of(line()), "IDR");
+        MarketplaceOrder order = service.create("tenant-a", "buyer-actor", "buyer-a", List.of(line()), "IDR");
         orders.forceStatus(order.id(), order.submit(NOW));
 
         assertThrows(MarketplaceOrderConcurrentModificationException.class,
-                () -> service.submit("tenant-a", "buyer-a", order.id()));
+                () -> service.submit("tenant-a", "buyer-actor", order.id()));
     }
 
     @Test
@@ -69,7 +71,19 @@ class MarketplaceOrderApplicationServiceTest {
         MarketplaceOrderApplicationService service = service(orders, deny);
 
         assertThrows(SecurityException.class,
-                () -> service.create("tenant-a", "buyer-a", List.of(line()), "IDR"));
+                () -> service.create("tenant-a", "attacker", "buyer-a", List.of(line()), "IDR"));
+        assertTrue(orders.data.isEmpty());
+    }
+
+    @Test
+    void mixedSellerCartMustBeSplitBeforeCreatingSellerScopedOrders() {
+        InMemoryOrders orders = new InMemoryOrders();
+        MarketplaceOrderApplicationService service = service(orders, new AllowAll());
+        MarketplaceOrderLine otherSeller = new MarketplaceOrderLine("line-2", "produce-2", "offer-2",
+                "seller-2", "Eggs", BigDecimal.ONE, "dozen", new BigDecimal("30000"), "IDR");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.create("tenant-a", "buyer-actor", "buyer-a", List.of(line(), otherSeller), "IDR"));
         assertTrue(orders.data.isEmpty());
     }
 
@@ -86,8 +100,15 @@ class MarketplaceOrderApplicationServiceTest {
 
     private static class AllowAll implements MarketplaceOrderAuthorization {
         @Override public void requireBuyer(String tenantId, String actorId, MarketplaceOrder order) {
-            if (!tenantId.equals(order.tenantId()) || !actorId.equals(order.buyerId())) {
+            if (!tenantId.equals(order.tenantId()) || actorId == null || actorId.isBlank()
+                    || !order.buyerId().equals("buyer-a") || !actorId.equals("buyer-actor")) {
                 throw new SecurityException("buyer is not authorized");
+            }
+        }
+        @Override public void requireSeller(String tenantId, String actorId, String sellerId, MarketplaceOrder order) {
+            if (!tenantId.equals(order.tenantId()) || !"seller-actor".equals(actorId)
+                    || !order.lines().stream().allMatch(line -> sellerId.equals(line.sellerId()))) {
+                throw new SecurityException("seller is not authorized");
             }
         }
         @Override public void requireFulfillmentOperator(String tenantId, String actorId, MarketplaceOrder order) {
