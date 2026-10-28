@@ -4,6 +4,9 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
+import tech.kayys.numou.transport.application.TransportCheckoutIdempotencyConflictException;
+import tech.kayys.numou.transport.spi.TransportCheckoutConcurrencyException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TransportApiExceptionMapperTest {
@@ -32,6 +35,16 @@ class TransportApiExceptionMapperTest {
                         "authorization_unavailable",
                         "Tenant membership or authorization service is temporarily unavailable."));
         assertThat(response.getEntity().toString()).doesNotContain("SECRET");
+    }
+
+    @Test
+    void mapsCheckoutConcurrencyAndIdempotencyConflictsToConflict() {
+        Response stale = mapper.toResponse(new TransportCheckoutConcurrencyException("stale version"));
+        Response replay = mapper.toResponse(
+                new TransportCheckoutIdempotencyConflictException("same key different request"));
+
+        assertThat(stale.getStatus()).isEqualTo(409);
+        assertThat(replay.getStatus()).isEqualTo(409);
     }
 
     @Test
