@@ -86,24 +86,15 @@ class PostgresMarketplaceOrderRepositoryTest {
         String fingerprint = MarketplaceOrderRequestFingerprint.calculate(
                 proposed.tenantId(), proposed.buyerId(), proposed.currency(), proposed.lines());
 
+        MarketplaceOrder retryCandidate = order();
         MarketplaceOrder first = repository.createOrGet("tenant-a", "checkout-1", fingerprint, proposed);
-        MarketplaceOrder retry = repository.createOrGet("tenant-a", "checkout-1", fingerprint, order());
+        MarketplaceOrder retry = repository.createOrGet("tenant-a", "checkout-1", fingerprint, retryCandidate);
 
         assertEquals(first.id(), retry.id());
-        assertEquals(1, countOrders());
+        assertTrue(repository.findByTenantAndId("tenant-a", retryCandidate.id()).isEmpty(),
+                "a replay must not persist the newly proposed duplicate order");
         assertThrows(MarketplaceOrderIdempotencyConflictException.class, () ->
                 repository.createOrGet("tenant-a", "checkout-1", "0".repeat(64), order()));
-    }
-
-    private int countOrders() {
-        try (Connection connection = POSTGRES.createConnection("");
-             Statement statement = connection.createStatement();
-             var result = statement.executeQuery("SELECT COUNT(*) FROM marketplace_order")) {
-            result.next();
-            return result.getInt(1);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
     }
 
     @Test
