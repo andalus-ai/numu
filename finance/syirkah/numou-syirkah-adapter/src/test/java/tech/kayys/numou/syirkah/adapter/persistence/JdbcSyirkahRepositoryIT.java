@@ -56,7 +56,8 @@ class JdbcSyirkahRepositoryIT {
             rs = st.executeQuery("select to_regclass('syirkah_ledger') is not null");
             rs.next();
             if (!rs.getBoolean(1)) {
-                for (String script : List.of("V20261023_01__syirkah.sql", "V20261023_02__syirkah_governance_outbox.sql")) {
+                for (String script : List.of("V20261023_01__syirkah.sql", "V20261023_02__syirkah_governance_outbox.sql",
+                        "V20261028_01__syirkah_akad_formation.sql")) {
                     try (InputStream in = JdbcSyirkahRepositoryIT.class.getResourceAsStream("/db/migration/" + script)) {
                         st.execute(new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8));
                     }
@@ -250,5 +251,32 @@ class JdbcSyirkahRepositoryIT {
         var report = new tech.kayys.numou.numouapplication.ops.SyirkahIntegrityAuditor(repo, ops).audit(t);
         assertTrue(report.ok(), report.toString());
         assertEquals(1, report.checked());
+    }
+
+    @Test
+    void akadFormationIsStoredOnceIsolatedByTenantAndNeverChanged() {
+        var store = new JdbcAkadFormationPort(uow);
+        TenantId t = TenantId.generate();
+        Syirkah s = open(t);
+        AkadFormation f = new AkadFormation(
+                List.of(new PartyRecord(A, LocalDate.parse("1990-05-17"), "Jakarta", true, true, true, "ijab"),
+                        new PartyRecord(B, LocalDate.parse("1991-06-18"), "Bandung", true, true, true, "qabul")),
+                "Retail", new AkadFormation.LawfulnessReview("Sharia adviser", LocalDate.parse("2026-01-01"), true),
+                Set.of(), List.of(), true, false, EnumSet.allOf(AkadSection.class), "Jakarta",
+                LocalDate.parse("2026-01-01"),
+                List.of(new Witness("W1", WitnessSex.MALE), new Witness("W2", WitnessSex.MALE)));
+        FormationPolicy policy = FormationPolicy.bookDefault();
+        uow.inTransaction(() -> {
+            repo.save(s, -1);
+            store.record(t, s.id(), f, policy, T0);
+            return null;
+        });
+        var got = store.find(t, s.id()).orElseThrow();
+        assertEquals(f, got.formation());
+        assertEquals(policy, got.policy());
+        assertEquals(T0, got.recordedAt());
+        assertTrue(store.find(TenantId.generate(), s.id()).isEmpty(), "another tenant must not see the record");
+        assertThrows(IllegalStateException.class, () -> store.record(t, s.id(), f, policy, T0.plusSeconds(1)));
+        assertEquals(f, store.find(t, s.id()).orElseThrow().formation());
     }
 }
