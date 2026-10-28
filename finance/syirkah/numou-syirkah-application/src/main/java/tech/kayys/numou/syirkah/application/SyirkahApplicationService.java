@@ -14,6 +14,10 @@ import tech.kayys.numou.numoudomain.FormationPolicy;
 import tech.kayys.numou.numoudomain.SyirkahNotFoundException;
 import tech.kayys.numou.numoudomain.CloseId;
 import tech.kayys.numou.numoudomain.CloseSnapshot;
+import tech.kayys.numou.numoudomain.LifecycleChange;
+import tech.kayys.numou.numoudomain.LifecycleChecker;
+import tech.kayys.numou.numoudomain.LifecycleKind;
+import tech.kayys.numou.numoudomain.PartnerId;
 import tech.kayys.numou.numoudomain.LiquidationResult;
 import tech.kayys.numou.numoudomain.PartnerMovement;
 import tech.kayys.numou.numoudomain.Syirkah;
@@ -137,6 +141,25 @@ public class SyirkahApplicationService {
     public void reviseContract(Commands.ReviseContract c) {
         mutate(c.tenant(), c.id(), s -> {
             s.reviseContract(c.next(), c.approvals(), now());
+            return null;
+        });
+    }
+
+    /**
+     * Revises the akad for a new-capital, partner-replacement or partner-death event. Runs
+     * {@link LifecycleChecker} first (recorded consents, profit decision, hak syuf'ah, closed books) and only
+     * then the normal revision, in the same transaction. For a death the deceased cannot sign, so the aggregate
+     * is given the deceased as approving once every surviving and incoming partner has consented.
+     */
+    public void reviseWithLifecycle(Commands.ReviseContract c, LifecycleChange change) {
+        Objects.requireNonNull(change, "change");
+        mutate(c.tenant(), c.id(), s -> {
+            LifecycleChecker.requirePassing(s, c.next(), change);
+            java.util.Set<PartnerId> approvals = new java.util.HashSet<>(change.approvals());
+            if (change.kind() == LifecycleKind.PARTNER_DEATH) {
+                approvals.addAll(change.affected());
+            }
+            s.reviseContract(c.next(), approvals, now());
             return null;
         });
     }
