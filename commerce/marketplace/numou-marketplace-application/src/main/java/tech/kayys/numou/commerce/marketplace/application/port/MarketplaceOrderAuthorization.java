@@ -9,6 +9,8 @@ import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrder;
 public interface MarketplaceOrderAuthorization {
     void requireBuyer(String tenantId, String actorId, MarketplaceOrder order);
 
+    void requireSeller(String tenantId, String actorId, String sellerId, MarketplaceOrder order);
+
     /** For trusted workflow/service actors allowed to advance fulfillment. */
     void requireFulfillmentOperator(String tenantId, String actorId, MarketplaceOrder order);
 }
