@@ -20,7 +20,7 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
     private static final String COLUMNS = """
             tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
             from_sequence, to_sequence, passenger_count, amount, currency, hold_expires_at,
-            hold_id, payment_id, status, version, created_at, updated_at
+            hold_id, payment_id, payment_action_uri, status, version, created_at, updated_at
             """;
     private static final String FIND_BY_ID = "SELECT " + COLUMNS
             + " FROM transport_checkout WHERE tenant_id = ? AND checkout_id = ?";
@@ -32,12 +32,12 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             INSERT INTO transport_checkout
             (tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
              from_sequence, to_sequence, passenger_count, amount, currency, hold_expires_at,
-             hold_id, payment_id, status, version, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             hold_id, payment_id, payment_action_uri, status, version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
     private static final String UPDATE = """
             UPDATE transport_checkout
-            SET hold_id = ?, payment_id = ?, status = ?, version = ?, updated_at = ?
+            SET hold_id = ?, payment_id = ?, payment_action_uri = ?, status = ?, version = ?, updated_at = ?
             WHERE tenant_id = ? AND checkout_id = ? AND version = ?
             """;
 
@@ -94,12 +94,13 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
              PreparedStatement statement = connection.prepareStatement(UPDATE)) {
             statement.setObject(1, checkout.holdId());
             statement.setString(2, checkout.paymentId());
-            statement.setString(3, checkout.status().name());
-            statement.setInt(4, checkout.version());
-            statement.setTimestamp(5, Timestamp.from(checkout.updatedAt()));
-            statement.setString(6, checkout.tenantId());
-            statement.setObject(7, checkout.checkoutId());
-            statement.setInt(8, expectedVersion);
+            statement.setString(3, checkout.paymentActionUri());
+            statement.setString(4, checkout.status().name());
+            statement.setInt(5, checkout.version());
+            statement.setTimestamp(6, Timestamp.from(checkout.updatedAt()));
+            statement.setString(7, checkout.tenantId());
+            statement.setObject(8, checkout.checkoutId());
+            statement.setInt(9, expectedVersion);
             if (statement.executeUpdate() != 1) {
                 throw new TransportCheckoutConcurrencyException(
                         "checkout version changed or checkout was not found; reload before retrying");
@@ -140,6 +141,7 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
                 row.getTimestamp("hold_expires_at").toInstant(),
                 row.getObject("hold_id", UUID.class),
                 row.getString("payment_id"),
+                row.getString("payment_action_uri"),
                 TransportCheckoutStatus.valueOf(row.getString("status")),
                 row.getInt("version"),
                 row.getTimestamp("created_at").toInstant(),
@@ -161,10 +163,11 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
         statement.setTimestamp(12, Timestamp.from(checkout.holdExpiresAt()));
         statement.setObject(13, checkout.holdId());
         statement.setString(14, checkout.paymentId());
-        statement.setString(15, checkout.status().name());
-        statement.setInt(16, checkout.version());
-        statement.setTimestamp(17, Timestamp.from(checkout.createdAt()));
-        statement.setTimestamp(18, Timestamp.from(checkout.updatedAt()));
+        statement.setString(15, checkout.paymentActionUri());
+        statement.setString(16, checkout.status().name());
+        statement.setInt(17, checkout.version());
+        statement.setTimestamp(18, Timestamp.from(checkout.createdAt()));
+        statement.setTimestamp(19, Timestamp.from(checkout.updatedAt()));
     }
 
     private static String requireTenant(String tenantId) {
