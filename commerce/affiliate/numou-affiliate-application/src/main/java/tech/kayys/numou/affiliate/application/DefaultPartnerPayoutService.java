@@ -146,7 +146,8 @@ public final class DefaultPartnerPayoutService implements PartnerPayoutApplicati
         }
         Instant at = receipt.occurredAt();
         PartnerPayout updated = switch (receipt.outcome()) {
-            case ACCEPTED -> payout.status() == PartnerPayoutStatus.SUBMITTED ? payout
+            case ACCEPTED -> payout.status() == PartnerPayoutStatus.SUBMITTED
+                    || payout.status() == PartnerPayoutStatus.RECONCILIATION_REQUIRED ? payout
                     : payout.submitted(receipt.providerReference(), at);
             case CONFIRMED -> payout.paid(receipt.providerReference(), at);
             case RETURNED -> payout.returned(receipt.providerReference(), "Provider reported returned payout", at);

@@ -88,7 +88,7 @@ public record PartnerPayout(
                     || next == PartnerPayoutStatus.RETRYABLE_FAILURE;
             case RETRYABLE_FAILURE -> next == PartnerPayoutStatus.SUBMITTED || next == PartnerPayoutStatus.HELD
                     || next == PartnerPayoutStatus.RECONCILIATION_REQUIRED;
-            case RECONCILIATION_REQUIRED -> next == PartnerPayoutStatus.SUBMITTED || next == PartnerPayoutStatus.PAID
+            case RECONCILIATION_REQUIRED -> next == PartnerPayoutStatus.PAID
                     || next == PartnerPayoutStatus.RETURNED || next == PartnerPayoutStatus.RETRYABLE_FAILURE
                     || next == PartnerPayoutStatus.HELD;
             case PAID, HELD, RETURNED -> false;
