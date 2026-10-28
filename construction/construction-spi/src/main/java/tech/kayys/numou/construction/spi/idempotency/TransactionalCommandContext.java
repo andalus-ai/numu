@@ -3,6 +3,8 @@ package tech.kayys.numou.construction.spi.idempotency;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagement;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
 import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
 import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
 import tech.kayys.numou.construction.spi.outbox.TransactionalOutboxEvent;
@@ -45,6 +47,9 @@ public interface TransactionalCommandContext {
         Uni<ConsultancyEngagement> saveEngagement(String tenantId, ConsultancyEngagement engagement);
         Uni<Optional<ConsultancyEngagement>> findEngagement(
                 String tenantId, ConsultancyEngagementId engagementId);
+
+        Uni<ConsultancyDeliverable> saveDeliverable(String tenantId, ConsultancyDeliverable deliverable);
+        Uni<Optional<ConsultancyDeliverable>> findDeliverable(String tenantId, ConsultancyDeliverableId deliverableId);
 
         /** Updates an existing tenant-scoped engagement in the same command transaction. */
         default Uni<ConsultancyEngagement> updateEngagement(String tenantId, ConsultancyEngagement engagement) {
