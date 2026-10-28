@@ -97,6 +97,21 @@ class PostgresPaymentOutboxRelayStoreTest {
     }
 
     @Test
+    void abandonedFinalLeaseBecomesTerminalInsteadOfBeingReclaimedForever() throws Exception {
+        UUID eventId = seedEvent();
+        Instant base = Instant.parse("2026-10-28T00:00:00Z");
+        for (int attempt = 0; attempt < 12; attempt++) {
+            Instant now = base.plusSeconds(attempt * 2L);
+            var claimed = store.claimBatch("worker-" + attempt, now, now.plusSeconds(1), 1).getFirst();
+            assertThat(claimed.attempts()).isEqualTo(attempt + 1);
+        }
+
+        Instant afterLastLease = base.plusSeconds(24);
+        assertThat(store.claimBatch("recovery-worker", afterLastLease, afterLastLease.plusSeconds(30), 1)).isEmpty();
+        assertThat(outboxValue(eventId, "terminal")).isEqualTo("true");
+    }
+
+    @Test
     void failedEventsAreDelayedOrMovedToTerminalState() throws Exception {
         UUID eventId = seedEvent();
         Instant now = Instant.parse("2026-10-28T00:00:00Z");
