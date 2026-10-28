@@ -4,11 +4,11 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.mobility.kernel.domain.RideId;
 import tech.kayys.numou.mobility.pricing.PaymentMethod;
-import tech.kayys.numou.mobility.wallet.application.EarningsStatement;
-import tech.kayys.numou.mobility.wallet.application.EarningsStatement.Category;
-import tech.kayys.numou.mobility.wallet.domain.LedgerEntry;
-import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
-import tech.kayys.numou.mobility.wallet.domain.WalletId;
+import tech.kayys.numou.wallet.application.EarningsStatement;
+import tech.kayys.numou.wallet.application.EarningsStatement.Category;
+import tech.kayys.numou.wallet.domain.LedgerEntry;
+import tech.kayys.numou.wallet.domain.OwnerKind;
+import tech.kayys.numou.wallet.domain.WalletId;
 
 import java.math.BigDecimal;
 import java.time.Instant;

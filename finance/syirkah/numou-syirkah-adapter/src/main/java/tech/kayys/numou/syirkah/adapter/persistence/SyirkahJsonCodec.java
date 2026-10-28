@@ -39,6 +39,60 @@ public final class SyirkahJsonCodec {
         return Json.write(liquidation(r));
     }
 
+    public static String encodeFormation(AkadFormation f) {
+        Map<String, Object> o = new LinkedHashMap<>();
+        List<Object> parties = new ArrayList<>();
+        for (PartyRecord p : f.parties()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("partner", p.partner().value().toString());
+            m.put("dateOfBirth", p.dateOfBirth() == null ? null : p.dateOfBirth().toString());
+            m.put("residence", p.residence());
+            m.put("soundMind", p.soundMind());
+            m.put("authorityOverCapital", p.authorityOverCapital());
+            m.put("freeConsent", p.freeConsent());
+            m.put("ijabQabulStatement", p.ijabQabulStatement());
+            parties.add(m);
+        }
+        o.put("parties", parties);
+        o.put("businessActivity", f.businessActivity());
+        AkadFormation.LawfulnessReview r = f.lawfulnessReview();
+        if (r == null) {
+            o.put("lawfulnessReview", null);
+        } else {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("reviewedBy", r.reviewedBy());
+            m.put("reviewedOn", r.reviewedOn() == null ? null : r.reviewedOn().toString());
+            m.put("lawful", r.lawful());
+            o.put("lawfulnessReview", m);
+        }
+        o.put("combinedAkad", new ArrayList<Object>(new TreeSet<>(f.combinedAkad())));
+        o.put("unresolvedAmbiguities", new ArrayList<Object>(f.unresolvedAmbiguities()));
+        o.put("sameSession", f.sameSession());
+        o.put("ijabWithdrawn", f.ijabWithdrawn());
+        List<Object> sections = new ArrayList<>();
+        f.sectionsPresent().stream().sorted().forEach(x -> sections.add(x.name()));
+        o.put("sectionsPresent", sections);
+        o.put("signedPlace", f.signedPlace());
+        o.put("signedOn", f.signedOn() == null ? null : f.signedOn().toString());
+        List<Object> witnesses = new ArrayList<>();
+        for (Witness w : f.witnesses()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("name", w.name());
+            m.put("sex", w.sex() == null ? null : w.sex().name());
+            witnesses.add(m);
+        }
+        o.put("witnesses", witnesses);
+        return Json.write(o);
+    }
+
+    public static String encodePolicy(FormationPolicy p) {
+        Map<String, Object> o = new LinkedHashMap<>();
+        o.put("witnessRule", p.witnessRule().name());
+        o.put("blockMultiAkad", p.blockMultiAkad());
+        o.put("minimumAgeYears", p.minimumAgeYears() == null ? null : (long) p.minimumAgeYears());
+        return Json.write(o);
+    }
+
     private static Map<String, Object> money(Money m) {
         Map<String, Object> o = new LinkedHashMap<>();
         o.put("amount", m.amount());
@@ -172,6 +226,54 @@ public final class SyirkahJsonCodec {
 
     public static LiquidationResult decodeLiquidation(String json) {
         return liquidation(obj(Json.read(json), "liquidation"));
+    }
+
+    public static AkadFormation decodeFormation(String json) {
+        Map<String, Object> o = obj(Json.read(json), "formation");
+        List<PartyRecord> parties = new ArrayList<>();
+        for (Object x : list(o, "parties")) {
+            Map<String, Object> m = obj(x, "party");
+            String dob = optStr(m, "dateOfBirth");
+            parties.add(new PartyRecord(pid(str(m, "partner")), dob == null ? null : LocalDate.parse(dob),
+                    optStr(m, "residence"), bool(m, "soundMind"), bool(m, "authorityOverCapital"),
+                    bool(m, "freeConsent"), optStr(m, "ijabQabulStatement")));
+        }
+        AkadFormation.LawfulnessReview review = null;
+        if (req(o, "lawfulnessReview") != null) {
+            Map<String, Object> m = obj(o.get("lawfulnessReview"), "lawfulnessReview");
+            String on = optStr(m, "reviewedOn");
+            review = new AkadFormation.LawfulnessReview(optStr(m, "reviewedBy"), on == null ? null : LocalDate.parse(on),
+                    bool(m, "lawful"));
+        }
+        Set<String> combined = new TreeSet<>();
+        for (Object x : list(o, "combinedAkad")) {
+            combined.add((String) x);
+        }
+        List<String> ambiguities = new ArrayList<>();
+        for (Object x : list(o, "unresolvedAmbiguities")) {
+            ambiguities.add((String) x);
+        }
+        Set<AkadSection> sections = EnumSet.noneOf(AkadSection.class);
+        for (Object x : list(o, "sectionsPresent")) {
+            sections.add(AkadSection.valueOf((String) x));
+        }
+        String signedOn = optStr(o, "signedOn");
+        List<Witness> witnesses = new ArrayList<>();
+        for (Object x : list(o, "witnesses")) {
+            Map<String, Object> m = obj(x, "witness");
+            String sex = optStr(m, "sex");
+            witnesses.add(new Witness(str(m, "name"), sex == null ? null : WitnessSex.valueOf(sex)));
+        }
+        return new AkadFormation(parties, optStr(o, "businessActivity"), review, combined, ambiguities,
+                bool(o, "sameSession"), bool(o, "ijabWithdrawn"), sections, optStr(o, "signedPlace"),
+                signedOn == null ? null : LocalDate.parse(signedOn), witnesses);
+    }
+
+    public static FormationPolicy decodePolicy(String json) {
+        Map<String, Object> o = obj(Json.read(json), "policy");
+        Object years = req(o, "minimumAgeYears");
+        return new FormationPolicy(WitnessRule.valueOf(str(o, "witnessRule")), bool(o, "blockMultiAkad"),
+                years == null ? null : ((BigDecimal) years).intValueExact());
     }
 
     @SuppressWarnings("unchecked")

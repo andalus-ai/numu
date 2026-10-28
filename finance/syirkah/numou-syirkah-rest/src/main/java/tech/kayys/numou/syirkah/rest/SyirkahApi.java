@@ -138,8 +138,12 @@ public class SyirkahApi {
             throw new IllegalArgumentException("request body is required");
         }
         SyirkahId id = r.syirkahId() == null || r.syirkahId().isBlank() ? SyirkahId.generate() : sid(r.syirkahId());
-        return SyirkahDtos.syirkah(service.open(new Commands.Open(tenant(), id,
-                SyirkahDtos.contract(r.contract()), r.amountScale())));
+        Commands.Open command = new Commands.Open(tenant(), id, SyirkahDtos.contract(r.contract()),
+                r.amountScale());
+        return SyirkahDtos.syirkah(r.formation() == null
+                ? service.open(command)
+                : service.openWithFormation(command, SyirkahDtos.formation(r.formation()),
+                        SyirkahDtos.policy(r.formationPolicy())));
     }
 
     public CloseView closePeriod(String id, ClosePeriodRequest r) {

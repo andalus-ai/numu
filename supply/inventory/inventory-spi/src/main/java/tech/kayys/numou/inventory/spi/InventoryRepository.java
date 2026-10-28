@@ -29,6 +29,10 @@ public interface InventoryRepository {
     default InventoryReservation reserveIfAvailable(InventoryReservation reservation) {
         throw new UnsupportedOperationException("This adapter does not implement reservations");
     }
+    /** Idempotent reservation creation; key and reservation payload must be checked atomically. */
+    default InventoryReservation reserveIfAvailable(InventoryCommandKey key, InventoryReservation reservation) {
+        throw new UnsupportedOperationException("This adapter does not implement idempotent reservations");
+    }
     default InventoryReservation findReservation(ReservationId id) {
         throw new UnsupportedOperationException("This adapter does not implement reservations");
     }

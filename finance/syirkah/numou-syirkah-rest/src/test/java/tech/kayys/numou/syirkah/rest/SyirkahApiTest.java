@@ -8,7 +8,9 @@ import tech.kayys.numou.numouapplication.SyirkahAccountMap;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
 import tech.kayys.numou.numouapplication.ops.SyirkahIntegrityAuditor;
+import tech.kayys.numou.numoudomain.AkadSection;
 import tech.kayys.numou.numoudomain.SyirkahPostingPlan;
+import tech.kayys.numou.numouapplication.FormationEnforcement;
 import tech.kayys.numou.numourest.SyirkahDtos.*;
 
 import java.math.BigDecimal;
@@ -59,7 +61,7 @@ class SyirkahApiTest {
     }
 
     String open() {
-        return api.open(new OpenRequest(null, 0, contract())).summary().id();
+        return api.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
     }
 
     CloseView close(String id, String start, String end, String revenue) {
@@ -107,8 +109,8 @@ class SyirkahApiTest {
     @Test
     void openIsIdempotentOnlyByRejectingDuplicateClientId() {
         String id = UUID.randomUUID().toString();
-        api.open(new OpenRequest(id, 0, contract()));
-        assertThrows(BusinessRuleViolation.class, () -> api.open(new OpenRequest(id, 0, contract())));
+        api.open(new OpenRequest(id, 0, contract(), null, null));
+        assertThrows(BusinessRuleViolation.class, () -> api.open(new OpenRequest(id, 0, contract(), null, null)));
     }
 
     @Test
@@ -223,5 +225,57 @@ class SyirkahApiTest {
         SyirkahView v = api.get(id);
         assertEquals("TERMINATED", v.summary().status());
         assertTrue(api.reconciliation(id).balanced());
+    }
+
+    // ------------------------------------------------------------ akad formation
+
+    static FormationDto formation(boolean sameSession) {
+        LocalDate signed = LocalDate.parse("2026-01-01");
+        return new FormationDto(
+                List.of(new PartyDto(A, LocalDate.parse("1990-05-17"), "Jakarta", true, true, true, "ijab and qabul"),
+                        new PartyDto(B, LocalDate.parse("1991-06-18"), "Bandung", true, true, true, "ijab and qabul")),
+                "Retail of household goods", new LawfulnessReviewDto("Sharia adviser", signed, true), null, null,
+                sameSession, false, Arrays.stream(AkadSection.values()).map(Enum::name).toList(), "Jakarta", signed,
+                List.of(new WitnessDto("W1", "male"), new WitnessDto("W2", "male")));
+    }
+
+    @Test
+    void aValidlyFormedAkadOpensAndADefectiveOneCreatesNothing() {
+        String id = UUID.randomUUID().toString();
+        assertEquals(id, api.open(new OpenRequest(id, 0, contract(), formation(true), null)).summary().id());
+
+        String bad = UUID.randomUUID().toString();
+        BusinessRuleViolation e = assertThrows(BusinessRuleViolation.class,
+                () -> api.open(new OpenRequest(bad, 0, contract(), formation(false), null)));
+        assertTrue(e.getMessage().contains("SESSION_NOT_UNIFIED"));
+        assertThrows(RuntimeException.class, () -> api.get(bad));
+    }
+
+    @Test
+    void policyFieldsOverrideTheBookDefaultsAndUnknownValuesAreRejected() {
+        FormationDto oneWomanOneMan = new FormationDto(formation(true).parties(), "Retail",
+                new LawfulnessReviewDto("Sharia adviser", LocalDate.parse("2026-01-01"), true), null, null, true, false,
+                Arrays.stream(AkadSection.values()).map(Enum::name).toList(), "Jakarta", LocalDate.parse("2026-01-01"),
+                List.of(new WitnessDto("W1", "male"), new WitnessDto("W2", "female")));
+        assertThrows(BusinessRuleViolation.class,
+                () -> api.open(new OpenRequest(null, 0, contract(), oneWomanOneMan, null)));
+        assertNotNull(api.open(new OpenRequest(null, 0, contract(), oneWomanOneMan,
+                new FormationPolicyDto("count_only", null, null))).summary().id());
+        assertThrows(IllegalArgumentException.class, () -> api.open(new OpenRequest(null, 0, contract(),
+                formation(true), new FormationPolicyDto("whatever", null, null))));
+    }
+
+    @Test
+    void whenTheDeploymentRequiresFormationAPlainOpenIsRefused() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService strict = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts, Clock.system(ZoneOffset.UTC),
+                FormationEnforcement.REQUIRED, new InMemoryAkadFormationPort());
+        GovernedSyirkahService governed = new GovernedSyirkahService(strict, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC));
+        SyirkahApi strictApi = new SyirkahApi(strict, governed, new SyirkahIntegrityAuditor(repo, repo), repo, ctx);
+        assertThrows(BusinessRuleViolation.class,
+                () -> strictApi.open(new OpenRequest(null, 0, contract(), null, null)));
+        assertNotNull(strictApi.open(new OpenRequest(null, 0, contract(), formation(true), null)).summary().id());
     }
 }

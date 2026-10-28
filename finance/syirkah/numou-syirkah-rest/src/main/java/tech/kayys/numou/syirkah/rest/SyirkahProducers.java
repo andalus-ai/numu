@@ -3,8 +3,10 @@ package tech.kayys.numou.numourest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.numouadapter.persistence.*;
+import tech.kayys.numou.numouapplication.FormationEnforcement;
 import tech.kayys.numou.numouapplication.SyirkahAccountMap;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
@@ -32,6 +34,10 @@ public class SyirkahProducers {
     @Inject
     RequestContextHolder context;
 
+    /** OFF (default) or REQUIRED; see {@link FormationEnforcement}. */
+    @ConfigProperty(name = "numou.syirkah.formation-enforcement", defaultValue = "OFF")
+    String formationEnforcement;
+
     @Produces
     @ApplicationScoped
     JdbcUnitOfWork unitOfWork() {
@@ -58,9 +64,17 @@ public class SyirkahProducers {
 
     @Produces
     @ApplicationScoped
+    JdbcAkadFormationPort akadFormations(JdbcUnitOfWork uow) {
+        return new JdbcAkadFormationPort(uow);
+    }
+
+    @Produces
+    @ApplicationScoped
     SyirkahApplicationService service(JdbcSyirkahRepository repo, JdbcOutboxEventPublisher events,
-                                      JdbcUnitOfWork uow) {
-        return new SyirkahApplicationService(repo, journal, events, uow, accounts, Clock.system(ZoneOffset.UTC));
+                                      JdbcUnitOfWork uow, JdbcAkadFormationPort formations) {
+        return new SyirkahApplicationService(repo, journal, events, uow, accounts, Clock.system(ZoneOffset.UTC),
+                FormationEnforcement.valueOf(formationEnforcement.trim().toUpperCase(java.util.Locale.ROOT)),
+                formations);
     }
 
     @Produces

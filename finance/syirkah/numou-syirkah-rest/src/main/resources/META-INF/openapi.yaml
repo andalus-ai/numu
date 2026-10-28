@@ -30,7 +30,7 @@ paths:
     post:
       tags: [Syirkah]
       summary: Open a syirkah
-      description: "Role: operator. A client-supplied syirkahId that already exists is rejected with 409."
+      description: "Role: operator. A client-supplied syirkahId that already exists is rejected with 409. When the request carries a formation, the syirkah is opened only if every akad formation check passes (Hukum Muamalah Bab X, XI, XVIII) and the record is stored with it; a deployment configured with numou.syirkah.formation-enforcement=REQUIRED refuses a request without one."
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/OpenRequest"}}}}
       responses:
         "201":
@@ -230,6 +230,57 @@ components:
         syirkahId: {type: string, format: uuid, description: Optional, makes creation retry-safe}
         amountScale: {type: integer, description: Decimal places of the currency, example: 2}
         contract: {$ref: "#/components/schemas/ContractDto"}
+        formation: {$ref: "#/components/schemas/FormationDto"}
+        formationPolicy: {$ref: "#/components/schemas/FormationPolicyDto"}
+    PartyDto:
+      type: object
+      required: [partnerId, soundMind, authorityOverCapital, freeConsent]
+      properties:
+        partnerId: {type: string, format: uuid}
+        dateOfBirth: {type: string, format: date, nullable: true}
+        residence: {type: string, nullable: true}
+        soundMind: {type: boolean}
+        authorityOverCapital: {type: boolean}
+        freeConsent: {type: boolean}
+        ijabQabulStatement: {type: string, nullable: true, description: The party's written ijab and qabul wording}
+    LawfulnessReviewDto:
+      type: object
+      required: [lawful]
+      properties:
+        reviewedBy: {type: string}
+        reviewedOn: {type: string, format: date}
+        lawful: {type: boolean}
+    WitnessDto:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        sex: {type: string, enum: [MALE, FEMALE], nullable: true, description: Needed only for the witness nishab}
+    FormationDto:
+      type: object
+      description: How the akad was formed and written. Software cannot decide lawfulness or sound mind; it requires the determination to be recorded.
+      required: [sameSession, ijabWithdrawn]
+      properties:
+        parties: {type: array, items: {$ref: "#/components/schemas/PartyDto"}}
+        businessActivity: {type: string}
+        lawfulnessReview: {$ref: "#/components/schemas/LawfulnessReviewDto"}
+        combinedAkad: {type: array, items: {type: string}, description: Other akad combined into this one (multi-akad)}
+        unresolvedAmbiguities: {type: array, items: {type: string}}
+        sameSession: {type: boolean, description: Ijab and qabul took place in one session}
+        ijabWithdrawn: {type: boolean}
+        sectionsPresent:
+          type: array
+          items: {type: string, enum: [PARTIES, OBJECT_AND_COUNTERVALUE, IJAB_QABUL, RIGHTS_AND_DUTIES, JALI_CONDITIONS, SANCTIONS, DISPUTE_RESOLUTION, SIGNING_PLACE_AND_DATE, PARTY_SIGNATURES, WITNESS_SIGNATURES]}
+        signedPlace: {type: string}
+        signedOn: {type: string, format: date}
+        witnesses: {type: array, items: {$ref: "#/components/schemas/WitnessDto"}}
+    FormationPolicyDto:
+      type: object
+      description: Omitted fields take the book's positions.
+      properties:
+        witnessRule: {type: string, enum: [COUNT_ONLY, NISHAB], default: NISHAB}
+        blockMultiAkad: {type: boolean, default: true}
+        minimumAgeYears: {type: integer, minimum: 0, nullable: true}
     FinancialResultDto:
       type: object
       required: [revenue]
