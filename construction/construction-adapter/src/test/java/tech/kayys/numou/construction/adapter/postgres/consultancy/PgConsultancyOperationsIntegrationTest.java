@@ -104,6 +104,62 @@ class PgConsultancyOperationsIntegrationTest {
     }
 
     @Test
+    void deliverableLifecycleUsesCompareAndSetAndPersistsRevisionChanges() {
+        String tenant = "consultancy-deliverable-lifecycle-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = newEngagement("ENG-" + UUID.randomUUID());
+        ConsultancyDeliverable draft = ConsultancyDeliverable.create(
+                ConsultancyEngagementId.of(engagement.id().value()),
+                engagement.clientOrganizationId(), engagement.consultantOrganizationId(),
+                "D-02", "Initial report", "Initial description");
+        runner.inTransaction(context -> context.consultancy().saveEngagement(tenant, engagement)
+                .flatMap(ignored -> context.consultancy().saveDeliverable(tenant, draft)))
+                .await().indefinitely();
+
+        ConsultancyDeliverable staleDraft = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow()))
+                .await().indefinitely();
+        ConsultancyDeliverable submitted = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(ConsultancyDeliverable::submit)
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(ConsultancyDeliverableStatus.SUBMITTED, submitted.status());
+
+        assertThrows(RuntimeException.class, () -> runner.inTransaction(context ->
+                context.consultancy().updateDeliverable(tenant, staleDraft)).await().indefinitely());
+
+        ConsultancyDeliverable rejected = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(value -> value.reject(engagement.clientOrganizationId(), "Add signed appendix"))
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(ConsultancyDeliverableStatus.REJECTED, rejected.status());
+
+        ConsultancyDeliverable revised = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(value -> value.revise("Revised report", "Revised description"))
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(2, revised.revision());
+        assertEquals(ConsultancyDeliverableStatus.DRAFT, revised.status());
+        assertEquals("Revised report", revised.title());
+
+        ConsultancyDeliverable resubmitted = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(ConsultancyDeliverable::submit)
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        ConsultancyDeliverable accepted = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(value -> value.accept(engagement.clientOrganizationId(), "Approved"))
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(ConsultancyDeliverableStatus.SUBMITTED, resubmitted.status());
+        assertEquals(ConsultancyDeliverableStatus.ACCEPTED, accepted.status());
+        assertEquals("Approved", accepted.reviewComment());
+    }
+
+    @Test
     void tenantScopedEngagementNumberUniquenessIsEnforcedByDatabase() {
         String tenant = "consultancy-unique-" + UUID.randomUUID();
         String number = "ENG-" + UUID.randomUUID();
