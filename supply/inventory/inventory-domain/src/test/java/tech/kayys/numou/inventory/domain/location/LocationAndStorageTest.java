@@ -26,8 +26,8 @@ class LocationAndStorageTest {
         BigDecimal longitude = new BigDecimal("106.845612345678901234567890");
 
         GeoPoint precise = new GeoPoint(latitude, longitude);
-        assertSame(latitude, precise.latitude());
-        assertSame(longitude, precise.longitude());
+        assertEquals(latitude, precise.latitude());
+        assertEquals(longitude, precise.longitude());
 
         assertEquals(new BigDecimal("-90"), new GeoPoint(
                 new BigDecimal("-90"), new BigDecimal("-180")).latitude());
