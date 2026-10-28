@@ -15,6 +15,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AutomotivePartsUseCasesTest {
     @Test
+    void fitmentPreservesOpaqueTenantIdentifierWhileNormalizingCatalogFields() {
+        var fitment = new VehicleFitment("tenant-a", "id", "Toyota", "Avanza", null,
+                2020, 2024, null, null, "OEM_CATALOG", "row-1",
+                LocalDate.of(2024, 1, 1), null);
+
+        assertEquals("tenant-a", fitment.tenantId());
+        assertEquals("ID", fitment.market());
+        assertEquals("TOYOTA", fitment.make());
+    }
+
+    @Test
     void referenceLookupAlwaysPassesExplicitTenantAndFiltersUnexpectedCrossTenantResult() {
         var repository = new FakeRepository();
         var productId = ProductId.of(UUID.randomUUID());
