@@ -80,7 +80,7 @@ public record PartnerPayout(
                                      boolean incrementAttempt) {
         Objects.requireNonNull(at, "transition time is required");
         boolean allowed = switch (status) {
-            case REQUESTED -> next == PartnerPayoutStatus.SUBMITTED || next == PartnerPayoutStatus.HELD
+            case REQUESTED -> next == PartnerPayoutStatus.SUBMITTED || next == PartnerPayoutStatus.PAID || next == PartnerPayoutStatus.HELD
                     || next == PartnerPayoutStatus.RETRYABLE_FAILURE
                     || next == PartnerPayoutStatus.RECONCILIATION_REQUIRED;
             case SUBMITTED -> next == PartnerPayoutStatus.PAID || next == PartnerPayoutStatus.RETURNED
