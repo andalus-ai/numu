@@ -233,3 +233,37 @@ Deliver work in coherent milestone PRs. Do not create one PR per small file or s
 - [ ] No code or CI result is claimed unless changed/run and verified.
 
 **Verification note:** This contract is a proposed architecture artifact based on initial path/POM/domain inspection. A complete code search, dependency audit, and Maven test run have not yet been completed. It must not be read as evidence that Queue Management has been implemented.
+
+
+## 13. Additional repository evidence: reliability primitives to reuse
+
+A repository-wide path inventory (7,125 tracked file entries in the current `main` tree; GitHub tree response was not truncated) found many queue-adjacent domain artifacts but no obvious existing dedicated Queue Management reactor by name. This is useful evidence, not proof that no queue behavior exists under other names.
+
+The audit also found a platform Reliability capability that should be evaluated for reuse before any new idempotency or event-delivery infrastructure is written:
+
+- `core/framework/reliability/pom.xml` defines `numou-reliability` with API, SPI, application, and adapter modules.
+- `reliability-api` documents contracts for outbox, inbox, idempotency, retry policy, and failure classification.
+- `reliability-spi/.../IdempotencyStorePort.java` defines atomic scoped key claims, result recording, and claim release.
+- `reliability-application/.../IdempotentExecutor.java` provides an executor that returns recorded outcomes for completed duplicates and rejects a duplicate while the first attempt is still running.
+- `core/framework/aggregate/aggregate-persistence/.../OutboxDomainEventSink.java` and the reliability adapter are additional candidates to inspect for transactional event publication.
+- Existing Asset and Construction code also contain idempotency/outbox implementations. These are useful evidence for edge cases and persistence patterns, but Queue Management should not depend on a private domain adapter merely to copy those patterns.
+
+**Design consequence:** Queue Management should use the platform Reliability public contract where its semantics fit and avoid inventing a parallel idempotency/outbox subsystem. The exact dependencies and behavior must be validated against the current reliability API and its tests. Queue-specific atomic selection/claiming remains a queue repository/concurrency concern; a generic idempotency key alone does not make `CallNext` atomic.
+
+## 14. M0 audit status and open verification
+
+Confirmed from source/POM inspection:
+- The repository has no root `pom.xml`; reactor entry points are capability-specific and the shared parent is `core/framework/pom.xml`.
+- Scheduling has separate domain/SPI/application/adapter modules, and its domain is resource-agnostic.
+- Workforce, Vehicle Service, Support, Logistics, CRM, and Notification have separate capability roots or module boundaries.
+- Reliability already has public contracts and implementations for idempotency and durable delivery concerns.
+- Source-owned work-order, shipment, and dispatch-wave models exist and must not be re-owned by Queue Management.
+
+Not yet confirmed:
+- Complete source-level search for queue behavior under non-obvious names.
+- Full dependency graph and all public contracts for the listed capabilities.
+- Actual module test commands and baseline CI/test results.
+- Persistence adapter selection, transaction boundaries, and migration conventions for a new queue reactor.
+- Runtime security composition and tenant-context enforcement for the proposed public commands.
+
+The M0 issue remains open until these are resolved or explicitly documented as follow-up decisions. Do not start M1 production implementation solely on the initial path inventory.
