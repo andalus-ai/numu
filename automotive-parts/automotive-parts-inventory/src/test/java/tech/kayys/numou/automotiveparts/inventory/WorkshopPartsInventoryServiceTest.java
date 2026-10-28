@@ -27,7 +27,7 @@ class WorkshopPartsInventoryServiceTest {
         WarehouseId warehouse = WarehouseId.of("workshop-warehouse-1");
         inventory.registerItem("tenant-a", new InventoryItem(item, "SKU-FILTER", "Oil filter",
                 ValuationMethod.WEIGHTED_AVERAGE, TrackingMethod.NONE, "EA"));
-        inventory.registerWarehouse("tenant-a", new Warehouse(warehouse, "Workshop stock", "ID"));
+        inventory.registerWarehouse("tenant-a", new Warehouse(warehouse, "WS-1", "Workshop stock", "ID"));
         inventory.receive("tenant-a", new InventoryCommandKey("opening", "receipt-1"), item, warehouse,
                 new BigDecimal("10"), new BigDecimal("25.00"), "IDR", "OPENING-1");
 
