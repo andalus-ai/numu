@@ -53,3 +53,12 @@ All state updates use a persisted version compare-and-set. Reservation checkpoin
 The PostgreSQL migration adds durable checkout state and reservation references. The adapter integration tests exercise tenant scoping, persisted reservation checkpoints, and compare-and-set versioning. Application tests cover successful payment, ambiguous payment outcomes, and reservation failure compensation.
 
 Before production rollout, verify the marketplace Maven reactor and CI, and validate the selected inventory adapter's durable reservation and command-key lookup behavior. Do not enable checkout in a composition using an in-memory-only reservation adapter for multi-instance production traffic.
+
+
+## Payment capability composition update
+
+The marketplace application now includes `PaymentCapabilityCheckoutAdapter`, which maps the public `PaymentApplicationPort` contract into checkout's provider-neutral payment port. Payment continues to own obligation persistence, idempotency, provider execution, and verified outcomes. The adapter maps refund lifecycle states to `UNKNOWN` for checkout purposes: a refunded obligation is not evidence that the original checkout attempt failed.
+
+An authoritative `PaymentOperationRejectedException` is translated to a known checkout rejection so the coordinator can compensate known inventory reservations. Other runtime failures remain ambiguous and retain reservations for reconciliation.
+
+The inventory adapter is intentionally not declared production-ready yet. The current inventory application exposes idempotent reservation creation, but its public contract does not provide a durable lookup by reservation command key, and the repository's only concrete inventory adapter is in-memory. Marketplace must not wire this into multi-instance production checkout until the inventory capability exposes and implements durable command-key recovery and a persistent adapter is available.
