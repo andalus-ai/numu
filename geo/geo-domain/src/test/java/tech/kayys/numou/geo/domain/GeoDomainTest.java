@@ -2,10 +2,12 @@ package tech.kayys.numou.geo.domain;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 class GeoDomainTest {
 
@@ -25,6 +27,20 @@ class GeoDomainTest {
         assertThat(GeoDistance.metersBetween(jakarta, jakarta)).isZero();
         GeoPoint bandung = new GeoPoint(-6.9175, 107.6191);
         assertThat(GeoDistance.metersBetween(jakarta, bandung)).isBetween(110_000.0, 130_000.0);
+    }
+
+    @Test
+    void computesStableDistanceForAntipodalPoints() {
+        double halfCircumference = Math.PI * GeoDistance.EARTH_RADIUS_METERS;
+        assertThat(GeoDistance.metersBetween(new GeoPoint(0, 0), new GeoPoint(0, 180)))
+                .isCloseTo(halfCircumference, org.assertj.core.data.Offset.offset(0.001));
+    }
+
+    @Test
+    void rejectsNullPointsEvenForSinglePointPaths() {
+        assertThatNullPointerException().isThrownBy(() -> GeoDistance.pathLengthMeters(Arrays.asList((GeoPoint) null)));
+        assertThatNullPointerException().isThrownBy(() -> GeoDistance.pathLengthMeters(
+                Arrays.asList(new GeoPoint(0, 0), null)));
     }
 
     @Test
