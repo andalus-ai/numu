@@ -87,7 +87,18 @@ class PostgresMarketplaceOrderRepositoryTest {
         assertEquals(order.id(), loaded.id());
         assertEquals(order.tenantId(), loaded.tenantId());
         assertEquals(order.buyerId(), loaded.buyerId());
-        assertEquals(order.lines(), loaded.lines());
+        assertEquals(1, loaded.lines().size());
+        MarketplaceOrderLine originalLine = order.lines().get(0);
+        MarketplaceOrderLine loadedLine = loaded.lines().get(0);
+        assertEquals(originalLine.lineId(), loadedLine.lineId());
+        assertEquals(originalLine.productId(), loadedLine.productId());
+        assertEquals(originalLine.offeringId(), loadedLine.offeringId());
+        assertEquals(originalLine.sellerId(), loadedLine.sellerId());
+        assertEquals(originalLine.description(), loadedLine.description());
+        assertEquals(0, originalLine.quantity().compareTo(loadedLine.quantity()));
+        assertEquals(originalLine.unit(), loadedLine.unit());
+        assertEquals(0, originalLine.unitPrice().compareTo(loadedLine.unitPrice()));
+        assertEquals(originalLine.currency(), loadedLine.currency());
         assertEquals(MarketplaceOrderStatus.CREATED, loaded.status());
         assertTrue(repository.findByTenantAndId("tenant-b", order.id()).isEmpty());
     }
@@ -105,8 +116,15 @@ class PostgresMarketplaceOrderRepositoryTest {
         assertEquals(first.id(), retry.id());
         assertTrue(repository.findByTenantAndId("tenant-a", retryCandidate.id()).isEmpty(),
                 "a replay must not persist the newly proposed duplicate order");
+        MarketplaceOrderLine changedLine = new MarketplaceOrderLine("line-1", "different-product",
+                "offer-1", "seller-1", "Fresh produce", new BigDecimal("2.000"), "kg",
+                new BigDecimal("12500.00"), "IDR");
+        MarketplaceOrder changedRequest = MarketplaceOrder.create(UUID.randomUUID(), "tenant-a", "buyer-a",
+                List.of(changedLine), "IDR", Instant.parse("2026-10-28T00:00:00Z"));
+        String changedFingerprint = MarketplaceOrderRequestFingerprint.calculate(
+                changedRequest.tenantId(), changedRequest.buyerId(), changedRequest.currency(), changedRequest.lines());
         assertThrows(MarketplaceOrderIdempotencyConflictException.class, () ->
-                repository.createOrGet("tenant-a", "checkout-1", "0".repeat(64), order()));
+                repository.createOrGet("tenant-a", "checkout-1", changedFingerprint, changedRequest));
     }
 
     @Test
