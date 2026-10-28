@@ -73,6 +73,7 @@ public final class PgReservationOutboxRelay {
                                        ELSE clock_timestamp() + make_interval(secs => $3) END,
                    lease_owner = NULL, lease_until = NULL, last_error = $5
              WHERE event_id = $1 AND status = 'PROCESSING' AND lease_owner = $2
+               AND lease_until > clock_timestamp()
             """;
 
     private final PgPool pool;
@@ -135,7 +136,7 @@ public final class PgReservationOutboxRelay {
                 publish = Uni.createFrom().failure(
                         new IllegalStateException("Outbox publisher returned null Uni"));
             }
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
             publish = Uni.createFrom().failure(failure);
         }
         return publish
