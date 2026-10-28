@@ -59,3 +59,17 @@ Those pieces must follow existing reactor/runtime conventions and have integrati
 ## M5 implementation boundary and remaining adapter work
 
 The repository now defines the application/SPI contracts and orchestration workflow, with unit tests for approval gating, outbox dispatch, receipt validation path, and reconciliation. Concrete durable outbox storage, lease/claim transaction implementation, Finance adapter/chart-of-accounts mapping, migration, audit event persistence, and PostgreSQL concurrency/integration tests are still required before production use.
+
+## M6 — Partner payout orchestration
+
+- A payout request is eligible only for an approved positive earning whose matching Finance liability outbox entry is already posted.
+- Payout destination lookup is tenant- and partner-scoped; only active, verified destinations in the commission currency are eligible. Affiliate stores an opaque destination reference, never raw bank or wallet credentials.
+- Payout intent uses a stable tenant-scoped idempotency key. The payout repository must atomically deduplicate requests and compare-and-set lifecycle updates.
+- Wallet/Payment owns actual money movement. The affiliate adapter calls their public application contract and requires independent provider-side idempotency plus authoritative lookup by idempotency key.
+- Payout states distinguish requested, submitted, paid, held, retryable failure, reconciliation required, and returned. A request or a provider acceptance is not proof of payment; only an authoritative confirmed receipt transitions to paid.
+- Ambiguous submission failures are reconciled before retry to avoid duplicate transfers. Receipts are checked against tenant, idempotency key, currency, and exact amount.
+- Commission reversals are not payout-eligible; a reversal changes the liability and must be handled by the Finance reconciliation process, not paid as a positive payout.
+
+## M6 implementation boundary and remaining production work
+
+This milestone adds the payout domain lifecycle and application/SPI contracts, including Wallet/Payment orchestration and destination verification boundaries. Concrete persistence/migrations, audit-event storage, operator approval and hold policies, settlement batch aggregation/scheduling, bank/wallet destination management, provider adapters, rate/fee/tax handling, and end-to-end integration/concurrency tests remain required before production use. Do not mark a payout paid based solely on a submission response or a locally updated record.
