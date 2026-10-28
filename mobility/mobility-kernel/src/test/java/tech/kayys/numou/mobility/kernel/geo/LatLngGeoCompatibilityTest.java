@@ -59,6 +59,19 @@ class LatLngGeoCompatibilityTest {
     }
 
     @Test
+    void legacyPolylineFacadeUsesSharedPrecisionFiveCodec() {
+        List<LatLng> path = List.of(
+                new LatLng(38.5, -120.2),
+                new LatLng(40.7, -120.95),
+                new LatLng(43.252, -126.453));
+
+        String encoded = Polyline.encode(path);
+
+        assertThat(encoded).isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
+        assertThat(Polyline.decode(encoded)).containsExactlyElementsOf(path);
+    }
+
+    @Test
     void preservesRoundedLogRepresentation() {
         assertThat(new LatLng(-6.208812345, 106.845612345).toString())
                 .isEqualTo("LatLng[~-6.21,106.85]");
