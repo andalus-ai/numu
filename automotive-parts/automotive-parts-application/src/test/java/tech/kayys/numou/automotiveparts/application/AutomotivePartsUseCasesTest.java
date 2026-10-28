@@ -15,6 +15,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AutomotivePartsUseCasesTest {
     @Test
+    void fitmentPreservesOpaqueTenantIdentifierWhileNormalizingCatalogFields() {
+        var fitment = new VehicleFitment("tenant-a", "id", "Toyota", "Avanza", null,
+                2020, 2024, null, null, "OEM_CATALOG", "row-1",
+                LocalDate.of(2024, 1, 1), null);
+
+        assertEquals("tenant-a", fitment.tenantId());
+        assertEquals("ID", fitment.market());
+        assertEquals("TOYOTA", fitment.make());
+    }
+
+    @Test
     void referenceLookupAlwaysPassesExplicitTenantAndFiltersUnexpectedCrossTenantResult() {
         var repository = new FakeRepository();
         var productId = ProductId.of(UUID.randomUUID());
@@ -38,7 +49,8 @@ class AutomotivePartsUseCasesTest {
         repository.candidates.add(new PartFitment("tenant-a", ProductId.of(UUID.randomUUID()),
                 new VehicleFitment("tenant-a", "ID", "TOYOTA", "AVANZA", null, 2010, 2015,
                         null, null, "OLD_CATALOG", "row-old", LocalDate.of(2010, 1, 1), null)));
-        repository.candidates.add(new PartFitment("tenant-b", ProductId.of(UUID.randomUUID()),
+        assertThrows(IllegalArgumentException.class, () -> new PartFitment("tenant-a",
+                ProductId.of(UUID.randomUUID()),
                 new VehicleFitment("tenant-b", "ID", "TOYOTA", "AVANZA", null, 2020, 2024,
                         null, null, "OTHER_TENANT", "row-2", LocalDate.of(2024, 1, 1), null)));
 

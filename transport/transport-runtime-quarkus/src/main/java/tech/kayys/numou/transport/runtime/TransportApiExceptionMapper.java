@@ -18,6 +18,10 @@ public class TransportApiExceptionMapper implements ExceptionMapper<RuntimeExcep
         if (failure instanceof WebApplicationException webFailure) {
             return webFailure.getResponse();
         }
+        if (failure instanceof TransportAuthorizationUnavailableException) {
+            return error(Response.Status.SERVICE_UNAVAILABLE, "authorization_unavailable",
+                    "Tenant membership or authorization service is temporarily unavailable.");
+        }
         if (failure instanceof SecurityException) {
             return error(Response.Status.FORBIDDEN, "trusted_tenant_context_required",
                     "Authenticated tenant and actor context is required.");

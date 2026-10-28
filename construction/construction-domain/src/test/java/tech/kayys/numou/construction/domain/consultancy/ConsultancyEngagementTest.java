@@ -48,6 +48,47 @@ class ConsultancyEngagementTest {
         assertThat(engagement.cancellationReason()).isEqualTo("Client cancelled the opportunity");
     }
 
+    @Test
+    void persistedAggregateCanBeReconstitutedWithoutChangingItsIdentityOrLifecycle() {
+        var original = newEngagement();
+        original.submitProposal();
+        original.activate();
+
+        var restored = ConsultancyEngagement.reconstitute(
+                original.id().value(), original.projectId(), original.clientOrganizationId(),
+                original.consultantOrganizationId(), original.engagementNumber(), original.title(),
+                original.scopeStatement(), original.scopeRevision(), original.status(),
+                original.cancellationReason());
+
+        assertThat(restored.id()).isEqualTo(original.id());
+        assertThat(restored.status()).isEqualTo(ConsultancyEngagementStatus.ACTIVE);
+        assertThat(restored.scopeRevision()).isEqualTo(original.scopeRevision());
+        assertThat(restored.title()).isEqualTo(original.title());
+        assertThatThrownBy(() -> restored.reviseProposal("Changed", "Changed scope"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void reconstitutionRejectsImpossiblePersistedStates() {
+        var engagement = newEngagement();
+
+        assertThatThrownBy(() -> ConsultancyEngagement.reconstitute(
+                engagement.id().value(), engagement.projectId(), engagement.clientOrganizationId(),
+                engagement.consultantOrganizationId(), engagement.engagementNumber(), engagement.title(),
+                engagement.scopeStatement(), 0, ConsultancyEngagementStatus.DRAFT, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ConsultancyEngagement.reconstitute(
+                engagement.id().value(), engagement.projectId(), engagement.clientOrganizationId(),
+                engagement.consultantOrganizationId(), engagement.engagementNumber(), engagement.title(),
+                engagement.scopeStatement(), 1, ConsultancyEngagementStatus.CANCELLED, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ConsultancyEngagement.reconstitute(
+                engagement.id().value(), engagement.projectId(), engagement.clientOrganizationId(),
+                engagement.consultantOrganizationId(), engagement.engagementNumber(), engagement.title(),
+                engagement.scopeStatement(), 1, ConsultancyEngagementStatus.ACTIVE, "stale cancellation"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     private ConsultancyEngagement newEngagement() {
         return ConsultancyEngagement.create(
                 UUID.randomUUID(),
