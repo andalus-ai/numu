@@ -34,8 +34,34 @@ public final class SyirkahDtos {
                               List<String> witnesses, boolean ijabQabulRecorded, LocalDate effectiveFrom) {
     }
 
-    /** {@code syirkahId} is optional; supply it to make creation idempotent across client retries. */
-    public record OpenRequest(String syirkahId, int amountScale, ContractDto contract) {
+    public record PartyDto(String partnerId, LocalDate dateOfBirth, String residence, boolean soundMind,
+                           boolean authorityOverCapital, boolean freeConsent, String ijabQabulStatement) {
+    }
+
+    public record LawfulnessReviewDto(String reviewedBy, LocalDate reviewedOn, boolean lawful) {
+    }
+
+    public record WitnessDto(String name, String sex) {
+    }
+
+    /** How the akad was formed and written; see {@code AkadFormation}. Lists may be omitted when empty. */
+    public record FormationDto(List<PartyDto> parties, String businessActivity, LawfulnessReviewDto lawfulnessReview,
+                               List<String> combinedAkad, List<String> unresolvedAmbiguities, boolean sameSession,
+                               boolean ijabWithdrawn, List<String> sectionsPresent, String signedPlace,
+                               LocalDate signedOn, List<WitnessDto> witnesses) {
+    }
+
+    /** Omitted fields mean the book's own positions: nishab witnesses, multi-akad blocked, no minimum age. */
+    public record FormationPolicyDto(String witnessRule, Boolean blockMultiAkad, Integer minimumAgeYears) {
+    }
+
+    /**
+     * {@code syirkahId} is optional; supply it to make creation idempotent across client retries.
+     * {@code formation} is optional unless the deployment requires the akad formation checks; when present the
+     * syirkah is opened only if every check passes, and the record is stored with it.
+     */
+    public record OpenRequest(String syirkahId, int amountScale, ContractDto contract, FormationDto formation,
+                              FormationPolicyDto formationPolicy) {
     }
 
     public record FinancialResultDto(BigDecimal revenue, BigDecimal directCosts, BigDecimal operatingCosts,
@@ -155,6 +181,42 @@ public final class SyirkahDtos {
 
     static Money money(BigDecimal amount, Currency currency, String field) {
         return new Money(required(amount, field), currency);
+    }
+
+    static AkadFormation formation(FormationDto d) {
+        List<PartyRecord> parties = new ArrayList<>();
+        for (PartyDto p : d.parties() == null ? List.<PartyDto>of() : d.parties()) {
+            parties.add(new PartyRecord(partner(p.partnerId(), "formation.parties.partnerId"), p.dateOfBirth(),
+                    p.residence(), p.soundMind(), p.authorityOverCapital(), p.freeConsent(),
+                    p.ijabQabulStatement()));
+        }
+        AkadFormation.LawfulnessReview review = d.lawfulnessReview() == null ? null
+                : new AkadFormation.LawfulnessReview(d.lawfulnessReview().reviewedBy(),
+                        d.lawfulnessReview().reviewedOn(), d.lawfulnessReview().lawful());
+        Set<AkadSection> sections = EnumSet.noneOf(AkadSection.class);
+        for (String x : d.sectionsPresent() == null ? List.<String>of() : d.sectionsPresent()) {
+            sections.add(enumOf(AkadSection.class, x, "formation.sectionsPresent"));
+        }
+        List<Witness> witnesses = new ArrayList<>();
+        for (WitnessDto w : d.witnesses() == null ? List.<WitnessDto>of() : d.witnesses()) {
+            witnesses.add(new Witness(w.name(),
+                    w.sex() == null || w.sex().isBlank() ? null : enumOf(WitnessSex.class, w.sex(), "witness.sex")));
+        }
+        return new AkadFormation(parties, d.businessActivity(), review,
+                d.combinedAkad() == null ? Set.of() : new HashSet<>(d.combinedAkad()),
+                d.unresolvedAmbiguities(), d.sameSession(), d.ijabWithdrawn(), sections, d.signedPlace(),
+                d.signedOn(), witnesses);
+    }
+
+    static FormationPolicy policy(FormationPolicyDto d) {
+        FormationPolicy book = FormationPolicy.bookDefault();
+        if (d == null) {
+            return book;
+        }
+        return new FormationPolicy(
+                d.witnessRule() == null ? book.witnessRule()
+                        : enumOf(WitnessRule.class, d.witnessRule(), "formationPolicy.witnessRule"),
+                d.blockMultiAkad() == null ? book.blockMultiAkad() : d.blockMultiAkad(), d.minimumAgeYears());
     }
 
     static SyirkahContract contract(ContractDto d) {
