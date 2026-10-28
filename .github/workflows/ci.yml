@@ -90,6 +90,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/pom.xml install
       - name: Build and install canonical product domain for automotive parts
         run: mvn -B -ntp -f product/pom.xml -pl product-domain -am install
+      # Automotive-parts inventory integration consumes the inventory application contract
+      # from the independent supply reactor; install the minimal dependency closure first.
+      - name: Build and install inventory contracts for automotive-parts integration
+        run: mvn -B -ntp -f supply/pom.xml -pl inventory/inventory-application,inventory/inventory-adapter -am install -DskipTests
       - name: Verify automotive parts domain reactor
         run: mvn -B -ntp -f automotive-parts/pom.xml verify
       - name: Wait for RustFS readiness
