@@ -17,26 +17,26 @@ class PgLedgerRepositoryTest {
 
     @Test
     void acceptsExactlyOneInsertedLedgerRow() {
-        assertDoesNotThrow(() -> PgLedgerRepository.requireInserted(1));
+        assertDoesNotThrow(() -> PgLedgerRepository.validateInsertResult(1));
     }
 
     @Test
-    void surfacesDuplicateOrSuppressedLedgerInsertAsConflict() {
-        assertThrows(ConcurrencyConflictException.class,
-                () -> PgLedgerRepository.requireInserted(0));
+    void treatsExactReplayAsNoOp() {
+        assertDoesNotThrow(() -> PgLedgerRepository.validateInsertResult(0));
     }
 
     @Test
     void rejectsUnexpectedMultiRowInsertResult() {
         assertThrows(ConcurrencyConflictException.class,
-                () -> PgLedgerRepository.requireInserted(2));
+                () -> PgLedgerRepository.validateInsertResult(2));
     }
 
     @Test
     void parsesPostgresLedgerJsonIncludingRequestFingerprint() throws Exception {
         UUID entryId = UUID.randomUUID();
         UUID walletId = UUID.randomUUID();
-        PgLedgerRepository repository = new PgLedgerRepository(new ObjectMapper());
+        PgLedgerRepository repository = new PgLedgerRepository();
+        repository.mapper = new ObjectMapper();
 
         LedgerEntry entry = repository.parse("""
                 {
