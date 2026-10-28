@@ -68,7 +68,10 @@ class LatLngGeoCompatibilityTest {
         String encoded = Polyline.encode(path);
 
         assertThat(encoded).isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
-        assertThat(Polyline.decode(encoded)).containsExactlyElementsOf(path);
+        List<LatLng> decoded = Polyline.decode(encoded);
+        assertThat(decoded).containsExactlyElementsOf(path);
+        decoded.add(new LatLng(0, 0)); // Preserve the legacy facade's mutable-list behavior.
+        assertThat(decoded).hasSize(4);
     }
 
     @Test
