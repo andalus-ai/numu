@@ -1,6 +1,8 @@
 package tech.kayys.numou.construction.spi.idempotency;
 
 import io.smallrye.mutiny.Uni;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagement;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
 import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
 import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
 import tech.kayys.numou.construction.spi.outbox.TransactionalOutboxEvent;
@@ -28,6 +30,22 @@ public interface TransactionalCommandContext {
     Uni<Void> appendOutboxEvent(TransactionalOutboxEvent event);
 
     BoqRevisionOperations boqRevisions();
+
+    /**
+     * Transaction-bound consultancy writes. Adapters must use this context's
+     * connection so the aggregate save and idempotency outcome commit atomically.
+     * The default deliberately fails closed for adapters not yet upgraded.
+     */
+    default ConsultancyOperations consultancy() {
+        throw new UnsupportedOperationException(
+                "Transactional consultancy operations are not implemented by this adapter");
+    }
+
+    interface ConsultancyOperations {
+        Uni<ConsultancyEngagement> saveEngagement(String tenantId, ConsultancyEngagement engagement);
+        Uni<Optional<ConsultancyEngagement>> findEngagement(
+                String tenantId, ConsultancyEngagementId engagementId);
+    }
 
     /** Transaction-bound BOQ operations; adapter must use this context's connection. */
     interface BoqRevisionOperations {
