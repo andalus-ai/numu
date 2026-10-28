@@ -45,7 +45,7 @@ class GeoPolylineCodecTest {
     void rejectsMalformedOrOutOfRangeEncodedCoordinates() {
         assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("_"));
         assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("~~~~~~~"));
-        assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("\u0000?"));
+        assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode(String.valueOf((char) 0) + "?"));
         assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("_mljP?"));
     }
 }
