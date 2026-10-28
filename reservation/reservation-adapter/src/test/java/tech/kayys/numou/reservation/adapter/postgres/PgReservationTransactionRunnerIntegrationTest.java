@@ -115,7 +115,7 @@ class PgReservationTransactionRunnerIntegrationTest {
                 .iterator().next().getLong("total");
     }
 
-    private int countIdempotency(UUID tenantId, String key) {
+    private long countIdempotency(UUID tenantId, String key) {
         return pool.preparedQuery("""
                 SELECT count(*) AS total FROM reservation_idempotency_key
                  WHERE tenant_id = $1 AND idempotency_key = $2
@@ -123,7 +123,7 @@ class PgReservationTransactionRunnerIntegrationTest {
                 .iterator().next().getInteger("total");
     }
 
-    private int countOutbox(UUID eventId) {
+    private long countOutbox(UUID eventId) {
         return pool.preparedQuery("""
                 SELECT count(*) AS total FROM reservation_outbox_event WHERE event_id = $1
                 """).execute(Tuple.of(eventId)).await().indefinitely()
