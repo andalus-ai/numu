@@ -23,8 +23,10 @@ CREATE TABLE IF NOT EXISTS construction_consultancy_deliverable (
         CHECK (client_organization_id <> consultant_organization_id),
     CONSTRAINT ck_construction_consultancy_deliverable_review CHECK (
         (status IN ('DRAFT', 'SUBMITTED') AND reviewed_by_organization_id IS NULL AND review_comment IS NULL)
-        OR (status = 'ACCEPTED' AND reviewed_by_organization_id = client_organization_id)
-        OR (status = 'REJECTED' AND reviewed_by_organization_id = client_organization_id
+        OR (status = 'ACCEPTED' AND reviewed_by_organization_id IS NOT NULL
+            AND reviewed_by_organization_id = client_organization_id)
+        OR (status = 'REJECTED' AND reviewed_by_organization_id IS NOT NULL
+            AND reviewed_by_organization_id = client_organization_id
             AND review_comment IS NOT NULL AND length(btrim(review_comment)) > 0)
     )
 );
