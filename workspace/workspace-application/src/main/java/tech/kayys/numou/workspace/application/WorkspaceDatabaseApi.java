@@ -7,8 +7,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.UUID;
 
 /**
@@ -127,7 +125,11 @@ public final class WorkspaceDatabaseApi {
         return actor;
     }
 
-    private static Map<String, Object> immutableMap(Map<String, Object> values) {\n        return values == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(values));\n    }\n\n    private static <T> T call(Operation<T> operation) {
+    private static Map<String, Object> immutableMap(Map<String, Object> values) {
+        return values == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(values));
+    }
+
+    private static <T> T call(Operation<T> operation) {
         try {
             return operation.run();
         } catch (WorkspaceService.RevisionConflictException conflict) {
@@ -152,19 +154,19 @@ public final class WorkspaceDatabaseApi {
         public UpdateTableSchemaRequest { properties = properties == null ? List.of() : List.copyOf(properties); }
     }
     public record RecordValuesRequest(Map<String, Object> values) {
-        public RecordValuesRequest { values = values == null ? Map.of() : Map.copyOf(values); }
+        public RecordValuesRequest { values = values == null ? Map.of() : immutableMap(values); }
     }
     public record UpdateRecordRequest(long expectedRevision, Map<String, Object> values) {
-        public UpdateRecordRequest { values = values == null ? Map.of() : Map.copyOf(values); }
+        public UpdateRecordRequest { values = values == null ? Map.of() : immutableMap(values); }
     }
     public record QueryRecordsRequest(Map<String, Object> filters, int limit, int offset) {
-        public QueryRecordsRequest { filters = filters == null ? Map.of() : Map.copyOf(filters); }
+        public QueryRecordsRequest { filters = filters == null ? Map.of() : immutableMap(filters); }
     }
     public record CreateViewRequest(String name, DatabaseViewType type, Map<String, Object> filters,
                                     List<DatabaseViewSort> sorts, List<String> visibleProperties,
                                     String groupByProperty) {
         public CreateViewRequest {
-            filters = filters == null ? Map.of() : Map.copyOf(filters);
+            filters = filters == null ? Map.of() : immutableMap(filters);
             sorts = sorts == null ? List.of() : List.copyOf(sorts);
             visibleProperties = visibleProperties == null ? List.of() : List.copyOf(visibleProperties);
         }
@@ -173,7 +175,7 @@ public final class WorkspaceDatabaseApi {
                                     Map<String, Object> filters, List<DatabaseViewSort> sorts,
                                     List<String> visibleProperties, String groupByProperty) {
         public UpdateViewRequest {
-            filters = filters == null ? Map.of() : Map.copyOf(filters);
+            filters = filters == null ? Map.of() : immutableMap(filters);
             sorts = sorts == null ? List.of() : List.copyOf(sorts);
             visibleProperties = visibleProperties == null ? List.of() : List.copyOf(visibleProperties);
         }
