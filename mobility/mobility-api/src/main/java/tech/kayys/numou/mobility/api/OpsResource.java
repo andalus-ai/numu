@@ -36,7 +36,7 @@ public class OpsResource {
     @Inject DriverService drivers;
     @Inject RideService rides;
     @Inject tech.kayys.numou.mobility.ride.application.SupportService support;
-    @Inject tech.kayys.numou.mobility.wallet.application.PayoutService payouts;
+    @Inject tech.kayys.numou.wallet.application.PayoutService payouts;
     @Inject Secured secured;
     @Inject AuthorizationService authz;
 
@@ -84,8 +84,8 @@ public class OpsResource {
     /** What finance has to transfer. Includes bank account references: PayoutOps permission only. */
     @GET
     @Path("/payouts")
-    public Uni<java.util.List<tech.kayys.numou.mobility.wallet.application.PayoutService.PayoutOpsView>> payouts(
-            @QueryParam("status") @DefaultValue("SUBMITTED") tech.kayys.numou.mobility.wallet.domain.Payout.Status status, @QueryParam("limit") @DefaultValue("200") int limit) {
+    public Uni<java.util.List<tech.kayys.numou.wallet.application.PayoutService.PayoutOpsView>> payouts(
+            @QueryParam("status") @DefaultValue("SUBMITTED") tech.kayys.numou.wallet.domain.Payout.Status status, @QueryParam("limit") @DefaultValue("200") int limit) {
         return secured.run("ops.payout.list", ActionType.READ, tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.PAYOUT_OPS,
                 ctx -> payouts.listByStatus(ctx.tenantId(), status, limit));
     }
@@ -95,7 +95,7 @@ public class OpsResource {
     @Path("/payouts/{id}/result")
     public Uni<Void> payoutResult(@PathParam("id") UUID id, @Valid PayoutResultRequest r) {
         return secured.run("ops.payout.result", ActionType.PERFORM, tech.kayys.numou.security.application.authz.RolePermissionMatrix.Resources.PAYOUT_OPS,
-                ctx -> payouts.onResult(new tech.kayys.numou.mobility.wallet.spi.PayoutProvider.Result(ctx.tenantId(), id, r.ok(), r.reason() == null ? "" : r.reason()))
+                ctx -> payouts.onResult(new tech.kayys.numou.wallet.spi.PayoutProvider.Result(ctx.tenantId(), id, r.ok(), r.reason() == null ? "" : r.reason()))
                         .flatMap(x -> authz.auditPerformed(ctx, r.ok() ? "PAYOUT_PAID" : "PAYOUT_FAILED", "Payout", id.toString(), "").replaceWithVoid()));
     }
 }

@@ -137,8 +137,10 @@ public class PostgresPaymentOutboxRelayStore implements PaymentOutboxRelayStore 
         Objects.requireNonNull(eventId, "eventId");
         Objects.requireNonNull(leaseToken, "leaseToken");
         Objects.requireNonNull(retryAt, "retryAt");
-        String safeError = error == null || error.isBlank() ? "Unknown delivery failure" : error;
-        if (safeError.length() > 2000) safeError = safeError.substring(0, 2000);
+        String suppliedError = error == null || error.isBlank() ? "Unknown delivery failure" : error;
+        final String safeError = suppliedError.length() > 2000
+                ? suppliedError.substring(0, 2000)
+                : suppliedError;
         return executeUpdate(MARK_FAILED, statement -> {
             statement.setObject(1, toOffsetDateTime(retryAt));
             statement.setString(2, safeError);

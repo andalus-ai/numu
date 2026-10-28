@@ -70,3 +70,26 @@ Before describing the reservation path as production-ready, complete and verify:
 Run the reservation Maven reactor first, then the relevant framework/runtime reactor and
 repository CI. Report test failures and unavailable infrastructure separately; do not infer
 success from source review or from unrelated CI jobs.
+
+## PostgreSQL rollback contract test
+
+The adapter now has an opt-in `pg-integration` Maven profile. Run it from the reservation
+reactor after its framework parent/dependencies are available:
+
+```bash
+mvn -f reservation/pom.xml -pl reservation-adapter -am -Ppg-integration verify
+```
+
+The `PgReservationTransactionRunnerIntegrationTest` applies the production migration and
+deliberately fails after inserting a reservation row, availability-ledger row, idempotency
+row, and outbox event through one PostgreSQL transaction. It then verifies all four writes
+are absent. Quarkus Dev Services requires Docker; alternatively configure a reachable
+PostgreSQL test endpoint. The normal test profile excludes `*IntegrationTest` so a plain
+unit build does not silently depend on Docker.
+
+This is a first persistence-boundary proof, not yet an end-to-end `ReservationService`
+integration test: it exercises the runner's low-level transaction callback and uses SQL
+fixtures for the reservation/ledger/idempotency writes. The remaining acceptance criteria
+above still require tests through the transaction-scoped repositories and application
+service, including concurrent idempotency and capacity allocation.
+

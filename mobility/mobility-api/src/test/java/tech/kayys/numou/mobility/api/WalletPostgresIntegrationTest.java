@@ -12,9 +12,9 @@ import io.quarkus.test.vertx.UniAsserter;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.numou.mobility.wallet.application.WalletService;
-import tech.kayys.numou.mobility.wallet.application.WalletView;
-import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
+import tech.kayys.numou.wallet.application.WalletService;
+import tech.kayys.numou.wallet.application.WalletView;
+import tech.kayys.numou.wallet.domain.OwnerKind;
 
 import java.math.BigDecimal;
 import java.util.UUID;

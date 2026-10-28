@@ -8,7 +8,7 @@ import tech.kayys.numou.mobility.driver.domain.DriverUnavailableException;
 import tech.kayys.numou.mobility.ride.application.RideExceptions;
 import tech.kayys.numou.mobility.ride.domain.ActiveRideExistsException;
 import tech.kayys.numou.mobility.ride.domain.OfferExpiredException;
-import tech.kayys.numou.mobility.wallet.domain.InsufficientFundsException;
+import tech.kayys.numou.wallet.domain.InsufficientFundsException;
 import tech.kayys.numou.reliability.application.idempotency.DuplicateRequestException;
 import tech.kayys.numou.security.adapter.ProblemRuleContributor;
 import tech.kayys.numou.security.application.problem.Problem;
@@ -34,7 +34,7 @@ public class MobilityProblemRules implements ProblemRuleContributor {
         m.register(RideExceptions.PinLockedException.class, t -> ProblemMapper.safe(423, "pin-locked", "PIN locked", t));
         m.register(RideExceptions.WrongPinException.class, t -> ProblemMapper.safe(422, "wrong-pin", "Incorrect PIN", t,
                 Map.of("attemptsLeft", ((RideExceptions.WrongPinException) t).attemptsLeft())));
-        m.register(tech.kayys.numou.mobility.wallet.application.payment.InvalidSignatureException.class,
+        m.register(tech.kayys.numou.wallet.application.payment.InvalidSignatureException.class,
                 t -> new Problem(401, "invalid-signature", "Unauthorized", "Invalid signature.", null));
         m.register(ConstraintViolationException.class, t -> new Problem(400, "validation-failed", "Validation failed",
                 ((ConstraintViolationException) t).getConstraintViolations().stream().map(v -> v.getPropertyPath() + " " + v.getMessage()).sorted()
