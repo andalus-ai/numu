@@ -72,3 +72,14 @@ If any of these contracts are unsuitable, document the gap and use a narrow noti
 ## Verification
 
 This is a documentation/source-layout milestone. No Java code was added, no Maven build or tests were run, and no delivery provider or production-ready notification service is claimed.
+
+## 6. Additional contract-level checks completed
+
+A second pass verified the following concrete source files on `main`:
+
+- `identity/numou-identity-application/.../AuthorizationPort.java` exposes an asynchronous `isAllowed(Principal, tenantId, AuthorizationRequirement)` contract and a `require(...)` helper. `Principal` carries a `UserId` for user principals; `AuthorizationRequirement` validates permission resource/action syntax. This is a candidate authorization integration point, but the N1 adapter must still confirm how the authenticated principal and active tenant are supplied by the host and how recipient ownership is represented.
+- `core/framework/event/event-domain/.../EventEnvelope.java` is transport-neutral and delegates tenant scope to `EventMetadata`. This confirms an envelope exists; it does not by itself prove a suitable publisher adapter or a transactionally coupled outbox is available for Notification.
+- `core/framework/reliability/reliability-api/pom.xml` documents `OutboxEntry`, `InboxEntry`, `IdempotencyStorePort`, retry policy, and failure classification, while `reliability-spi` documents `OutboxRelayPort` and `InboxStorePort`. Attempts to retrieve the likely source paths for these types did not resolve, so their exact package names, method signatures, storage guarantees, and suitability remain unverified. N1 should not add a compile dependency on them until those exact contracts are located.
+- `workspace-domain/Page.java` confirms UUID-based tenant/resource identity and immutable record-style domain models are used in at least one recent capability. This is a useful style reference, not a mandate to copy Workspace models into Notification.
+
+The source-level authorization/event inspection narrows the integration candidates but does not close N0. The reliable next step is to locate the exact reliability API source files and verify host authentication, workspace JDBC migration location/conventions, and root CI registration before implementing a durable inbox.
