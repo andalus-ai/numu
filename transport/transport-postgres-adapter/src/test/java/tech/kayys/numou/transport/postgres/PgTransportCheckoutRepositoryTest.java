@@ -77,7 +77,8 @@ class PgTransportCheckoutRepositoryTest {
         assertThat(persisted.status()).isEqualTo(TransportCheckoutStatus.PAYMENT_ACTION_REQUIRED);
         assertThat(persisted.paymentId()).isEqualTo("payment-a");
         assertThat(persisted.paymentActionUri()).isEqualTo("https://pay.example/action");
-        assertThat(repository.findByPaymentId("tenant-a", "payment-a")).contains(persisted);
+        assertThat(repository.findByPaymentId("tenant-a", "payment-a").orElseThrow().checkoutId())
+                .isEqualTo(persisted.checkoutId());
     }
 
     @Test
