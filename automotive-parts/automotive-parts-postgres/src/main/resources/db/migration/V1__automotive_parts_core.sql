@@ -11,6 +11,7 @@ CREATE TABLE automotive_part_profile (
 );
 
 CREATE TABLE automotive_part_reference (
+    reference_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id TEXT NOT NULL,
     product_id UUID NOT NULL,
     reference_type TEXT NOT NULL CHECK (reference_type IN (
@@ -21,7 +22,6 @@ CREATE TABLE automotive_part_reference (
     market TEXT,
     normalized_value TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (tenant_id, product_id, reference_type, normalized_value, COALESCE(issuer, ''), COALESCE(market, '')),
     CONSTRAINT automotive_part_reference_profile_fk
         FOREIGN KEY (tenant_id, product_id)
         REFERENCES automotive_part_profile (tenant_id, product_id)
