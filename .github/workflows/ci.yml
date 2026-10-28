@@ -68,18 +68,12 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
-      # Install the parent POM before independent reactors install artifacts whose
-      # published POMs inherit from numou-framework. A child reactor resolving its
-      # parent through relativePath does not install that parent into the local repo.
       - name: Install framework parent POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
-      # Install cross-reactor capability contracts before consumers that depend on them.
       - name: Verify and install Geo capability
         run: mvn -B -ntp -f geo/pom.xml install
-      # Security consumes cache contracts and observability API/application artifacts
-      # from separate framework reactors. Install these before building the security reactor.
       - name: Build and install cache contracts used by security
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts used by security
@@ -90,8 +84,6 @@ jobs:
         run: mvn -B -ntp -f core/framework/pom.xml install
       - name: Build and install canonical product domain for automotive parts
         run: mvn -B -ntp -f product/pom.xml -pl product-domain -am install
-      # Automotive-parts inventory integration consumes the inventory application contract
-      # from the independent supply reactor; install the minimal dependency closure first.
       - name: Build and install inventory contracts for automotive-parts integration
         run: mvn -B -ntp -f supply/pom.xml -pl inventory/inventory-application,inventory/inventory-adapter -am install -DskipTests
       - name: Verify automotive parts domain reactor
@@ -118,9 +110,6 @@ jobs:
         run: mvn -B -ntp -f security/pom.xml install
       - name: Verify Mobility reactor and wallet PostgreSQL invariants
         id: mobility_verify
-        # Mobility is an independent reactor. Preserve the failure result, but let
-        # identity/organization/supply/logistics verification run so one capability
-        # cannot hide regressions in another.
         continue-on-error: true
         env:
           DB_HOST: localhost
@@ -132,9 +121,6 @@ jobs:
         run: |
           PGPASSWORD=postgres createdb -h localhost -U postgres numou_mobility_test
           mvn -B -ntp -f mobility/pom.xml -Ppg-integration verify
-      # Install identity artifacts without running identity tests here. This
-      # bootstrap is a prerequisite for downstream reactors, not the identity
-      # verification gate; an identity test failure must not hide Courier results.
       - name: Build and install identity contracts (tests deferred)
         id: identity_bootstrap
         run: mvn -B -ntp -f identity/pom.xml install -DskipTests
@@ -142,29 +128,23 @@ jobs:
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
         run: mvn -B -ntp -f quantity/pom.xml install
-      - name: Verify purchasing domain, SPI, and application contracts
-        run: mvn -B -ntp -f supply/purchasing/pom.xml verify
+      - name: Verify and install purchasing contracts for integration consumers
+        run: mvn -B -ntp -f supply/purchasing/pom.xml install
+      - name: Verify workshop parts purchasing integration
+        run: mvn -B -ntp -f automotive-parts-purchasing/pom.xml verify
       - name: Verify supply-chain reactor
         run: mvn -B -ntp -f supply/pom.xml verify
       - name: Verify Courier/Cargo reactor
         run: mvn -B -ntp -f logistics/pom.xml verify
-      # Run identity's own tests after downstream capability verification. Keep
-      # the result visible but do not let one independent capability suppress
-      # another capability's test reports.
       - name: Verify identity reactor independently
         id: identity_verify
         continue-on-error: true
         run: mvn -B -ntp -f identity/pom.xml verify
-      # Fail only after independent capability verification has had its chance.
       - name: Propagate isolated capability verification failures
         if: always() && (steps.mobility_verify.outcome == 'failure' || steps.identity_verify.outcome == 'failure')
         run: |
-          if [ "${{ steps.mobility_verify.outcome }}" = "failure" ]; then
-            echo "::error::Mobility reactor verification failed; see the Mobility step above."
-          fi
-          if [ "${{ steps.identity_verify.outcome }}" = "failure" ]; then
-            echo "::error::Identity reactor verification failed; see the identity verification step above."
-          fi
+          if [ "${{ steps.mobility_verify.outcome }}" = "failure" ]; then echo "::error::Mobility reactor verification failed; see the Mobility step above."; fi
+          if [ "${{ steps.identity_verify.outcome }}" = "failure" ]; then echo "::error::Identity reactor verification failed; see the identity verification step above."; fi
           exit 1
       - name: Upload Maven test reports
         if: always()
@@ -203,8 +183,6 @@ jobs:
         run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
-      # The PostgreSQL integration test must run as a role that is neither a
-      # superuser nor BYPASSRLS, otherwise row-level security is not exercised.
       - name: Create a non-superuser role for the RLS integration test
         env:
           PGPASSWORD: postgres
@@ -213,8 +191,6 @@ jobs:
           CREATE ROLE syirkah_app LOGIN PASSWORD 'syirkah_app' NOSUPERUSER NOBYPASSRLS;
           GRANT ALL ON SCHEMA public TO syirkah_app;
           SQL
-      # Upstream finance modules are compiled and installed without running their
-      # tests: this job verifies syirkah. Their own tests belong to their own job.
       - name: Install modules that syirkah depends on (no tests)
         run: |
           set -o pipefail
@@ -241,7 +217,6 @@ jobs:
           path: "finance/**/target/surefire-reports/**"
           if-no-files-found: warn
           retention-days: 7
-
 
   affiliate:
     name: Affiliate capability verification
