@@ -88,7 +88,7 @@ class PgConsultancyOperationsIntegrationTest {
 
         assertEquals(rejected.id(), saved.id());
         assertEquals(engagement.id().value(), saved.engagementId().value());
-        assertEquals(2, saved.revision() - 1 + 1);
+        assertEquals(1, saved.revision());
         assertEquals(ConsultancyDeliverableStatus.REJECTED, saved.status());
         assertEquals(client, saved.reviewedByOrganizationId());
         assertEquals("Missing calculation appendix", saved.reviewComment());
