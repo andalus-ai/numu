@@ -62,6 +62,22 @@ class MarketplaceCheckoutServiceTest {
     }
 
     @Test
+    void recoveryWorkerRetriesAmbiguousPaymentWithoutReleasingReservations() {
+        Fixture f = new Fixture(MarketplaceCheckoutPaymentPort.PaymentState.UNKNOWN, false);
+        MarketplaceCheckout started = f.service.checkout("tenant-a", "buyer-actor", f.order.id(),
+                "checkout-recovery", "warehouse-1", NOW.plusSeconds(900));
+        assertEquals(MarketplaceCheckoutStatus.RECONCILIATION_REQUIRED, started.status());
+
+        MarketplaceCheckoutRecoveryService worker = new MarketplaceCheckoutRecoveryService(f.checkouts, f.service);
+        MarketplaceCheckoutRecoveryService.RecoveryReport report = worker.recoverTenant("tenant-a", 20);
+
+        assertEquals(1, report.attempted());
+        assertEquals(1, report.reconciliationRequired());
+        assertEquals(0, report.errors());
+        assertTrue(f.inventory.released.isEmpty());
+    }
+
+    @Test
     void ambiguousReservationOutcomeBlocksPaymentAndDoesNotReleaseStock() {
         Fixture f = new Fixture(MarketplaceCheckoutPaymentPort.PaymentState.SUCCEEDED, false, true);
         MarketplaceOrder twoLineOrder = acceptedOrder(List.of(line("line-1", "produce-1"),
@@ -162,6 +178,14 @@ class MarketplaceCheckoutServiceTest {
         }
         @Override public Optional<MarketplaceCheckout> findByTenantAndKey(String tenant, String key) {
             return Optional.ofNullable(byKey.get(tenant + ":" + key));
+        }
+        @Override public List<MarketplaceCheckout> findRecoverable(String tenant, int limit) {
+            return byId.values().stream()
+                    .filter(c -> c.tenantId().equals(tenant))
+                    .filter(c -> c.status() == MarketplaceCheckoutStatus.AWAITING_PAYMENT
+                            || c.status() == MarketplaceCheckoutStatus.RECONCILIATION_REQUIRED
+                            || c.status() == MarketplaceCheckoutStatus.COMPENSATION_REQUIRED)
+                    .limit(limit).toList();
         }
         @Override public synchronized boolean saveIfVersion(String tenant, UUID id, long expected, MarketplaceCheckout next) {
             MarketplaceCheckout current = byId.get(id);
