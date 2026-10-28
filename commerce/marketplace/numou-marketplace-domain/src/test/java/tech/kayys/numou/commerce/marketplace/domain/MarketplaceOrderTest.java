@@ -43,6 +43,15 @@ class MarketplaceOrderTest {
     }
 
     @Test
+    void rejectsLinesFromDifferentSellersInOneOrder() {
+        MarketplaceOrderLine otherSeller = new MarketplaceOrderLine("line-2", "product-2", "offer-2",
+                "seller-2", "Eggs", BigDecimal.ONE, "dozen", new BigDecimal("30000"), "IDR");
+        assertThrows(IllegalArgumentException.class, () -> MarketplaceOrder.create(
+                UUID.randomUUID(), "tenant-1", "buyer-1",
+                List.of(order().lines().get(0), otherSeller), "IDR", NOW));
+    }
+
+    @Test
     void cancellationRequiresReasonAndCannotCancelAfterFulfillmentRequested() {
         assertThrows(IllegalArgumentException.class, () -> order().cancel(" ", NOW.plusSeconds(1)));
         MarketplaceOrder order = order().submit(NOW.plusSeconds(1)).sellerAccept(NOW.plusSeconds(2))

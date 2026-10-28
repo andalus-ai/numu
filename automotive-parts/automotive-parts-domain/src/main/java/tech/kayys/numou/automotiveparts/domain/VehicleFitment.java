@@ -13,7 +13,7 @@ public record VehicleFitment(String tenantId, String market, String make, String
                              String evidenceSource, String evidenceReference,
                              LocalDate effectiveFrom, LocalDate effectiveThrough) {
     public VehicleFitment {
-        tenantId = required(tenantId, "tenantId");
+        tenantId = requiredTenantId(tenantId);
         market = normalize(market);
         make = required(make, "make");
         model = required(model, "model");
@@ -42,6 +42,15 @@ public record VehicleFitment(String tenantId, String market, String make, String
         if (trim != null && !trim.equals(vehicle.trim())) return false;
         if (asOf.isBefore(effectiveFrom)) return false;
         return effectiveThrough == null || !asOf.isAfter(effectiveThrough);
+    }
+
+    private static String requiredTenantId(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("tenantId is required");
+        }
+        // Tenant identifiers are opaque security-boundary keys, not market/model labels.
+        // Preserve case; uppercasing here makes them disagree with the other tenant-scoped records.
+        return value.trim();
     }
 
     private static String required(String value, String field) {

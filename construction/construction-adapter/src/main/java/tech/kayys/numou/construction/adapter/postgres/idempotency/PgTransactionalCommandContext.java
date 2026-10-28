@@ -49,11 +49,19 @@ public final class PgTransactionalCommandContext implements TransactionalCommand
 
     private final SqlConnection connection;
     private final BoqRevisionOperations boqRevisionOperations;
+    private final ConsultancyOperations consultancyOperations;
 
     public PgTransactionalCommandContext(SqlConnection connection,
                                          BoqRevisionOperations boqRevisionOperations) {
+        this(connection, boqRevisionOperations, null);
+    }
+
+    public PgTransactionalCommandContext(SqlConnection connection,
+                                         BoqRevisionOperations boqRevisionOperations,
+                                         ConsultancyOperations consultancyOperations) {
         this.connection = Objects.requireNonNull(connection, "connection");
         this.boqRevisionOperations = Objects.requireNonNull(boqRevisionOperations, "boqRevisionOperations");
+        this.consultancyOperations = consultancyOperations;
     }
 
     @Override
@@ -113,6 +121,14 @@ public final class PgTransactionalCommandContext implements TransactionalCommand
     @Override
     public BoqRevisionOperations boqRevisions() {
         return boqRevisionOperations;
+    }
+
+    @Override
+    public ConsultancyOperations consultancy() {
+        if (consultancyOperations == null) {
+            return TransactionalCommandContext.super.consultancy();
+        }
+        return consultancyOperations;
     }
 
     private static CommandIdempotencyStore.ReservationResult reservationResult(
