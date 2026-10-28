@@ -46,15 +46,27 @@ public final class WalletService {
 
     public WalletService(WalletRepository wallets, LedgerRepository ledger, UnitOfWork uow, DomainEventSink events, DomainClock clock,
                          String currency, int fractionDigits, BigDecimal driverOverdraft, BigDecimal minPayout) {
-        this.wallets = wallets;
-        this.ledger = ledger;
-        this.uow = uow;
-        this.events = events;
-        this.clock = clock;
+        this.wallets = java.util.Objects.requireNonNull(wallets, "wallets cannot be null");
+        this.ledger = java.util.Objects.requireNonNull(ledger, "ledger cannot be null");
+        this.uow = java.util.Objects.requireNonNull(uow, "uow cannot be null");
+        this.events = java.util.Objects.requireNonNull(events, "events cannot be null");
+        this.clock = java.util.Objects.requireNonNull(clock, "clock cannot be null");
+        if (currency == null || currency.isBlank()) {
+            throw new IllegalArgumentException("currency cannot be blank");
+        }
+        if (fractionDigits < 0 || fractionDigits > 9) {
+            throw new IllegalArgumentException("fractionDigits must be between 0 and 9");
+        }
+        if (driverOverdraft == null || driverOverdraft.signum() < 0) {
+            throw new IllegalArgumentException("driverOverdraft cannot be null or negative");
+        }
+        if (minPayout == null || minPayout.signum() <= 0) {
+            throw new IllegalArgumentException("minPayout must be positive");
+        }
         this.currency = currency;
         this.fractionDigits = fractionDigits;
-        this.driverOverdraft = driverOverdraft;
-        this.minPayout = minPayout;
+        this.driverOverdraft = driverOverdraft.setScale(fractionDigits, java.math.RoundingMode.UNNECESSARY);
+        this.minPayout = minPayout.setScale(fractionDigits, java.math.RoundingMode.UNNECESSARY);
     }
 
     @FunctionalInterface

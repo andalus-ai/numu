@@ -99,3 +99,14 @@ Remaining acceptance criteria include a full `ReservationService` integration pa
 allocation races with overlapping booking windows, runtime composition-root wiring, and
 outbox relay lease/retry/dead-letter recovery.
 
+
+
+### Concurrent capacity-allocation contract
+
+The opt-in PostgreSQL integration suite also races two overlapping allocation attempts against a
+single bookable resource. Both attempts use `PgReservationTransactionRunner.execute` and
+`PgLedgerRepository.findOrCreate`, whose facility/day ledger row is selected `FOR UPDATE`.
+The expected contract is that one attempt persists an allocation and the other observes the
+updated ledger and reports no availability; the persisted snapshot must contain exactly one
+allocation. This test remains unverified until the `pg-integration` Maven profile passes on
+PostgreSQL. It tests the ledger's locking boundary, not the full `ReservationService` path.

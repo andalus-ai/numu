@@ -45,7 +45,7 @@ public final class ShipmentCapability {
         BookShipmentCommand command = new BookShipmentCommand(
                 tenant, shipmentId, request.reference(), request.sender().toDomain(),
                 request.recipient().toDomain(), ServiceLevel.valueOf(request.serviceLevel().trim().toUpperCase(Locale.ROOT)),
-                parcels, request.occurredAt());
+                parcels, request.occurredAt(), request.idempotencyKey(), request.idempotencyKey() == null ? null : fingerprint(request));
         return booking.handle(command).thenApply(ShipmentCapability::view);
     }
 
@@ -100,7 +100,11 @@ public final class ShipmentCapability {
 
     public record BookRequest(String tenantId, String shipmentId, String reference,
                               Address sender, Address recipient, String serviceLevel,
-                              List<ParcelInput> parcels, Instant occurredAt) {
+                              List<ParcelInput> parcels, Instant occurredAt, String idempotencyKey) {
+        public BookRequest(String tenantId, String shipmentId, String reference, Address sender,
+                           Address recipient, String serviceLevel, List<ParcelInput> parcels, Instant occurredAt) {
+            this(tenantId, shipmentId, reference, sender, recipient, serviceLevel, parcels, occurredAt, null);
+        }
         public BookRequest {
             require(tenantId, "tenantId");
             require(reference, "reference");
@@ -162,6 +166,31 @@ public final class ShipmentCapability {
         public TrackingPage { events = List.copyOf(events); }
     }
 
+    private static String fingerprint(BookRequest request) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            StringBuilder canonical = new StringBuilder();
+            append(canonical, request.reference().trim().toUpperCase(Locale.ROOT));
+            append(canonical, request.sender().toString());
+            append(canonical, request.recipient().toString());
+            append(canonical, request.serviceLevel().trim().toUpperCase(Locale.ROOT));
+            for (ParcelInput parcel : request.parcels()) {
+                append(canonical, parcel.parcelId()); append(canonical, parcel.reference());
+                append(canonical, parcel.weightKg().stripTrailingZeros().toPlainString());
+                append(canonical, parcel.lengthCm().stripTrailingZeros().toPlainString());
+                append(canonical, parcel.widthCm().stripTrailingZeros().toPlainString());
+                append(canonical, parcel.heightCm().stripTrailingZeros().toPlainString());
+                append(canonical, parcel.handlingInstructions());
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is not available", impossible);
+        }
+    }
+    private static void append(StringBuilder target, String value) {
+        if (value == null) target.append("-1:"); else target.append(value.length()).append(':').append(value);
+        target.append('|');
+    }
     private static String require(String value, String field) {
         Objects.requireNonNull(value, field + " must not be null");
         if (value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");

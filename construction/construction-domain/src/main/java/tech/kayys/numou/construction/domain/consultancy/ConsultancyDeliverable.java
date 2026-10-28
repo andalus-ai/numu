@@ -61,6 +61,47 @@ public final class ConsultancyDeliverable extends AbstractAggregateRoot<Consulta
                 description);
     }
 
+    /** Restores persisted state without replaying lifecycle transitions. */
+    public static ConsultancyDeliverable reconstitute(
+            ConsultancyDeliverableId id,
+            ConsultancyEngagementId engagementId,
+            UUID clientOrganizationId,
+            UUID consultantOrganizationId,
+            String code,
+            String title,
+            String description,
+            int revision,
+            ConsultancyDeliverableStatus status,
+            UUID reviewedByOrganizationId,
+            String reviewComment) {
+        if (revision < 1) {
+            throw new IllegalArgumentException("Deliverable revision must be positive");
+        }
+        Objects.requireNonNull(status, "Deliverable status cannot be null");
+        ConsultancyDeliverable deliverable = new ConsultancyDeliverable(
+                id, engagementId, clientOrganizationId, consultantOrganizationId,
+                code, title, description);
+        if ((status == ConsultancyDeliverableStatus.ACCEPTED || status == ConsultancyDeliverableStatus.REJECTED)
+                && !Objects.equals(clientOrganizationId, reviewedByOrganizationId)) {
+            throw new IllegalArgumentException("Reviewed deliverable must record the client organization");
+        }
+        if (status == ConsultancyDeliverableStatus.REJECTED
+                && (reviewComment == null || reviewComment.isBlank())) {
+            throw new IllegalArgumentException("Rejected deliverable must retain its review reason");
+        }
+        if ((status == ConsultancyDeliverableStatus.DRAFT || status == ConsultancyDeliverableStatus.SUBMITTED)
+                && (reviewedByOrganizationId != null || reviewComment != null)) {
+            throw new IllegalArgumentException("Unreviewed deliverable cannot retain review data");
+        }
+        deliverable.title = requireText(title, "Deliverable title");
+        deliverable.description = requireText(description, "Deliverable description");
+        deliverable.revision = revision;
+        deliverable.status = status;
+        deliverable.reviewedByOrganizationId = reviewedByOrganizationId;
+        deliverable.reviewComment = normalizeOptionalText(reviewComment);
+        return deliverable;
+    }
+
     public void submit() {
         if (status != ConsultancyDeliverableStatus.DRAFT) {
             throw new IllegalStateException("Only a draft deliverable can be submitted");
