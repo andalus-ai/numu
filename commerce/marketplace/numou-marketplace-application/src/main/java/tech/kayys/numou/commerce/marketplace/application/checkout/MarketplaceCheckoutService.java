@@ -160,6 +160,35 @@ public final class MarketplaceCheckoutService {
         };
     }
 
+    /**
+     * Performs one recovery attempt for a tenant-scoped checkout.
+     * Call only from an authenticated buyer flow or a trusted recovery worker.
+     */
+    public MarketplaceCheckout recoverCheckout(String tenantId, UUID checkoutId) {
+        require(tenantId, "tenantId");
+        Objects.requireNonNull(checkoutId, "checkoutId");
+        MarketplaceCheckout checkout = checkouts.findByTenantAndId(tenantId, checkoutId)
+                .orElseThrow(() -> new IllegalArgumentException("Marketplace checkout not found"));
+        return switch (checkout.status()) {
+            case AWAITING_PAYMENT, RECONCILIATION_REQUIRED -> reconcile(tenantId, checkout);
+            case COMPENSATION_REQUIRED -> retryCompensation(checkout);
+            case RESERVING_INVENTORY, READY_FOR_FULFILLMENT, FAILED -> checkout;
+        };
+    }
+
+    private MarketplaceCheckout retryCompensation(MarketplaceCheckout checkout) {
+        for (var entry : checkout.reservationIds().entrySet()) {
+            try {
+                inventory.release(checkout.tenantId(), entry.getValue(),
+                        "marketplace-checkout-release:" + checkout.id() + ":" + entry.getKey());
+            } catch (RuntimeException releaseFailure) {
+                return checkout;
+            }
+        }
+        return save(checkout, checkout.fail("COMPENSATION_COMPLETED",
+                "Previously uncertain reservation releases are now confirmed", clock.instant()));
+    }
+
     private MarketplaceCheckout reconcile(String tenantId, MarketplaceCheckout checkout) {
         if ("RESERVATION_OUTCOME_UNKNOWN".equals(checkout.failureCode())) {
             // Do not start payment until inventory has been reconciled by the inventory adapter/operator.
