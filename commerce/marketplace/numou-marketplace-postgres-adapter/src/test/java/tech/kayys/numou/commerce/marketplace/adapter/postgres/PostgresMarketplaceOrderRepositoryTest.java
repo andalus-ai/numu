@@ -145,6 +145,10 @@ class PostgresMarketplaceOrderRepositoryTest {
                 "checkout-saga-1", "a".repeat(64), "warehouse-1", now.plusSeconds(900), now);
 
         MarketplaceCheckout created = checkoutRepository.createOrGet(proposed);
+        assertEquals(1, checkoutRepository.findRecoverable("tenant-a", 10).size(),
+                "a process interrupted before its first reservation must remain recoverable");
+        assertEquals(MarketplaceCheckoutStatus.RESERVING_INVENTORY,
+                checkoutRepository.findRecoverable("tenant-a", 10).get(0).status());
         MarketplaceCheckout withReservation = created.recordReservation("line-1", "reservation-1", now.plusSeconds(1));
         assertTrue(checkoutRepository.saveIfVersion("tenant-a", created.id(), 0, withReservation));
         MarketplaceCheckout loaded = checkoutRepository.findByTenantAndId("tenant-a", created.id()).orElseThrow();
