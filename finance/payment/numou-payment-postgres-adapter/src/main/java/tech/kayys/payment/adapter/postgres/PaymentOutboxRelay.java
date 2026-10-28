@@ -51,6 +51,7 @@ public class PaymentOutboxRelay {
             // or overwrite the newer worker's state.
             store.markPublished(event.eventId(), event.leaseToken(), clock.instant());
         } catch (Exception failure) {
+            if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
             Instant failedAt = clock.instant();
             boolean terminal = event.attempts() >= event.maxAttempts();
             Instant retryAt = terminal ? failedAt : failedAt.plus(retryDelay(event.attempts()));
