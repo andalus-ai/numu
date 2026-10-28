@@ -48,7 +48,7 @@ public class TransportPaymentApplicationAdapter implements TransportPaymentPort 
             case CANCELLED -> PaymentState.CANCELLED;
             case EXPIRED -> PaymentState.EXPIRED;
             case UNKNOWN -> PaymentState.UNKNOWN;
-            case PARTIALLY_REFUNDED, REFUNDED -> PaymentState.SUCCEEDED;
+            case PARTIALLY_REFUNDED, REFUNDED -> PaymentState.UNKNOWN;
         };
     }
 }
