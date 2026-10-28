@@ -95,6 +95,109 @@ class PgConsultancyOperationsIntegrationTest {
         assertEquals(0L, row.getLong("n"));
     }
 
+
+    @Test
+    void lifecycleUpdatesPersistValidTransitionsAndProposalRevisions() {
+        String tenant = "consultancy-lifecycle-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, newEngagement("ENG-" + UUID.randomUUID())))
+                .await().indefinitely();
+
+        ConsultancyEngagement proposed = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::submitProposal)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        assertEquals("PROPOSED", proposed.status().name());
+
+        ConsultancyEngagement revised = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(current -> current.reviseProposal("Revised title", "Revised scope"))
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        assertEquals("DRAFT", revised.status().name());
+        assertEquals(2, revised.scopeRevision());
+        assertEquals("Revised scope", revised.scopeStatement());
+
+        ConsultancyEngagement reProposed = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::submitProposal)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        ConsultancyEngagement active = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::activate)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        ConsultancyEngagement completed = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::complete)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        assertEquals("PROPOSED", reProposed.status().name());
+        assertEquals("ACTIVE", active.status().name());
+        assertEquals("COMPLETED", completed.status().name());
+        assertEquals(2, completed.scopeRevision());
+    }
+
+    @Test
+    void lifecycleUpdatesRejectStaleConcurrentStateAndPreserveTenantIsolation() {
+        String tenant = "consultancy-concurrency-" + UUID.randomUUID();
+        ConsultancyEngagement saved = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, newEngagement("ENG-" + UUID.randomUUID())))
+                .await().indefinitely();
+        runner.inTransaction(context -> context.consultancy().findEngagement(tenant, saved.id())
+                .map(found -> found.orElseThrow())
+                .invoke(ConsultancyEngagement::submitProposal)
+                .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        ConsultancyEngagement staleCopy = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, saved.id()).map(found -> found.orElseThrow()))
+                .await().indefinitely();
+        runner.inTransaction(context -> context.consultancy().findEngagement(tenant, saved.id())
+                .map(found -> found.orElseThrow())
+                .invoke(ConsultancyEngagement::activate)
+                .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        staleCopy.reviseProposal("Stale title", "Stale scope");
+        assertThrows(DefaultPgConsultancyOperationsFactory.ConcurrentConsultancyEngagementUpdateException.class,
+                () -> runner.inTransaction(context -> context.consultancy().updateEngagement(tenant, staleCopy))
+                        .await().indefinitely());
+
+        ConsultancyEngagement wrongTenant = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, saved.id()).map(found -> found.orElseThrow()))
+                .await().indefinitely();
+        wrongTenant.complete();
+        assertThrows(DefaultPgConsultancyOperationsFactory.ConcurrentConsultancyEngagementUpdateException.class,
+                () -> runner.inTransaction(context -> context.consultancy()
+                        .updateEngagement(tenant + "-other", wrongTenant)).await().indefinitely());
+    }
+
+    @Test
+    void cancellationPersistsRequiredReason() {
+        String tenant = "consultancy-cancel-" + UUID.randomUUID();
+        ConsultancyEngagement saved = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, newEngagement("ENG-" + UUID.randomUUID())))
+                .await().indefinitely();
+        ConsultancyEngagement cancelled = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, saved.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(engagement -> engagement.cancel("Client terminated the engagement"))
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        assertEquals("CANCELLED", cancelled.status().name());
+        assertEquals("Client terminated the engagement", cancelled.cancellationReason());
+    }
+
     private static ConsultancyEngagement newEngagement(String number) {
         return ConsultancyEngagement.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 number, "Engineering consultancy", "Design review and construction supervision");
