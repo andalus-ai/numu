@@ -29,6 +29,8 @@ public interface CommissionFinanceOutboxRepository {
     CompletionStage<CommissionFinancePosting> requireReconciliation(
             String tenantId, UUID postingId, String leaseToken, String reason, Instant at);
 
+    CompletionStage<Optional<CommissionFinancePosting>> findById(String tenantId, UUID postingId);
+
     CompletionStage<Optional<CommissionFinancePosting>> findByIdempotencyKey(String tenantId, String idempotencyKey);
 
     /** Compare-and-set reconciliation outcome for a previously ambiguous posting. */
