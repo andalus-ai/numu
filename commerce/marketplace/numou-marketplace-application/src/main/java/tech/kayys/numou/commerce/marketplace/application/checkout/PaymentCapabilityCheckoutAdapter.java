@@ -4,6 +4,7 @@ import tech.kayys.payment.api.CreatePaymentObligation;
 import tech.kayys.payment.api.PaymentApplicationPort;
 import tech.kayys.payment.api.PaymentObligation;
 import tech.kayys.payment.api.PaymentStatus;
+import tech.kayys.payment.api.PaymentApplicationPort.PaymentOperationRejectedException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,11 +33,15 @@ public final class PaymentCapabilityCheckoutAdapter implements MarketplaceChecko
         if (amount.signum() <= 0) {
             throw new IllegalArgumentException("Payment amount must be positive");
         }
-        PaymentObligation obligation = payments.createOrGet(new CreatePaymentObligation(
-                tenantId, idempotencyKey, orderReference, amount, currency,
-                "Marketplace order " + orderReference,
-                Map.of("capability", "marketplace", "orderReference", orderReference)));
-        return map(obligation);
+        try {
+            PaymentObligation obligation = payments.createOrGet(new CreatePaymentObligation(
+                    tenantId, idempotencyKey, orderReference, amount, currency,
+                    "Marketplace order " + orderReference,
+                    Map.of("capability", "marketplace", "orderReference", orderReference)));
+            return map(obligation);
+        } catch (PaymentOperationRejectedException rejected) {
+            throw new PaymentRejectedException("Payment capability rejected the obligation", rejected);
+        }
     }
 
     @Override
