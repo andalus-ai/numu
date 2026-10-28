@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -103,12 +104,14 @@ public final class TransportCheckoutService {
         List<TransportCheckout> due = checkouts.findStaleNonTerminal(cutoff, batchSize);
         int succeeded = 0;
         int failed = 0;
+        List<UUID> failedCheckoutIds = new ArrayList<>();
         for (TransportCheckout checkout : due) {
             try {
                 refresh(checkout.tenantId(), checkout.checkoutId());
                 succeeded++;
             } catch (RuntimeException failure) {
                 failed++;
+                failedCheckoutIds.add(checkout.checkoutId());
                 // Advance the retry cursor so one broken provider/checkout cannot monopolize
                 // every bounded batch. Do not overwrite a concurrent transition.
                 try {
@@ -122,7 +125,7 @@ public final class TransportCheckoutService {
                 }
             }
         }
-        return new ReconciliationResult(due.size(), succeeded, failed);
+        return new ReconciliationResult(due.size(), succeeded, failed, failedCheckoutIds);
     }
 
     /** Reads checkout state without contacting Payment or mutating inventory. */
@@ -266,10 +269,14 @@ public final class TransportCheckoutService {
         }
     }
 
-    public record ReconciliationResult(int attempted, int succeeded, int failed) {
+    public record ReconciliationResult(int attempted, int succeeded, int failed, List<UUID> failedCheckoutIds) {
         public ReconciliationResult {
             if (attempted < 0 || succeeded < 0 || failed < 0 || succeeded + failed != attempted) {
                 throw new IllegalArgumentException("reconciliation result counts are inconsistent");
+            }
+            failedCheckoutIds = List.copyOf(Objects.requireNonNull(failedCheckoutIds, "failedCheckoutIds"));
+            if (failedCheckoutIds.size() != failed) {
+                throw new IllegalArgumentException("failed checkout IDs must match failed count");
             }
         }
     }
