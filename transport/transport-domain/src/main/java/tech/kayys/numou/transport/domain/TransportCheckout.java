@@ -25,6 +25,7 @@ public record TransportCheckout(
         Instant holdExpiresAt,
         UUID holdId,
         String paymentId,
+        String paymentActionUri,
         TransportCheckoutStatus status,
         int version,
         Instant createdAt,
@@ -80,7 +81,8 @@ public record TransportCheckout(
         return copy(nextHoldId, paymentId, TransportCheckoutStatus.HOLD_CREATED, now);
     }
 
-    public TransportCheckout withPayment(String nextPaymentId, TransportCheckoutStatus nextStatus, Instant now) {
+    public TransportCheckout withPayment(String nextPaymentId, String nextPaymentActionUri,
+                                          TransportCheckoutStatus nextStatus, Instant now) {
         if (status != TransportCheckoutStatus.HOLD_CREATED
                 && status != TransportCheckoutStatus.PAYMENT_PENDING
                 && status != TransportCheckoutStatus.PAYMENT_ACTION_REQUIRED) {
@@ -90,24 +92,25 @@ public record TransportCheckout(
                 && nextStatus != TransportCheckoutStatus.PAYMENT_ACTION_REQUIRED
                 && nextStatus != TransportCheckoutStatus.PAYMENT_SUCCEEDED
                 && nextStatus != TransportCheckoutStatus.PAYMENT_FAILED
+                && nextStatus != TransportCheckoutStatus.CANCELLED
                 && nextStatus != TransportCheckoutStatus.RECONCILIATION_REQUIRED) {
             throw new IllegalArgumentException("invalid payment checkout state " + nextStatus);
         }
-        return copy(holdId, required(nextPaymentId, "paymentId"), nextStatus, now);
+        return copy(holdId, required(nextPaymentId, "paymentId"), nextPaymentActionUri, nextStatus, now);
     }
 
     public TransportCheckout withStatus(TransportCheckoutStatus nextStatus, Instant now) {
         Objects.requireNonNull(nextStatus, "nextStatus");
-        return copy(holdId, paymentId, nextStatus, now);
+        return copy(holdId, paymentId, paymentActionUri, nextStatus, now);
     }
 
-    private TransportCheckout copy(UUID nextHoldId, String nextPaymentId,
+    private TransportCheckout copy(UUID nextHoldId, String nextPaymentId, String nextPaymentActionUri,
                                    TransportCheckoutStatus nextStatus, Instant now) {
         Objects.requireNonNull(now, "now");
         if (now.isBefore(updatedAt)) throw new IllegalArgumentException("update time must not go backwards");
         return new TransportCheckout(tenantId, checkoutId, idempotencyKey, requestFingerprint,
                 departureId, quoteId, fromSequence, toSequence, passengerCount, amount, currency,
-                holdExpiresAt, nextHoldId, nextPaymentId, nextStatus, Math.addExact(version, 1),
+                holdExpiresAt, nextHoldId, nextPaymentId, nextPaymentActionUri, nextStatus, Math.addExact(version, 1),
                 createdAt, now);
     }
 
