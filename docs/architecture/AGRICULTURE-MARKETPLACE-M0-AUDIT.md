@@ -8,7 +8,7 @@ Repository: `andalus-ai/numu`. Initial source-informed audit only; not a full de
 |---|---|---|
 | Product identity/catalog | Product | `product/pom.xml` declares domain, SPI, application, adapter and catalog. |
 | Commercial availability/channel offers | Commerce Offering | `commerce/offering` has domain, SPI, application and adapter. `ProductOffering` references a product, channel and optional seller ID; it supports draft/active/suspended/retired states. |
-| Inventory/stock | Supply Inventory | `supply/inventory/pom.xml` declares domain, application, SPI and adapter. Supply architecture states inventory owns stock. |
+| Inventory/stock/reservations | Supply Inventory | `InventoryService` exposes reserve, release, expire and reserved-issue flows; `InventoryReservation` is tenant-scoped with ACTIVE/COMMITTED/RELEASED/EXPIRED states. `InventoryRepository` declares atomic reservation/issue contracts. Several SPI methods have default implementations that throw `UnsupportedOperationException`, so concrete adapter support must be verified before relying on them. |
 | Demand allocation and shipment handoff | Supply Fulfillment | `FulfillmentOrder` models requested lines, allocation and shipment reference; its domain comment says it does not post inventory movements or call carriers directly. |
 | Procurement | Supply Purchasing | Existing purchasing bounded context is declared in `supply/purchasing/pom.xml`. |
 | Shipment/courier | Logistics Courier | `Shipment` is tenant-owned and tracks booking lifecycle, sender/recipient snapshots, service level and parcels. |
@@ -25,7 +25,7 @@ A generic marketplace order owner has not been confirmed by this narrow audit. V
 ## Required next checks
 
 1. Trace Offering seller identity, pricing, availability and order consumers.
-2. Inspect Inventory application ports and persistence for reservation/commit/release, concurrency and idempotency.
+2. Inventory already models reservations and idempotent reserved issues in the application/SPI. Verify concrete persistence-adapter overrides and integration tests: several SPI defaults intentionally throw `UnsupportedOperationException`, so declarations alone do not prove the production adapter implements the contract.
 3. Trace Fulfillment-to-Shipment handoff and identify order versus fulfillment identity ownership.
 4. Inspect Finance Payment and Accounting contracts, callback/replay behavior and settlement ownership.
 5. Verify tenant/actor authorization, durable event delivery, migrations, tests and current CI.
@@ -38,7 +38,7 @@ No Maven build or tests were run. This audit used repository files via GitHub. T
 ## M1 acceptance
 
 - One clear owner for order lifecycle; no competing order aggregate.
-- Inventory reservation is authoritative under concurrent requests.
+- Inventory reservation is authoritative under concurrent requests, and the selected adapter actually implements atomic reservation and idempotent reserved-issue contracts.
 - Payment status derives from verified payment capability state.
 - Cross-capability actions are idempotent, tenant-scoped and auditable.
 - Agriculture lot references preserve traceability without owning generic stock, payment or shipment state.
