@@ -49,7 +49,7 @@ public final class DefaultAttributionService implements AttributionApplicationPo
         final String requestedId = sourceId;
         final String requestedEvent = conversionEventId;
 
-        return decisions.findBySourceEvent(tenantId, programId, sourceType, sourceId, conversionEventId)
+        return decisions.findBySourceEvent(tenantId, sourceType, sourceId, conversionEventId)
                 .thenCompose(existing -> existing
                         .map(CompletableFuture::completedFuture)
                         .orElseGet(() -> resolveAndDecide(
