@@ -299,3 +299,22 @@ This section records source/POM evidence checked after the initial contract was 
 **Completed:** initial ownership/boundary proposal; first-pass reactor inventory for Scheduling, Workforce, Vehicle Service, Support, Logistics, Reliability, and Asset Maintenance; identification of the adapter-layer tenant-context boundary and the distinction between idempotency and queue-claim concurrency.
 
 **Still open:** search all likely packages/tests for implicit queue-like behavior; inspect public integration interfaces and actual adapter dependency edges; verify migration/architecture-test conventions; identify CI commands and obtain a real Maven baseline; then select the smallest reactor shape. No runtime tests were run as part of this documentation update. M1 implementation must wait for these checks or clearly record any remaining limitation before code is introduced.
+
+## 16. Additional audit evidence: Support ticket lifecycle and CI coverage
+
+### Support already models waiting, but not a general customer/dispatch queue
+
+The Support domain contains `Ticket`, `TicketStatus` (`NEW`, `OPEN`, `IN_PROGRESS`, `WAITING`, `RESOLVED`, `CLOSED`, `REOPENED`), and `WaitingReason` (`CUSTOMER`, `INTERNAL_TEAM`, `VENDOR`, `EXTERNAL_SYSTEM`). Its domain tests check that waiting requires a reason and enforce legal ticket transitions.
+
+This is an important overlap to preserve: Queue Management must not create a second Support ticket state machine. A queue may reference a ticket, maintain a queue-entry lifecycle separately, and coordinate assignment/order through an explicit contract. A ticket being `WAITING` does not by itself imply that it is present in a particular queue or eligible for a particular dispatch.
+
+### Current CI workflow coverage is not a full capability baseline
+
+The current `.github/workflows/ci.yml` explicitly runs the module-topology and dependency-boundary Python checks and contains Maven verification jobs/steps for selected reactors (including framework/foundation, Geo, security, documents, Mobility, identity, supply, Logistics, Syirkah, affiliate, payment/marketplace, and workspace). In the inspected workflow, there are no explicit Maven verify steps for the Scheduling, Workforce, Vehicle Service, Support, or CRM reactors.
+
+Therefore:
+- The workflow's existence does not establish that those queue-adjacent reactors currently build or pass tests.
+- Candidate targeted commands are `mvn -B -ntp -f scheduling/pom.xml verify`, `mvn -B -ntp -f workforce/pom.xml verify`, `mvn -B -ntp -f vehicle-service/pom.xml verify`, `mvn -B -ntp -f support/pom.xml verify`, and `mvn -B -ntp -f crm/pom.xml verify`; these are proposed verification commands inferred from the observed reactor roots, not commands executed during this audit. Cross-reactor prerequisites may need installation in the order prescribed by CI.
+- Before M1 implementation is considered production-ready, obtain a real run of the target reactor and its dependency closure; do not treat a missing CI job as a passing baseline.
+
+The remaining M0 checklist in Section 15 remains open.
