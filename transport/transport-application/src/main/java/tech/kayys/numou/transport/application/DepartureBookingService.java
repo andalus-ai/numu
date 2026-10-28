@@ -40,10 +40,16 @@ public final class DepartureBookingService {
      * across network retries; callers should use the same command and idempotency key on replay.
      */
     public PassengerHold hold(HoldCommand command) {
+        return hold(UUID.randomUUID(), command);
+    }
+
+    /** Creates or replays a hold using a caller-stable ID for durable saga recovery. */
+    public PassengerHold hold(UUID holdId, HoldCommand command) {
+        Objects.requireNonNull(holdId, "holdId");
         Objects.requireNonNull(command, "command");
         String fingerprint = fingerprint(command);
         return execute(command.tenantId(), command.departureId(), (current, now) -> {
-            DepartureInventory.HoldResult result = current.hold(UUID.randomUUID(), command.idempotencyKey(),
+            DepartureInventory.HoldResult result = current.hold(holdId, command.idempotencyKey(),
                     fingerprint, command.fromSequence(), command.toSequence(), command.passengerCount(),
                     command.expiresAt(), now);
             return new Mutation<>(result.inventory(), result.hold());
