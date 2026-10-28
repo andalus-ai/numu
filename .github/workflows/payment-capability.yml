@@ -1,0 +1,37 @@
+name: Payment Capability CI
+
+on:
+  pull_request:
+    paths:
+      - "finance/payment/**"
+      - ".github/workflows/payment-capability.yml"
+      - "finance/pom.xml"
+      - "core/framework/pom.xml"
+  push:
+    branches: [main]
+    paths:
+      - "finance/payment/**"
+      - ".github/workflows/payment-capability.yml"
+      - "finance/pom.xml"
+      - "core/framework/pom.xml"
+
+permissions:
+  contents: read
+
+jobs:
+  payment-capability:
+    name: Payment API and PostgreSQL integration tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Install finance parent POM
+        run: mvn -B -ntp -N -f finance/pom.xml install
+      - name: Verify payment capability reactor
+        run: mvn -B -ntp -f finance/payment/pom.xml verify
