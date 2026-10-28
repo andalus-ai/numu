@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Application service managing inventory ledger movements, balances, and transfers.
@@ -141,6 +142,23 @@ public final class InventoryService {
     }
 
     public InventoryReservation findReservation(String tenantId, ReservationId id) { return reservationForTenant(tenantId, id); }
+
+    /**
+     * Recovers a reservation after a lost command response. The key must be exactly
+     * the same key used by reserve; an empty result is not proof of absence unless
+     * the adapter provides durable, strongly consistent command receipts.
+     */
+    public Optional<InventoryReservation> findReservationByCommandKey(String tenantId, InventoryCommandKey key) {
+        Objects.requireNonNull(key, "Command key is required");
+        Objects.requireNonNull(tenantId, "Tenant id is required");
+        if (tenantId.isBlank()) throw new IllegalArgumentException("Tenant id must not be blank");
+        return repository.findReservationByCommandKey(key).map(reservation -> {
+            if (!reservation.tenantId().equals(tenantId)) {
+                throw new IllegalStateException("Reservation command resolved outside the requested tenant");
+            }
+            return reservation;
+        });
+    }
 
     public InventoryReservation releaseReservation(String tenantId, ReservationId id) {
         InventoryReservation current = reservationForTenant(tenantId, id);
