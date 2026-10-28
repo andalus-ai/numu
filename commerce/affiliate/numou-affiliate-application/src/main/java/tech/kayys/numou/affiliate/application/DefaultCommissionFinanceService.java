@@ -75,7 +75,7 @@ public final class DefaultCommissionFinanceService implements CommissionFinanceA
         Objects.requireNonNull(context, "context is required");
         String worker = required(workerId, "workerId");
         if (limit < 1 || limit > 500) return failed(new IllegalArgumentException("limit must be between 1 and 500"));
-        return outbox.claimPending(worker, Instant.now(), DEFAULT_LEASE, limit)
+        return outbox.claimPending(context.tenantId(), worker, Instant.now(), DEFAULT_LEASE, limit)
                 .thenCompose(claimed -> dispatchSequentially(context.tenantId(), claimed, 0, 0));
     }
 
