@@ -73,8 +73,8 @@ public class TransportCheckoutReconciliationScheduler {
             if (result.attempted() > 0) attempted.increment(result.attempted());
             if (result.failed() > 0) {
                 failed.increment(result.failed());
-                LOG.warnf("Transport checkout reconciliation had failures: attempted=%d succeeded=%d failed=%d",
-                        result.attempted(), result.succeeded(), result.failed());
+                LOG.warnf("Transport checkout reconciliation had failures: attempted=%d succeeded=%d failed=%d checkoutIds=%s",
+                        result.attempted(), result.succeeded(), result.failed(), result.failedCheckoutIds());
             } else if (result.attempted() > 0) {
                 LOG.infof("Transport checkout reconciliation completed: attempted=%d succeeded=%d",
                         result.attempted(), result.succeeded());
