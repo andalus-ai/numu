@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Verifies that configuring the transaction runner changes the persistence collaborators
@@ -90,7 +91,12 @@ class ReservationServiceTransactionRunnerTest {
                 Duration.ofMinutes(60), Set.of(), BookingSource.WEB, "oil change",
                 Set.of("vehicle-service"), "transaction-runner-key").await().indefinitely();
 
-        assertThat(transactionCalls).hasValue(2);
+        assertThatThrownBy(() -> service.bookWithConstraints(tenant, facility, customer, 1, startsAt,
+                Duration.ofMinutes(60), Set.of("LIFT"), BookingSource.WEB, "oil change",
+                Set.of("vehicle-service"), "transaction-runner-key").await().indefinitely())
+                .isInstanceOf(IdempotentReservationRepository.IdempotencyKeyConflictException.class);
+
+        assertThat(transactionCalls).hasValue(3);
         assertThat(created.id()).isEqualTo(replay.id());
         assertThat(transactionReservations.allOf(tenant)).hasSize(1);
         assertThat(legacyReservations.allOf(tenant)).isEmpty();
