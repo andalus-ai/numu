@@ -135,18 +135,6 @@ public final class MarketplaceCheckoutService {
                         "Reservation command outcome is uncertain; inventory must reconcile before payment",
                         clock.instant()));
             }
-            MarketplaceCheckout next = checkout.recordReservation(line.lineId(), recovered.get(), clock.instant());
-                        checkout = save(checkout, next);
-                    }
-                } catch (RuntimeException recoveryFailure) {
-                    return save(checkout, checkout.reconciliationRequired(
-                            "RESERVATION_OUTCOME_UNKNOWN",
-                            "Reservation outcome is uncertain; retry/reconcile using the same command key",
-                            clock.instant()));
-                }
-                return compensateKnownReservations(checkout, "INVENTORY_RESERVATION_FAILED",
-                        "Inventory reservation failed; known reservations are being released");
-            }
             MarketplaceCheckout next = checkout.recordReservation(line.lineId(), reservationId, clock.instant());
             checkout = save(checkout, next);
         }
