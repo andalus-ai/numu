@@ -46,6 +46,20 @@ class PaymentCapabilityCheckoutAdapterTest {
     }
 
     @Test
+    void translatesAuthoritativePaymentRejectionIntoKnownFailure() {
+        PaymentApplicationPort rejecting = new StubPaymentPort(new AtomicReference<>(), null) {
+            @Override
+            public PaymentObligation createOrGet(CreatePaymentObligation command) {
+                throw new PaymentApplicationPort.PaymentOperationRejectedException("policy rejected");
+            }
+        };
+        var adapter = new PaymentCapabilityCheckoutAdapter(rejecting);
+
+        assertThrows(MarketplaceCheckoutPaymentPort.PaymentRejectedException.class, () ->
+                adapter.createOrGet("tenant-a", "key", "order-1", new BigDecimal("12.00"), "IDR"));
+    }
+
+    @Test
     void rejectsZeroValuePaymentBeforeCallingPaymentCapability() {
         PaymentApplicationPort paymentPort = new StubPaymentPort(new AtomicReference<>(), null);
         var adapter = new PaymentCapabilityCheckoutAdapter(paymentPort);
@@ -58,7 +72,7 @@ class PaymentCapabilityCheckoutAdapterTest {
                 "IDR", status, null, null, now);
     }
 
-    private static final class StubPaymentPort implements PaymentApplicationPort {
+    private static class StubPaymentPort implements PaymentApplicationPort {
         private final AtomicReference<CreatePaymentObligation> captured;
         private final PaymentObligation response;
 
