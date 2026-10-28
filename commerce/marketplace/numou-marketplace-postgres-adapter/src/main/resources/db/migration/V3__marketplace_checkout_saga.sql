@@ -16,13 +16,18 @@ CREATE TABLE IF NOT EXISTS marketplace_checkout (
     updated_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT uq_marketplace_checkout_tenant_id UNIQUE (tenant_id, checkout_id),
     CONSTRAINT uq_marketplace_checkout_key UNIQUE (tenant_id, idempotency_key),
-    CONSTRAINT uq_marketplace_checkout_order UNIQUE (tenant_id, order_id),
     CONSTRAINT fk_marketplace_checkout_order FOREIGN KEY (tenant_id, order_id)
         REFERENCES marketplace_order (tenant_id, order_id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS ix_marketplace_checkout_recovery
     ON marketplace_checkout (tenant_id, checkout_status, updated_at);
+
+-- A failed attempt can be retried with a new key, but only one non-failed checkout
+-- may coordinate inventory/payment for a given order at a time.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_marketplace_checkout_active_order
+    ON marketplace_checkout (tenant_id, order_id)
+    WHERE checkout_status <> 'FAILED';
 
 CREATE TABLE IF NOT EXISTS marketplace_checkout_reservation (
     tenant_id VARCHAR(200) NOT NULL,
