@@ -77,6 +77,19 @@ class TicketTest {
                 "Customer-facing projections must never include internal notes");
     }
 
+    @Test
+    void nullCommentTimestampDoesNotMutateAggregateOrRaiseEvent() {
+        Ticket ticket = newTicket();
+        TicketComment comment = new TicketComment(
+                UUID.randomUUID(), UserId.newId(), "Reply", false, NOW);
+        int originalEventCount = ticket.getDomainEvents().size();
+
+        assertThrows(NullPointerException.class, () -> ticket.addComment(comment, null));
+
+        assertEquals(0, ticket.comments().size());
+        assertEquals(originalEventCount, ticket.getDomainEvents().size());
+    }
+
     private Ticket newTicket() {
         return Ticket.create(TicketId.generate(), TenantId.generate(),
                 new Requester.Anonymous("email:customer@example.test"),
