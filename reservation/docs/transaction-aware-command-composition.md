@@ -138,3 +138,10 @@ mvn -f reservation/pom.xml -pl reservation-adapter -am -Ppg-integration verify
 These tests have not been executed as part of authoring this milestone. Production rollout
 still requires a concrete publisher/runtime wiring, operational metrics and alerting, and a
 successful run against PostgreSQL in CI or a controlled environment.
+
+
+## Publish/ack gap and duplicate-delivery contract
+
+A successful external publish followed by an expired lease before database acknowledgement is an expected at-least-once failure mode. The relay must reject the stale acknowledgement, leave the row reclaimable, and allow a later worker to publish the same stable event ID. Downstream consumers therefore must deduplicate on the event ID; broker producer idempotence alone does not close the database/broker transaction gap.
+
+The PostgreSQL integration contract now includes this publish/ack-gap scenario in addition to concurrent pollers and retry/dead-letter recovery. It remains opt-in and is not verified until the documented `pg-integration` Maven command passes against PostgreSQL.
