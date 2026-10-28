@@ -21,6 +21,33 @@ class LocationAndStorageTest {
     }
 
     @Test
+    void preservesExactDecimalCoordinatePrecisionAndAcceptsWgs84Edges() {
+        BigDecimal latitude = new BigDecimal("-6.208812345678901234567890");
+        BigDecimal longitude = new BigDecimal("106.845612345678901234567890");
+
+        GeoPoint precise = new GeoPoint(latitude, longitude);
+        assertSame(latitude, precise.latitude());
+        assertSame(longitude, precise.longitude());
+
+        assertEquals(new BigDecimal("-90"), new GeoPoint(
+                new BigDecimal("-90"), new BigDecimal("-180")).latitude());
+        assertEquals(new BigDecimal("180"), new GeoPoint(
+                new BigDecimal("90"), new BigDecimal("180")).longitude());
+    }
+
+    @Test
+    void rejectsNullAndOutOfRangeDecimalCoordinates() {
+        assertThrows(NullPointerException.class,
+                () -> new GeoPoint(null, BigDecimal.ZERO));
+        assertThrows(NullPointerException.class,
+                () -> new GeoPoint(BigDecimal.ZERO, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GeoPoint(new BigDecimal("90.0000001"), BigDecimal.ZERO));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GeoPoint(BigDecimal.ZERO, new BigDecimal("-180.0000001")));
+    }
+
+    @Test
     void testStorageLocationCreationAndSelfParentRejection() {
         WarehouseId whId = WarehouseId.generate();
         StorageLocationId aisleId = StorageLocationId.generate();
