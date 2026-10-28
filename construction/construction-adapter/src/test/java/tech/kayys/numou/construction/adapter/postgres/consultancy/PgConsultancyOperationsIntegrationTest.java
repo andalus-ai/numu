@@ -11,6 +11,9 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.construction.adapter.postgres.idempotency.PgTransactionalCommandRunner;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagement;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableStatus;
 import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
 import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
 import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
@@ -60,6 +63,41 @@ class PgConsultancyOperationsIntegrationTest {
                 .await().indefinitely();
         var otherTenant = runner.inTransaction(context ->
                 context.consultancy().findEngagement(tenant + "-other", ConsultancyEngagementId.of(saved.id().value())))
+                .await().indefinitely();
+        assertTrue(sameTenant.isPresent());
+        assertTrue(otherTenant.isEmpty());
+    }
+
+    @Test
+    void deliverableRoundTripsReviewStateAndRemainsTenantScoped() {
+        String tenant = "consultancy-deliverable-" + UUID.randomUUID();
+        String number = "ENG-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = newEngagement(number);
+        UUID client = engagement.clientOrganizationId();
+        UUID consultant = engagement.consultantOrganizationId();
+        ConsultancyDeliverable rejected = ConsultancyDeliverable.create(
+                ConsultancyEngagementId.of(engagement.id().value()), client, consultant,
+                "D-01", "Structural report", "Structural calculations and signed report");
+        rejected.submit();
+        rejected.reject(client, "Missing calculation appendix");
+
+        ConsultancyDeliverable saved = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, engagement)
+                        .flatMap(ignored -> context.consultancy().saveDeliverable(tenant, rejected)))
+                .await().indefinitely();
+
+        assertEquals(rejected.id(), saved.id());
+        assertEquals(engagement.id().value(), saved.engagementId().value());
+        assertEquals(2, saved.revision() - 1 + 1);
+        assertEquals(ConsultancyDeliverableStatus.REJECTED, saved.status());
+        assertEquals(client, saved.reviewedByOrganizationId());
+        assertEquals("Missing calculation appendix", saved.reviewComment());
+
+        var sameTenant = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, ConsultancyDeliverableId.of(saved.id().value())))
+                .await().indefinitely();
+        var otherTenant = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant + "-other", ConsultancyDeliverableId.of(saved.id().value())))
                 .await().indefinitely();
         assertTrue(sameTenant.isPresent());
         assertTrue(otherTenant.isEmpty());
