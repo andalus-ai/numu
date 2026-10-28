@@ -11,4 +11,7 @@ public interface CommissionFinanceApplicationPort {
 
     CompletionStage<Integer> dispatchPending(
             AffiliateCommandContext context, String workerId, int limit);
+
+    CompletionStage<Boolean> reconcile(
+            AffiliateCommandContext context, UUID postingId);
 }
