@@ -12,7 +12,6 @@ import tech.kayys.numou.foundation.domain.valueobject.Money;
 import tech.kayys.numou.reservation.domain.*;
 import tech.kayys.numou.reservation.domain.event.ReservationRequested;
 import tech.kayys.numou.reservation.spi.IdempotentReservationRepository;
-import tech.kayys.numou.reservation.spi.ReservationTransactionContext;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -26,9 +25,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
