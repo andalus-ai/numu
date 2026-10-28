@@ -263,7 +263,7 @@ public class PostgresMarketplaceOrderRepository implements MarketplaceOrderRepos
         }
         return inTransaction(connection -> {
             List<MarketplaceOrderLine> persistedLines = findLines(connection, tenantId, orderId);
-            if (persistedLines.isEmpty() || !persistedLines.equals(replacement.lines())) {
+            if (persistedLines.isEmpty() || !sameCommercialLines(persistedLines, replacement.lines())) {
                 throw new IllegalArgumentException("Order identity and immutable line snapshots cannot be changed");
             }
             try (PreparedStatement statement = connection.prepareStatement("""
@@ -309,6 +309,31 @@ public class PostgresMarketplaceOrderRepository implements MarketplaceOrderRepos
             }
         }
         return List.copyOf(lines);
+    }
+
+    /**
+     * PostgreSQL NUMERIC preserves numeric value but may return a different BigDecimal scale
+     * than the caller supplied. Scale is not part of the commercial line's identity.
+     */
+    private static boolean sameCommercialLines(List<MarketplaceOrderLine> persisted,
+                                               List<MarketplaceOrderLine> replacement) {
+        if (persisted.size() != replacement.size()) return false;
+        for (int i = 0; i < persisted.size(); i++) {
+            MarketplaceOrderLine left = persisted.get(i);
+            MarketplaceOrderLine right = replacement.get(i);
+            if (!left.lineId().equals(right.lineId())
+                    || !left.productId().equals(right.productId())
+                    || !left.offeringId().equals(right.offeringId())
+                    || !left.sellerId().equals(right.sellerId())
+                    || !left.description().equals(right.description())
+                    || left.quantity().compareTo(right.quantity()) != 0
+                    || !left.unit().equals(right.unit())
+                    || left.unitPrice().compareTo(right.unitPrice()) != 0
+                    || !left.currency().equals(right.currency())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void requireTenant(String tenantId) {
