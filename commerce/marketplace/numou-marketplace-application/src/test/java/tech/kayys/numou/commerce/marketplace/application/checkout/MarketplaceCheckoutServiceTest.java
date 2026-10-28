@@ -200,7 +200,8 @@ class MarketplaceCheckoutServiceTest {
         @Override public List<MarketplaceCheckout> findRecoverable(String tenant, int limit) {
             return byId.values().stream()
                     .filter(c -> c.tenantId().equals(tenant))
-                    .filter(c -> c.status() == MarketplaceCheckoutStatus.AWAITING_PAYMENT
+                    .filter(c -> c.status() == MarketplaceCheckoutStatus.RESERVING_INVENTORY
+                            || c.status() == MarketplaceCheckoutStatus.AWAITING_PAYMENT
                             || c.status() == MarketplaceCheckoutStatus.RECONCILIATION_REQUIRED
                             || c.status() == MarketplaceCheckoutStatus.COMPENSATION_REQUIRED)
                     .limit(limit).toList();
