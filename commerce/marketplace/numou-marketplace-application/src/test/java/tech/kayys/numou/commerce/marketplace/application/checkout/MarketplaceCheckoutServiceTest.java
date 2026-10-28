@@ -141,7 +141,7 @@ class MarketplaceCheckoutServiceTest {
         FakeInventory(boolean failSecondLine) { this.failSecondLine = failSecondLine; }
         @Override public String reserve(String tenant, String warehouse, MarketplaceOrderLine line,
                                         BigDecimal quantity, Instant expiry, String key) {
-            if (failSecondLine && line.lineId().equals("line-2")) throw new IllegalStateException("out of stock");
+            if (failSecondLine && line.lineId().equals("line-2")) throw new MarketplaceCheckoutInventoryPort.ReservationRejectedException("out of stock");
             return byKey.computeIfAbsent(tenant + ":" + key, k -> {
                 String id = "reservation-" + reservations.size();
                 reservations.put(id, line.lineId()); return id;
