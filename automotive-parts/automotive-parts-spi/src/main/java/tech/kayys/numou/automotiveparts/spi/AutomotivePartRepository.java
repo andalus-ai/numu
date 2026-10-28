@@ -3,6 +3,7 @@ package tech.kayys.numou.automotiveparts.spi;
 import tech.kayys.numou.automotiveparts.domain.AutomotivePartProfile;
 import tech.kayys.numou.automotiveparts.domain.PartFitment;
 import tech.kayys.numou.automotiveparts.domain.PartReference;
+import tech.kayys.numou.automotiveparts.domain.PartSubstitution;
 import tech.kayys.numou.automotiveparts.domain.VehicleSpecification;
 import tech.kayys.numou.product.domain.product.ProductId;
 
@@ -36,6 +37,12 @@ public interface AutomotivePartRepository {
      * the authoritative match before presenting results.
      */
     List<PartFitment> findFitmentCandidates(String tenantId, VehicleSpecification vehicle, LocalDate asOf);
+
+    /** Persist a directed substitution policy. Replaying the same claim must be idempotent. */
+    void saveSubstitution(PartSubstitution substitution);
+
+    /** Find substitutions effective on the requested date, scoped to one tenant and source product. */
+    List<PartSubstitution> findSubstitutions(String tenantId, ProductId sourceProductId, LocalDate asOf);
 
     /** Persist the fitment claim for a product. Tenant isolation is mandatory. */
     void saveFitment(PartFitment fitment);

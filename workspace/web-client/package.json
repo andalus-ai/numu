@@ -1,0 +1,13 @@
+{
+  "name": "@numou/workspace-web-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node ./scripts/serve.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

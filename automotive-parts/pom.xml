@@ -18,5 +18,6 @@
         <module>automotive-parts-spi</module>
         <module>automotive-parts-application</module>
         <module>automotive-parts-postgres</module>
+        <module>automotive-parts-inventory</module>
     </modules>
 </project>
