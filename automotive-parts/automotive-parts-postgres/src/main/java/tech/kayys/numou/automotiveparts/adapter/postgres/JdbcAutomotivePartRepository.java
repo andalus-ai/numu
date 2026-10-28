@@ -6,6 +6,7 @@ import tech.kayys.numou.automotiveparts.domain.AutomotivePartProfile;
 import tech.kayys.numou.automotiveparts.domain.PartFitment;
 import tech.kayys.numou.automotiveparts.domain.PartReference;
 import tech.kayys.numou.automotiveparts.domain.PartReferenceType;
+import tech.kayys.numou.automotiveparts.domain.PartSubstitution;
 import tech.kayys.numou.automotiveparts.domain.VehicleFitment;
 import tech.kayys.numou.automotiveparts.domain.VehicleSpecification;
 import tech.kayys.numou.automotiveparts.spi.AutomotivePartRepository;
@@ -127,6 +128,71 @@ public class JdbcAutomotivePartRepository implements AutomotivePartRepository {
             }
         } catch (SQLException e) {
             throw persistenceFailure("save automotive part profile", e);
+        }
+    }
+
+
+    @Override
+    public void saveSubstitution(PartSubstitution substitution) {
+        if (substitution == null) throw new IllegalArgumentException("substitution is required");
+        String sql = """
+                INSERT INTO automotive_part_substitution
+                    (tenant_id, source_product_id, substitute_product_id, substitution_kind,
+                     requires_technician_approval, rationale, effective_from, effective_through)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, substitution.tenantId());
+            statement.setObject(2, substitution.sourceProductId().value());
+            statement.setObject(3, substitution.substituteProductId().value());
+            statement.setString(4, substitution.kind().name());
+            statement.setBoolean(5, substitution.requiresTechnicianApproval());
+            statement.setString(6, substitution.rationale());
+            statement.setObject(7, substitution.effectiveFrom());
+            statement.setObject(8, substitution.effectiveThrough());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw persistenceFailure("save automotive part substitution", e);
+        }
+    }
+
+    @Override
+    public List<PartSubstitution> findSubstitutions(String tenantId, ProductId sourceProductId, LocalDate asOf) {
+        requireTenant(tenantId);
+        if (sourceProductId == null || asOf == null) {
+            throw new IllegalArgumentException("sourceProductId and asOf are required");
+        }
+        String sql = """
+                SELECT substitute_product_id, substitution_kind, requires_technician_approval,
+                       rationale, effective_from, effective_through
+                  FROM automotive_part_substitution
+                 WHERE tenant_id = ? AND source_product_id = ?
+                   AND effective_from <= ? AND (effective_through IS NULL OR effective_through >= ?)
+                 ORDER BY substitution_kind, substitute_product_id
+                """;
+        List<PartSubstitution> results = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tenantId.trim());
+            statement.setObject(2, sourceProductId.value());
+            statement.setObject(3, asOf);
+            statement.setObject(4, asOf);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    results.add(new PartSubstitution(
+                            tenantId.trim(), sourceProductId,
+                            ProductId.of(rows.getObject("substitute_product_id", UUID.class)),
+                            PartSubstitution.SubstitutionKind.valueOf(rows.getString("substitution_kind")),
+                            rows.getBoolean("requires_technician_approval"), rows.getString("rationale"),
+                            rows.getObject("effective_from", LocalDate.class),
+                            rows.getObject("effective_through", LocalDate.class)));
+                }
+            }
+            return List.copyOf(results);
+        } catch (SQLException e) {
+            throw persistenceFailure("find automotive part substitutions", e);
         }
     }
 

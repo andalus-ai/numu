@@ -99,5 +99,7 @@ class AutomotivePartsUseCasesTest {
             return List.copyOf(candidates);
         }
         @Override public void saveFitment(PartFitment fitment) { candidates.add(fitment); }
+        @Override public void saveSubstitution(PartSubstitution substitution) { }
+        @Override public List<PartSubstitution> findSubstitutions(String tenantId, ProductId sourceProductId, LocalDate asOf) { return List.of(); }
     }
 }

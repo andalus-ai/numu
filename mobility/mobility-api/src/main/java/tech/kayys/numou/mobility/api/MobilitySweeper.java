@@ -33,7 +33,7 @@ public class MobilitySweeper {
     @Inject DispatchService dispatch;
     @Inject RideSettlementService settlement;
     @Inject MetricsPort metrics;
-    @Inject tech.kayys.numou.mobility.wallet.application.PayoutService payouts;
+    @Inject tech.kayys.numou.wallet.application.PayoutService payouts;
 
     private final AtomicInteger ticks = new AtomicInteger();
 

@@ -1,5 +1,8 @@
 package tech.kayys.numou.mobility.kernel.geo;
 
+import tech.kayys.numou.geo.domain.GeoGrid;
+import tech.kayys.numou.geo.domain.GeoGridCell;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,8 +14,10 @@ public record GeoCell(int latIndex, int lngIndex) {
 
     public static final double CELL_DEGREES = 0.01;
 
+    /** Uses Geo's generic bucketing math while preserving Mobility's index and key contract. */
     public static GeoCell of(LatLng p) {
-        return new GeoCell((int) Math.floor(p.lat() / CELL_DEGREES), (int) Math.floor(p.lng() / CELL_DEGREES));
+        GeoGridCell cell = GeoGrid.cellOf(p.toGeoPoint(), CELL_DEGREES);
+        return new GeoCell(Math.toIntExact(cell.latitudeIndex()), Math.toIntExact(cell.longitudeIndex()));
     }
 
     /** Stable text key, e.g. {@code -618:10682}; used as an indexed database column. */

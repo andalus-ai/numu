@@ -22,6 +22,7 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
     private final Map<InventoryCommandKey, List<InventoryMovement>> commandMovements = new HashMap<>();
     private final Map<ReservationId, InventoryReservation> reservations = new HashMap<>();
     private final Map<InventoryCommandKey, ReservationId> reservedIssueReservations = new HashMap<>();
+    private final Map<InventoryCommandKey, ReservationId> reservationCommands = new HashMap<>();
 
     @Override
     public void registerItem(InventoryItem item) {
@@ -96,6 +97,26 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
         }
         reservations.put(reservation.id(), reservation);
         return reservation;
+    }
+
+    @Override
+    public synchronized InventoryReservation reserveIfAvailable(InventoryCommandKey key, InventoryReservation reservation) {
+        if (key == null || reservation == null) throw new IllegalArgumentException("Command key and reservation are required");
+        ReservationId existingId = reservationCommands.get(key);
+        if (existingId != null) {
+            InventoryReservation existing = reservations.get(existingId);
+            if (existing == null || !sameReservationPayload(existing, reservation)) throw new IllegalArgumentException("Idempotency key payload mismatch");
+            return existing;
+        }
+        InventoryReservation created = reserveIfAvailable(reservation);
+        reservationCommands.put(key, created.id());
+        return created;
+    }
+
+    private static boolean sameReservationPayload(InventoryReservation a, InventoryReservation b) {
+        return a.tenantId().equals(b.tenantId()) && a.itemId().equals(b.itemId()) && a.warehouseId().equals(b.warehouseId())
+                && a.quantity().compareTo(b.quantity()) == 0 && a.uom().equals(b.uom())
+                && a.sourceReference().equals(b.sourceReference()) && java.util.Objects.equals(a.expiresAt(), b.expiresAt());
     }
 
     @Override
