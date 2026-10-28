@@ -126,7 +126,7 @@ public final class DepartureInventory {
         PassengerHold hold = current.findHold(holdId);
         if (hold.status() == PassengerHoldStatus.CONFIRMED) return current;
         if (hold.status() != PassengerHoldStatus.HELD) {
-            throw new IllegalStateException("only an active hold can be confirmed");
+            throw new HoldNotActiveException("only an active hold can be confirmed");
         }
         return current.replace(hold.transition(PassengerHoldStatus.CONFIRMED, now));
     }

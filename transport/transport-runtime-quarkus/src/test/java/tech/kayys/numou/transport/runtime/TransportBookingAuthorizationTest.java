@@ -64,6 +64,26 @@ class TransportBookingAuthorizationTest {
     }
 
     @Test
+    void checkoutOperationsUseTheirOwnResourceAndExplicitPolicyContext() {
+        AtomicReference<AccessRequest> observed = new AtomicReference<>();
+        TransportBookingAuthorization guard = guard(true, request -> {
+            observed.set(request);
+            return AccessDecision.allow("policy matched");
+        });
+
+        guard.requireAllowed(caller(), "oidc-subject",
+                TransportBookingAuthorization.BookingOperation.CREATE_CHECKOUT, departureId, null);
+        assertThat(observed.get().resourceType()).isEqualTo("transport.booking.checkout");
+        assertThat(observed.get().context()).isEqualTo("operation=create");
+
+        guard.requireAllowed(caller(), "oidc-subject",
+                TransportBookingAuthorization.BookingOperation.READ_CHECKOUT, null, holdId);
+        assertThat(observed.get().resourceType()).isEqualTo("transport.booking.checkout");
+        assertThat(observed.get().resourceId()).isEqualTo(holdId.toString());
+        assertThat(observed.get().context()).isEqualTo("operation=read");
+    }
+
+    @Test
     void rejectsNonUuidTenantOrActorIdentifiers() {
         TransportBookingAuthorization guard = guard(true, request -> AccessDecision.allow("unused"));
         TransportIdentityContext invalid = new TransportIdentityContext("tenant-not-uuid", actorId.toString());
