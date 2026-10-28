@@ -236,11 +236,12 @@ public final class ReservationService {
         if (idempotencyKey != null && idempotencyKey.isBlank()) {
             return Uni.createFrom().failure(new IllegalArgumentException("idempotencyKey cannot be blank"));
         }
-        if (idempotencyKey != null && !(reservations instanceof IdempotentReservationRepository)) {
+        if (idempotencyKey != null && transactionRunner == null
+                && !(reservations instanceof IdempotentReservationRepository)) {
             return Uni.createFrom().failure(new IllegalStateException(
                     "Idempotency key supplied but reservation repository does not support atomic idempotency"));
         }
-        if (idempotencyKey != null) {
+        if (idempotencyKey != null && transactionRunner == null) {
             final var repository = (IdempotentReservationRepository) reservations;
             final String fingerprint = reservationFingerprint(tenantId, fId, customer, party, startsAt,
                     serviceDuration, normalizedSource, notes, normalizedRequirements, tags);
@@ -263,15 +264,32 @@ public final class ReservationService {
             Set<String> requiredResourceTags, String idempotencyKey) {
         return rulesPort.rulesFor(tenantId, facilityId).flatMap(rules ->
                 resourceDirectory.resourcesFor(tenantId, facilityId).flatMap(resList ->
-                        ConflictRetry.run(MAX_ATTEMPTS, () -> uow.execute(() -> {
-                            if (idempotencyKey == null) {
-                                return doBook(tenantId, facilityId, id, customer, party, startsAt, source, notes,
-                                        requirements, serviceDuration, requiredResourceTags, rules, resList);
-                            }
-                            return doBookIdempotently(tenantId, facilityId, id, customer, party, startsAt, source,
-                                    notes, requirements, serviceDuration, requiredResourceTags, idempotencyKey,
-                                    rules, resList);
-                        })).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
+                        ConflictRetry.run(MAX_ATTEMPTS, () ->
+                                executeBookingTransaction(
+                                        context -> {
+                                            if (idempotencyKey == null) {
+                                                return doBook(tenantId, facilityId, id, customer, party, startsAt,
+                                                        source, notes, requirements, serviceDuration,
+                                                        requiredResourceTags, rules, resList,
+                                                        context.reservations(), context.ledgers(), context.events());
+                                            }
+                                            return doBookIdempotently(tenantId, facilityId, id, customer, party,
+                                                    startsAt, source, notes, requirements, serviceDuration,
+                                                    requiredResourceTags, idempotencyKey, rules, resList,
+                                                    context.reservations(), context.ledgers(), context.events());
+                                        },
+                                        () -> {
+                                            if (idempotencyKey == null) {
+                                                return doBook(tenantId, facilityId, id, customer, party, startsAt,
+                                                        source, notes, requirements, serviceDuration,
+                                                        requiredResourceTags, rules, resList);
+                                            }
+                                            return doBookIdempotently(tenantId, facilityId, id, customer, party,
+                                                    startsAt, source, notes, requirements, serviceDuration,
+                                                    requiredResourceTags, idempotencyKey, rules, resList,
+                                                    (IdempotentReservationRepository) reservations, ledgers, events);
+                                        })
+                        ).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
                                 Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), List.of()))
                         )
                 )
@@ -292,19 +310,20 @@ public final class ReservationService {
                                                      BookingSource source, String notes, Set<String> requirements,
                                                      Duration requestedDuration, Set<String> requiredResourceTags,
                                                      String idempotencyKey, BookingRules rules,
-                                                     List<BookableResource> resList) {
-        var repository = (IdempotentReservationRepository) reservations;
+                                                     List<BookableResource> resList,
+                                                     IdempotentReservationRepository reservationStore,
+                                                     LedgerRepository ledgerStore, DomainEventSink eventSink) {
         final String fingerprint = reservationFingerprint(tenantId, facilityId, customer, party, startsAt,
                 requestedDuration, source, notes, requirements, requiredResourceTags);
-        return repository.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing -> {
+        return reservationStore.findByIdempotencyKey(tenantId, idempotencyKey).flatMap(existing -> {
             if (existing.isPresent()) {
                 // The atomic repository compares fingerprints and returns the canonical reservation.
-                return repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, existing.get())
+                return reservationStore.saveIdempotently(tenantId, idempotencyKey, fingerprint, existing.get())
                         .map(result -> ReservationView.of(result.reservation()));
             }
             final var day = startsAt.atZone(rules.zone()).toLocalDate();
             final var now = clock.now();
-            return ledgers.findOrCreate(tenantId, facilityId, day, now).flatMap(ledger -> {
+            return ledgerStore.findOrCreate(tenantId, facilityId, day, now).flatMap(ledger -> {
                 if (!ledger.canAccommodate(party, startsAt, requestedDuration, requiredResourceTags, rules, resList)) {
                     throw new NoAvailabilityException("No resource matching capacity and required capabilities at " + startsAt);
                 }
@@ -313,13 +332,13 @@ public final class ReservationService {
                 final var allocation = ledger.allocate(id, party, startsAt, requestedDuration, requiredResourceTags,
                         rules, resList, now);
                 candidate.assignResources(allocation.resourceIds(), now);
-                return repository.saveIdempotently(tenantId, idempotencyKey, fingerprint, candidate).flatMap(result -> {
+                return reservationStore.saveIdempotently(tenantId, idempotencyKey, fingerprint, candidate).flatMap(result -> {
                     if (!result.created()) {
                         // A concurrent request won this key; discard this attempt's unpersisted allocation/events.
                         return Uni.createFrom().item(ReservationView.of(result.reservation()));
                     }
-                    return ledgers.save(tenantId, ledger)
-                            .flatMap(ignored -> publishEvents(tenantId, result.reservation(), ledger))
+                    return ledgerStore.save(tenantId, ledger)
+                            .flatMap(ignored -> publishEvents(eventSink, tenantId, result.reservation(), ledger))
                             .map(ignored -> ReservationView.of(result.reservation()));
                 });
             });
