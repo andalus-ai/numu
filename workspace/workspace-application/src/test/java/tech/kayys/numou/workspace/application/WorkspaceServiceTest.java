@@ -4,26 +4,26 @@ import java.time.*; import java.util.*; import static org.junit.jupiter.api.Asse
 class WorkspaceServiceTest {
  @Test void auditedWritesFailClosedWhenAdapterLacksAtomicCapability(){
   UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID(),wid=UUID.randomUUID(),sid=UUID.randomUUID();Fake f=new Fake();WorkspaceService service=f.service(false);
-  f.workspaces.put(new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(new Space(sid,tenant,wid,"S","s",Instant.EPOCH));
+  f.workspaces.put(wid, new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(sid, new Space(sid,tenant,wid,"S","s",Instant.EPOCH));
   assertThrows(IllegalStateException.class,()->service.createPage(tenant,actor,wid,sid,null,"Home",List.of()));
   assertTrue(f.current.isEmpty(),"fail-closed path must reject before writing the page");
   assertTrue(f.history.isEmpty(),"fail-closed path must reject before writing revision history");
  }
  @Test void createPagePersistsInitialRevisionAndRequiresSpacePermission(){
   UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID(),wid=UUID.randomUUID(),sid=UUID.randomUUID();Fake f=new Fake();WorkspaceService service=f.service();
-  f.workspaces.put(new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(new Space(sid,tenant,wid,"S","s",Instant.EPOCH));
+  f.workspaces.put(wid, new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(sid, new Space(sid,tenant,wid,"S","s",Instant.EPOCH));
   Page p=service.createPage(tenant,actor,wid,sid,null,"Home",List.of(PageBlock.text(BlockType.PARAGRAPH,"Hello",0)));
   assertEquals(1,p.revision());assertEquals(1,f.history.get(p.id()).size());assertTrue(f.actions.contains(Resource.SPACE+":"+sid+":"+Action.CREATE));
  }
  @Test void updateUsesOptimisticRevisionAndWritesHistory(){
   UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID(),wid=UUID.randomUUID(),sid=UUID.randomUUID();Fake f=new Fake();WorkspaceService service=f.service();
-  f.workspaces.put(new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(new Space(sid,tenant,wid,"S","s",Instant.EPOCH));
+  f.workspaces.put(wid, new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(sid, new Space(sid,tenant,wid,"S","s",Instant.EPOCH));
   Page p=service.createPage(tenant,actor,wid,sid,null,"Home",List.of());Page next=service.updatePage(tenant,actor,p.id(),1,"Renamed",List.of(),"rename");
   assertEquals(2,next.revision());assertEquals(2,f.history.get(p.id()).size());assertThrows(WorkspaceService.RevisionConflictException.class,()->service.updatePage(tenant,actor,p.id(),1,"stale",List.of(),"stale"));
  }
  @Test void fileReferencesMustPassAttachmentPolicy(){
   UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID(),wid=UUID.randomUUID(),sid=UUID.randomUUID();Fake f=new Fake();WorkspaceService service=f.service();
-  f.workspaces.put(new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(new Space(sid,tenant,wid,"S","s",Instant.EPOCH));f.rejectFiles=true;
+  f.workspaces.put(wid, new Workspace(wid,tenant,"W","",Instant.EPOCH));f.spaces.put(sid, new Space(sid,tenant,wid,"S","s",Instant.EPOCH));f.rejectFiles=true;
   PageBlock file=new PageBlock(UUID.randomUUID(),BlockType.FILE,"",0,Map.of("fileId","foreign-file"));
   assertThrows(SecurityException.class,()->service.createPage(tenant,actor,wid,sid,null,"File page",List.of(file)));
  }
