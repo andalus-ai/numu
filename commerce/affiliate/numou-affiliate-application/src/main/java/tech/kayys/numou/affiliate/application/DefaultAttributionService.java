@@ -79,7 +79,7 @@ public final class DefaultAttributionService implements AttributionApplicationPo
                                     return failed(new IllegalStateException("Policy repository returned a cross-scope policy"));
                                 }
                                 Instant notBefore = subtractWindow(conversion.occurredAt(), policy.windowSeconds());
-                                return touchpoints.findEligible(tenantId, programId, conversion.subjectKey(),
+                                return touchpoints.findEligible(tenantId, programId.toString(), conversion.subjectKey(),
                                                 notBefore, conversion.occurredAt())
                                         .thenCompose(candidates -> {
                                             AttributionDecision proposed = AttributionEngine.decide(
