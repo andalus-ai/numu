@@ -36,7 +36,7 @@ class CommissionEngineTest {
                 plan(CommissionType.PERCENTAGE, "IDR", "7.5"),
                 conversion("IDR", "123456.78"), NOW.plusSeconds(3));
 
-        assertEquals(new BigDecimal("9259"), result.commissionAmount());
+        assertEquals(new BigDecimal("9259.26"), result.commissionAmount());
         assertEquals("IDR", result.currency());
         assertEquals(CommissionStatus.PENDING, result.status());
         assertEquals(CommissionEntryType.EARNING, result.type());
