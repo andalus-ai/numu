@@ -1,6 +1,7 @@
 package tech.kayys.numou.transport.runtime;
 
 import io.quarkus.security.Authenticated;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -22,10 +23,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * HTTP adapter for Transport capacity holds. Authentication and tenant resolution are
- * mandatory; payment capture and ticket issuance are intentionally separate workflows.
+ * HTTP adapter for Transport capacity holds. Authentication, active tenant membership,
+ * and explicit capability permissions are mandatory. Payment capture and ticket issuance
+ * are intentionally separate workflows.
  */
 @Authenticated
+@Blocking
 @ApplicationScoped
 @Path("/v1/transport/departures/{departureId}/holds")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -39,6 +42,9 @@ public class TransportBookingResource {
 
     @Inject
     Clock clock;
+
+    @Inject
+    TransportBookingAuthorization bookingAuthorization;
 
     @ConfigProperty(name = "numou.security.tenant-claim", defaultValue = "numou_tenant_id")
     String tenantAttribute;
@@ -69,6 +75,8 @@ public class TransportBookingResource {
             throw new jakarta.ws.rs.BadRequestException("expiresAt must be in the future and within the configured hold limit");
         }
 
+        bookingAuthorization.requireAllowed(caller, identity.getPrincipal().getName(),
+                TransportBookingAuthorization.BookingOperation.CREATE_HOLD, departureId, null);
         PassengerHold hold = bookings.hold(new DepartureBookingService.HoldCommand(
                 caller.tenantId(), departureId, idempotencyKey, request.fromSequence(),
                 request.toSequence(), request.passengerCount(), expiry));
@@ -80,6 +88,8 @@ public class TransportBookingResource {
     public HoldResponse confirm(@PathParam("departureId") UUID departureId,
                                 @PathParam("holdId") UUID holdId) {
         TransportIdentityContext caller = caller();
+        bookingAuthorization.requireAllowed(caller, identity.getPrincipal().getName(),
+                TransportBookingAuthorization.BookingOperation.CONFIRM_HOLD, departureId, holdId);
         return HoldResponse.from(departureId, bookings.confirm(caller.tenantId(), departureId, holdId));
     }
 
@@ -88,6 +98,8 @@ public class TransportBookingResource {
     public HoldResponse release(@PathParam("departureId") UUID departureId,
                                 @PathParam("holdId") UUID holdId) {
         TransportIdentityContext caller = caller();
+        bookingAuthorization.requireAllowed(caller, identity.getPrincipal().getName(),
+                TransportBookingAuthorization.BookingOperation.RELEASE_HOLD, departureId, holdId);
         return HoldResponse.from(departureId, bookings.release(caller.tenantId(), departureId, holdId));
     }
 
