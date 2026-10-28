@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>tech.kayys.numou</groupId><artifactId>numou-framework</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../core/framework/pom.xml</relativePath></parent>
+  <artifactId>numou-automotive-parts-purchasing</artifactId>
+  <name>Numou Automotive Parts - Purchasing Integration</name>
+  <description>Workshop parts demand coordination through the purchasing application contract.</description>
+  <dependencies>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-domain</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-application</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-spi</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+  </dependencies>
+</project>
