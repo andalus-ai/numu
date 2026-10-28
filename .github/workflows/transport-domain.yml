@@ -39,5 +39,7 @@ jobs:
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
       - name: Build and install public security contracts used by Transport
         run: mvn -B -ntp -f security/pom.xml -pl security-spi -am install
+      - name: Build and install public payment application API used by optional Transport adapter
+        run: mvn -B -ntp -f finance/payment/pom.xml -pl numou-payment-api -am install
       - name: Verify transport capability reactor
         run: mvn -B -ntp -f transport/pom.xml verify
