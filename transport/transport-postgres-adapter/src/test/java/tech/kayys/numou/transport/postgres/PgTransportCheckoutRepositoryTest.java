@@ -40,10 +40,14 @@ class PgTransportCheckoutRepositoryTest {
     static void createSchema() throws IOException, SQLException {
         dataSource = new DriverManagerDataSource(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        executeMigration("/db/migration/V2__transport_checkout.sql");
+        executeMigration("/db/migration/V3__transport_checkout_reconciliation_index.sql");
+    }
+
+    private static void executeMigration(String resource) throws IOException, SQLException {
         String migration;
-        try (var stream = PgTransportCheckoutRepositoryTest.class.getResourceAsStream(
-                "/db/migration/V2__transport_checkout.sql")) {
-            if (stream == null) throw new IllegalStateException("checkout migration resource is missing");
+        try (var stream = PgTransportCheckoutRepositoryTest.class.getResourceAsStream(resource)) {
+            if (stream == null) throw new IllegalStateException("migration resource is missing: " + resource);
             migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
@@ -98,6 +102,25 @@ class PgTransportCheckoutRepositoryTest {
         repository.save(updated, 0);
         assertThatThrownBy(() -> repository.save(tenantA.withHold(tenantA.holdId(), NOW.plusSeconds(2)), 0))
                 .isInstanceOf(TransportCheckoutConcurrencyException.class);
+    }
+
+    @Test
+    void staleQueryReturnsOnlyNonterminalCheckoutsInOldestFirstOrder() {
+        TransportCheckout initial = checkout("tenant-a", UUID.randomUUID(), "due-key");
+        repository.create(initial);
+        TransportCheckout held = initial.withHold(initial.holdId(), NOW.plusSeconds(1));
+        repository.save(held, initial.version());
+        TransportCheckout pending = held.withPayment("payment-due", null,
+                TransportCheckoutStatus.PAYMENT_PENDING, NOW.plusSeconds(2));
+        repository.save(pending, held.version());
+
+        assertThat(repository.findStaleNonTerminal(NOW.plusSeconds(3), 10))
+                .extracting(TransportCheckout::checkoutId).containsExactly(initial.checkoutId());
+
+        TransportCheckout failed = pending.withPayment("payment-due", null,
+                TransportCheckoutStatus.PAYMENT_FAILED, NOW.plusSeconds(4));
+        repository.save(failed, pending.version());
+        assertThat(repository.findStaleNonTerminal(NOW.plusSeconds(10), 10)).isEmpty();
     }
 
     @Test
