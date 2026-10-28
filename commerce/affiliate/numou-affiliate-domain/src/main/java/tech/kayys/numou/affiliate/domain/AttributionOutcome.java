@@ -1,2 +1,6 @@
 package tech.kayys.numou.affiliate.domain;
-public enum AttributionOutcome { ATTRIBUTED, UNATTRIBUTED }
+
+public enum AttributionOutcome {
+    ATTRIBUTED,
+    UNATTRIBUTED
+}

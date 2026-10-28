@@ -1,10 +1,22 @@
 package tech.kayys.numou.affiliate.domain;
+
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
-/** Validated referral interaction. subjectKey must be opaque/pseudonymous, never a raw personal identifier. */
-public record AffiliateTouchpoint(UUID id, String tenantId, UUID programId, UUID partnerId,
-        UUID referralLinkId, String subjectKey, Instant capturedAt) {
+
+/**
+ * A validated referral interaction. subjectKey must be a tenant-scoped opaque/pseudonymous key,
+ * not a raw email, phone number, or other directly identifying value.
+ */
+public record AffiliateTouchpoint(
+        UUID id,
+        String tenantId,
+        UUID programId,
+        UUID partnerId,
+        UUID referralLinkId,
+        String subjectKey,
+        Instant capturedAt) {
+
     public AffiliateTouchpoint {
         Objects.requireNonNull(id, "id is required");
         tenantId = required(tenantId, "tenantId");
@@ -14,10 +26,11 @@ public record AffiliateTouchpoint(UUID id, String tenantId, UUID programId, UUID
         subjectKey = required(subjectKey, "subjectKey");
         Objects.requireNonNull(capturedAt, "capturedAt is required");
     }
+
     private static String required(String value, String field) {
         Objects.requireNonNull(value, field + " is required");
-        String v = value.trim();
-        if (v.isBlank()) throw new IllegalArgumentException(field + " cannot be blank");
-        return v;
+        String normalized = value.trim();
+        if (normalized.isBlank()) throw new IllegalArgumentException(field + " cannot be blank");
+        return normalized;
     }
 }
