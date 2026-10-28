@@ -31,6 +31,10 @@ public interface CommissionFinanceOutboxRepository {
 
     CompletionStage<Optional<CommissionFinancePosting>> findByIdempotencyKey(String tenantId, String idempotencyKey);
 
+    /** Compare-and-set reconciliation outcome for a previously ambiguous posting. */
+    CompletionStage<CommissionFinancePosting> reconcilePosted(
+            String tenantId, UUID postingId, String externalReference, Instant reconciledAt);
+
     record ClaimedPosting(CommissionFinancePosting posting, String leaseToken) {
         public ClaimedPosting {
             if (posting == null) throw new IllegalArgumentException("posting is required");
