@@ -36,8 +36,9 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
             try (PreparedStatement statement = connection.prepareStatement("""
                     INSERT INTO marketplace_checkout
                         (checkout_id, tenant_id, order_id, idempotency_key, request_fingerprint,
-                         checkout_status, payment_id, failure_code, failure_detail, version, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         warehouse_reference, reservation_expires_at, checkout_status, payment_id,
+                         failure_code, failure_detail, version, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
                     """)) {
                 statement.setObject(1, proposed.id());
@@ -45,13 +46,15 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
                 statement.setObject(3, proposed.orderId());
                 statement.setString(4, proposed.idempotencyKey());
                 statement.setString(5, proposed.requestFingerprint());
-                statement.setString(6, proposed.status().name());
-                statement.setString(7, proposed.paymentId());
-                statement.setString(8, proposed.failureCode());
-                statement.setString(9, proposed.failureDetail());
-                statement.setLong(10, proposed.version());
-                statement.setTimestamp(11, Timestamp.from(proposed.createdAt()));
-                statement.setTimestamp(12, Timestamp.from(proposed.updatedAt()));
+                statement.setString(6, proposed.warehouseReference());
+                statement.setTimestamp(7, proposed.reservationExpiresAt() == null ? null : Timestamp.from(proposed.reservationExpiresAt()));
+                statement.setString(8, proposed.status().name());
+                statement.setString(9, proposed.paymentId());
+                statement.setString(10, proposed.failureCode());
+                statement.setString(11, proposed.failureDetail());
+                statement.setLong(12, proposed.version());
+                statement.setTimestamp(13, Timestamp.from(proposed.createdAt()));
+                statement.setTimestamp(14, Timestamp.from(proposed.updatedAt()));
                 inserted = statement.executeUpdate();
             }
             if (inserted == 1) return proposed;
@@ -189,6 +192,8 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
         String key;
         String fingerprint;
         MarketplaceCheckoutStatus status;
+        String warehouseReference;
+        java.time.Instant reservationExpiresAt;
         String paymentId;
         String failureCode;
         String failureDetail;
@@ -196,8 +201,8 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
         java.time.Instant createdAt;
         java.time.Instant updatedAt;
         try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT order_id, idempotency_key, request_fingerprint, checkout_status, payment_id,
-                       failure_code, failure_detail, version, created_at, updated_at
+                SELECT order_id, idempotency_key, request_fingerprint, warehouse_reference, reservation_expires_at,
+                       checkout_status, payment_id, failure_code, failure_detail, version, created_at, updated_at
                 FROM marketplace_checkout WHERE tenant_id = ? AND checkout_id = ?
                 """)) {
             statement.setString(1, tenantId);
@@ -207,6 +212,9 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
                 orderId = result.getObject("order_id", UUID.class);
                 key = result.getString("idempotency_key");
                 fingerprint = result.getString("request_fingerprint").trim();
+                warehouseReference = result.getString("warehouse_reference");
+                Timestamp reservationExpiry = result.getTimestamp("reservation_expires_at");
+                reservationExpiresAt = reservationExpiry == null ? null : reservationExpiry.toInstant();
                 status = MarketplaceCheckoutStatus.valueOf(result.getString("checkout_status"));
                 paymentId = result.getString("payment_id");
                 failureCode = result.getString("failure_code");
@@ -217,8 +225,9 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
             }
         }
         Map<String, String> reservations = loadReservations(connection, tenantId, id);
-        return Optional.of(new MarketplaceCheckout(id, tenantId, orderId, key, fingerprint, status,
-                reservations, paymentId, failureCode, failureDetail, version, createdAt, updatedAt));
+        return Optional.of(new MarketplaceCheckout(id, tenantId, orderId, key, fingerprint,
+                warehouseReference, reservationExpiresAt, status, reservations, paymentId,
+                failureCode, failureDetail, version, createdAt, updatedAt));
     }
 
     private static Map<String, String> loadReservations(Connection connection, String tenantId, UUID checkoutId)
