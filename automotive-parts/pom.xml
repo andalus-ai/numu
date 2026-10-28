@@ -17,5 +17,6 @@
         <module>automotive-parts-domain</module>
         <module>automotive-parts-spi</module>
         <module>automotive-parts-application</module>
+        <module>automotive-parts-postgres</module>
     </modules>
 </project>

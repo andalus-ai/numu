@@ -16,5 +16,6 @@
     <modules>
         <module>numou-marketplace-domain</module>
         <module>numou-marketplace-application</module>
+        <module>numou-marketplace-postgres-adapter</module>
     </modules>
 </project>
