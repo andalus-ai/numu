@@ -79,7 +79,23 @@ public final class SyirkahDtos {
     public record PaymentRequest(String partnerId, BigDecimal amount, String reference) {
     }
 
-    public record ReviseRequest(ContractDto next, List<String> approvals) {
+    public record ConsentDto(String partnerId, boolean approved, LocalDate decidedOn, String evidence) {
+    }
+
+    public record SyufahDto(String partnerId, boolean exercised, LocalDate answeredOn) {
+    }
+
+    public record SuccessionDto(String deceasedId, String heirId, boolean continues, LocalDate decidedOn,
+                                String evidence) {
+    }
+
+    /** kind is NEW_CAPITAL, PARTNER_REPLACEMENT or PARTNER_DEATH; profitDecision is DISTRIBUTE or RETAIN. */
+    public record LifecycleDto(String kind, List<String> affected, LocalDate eventDate, List<ConsentDto> consents,
+                               String profitDecision, List<SyufahDto> syufah, List<SuccessionDto> successions) {
+    }
+
+    /** {@code lifecycle} is optional; when present, approvals come from its consents and {@code approvals} is ignored. */
+    public record ReviseRequest(ContractDto next, List<String> approvals, LifecycleDto lifecycle) {
     }
 
     /** One replacement id per effective close from the target onwards; omitted ids are generated. */
@@ -155,6 +171,34 @@ public final class SyirkahDtos {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(field + " is not a valid id: " + s);
         }
+    }
+
+    static LifecycleChange lifecycle(LifecycleDto d) {
+        Set<PartnerId> affected = new java.util.TreeSet<>();
+        for (String x : d.affected() == null ? List.<String>of() : d.affected()) {
+            affected.add(partner(x, "lifecycle.affected"));
+        }
+        List<LifecycleConsent> consents = new ArrayList<>();
+        for (ConsentDto c : d.consents() == null ? List.<ConsentDto>of() : d.consents()) {
+            consents.add(new LifecycleConsent(partner(c.partnerId(), "lifecycle.consents.partnerId"),
+                    c.approved(), required(c.decidedOn(), "lifecycle.consents.decidedOn"), c.evidence()));
+        }
+        List<SyufahResponse> syufah = new ArrayList<>();
+        for (SyufahDto s : d.syufah() == null ? List.<SyufahDto>of() : d.syufah()) {
+            syufah.add(new SyufahResponse(partner(s.partnerId(), "lifecycle.syufah.partnerId"), s.exercised(),
+                    required(s.answeredOn(), "lifecycle.syufah.answeredOn")));
+        }
+        List<Succession> successions = new ArrayList<>();
+        for (SuccessionDto s : d.successions() == null ? List.<SuccessionDto>of() : d.successions()) {
+            successions.add(new Succession(partner(s.deceasedId(), "lifecycle.successions.deceasedId"),
+                    partner(s.heirId(), "lifecycle.successions.heirId"), s.continues(),
+                    required(s.decidedOn(), "lifecycle.successions.decidedOn"), s.evidence()));
+        }
+        return new LifecycleChange(enumOf(LifecycleKind.class, d.kind(), "lifecycle.kind"), affected,
+                required(d.eventDate(), "lifecycle.eventDate"), consents,
+                d.profitDecision() == null ? null
+                        : enumOf(ProfitDisposition.class, d.profitDecision(), "lifecycle.profitDecision"),
+                syufah, successions);
     }
 
     static PartnerId partner(String s, String field) {

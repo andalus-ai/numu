@@ -6,6 +6,7 @@ import tech.kayys.numou.numouapplication.command.Commands;
 import tech.kayys.numou.numouapplication.port.AkadFormationPort;
 import tech.kayys.numou.numouapplication.port.EventPublisherPort;
 import tech.kayys.numou.numouapplication.port.JournalPostingPort;
+import tech.kayys.numou.numouapplication.port.LifecycleRecordPort;
 import tech.kayys.numou.numouapplication.port.SyirkahRepository;
 import tech.kayys.numou.numouapplication.port.TransactionPort;
 import tech.kayys.numou.numoudomain.AkadFormation;
@@ -46,6 +47,7 @@ public class SyirkahApplicationService {
     private final Clock clock;
     private final FormationEnforcement enforcement;
     private final AkadFormationPort formations;
+    private final LifecycleRecordPort lifecycle;
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
                                      EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
@@ -66,6 +68,17 @@ public class SyirkahApplicationService {
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
                                      EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
                                      Clock clock, FormationEnforcement enforcement, AkadFormationPort formations) {
+        this(repository, journal, events, tx, accounts, clock, enforcement, formations, null);
+    }
+
+    /**
+     * @param lifecycle where the records behind {@link #reviseWithLifecycle} are kept; null keeps none (the checks
+     *                  still run)
+     */
+    public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
+                                     EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
+                                     Clock clock, FormationEnforcement enforcement, AkadFormationPort formations,
+                                     LifecycleRecordPort lifecycle) {
         this.repository = Objects.requireNonNull(repository);
         this.journal = Objects.requireNonNull(journal);
         this.events = Objects.requireNonNull(events);
@@ -74,6 +87,7 @@ public class SyirkahApplicationService {
         this.clock = Objects.requireNonNull(clock);
         this.enforcement = Objects.requireNonNull(enforcement, "enforcement");
         this.formations = formations;
+        this.lifecycle = lifecycle;
     }
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
@@ -159,7 +173,11 @@ public class SyirkahApplicationService {
             if (change.kind() == LifecycleKind.PARTNER_DEATH) {
                 approvals.addAll(change.affected());
             }
-            s.reviseContract(c.next(), approvals, now());
+            Instant at = now();
+            s.reviseContract(c.next(), approvals, at);
+            if (lifecycle != null) {
+                lifecycle.record(c.tenant(), c.id(), c.next().version(), change, at);
+            }
             return null;
         });
     }

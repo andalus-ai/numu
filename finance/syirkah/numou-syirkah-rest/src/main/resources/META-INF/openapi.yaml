@@ -317,7 +317,49 @@ components:
       required: [next]
       properties:
         next: {$ref: "#/components/schemas/ContractDto"}
-        approvals: {type: array, items: {type: string, format: uuid}, description: Partners who agreed; must be all of them}
+        approvals: {type: array, items: {type: string, format: uuid}, description: Partners who agreed; must be all of them. Ignored when lifecycle is given}
+        lifecycle: {$ref: "#/components/schemas/LifecycleDto"}
+    LifecycleDto:
+      type: object
+      description: >
+        A new-capital, partner-replacement or partner-death change (Hukum Muamalah Bab X, XXIV, XXV). Checked when
+        proposed and again when approved; the record is kept per akad version. Approvals come from the consents.
+      required: [kind, eventDate]
+      properties:
+        kind: {type: string, enum: [NEW_CAPITAL, PARTNER_REPLACEMENT, PARTNER_DEATH]}
+        affected: {type: array, items: {type: string, format: uuid}, description: Partners who die or leave}
+        eventDate: {type: string, format: date}
+        consents:
+          type: array
+          items:
+            type: object
+            required: [partnerId, approved, decidedOn, evidence]
+            properties:
+              partnerId: {type: string, format: uuid}
+              approved: {type: boolean}
+              decidedOn: {type: string, format: date}
+              evidence: {type: string}
+        profitDecision: {type: string, enum: [DISTRIBUTE, RETAIN]}
+        syufah:
+          type: array
+          items:
+            type: object
+            required: [partnerId, exercised, answeredOn]
+            properties:
+              partnerId: {type: string, format: uuid}
+              exercised: {type: boolean}
+              answeredOn: {type: string, format: date}
+        successions:
+          type: array
+          items:
+            type: object
+            required: [deceasedId, heirId, continues, decidedOn, evidence]
+            properties:
+              deceasedId: {type: string, format: uuid}
+              heirId: {type: string, format: uuid}
+              continues: {type: boolean}
+              decidedOn: {type: string, format: date}
+              evidence: {type: string}
     CorrectCloseRequest:
       type: object
       required: [targetCloseId, corrected, disposition]

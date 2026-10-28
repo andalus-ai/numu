@@ -114,20 +114,54 @@ class LifecycleCheckerTest {
         assertEquals(2, s.contract().version());
     }
 
-    @Test
-    void deathEndsTheAkadAndSurvivorsMustAgreeToANewOne() {
-        Syirkah s = closed();
-        SyirkahContract stillHasB = v2(s, s.contract().partners(), s.contract().capital(), ratio(A, 50, B, 50));
-        LifecycleChange ch = new LifecycleChange(LifecycleKind.PARTNER_DEATH, Set.of(B), FEB1, List.of(yes(A)), null,
-                List.of());
-        assertTrue(codes(LifecycleChecker.check(s, stillHasB, ch)).contains("DECEASED_REMAINS"));
-        SyirkahContract withC = v2(s, List.of(p(A), p(C)),
+    private static Succession heir(PartnerId deceased, PartnerId heir, boolean continues) {
+        return new Succession(deceased, heir, continues, FEB1, "heirship-" + heir.value());
+    }
+
+    private static SyirkahContract heirTakesB(Syirkah s) {
+        return v2(s, List.of(p(A), p(C)),
                 List.of(CapitalContribution.cash(A, idr(100_000_000)), CapitalContribution.cash(C, idr(100_000_000))),
                 ratio(A, 50, C, 50));
-        assertTrue(codes(LifecycleChecker.check(s, withC, ch)).contains("CONSENT_MISSING")); // C has not agreed
-        LifecycleChange full = new LifecycleChange(LifecycleKind.PARTNER_DEATH, Set.of(B), FEB1,
-                List.of(yes(A), yes(C)), null, List.of());
-        assertEquals(List.of(), LifecycleChecker.check(s, withC, full));
+    }
+
+    @Test
+    void deathEndsTheAkadAndTheHeirMustDecide() {
+        Syirkah s = closed();
+        SyirkahContract stillHasB = v2(s, s.contract().partners(), s.contract().capital(), ratio(A, 50, B, 50));
+        LifecycleChange ch = new LifecycleChange(LifecycleKind.PARTNER_DEATH, Set.of(B), JAN31, List.of(yes(A)), null,
+                List.of());
+        List<String> c = codes(LifecycleChecker.check(s, stillHasB, ch));
+        assertTrue(c.contains("DECEASED_REMAINS"));
+        assertTrue(c.contains("SUCCESSION_UNDECIDED"));
+        assertTrue(codes(LifecycleChecker.check(s, heirTakesB(s), ch)).contains("CONSENT_MISSING")); // heir C silent
+    }
+
+    @Test
+    void heirContinuesInThePlaceOfTheDeceased() {
+        Syirkah s = closed();
+        LifecycleChange ch = new LifecycleChange(LifecycleKind.PARTNER_DEATH, Set.of(B), JAN31,
+                List.of(yes(A), yes(C)), null, List.of(), List.of(heir(B, C, true)));
+        assertEquals(List.of(), LifecycleChecker.check(s, heirTakesB(s), ch));
+        // heir said continue but is missing from the akad
+        SyirkahContract without = v2(s, List.of(p(A)), List.of(CapitalContribution.cash(A, idr(100_000_000))),
+                ratio(A, 100));
+        assertTrue(codes(LifecycleChecker.check(s, without, ch)).contains("HEIR_NOT_IN_AKAD"));
+    }
+
+    @Test
+    void heirDeclinesAndMustNotBeInTheNewAkad() {
+        Syirkah s = closed();
+        LifecycleChange declined = new LifecycleChange(LifecycleKind.PARTNER_DEATH, Set.of(B), JAN31,
+                List.of(yes(A), yes(C)), null, List.of(), List.of(heir(B, C, false)));
+        assertTrue(codes(LifecycleChecker.check(s, heirTakesB(s), declined)).contains("HEIR_DECLINED_BUT_IN_AKAD"));
+    }
+
+    @Test
+    void booksMustBeClosedUpToTheDateOfDeath() {
+        Syirkah s = closed(); // closed to 31 Jan
+        LifecycleChange late = new LifecycleChange(LifecycleKind.PARTNER_DEATH, Set.of(B), FEB1,
+                List.of(yes(A), yes(C)), null, List.of(), List.of(heir(B, C, true)));
+        assertTrue(codes(LifecycleChecker.check(s, heirTakesB(s), late)).contains("BOOKS_NOT_CLOSED_TO_DEATH"));
     }
 
     @Test

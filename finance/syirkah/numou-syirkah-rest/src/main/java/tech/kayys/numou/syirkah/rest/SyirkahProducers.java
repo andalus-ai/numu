@@ -70,11 +70,18 @@ public class SyirkahProducers {
 
     @Produces
     @ApplicationScoped
+    JdbcLifecycleRecordPort lifecycleRecords(JdbcUnitOfWork uow) {
+        return new JdbcLifecycleRecordPort(uow);
+    }
+
+    @Produces
+    @ApplicationScoped
     SyirkahApplicationService service(JdbcSyirkahRepository repo, JdbcOutboxEventPublisher events,
-                                      JdbcUnitOfWork uow, JdbcAkadFormationPort formations) {
+                                      JdbcUnitOfWork uow, JdbcAkadFormationPort formations,
+                                      JdbcLifecycleRecordPort lifecycle) {
         return new SyirkahApplicationService(repo, journal, events, uow, accounts, Clock.system(ZoneOffset.UTC),
                 FormationEnforcement.valueOf(formationEnforcement.trim().toUpperCase(java.util.Locale.ROOT)),
-                formations);
+                formations, lifecycle);
     }
 
     @Produces

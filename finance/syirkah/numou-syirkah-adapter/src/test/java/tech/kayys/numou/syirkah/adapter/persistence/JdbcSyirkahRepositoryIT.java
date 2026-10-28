@@ -57,7 +57,7 @@ class JdbcSyirkahRepositoryIT {
             rs.next();
             if (!rs.getBoolean(1)) {
                 for (String script : List.of("V20261023_01__syirkah.sql", "V20261023_02__syirkah_governance_outbox.sql",
-                        "V20261028_01__syirkah_akad_formation.sql")) {
+                        "V20261028_01__syirkah_akad_formation.sql", "V20261029_01__syirkah_lifecycle.sql")) {
                     try (InputStream in = JdbcSyirkahRepositoryIT.class.getResourceAsStream("/db/migration/" + script)) {
                         st.execute(new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8));
                     }
@@ -278,5 +278,26 @@ class JdbcSyirkahRepositoryIT {
         assertTrue(store.find(TenantId.generate(), s.id()).isEmpty(), "another tenant must not see the record");
         assertThrows(IllegalStateException.class, () -> store.record(t, s.id(), f, policy, T0.plusSeconds(1)));
         assertEquals(f, store.find(t, s.id()).orElseThrow().formation());
+    }
+
+    @Test
+    void lifecycleRecordIsStoredOncePerVersionIsolatedByTenantAndNeverChanged() {
+        var store = new JdbcLifecycleRecordPort(uow);
+        TenantId t = TenantId.generate();
+        Syirkah s = open(t);
+        LifecycleChange ch = new LifecycleChange(LifecycleKind.NEW_CAPITAL, Set.of(), LocalDate.parse("2026-02-01"),
+                List.of(new LifecycleConsent(A, true, LocalDate.parse("2026-02-01"), "sig-a")),
+                ProfitDisposition.RETAIN, List.of());
+        uow.inTransaction(() -> {
+            repo.save(s, -1);
+            store.record(t, s.id(), 2, ch, T0);
+            return null;
+        });
+        var got = store.list(t, s.id());
+        assertEquals(1, got.size());
+        assertEquals(2, got.get(0).contractVersion());
+        assertEquals(ch, got.get(0).change());
+        assertTrue(store.list(TenantId.generate(), s.id()).isEmpty(), "another tenant must not see the record");
+        assertThrows(RuntimeException.class, () -> store.record(t, s.id(), 2, ch, T0.plusSeconds(1)));
     }
 }
