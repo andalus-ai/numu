@@ -34,9 +34,13 @@ public final class MarketplaceOrder {
         if (this.lines.isEmpty()) throw new IllegalArgumentException("Order must contain at least one line");
         this.currency = required(currency, "currency").toUpperCase(java.util.Locale.ROOT);
         if (!this.currency.matches("[A-Z]{3}")) throw new IllegalArgumentException("currency must be a three-letter code");
+        String orderSellerId = this.lines.get(0).sellerId();
         for (MarketplaceOrderLine line : this.lines) {
             if (!this.currency.equals(line.currency())) {
                 throw new IllegalArgumentException("All order lines must use the order currency");
+            }
+            if (!orderSellerId.equals(line.sellerId())) {
+                throw new IllegalArgumentException("A marketplace order must contain lines from exactly one seller");
             }
         }
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt is required");
@@ -52,6 +56,18 @@ public final class MarketplaceOrder {
                                           Instant now) {
         return new MarketplaceOrder(id, tenantId, buyerId, lines, currency, now, now,
                 MarketplaceOrderStatus.CREATED, null);
+    }
+
+    /**
+     * Reconstitutes a persisted aggregate without replaying lifecycle commands.
+     * Persistence adapters must still validate tenant scope and stored data integrity.
+     */
+    public static MarketplaceOrder reconstitute(UUID id, String tenantId, String buyerId,
+                                                 List<MarketplaceOrderLine> lines, String currency,
+                                                 Instant createdAt, Instant updatedAt,
+                                                 MarketplaceOrderStatus status, String cancellationReason) {
+        return new MarketplaceOrder(id, tenantId, buyerId, lines, currency,
+                createdAt, updatedAt, status, cancellationReason);
     }
 
     public MarketplaceOrder submit(Instant now) {
