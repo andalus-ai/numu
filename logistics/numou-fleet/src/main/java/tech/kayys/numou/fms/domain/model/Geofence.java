@@ -1,6 +1,8 @@
 package tech.kayys.numou.fms.domain.model;
 
 import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
+import tech.kayys.numou.geo.domain.GeoDistance;
+import tech.kayys.numou.geo.domain.GeoPoint;
 import tech.kayys.numou.fms.domain.identifier.GeofenceId;
 
 import java.time.Instant;
@@ -137,15 +139,11 @@ public final class Geofence extends AbstractAggregateRoot<GeofenceId> {
     }
 
     private boolean isInsideCircle(double latitude, double longitude) {
-        double R = 6371; // Earth's radius in km
-        double dLat = Math.toRadians(latitude - centerLatitude);
-        double dLon = Math.toRadians(longitude - centerLongitude);
-        double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                   Math.cos(Math.toRadians(centerLatitude)) * Math.cos(Math.toRadians(latitude)) *
-                   Math.sin(dLon/2) * Math.sin(dLon/2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        double distance = R * c;
-        return distance <= radius;
+        double distanceMeters = GeoDistance.metersBetween(
+                new GeoPoint(centerLatitude, centerLongitude),
+                new GeoPoint(latitude, longitude));
+        // The existing Fleet radius contract is kilometres; preserve it at the boundary.
+        return distanceMeters / 1_000.0 <= radius;
     }
 
     private boolean isInsidePolygon(double latitude, double longitude) {
