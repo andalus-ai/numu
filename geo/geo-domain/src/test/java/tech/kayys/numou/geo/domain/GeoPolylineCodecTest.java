@@ -46,5 +46,6 @@ class GeoPolylineCodecTest {
         assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("_"));
         assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("~~~~~~~"));
         assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("\u0000?"));
+        assertThatIllegalArgumentException().isThrownBy(() -> GeoPolylineCodec.decode("_mljP?"));
     }
 }
