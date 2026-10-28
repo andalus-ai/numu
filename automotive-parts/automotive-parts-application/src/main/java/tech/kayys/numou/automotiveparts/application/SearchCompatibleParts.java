@@ -6,6 +6,7 @@ import tech.kayys.numou.automotiveparts.spi.AutomotivePartRepository;
 import tech.kayys.numou.product.domain.product.ProductId;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -54,7 +55,7 @@ public final class SearchCompatibleParts {
                 .filter(candidate -> candidate.fitment().matches(query.vehicle(), query.asOf()))
                 .collect(java.util.stream.Collectors.groupingBy(
                         PartFitment::productId,
-                        java.util.LinkedHashMap::new,
+                        java.util.TreeMap.comparingById(Comparator.comparing(id -> id.value().toString())),
                         java.util.stream.Collectors.toList()))
                 .entrySet().stream()
                 .map(entry -> new Result(entry.getKey(), entry.getValue()))
