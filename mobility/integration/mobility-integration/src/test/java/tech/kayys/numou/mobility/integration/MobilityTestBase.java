@@ -17,8 +17,8 @@ import tech.kayys.numou.mobility.ride.adapter.memory.RecordingNotifications;
 import tech.kayys.numou.mobility.ride.application.Actor;
 import tech.kayys.numou.mobility.ride.application.QuoteView;
 import tech.kayys.numou.mobility.ride.application.RideView;
-import tech.kayys.numou.mobility.wallet.adapter.memory.InMemoryWalletRepositories;
-import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
+import tech.kayys.numou.wallet.adapter.memory.InMemoryWalletRepositories;
+import tech.kayys.numou.wallet.domain.OwnerKind;
 
 import java.math.BigDecimal;
 import java.time.Instant;
