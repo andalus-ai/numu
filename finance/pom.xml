@@ -25,6 +25,7 @@
         <module>subscription</module>
         <module>syirkah</module>
         <module>tax</module>
+        <module>wallet</module>
     </modules>
 
     <build>

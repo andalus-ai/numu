@@ -33,9 +33,9 @@ import tech.kayys.numou.mobility.ride.spi.RideRepository;
 import tech.kayys.numou.mobility.ride.spi.SurgeStateStore;
 import tech.kayys.numou.mobility.ride.spi.TripTraceRepository;
 import tech.kayys.numou.mobility.ride.application.TripShareTokens;
-import tech.kayys.numou.mobility.wallet.application.WalletService;
-import tech.kayys.numou.mobility.wallet.spi.LedgerRepository;
-import tech.kayys.numou.mobility.wallet.spi.WalletRepository;
+import tech.kayys.numou.wallet.application.WalletService;
+import tech.kayys.numou.wallet.spi.LedgerRepository;
+import tech.kayys.numou.wallet.spi.WalletRepository;
 
 import java.math.BigDecimal;
 import java.util.List;

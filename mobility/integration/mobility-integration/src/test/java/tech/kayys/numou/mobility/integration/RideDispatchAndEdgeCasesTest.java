@@ -12,8 +12,8 @@ import tech.kayys.numou.mobility.pricing.Promo;
 import tech.kayys.numou.mobility.ride.application.RideExceptions;
 import tech.kayys.numou.mobility.ride.domain.ActiveRideExistsException;
 import tech.kayys.numou.mobility.ride.domain.OfferExpiredException;
-import tech.kayys.numou.mobility.wallet.domain.InsufficientFundsException;
-import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
+import tech.kayys.numou.wallet.domain.InsufficientFundsException;
+import tech.kayys.numou.wallet.domain.OwnerKind;
 
 import java.math.BigDecimal;
 import java.time.Duration;

@@ -48,8 +48,11 @@ class FulfillmentOrderTest {
                 .allocate("line-1", new BigDecimal("3"));
 
         assertThrows(IllegalArgumentException.class, () -> order.pick("line-1", new BigDecimal("4")));
-        var picked = order.pick("line-1", new BigDecimal("2"));
-        assertThrows(IllegalArgumentException.class, () -> picked.pack("line-1", new BigDecimal("3")));
+
+        // Pack is a lifecycle operation allowed only once all allocated quantity has been picked.
+        // Exercise the line quantity invariant after satisfying that lifecycle precondition.
+        var picked = order.pick("line-1", new BigDecimal("3"));
+        assertThrows(IllegalArgumentException.class, () -> picked.pack("line-1", new BigDecimal("4")));
     }
 
     @Test

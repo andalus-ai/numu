@@ -6,7 +6,7 @@ import tech.kayys.numou.mobility.kernel.domain.VehicleType;
 import tech.kayys.numou.mobility.pricing.PaymentMethod;
 import tech.kayys.numou.mobility.ride.application.Actor;
 import tech.kayys.numou.mobility.ride.domain.event.RideCompleted;
-import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
+import tech.kayys.numou.wallet.domain.OwnerKind;
 
 import java.math.BigDecimal;
 import java.util.UUID;
