@@ -4,11 +4,13 @@
   <parent><groupId>tech.kayys.numou</groupId><artifactId>numou-framework</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../core/framework/pom.xml</relativePath></parent>
   <artifactId>numou-automotive-parts-purchasing</artifactId>
   <name>Numou Automotive Parts - Purchasing Integration</name>
-  <description>Workshop parts demand coordination through the purchasing application contract.</description>
+  <description>Workshop parts demand and goods-receipt integration across Purchasing and Inventory contracts.</description>
   <dependencies>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-domain</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-application</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-spi</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-inventory-application</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-inventory-adapter</artifactId><version>${project.version}</version><scope>test</scope></dependency>
   </dependencies>
 </project>
