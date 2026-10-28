@@ -144,9 +144,10 @@ public final class Ticket extends AbstractAggregateRoot<TicketId> {
     public void addComment(TicketComment comment, Instant occurredAt) {
         ensureNotClosed();
         TicketComment validatedComment = Objects.requireNonNull(comment, "comment cannot be null");
+        Instant eventTime = Objects.requireNonNull(occurredAt, "occurredAt cannot be null");
         comments.add(validatedComment);
-        touch(Objects.requireNonNull(occurredAt, "occurredAt cannot be null"));
-        raise(new TicketCommentAdded(UUID.randomUUID(), occurredAt, id(), validatedComment));
+        touch(eventTime);
+        raise(new TicketCommentAdded(UUID.randomUUID(), eventTime, id(), validatedComment));
     }
 
     private static boolean canTransitionTo(TicketStatus current, TicketStatus target) {
