@@ -15,7 +15,6 @@ import java.util.Objects;
  */
 @ApplicationScoped
 public class PaymentOutboxRelay {
-    static final int MAX_ATTEMPTS = 12;
     static final Duration LEASE_DURATION = Duration.ofMinutes(2);
     static final Duration MAX_RETRY_DELAY = Duration.ofHours(1);
 
@@ -53,7 +52,7 @@ public class PaymentOutboxRelay {
             store.markPublished(event.eventId(), event.leaseToken(), clock.instant());
         } catch (Exception failure) {
             Instant failedAt = clock.instant();
-            boolean terminal = event.attempts() >= MAX_ATTEMPTS;
+            boolean terminal = event.attempts() >= event.maxAttempts();
             Instant retryAt = terminal ? failedAt : failedAt.plus(retryDelay(event.attempts()));
             String message = failure.getMessage();
             if (message == null || message.isBlank()) message = failure.getClass().getSimpleName();
