@@ -74,6 +74,14 @@ class PostgresMarketplaceOrderRepositoryTest {
                         if (!command.isBlank()) statement.execute(command);
                     }
                 }
+                try (InputStream fourthMigration = getClass().getResourceAsStream(
+                        "/db/migration/V4__marketplace_checkout_request_snapshot.sql")) {
+                    assertNotNull(fourthMigration, "checkout request snapshot migration must be packaged");
+                    String fourthSql = new String(fourthMigration.readAllBytes(), StandardCharsets.UTF_8);
+                    for (String command : fourthSql.split(";")) {
+                        if (!command.isBlank()) statement.execute(command);
+                    }
+                }
             }
         }
     }
@@ -134,7 +142,7 @@ class PostgresMarketplaceOrderRepositoryTest {
         var checkoutRepository = new PostgresMarketplaceCheckoutRepository(dataSource());
         Instant now = Instant.parse("2026-10-28T00:00:00Z");
         MarketplaceCheckout proposed = MarketplaceCheckout.start(UUID.randomUUID(), "tenant-a", order.id(),
-                "checkout-saga-1", "a".repeat(64), now);
+                "checkout-saga-1", "a".repeat(64), "warehouse-1", now.plusSeconds(900), now);
 
         MarketplaceCheckout created = checkoutRepository.createOrGet(proposed);
         MarketplaceCheckout withReservation = created.recordReservation("line-1", "reservation-1", now.plusSeconds(1));
