@@ -141,13 +141,17 @@ public final class MarketplaceCheckoutService {
                     "Payment ended without success: " + payment.state());
             case CREATED, REQUIRES_CUSTOMER_ACTION, PENDING -> save(checkout,
                     checkout.awaitingPayment(payment.paymentId(), clock.instant()));
-            case UNKNOWN -> save(checkout, checkout.reconciliationRequired(
-                    "PAYMENT_STATUS_UNKNOWN", "Payment provider status is unknown; inventory reservations retained",
-                    clock.instant()));
+            case UNKNOWN -> save(checkout, checkout.awaitingPayment(payment.paymentId(), clock.instant())
+                    .reconciliationRequired("PAYMENT_STATUS_UNKNOWN",
+                            "Payment provider status is unknown; inventory reservations retained", clock.instant()));
         };
     }
 
     private MarketplaceCheckout reconcile(String tenantId, MarketplaceCheckout checkout) {
+        if ("RESERVATION_OUTCOME_UNKNOWN".equals(checkout.failureCode())) {
+            // Do not start payment until inventory has been reconciled by the inventory adapter/operator.
+            return checkout;
+        }
         if (checkout.paymentId() == null) {
             // Reissuing the exact same idempotent create command is safe and resolves lost responses.
             MarketplaceOrder order = orders.findByTenantAndId(tenantId, checkout.orderId())
