@@ -22,11 +22,19 @@ import java.util.function.Function;
 public class PgTransactionalCommandRunner implements TransactionalCommandRunner {
     private final PgPool pool;
     private final PgBoqRevisionOperationsFactory boqOperationsFactory;
+    private final PgConsultancyOperationsFactory consultancyOperationsFactory;
 
     public PgTransactionalCommandRunner(PgPool pool,
                                         PgBoqRevisionOperationsFactory boqOperationsFactory) {
+        this(pool, boqOperationsFactory, null);
+    }
+
+    public PgTransactionalCommandRunner(PgPool pool,
+                                        PgBoqRevisionOperationsFactory boqOperationsFactory,
+                                        PgConsultancyOperationsFactory consultancyOperationsFactory) {
         this.pool = Objects.requireNonNull(pool, "pool");
         this.boqOperationsFactory = Objects.requireNonNull(boqOperationsFactory, "boqOperationsFactory");
+        this.consultancyOperationsFactory = consultancyOperationsFactory;
     }
 
     @Override
@@ -34,7 +42,10 @@ public class PgTransactionalCommandRunner implements TransactionalCommandRunner 
         Objects.requireNonNull(work, "work");
         return pool.withTransaction((SqlConnection connection) -> {
             TransactionalCommandContext context = new PgTransactionalCommandContext(
-                    connection, boqOperationsFactory.create(connection));
+                    connection,
+                    boqOperationsFactory.create(connection),
+                    consultancyOperationsFactory == null
+                            ? null : consultancyOperationsFactory.create(connection));
             Uni<T> result = work.apply(context);
             if (result == null) {
                 return Uni.createFrom().failure(
