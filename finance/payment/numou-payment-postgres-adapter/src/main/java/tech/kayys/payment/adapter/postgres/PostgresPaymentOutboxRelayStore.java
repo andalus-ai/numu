@@ -44,7 +44,7 @@ public class PostgresPaymentOutboxRelayStore implements PaymentOutboxRelayStore 
              WHERE event.event_id = claimable.event_id
             RETURNING event.event_id, event.tenant_id, event.aggregate_type,
                       event.aggregate_id, event.event_type, event.payload,
-                      event.occurred_at, event.attempts, event.lease_token
+                      event.occurred_at, event.attempts, event.max_attempts, event.lease_token
             """;
 
     static final String MARK_PUBLISHED = """
@@ -97,6 +97,7 @@ public class PostgresPaymentOutboxRelayStore implements PaymentOutboxRelayStore 
                             result.getString("payload"),
                             result.getTimestamp("occurred_at").toInstant(),
                             result.getInt("attempts"),
+                            result.getInt("max_attempts"),
                             result.getObject("lease_token", UUID.class)));
                 }
                 return List.copyOf(events);
