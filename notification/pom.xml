@@ -16,5 +16,6 @@
   <modules>
     <module>notification-domain</module>
     <module>notification-application</module>
+    <module>notification-persistence-jdbc</module>
   </modules>
 </project>
