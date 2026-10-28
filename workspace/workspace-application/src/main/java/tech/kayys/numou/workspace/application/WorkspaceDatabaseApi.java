@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 /**
@@ -125,7 +127,7 @@ public final class WorkspaceDatabaseApi {
         return actor;
     }
 
-    private static <T> T call(Operation<T> operation) {
+    private static Map<String, Object> immutableMap(Map<String, Object> values) {\n        return values == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(values));\n    }\n\n    private static <T> T call(Operation<T> operation) {
         try {
             return operation.run();
         } catch (WorkspaceService.RevisionConflictException conflict) {
