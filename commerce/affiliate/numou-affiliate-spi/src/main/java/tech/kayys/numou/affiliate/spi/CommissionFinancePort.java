@@ -33,3 +33,4 @@ public interface CommissionFinancePort {
             if (postedAt == null) throw new IllegalArgumentException("postedAt is required");
         }
     }
+}
