@@ -106,11 +106,26 @@ public final class MarketplaceCheckoutService {
             try {
                 reservationId = inventory.reserve(order.tenantId(), warehouseReference, line,
                         line.quantity(), expiresAt, key);
-            } catch (RuntimeException failure) {
+            } catch (MarketplaceCheckoutInventoryPort.ReservationRejectedException rejected) {
+                return compensateKnownReservations(checkout, "INVENTORY_RESERVATION_REJECTED",
+                        "Inventory authoritatively rejected a reservation; known reservations are being released");
+            } catch (RuntimeException uncertain) {
+                // A generic exception may follow a committed reservation. Never infer that no stock was reserved.
                 try {
                     var recovered = inventory.findReservationIdByCommandKey(order.tenantId(), key);
                     if (recovered.isPresent()) {
                         MarketplaceCheckout next = checkout.recordReservation(line.lineId(), recovered.get(), clock.instant());
+                        checkout = save(checkout, next);
+                    }
+                } catch (RuntimeException recoveryFailure) {
+                    uncertain.addSuppressed(recoveryFailure);
+                }
+                return save(checkout, checkout.reconciliationRequired(
+                        "RESERVATION_OUTCOME_UNKNOWN",
+                        "Reservation command outcome is uncertain; inventory must reconcile before payment",
+                        clock.instant()));
+            }
+            MarketplaceCheckout next = checkout.recordReservation(line.lineId(), recovered.get(), clock.instant());
                         checkout = save(checkout, next);
                     }
                 } catch (RuntimeException recoveryFailure) {
