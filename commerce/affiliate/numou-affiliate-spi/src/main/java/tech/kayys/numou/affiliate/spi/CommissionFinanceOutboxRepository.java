@@ -18,7 +18,7 @@ public interface CommissionFinanceOutboxRepository {
     CompletionStage<CommissionFinancePosting> enqueueOrGet(CommissionFinancePosting posting);
 
     CompletionStage<List<ClaimedPosting>> claimPending(
-            String workerId, Instant now, Duration leaseDuration, int limit);
+            String tenantId, String workerId, Instant now, Duration leaseDuration, int limit);
 
     CompletionStage<CommissionFinancePosting> complete(
             String tenantId, UUID postingId, String leaseToken, String externalReference, Instant completedAt);
