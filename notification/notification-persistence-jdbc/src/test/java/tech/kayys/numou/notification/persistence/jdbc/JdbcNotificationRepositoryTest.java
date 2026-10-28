@@ -38,8 +38,8 @@ class JdbcNotificationRepositoryTest {
     void duplicateCreateReturnsCanonicalRecordWithoutDuplicateRows() {
         UUID tenant = UUID.randomUUID();
         UUID recipient = UUID.randomUUID();
-        Notification first = notification(tenant, recipient, "invoice-1");
-        Notification retry = notification(tenant, recipient, "invoice-1");
+        Notification first = notification(tenant, recipient, "invoice-1", "Invoice overdue");
+        Notification retry = notification(tenant, recipient, "invoice-1", "Invoice overdue");
 
         Notification stored = repository.createIfAbsent(first);
         Notification duplicate = repository.createIfAbsent(retry);
@@ -50,13 +50,24 @@ class JdbcNotificationRepositoryTest {
     }
 
     @Test
+    void reusingKeyForDifferentPayloadIsRejected() {
+        UUID tenant = UUID.randomUUID();
+        UUID recipient = UUID.randomUUID();
+        repository.createIfAbsent(notification(tenant, recipient, "invoice-1", "Invoice overdue"));
+
+        assertThrows(IdempotencyConflictException.class,
+                () -> repository.createIfAbsent(notification(tenant, recipient, "invoice-1", "Different payload")));
+        assertEquals(1, repository.findInbox(tenant, recipient, 100, null).size());
+    }
+
+    @Test
     void idempotencyIsScopedToTenantAndRecipient() {
         UUID tenant = UUID.randomUUID();
         UUID recipient = UUID.randomUUID();
 
-        Notification original = repository.createIfAbsent(notification(tenant, recipient, "same-key"));
-        Notification otherRecipient = repository.createIfAbsent(notification(tenant, UUID.randomUUID(), "same-key"));
-        Notification otherTenant = repository.createIfAbsent(notification(UUID.randomUUID(), recipient, "same-key"));
+        Notification original = repository.createIfAbsent(notification(tenant, recipient, "same-key", "Same title"));
+        Notification otherRecipient = repository.createIfAbsent(notification(tenant, UUID.randomUUID(), "same-key", "Same title"));
+        Notification otherTenant = repository.createIfAbsent(notification(UUID.randomUUID(), recipient, "same-key", "Same title"));
 
         assertNotEquals(original.id(), otherRecipient.id());
         assertNotEquals(original.id(), otherTenant.id());
@@ -67,7 +78,7 @@ class JdbcNotificationRepositoryTest {
     void recipientAndTenantScopePreventCrossScopeReadsAndMutations() {
         UUID tenant = UUID.randomUUID();
         UUID recipient = UUID.randomUUID();
-        Notification stored = repository.createIfAbsent(notification(tenant, recipient, "scope-check"));
+        Notification stored = repository.createIfAbsent(notification(tenant, recipient, "scope-check", "Scope check"));
 
         assertTrue(repository.findById(tenant, UUID.randomUUID(), stored.id()).isEmpty());
         assertTrue(repository.findById(UUID.randomUUID(), recipient, stored.id()).isEmpty());
@@ -79,7 +90,7 @@ class JdbcNotificationRepositoryTest {
     void markReadIsIdempotentAndKeepsFirstReadTimestamp() {
         UUID tenant = UUID.randomUUID();
         UUID recipient = UUID.randomUUID();
-        Notification stored = repository.createIfAbsent(notification(tenant, recipient, "read-once"));
+        Notification stored = repository.createIfAbsent(notification(tenant, recipient, "read-once", "Read once"));
 
         Notification firstRead = repository.markRead(tenant, recipient, stored.id(), now.plusSeconds(5)).orElseThrow();
         Notification secondRead = repository.markRead(tenant, recipient, stored.id(), now.plusSeconds(20)).orElseThrow();
@@ -88,8 +99,8 @@ class JdbcNotificationRepositoryTest {
         assertEquals(firstRead.readAt(), secondRead.readAt());
     }
 
-    private Notification notification(UUID tenant, UUID recipient, String key) {
-        return Notification.create(tenant, recipient, "test.event", "Test notification",
+    private Notification notification(UUID tenant, UUID recipient, String key, String title) {
+        return Notification.create(tenant, recipient, "test.event", title,
                 "Test body", "test:source", key, now);
     }
 
