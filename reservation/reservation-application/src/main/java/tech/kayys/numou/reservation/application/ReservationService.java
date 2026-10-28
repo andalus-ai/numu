@@ -142,6 +142,13 @@ public final class ReservationService {
         return uow.execute(legacyWork);
     }
 
+    private <T> Uni<T> executeMutationTransaction(
+            java.util.function.Function<ReservationTransactionContext, Uni<T>> work,
+            java.util.function.Supplier<Uni<T>> legacyWork) {
+        if (transactionRunner != null) return transactionRunner.execute(work);
+        return uow.execute(legacyWork);
+    }
+
     private Uni<ReservationView> doBook(UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer,
                                         PartySize party, Instant startsAt, BookingSource source, String notes,
                                         Set<String> requirements, java.time.Duration requestedDuration,
@@ -183,7 +190,11 @@ public final class ReservationService {
         return rulesPort.rulesFor(tenantId, fId).flatMap(rules ->
                 resourceDirectory.resourcesFor(tenantId, fId).flatMap(resList ->
                         ConflictRetry.run(MAX_ATTEMPTS, () ->
-                                uow.execute(() -> doBook(tenantId, fId, id, customer, party, startsAt, source, notes, requirements, rules, resList))
+                                executeBookingTransaction(
+                                        context -> doBook(tenantId, fId, id, customer, party, startsAt, source, notes,
+                                                requirements, rules, resList, context),
+                                        () -> doBook(tenantId, fId, id, customer, party, startsAt, source, notes,
+                                                requirements, rules, resList))
                         ).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
                                 alternatives(tenantId, fId, party, startsAt, rules, resList).flatMap(alts ->
                                         Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), alts)))
@@ -461,9 +472,12 @@ public final class ReservationService {
                 load(tenantId, reservationId).flatMap(r ->
                         rulesPort.rulesFor(tenantId, r.facilityId()).flatMap(rules ->
                                 action.apply(r, rules).flatMap(x ->
-                                        uow.execute(() ->
-                                                reservations.save(tenantId, r)
-                                                        .flatMap(y -> publishEvents(tenantId, r))
+                                        executeMutationTransaction(context ->
+                                                        context.reservations().save(tenantId, r)
+                                                                .flatMap(y -> publishEvents(context.events(), tenantId, r)),
+                                                () -> uow.execute(() ->
+                                                        reservations.save(tenantId, r)
+                                                                .flatMap(y -> publishEvents(tenantId, r)))
                                         )
                                 )
                         )
@@ -480,11 +494,16 @@ public final class ReservationService {
                             final var now = clock.now();
                             return ledgers.findOrCreate(tenantId, r.facilityId(), day, now).flatMap(ledger ->
                                     action.apply(r, ledger, rules).flatMap(result ->
-                                            uow.execute(() ->
-                                                    reservations.save(tenantId, r)
-                                                            .flatMap(x -> ledgers.save(tenantId, ledger))
-                                                            .flatMap(x -> publishEvents(tenantId, r, ledger))
-                                                            .map(x -> result)
+                                            executeMutationTransaction(context ->
+                                                            context.reservations().save(tenantId, r)
+                                                                    .flatMap(x -> context.ledgers().save(tenantId, ledger))
+                                                                    .flatMap(x -> publishEvents(context.events(), tenantId, r, ledger))
+                                                                    .map(x -> result),
+                                                    () -> uow.execute(() ->
+                                                            reservations.save(tenantId, r)
+                                                                    .flatMap(x -> ledgers.save(tenantId, ledger))
+                                                                    .flatMap(x -> publishEvents(tenantId, r, ledger))
+                                                                    .map(x -> result))
                                             )
                                     )
                             );
