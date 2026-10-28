@@ -78,6 +78,18 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
     }
 
     @Override
+    public Optional<MarketplaceCheckout> findByTenantAndKey(String tenantId, String idempotencyKey) {
+        requireTenant(tenantId);
+        if (idempotencyKey == null || idempotencyKey.isBlank())
+            throw new IllegalArgumentException("idempotencyKey is required");
+        try (Connection connection = dataSource.getConnection()) {
+            return loadByKey(connection, tenantId, idempotencyKey);
+        } catch (SQLException e) {
+            throw failure("Could not load marketplace checkout by idempotency key", e);
+        }
+    }
+
+    @Override
     public boolean saveIfVersion(String tenantId, UUID checkoutId, long expectedVersion,
                                  MarketplaceCheckout replacement) {
         requireTenant(tenantId);
