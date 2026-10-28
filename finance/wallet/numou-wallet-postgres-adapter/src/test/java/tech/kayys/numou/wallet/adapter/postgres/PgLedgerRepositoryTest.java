@@ -36,8 +36,7 @@ class PgLedgerRepositoryTest {
     void parsesPostgresLedgerJsonIncludingRequestFingerprint() throws Exception {
         UUID entryId = UUID.randomUUID();
         UUID walletId = UUID.randomUUID();
-        PgLedgerRepository repository = new PgLedgerRepository();
-        repository.mapper = new ObjectMapper();
+        PgLedgerRepository repository = new PgLedgerRepository(new ObjectMapper());
 
         LedgerEntry entry = repository.parse("""
                 {
