@@ -111,10 +111,25 @@ public final class DefaultCommissionFinanceService implements CommissionFinanceA
     public CompletionStage<Boolean> reconcile(AffiliateCommandContext context, UUID postingId) {
         Objects.requireNonNull(context, "context is required");
         Objects.requireNonNull(postingId, "postingId is required");
-        return outbox.findByIdempotencyKey(context.tenantId(),
-                        "affiliate-finance:" + context.tenantId() + ":" + findEntryKeySuffix(postingId))
-                .thenCompose(ignored -> failed(new UnsupportedOperationException(
-                        "Reconciliation requires a posting-ID lookup in the outbox repository")));
+        return outbox.findById(context.tenantId(), postingId).thenCompose(optional -> {
+            if (optional.isEmpty()) return failed(new IllegalArgumentException("Finance posting request not found for tenant"));
+            CommissionFinancePosting posting = optional.get();
+            if (!posting.tenantId().equals(context.tenantId())) {
+                return failed(new IllegalStateException("Outbox returned a cross-tenant posting"));
+            }
+            if (posting.status() == CommissionFinancePostingStatus.POSTED) {
+                return CompletableFuture.completedFuture(true);
+            }
+            return finance.findPosting(context.tenantId(), posting.idempotencyKey()).thenCompose(receipt -> {
+                if (receipt.isEmpty()) return CompletableFuture.completedFuture(false);
+                if (!matches(posting, receipt.get())) {
+                    return failed(new IllegalStateException("Existing Finance posting does not match affiliate request"));
+                }
+                return outbox.reconcilePosted(context.tenantId(), posting.id(),
+                        receipt.get().externalReference(), Instant.now()).thenApply(updated ->
+                        updated.status() == CommissionFinancePostingStatus.POSTED);
+            });
+        });
     }
 
     private static boolean matches(CommissionFinancePosting posting, CommissionFinancePort.FinancePostingReceipt receipt) {
