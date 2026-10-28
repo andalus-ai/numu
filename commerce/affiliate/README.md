@@ -44,3 +44,18 @@ Those pieces must follow existing reactor/runtime conventions and have integrati
 - Refund/chargeback source adapters must supply authoritative, uniquely identified reversal events.
 - Finance ledger/liability posting, tax handling, payout eligibility, wallet/payment execution, and provider integrations remain separate follow-up work; commission entries alone do not move money.
 - Partner-facing and operator-facing endpoints/UI, retention controls, observability, and end-to-end tests are not implemented by these domain/application contracts.
+
+
+## M5 — Finance liability integration contract
+
+- Approved commission earnings and approved reversals can enqueue a semantic Finance posting request; pending or held entries cannot be posted.
+- The affiliate-owned outbox contract requires atomic idempotent enqueue and leased claims so retries and multiple workers can converge safely.
+- A Finance adapter maps semantic liability requests to the configured chart of accounts and posts through Finance's public command/application boundary. Affiliate must not mutate Finance accounts or journal persistence directly.
+- Every posting uses a stable tenant-scoped idempotency key. The Finance adapter must deduplicate that key independently because an outbox worker can time out after Finance has committed.
+- Receipt validation checks tenant, idempotency key, currency, and exact numeric amount before the outbox is marked posted.
+- Reconciliation queries Finance by the same idempotency key after ambiguous outcomes and marks the outbox posted only when the authoritative receipt matches.
+- Payout execution remains outside this milestone. Approved liabilities are not evidence that a partner has been paid; Wallet/Payment integration must use its own payout lifecycle and provider idempotency.
+
+## M5 implementation boundary and remaining adapter work
+
+The repository now defines the application/SPI contracts and orchestration workflow, with unit tests for approval gating, outbox dispatch, receipt validation path, and reconciliation. Concrete durable outbox storage, lease/claim transaction implementation, Finance adapter/chart-of-accounts mapping, migration, audit event persistence, and PostgreSQL concurrency/integration tests are still required before production use.
