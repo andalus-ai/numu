@@ -3,6 +3,7 @@ package tech.kayys.numou.construction.adapter.postgres.idempotency;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
 import io.vertx.mutiny.sqlclient.SqlConnection;
+import tech.kayys.numou.construction.adapter.postgres.consultancy.DefaultPgConsultancyOperationsFactory;
 import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
 import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandRunner;
 
@@ -26,7 +27,7 @@ public class PgTransactionalCommandRunner implements TransactionalCommandRunner 
 
     public PgTransactionalCommandRunner(PgPool pool,
                                         PgBoqRevisionOperationsFactory boqOperationsFactory) {
-        this(pool, boqOperationsFactory, null);
+        this(pool, boqOperationsFactory, new DefaultPgConsultancyOperationsFactory());
     }
 
     public PgTransactionalCommandRunner(PgPool pool,
