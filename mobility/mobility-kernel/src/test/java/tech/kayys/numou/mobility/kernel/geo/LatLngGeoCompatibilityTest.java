@@ -2,6 +2,7 @@ package tech.kayys.numou.mobility.kernel.geo;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.geo.domain.GeoDistance;
+import tech.kayys.numou.geo.domain.GeoGrid;
 import tech.kayys.numou.geo.domain.GeoPoint;
 
 import java.util.List;
@@ -56,6 +57,33 @@ class LatLngGeoCompatibilityTest {
         assertThat(GeoMath.pathLengthMeters(List.of(a))).isZero();
         assertThat(GeoMath.pathLengthMeters(List.of(a, b, c)))
                 .isEqualTo(GeoMath.haversineMeters(a, b) + GeoMath.haversineMeters(b, c));
+    }
+
+    @Test
+    void mobilityGridRetainsItsHistoricalIndexesAndKey() {
+        LatLng jakarta = new LatLng(-6.2088, 106.8456);
+        var legacyCell = GeoCell.of(jakarta);
+        var sharedCell = GeoGrid.cellOf(jakarta.toGeoPoint(), GeoCell.CELL_DEGREES);
+
+        assertThat(legacyCell.latIndex()).isEqualTo(sharedCell.latitudeIndex());
+        assertThat(legacyCell.lngIndex()).isEqualTo(sharedCell.longitudeIndex());
+        assertThat(legacyCell.key()).isEqualTo("-621:10684");
+    }
+
+    @Test
+    void legacyPolylineFacadeUsesSharedPrecisionFiveCodec() {
+        List<LatLng> path = List.of(
+                new LatLng(38.5, -120.2),
+                new LatLng(40.7, -120.95),
+                new LatLng(43.252, -126.453));
+
+        String encoded = Polyline.encode(path);
+
+        assertThat(encoded).isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
+        List<LatLng> decoded = Polyline.decode(encoded);
+        assertThat(decoded).containsExactlyElementsOf(path);
+        decoded.add(new LatLng(0, 0)); // Preserve the legacy facade's mutable-list behavior.
+        assertThat(decoded).hasSize(4);
     }
 
     @Test
