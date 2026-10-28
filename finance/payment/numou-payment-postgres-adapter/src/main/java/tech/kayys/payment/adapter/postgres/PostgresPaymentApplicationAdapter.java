@@ -228,7 +228,7 @@ public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort
 
             String eventType = lateSuccess
                     ? "PAYMENT_LATE_SUCCESS_REQUIRES_RECONCILIATION"
-                    : "PAYMENT_STATUS_CHANGED:" + outcome.providerEventId();
+                    : "PAYMENT_STATUS_CHANGED:" + fingerprint.substring(0, 24);
             insertOutbox(connection, tenant, "PAYMENT", paymentId, eventType,
                     Map.of("paymentId", paymentId.toString(),
                             "providerName", outcome.providerName(),
