@@ -128,13 +128,12 @@ jobs:
         run: |
           PGPASSWORD=postgres createdb -h localhost -U postgres numou_mobility_test
           mvn -B -ntp -f mobility/pom.xml -Ppg-integration verify
-      # Mobility is an independent reactor and its failure is propagated only at
-      # the end of this job. Explicitly allow the first downstream reactor to run
-      # after that isolated failure; if this install fails, normal success() gating
-      # still prevents consumers from running against missing identity artifacts.
-      - name: Build and install identity contracts
-        if: ${{ always() && steps.mobility_verify.outcome != 'cancelled' && steps.mobility_verify.outcome != 'skipped' }}
-        run: mvn -B -ntp -f identity/pom.xml install
+      # Install identity artifacts without running identity tests here. This
+      # bootstrap is a prerequisite for downstream reactors, not the identity
+      # verification gate; an identity test failure must not hide Courier results.
+      - name: Build and install identity contracts (tests deferred)
+        id: identity_bootstrap
+        run: mvn -B -ntp -f identity/pom.xml install -DskipTests
       - name: Build and install organization contracts used by Courier
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
@@ -143,12 +142,23 @@ jobs:
         run: mvn -B -ntp -f supply/pom.xml verify
       - name: Verify Courier/Cargo reactor
         run: mvn -B -ntp -f logistics/pom.xml verify
-      # Fail the overall job only after downstream independent reactors have had
-      # their chance to run and publish their test reports.
-      - name: Propagate isolated Mobility verification failure
-        if: always() && steps.mobility_verify.outcome == 'failure'
+      # Run identity's own tests after downstream capability verification. Keep
+      # the result visible but do not let one independent capability suppress
+      # another capability's test reports.
+      - name: Verify identity reactor independently
+        id: identity_verify
+        continue-on-error: true
+        run: mvn -B -ntp -f identity/pom.xml verify
+      # Fail only after independent capability verification has had its chance.
+      - name: Propagate isolated capability verification failures
+        if: always() && (steps.mobility_verify.outcome == 'failure' || steps.identity_verify.outcome == 'failure')
         run: |
-          echo "::error::Mobility reactor verification failed; see the Mobility step above."
+          if [ "${{ steps.mobility_verify.outcome }}" = "failure" ]; then
+            echo "::error::Mobility reactor verification failed; see the Mobility step above."
+          fi
+          if [ "${{ steps.identity_verify.outcome }}" = "failure" ]; then
+            echo "::error::Identity reactor verification failed; see the identity verification step above."
+          fi
           exit 1
       - name: Upload Maven test reports
         if: always()
