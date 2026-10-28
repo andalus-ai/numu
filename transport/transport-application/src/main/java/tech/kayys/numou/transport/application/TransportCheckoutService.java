@@ -89,10 +89,9 @@ public final class TransportCheckoutService {
      * updatedAt forward even when Payment is still pending, so the next poll observes backoff
      * instead of hammering the same provider operation on every scheduler tick.
      *
-     * @return number of checkouts successfully inspected (individual failures are reported to the
-     * caller so the runtime can record a failure metric and continue in a later tick)
+     * @return bounded batch outcome; failed items are delayed for the next retry window when possible
      */
-    public int reconcileDue(Duration minimumAge, int batchSize) {
+    public ReconciliationResult reconcileDue(Duration minimumAge, int batchSize) {
         Objects.requireNonNull(minimumAge, "minimumAge");
         if (minimumAge.isNegative() || minimumAge.isZero() || minimumAge.compareTo(Duration.ofHours(24)) > 0) {
             throw new IllegalArgumentException("minimumAge must be between 0 and 24 hours");
@@ -102,12 +101,28 @@ public final class TransportCheckoutService {
         }
         Instant cutoff = clock.instant().minus(minimumAge);
         List<TransportCheckout> due = checkouts.findStaleNonTerminal(cutoff, batchSize);
-        int inspected = 0;
+        int succeeded = 0;
+        int failed = 0;
         for (TransportCheckout checkout : due) {
-            refresh(checkout.tenantId(), checkout.checkoutId());
-            inspected++;
+            try {
+                refresh(checkout.tenantId(), checkout.checkoutId());
+                succeeded++;
+            } catch (RuntimeException failure) {
+                failed++;
+                // Advance the retry cursor so one broken provider/checkout cannot monopolize
+                // every bounded batch. Do not overwrite a concurrent transition.
+                try {
+                    TransportCheckout latest = checkouts.find(checkout.tenantId(), checkout.checkoutId())
+                            .orElse(null);
+                    if (latest != null && !isTerminal(latest.status())) {
+                        checkouts.save(latest.withStatus(latest.status(), clock.instant()), latest.version());
+                    }
+                } catch (RuntimeException retryCursorFailure) {
+                    failure.addSuppressed(retryCursorFailure);
+                }
+            }
         }
-        return inspected;
+        return new ReconciliationResult(due.size(), succeeded, failed);
     }
 
     /** Reads checkout state without contacting Payment or mutating inventory. */
@@ -248,6 +263,14 @@ public final class TransportCheckoutService {
                     .digest(canonical.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    public record ReconciliationResult(int attempted, int succeeded, int failed) {
+        public ReconciliationResult {
+            if (attempted < 0 || succeeded < 0 || failed < 0 || succeeded + failed != attempted) {
+                throw new IllegalArgumentException("reconciliation result counts are inconsistent");
+            }
         }
     }
 
