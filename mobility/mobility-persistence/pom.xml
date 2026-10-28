@@ -30,12 +30,12 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-mobility-wallet-domain</artifactId>
+            <artifactId>numou-wallet-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-mobility-wallet-spi</artifactId>
+            <artifactId>numou-wallet-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

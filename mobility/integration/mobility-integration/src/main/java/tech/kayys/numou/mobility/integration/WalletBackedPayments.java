@@ -2,8 +2,8 @@ package tech.kayys.numou.mobility.integration;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.mobility.ride.spi.PaymentsPort;
-import tech.kayys.numou.mobility.wallet.application.WalletService;
-import tech.kayys.numou.mobility.wallet.domain.OwnerKind;
+import tech.kayys.numou.wallet.application.WalletService;
+import tech.kayys.numou.wallet.domain.OwnerKind;
 
 import java.math.BigDecimal;
 import java.util.UUID;
