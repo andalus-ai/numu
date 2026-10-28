@@ -121,7 +121,6 @@ public final class ConsultancyDeliverable extends AbstractAggregateRoot<Consulta
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    public ConsultancyDeliverableId id() { return super.id(); }
     public ConsultancyEngagementId engagementId() { return engagementId; }
     public UUID clientOrganizationId() { return clientOrganizationId; }
     public UUID consultantOrganizationId() { return consultantOrganizationId; }
