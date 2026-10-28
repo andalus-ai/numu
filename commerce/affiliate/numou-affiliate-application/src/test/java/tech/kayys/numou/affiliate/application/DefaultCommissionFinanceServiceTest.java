@@ -42,8 +42,9 @@ class DefaultCommissionFinanceServiceTest {
             return CompletableFuture.completedFuture(stored);
         }
         @Override public CompletionStage<List<ClaimedPosting>> claimPending(
-                String workerId, Instant now, Duration leaseDuration, int limit) {
-            if (stored == null || stored.status() != CommissionFinancePostingStatus.PENDING) {
+                String tenantId, String workerId, Instant now, Duration leaseDuration, int limit) {
+            if (stored == null || !stored.tenantId().equals(tenantId)
+                    || stored.status() != CommissionFinancePostingStatus.PENDING) {
                 return CompletableFuture.completedFuture(List.of());
             }
             claimed = stored;
