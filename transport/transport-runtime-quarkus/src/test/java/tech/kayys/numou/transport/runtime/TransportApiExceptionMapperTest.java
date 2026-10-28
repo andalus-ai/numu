@@ -22,6 +22,19 @@ class TransportApiExceptionMapperTest {
     }
 
     @Test
+    void mapsSecurityProviderOutageToRetryableServiceUnavailable() {
+        Response response = mapper.toResponse(
+                new TransportAuthorizationUnavailableException("policy provider SECRET is down"));
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getEntity()).isEqualTo(
+                new TransportApiExceptionMapper.ApiError(
+                        "authorization_unavailable",
+                        "Tenant membership or authorization service is temporarily unavailable."));
+        assertThat(response.getEntity().toString()).doesNotContain("SECRET");
+    }
+
+    @Test
     void preservesExplicitHttpClientErrors() {
         BadRequestException failure = new BadRequestException("invalid request");
         Response response = mapper.toResponse(failure);
