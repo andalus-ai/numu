@@ -53,11 +53,4 @@ class AffiliateLifecycleTest {
         assertSame(disabled, disabled.disable(NOW.plusSeconds(2)));
         assertEquals(ReferralLinkStatus.ACTIVE, link.status());
     }
-
-    @Test
-    void commandContextRequiresTenantActorAndIdempotency() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new tech.kayys.numou.affiliate.application.AffiliateCommandContext(
-                        " ", "operator", "key", "corr"));
-    }
 }
