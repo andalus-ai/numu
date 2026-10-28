@@ -2,8 +2,8 @@ package tech.kayys.numou.mobility.api;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
-import tech.kayys.numou.mobility.wallet.domain.Payout;
-import tech.kayys.numou.mobility.wallet.spi.PayoutProvider;
+import tech.kayys.numou.wallet.domain.Payout;
+import tech.kayys.numou.wallet.spi.PayoutProvider;
 
 import java.time.Instant;
 import java.util.Map;
