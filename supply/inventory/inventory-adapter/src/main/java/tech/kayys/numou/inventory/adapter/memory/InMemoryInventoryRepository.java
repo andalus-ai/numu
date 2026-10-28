@@ -113,14 +113,6 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
         return created;
     }
 
-    @Override
-    public synchronized java.util.Optional<InventoryReservation> findReservationByCommandKey(InventoryCommandKey key) {
-        if (key == null) throw new IllegalArgumentException("Command key is required");
-        ReservationId reservationId = reservationCommands.get(key);
-        return reservationId == null ? java.util.Optional.empty()
-                : java.util.Optional.ofNullable(reservations.get(reservationId));
-    }
-
     private static boolean sameReservationPayload(InventoryReservation a, InventoryReservation b) {
         return a.tenantId().equals(b.tenantId()) && a.itemId().equals(b.itemId()) && a.warehouseId().equals(b.warehouseId())
                 && a.quantity().compareTo(b.quantity()) == 0 && a.uom().equals(b.uom())
