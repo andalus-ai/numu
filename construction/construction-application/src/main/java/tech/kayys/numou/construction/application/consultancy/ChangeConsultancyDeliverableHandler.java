@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.construction.application.idempotency.IdempotentCommandExecutor;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableHistoryEntry;
 import tech.kayys.numou.construction.spi.outbox.TransactionalOutboxEvent;
 
 import java.nio.charset.StandardCharsets;
@@ -67,11 +68,28 @@ public final class ChangeConsultancyDeliverableHandler {
                         case REVISE -> deliverable.revise(command.title(), command.description());
                     }
                     return tx.consultancy().updateDeliverable(command.context().tenantId(), deliverable)
-                            .flatMap(saved -> tx.appendOutboxEvent(event(command, saved))
+                            .flatMap(saved -> tx.consultancy().appendDeliverableHistory(
+                                            command.context().tenantId(), historyEntry(command, saved))
+                                    .flatMap(nothing -> tx.appendOutboxEvent(event(command, saved)))
                                     .map(nothing -> new ConsultancyDeliverableReceipt(
                                             saved.id().value(), saved.engagementId().value(),
                                             saved.revision(), saved.status())));
                 });
+    }
+
+    private ConsultancyDeliverableHistoryEntry historyEntry(
+            ChangeConsultancyDeliverableCommand command, ConsultancyDeliverable deliverable) {
+        ConsultancyDeliverableHistoryEntry.Action action = switch (command.action()) {
+            case SUBMIT -> ConsultancyDeliverableHistoryEntry.Action.SUBMITTED;
+            case ACCEPT -> ConsultancyDeliverableHistoryEntry.Action.ACCEPTED;
+            case REJECT -> ConsultancyDeliverableHistoryEntry.Action.REJECTED;
+            case REVISE -> ConsultancyDeliverableHistoryEntry.Action.REVISED;
+        };
+        return new ConsultancyDeliverableHistoryEntry(
+                UUID.randomUUID(), deliverable.id().value(), deliverable.engagementId().value(),
+                deliverable.revision(), deliverable.status(), action, deliverable.title(),
+                deliverable.description(), deliverable.reviewedByOrganizationId(),
+                deliverable.reviewComment(), command.context().actorId(), clock.instant());
     }
 
     private TransactionalOutboxEvent event(
