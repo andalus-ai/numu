@@ -49,7 +49,7 @@ public final class DefaultAttributionService implements AttributionApplicationPo
         final String requestedId = sourceId;
         final String requestedEvent = conversionEventId;
 
-        return decisions.findBySourceEvent(tenantId, programId, sourceType, sourceId, conversionEventId)
+        return decisions.findBySourceEvent(tenantId, sourceType, sourceId, conversionEventId)
                 .thenCompose(existing -> existing
                         .map(CompletableFuture::completedFuture)
                         .orElseGet(() -> resolveAndDecide(
@@ -79,7 +79,7 @@ public final class DefaultAttributionService implements AttributionApplicationPo
                                     return failed(new IllegalStateException("Policy repository returned a cross-scope policy"));
                                 }
                                 Instant notBefore = subtractWindow(conversion.occurredAt(), policy.windowSeconds());
-                                return touchpoints.findEligible(tenantId, programId, conversion.subjectKey(),
+                                return touchpoints.findEligible(tenantId, programId.toString(), conversion.subjectKey(),
                                                 notBefore, conversion.occurredAt())
                                         .thenCompose(candidates -> {
                                             AttributionDecision proposed = AttributionEngine.decide(

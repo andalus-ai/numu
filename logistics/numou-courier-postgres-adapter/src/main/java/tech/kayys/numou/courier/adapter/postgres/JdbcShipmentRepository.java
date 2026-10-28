@@ -31,6 +31,18 @@ public class JdbcShipmentRepository implements ShipmentRepository {
 
     @Override
     public CompletionStage<Shipment> save(TenantId tenantId, Shipment shipment) {
+        return saveInternal(tenantId, shipment, null, null);
+    }
+
+    @Override
+    public CompletionStage<Shipment> saveIdempotently(TenantId tenantId, String idempotencyKey, String requestFingerprint, Shipment shipment) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 200
+                || requestFingerprint == null || !requestFingerprint.matches("[0-9a-f]{64}"))
+            return CompletableFuture.failedFuture(new IllegalArgumentException("idempotency key and SHA-256 fingerprint are required; key length must be 1-200"));
+        return saveInternal(tenantId, shipment, idempotencyKey.trim(), requestFingerprint);
+    }
+
+    private CompletionStage<Shipment> saveInternal(TenantId tenantId, Shipment shipment, String idempotencyKey, String requestFingerprint) {
         if (tenantId == null || shipment == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("tenantId and shipment are required"));
         if (!tenantId.equals(shipment.tenantId()))
@@ -69,6 +81,45 @@ public class JdbcShipmentRepository implements ShipmentRepository {
             boolean oldAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
             try {
+                if (idempotencyKey != null) {
+                    int inserted;
+                    try (PreparedStatement reserve = connection.prepareStatement("""
+                            INSERT INTO courier_shipment_booking_keys
+                              (tenant_id, idempotency_key, request_fingerprint, shipment_id, created_at)
+                            VALUES (?, ?, ?, ?, now())
+                            ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
+                            """)) {
+                        reserve.setObject(1, tenantId.value());
+                        reserve.setString(2, idempotencyKey);
+                        reserve.setString(3, requestFingerprint);
+                        reserve.setObject(4, shipment.id().value());
+                        inserted = reserve.executeUpdate();
+                    }
+                    if (inserted == 0) {
+                        String storedFingerprint;
+                        java.util.UUID storedShipmentId;
+                        try (PreparedStatement lookup = connection.prepareStatement("""
+                                SELECT request_fingerprint, shipment_id
+                                FROM courier_shipment_booking_keys
+                                WHERE tenant_id = ? AND idempotency_key = ?
+                                FOR UPDATE
+                                """)) {
+                            lookup.setObject(1, tenantId.value());
+                            lookup.setString(2, idempotencyKey);
+                            try (ResultSet row = lookup.executeQuery()) {
+                                if (!row.next()) throw new SQLException("idempotency reservation disappeared");
+                                storedFingerprint = row.getString("request_fingerprint");
+                                storedShipmentId = row.getObject("shipment_id", java.util.UUID.class);
+                            }
+                        }
+                        connection.rollback();
+                        if (!requestFingerprint.equals(storedFingerprint))
+                            return CompletableFuture.failedFuture(new ShipmentBookingIdempotencyConflictException(
+                                    "idempotency key was already used with a different booking payload"));
+                        return findById(tenantId, ShipmentId.of(storedShipmentId)).thenApply(existing ->
+                                existing.orElseThrow(() -> new IllegalStateException("idempotency record references a missing shipment")));
+                    }
+                }
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
                     bindShipment(statement, tenantId, shipment);
                     int affected = statement.executeUpdate();
@@ -248,6 +299,10 @@ public class JdbcShipmentRepository implements ShipmentRepository {
                 return true;
         }
         return false;
+    }
+
+    public static final class ShipmentBookingIdempotencyConflictException extends RuntimeException {
+        public ShipmentBookingIdempotencyConflictException(String message) { super(message); }
     }
 
     public static final class ShipmentReferenceConflictException extends RuntimeException {

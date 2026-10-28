@@ -36,6 +36,24 @@ class WalletServiceTest {
     }
 
     @Test
+    void serviceRejectsInvalidMonetaryConfigurationAtConstruction() {
+        final var wallets = new InMemoryWalletRepositories.Wallets();
+        final var ledger = new InMemoryWalletRepositories.Ledger();
+        assertThatThrownBy(() -> new WalletService(wallets, ledger, uow, sink, Instant::now, " ", 0, bd("100"), bd("1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("currency");
+        assertThatThrownBy(() -> new WalletService(wallets, ledger, uow, sink, Instant::now, "IDR", -1, bd("100"), bd("1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fractionDigits");
+        assertThatThrownBy(() -> new WalletService(wallets, ledger, uow, sink, Instant::now, "IDR", 0, bd("-1"), bd("1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("driverOverdraft");
+        assertThatThrownBy(() -> new WalletService(wallets, ledger, uow, sink, Instant::now, "IDR", 0, bd("100"), bd("0")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("minPayout");
+    }
+
+    @Test
     void topUpOpensTheWalletAndIsIdempotent() {
         final var rider = UUID.randomUUID();
         svc.credit(tenant, OwnerKind.RIDER, rider, bd("100000"), "topup:gw-1", "top-up").await().indefinitely();
