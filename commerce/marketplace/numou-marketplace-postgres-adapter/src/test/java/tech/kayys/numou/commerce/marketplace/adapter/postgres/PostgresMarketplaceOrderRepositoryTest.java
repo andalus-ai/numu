@@ -9,6 +9,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrder;
 import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrderLine;
 import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrderStatus;
+import tech.kayys.numou.commerce.marketplace.application.MarketplaceOrderRequestFingerprint;
+import tech.kayys.numou.commerce.marketplace.application.MarketplaceOrderIdempotencyConflictException;
 
 import javax.sql.DataSource;
 import java.io.InputStream;
@@ -46,10 +48,19 @@ class PostgresMarketplaceOrderRepositoryTest {
             assertNotNull(migration, "marketplace migration must be packaged");
             String sql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
             try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE IF EXISTS marketplace_order_idempotency CASCADE");
                 statement.execute("DROP TABLE IF EXISTS marketplace_order_line CASCADE");
                 statement.execute("DROP TABLE IF EXISTS marketplace_order CASCADE");
                 for (String command : sql.split(";")) {
                     if (!command.isBlank()) statement.execute(command);
+                }
+                try (InputStream secondMigration = getClass().getResourceAsStream(
+                        "/db/migration/V2__marketplace_order_idempotency.sql")) {
+                    assertNotNull(secondMigration, "idempotency migration must be packaged");
+                    String secondSql = new String(secondMigration.readAllBytes(), StandardCharsets.UTF_8);
+                    for (String command : secondSql.split(";")) {
+                        if (!command.isBlank()) statement.execute(command);
+                    }
                 }
             }
         }
@@ -67,6 +78,23 @@ class PostgresMarketplaceOrderRepositoryTest {
         assertEquals(order.lines(), loaded.lines());
         assertEquals(MarketplaceOrderStatus.CREATED, loaded.status());
         assertTrue(repository.findByTenantAndId("tenant-b", order.id()).isEmpty());
+    }
+
+    @Test
+    void idempotentCreationReturnsTheOriginalOrderAndRejectsChangedRequest() {
+        MarketplaceOrder proposed = order();
+        String fingerprint = MarketplaceOrderRequestFingerprint.calculate(
+                proposed.tenantId(), proposed.buyerId(), proposed.currency(), proposed.lines());
+
+        MarketplaceOrder retryCandidate = order();
+        MarketplaceOrder first = repository.createOrGet("tenant-a", "checkout-1", fingerprint, proposed);
+        MarketplaceOrder retry = repository.createOrGet("tenant-a", "checkout-1", fingerprint, retryCandidate);
+
+        assertEquals(first.id(), retry.id());
+        assertTrue(repository.findByTenantAndId("tenant-a", retryCandidate.id()).isEmpty(),
+                "a replay must not persist the newly proposed duplicate order");
+        assertThrows(MarketplaceOrderIdempotencyConflictException.class, () ->
+                repository.createOrGet("tenant-a", "checkout-1", "0".repeat(64), order()));
     }
 
     @Test

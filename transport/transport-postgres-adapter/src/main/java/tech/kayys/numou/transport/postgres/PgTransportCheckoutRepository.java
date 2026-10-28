@@ -1,0 +1,185 @@
+package tech.kayys.numou.transport.postgres;
+
+import tech.kayys.numou.transport.domain.TransportCheckout;
+import tech.kayys.numou.transport.domain.TransportCheckoutStatus;
+import tech.kayys.numou.transport.spi.TransportCheckoutConcurrencyException;
+import tech.kayys.numou.transport.spi.TransportCheckoutRepository;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
+/** PostgreSQL adapter for durable checkout state and tenant-scoped idempotency. */
+public final class PgTransportCheckoutRepository implements TransportCheckoutRepository {
+    private static final String COLUMNS = """
+            tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
+            from_sequence, to_sequence, passenger_count, amount, currency, hold_expires_at,
+            hold_id, payment_id, payment_action_uri, status, version, created_at, updated_at
+            """;
+    private static final String FIND_BY_ID = "SELECT " + COLUMNS
+            + " FROM transport_checkout WHERE tenant_id = ? AND checkout_id = ?";
+    private static final String FIND_BY_KEY = "SELECT " + COLUMNS
+            + " FROM transport_checkout WHERE tenant_id = ? AND idempotency_key = ?";
+    private static final String FIND_BY_PAYMENT = "SELECT " + COLUMNS
+            + " FROM transport_checkout WHERE tenant_id = ? AND payment_id = ?";
+    private static final String INSERT = """
+            INSERT INTO transport_checkout
+            (tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
+             from_sequence, to_sequence, passenger_count, amount, currency, hold_expires_at,
+             hold_id, payment_id, payment_action_uri, status, version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+    private static final String UPDATE = """
+            UPDATE transport_checkout
+            SET hold_id = ?, payment_id = ?, payment_action_uri = ?, status = ?, version = ?, updated_at = ?
+            WHERE tenant_id = ? AND checkout_id = ? AND version = ?
+            """;
+
+    private final DataSource dataSource;
+
+    public PgTransportCheckoutRepository(DataSource dataSource) {
+        this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
+    }
+
+    @Override
+    public Optional<TransportCheckout> find(String tenantId, UUID checkoutId) {
+        Objects.requireNonNull(checkoutId, "checkoutId");
+        return queryOne(FIND_BY_ID, requireTenant(tenantId), checkoutId);
+    }
+
+    @Override
+    public Optional<TransportCheckout> findByIdempotencyKey(String tenantId, String idempotencyKey) {
+        return queryOne(FIND_BY_KEY, requireTenant(tenantId), required(idempotencyKey, "idempotencyKey"));
+    }
+
+    @Override
+    public Optional<TransportCheckout> findByPaymentId(String tenantId, String paymentId) {
+        return queryOne(FIND_BY_PAYMENT, requireTenant(tenantId), required(paymentId, "paymentId"));
+    }
+
+    @Override
+    public void create(TransportCheckout checkout) {
+        Objects.requireNonNull(checkout, "checkout");
+        if (checkout.version() != 0 || checkout.status() != TransportCheckoutStatus.REQUESTED
+                || checkout.paymentId() != null) {
+            throw new IllegalArgumentException("new checkout must be an initial REQUESTED snapshot");
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(INSERT)) {
+            bindAll(statement, checkout);
+            if (statement.executeUpdate() != 1) {
+                throw new TransportCheckoutConcurrencyException("checkout creation did not insert exactly one row");
+            }
+        } catch (SQLException failure) {
+            if ("23505".equals(failure.getSQLState())) {
+                throw new TransportCheckoutConcurrencyException("checkout id or idempotency key already exists", failure);
+            }
+            throw persistenceFailure("create checkout", failure);
+        }
+    }
+
+    @Override
+    public void save(TransportCheckout checkout, int expectedVersion) {
+        Objects.requireNonNull(checkout, "checkout");
+        if (expectedVersion < 0 || checkout.version() != expectedVersion + 1) {
+            throw new IllegalArgumentException("checkout version must advance exactly once");
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UPDATE)) {
+            statement.setObject(1, checkout.holdId());
+            statement.setString(2, checkout.paymentId());
+            statement.setString(3, checkout.paymentActionUri());
+            statement.setString(4, checkout.status().name());
+            statement.setInt(5, checkout.version());
+            statement.setTimestamp(6, Timestamp.from(checkout.updatedAt()));
+            statement.setString(7, checkout.tenantId());
+            statement.setObject(8, checkout.checkoutId());
+            statement.setInt(9, expectedVersion);
+            if (statement.executeUpdate() != 1) {
+                throw new TransportCheckoutConcurrencyException(
+                        "checkout version changed or checkout was not found; reload before retrying");
+            }
+        } catch (TransportCheckoutConcurrencyException conflict) {
+            throw conflict;
+        } catch (SQLException failure) {
+            throw persistenceFailure("save checkout", failure);
+        }
+    }
+
+    private Optional<TransportCheckout> queryOne(String sql, String tenantId, Object key) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tenantId);
+            if (key instanceof UUID id) statement.setObject(2, id);
+            else statement.setString(2, (String) key);
+            try (ResultSet row = statement.executeQuery()) {
+                return row.next() ? Optional.of(read(row)) : Optional.empty();
+            }
+        } catch (SQLException failure) {
+            throw persistenceFailure("read checkout", failure);
+        }
+    }
+
+    private static TransportCheckout read(ResultSet row) throws SQLException {
+        return new TransportCheckout(row.getString("tenant_id"),
+                row.getObject("checkout_id", UUID.class),
+                row.getString("idempotency_key"),
+                row.getString("request_fingerprint"),
+                row.getObject("departure_id", UUID.class),
+                row.getString("quote_id"),
+                row.getInt("from_sequence"),
+                row.getInt("to_sequence"),
+                row.getInt("passenger_count"),
+                row.getBigDecimal("amount"),
+                row.getString("currency"),
+                row.getTimestamp("hold_expires_at").toInstant(),
+                row.getObject("hold_id", UUID.class),
+                row.getString("payment_id"),
+                row.getString("payment_action_uri"),
+                TransportCheckoutStatus.valueOf(row.getString("status")),
+                row.getInt("version"),
+                row.getTimestamp("created_at").toInstant(),
+                row.getTimestamp("updated_at").toInstant());
+    }
+
+    private static void bindAll(PreparedStatement statement, TransportCheckout checkout) throws SQLException {
+        statement.setString(1, checkout.tenantId());
+        statement.setObject(2, checkout.checkoutId());
+        statement.setString(3, checkout.idempotencyKey());
+        statement.setString(4, checkout.requestFingerprint());
+        statement.setObject(5, checkout.departureId());
+        statement.setString(6, checkout.quoteId());
+        statement.setInt(7, checkout.fromSequence());
+        statement.setInt(8, checkout.toSequence());
+        statement.setInt(9, checkout.passengerCount());
+        statement.setBigDecimal(10, checkout.amount());
+        statement.setString(11, checkout.currency());
+        statement.setTimestamp(12, Timestamp.from(checkout.holdExpiresAt()));
+        statement.setObject(13, checkout.holdId());
+        statement.setString(14, checkout.paymentId());
+        statement.setString(15, checkout.paymentActionUri());
+        statement.setString(16, checkout.status().name());
+        statement.setInt(17, checkout.version());
+        statement.setTimestamp(18, Timestamp.from(checkout.createdAt()));
+        statement.setTimestamp(19, Timestamp.from(checkout.updatedAt()));
+    }
+
+    private static String requireTenant(String tenantId) {
+        return required(tenantId, "tenantId");
+    }
+
+    private static String required(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+        return value.trim();
+    }
+
+    private static IllegalStateException persistenceFailure(String operation, SQLException failure) {
+        return new IllegalStateException("could not " + operation, failure);
+    }
+}

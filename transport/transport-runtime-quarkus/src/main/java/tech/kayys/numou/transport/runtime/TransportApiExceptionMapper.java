@@ -6,6 +6,8 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import org.jboss.logging.Logger;
+import tech.kayys.numou.transport.application.TransportCheckoutIdempotencyConflictException;
+import tech.kayys.numou.transport.spi.TransportCheckoutConcurrencyException;
 
 /** Maps application/domain failures to stable, non-sensitive HTTP error codes. */
 @Provider
@@ -17,6 +19,11 @@ public class TransportApiExceptionMapper implements ExceptionMapper<RuntimeExcep
     public Response toResponse(RuntimeException failure) {
         if (failure instanceof WebApplicationException webFailure) {
             return webFailure.getResponse();
+        }
+        if (failure instanceof TransportCheckoutConcurrencyException
+                || failure instanceof TransportCheckoutIdempotencyConflictException) {
+            return error(Response.Status.CONFLICT, "checkout_conflict",
+                    "The checkout changed concurrently or the idempotency key was reused.");
         }
         if (failure instanceof TransportAuthorizationUnavailableException) {
             return error(Response.Status.SERVICE_UNAVAILABLE, "authorization_unavailable",
@@ -39,7 +46,9 @@ public class TransportApiExceptionMapper implements ExceptionMapper<RuntimeExcep
         if (failure instanceof IllegalArgumentException) {
             String message = failure.getMessage();
             if (message != null && (message.contains("no passenger inventory")
-                    || message.contains("unknown passenger hold"))) {
+                    || message.contains("unknown passenger hold")
+                    || message.contains("checkout not found")
+                    || message.contains("payment was not found"))) {
                 return error(Response.Status.NOT_FOUND, "booking_resource_not_found",
                         "Departure inventory or passenger hold was not found.");
             }

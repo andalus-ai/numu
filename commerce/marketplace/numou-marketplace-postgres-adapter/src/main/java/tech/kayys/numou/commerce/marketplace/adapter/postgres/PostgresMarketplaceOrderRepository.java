@@ -5,6 +5,7 @@ import jakarta.inject.Inject;
 import tech.kayys.numou.commerce.marketplace.application.port.MarketplaceOrderRepository;
 import tech.kayys.numou.commerce.marketplace.application.port.IdempotentMarketplaceOrderRepository;
 import tech.kayys.numou.commerce.marketplace.application.MarketplaceOrderIdempotencyConflictException;
+import tech.kayys.numou.commerce.marketplace.application.MarketplaceOrderRequestFingerprint;
 import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrder;
 import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrderLine;
 import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrderStatus;
@@ -99,6 +100,11 @@ public class PostgresMarketplaceOrderRepository implements MarketplaceOrderRepos
         Objects.requireNonNull(proposedOrder, "proposedOrder is required");
         if (!tenantId.equals(proposedOrder.tenantId())) {
             throw new IllegalArgumentException("Order tenant must match idempotency scope");
+        }
+        String calculatedFingerprint = MarketplaceOrderRequestFingerprint.calculate(
+                tenantId, proposedOrder.buyerId(), proposedOrder.currency(), proposedOrder.lines());
+        if (!requestFingerprint.equals(calculatedFingerprint)) {
+            throw new IllegalArgumentException("Fingerprint does not match the proposed order snapshot");
         }
 
         return inTransaction(connection -> {
