@@ -53,6 +53,37 @@ class GeoDomainTest {
     }
 
     @Test
+    void boundsIncludeAllEdgesAndSupportOrdinaryLongitudeIntervals() {
+        GeoBounds bounds = new GeoBounds(-10, 100, 10, 120);
+
+        assertThat(bounds.contains(new GeoPoint(-10, 100))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(10, 120))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 110))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 99.999))).isFalse();
+        assertThat(bounds.contains(new GeoPoint(0, 120.001))).isFalse();
+    }
+
+    @Test
+    void antimeridianBoundsIncludeBothLongitudeEdgesAndRejectTheMiddle() {
+        GeoBounds bounds = new GeoBounds(-20, 170, 20, -170);
+
+        assertThat(bounds.contains(new GeoPoint(20, 170))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(-20, -170))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 180))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, -180))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 169.999))).isFalse();
+        assertThat(bounds.contains(new GeoPoint(0, -169.999))).isFalse();
+    }
+
+    @Test
+    void rejectsInvalidBoundsAndNullContainmentInput() {
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoBounds(11, 0, 10, 1));
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoBounds(-91, 0, 10, 1));
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoBounds(-10, 0, 10, 181));
+        assertThatNullPointerException().isThrownBy(() -> new GeoBounds(-1, -1, 1, 1).contains(null));
+    }
+
+    @Test
     void sumsPathSegmentsAndTreatsShortPathsAsZero() {
         GeoPoint a = new GeoPoint(0, 0);
         GeoPoint b = new GeoPoint(0, 1);

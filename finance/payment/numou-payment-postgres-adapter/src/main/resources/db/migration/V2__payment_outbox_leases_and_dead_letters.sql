@@ -1,5 +1,5 @@
 -- Leases allow competing workers to claim events without holding a transaction
--- open while publishing. Delivery is at-least-once; consumers must be idempotent.
+-- open while publishing. Delivery is at-least-once, and consumers must be idempotent.
 ALTER TABLE payment_operation_outbox
     ADD COLUMN IF NOT EXISTS terminal BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS worker_id VARCHAR(160),
