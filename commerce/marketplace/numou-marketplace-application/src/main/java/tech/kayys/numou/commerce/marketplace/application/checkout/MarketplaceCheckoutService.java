@@ -51,7 +51,6 @@ public final class MarketplaceCheckoutService {
         Objects.requireNonNull(orderId, "orderId");
         Objects.requireNonNull(reservationExpiresAt, "reservationExpiresAt");
         Instant now = clock.instant();
-        if (!reservationExpiresAt.isAfter(now)) throw new IllegalArgumentException("reservation expiry must be in the future");
 
         MarketplaceOrder order = orders.findByTenantAndId(tenantId, orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Marketplace order not found"));
@@ -61,9 +60,14 @@ public final class MarketplaceCheckoutService {
         }
 
         String fingerprint = fingerprint(order, warehouseReference, reservationExpiresAt);
-        MarketplaceCheckout proposed = MarketplaceCheckout.start(
-                UUID.randomUUID(), tenantId, orderId, idempotencyKey, fingerprint, now);
-        MarketplaceCheckout checkout = checkouts.createOrGet(proposed);
+        MarketplaceCheckout checkout = checkouts.findByTenantAndKey(tenantId, idempotencyKey).orElse(null);
+        if (checkout == null) {
+            if (!reservationExpiresAt.isAfter(now))
+                throw new IllegalArgumentException("reservation expiry must be in the future for a new checkout");
+            MarketplaceCheckout proposed = MarketplaceCheckout.start(
+                    UUID.randomUUID(), tenantId, orderId, idempotencyKey, fingerprint, now);
+            checkout = checkouts.createOrGet(proposed);
+        }
         if (!checkout.orderId().equals(orderId) || !checkout.requestFingerprint().equals(fingerprint)) {
             throw new IllegalStateException("Checkout idempotency key conflicts with a different request");
         }
