@@ -92,6 +92,12 @@ public final class TenantScopedInventoryService {
         return service(normalizedTenant).findReservation(normalizedTenant, reservationId);
     }
 
+    /** Tenant-scoped recovery for idempotent reservation commands. */
+    public java.util.Optional<InventoryReservation> findReservationByCommandKey(String tenantId, InventoryCommandKey key) {
+        String normalizedTenant = requireTenant(tenantId);
+        return service(normalizedTenant).findReservationByCommandKey(normalizedTenant, scopedKey(normalizedTenant, key));
+    }
+
     public InventoryReservation releaseReservationIfActive(String tenantId, ReservationId reservationId) {
         String normalizedTenant = requireTenant(tenantId);
         return service(normalizedTenant).releaseReservationIfActive(normalizedTenant, reservationId);
