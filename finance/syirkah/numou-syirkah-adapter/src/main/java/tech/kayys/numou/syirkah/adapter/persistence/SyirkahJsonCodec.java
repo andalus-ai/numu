@@ -86,6 +86,10 @@ public final class SyirkahJsonCodec {
     }
 
     public static String encodeLifecycle(LifecycleChange ch) {
+        return Json.write(lifecycle(ch));
+    }
+
+    private static Map<String, Object> lifecycle(LifecycleChange ch) {
         Map<String, Object> o = new LinkedHashMap<>();
         o.put("kind", ch.kind().name());
         List<Object> affected = new ArrayList<>();
@@ -123,11 +127,14 @@ public final class SyirkahJsonCodec {
             successions.add(m);
         }
         o.put("successions", successions);
-        return Json.write(o);
+        return o;
     }
 
     public static LifecycleChange decodeLifecycle(String json) {
-        Map<String, Object> o = obj(Json.read(json), "lifecycle");
+        return lifecycle(obj(Json.read(json), "lifecycle"));
+    }
+
+    private static LifecycleChange lifecycle(Map<String, Object> o) {
         Set<PartnerId> affected = new HashSet<>();
         for (Object x : list(o, "affected")) {
             affected.add(pid((String) x));
@@ -509,6 +516,9 @@ public final class SyirkahJsonCodec {
                 List<Object> ids = new ArrayList<>();
                 c.approvals().stream().sorted().forEach(p -> ids.add(p.value().toString()));
                 o.put("approvals", ids);
+                if (c.lifecycle() != null) {
+                    o.put("lifecycle", lifecycle(c.lifecycle()));
+                }
             }
             case CORRECT_CLOSE -> {
                 Commands.CorrectClose c = (Commands.CorrectClose) payload;
@@ -541,7 +551,9 @@ public final class SyirkahJsonCodec {
                 for (Object x : list(o, "approvals")) {
                     approvals.add(pid((String) x));
                 }
-                return new Commands.ReviseContract(tenant, id, contract(obj(req(o, "next"), "next")), approvals);
+                LifecycleChange lc = o.get("lifecycle") == null ? null
+                        : lifecycle(obj(o.get("lifecycle"), "lifecycle"));
+                return new Commands.ReviseContract(tenant, id, contract(obj(req(o, "next"), "next")), approvals, lc);
             }
             case CORRECT_CLOSE -> {
                 return new Commands.CorrectClose(tenant, id, new CloseId(UUID.fromString(str(o, "target"))),

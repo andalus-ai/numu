@@ -192,7 +192,8 @@ public class SyirkahApi {
             approvals.add(SyirkahDtos.partner(p, "approvals"));
         }
         return SyirkahDtos.approval(governed.proposeRevision(new Commands.ReviseContract(tenant(), sid(id),
-                SyirkahDtos.contract(r.next()), approvals), actor()));
+                SyirkahDtos.contract(r.next()), approvals,
+                r.lifecycle() == null ? null : SyirkahDtos.lifecycle(r.lifecycle())), actor()));
     }
 
     public ApprovalView proposeCorrection(String id, CorrectCloseRequest r) {

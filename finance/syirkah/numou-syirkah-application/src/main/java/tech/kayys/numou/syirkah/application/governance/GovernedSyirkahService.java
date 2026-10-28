@@ -7,6 +7,7 @@ import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.command.Commands;
 import tech.kayys.numou.numouapplication.port.ApprovalPort;
 import tech.kayys.numou.numouapplication.port.TransactionPort;
+import tech.kayys.numou.numoudomain.LifecycleChecker;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -38,6 +39,13 @@ public class GovernedSyirkahService {
     }
 
     public PendingApproval proposeRevision(Commands.ReviseContract c, String maker) {
+        if (c.lifecycle() != null) {
+            // fail fast: a change that cannot pass the lifecycle checks is not worth a checker's time
+            tx.inTransaction(() -> {
+                LifecycleChecker.requirePassing(service.get(c.tenant(), c.id()), c.next(), c.lifecycle());
+                return null;
+            });
+        }
         return propose(c.tenant(), c.id(), PendingApproval.Kind.REVISE_CONTRACT, c, maker);
     }
 
@@ -67,7 +75,14 @@ public class GovernedSyirkahService {
             requirePending(p);
             requireDifferentPerson(p, checker);
             switch (p.kind()) {
-                case REVISE_CONTRACT -> service.reviseContract((Commands.ReviseContract) p.payload());
+                case REVISE_CONTRACT -> {
+                    Commands.ReviseContract rc = (Commands.ReviseContract) p.payload();
+                    if (rc.lifecycle() == null) {
+                        service.reviseContract(rc);
+                    } else {
+                        service.reviseWithLifecycle(rc, rc.lifecycle());
+                    }
+                }
                 case CORRECT_CLOSE -> service.correctClose((Commands.CorrectClose) p.payload());
                 case START_LIQUIDATION -> service.startLiquidation((Commands.StartLiquidation) p.payload());
                 case LIQUIDATE -> service.liquidate((Commands.Liquidate) p.payload());

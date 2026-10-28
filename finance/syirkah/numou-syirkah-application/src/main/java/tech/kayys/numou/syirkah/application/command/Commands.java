@@ -4,6 +4,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
 import tech.kayys.numou.numoudomain.CloseId;
 import tech.kayys.numou.numoudomain.FinancialResult;
+import tech.kayys.numou.numoudomain.LifecycleChange;
 import tech.kayys.numou.numoudomain.LiquidationInput;
 import tech.kayys.numou.numoudomain.ManagerFault;
 import tech.kayys.numou.numoudomain.PartnerId;
@@ -36,7 +37,16 @@ public final class Commands {
             String reference) {
     }
 
-    public record ReviseContract(TenantId tenant, SyirkahId id, SyirkahContract next, Set<PartnerId> approvals) {
+    /**
+     * {@code lifecycle} is optional. When present the revision is a new-capital, partner-replacement or
+     * partner-death change: it is checked by {@code LifecycleChecker}, its record is kept, and the approvals are
+     * taken from its recorded consents ({@code approvals} is then ignored).
+     */
+    public record ReviseContract(TenantId tenant, SyirkahId id, SyirkahContract next, Set<PartnerId> approvals,
+                                 LifecycleChange lifecycle) {
+        public ReviseContract(TenantId tenant, SyirkahId id, SyirkahContract next, Set<PartnerId> approvals) {
+            this(tenant, id, next, approvals, null);
+        }
     }
 
     /**
