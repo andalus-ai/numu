@@ -395,10 +395,14 @@ public final class ReservationService {
                                                     final var alloc = oldLedger.allocate(r.id(), newParty, newStart, rules, resList, now);
                                                     r.assignResources(alloc.resourceIds(), now);
 
-                                                    return uow.execute(() ->
-                                                            reservations.save(tenantId, r)
-                                                                    .flatMap(x -> ledgers.save(tenantId, oldLedger))
-                                                                    .flatMap(x -> publishEvents(tenantId, r, oldLedger))
+                                                    return executeMutationTransaction(context ->
+                                                                    context.reservations().save(tenantId, r)
+                                                                            .flatMap(x -> context.ledgers().save(tenantId, oldLedger))
+                                                                            .flatMap(x -> publishEvents(context.events(), tenantId, r, oldLedger)),
+                                                            () -> uow.execute(() ->
+                                                                    reservations.save(tenantId, r)
+                                                                            .flatMap(x -> ledgers.save(tenantId, oldLedger))
+                                                                            .flatMap(x -> publishEvents(tenantId, r, oldLedger)))
                                                     );
                                                 } else {
                                                     if (!newLedger.canAccommodate(newParty, newStart, rules, resList)) {
@@ -409,11 +413,16 @@ public final class ReservationService {
                                                     final var alloc = newLedger.allocate(r.id(), newParty, newStart, rules, resList, now);
                                                     r.assignResources(alloc.resourceIds(), now);
 
-                                                    return uow.execute(() ->
-                                                            reservations.save(tenantId, r)
-                                                                    .flatMap(x -> ledgers.save(tenantId, oldLedger))
-                                                                    .flatMap(x -> ledgers.save(tenantId, newLedger))
-                                                                    .flatMap(x -> publishEvents(tenantId, r, oldLedger, newLedger))
+                                                    return executeMutationTransaction(context ->
+                                                                    context.reservations().save(tenantId, r)
+                                                                            .flatMap(x -> context.ledgers().save(tenantId, oldLedger))
+                                                                            .flatMap(x -> context.ledgers().save(tenantId, newLedger))
+                                                                            .flatMap(x -> publishEvents(context.events(), tenantId, r, oldLedger, newLedger)),
+                                                            () -> uow.execute(() ->
+                                                                    reservations.save(tenantId, r)
+                                                                            .flatMap(x -> ledgers.save(tenantId, oldLedger))
+                                                                            .flatMap(x -> ledgers.save(tenantId, newLedger))
+                                                                            .flatMap(x -> publishEvents(tenantId, r, oldLedger, newLedger)))
                                                     );
                                                 }
                                             })
