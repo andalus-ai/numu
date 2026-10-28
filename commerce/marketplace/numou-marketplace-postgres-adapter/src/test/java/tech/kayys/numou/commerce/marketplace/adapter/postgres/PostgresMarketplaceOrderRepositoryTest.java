@@ -167,7 +167,7 @@ class PostgresMarketplaceOrderRepositoryTest {
 
         assertThrows(IllegalStateException.class, () -> checkoutRepository.createOrGet(
                 MarketplaceCheckout.start(UUID.randomUUID(), "tenant-a", order.id(), "checkout-saga-1",
-                        "b".repeat(64), now)));
+                        "b".repeat(64), "warehouse-1", now.plusSeconds(900), now)));
     }
 
     private static org.postgresql.ds.PGSimpleDataSource dataSource() {
