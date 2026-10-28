@@ -36,7 +36,7 @@ class LifecycleCheckerTest {
     }
 
     private static Partner p(PartnerId id) {
-        return new Partner(id, id.value(), PartnerRole.PARTNER, true);
+        return new Partner(id, id.value().toString(), PartnerRole.PARTNER, true);
     }
 
     private static List<String> codes(List<LifecycleFinding> f) {
