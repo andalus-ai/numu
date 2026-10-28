@@ -1,9 +1,15 @@
+ALTER TABLE notification_inbox
+    ADD CONSTRAINT notification_inbox_id_tenant_recipient UNIQUE (id, tenant_id, recipient_id);
+
+ALTER TABLE notification_push_device
+    ADD CONSTRAINT notification_push_device_id_tenant_recipient UNIQUE (id, tenant_id, recipient_id);
+
 CREATE TABLE notification_delivery_job (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     recipient_id UUID NOT NULL,
-    notification_id UUID NOT NULL REFERENCES notification_inbox(id),
-    device_id UUID NOT NULL REFERENCES notification_push_device(id),
+    notification_id UUID NOT NULL,
+    device_id UUID NOT NULL,
     provider VARCHAR(40) NOT NULL CHECK (length(btrim(provider)) > 0),
     idempotency_key VARCHAR(240) NOT NULL CHECK (length(btrim(idempotency_key)) > 0),
     status VARCHAR(16) NOT NULL CHECK (status IN ('PENDING', 'IN_FLIGHT', 'RETRY_WAIT', 'DELIVERED', 'DEAD')),
@@ -15,6 +21,12 @@ CREATE TABLE notification_delivery_job (
     delivered_at TIMESTAMPTZ NULL,
     last_error_code VARCHAR(120) NOT NULL DEFAULT '',
     CONSTRAINT notification_delivery_job_idempotency UNIQUE (tenant_id, idempotency_key),
+    CONSTRAINT notification_delivery_job_notification_scope
+        FOREIGN KEY (notification_id, tenant_id, recipient_id)
+        REFERENCES notification_inbox (id, tenant_id, recipient_id),
+    CONSTRAINT notification_delivery_job_device_scope
+        FOREIGN KEY (device_id, tenant_id, recipient_id)
+        REFERENCES notification_push_device (id, tenant_id, recipient_id),
     CONSTRAINT notification_delivery_job_lease_state CHECK (
         (status = 'IN_FLIGHT' AND lease_token IS NOT NULL AND lease_until IS NOT NULL)
         OR (status <> 'IN_FLIGHT' AND lease_token IS NULL AND lease_until IS NULL)
