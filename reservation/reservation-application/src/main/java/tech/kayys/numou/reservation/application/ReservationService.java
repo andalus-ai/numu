@@ -11,6 +11,8 @@ import tech.kayys.numou.reservation.spi.LedgerRepository;
 import tech.kayys.numou.reservation.spi.IdempotentReservationRepository;
 import tech.kayys.numou.reservation.spi.ReservationRepository;
 import tech.kayys.numou.reservation.spi.ResourceDirectoryPort;
+import tech.kayys.numou.reservation.spi.ReservationTransactionContext;
+import tech.kayys.numou.reservation.spi.ReservationTransactionRunner;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -29,6 +31,7 @@ public final class ReservationService {
     private final UnitOfWork uow;
     private final DomainEventSink events;
     private final DomainClock clock;
+    private final ReservationTransactionRunner transactionRunner;
 
     public ReservationService(
             ReservationRepository reservations,
@@ -39,6 +42,19 @@ public final class ReservationService {
             DomainEventSink events,
             DomainClock clock
     ) {
+        this(reservations, ledgers, resourceDirectory, rulesPort, uow, events, clock, null);
+    }
+
+    public ReservationService(
+            ReservationRepository reservations,
+            LedgerRepository ledgers,
+            ResourceDirectoryPort resourceDirectory,
+            BookingRulesPort rulesPort,
+            UnitOfWork uow,
+            DomainEventSink events,
+            DomainClock clock,
+            ReservationTransactionRunner transactionRunner
+    ) {
         this.reservations = Objects.requireNonNull(reservations, "reservations cannot be null");
         this.ledgers = Objects.requireNonNull(ledgers, "ledgers cannot be null");
         this.resourceDirectory = Objects.requireNonNull(resourceDirectory, "resourceDirectory cannot be null");
@@ -46,6 +62,7 @@ public final class ReservationService {
         this.uow = Objects.requireNonNull(uow, "uow cannot be null");
         this.events = Objects.requireNonNull(events, "events cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
+        this.transactionRunner = transactionRunner;
     }
 
     public ReservationService(
@@ -74,9 +91,15 @@ public final class ReservationService {
         return rulesPort.rulesFor(cmd.tenantId(), fId).flatMap(rules ->
                 resourceDirectory.resourcesFor(cmd.tenantId(), fId).flatMap(resList ->
                         ConflictRetry.run(MAX_ATTEMPTS, () ->
-                                uow.execute(() -> doBook(cmd.tenantId(), fId, id, customer, party, cmd.startsAt(),
-                                        cmd.source() == null ? BookingSource.WEB : cmd.source(),
-                                        cmd.notes(), cmd.dietary() == null ? Set.of() : cmd.dietary(), rules, resList))
+                                executeBookingTransaction(
+                                        context -> doBook(cmd.tenantId(), fId, id, customer, party, cmd.startsAt(),
+                                                cmd.source() == null ? BookingSource.WEB : cmd.source(),
+                                                cmd.notes(), cmd.dietary() == null ? Set.of() : cmd.dietary(),
+                                                rules, resList, context),
+                                        () -> doBook(cmd.tenantId(), fId, id, customer, party, cmd.startsAt(),
+                                                cmd.source() == null ? BookingSource.WEB : cmd.source(),
+                                                cmd.notes(), cmd.dietary() == null ? Set.of() : cmd.dietary(),
+                                                rules, resList))
                         ).onFailure(NoAvailabilityException.class).recoverWithUni(f ->
                                 alternatives(cmd.tenantId(), fId, party, cmd.startsAt(), rules, resList).flatMap(alts ->
                                         Uni.<ReservationView>createFrom().failure(new SlotUnavailableException(f.getMessage(), alts)))
@@ -100,16 +123,42 @@ public final class ReservationService {
                                         PartySize party, Instant startsAt, BookingSource source, String notes,
                                         Set<String> requirements, BookingRules rules, List<BookableResource> resList) {
         return doBook(tenantId, facilityId, id, customer, party, startsAt, source, notes, requirements,
-                rules.turnTimeFor(party), Set.of(), rules, resList);
+                rules.turnTimeFor(party), Set.of(), rules, resList, reservations, ledgers, events);
+    }
+
+    private Uni<ReservationView> doBook(UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer,
+                                        PartySize party, Instant startsAt, BookingSource source, String notes,
+                                        Set<String> requirements, BookingRules rules, List<BookableResource> resList,
+                                        ReservationTransactionContext context) {
+        return doBook(tenantId, facilityId, id, customer, party, startsAt, source, notes, requirements,
+                rules.turnTimeFor(party), Set.of(), rules, resList,
+                context.reservations(), context.ledgers(), context.events());
+    }
+
+    private Uni<ReservationView> executeBookingTransaction(
+            java.util.function.Function<ReservationTransactionContext, Uni<ReservationView>> work,
+            java.util.function.Supplier<Uni<ReservationView>> legacyWork) {
+        if (transactionRunner != null) return transactionRunner.execute(work);
+        return uow.execute(legacyWork);
     }
 
     private Uni<ReservationView> doBook(UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer,
                                         PartySize party, Instant startsAt, BookingSource source, String notes,
                                         Set<String> requirements, java.time.Duration requestedDuration,
                                         Set<String> requiredResourceTags, BookingRules rules, List<BookableResource> resList) {
+        return doBook(tenantId, facilityId, id, customer, party, startsAt, source, notes, requirements,
+                requestedDuration, requiredResourceTags, rules, resList, reservations, ledgers, events);
+    }
+
+    private Uni<ReservationView> doBook(UUID tenantId, FacilityId facilityId, ReservationId id, CustomerContact customer,
+                                        PartySize party, Instant startsAt, BookingSource source, String notes,
+                                        Set<String> requirements, java.time.Duration requestedDuration,
+                                        Set<String> requiredResourceTags, BookingRules rules, List<BookableResource> resList,
+                                        ReservationRepository reservationStore, LedgerRepository ledgerStore,
+                                        DomainEventSink eventSink) {
         final var day = startsAt.atZone(rules.zone()).toLocalDate();
         final var now = clock.now();
-        return ledgers.findOrCreate(tenantId, facilityId, day, now).flatMap(ledger -> {
+        return ledgerStore.findOrCreate(tenantId, facilityId, day, now).flatMap(ledger -> {
             if (!ledger.canAccommodate(party, startsAt, requestedDuration, requiredResourceTags, rules, resList)) {
                 throw new NoAvailabilityException("No resource matching capacity and required capabilities at " + startsAt);
             }
@@ -118,9 +167,9 @@ public final class ReservationService {
             final var alloc = ledger.allocate(id, party, startsAt, requestedDuration, requiredResourceTags, rules, resList, now);
             res.assignResources(alloc.resourceIds(), now);
 
-            return reservations.save(tenantId, res)
-                    .flatMap(x -> ledgers.save(tenantId, ledger))
-                    .flatMap(x -> publishEvents(tenantId, res, ledger))
+            return reservationStore.save(tenantId, res)
+                    .flatMap(x -> ledgerStore.save(tenantId, ledger))
+                    .flatMap(x -> publishEvents(eventSink, tenantId, res, ledger))
                     .map(x -> ReservationView.of(res));
         });
     }
@@ -445,11 +494,15 @@ public final class ReservationService {
     }
 
     private Uni<Void> publishEvents(UUID tenantId, ReservationAggregate<?>... aggregates) {
+        return publishEvents(events, tenantId, aggregates);
+    }
+
+    private Uni<Void> publishEvents(DomainEventSink eventSink, UUID tenantId, ReservationAggregate<?>... aggregates) {
         final var allEvents = new ArrayList<DomainEvent>();
         for (ReservationAggregate<?> agg : aggregates) {
             allEvents.addAll(agg.pullDomainEvents());
         }
-        return allEvents.isEmpty() ? Uni.createFrom().voidItem() : events.publish(tenantId, allEvents);
+        return allEvents.isEmpty() ? Uni.createFrom().voidItem() : eventSink.publish(tenantId, allEvents);
     }
 
     @FunctionalInterface
