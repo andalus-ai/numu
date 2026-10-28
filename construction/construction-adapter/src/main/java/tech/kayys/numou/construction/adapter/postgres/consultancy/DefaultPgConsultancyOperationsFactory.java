@@ -8,6 +8,9 @@ import tech.kayys.numou.construction.adapter.postgres.idempotency.PgConsultancyO
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagement;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementStatus;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableStatus;
 import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
 
 import java.util.Objects;
@@ -88,6 +91,23 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
                     consultant_organization_id, engagement_number, title, scope_statement,
                     scope_revision, status, cancellation_reason
                 """;
+        private static final String INSERT_DELIVERABLE = """
+                INSERT INTO construction_consultancy_deliverable
+                    (tenant_id, deliverable_id, engagement_id, client_organization_id,
+                     consultant_organization_id, code, title, description, revision, status,
+                     reviewed_by_organization_id, review_comment, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())
+                RETURNING tenant_id, deliverable_id, engagement_id, client_organization_id,
+                    consultant_organization_id, code, title, description, revision, status,
+                    reviewed_by_organization_id, review_comment
+                """;
+        private static final String SELECT_DELIVERABLE_BY_ID = """
+                SELECT tenant_id, deliverable_id, engagement_id, client_organization_id,
+                    consultant_organization_id, code, title, description, revision, status,
+                    reviewed_by_organization_id, review_comment
+                  FROM construction_consultancy_deliverable
+                 WHERE tenant_id = $1 AND deliverable_id = $2
+                """;
         private final SqlConnection connection;
 
         private Operations(SqlConnection connection) { this.connection = connection; }
@@ -113,6 +133,37 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
             Objects.requireNonNull(id, "engagementId");
             return connection.preparedQuery(SELECT_BY_ID).execute(Tuple.of(tenantId, id.value())).map(rows ->
                     rows.iterator().hasNext() ? Optional.of(map(rows.iterator().next())) : Optional.empty());
+        }
+
+        @Override
+        public Uni<ConsultancyDeliverable> saveDeliverable(
+                String tenantId, ConsultancyDeliverable deliverable) {
+            requireText(tenantId, "tenantId");
+            Objects.requireNonNull(deliverable, "deliverable");
+            return connection.preparedQuery(INSERT_DELIVERABLE).execute(Tuple.of(
+                    tenantId, deliverable.id().value(), deliverable.engagementId().value(),
+                    deliverable.clientOrganizationId(), deliverable.consultantOrganizationId(),
+                    deliverable.code(), deliverable.title(), deliverable.description(),
+                    deliverable.revision(), deliverable.status().name(),
+                    deliverable.reviewedByOrganizationId(), deliverable.reviewComment()))
+                    .map(rows -> {
+                        if (!rows.iterator().hasNext()) {
+                            throw new IllegalStateException("Deliverable insert returned no row");
+                        }
+                        return mapDeliverable(rows.iterator().next());
+                    });
+        }
+
+        @Override
+        public Uni<Optional<ConsultancyDeliverable>> findDeliverable(
+                String tenantId, ConsultancyDeliverableId id) {
+            requireText(tenantId, "tenantId");
+            Objects.requireNonNull(id, "deliverableId");
+            return connection.preparedQuery(SELECT_DELIVERABLE_BY_ID)
+                    .execute(Tuple.of(tenantId, id.value()))
+                    .map(rows -> rows.iterator().hasNext()
+                            ? Optional.of(mapDeliverable(rows.iterator().next()))
+                            : Optional.empty());
         }
 
         /**
@@ -159,6 +210,23 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
                     row.getString("scope_statement"), row.getInteger("scope_revision"),
                     ConsultancyEngagementStatus.valueOf(row.getString("status")),
                     row.getString("cancellation_reason"));
+        }
+
+        private static ConsultancyDeliverable mapDeliverable(Row row) {
+            String tenantId = row.getString("tenant_id");
+            if (tenantId == null || tenantId.isBlank()) {
+                throw new IllegalStateException("Persisted deliverable has no tenant");
+            }
+            return ConsultancyDeliverable.reconstitute(
+                    ConsultancyDeliverableId.of(row.getUUID("deliverable_id")),
+                    tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId
+                            .of(row.getUUID("engagement_id")),
+                    row.getUUID("client_organization_id"),
+                    row.getUUID("consultant_organization_id"),
+                    row.getString("code"), row.getString("title"), row.getString("description"),
+                    row.getInteger("revision"),
+                    ConsultancyDeliverableStatus.valueOf(row.getString("status")),
+                    row.getUUID("reviewed_by_organization_id"), row.getString("review_comment"));
         }
 
         private static void requireText(String value, String name) {
