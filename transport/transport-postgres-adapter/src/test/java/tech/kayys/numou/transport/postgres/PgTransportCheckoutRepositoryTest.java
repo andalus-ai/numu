@@ -88,8 +88,10 @@ class PgTransportCheckoutRepositoryTest {
         repository.create(tenantA);
         repository.create(tenantB);
 
-        assertThat(repository.findByIdempotencyKey("tenant-a", "same-key")).contains(tenantA);
-        assertThat(repository.findByIdempotencyKey("tenant-b", "same-key")).contains(tenantB);
+        assertThat(repository.findByIdempotencyKey("tenant-a", "same-key").orElseThrow().checkoutId())
+                .isEqualTo(tenantA.checkoutId());
+        assertThat(repository.findByIdempotencyKey("tenant-b", "same-key").orElseThrow().checkoutId())
+                .isEqualTo(tenantB.checkoutId());
         assertThat(repository.find("tenant-b", tenantA.checkoutId())).isEmpty();
 
         TransportCheckout updated = tenantA.withHold(tenantA.holdId(), NOW.plusSeconds(1));
