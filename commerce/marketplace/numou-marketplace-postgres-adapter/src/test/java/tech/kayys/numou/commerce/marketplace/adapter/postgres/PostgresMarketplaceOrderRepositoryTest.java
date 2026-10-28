@@ -11,6 +11,8 @@ import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrderLine;
 import tech.kayys.numou.commerce.marketplace.domain.MarketplaceOrderStatus;
 import tech.kayys.numou.commerce.marketplace.application.MarketplaceOrderRequestFingerprint;
 import tech.kayys.numou.commerce.marketplace.application.MarketplaceOrderIdempotencyConflictException;
+import tech.kayys.numou.commerce.marketplace.application.checkout.MarketplaceCheckout;
+import tech.kayys.numou.commerce.marketplace.application.checkout.MarketplaceCheckoutStatus;
 
 import javax.sql.DataSource;
 import java.io.InputStream;
@@ -48,6 +50,8 @@ class PostgresMarketplaceOrderRepositoryTest {
             assertNotNull(migration, "marketplace migration must be packaged");
             String sql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
             try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE IF EXISTS marketplace_checkout_reservation CASCADE");
+                statement.execute("DROP TABLE IF EXISTS marketplace_checkout CASCADE");
                 statement.execute("DROP TABLE IF EXISTS marketplace_order_idempotency CASCADE");
                 statement.execute("DROP TABLE IF EXISTS marketplace_order_line CASCADE");
                 statement.execute("DROP TABLE IF EXISTS marketplace_order CASCADE");
@@ -59,6 +63,14 @@ class PostgresMarketplaceOrderRepositoryTest {
                     assertNotNull(secondMigration, "idempotency migration must be packaged");
                     String secondSql = new String(secondMigration.readAllBytes(), StandardCharsets.UTF_8);
                     for (String command : secondSql.split(";")) {
+                        if (!command.isBlank()) statement.execute(command);
+                    }
+                }
+                try (InputStream thirdMigration = getClass().getResourceAsStream(
+                        "/db/migration/V3__marketplace_checkout_saga.sql")) {
+                    assertNotNull(thirdMigration, "checkout saga migration must be packaged");
+                    String thirdSql = new String(thirdMigration.readAllBytes(), StandardCharsets.UTF_8);
+                    for (String command : thirdSql.split(";")) {
                         if (!command.isBlank()) statement.execute(command);
                     }
                 }
@@ -95,6 +107,38 @@ class PostgresMarketplaceOrderRepositoryTest {
                 "a replay must not persist the newly proposed duplicate order");
         assertThrows(MarketplaceOrderIdempotencyConflictException.class, () ->
                 repository.createOrGet("tenant-a", "checkout-1", "0".repeat(64), order()));
+    }
+
+    @Test
+    void persistsCheckoutCheckpointsAndUsesVersionedCompareAndSet() {
+        MarketplaceOrder order = order();
+        repository.create(order);
+        var checkoutRepository = new PostgresMarketplaceCheckoutRepository(dataSource());
+        Instant now = Instant.parse("2026-10-28T00:00:00Z");
+        MarketplaceCheckout proposed = MarketplaceCheckout.start(UUID.randomUUID(), "tenant-a", order.id(),
+                "checkout-saga-1", "a".repeat(64), now);
+
+        MarketplaceCheckout created = checkoutRepository.createOrGet(proposed);
+        MarketplaceCheckout withReservation = created.recordReservation("line-1", "reservation-1", now.plusSeconds(1));
+        assertTrue(checkoutRepository.saveIfVersion("tenant-a", created.id(), 0, withReservation));
+        MarketplaceCheckout loaded = checkoutRepository.findByTenantAndId("tenant-a", created.id()).orElseThrow();
+
+        assertEquals(1, loaded.version());
+        assertEquals(MarketplaceCheckoutStatus.RESERVING_INVENTORY, loaded.status());
+        assertEquals("reservation-1", loaded.reservationIds().get("line-1"));
+        assertTrue(checkoutRepository.findByTenantAndId("tenant-b", created.id()).isEmpty());
+        assertFalse(checkoutRepository.saveIfVersion("tenant-a", created.id(), 0, withReservation));
+        assertThrows(IllegalStateException.class, () -> checkoutRepository.createOrGet(
+                MarketplaceCheckout.start(UUID.randomUUID(), "tenant-a", order.id(), "checkout-saga-1",
+                        "b".repeat(64), now)));
+    }
+
+    private static org.postgresql.ds.PGSimpleDataSource dataSource() {
+        var source = new org.postgresql.ds.PGSimpleDataSource();
+        source.setURL(POSTGRES.getJdbcUrl());
+        source.setUser(POSTGRES.getUsername());
+        source.setPassword(POSTGRES.getPassword());
+        return source;
     }
 
     @Test
