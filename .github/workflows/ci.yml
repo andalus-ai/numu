@@ -253,6 +253,12 @@ jobs:
           cache: maven
       - name: Install framework parent POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Install finance parent POMs for payment API contract
+        run: |
+          mvn -B -ntp -N -f finance/pom.xml install
+          mvn -B -ntp -N -f finance/payment/pom.xml install
+      - name: Install public payment API contract
+        run: mvn -B -ntp -f finance/payment/numou-payment-api/pom.xml install
       - name: Verify marketplace domain, application, PostgreSQL persistence, and checkout saga
         run: mvn -B -ntp -f commerce/marketplace/pom.xml verify
       - name: Upload marketplace Maven test reports

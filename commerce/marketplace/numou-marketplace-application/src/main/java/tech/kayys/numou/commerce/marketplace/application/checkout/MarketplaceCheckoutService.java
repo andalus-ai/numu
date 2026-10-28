@@ -95,6 +95,9 @@ public final class MarketplaceCheckoutService {
                 payment = payments.find(tenantId, checkout.paymentId())
                         .orElseThrow(() -> new IllegalStateException("Payment operation not found for persisted checkout"));
             }
+        } catch (MarketplaceCheckoutPaymentPort.PaymentRejectedException rejected) {
+            return compensateKnownReservations(checkout, "PAYMENT_CREATION_REJECTED",
+                    "Payment capability rejected the obligation; known reservations are being released");
         } catch (RuntimeException uncertain) {
             return save(checkout, checkout.reconciliationRequired(
                     "PAYMENT_OUTCOME_UNKNOWN", "Payment call outcome is uncertain; reservations retained for reconciliation",
@@ -131,18 +134,6 @@ public final class MarketplaceCheckoutService {
                         "RESERVATION_OUTCOME_UNKNOWN",
                         "Reservation command outcome is uncertain; inventory must reconcile before payment",
                         clock.instant()));
-            }
-            MarketplaceCheckout next = checkout.recordReservation(line.lineId(), recovered.get(), clock.instant());
-                        checkout = save(checkout, next);
-                    }
-                } catch (RuntimeException recoveryFailure) {
-                    return save(checkout, checkout.reconciliationRequired(
-                            "RESERVATION_OUTCOME_UNKNOWN",
-                            "Reservation outcome is uncertain; retry/reconcile using the same command key",
-                            clock.instant()));
-                }
-                return compensateKnownReservations(checkout, "INVENTORY_RESERVATION_FAILED",
-                        "Inventory reservation failed; known reservations are being released");
             }
             MarketplaceCheckout next = checkout.recordReservation(line.lineId(), reservationId, clock.instant());
             checkout = save(checkout, next);
@@ -183,6 +174,9 @@ public final class MarketplaceCheckoutService {
                         order.id().toString(), total(order), order.currency());
                 MarketplaceCheckout resumed = save(checkout, checkout.awaitingPayment(payment.paymentId(), clock.instant()));
                 return applyPaymentResult(tenantId, resumed, payment);
+            } catch (MarketplaceCheckoutPaymentPort.PaymentRejectedException rejected) {
+                return compensateKnownReservations(checkout, "PAYMENT_CREATION_REJECTED",
+                        "Payment capability rejected the obligation during reconciliation; known reservations are being released");
             } catch (RuntimeException uncertain) {
                 return checkout;
             }

@@ -87,9 +87,15 @@ are absent. Quarkus Dev Services requires Docker; alternatively configure a reac
 PostgreSQL test endpoint. The normal test profile excludes `*IntegrationTest` so a plain
 unit build does not silently depend on Docker.
 
-This is a first persistence-boundary proof, not yet an end-to-end `ReservationService`
+The rollback scenario is a persistence-boundary proof, not an end-to-end `ReservationService`
 integration test: it exercises the runner's low-level transaction callback and uses SQL
-fixtures for the reservation/ledger/idempotency writes. The remaining acceptance criteria
-above still require tests through the transaction-scoped repositories and application
-service, including concurrent idempotency and capacity allocation.
+fixtures for the reservation/ledger/idempotency writes. The integration suite now also
+exercises `PgReservationRepository.saveIdempotently` through transaction-scoped repositories
+under concurrent same-key/same-fingerprint and same-key/different-fingerprint requests.
+Those tests assert one canonical reservation is persisted and a conflicting fingerprint is
+rejected. They still require execution against PostgreSQL before being treated as verified.
+
+Remaining acceptance criteria include a full `ReservationService` integration path, capacity
+allocation races with overlapping booking windows, runtime composition-root wiring, and
+outbox relay lease/retry/dead-letter recovery.
 
