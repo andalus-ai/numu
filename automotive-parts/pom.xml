@@ -13,5 +13,9 @@
     <packaging>pom</packaging>
     <name>Numou Automotive Parts</name>
     <description>Automotive-specific part references, vehicle fitment and substitution policies.</description>
-    <modules><module>automotive-parts-domain</module></modules>
+    <modules>
+        <module>automotive-parts-domain</module>
+        <module>automotive-parts-spi</module>
+        <module>automotive-parts-application</module>
+    </modules>
 </project>
