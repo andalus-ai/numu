@@ -51,9 +51,14 @@ public final class JdbcNotificationRepository implements NotificationRepository 
                 else statement.setTimestamp(10, Timestamp.from(notification.readAt()));
                 statement.executeUpdate();
             }
-            return findByIdempotencyKey(connection, notification.tenantId(),
+            Notification canonical = findByIdempotencyKey(connection, notification.tenantId(),
                     notification.recipientId(), notification.idempotencyKey())
                     .orElseThrow(() -> new SQLException("notification insert/read-back invariant failed"));
+            if (!sameRequest(canonical, notification)) {
+                throw new IdempotencyConflictException(
+                        "idempotency key was already used for a different notification request");
+            }
+            return canonical;
         } catch (SQLException e) {
             throw persistenceFailure("create notification", e);
         }
@@ -120,6 +125,15 @@ public final class JdbcNotificationRepository implements NotificationRepository 
         } catch (SQLException e) {
             throw persistenceFailure("mark notification read", e);
         }
+    }
+
+    private static boolean sameRequest(Notification a, Notification b) {
+        return a.tenantId().equals(b.tenantId())
+                && a.recipientId().equals(b.recipientId())
+                && a.type().equals(b.type())
+                && a.title().equals(b.title())
+                && a.body().equals(b.body())
+                && a.sourceReference().equals(b.sourceReference());
     }
 
     private Optional<Notification> findByIdempotencyKey(
