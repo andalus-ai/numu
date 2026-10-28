@@ -101,7 +101,7 @@ public class PostgresMarketplaceCheckoutRepository implements MarketplaceCheckou
                      SELECT checkout_id
                      FROM marketplace_checkout
                      WHERE tenant_id = ?
-                       AND checkout_status IN ('AWAITING_PAYMENT', 'RECONCILIATION_REQUIRED', 'COMPENSATION_REQUIRED')
+                       AND checkout_status IN ('RESERVING_INVENTORY', 'AWAITING_PAYMENT', 'RECONCILIATION_REQUIRED', 'COMPENSATION_REQUIRED')
                      ORDER BY updated_at ASC, checkout_id ASC
                      LIMIT ?
                      """)) {
