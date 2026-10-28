@@ -36,6 +36,28 @@ class ConsultancyDeliverableTest {
     }
 
     @Test
+    void reconstitutionRestoresReviewStateAndRejectsInconsistentReviewMetadata() {
+        var engagementId = ConsultancyEngagementId.generate();
+        var client = UUID.randomUUID();
+        var consultant = UUID.randomUUID();
+        var id = ConsultancyDeliverableId.generate();
+        var restored = ConsultancyDeliverable.reconstitute(id, engagementId, client, consultant,
+                "D-02", "Structural report", "Signed structural report", 3,
+                ConsultancyDeliverableStatus.REJECTED, client, "Missing calculation appendix");
+
+        assertThat(restored.id()).isEqualTo(id);
+        assertThat(restored.engagementId()).isEqualTo(engagementId);
+        assertThat(restored.revision()).isEqualTo(3);
+        assertThat(restored.status()).isEqualTo(ConsultancyDeliverableStatus.REJECTED);
+        assertThat(restored.reviewedByOrganizationId()).isEqualTo(client);
+        assertThat(restored.reviewComment()).isEqualTo("Missing calculation appendix");
+        assertThatThrownBy(() -> ConsultancyDeliverable.reconstitute(id, engagementId, client, consultant,
+                "D-02", "Structural report", "Signed structural report", 3,
+                ConsultancyDeliverableStatus.REJECTED, consultant, "Wrong reviewer"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void clientAndConsultantMustBeDifferentOrganizations() {
         var organization = UUID.randomUUID();
 
