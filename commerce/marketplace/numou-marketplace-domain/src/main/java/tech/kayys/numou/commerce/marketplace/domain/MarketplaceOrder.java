@@ -54,6 +54,18 @@ public final class MarketplaceOrder {
                 MarketplaceOrderStatus.CREATED, null);
     }
 
+    /**
+     * Reconstitutes a persisted aggregate without replaying lifecycle commands.
+     * Persistence adapters must still validate tenant scope and stored data integrity.
+     */
+    public static MarketplaceOrder reconstitute(UUID id, String tenantId, String buyerId,
+                                                 List<MarketplaceOrderLine> lines, String currency,
+                                                 Instant createdAt, Instant updatedAt,
+                                                 MarketplaceOrderStatus status, String cancellationReason) {
+        return new MarketplaceOrder(id, tenantId, buyerId, lines, currency,
+                createdAt, updatedAt, status, cancellationReason);
+    }
+
     public MarketplaceOrder submit(Instant now) {
         requireStatus(MarketplaceOrderStatus.CREATED);
         return revise(MarketplaceOrderStatus.SUBMITTED, now, null);
