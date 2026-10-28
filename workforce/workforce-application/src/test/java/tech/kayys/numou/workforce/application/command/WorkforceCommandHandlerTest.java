@@ -14,6 +14,7 @@ import tech.kayys.numou.workforce.domain.position.PositionAssignment;
 import tech.kayys.numou.workforce.domain.position.PositionAssignmentId;
 import tech.kayys.numou.workforce.domain.position.PositionId;
 import tech.kayys.numou.foundation.domain.ref.PersonRef;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.workforce.domain.worker.Worker;
 import tech.kayys.numou.workforce.domain.worker.WorkerId;
 import tech.kayys.numou.workforce.domain.worker.WorkerStatus;
@@ -68,7 +69,7 @@ class WorkforceCommandHandlerTest {
     @Test
     void shouldRegisterWorkerAndPublishEvent() {
         var personId = UUID.randomUUID();
-        var command = new RegisterWorkerCommand(personId, WorkerType.EMPLOYEE, "admin-1");
+        var command = new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.EMPLOYEE, "admin-1");
 
         var result = registerWorkerHandler.handle(command).await().indefinitely();
         assertThat(result.isSuccess()).isTrue();
@@ -128,8 +129,9 @@ class WorkforceCommandHandlerTest {
         private final Map<WorkerId, Worker> map = new ConcurrentHashMap<>();
         @Override public CompletionStage<Worker> save(Worker w) { map.put(w.id(), w); return CompletableFuture.completedFuture(w); }
         @Override public CompletionStage<Optional<Worker>> findById(WorkerId id) { return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id))); }
-        @Override public CompletionStage<Optional<Worker>> findByPersonRef(PersonRef p) {
-            return CompletableFuture.completedFuture(map.values().stream().filter(w -> w.person().equals(p)).findFirst());
+        @Override public CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef p) {
+            return CompletableFuture.completedFuture(map.values().stream()
+                    .filter(w -> w.tenantId().equals(tenantId) && w.person().equals(p)).findFirst());
         }
         @Override public CompletionStage<Boolean> existsById(WorkerId id) { return CompletableFuture.completedFuture(map.containsKey(id)); }
         @Override public CompletionStage<Void> delete(Worker w) { map.remove(w.id()); return CompletableFuture.completedFuture(null); }
