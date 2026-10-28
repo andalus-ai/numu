@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Map;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,6 +26,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tech.kayys.payment.api.CreatePaymentObligation;
 import tech.kayys.payment.api.PaymentApplicationPort.IdempotencyConflictException;
 import tech.kayys.payment.api.RefundStatus;
+import tech.kayys.payment.api.PaymentStatus;
+import tech.kayys.payment.api.VerifiedPaymentOutcome;
 import tech.kayys.payment.api.RequestPaymentRefund;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -61,9 +64,25 @@ class PostgresPaymentApplicationAdapterTest {
             String sql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
             try (Connection connection = dataSource.getConnection();
                  Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE IF EXISTS payment_provider_event_inbox CASCADE");
                 statement.execute("DROP TABLE IF EXISTS payment_operation_outbox CASCADE");
                 statement.execute("DROP TABLE IF EXISTS payment_refund_operation CASCADE");
                 statement.execute("DROP TABLE IF EXISTS payment_obligation CASCADE");
+                for (String command : sql.split(";")) {
+                    if (!command.isBlank()) {
+                        statement.execute(command);
+                    }
+                }
+            }
+        }
+        try (InputStream migration = getClass().getResourceAsStream(
+                "/db/migration/V2__verified_payment_outcome_inbox.sql")) {
+            if (migration == null) {
+                throw new IllegalStateException("Verified payment event inbox migration was not packaged");
+            }
+            String sql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
+            try (Connection connection = dataSource.getConnection();
+                 Statement statement = connection.createStatement()) {
                 for (String command : sql.split(";")) {
                     if (!command.isBlank()) {
                         statement.execute(command);
@@ -77,6 +96,66 @@ class PostgresPaymentApplicationAdapterTest {
     void tearDown() throws InterruptedException {
         callers.shutdownNow();
         assertThat(callers.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    void verifiedSuccessIsTenantScopedTransactionalAndIdempotent() throws Exception {
+        var payment = adapter.createOrGet(command("tenant-outcome", "order-outcome", "payment-key", "120.00"));
+        VerifiedPaymentOutcome outcome = new VerifiedPaymentOutcome(
+                "tenant-outcome", payment.paymentId(), "test-provider", "evt-success-1",
+                "provider-ref-1", new BigDecimal("120.00"), "IDR", PaymentStatus.SUCCEEDED,
+                Instant.parse("2026-10-28T01:00:00Z"));
+
+        var applied = adapter.applyVerifiedOutcome(outcome);
+        var replay = adapter.applyVerifiedOutcome(outcome);
+
+        assertThat(applied.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+        assertThat(replay.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+        assertThat(count("payment_provider_event_inbox")).isEqualTo(1);
+        assertThat(count("payment_operation_outbox")).isEqualTo(2);
+    }
+
+    @Test
+    void verifiedOutcomeMustMatchAmountAndCurrencyBeforeItIsRecorded() throws Exception {
+        var payment = adapter.createOrGet(command("tenant-mismatch", "order-mismatch", "payment-key", "120.00"));
+        VerifiedPaymentOutcome outcome = new VerifiedPaymentOutcome(
+                "tenant-mismatch", payment.paymentId(), "test-provider", "evt-wrong-amount",
+                "provider-ref-2", new BigDecimal("119.00"), "IDR", PaymentStatus.SUCCEEDED,
+                Instant.parse("2026-10-28T01:00:00Z"));
+
+        assertThatThrownBy(() -> adapter.applyVerifiedOutcome(outcome))
+                .isInstanceOf(tech.kayys.payment.api.PaymentApplicationPort.PaymentOperationRejectedException.class);
+        assertThat(adapter.find("tenant-mismatch", payment.paymentId()).orElseThrow().status())
+                .isEqualTo(PaymentStatus.CREATED);
+        assertThat(count("payment_provider_event_inbox")).isEqualTo(0);
+        assertThat(count("payment_operation_outbox")).isEqualTo(1);
+    }
+
+    @Test
+    void lateSuccessAfterExpiryCreatesReconciliationEventInsteadOfNormalSuccessEvent() throws Exception {
+        var payment = adapter.createOrGet(command("tenant-late", "order-late", "payment-key", "120.00"));
+        adapter.applyVerifiedOutcome(new VerifiedPaymentOutcome(
+                "tenant-late", payment.paymentId(), "test-provider", "evt-expired",
+                "provider-ref-3", new BigDecimal("120.00"), "IDR", PaymentStatus.EXPIRED,
+                Instant.parse("2026-10-28T01:00:00Z")));
+
+        var result = adapter.applyVerifiedOutcome(new VerifiedPaymentOutcome(
+                "tenant-late", payment.paymentId(), "test-provider", "evt-late-success",
+                "provider-ref-3", new BigDecimal("120.00"), "IDR", PaymentStatus.SUCCEEDED,
+                Instant.parse("2026-10-28T01:01:00Z")));
+
+        assertThat(result.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("""
+                     SELECT COUNT(*) FROM payment_operation_outbox
+                     WHERE tenant_id = ? AND event_type = 'PAYMENT_LATE_SUCCESS_REQUIRES_RECONCILIATION'
+                     """)) {
+            statement.setString(1, "tenant-late");
+            try (ResultSet rows = statement.executeQuery()) {
+                rows.next();
+                assertThat(rows.getLong(1)).isEqualTo(1);
+            }
+        }
     }
 
     @Test
