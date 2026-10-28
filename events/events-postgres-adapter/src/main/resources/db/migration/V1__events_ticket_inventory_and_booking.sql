@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS event_ticket_booking (
     CHECK (updated_at >= created_at)
 );
 
--- Reserve the key first in the same transaction; deferred FK allows the booking to be inserted next.
+-- Reserve the key first in the same transaction. The deferred FK allows the booking to be inserted next.
 CREATE TABLE IF NOT EXISTS event_ticket_idempotency (
     tenant_id           VARCHAR(128) NOT NULL,
     idempotency_key     VARCHAR(200) NOT NULL,
