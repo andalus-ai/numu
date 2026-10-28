@@ -1,13 +1,13 @@
 package tech.kayys.numou.transport.payment;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.numou.payment.api.CreatePaymentObligation;
-import tech.kayys.numou.payment.api.PaymentApplicationPort;
-import tech.kayys.numou.payment.api.PaymentObligation;
-import tech.kayys.numou.payment.api.PaymentStatus;
-import tech.kayys.numou.payment.api.RefundOperation;
-import tech.kayys.numou.payment.api.RequestPaymentRefund;
-import tech.kayys.numou.payment.api.VerifiedPaymentOutcome;
+import tech.kayys.payment.api.CreatePaymentObligation;
+import tech.kayys.payment.api.PaymentApplicationPort;
+import tech.kayys.payment.api.PaymentObligation;
+import tech.kayys.payment.api.PaymentStatus;
+import tech.kayys.payment.api.RefundOperation;
+import tech.kayys.payment.api.RequestPaymentRefund;
+import tech.kayys.payment.api.VerifiedPaymentOutcome;
 import tech.kayys.numou.transport.spi.TransportPaymentPort;
 
 import java.math.BigDecimal;
