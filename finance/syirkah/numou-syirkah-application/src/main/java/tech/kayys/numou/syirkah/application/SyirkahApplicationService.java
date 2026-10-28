@@ -39,16 +39,24 @@ public class SyirkahApplicationService {
     private final TransactionPort tx;
     private final SyirkahAccountMap accounts;
     private final Clock clock;
+    private final FormationEnforcement enforcement;
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
                                      EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
                                      Clock clock) {
+        this(repository, journal, events, tx, accounts, clock, FormationEnforcement.OFF);
+    }
+
+    public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
+                                     EventPublisherPort events, TransactionPort tx, SyirkahAccountMap accounts,
+                                     Clock clock, FormationEnforcement enforcement) {
         this.repository = Objects.requireNonNull(repository);
         this.journal = Objects.requireNonNull(journal);
         this.events = Objects.requireNonNull(events);
         this.tx = Objects.requireNonNull(tx);
         this.accounts = Objects.requireNonNull(accounts);
         this.clock = Objects.requireNonNull(clock);
+        this.enforcement = Objects.requireNonNull(enforcement, "enforcement");
     }
 
     public SyirkahApplicationService(SyirkahRepository repository, JournalPostingPort journal,
@@ -57,6 +65,14 @@ public class SyirkahApplicationService {
     }
 
     public Syirkah open(Commands.Open c) {
+        if (enforcement == FormationEnforcement.REQUIRED) {
+            throw new BusinessRuleViolation(
+                    "akad formation checks are required; open the syirkah with openWithFormation");
+        }
+        return openChecked(c);
+    }
+
+    private Syirkah openChecked(Commands.Open c) {
         return tx.inTransaction(() -> {
             if (repository.find(c.tenant(), c.id()).isPresent()) {
                 throw new BusinessRuleViolation("syirkah already exists: " + c.id().value());
@@ -71,13 +87,13 @@ public class SyirkahApplicationService {
      * Opens a syirkah only if the akad was validly formed and properly written (Hukum Muamalah Bab X, XI, XVIII;
      * see {@link AkadFormationChecker}). Nothing is created when any finding exists.
      *
-     * <p>{@link #open(Commands.Open)} is unchanged and does not run these checks, so callers that must enforce
-     * the formation rules have to use this method; closing the plain path is a compatibility decision for the
-     * roadmap (gate B).
+     * <p>{@link #open(Commands.Open)} does not run these checks unless the service is built with
+     * {@link FormationEnforcement#REQUIRED}, in which case it refuses and this method is the only way in
+     * (roadmap gate B). The default stays {@code OFF} so existing callers are not broken.
      */
     public Syirkah openWithFormation(Commands.Open c, AkadFormation formation, FormationPolicy policy) {
         AkadFormationChecker.requirePassing(c.contract(), formation, policy);
-        return open(c);
+        return openChecked(c);
     }
 
     public CloseSnapshot closePeriod(Commands.ClosePeriod c) {

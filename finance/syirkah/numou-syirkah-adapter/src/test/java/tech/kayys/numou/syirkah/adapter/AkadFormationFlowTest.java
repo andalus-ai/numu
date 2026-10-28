@@ -9,13 +9,16 @@ import tech.kayys.numou.numouadapter.memory.CollectingEventPublisher;
 import tech.kayys.numou.numouadapter.memory.InMemoryJournalPostingPort;
 import tech.kayys.numou.numouadapter.memory.InMemorySyirkahRepository;
 import tech.kayys.numou.numouadapter.memory.LocalTransactionPort;
+import tech.kayys.numou.numouapplication.FormationEnforcement;
 import tech.kayys.numou.numouapplication.SyirkahAccountMap;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.command.Commands;
 import tech.kayys.numou.numoudomain.*;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -81,5 +84,19 @@ class AkadFormationFlowTest {
                         FormationPolicy.bookDefault()));
         assertTrue(e.getMessage().contains("SESSION_NOT_UNIFIED"));
         assertEquals(false, repo.find(tenant, id).isPresent());
+    }
+
+    @Test
+    void whenEnforcementIsRequiredPlainOpenIsRefusedAndOnlyFormationOpenWorks() {
+        SyirkahApplicationService strict = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), new LocalTransactionPort(), accounts, Clock.system(ZoneOffset.UTC),
+                FormationEnforcement.REQUIRED);
+        SyirkahId plain = SyirkahId.generate();
+        assertThrows(BusinessRuleViolation.class, () -> strict.open(new Commands.Open(tenant, plain, contract(), 0)));
+        assertEquals(false, repo.find(tenant, plain).isPresent());
+        SyirkahId checked = SyirkahId.generate();
+        strict.openWithFormation(new Commands.Open(tenant, checked, contract(), 0), formation(true),
+                FormationPolicy.bookDefault());
+        assertTrue(repo.find(tenant, checked).isPresent());
     }
 }
