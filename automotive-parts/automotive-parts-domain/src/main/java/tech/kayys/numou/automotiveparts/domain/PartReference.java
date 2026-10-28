@@ -26,6 +26,6 @@ public record PartReference(PartReferenceType type, String value, String issuer,
     }
 
     private static String normalizeOptional(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+        return value == null || value.isBlank() ? null : value.trim().toUpperCase(Locale.ROOT);
     }
 }
