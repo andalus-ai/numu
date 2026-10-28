@@ -109,6 +109,7 @@ class TransportCheckoutServiceTest {
         assertThat(result.attempted()).isEqualTo(1);
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.failed()).isZero();
+        assertThat(result.failedCheckoutIds()).isEmpty();
         TransportCheckout refreshed = checkouts.find("tenant-1", checkout.checkoutId()).orElseThrow();
         assertThat(refreshed.updatedAt()).isEqualTo(clock.instant());
         assertThat(refreshed.version()).isGreaterThan(checkout.version());
