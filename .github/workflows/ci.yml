@@ -142,8 +142,12 @@ jobs:
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
         run: mvn -B -ntp -f quantity/pom.xml install
-      - name: Verify purchasing domain, SPI, and application contracts
-        run: mvn -B -ntp -f supply/purchasing/pom.xml verify
+      - name: Install supply parent POM for cross-reactor consumers
+        run: mvn -B -ntp -N -f supply/pom.xml install
+      - name: Verify and install purchasing contracts for integration consumers
+        run: mvn -B -ntp -f supply/purchasing/pom.xml install
+      - name: Verify workshop parts purchasing integration
+        run: mvn -B -ntp -f automotive-parts-purchasing/pom.xml verify
       - name: Verify supply-chain reactor
         run: mvn -B -ntp -f supply/pom.xml verify
       - name: Verify Courier/Cargo reactor

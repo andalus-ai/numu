@@ -31,6 +31,8 @@ class MarketplaceCheckoutServiceTest {
         assertEquals(MarketplaceCheckoutStatus.READY_FOR_FULFILLMENT, result.status());
         assertEquals(1, f.inventory.reservations.size());
         assertEquals("payment-1", result.paymentId());
+        assertEquals("warehouse-1", result.warehouseReference());
+        assertEquals(NOW.plusSeconds(900), result.reservationExpiresAt());
         assertTrue(f.inventory.released.isEmpty());
     }
 
@@ -75,6 +77,22 @@ class MarketplaceCheckoutServiceTest {
         assertEquals(1, report.reconciliationRequired());
         assertEquals(0, report.errors());
         assertTrue(f.inventory.released.isEmpty());
+    }
+
+    @Test
+    void recoveryResumesInventoryReservationFromPersistedRequestSnapshot() {
+        Fixture f = new Fixture(MarketplaceCheckoutPaymentPort.PaymentState.SUCCEEDED, false);
+        MarketplaceCheckout interrupted = MarketplaceCheckout.start(UUID.randomUUID(), "tenant-a", f.order.id(),
+                "crash-recovery", "a".repeat(64), "warehouse-1", NOW.plusSeconds(900), NOW);
+        f.checkouts.createOrGet(interrupted);
+
+        MarketplaceCheckout recovered = f.service.recoverCheckout("tenant-a", interrupted.id());
+
+        assertEquals(MarketplaceCheckoutStatus.READY_FOR_FULFILLMENT, recovered.status());
+        assertEquals("warehouse-1", recovered.warehouseReference());
+        assertEquals(NOW.plusSeconds(900), recovered.reservationExpiresAt());
+        assertEquals(1, f.inventory.reservations.size());
+        assertEquals(1, f.payments.createCalls);
     }
 
     @Test
@@ -182,7 +200,8 @@ class MarketplaceCheckoutServiceTest {
         @Override public List<MarketplaceCheckout> findRecoverable(String tenant, int limit) {
             return byId.values().stream()
                     .filter(c -> c.tenantId().equals(tenant))
-                    .filter(c -> c.status() == MarketplaceCheckoutStatus.AWAITING_PAYMENT
+                    .filter(c -> c.status() == MarketplaceCheckoutStatus.RESERVING_INVENTORY
+                            || c.status() == MarketplaceCheckoutStatus.AWAITING_PAYMENT
                             || c.status() == MarketplaceCheckoutStatus.RECONCILIATION_REQUIRED
                             || c.status() == MarketplaceCheckoutStatus.COMPENSATION_REQUIRED)
                     .limit(limit).toList();
