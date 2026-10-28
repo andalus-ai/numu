@@ -63,6 +63,40 @@ public final class ConsultancyEngagement extends AbstractAggregateRoot<Consultan
                 scopeStatement);
     }
 
+    /**
+     * Reconstitutes a persisted aggregate without replaying lifecycle commands.
+     * Persistence adapters must call this only with state read from the tenant-scoped store.
+     */
+    public static ConsultancyEngagement reconstitute(
+            UUID id,
+            UUID projectId,
+            UUID clientOrganizationId,
+            UUID consultantOrganizationId,
+            String engagementNumber,
+            String title,
+            String scopeStatement,
+            int scopeRevision,
+            ConsultancyEngagementStatus status,
+            String cancellationReason) {
+        if (scopeRevision < 1) {
+            throw new IllegalArgumentException("Scope revision must be positive");
+        }
+        Objects.requireNonNull(status, "Engagement status cannot be null");
+        if (status == ConsultancyEngagementStatus.CANCELLED) {
+            requireText(cancellationReason, "Cancellation reason");
+        } else if (cancellationReason != null) {
+            throw new IllegalArgumentException("Only cancelled engagements may have a cancellation reason");
+        }
+        ConsultancyEngagement engagement = new ConsultancyEngagement(
+                ConsultancyEngagementId.of(Objects.requireNonNull(id, "Engagement id cannot be null")),
+                projectId, clientOrganizationId, consultantOrganizationId,
+                engagementNumber, title, scopeStatement);
+        engagement.scopeRevision = scopeRevision;
+        engagement.status = status;
+        engagement.cancellationReason = cancellationReason == null ? null : cancellationReason.trim();
+        return engagement;
+    }
+
     /** Revises a proposal before activation; active scope changes need formal change control. */
     public void reviseProposal(String title, String scopeStatement) {
         if (status != ConsultancyEngagementStatus.DRAFT && status != ConsultancyEngagementStatus.PROPOSED) {

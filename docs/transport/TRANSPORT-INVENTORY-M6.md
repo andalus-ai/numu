@@ -16,14 +16,16 @@ Responses expose hold identity, segment, passenger count, lifecycle status, expi
 
 ## Authentication and tenant isolation
 
-All endpoints require an authenticated Quarkus `SecurityIdentity`. The host authentication integration must populate the configured identity attributes from verified claims (or an equivalent trusted identity source):
+All endpoints require an authenticated Quarkus `SecurityIdentity`. The host authentication integration must validate credentials and populate the configured identity attributes from verified claims (or an equivalent trusted identity source):
 
-- `numou.security.tenant-claim` (default `numou_tenant_id`) — active tenant identifier.
+- `numou.security.tenant-claim` (default `numou_tenant_id`) — selected tenant identifier.
 - `numou.security.user-id-claim` (default `numou_user_id`) — authenticated actor identifier.
 
-The adapter fails closed when either trusted identity attribute is absent or invalid. It does not accept tenant or actor IDs from request JSON, query parameters, or caller-provided headers. The host remains responsible for validating the credential, tenant membership, and active-tenant selection before creating the identity. A globally unique departure or hold ID is not authorization: all application calls remain tenant-scoped.
+The tenant and actor identifiers must be UUIDs to match the shared `TenantId` and `PrincipalId` contracts. The adapter fails closed when either trusted identity attribute is absent or invalid. It does not accept tenant or actor IDs from request JSON, query parameters, or caller-provided headers.
 
-Because tenant identity comes from the authenticated context, a caller from another tenant cannot select a different tenant in the request. Missing tenant-scoped inventory/holds map to a generic 404 response to avoid confirming the existence of another tenant's records.
+In M7, the booking adapter separately checks active tenant membership through the public `TenantMembershipResolver` contract and requires an explicit `AuthorizationServicePort` policy decision for each create/confirm/release operation. Verified claims alone are not treated as proof of current membership or booking permission. The host composition must wire authoritative membership and policy implementations; no permissive fallback is provided.
+
+A globally unique departure or hold ID is not authorization: all application calls remain tenant-scoped. Missing tenant-scoped inventory/holds map to a generic 404 response to avoid confirming the existence of another tenant's records.
 
 ## Idempotency and errors
 
@@ -32,7 +34,8 @@ Because tenant identity comes from the authenticated context, a caller from anot
 - Invalid command: 400.
 - Missing tenant-scoped departure inventory or hold: 404.
 - Invalid lifecycle transition / optimistic state conflict: 409.
-- Missing trusted tenant/actor context: 403.
+- Missing trusted tenant/actor context, inactive membership, or denied booking permission: 403.
+- Membership or policy provider unavailable / timeout: 503.
 - Unexpected failures: generic 500 with server-side logging; internal exception details are not returned.
 
 The idempotency scope is owned by the Transport inventory aggregate and persistence adapter. Clients should persist the key and exact request until they receive a definitive response.
@@ -45,4 +48,4 @@ A capacity hold is not payment authorization, captured funds, a ticket, or a con
 
 ## Verification
 
-The milestone adds unit tests for fail-closed identity context resolution. The Transport reactor CI must verify compilation of the REST adapter and existing PostgreSQL Testcontainers suite. API-level authorization tests using the host's actual authentication provider remain required before production exposure; this adapter deliberately does not invent an authentication mechanism or issuer configuration.
+M6 added fail-closed identity-context tests. M7 adds unit coverage for membership and permission checks plus safe error mapping. Host-level API integration tests using the actual credential verifier, authoritative membership provider, and policy store remain required before production exposure; this adapter deliberately does not invent an authentication issuer or tenant-management policy.

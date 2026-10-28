@@ -7,6 +7,9 @@ import tech.kayys.numou.numouapplication.port.EventPublisherPort;
 import tech.kayys.numou.numouapplication.port.JournalPostingPort;
 import tech.kayys.numou.numouapplication.port.SyirkahRepository;
 import tech.kayys.numou.numouapplication.port.TransactionPort;
+import tech.kayys.numou.numoudomain.AkadFormation;
+import tech.kayys.numou.numoudomain.AkadFormationChecker;
+import tech.kayys.numou.numoudomain.FormationPolicy;
 import tech.kayys.numou.numoudomain.SyirkahNotFoundException;
 import tech.kayys.numou.numoudomain.CloseId;
 import tech.kayys.numou.numoudomain.CloseSnapshot;
@@ -62,6 +65,19 @@ public class SyirkahApplicationService {
             finish(c.tenant(), s, -1, 0);
             return s;
         });
+    }
+
+    /**
+     * Opens a syirkah only if the akad was validly formed and properly written (Hukum Muamalah Bab X, XI, XVIII;
+     * see {@link AkadFormationChecker}). Nothing is created when any finding exists.
+     *
+     * <p>{@link #open(Commands.Open)} is unchanged and does not run these checks, so callers that must enforce
+     * the formation rules have to use this method; closing the plain path is a compatibility decision for the
+     * roadmap (gate B).
+     */
+    public Syirkah openWithFormation(Commands.Open c, AkadFormation formation, FormationPolicy policy) {
+        AkadFormationChecker.requirePassing(c.contract(), formation, policy);
+        return open(c);
     }
 
     public CloseSnapshot closePeriod(Commands.ClosePeriod c) {
