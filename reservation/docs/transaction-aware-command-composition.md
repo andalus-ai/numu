@@ -100,23 +100,13 @@ allocation races with overlapping booking windows, runtime composition-root wiri
 outbox relay lease/retry/dead-letter recovery.
 
 
-## End-to-end application transaction contract
 
-The application reactor now has an opt-in `pg-integration` test for the real
-`ReservationService.bookWithConstraints(..., idempotencyKey)` path. It composes the
-service with `PgReservationTransactionRunner`, a connection-bound
-`PgReservationOutboxEventSink`, PostgreSQL repositories, and deterministic rules/resource
-ports. The scenario creates a booking and replays the same idempotency key, then checks
-that the canonical reservation, idempotency record, and one capacity allocation are durable
-and that replay does not add another outbox event.
+### Concurrent capacity-allocation contract
 
-Run from the reservation reactor:
-
-```bash
-mvn -f reservation/pom.xml -pl reservation-application -am -Ppg-integration verify
-```
-
-This test is opt-in and has not been executed as part of authoring this change. It requires
-Quarkus Dev Services with Docker or a configured PostgreSQL endpoint. Keep the production
-readiness claim gated on an actual green run; this test does not verify the outbox relay,
-remote broker delivery, or every other reservation command.
+The opt-in PostgreSQL integration suite also races two overlapping allocation attempts against a
+single bookable resource. Both attempts use `PgReservationTransactionRunner.execute` and
+`PgLedgerRepository.findOrCreate`, whose facility/day ledger row is selected `FOR UPDATE`.
+The expected contract is that one attempt persists an allocation and the other observes the
+updated ledger and reports no availability; the persisted snapshot must contain exactly one
+allocation. This test remains unverified until the `pg-integration` Maven profile passes on
+PostgreSQL. It tests the ledger's locking boundary, not the full `ReservationService` path.

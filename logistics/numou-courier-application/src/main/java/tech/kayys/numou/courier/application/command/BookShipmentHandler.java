@@ -20,6 +20,7 @@ public final class BookShipmentHandler {
                 command.sender(), command.recipient(), command.serviceLevel(), command.occurredAt());
         for (var parcel : command.parcels()) shipment.addParcel(parcel, command.occurredAt());
         shipment.book(command.occurredAt());
-        return shipments.save(command.tenantId(), shipment);
+        if (command.idempotencyKey() == null) return shipments.save(command.tenantId(), shipment);
+        return shipments.saveIdempotently(command.tenantId(), command.idempotencyKey(), command.requestFingerprint(), shipment);
     }
 }
