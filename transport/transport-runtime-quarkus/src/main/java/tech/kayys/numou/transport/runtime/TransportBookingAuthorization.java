@@ -1,6 +1,5 @@
 package tech.kayys.numou.transport.runtime;
 
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -44,7 +43,7 @@ public class TransportBookingAuthorization {
             throw new SecurityException("verified caller identity is required");
         }
         if (timeoutMillis < 100 || timeoutMillis > 10_000) {
-            throw new SecurityException("authorization timeout configuration is invalid");
+            throw new TransportAuthorizationUnavailableException("authorization timeout configuration is invalid");
         }
 
         final Principal principal;
@@ -76,7 +75,7 @@ public class TransportBookingAuthorization {
             throw denied;
         } catch (RuntimeException unavailable) {
             // Fail closed on timeouts, null results, and unavailable policy providers.
-            throw new SecurityException("tenant membership or authorization service is unavailable", unavailable);
+            throw new TransportAuthorizationUnavailableException("tenant membership or authorization service is unavailable", unavailable);
         }
     }
 
