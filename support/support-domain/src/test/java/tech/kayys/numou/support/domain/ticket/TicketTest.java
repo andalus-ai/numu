@@ -9,6 +9,7 @@ import tech.kayys.numou.support.domain.ticket.event.TicketCreated;
 import tech.kayys.numou.support.domain.ticket.event.TicketStatusChanged;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -56,6 +57,37 @@ class TicketTest {
         ticket.changeStatus(TicketStatus.OPEN, null, NOW);
         ticket.changeStatus(TicketStatus.CLOSED, null, NOW);
         assertThrows(InvalidStateException.class, () -> ticket.assign(UserId.newId(), NOW));
+    }
+
+    @Test
+    void customerVisibleCommentsExcludeInternalAgentNotes() {
+        Ticket ticket = newTicket();
+        UserId agent = UserId.newId();
+        TicketComment publicReply = new TicketComment(
+                UUID.randomUUID(), agent, "We are looking into this.", false, NOW);
+        TicketComment internalNote = new TicketComment(
+                UUID.randomUUID(), agent, "Escalate to the fraud team.", true, NOW);
+
+        ticket.addComment(publicReply, NOW);
+        ticket.addComment(internalNote, NOW);
+
+        assertEquals(2, ticket.comments().size(),
+                "The internal domain history must retain both kinds of comments");
+        assertEquals(java.util.List.of(publicReply), ticket.customerVisibleComments(),
+                "Customer-facing projections must never include internal notes");
+    }
+
+    @Test
+    void nullCommentTimestampDoesNotMutateAggregateOrRaiseEvent() {
+        Ticket ticket = newTicket();
+        TicketComment comment = new TicketComment(
+                UUID.randomUUID(), UserId.newId(), "Reply", false, NOW);
+        int originalEventCount = ticket.getDomainEvents().size();
+
+        assertThrows(NullPointerException.class, () -> ticket.addComment(comment, null));
+
+        assertEquals(0, ticket.comments().size());
+        assertEquals(originalEventCount, ticket.getDomainEvents().size());
     }
 
     private Ticket newTicket() {

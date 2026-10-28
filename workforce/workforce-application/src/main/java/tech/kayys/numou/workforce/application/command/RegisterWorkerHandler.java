@@ -6,14 +6,12 @@ import tech.kayys.numou.foundation.application.event.EventPublisher;
 import tech.kayys.numou.foundation.application.result.ApplicationError;
 import tech.kayys.numou.foundation.application.result.Result;
 import tech.kayys.numou.foundation.domain.ref.PersonRef;
-import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.workforce.domain.worker.Worker;
 import tech.kayys.numou.workforce.domain.worker.WorkerId;
 import tech.kayys.numou.workforce.spi.port.WorkerRepository;
 
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 
 public final class RegisterWorkerHandler
         implements CommandHandler<RegisterWorkerCommand, Result<WorkerId>> {
@@ -31,7 +29,7 @@ public final class RegisterWorkerHandler
         var personRef = PersonRef.of(command.personId());
 
         return Uni.createFrom()
-                .completionStage(workerRepository.findByPersonRef(personRef))
+                .completionStage(workerRepository.findByPersonRef(command.tenantId(), personRef))
                 .onItem()
                 .transformToUni(existing -> {
                     if (existing.isPresent()) {
@@ -46,13 +44,11 @@ public final class RegisterWorkerHandler
                     }
 
                     var workerId = WorkerId.generate();
-                    // Tenant is resolved from context/default
-                    var tenantId = TenantId.of(UUID.randomUUID());
                     var actor = command.actor() != null ? command.actor() : "system";
 
                     var worker = Worker.create(
                             workerId,
-                            tenantId,
+                            command.tenantId(),
                             personRef,
                             command.workerType(),
                             actor,
