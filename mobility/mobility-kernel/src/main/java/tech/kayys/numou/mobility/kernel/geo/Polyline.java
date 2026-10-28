@@ -1,6 +1,5 @@
 package tech.kayys.numou.mobility.kernel.geo;
 
-import tech.kayys.numou.geo.domain.GeoPoint;
 import tech.kayys.numou.geo.domain.GeoPolylineCodec;
 
 import java.util.List;
