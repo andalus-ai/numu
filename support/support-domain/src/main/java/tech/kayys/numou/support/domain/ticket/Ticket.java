@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public final class Ticket extends AbstractAggregateRoot<TicketId> {
 
@@ -69,7 +70,24 @@ public final class Ticket extends AbstractAggregateRoot<TicketId> {
     public Instant closedAt() { return closedAt; }
     public String subject() { return subject; }
     public String description() { return description; }
-    public List<TicketComment> comments() { return Collections.unmodifiableList(comments); }
+
+    /**
+     * Returns all comments, including internal agent notes. This is an internal
+     * domain view and must not be serialized directly into customer-facing responses.
+     */
+    public List<TicketComment> comments() {
+        return Collections.unmodifiableList(comments);
+    }
+
+    /**
+     * Returns only comments intended to be visible to the customer/requester.
+     * Customer-facing query handlers should use this projection instead of comments().
+     */
+    public List<TicketComment> customerVisibleComments() {
+        return comments.stream()
+                .filter(comment -> !comment.internal())
+                .collect(Collectors.toUnmodifiableList());
+    }
 
     public void assign(UserId agentId, Instant occurredAt) {
         ensureNotClosed();
@@ -126,9 +144,10 @@ public final class Ticket extends AbstractAggregateRoot<TicketId> {
     public void addComment(TicketComment comment, Instant occurredAt) {
         ensureNotClosed();
         TicketComment validatedComment = Objects.requireNonNull(comment, "comment cannot be null");
+        Instant eventTime = Objects.requireNonNull(occurredAt, "occurredAt cannot be null");
         comments.add(validatedComment);
-        touch(Objects.requireNonNull(occurredAt, "occurredAt cannot be null"));
-        raise(new TicketCommentAdded(UUID.randomUUID(), occurredAt, id(), validatedComment));
+        touch(eventTime);
+        raise(new TicketCommentAdded(UUID.randomUUID(), eventTime, id(), validatedComment));
     }
 
     private static boolean canTransitionTo(TicketStatus current, TicketStatus target) {
