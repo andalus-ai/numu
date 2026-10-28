@@ -2,6 +2,7 @@ package tech.kayys.numou.mobility.kernel.geo;
 
 import tech.kayys.numou.geo.domain.GeoPolylineCodec;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -20,6 +21,6 @@ public final class Polyline {
     }
 
     public static List<LatLng> decode(String encoded) {
-        return GeoPolylineCodec.decode(encoded).stream().map(LatLng::fromGeoPoint).toList();
+        return new ArrayList<>(GeoPolylineCodec.decode(encoded).stream().map(LatLng::fromGeoPoint).toList());
     }
 }
