@@ -21,12 +21,14 @@ public interface PaymentOutboxRelayStore {
             String payload,
             Instant occurredAt,
             int attempts,
+            int maxAttempts,
             UUID leaseToken) {
         public ClaimedEvent {
             if (eventId == null || tenantId == null || tenantId.isBlank()
                     || aggregateType == null || aggregateType.isBlank()
                     || aggregateId == null || eventType == null || eventType.isBlank()
-                    || payload == null || occurredAt == null || attempts < 1 || leaseToken == null) {
+                    || payload == null || occurredAt == null || attempts < 1 || maxAttempts < 1
+                    || attempts > maxAttempts || leaseToken == null) {
                 throw new IllegalArgumentException("Invalid claimed payment outbox event");
             }
         }
