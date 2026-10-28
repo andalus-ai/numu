@@ -78,6 +78,9 @@ public final class MarketplaceCheckoutService {
             checkout = reserveAll(order, checkout, warehouseReference, reservationExpiresAt);
             if (checkout.status() != MarketplaceCheckoutStatus.RESERVING_INVENTORY) return checkout;
         }
+        if (total(order).signum() == 0) {
+            return save(checkout, checkout.readyWithoutPayment(clock.instant()));
+        }
 
         MarketplaceCheckoutPaymentPort.PaymentResult payment;
         try {
