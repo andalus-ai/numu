@@ -2,6 +2,7 @@ package tech.kayys.numou.workforce.spi.port;
 
 import tech.kayys.numou.foundation.domain.repository.Repository;
 import tech.kayys.numou.foundation.domain.ref.PersonRef;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.workforce.domain.worker.Worker;
 import tech.kayys.numou.workforce.domain.worker.WorkerId;
 
@@ -16,5 +17,5 @@ public interface WorkerRepository extends Repository<Worker, WorkerId> {
     /**
      * Looks up a worker by their cross-domain person reference.
      */
-    CompletionStage<Optional<Worker>> findByPersonRef(PersonRef personRef);
+    CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef personRef);
 }

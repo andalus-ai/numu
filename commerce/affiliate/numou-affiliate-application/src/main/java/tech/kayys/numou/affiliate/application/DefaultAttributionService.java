@@ -50,10 +50,13 @@ public final class DefaultAttributionService implements AttributionApplicationPo
         final String requestedEvent = conversionEventId;
 
         return decisions.findBySourceEvent(tenantId, sourceType, sourceId, conversionEventId)
-                .thenCompose(existing -> existing
-                        .map(CompletableFuture::completedFuture)
-                        .orElseGet(() -> resolveAndDecide(
-                                tenantId, programId, requestedType, requestedId, requestedEvent)));
+                .thenCompose(existing -> {
+                    if (existing.isPresent()) {
+                        return CompletableFuture.completedFuture(existing.get());
+                    }
+                    return resolveAndDecide(
+                            tenantId, programId, requestedType, requestedId, requestedEvent);
+                });
     }
 
     private CompletionStage<AttributionDecision> resolveAndDecide(
