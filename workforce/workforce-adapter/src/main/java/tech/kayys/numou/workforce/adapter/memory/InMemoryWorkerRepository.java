@@ -1,6 +1,7 @@
 package tech.kayys.numou.workforce.adapter.memory;
 
 import tech.kayys.numou.foundation.domain.ref.PersonRef;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.workforce.domain.worker.Worker;
 import tech.kayys.numou.workforce.domain.worker.WorkerId;
 import tech.kayys.numou.workforce.spi.port.WorkerRepository;
@@ -15,13 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class InMemoryWorkerRepository implements WorkerRepository {
 
     private final Map<WorkerId, Worker> workersById = new ConcurrentHashMap<>();
-    private final Map<PersonRef, WorkerId> idsByPerson = new ConcurrentHashMap<>();
+    private final Map<TenantPersonKey, WorkerId> idsByPerson = new ConcurrentHashMap<>();
 
     @Override
     public CompletionStage<Worker> save(Worker worker) {
         Objects.requireNonNull(worker, "worker cannot be null");
         workersById.put(worker.id(), worker);
-        idsByPerson.put(worker.person(), worker.id());
+        idsByPerson.put(new TenantPersonKey(worker.tenantId(), worker.person()), worker.id());
         return CompletableFuture.completedFuture(worker);
     }
 
@@ -31,8 +32,10 @@ public final class InMemoryWorkerRepository implements WorkerRepository {
     }
 
     @Override
-    public CompletionStage<Optional<Worker>> findByPersonRef(PersonRef personRef) {
-        var id = idsByPerson.get(personRef);
+    public CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef personRef) {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        Objects.requireNonNull(personRef, "personRef cannot be null");
+        var id = idsByPerson.get(new TenantPersonKey(tenantId, personRef));
         return CompletableFuture.completedFuture(
                 id == null ? Optional.empty() : Optional.ofNullable(workersById.get(id))
         );
@@ -47,7 +50,7 @@ public final class InMemoryWorkerRepository implements WorkerRepository {
     public CompletionStage<Void> delete(Worker worker) {
         Objects.requireNonNull(worker, "worker cannot be null");
         workersById.remove(worker.id());
-        idsByPerson.remove(worker.person());
+        idsByPerson.remove(new TenantPersonKey(worker.tenantId(), worker.person()));
         return CompletableFuture.completedFuture(null);
     }
 
@@ -55,8 +58,9 @@ public final class InMemoryWorkerRepository implements WorkerRepository {
     public CompletionStage<Void> deleteById(WorkerId id) {
         var removed = workersById.remove(id);
         if (removed != null) {
-            idsByPerson.remove(removed.person());
+            idsByPerson.remove(new TenantPersonKey(removed.tenantId(), removed.person()));
         }
         return CompletableFuture.completedFuture(null);
     }
+    private record TenantPersonKey(TenantId tenantId, PersonRef personRef) { }
 }

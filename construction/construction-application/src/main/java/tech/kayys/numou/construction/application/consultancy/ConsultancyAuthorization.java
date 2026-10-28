@@ -39,6 +39,7 @@ public interface ConsultancyAuthorization {
         CREATE_DELIVERABLE,
         SUBMIT_DELIVERABLE,
         REVISE_DELIVERABLE,
-        REVIEW_DELIVERABLE
+        REVIEW_DELIVERABLE,
+        VIEW_DELIVERABLE_HISTORY
     }
 }

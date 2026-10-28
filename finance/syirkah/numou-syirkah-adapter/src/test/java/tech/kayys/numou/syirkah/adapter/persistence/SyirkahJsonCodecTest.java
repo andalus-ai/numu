@@ -125,6 +125,12 @@ class SyirkahJsonCodecTest {
         List<Object> payloads = List.of(
                 new tech.kayys.numou.numouapplication.command.Commands.ReviseContract(t, id, mudharabah(),
                         new TreeSet<>(Set.of(OWNER, MANAGER))),
+                new tech.kayys.numou.numouapplication.command.Commands.ReviseContract(t, id, mudharabah(),
+                        new TreeSet<>(Set.of(OWNER, MANAGER)),
+                        new LifecycleChange(LifecycleKind.PARTNER_DEATH, Set.of(MANAGER), LocalDate.parse("2026-02-01"),
+                                List.of(new LifecycleConsent(OWNER, true, LocalDate.parse("2026-02-01"), "sig")), null,
+                                List.of(), List.of(new Succession(MANAGER, OWNER, false, LocalDate.parse("2026-02-01"),
+                                        "heirship")))),
                 new tech.kayys.numou.numouapplication.command.Commands.CorrectClose(t, id, CloseId.generate(),
                         CloseId.generate(), fr, ManagerFault.of(idr("5.00"), "why"), ProfitDisposition.RETAIN),
                 new tech.kayys.numou.numouapplication.command.Commands.CorrectClose(t, id, CloseId.generate(),
@@ -137,6 +143,7 @@ class SyirkahJsonCodecTest {
                         new LiquidationInput(idr("9.00"), idr("1.00"), true, LocalDate.parse("2026-05-05")),
                         ManagerFault.none()));
         var kinds = List.of(tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.REVISE_CONTRACT,
+                tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.REVISE_CONTRACT,
                 tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.CORRECT_CLOSE,
                 tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.CORRECT_CLOSE,
                 tech.kayys.numou.numouapplication.governance.PendingApproval.Kind.CORRECT_CLOSE,

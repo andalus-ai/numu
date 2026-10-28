@@ -278,4 +278,50 @@ class SyirkahApiTest {
                 () -> strictApi.open(new OpenRequest(null, 0, contract(), null, null)));
         assertNotNull(strictApi.open(new OpenRequest(null, 0, contract(), formation(true), null)).summary().id());
     }
+
+    // ------------------------------------------------------------ lifecycle (partner death)
+
+    static final String C = "00000000-0000-0000-0000-00000000000c";
+
+    private static ContractDto heirContract() {
+        return new ContractDto(2, "inan", "IDR",
+                List.of(new PartnerDto(A, "A", "partner", true), new PartnerDto(C, "C", "partner", true)),
+                List.of(new CapitalDto(A, "cash", new BigDecimal("100000000"), null)),
+                Map.of(A, new BigDecimal("40"), C, new BigDecimal("60")), "net_profit", null, List.of(),
+                List.of("W1", "W2"), true, LocalDate.parse("2026-02-01"));
+    }
+
+    private static LifecycleDto death(boolean withHeirDecision) {
+        LocalDate d = LocalDate.parse("2026-02-01");
+        return new LifecycleDto("partner_death", List.of(B), LocalDate.parse("2026-01-31"),
+                List.of(new ConsentDto(A, true, d, "sig-a"), new ConsentDto(C, true, d, "sig-c")), null, List.of(),
+                withHeirDecision ? List.of(new SuccessionDto(B, C, true, d, "heirship-c")) : List.of());
+    }
+
+    @Test
+    void partnerDeathWithHeirContinuingGoesThroughApproval() {
+        String id = open();
+        api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain"));
+        // no heir decision: refused when proposed, nothing waits for a checker
+        assertThrows(BusinessRuleViolation.class,
+                () -> api.proposeRevision(id, new ReviseRequest(heirContract(), null, death(false))));
+        assertTrue(api.pending().isEmpty());
+
+        ApprovalView p = api.proposeRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        assertEquals("PENDING", p.status());
+        assertEquals(1, api.get(id).summary().contractVersion());
+        ctx.actor("checker");
+        assertEquals("APPROVED", api.approve(p.id()).status());
+        assertEquals(2, api.get(id).summary().contractVersion());
+        assertTrue(api.reconciliation(id).balanced());
+    }
+
+    @Test
+    void lifecycleInputIsValidated() {
+        String id = open();
+        assertThrows(IllegalArgumentException.class, () -> api.proposeRevision(id, new ReviseRequest(heirContract(),
+                null, new LifecycleDto("explode", List.of(), LocalDate.parse("2026-02-01"), List.of(), null,
+                        List.of(), List.of()))));
+    }
 }

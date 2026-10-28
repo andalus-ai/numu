@@ -2,6 +2,7 @@ package tech.kayys.numou.numoudomain;
 
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -43,7 +44,7 @@ public final class LifecycleChecker {
         switch (change.kind()) {
             case NEW_CAPITAL -> checkNewCapital(cur, next, change, f);
             case PARTNER_REPLACEMENT -> checkReplacement(cur, next, change, f);
-            case PARTNER_DEATH -> checkDeath(cur, next, change, f);
+            case PARTNER_DEATH -> checkDeath(syirkah, cur, next, change, f);
         }
         return List.copyOf(f);
     }
@@ -137,7 +138,7 @@ public final class LifecycleChecker {
         }
     }
 
-    private static void checkDeath(SyirkahContract cur, SyirkahContract next, LifecycleChange ch,
+    private static void checkDeath(Syirkah syirkah, SyirkahContract cur, SyirkahContract next, LifecycleChange ch,
                                    List<LifecycleFinding> f) {
         if (ch.affected().isEmpty()) {
             f.add(new LifecycleFinding("NO_DECEASED", "name the partner who died", "Bab X (akad fasakh)"));
@@ -150,6 +151,32 @@ public final class LifecycleChecker {
                 f.add(new LifecycleFinding("DECEASED_REMAINS", "a partner who died cannot be in the new akad; "
                         + "the old akad ended with the death", "Bab X (akad fasakh)"));
             }
+            if (ch.successions().stream().noneMatch(s -> s.deceased().equals(p))) {
+                f.add(new LifecycleFinding("SUCCESSION_UNDECIDED", "the heir of " + p.value() + " has not decided "
+                        + "whether to continue in the deceased's place", "Bab X (akad fasakh), XXV"));
+            }
+        }
+        for (Succession s : ch.successions()) {
+            if (!ch.affected().contains(s.deceased())) {
+                f.add(new LifecycleFinding("SUCCESSION_FOR_LIVING", s.deceased().value() + " is not recorded as "
+                        + "deceased", "Bab X"));
+            }
+            if (s.continues() && !next.hasPartner(s.heir())) {
+                f.add(new LifecycleFinding("HEIR_NOT_IN_AKAD", "heir " + s.heir().value() + " decided to continue "
+                        + "but is not a partner in the new akad", "Bab X, XXV"));
+            }
+            if (!s.continues() && next.hasPartner(s.heir())) {
+                f.add(new LifecycleFinding("HEIR_DECLINED_BUT_IN_AKAD", "heir " + s.heir().value()
+                        + " decided not to continue but is in the new akad", "Bab X, XXV"));
+            }
+        }
+        // The deceased must stop sharing in profit at the date of death, so the books must be closed up to it.
+        LocalDate closedTo = syirkah.closes().stream().filter(c -> c.status() == CloseStatus.ACTIVE)
+                .map(CloseSnapshot::periodEnd).max(LocalDate::compareTo).orElse(null);
+        if (closedTo == null || closedTo.isBefore(ch.eventDate())) {
+            f.add(new LifecycleFinding("BOOKS_NOT_CLOSED_TO_DEATH", "the books must be closed up to the date of "
+                    + "death (" + ch.eventDate() + ") so the deceased's profit or loss ends there",
+                    "Bab XXIV to XXV (tutup buku), Bab X"));
         }
     }
 }

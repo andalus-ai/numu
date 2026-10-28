@@ -119,6 +119,18 @@ public final class InMemoryInventoryRepository implements InventoryRepository {
                 && a.sourceReference().equals(b.sourceReference()) && java.util.Objects.equals(a.expiresAt(), b.expiresAt());
     }
 
+    /**
+     * Recovers the reservation created by an idempotent command, including terminal
+     * states. The command key is tenant-scoped and lookup is protected by the same
+     * monitor as reservation creation and state transitions.
+     */
+    @Override
+    public synchronized java.util.Optional<InventoryReservation> findReservationByCommandKey(InventoryCommandKey key) {
+        if (key == null) throw new IllegalArgumentException("Command key is required");
+        ReservationId id = reservationCommands.get(key);
+        return id == null ? java.util.Optional.empty() : java.util.Optional.ofNullable(reservations.get(id));
+    }
+
     @Override
     public synchronized InventoryReservation findReservation(ReservationId id) {
         InventoryReservation reservation = reservations.get(id);
