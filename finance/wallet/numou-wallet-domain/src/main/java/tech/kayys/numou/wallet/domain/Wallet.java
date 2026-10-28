@@ -68,6 +68,15 @@ public final class Wallet extends VersionedAggregate<WalletId> {
     }
 
     public static Wallet open(OwnerKind kind, UUID ownerId, String currency, int fractionDigits, BigDecimal overdraftLimit, Instant now) {
+        Objects.requireNonNull(kind, "ownerKind cannot be null");
+        Objects.requireNonNull(ownerId, "ownerId cannot be null");
+        Objects.requireNonNull(now, "now cannot be null");
+        if (currency == null || currency.isBlank()) {
+            throw new IllegalArgumentException("currency cannot be blank");
+        }
+        if (fractionDigits < 0 || fractionDigits > 9) {
+            throw new IllegalArgumentException("fractionDigits must be between 0 and 9");
+        }
         if (overdraftLimit != null && overdraftLimit.signum() < 0) {
             throw new IllegalArgumentException("overdraftLimit cannot be negative");
         }
