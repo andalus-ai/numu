@@ -82,6 +82,12 @@ public final class TransportCheckoutService {
         }
     }
 
+    /** Reads checkout state without contacting Payment or mutating inventory. */
+    public TransportCheckout get(String tenantId, UUID checkoutId) {
+        return checkouts.find(tenantId, checkoutId)
+                .orElseThrow(() -> new IllegalArgumentException("checkout not found"));
+    }
+
     /** Refreshes persisted payment state and applies safe hold settlement transitions. */
     public TransportCheckout refresh(String tenantId, UUID checkoutId) {
         TransportCheckout checkout = checkouts.find(tenantId, checkoutId)
@@ -190,7 +196,8 @@ public final class TransportCheckoutService {
 
     private static TransportCheckout requireSameRequest(TransportCheckout checkout, String fingerprint) {
         if (!checkout.requestFingerprint().equals(fingerprint)) {
-            throw new IllegalArgumentException("Idempotency-Key was already used for a different checkout request");
+            throw new TransportCheckoutIdempotencyConflictException(
+                    "Idempotency-Key was already used for a different checkout request");
         }
         return checkout;
     }
