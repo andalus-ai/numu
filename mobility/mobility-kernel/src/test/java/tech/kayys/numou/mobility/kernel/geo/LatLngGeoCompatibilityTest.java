@@ -2,6 +2,7 @@ package tech.kayys.numou.mobility.kernel.geo;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.geo.domain.GeoDistance;
+import tech.kayys.numou.geo.domain.GeoGrid;
 import tech.kayys.numou.geo.domain.GeoPoint;
 
 import java.util.List;
@@ -56,6 +57,17 @@ class LatLngGeoCompatibilityTest {
         assertThat(GeoMath.pathLengthMeters(List.of(a))).isZero();
         assertThat(GeoMath.pathLengthMeters(List.of(a, b, c)))
                 .isEqualTo(GeoMath.haversineMeters(a, b) + GeoMath.haversineMeters(b, c));
+    }
+
+    @Test
+    void mobilityGridRetainsItsHistoricalIndexesAndKey() {
+        LatLng jakarta = new LatLng(-6.2088, 106.8456);
+        var legacyCell = GeoCell.of(jakarta);
+        var sharedCell = GeoGrid.cellOf(jakarta.toGeoPoint(), GeoCell.CELL_DEGREES);
+
+        assertThat(legacyCell.latIndex()).isEqualTo(sharedCell.latitudeIndex());
+        assertThat(legacyCell.lngIndex()).isEqualTo(sharedCell.longitudeIndex());
+        assertThat(legacyCell.key()).isEqualTo("-621:10684");
     }
 
     @Test
