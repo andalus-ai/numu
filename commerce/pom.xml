@@ -31,6 +31,7 @@
         <module>pos</module>
         <module>kiosk</module>
         <module>omnichannel</module>
+        <module>marketplace</module>
     </modules>
 
 </project>

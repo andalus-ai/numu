@@ -18,6 +18,11 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-geo-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-foundation</artifactId>
             <version>${project.version}</version>
         </dependency>
