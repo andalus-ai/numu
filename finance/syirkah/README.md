@@ -140,3 +140,17 @@ The contract is published as `META-INF/openapi.yaml` (served by quarkus-smallrye
 
 `SyirkahProducers` wires the JDBC adapters. A deployment must supply its own `JournalPostingPort` and
 `SyirkahAccountMap` beans, so a missing ledger gateway fails at start-up rather than silently.
+
+## Lifecycle changes (new capital, replacement, death)
+
+`LifecycleChecker` (Hukum Muamalah Bab X, XVI, XXIV, XXV) checks a change before `Syirkah.reviseContract` runs:
+recorded consent with evidence from every partner (dissent is kept and blocks), closed books, a new akad version, the
+profit decision, hak syuf'ah answers when the buyer is an outsider, and for a death the heir's decision. A partner's
+death ends the akad; the heir decides whether to take the deceased's place. If the heir continues, the heir is a
+partner in a new akad version that starts after the books are closed up to the date of death; if not, the share is taken
+out. `SyirkahApplicationService.reviseWithLifecycle` runs the checks and the revision in one transaction and, when a
+`LifecycleRecordPort` is configured, stores the record (table `syirkah_ledger_lifecycle`, V20261029_01, append-only,
+tenant RLS), one row per akad version.
+
+Limit: the heir's inherited capital is not transferred as a single movement. The ledger returns the deceased's capital
+(payable to the estate) and records the heir's contribution, so the cash side must be settled outside this module.
