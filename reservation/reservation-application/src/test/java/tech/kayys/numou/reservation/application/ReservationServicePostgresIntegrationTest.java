@@ -109,7 +109,7 @@ class ReservationServicePostgresIntegrationTest {
                 startsAt.atZone(rules.zone()).toLocalDate()));
         assertEquals(outboxAfterCreate, countOutbox(tenantId),
                 "idempotent replay must not write duplicate outbox events");
-        assertEquals(1L, outboxAfterCreate, "new booking should persist its domain event to the outbox");
+        assertEquals(2L, outboxAfterCreate, "confirmed booking persists requested and confirmed domain events");
     }
 
     private long count(String table, UUID tenantId) {
