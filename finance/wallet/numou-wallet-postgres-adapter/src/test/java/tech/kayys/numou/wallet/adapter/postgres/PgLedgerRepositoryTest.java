@@ -17,19 +17,18 @@ class PgLedgerRepositoryTest {
 
     @Test
     void acceptsExactlyOneInsertedLedgerRow() {
-        assertDoesNotThrow(() -> PgLedgerRepository.requireInserted(1));
+        assertDoesNotThrow(() -> PgLedgerRepository.validateInsertResult(1));
     }
 
     @Test
-    void surfacesDuplicateOrSuppressedLedgerInsertAsConflict() {
-        assertThrows(ConcurrencyConflictException.class,
-                () -> PgLedgerRepository.requireInserted(0));
+    void treatsExactReplayAsNoOp() {
+        assertDoesNotThrow(() -> PgLedgerRepository.validateInsertResult(0));
     }
 
     @Test
     void rejectsUnexpectedMultiRowInsertResult() {
         assertThrows(ConcurrencyConflictException.class,
-                () -> PgLedgerRepository.requireInserted(2));
+                () -> PgLedgerRepository.validateInsertResult(2));
     }
 
     @Test
