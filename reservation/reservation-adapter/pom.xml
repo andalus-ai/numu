@@ -12,6 +12,12 @@
     <artifactId>numou-reservation-adapter</artifactId>
     <name>Reservation - Persistence Adapters</name>
     <description>Reservation persistence adapters, including in-memory and transaction-scoped PostgreSQL infrastructure.</description>
+
+    <properties>
+        <!-- PostgreSQL tests require Quarkus Dev Services or a configured PostgreSQL endpoint. -->
+        <pg.integration.excludes>**/*IntegrationTest.java</pg.integration.excludes>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
@@ -37,6 +43,16 @@
             <artifactId>quarkus-reactive-pg-client</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -47,4 +63,28 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>${pg.integration.excludes}</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>pg-integration</id>
+            <properties>
+                <pg.integration.excludes>__none__</pg.integration.excludes>
+            </properties>
+        </profile>
+    </profiles>
 </project>
