@@ -24,11 +24,23 @@ import java.util.UUID;
 @ApplicationScoped
 public class PostgresPaymentOutboxRelayStore implements PaymentOutboxRelayStore {
     static final String CLAIM_BATCH = """
-            WITH claimable AS (
+            WITH exhausted AS (
+                UPDATE payment_operation_outbox
+                   SET terminal = TRUE,
+                       last_error = COALESCE(last_error, 'Outbox delivery attempts exhausted'),
+                       worker_id = NULL, lease_token = NULL, locked_until = NULL
+                 WHERE published_at IS NULL
+                   AND terminal = FALSE
+                   AND attempts >= max_attempts
+                   AND (locked_until IS NULL OR locked_until <= ?)
+                RETURNING event_id
+            ),
+            claimable AS (
                 SELECT event_id
                   FROM payment_operation_outbox
                  WHERE published_at IS NULL
                    AND terminal = FALSE
+                   AND attempts < max_attempts
                    AND next_attempt_at <= ?
                    AND (locked_until IS NULL OR locked_until <= ?)
                  ORDER BY next_attempt_at, occurred_at, event_id
@@ -82,9 +94,10 @@ public class PostgresPaymentOutboxRelayStore implements PaymentOutboxRelayStore 
              PreparedStatement statement = connection.prepareStatement(CLAIM_BATCH)) {
             statement.setObject(1, toOffsetDateTime(now));
             statement.setObject(2, toOffsetDateTime(now));
-            statement.setInt(3, limit);
-            statement.setString(4, workerId);
-            statement.setObject(5, toOffsetDateTime(leaseUntil));
+            statement.setObject(3, toOffsetDateTime(now));
+            statement.setInt(4, limit);
+            statement.setString(5, workerId);
+            statement.setObject(6, toOffsetDateTime(leaseUntil));
             try (ResultSet result = statement.executeQuery()) {
                 List<ClaimedEvent> events = new ArrayList<>();
                 while (result.next()) {
