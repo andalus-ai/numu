@@ -11,6 +11,10 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.construction.adapter.postgres.idempotency.PgTransactionalCommandRunner;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagement;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableHistoryEntry;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableStatus;
 import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
 import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
 import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
@@ -66,6 +70,97 @@ class PgConsultancyOperationsIntegrationTest {
     }
 
     @Test
+    void deliverableRoundTripsReviewStateAndRemainsTenantScoped() {
+        String tenant = "consultancy-deliverable-" + UUID.randomUUID();
+        String number = "ENG-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = newEngagement(number);
+        UUID client = engagement.clientOrganizationId();
+        UUID consultant = engagement.consultantOrganizationId();
+        ConsultancyDeliverable rejected = ConsultancyDeliverable.create(
+                ConsultancyEngagementId.of(engagement.id().value()), client, consultant,
+                "D-01", "Structural report", "Structural calculations and signed report");
+        rejected.submit();
+        rejected.reject(client, "Missing calculation appendix");
+
+        ConsultancyDeliverable saved = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, engagement)
+                        .flatMap(ignored -> context.consultancy().saveDeliverable(tenant, rejected)))
+                .await().indefinitely();
+
+        assertEquals(rejected.id(), saved.id());
+        assertEquals(engagement.id().value(), saved.engagementId().value());
+        assertEquals(1, saved.revision());
+        assertEquals(ConsultancyDeliverableStatus.REJECTED, saved.status());
+        assertEquals(client, saved.reviewedByOrganizationId());
+        assertEquals("Missing calculation appendix", saved.reviewComment());
+
+        var sameTenant = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, ConsultancyDeliverableId.of(saved.id().value())))
+                .await().indefinitely();
+        var otherTenant = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant + "-other", ConsultancyDeliverableId.of(saved.id().value())))
+                .await().indefinitely();
+        assertTrue(sameTenant.isPresent());
+        assertTrue(otherTenant.isEmpty());
+    }
+
+    @Test
+    void deliverableLifecycleUsesCompareAndSetAndPersistsRevisionChanges() {
+        String tenant = "consultancy-deliverable-lifecycle-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = newEngagement("ENG-" + UUID.randomUUID());
+        ConsultancyDeliverable draft = ConsultancyDeliverable.create(
+                ConsultancyEngagementId.of(engagement.id().value()),
+                engagement.clientOrganizationId(), engagement.consultantOrganizationId(),
+                "D-02", "Initial report", "Initial description");
+        runner.inTransaction(context -> context.consultancy().saveEngagement(tenant, engagement)
+                .flatMap(ignored -> context.consultancy().saveDeliverable(tenant, draft)))
+                .await().indefinitely();
+
+        ConsultancyDeliverable staleDraft = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow()))
+                .await().indefinitely();
+        ConsultancyDeliverable submitted = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(ConsultancyDeliverable::submit)
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(ConsultancyDeliverableStatus.SUBMITTED, submitted.status());
+
+        assertThrows(RuntimeException.class, () -> runner.inTransaction(context ->
+                context.consultancy().updateDeliverable(tenant, staleDraft)).await().indefinitely());
+
+        ConsultancyDeliverable rejected = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(value -> value.reject(engagement.clientOrganizationId(), "Add signed appendix"))
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(ConsultancyDeliverableStatus.REJECTED, rejected.status());
+
+        ConsultancyDeliverable revised = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(value -> value.revise("Revised report", "Revised description"))
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(2, revised.revision());
+        assertEquals(ConsultancyDeliverableStatus.DRAFT, revised.status());
+        assertEquals("Revised report", revised.title());
+
+        ConsultancyDeliverable resubmitted = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(ConsultancyDeliverable::submit)
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        ConsultancyDeliverable accepted = runner.inTransaction(context -> context.consultancy()
+                .findDeliverable(tenant, draft.id()).map(found -> found.orElseThrow())
+                .invoke(value -> value.accept(engagement.clientOrganizationId(), "Approved"))
+                .flatMap(updated -> context.consultancy().updateDeliverable(tenant, updated)))
+                .await().indefinitely();
+        assertEquals(ConsultancyDeliverableStatus.SUBMITTED, resubmitted.status());
+        assertEquals(ConsultancyDeliverableStatus.ACCEPTED, accepted.status());
+        assertEquals("Approved", accepted.reviewComment());
+    }
+
+    @Test
     void tenantScopedEngagementNumberUniquenessIsEnforcedByDatabase() {
         String tenant = "consultancy-unique-" + UUID.randomUUID();
         String number = "ENG-" + UUID.randomUUID();
@@ -93,6 +188,145 @@ class PgConsultancyOperationsIntegrationTest {
         Row row = pool.preparedQuery("SELECT count(*) AS n FROM construction_consultancy_engagement WHERE tenant_id=$1 AND engagement_id=$2")
                 .execute(Tuple.of(tenant, engagement.id().value())).await().indefinitely().iterator().next();
         assertEquals(0L, row.getLong("n"));
+    }
+
+
+    @Test
+    void lifecycleUpdatesPersistValidTransitionsAndProposalRevisions() {
+        String tenant = "consultancy-lifecycle-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, newEngagement("ENG-" + UUID.randomUUID())))
+                .await().indefinitely();
+
+        ConsultancyEngagement proposed = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::submitProposal)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        assertEquals("PROPOSED", proposed.status().name());
+
+        ConsultancyEngagement revised = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(current -> current.reviseProposal("Revised title", "Revised scope"))
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        assertEquals("DRAFT", revised.status().name());
+        assertEquals(2, revised.scopeRevision());
+        assertEquals("Revised scope", revised.scopeStatement());
+
+        ConsultancyEngagement reProposed = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::submitProposal)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        ConsultancyEngagement active = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::activate)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+        ConsultancyEngagement completed = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, engagement.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(ConsultancyEngagement::complete)
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        assertEquals("PROPOSED", reProposed.status().name());
+        assertEquals("ACTIVE", active.status().name());
+        assertEquals("COMPLETED", completed.status().name());
+        assertEquals(2, completed.scopeRevision());
+    }
+
+    @Test
+    void lifecycleUpdatesRejectStaleConcurrentStateAndPreserveTenantIsolation() {
+        String tenant = "consultancy-concurrency-" + UUID.randomUUID();
+        ConsultancyEngagement saved = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, newEngagement("ENG-" + UUID.randomUUID())))
+                .await().indefinitely();
+        runner.inTransaction(context -> context.consultancy().findEngagement(tenant, saved.id())
+                .map(found -> found.orElseThrow())
+                .invoke(ConsultancyEngagement::submitProposal)
+                .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        ConsultancyEngagement staleCopy = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, saved.id()).map(found -> found.orElseThrow()))
+                .await().indefinitely();
+        runner.inTransaction(context -> context.consultancy().findEngagement(tenant, saved.id())
+                .map(found -> found.orElseThrow())
+                .invoke(ConsultancyEngagement::activate)
+                .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        staleCopy.reviseProposal("Stale title", "Stale scope");
+        assertThrows(DefaultPgConsultancyOperationsFactory.ConcurrentConsultancyEngagementUpdateException.class,
+                () -> runner.inTransaction(context -> context.consultancy().updateEngagement(tenant, staleCopy))
+                        .await().indefinitely());
+
+        ConsultancyEngagement wrongTenant = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, saved.id()).map(found -> found.orElseThrow()))
+                .await().indefinitely();
+        wrongTenant.complete();
+        assertThrows(DefaultPgConsultancyOperationsFactory.ConcurrentConsultancyEngagementUpdateException.class,
+                () -> runner.inTransaction(context -> context.consultancy()
+                        .updateEngagement(tenant + "-other", wrongTenant)).await().indefinitely());
+    }
+
+    @Test
+    void cancellationPersistsRequiredReason() {
+        String tenant = "consultancy-cancel-" + UUID.randomUUID();
+        ConsultancyEngagement saved = runner.inTransaction(context ->
+                context.consultancy().saveEngagement(tenant, newEngagement("ENG-" + UUID.randomUUID())))
+                .await().indefinitely();
+        ConsultancyEngagement cancelled = runner.inTransaction(context ->
+                context.consultancy().findEngagement(tenant, saved.id())
+                        .map(found -> found.orElseThrow())
+                        .invoke(engagement -> engagement.cancel("Client terminated the engagement"))
+                        .flatMap(updated -> context.consultancy().updateEngagement(tenant, updated)))
+                .await().indefinitely();
+
+        assertEquals("CANCELLED", cancelled.status().name());
+        assertEquals("Client terminated the engagement", cancelled.cancellationReason());
+    }
+
+    @Test
+    void deliverableHistoryIsTenantScopedOrderedAndAppendOnly() {
+        String tenant = "consultancy-history-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = newEngagement("ENG-" + UUID.randomUUID());
+        ConsultancyDeliverable deliverable = ConsultancyDeliverable.create(
+                ConsultancyEngagementId.of(engagement.id().value()),
+                engagement.clientOrganizationId(), engagement.consultantOrganizationId(),
+                "H-01", "Initial report", "Initial description");
+        runner.inTransaction(context -> context.consultancy().saveEngagement(tenant, engagement)
+                .flatMap(ignored -> context.consultancy().saveDeliverable(tenant, deliverable)))
+                .await().indefinitely();
+
+        ConsultancyDeliverableHistoryEntry entry = new ConsultancyDeliverableHistoryEntry(
+                UUID.randomUUID(), deliverable.id().value(), engagement.id().value(), 1,
+                ConsultancyDeliverableStatus.DRAFT, ConsultancyDeliverableHistoryEntry.Action.CREATED,
+                deliverable.title(), deliverable.description(), null, null, UUID.randomUUID(),
+                java.time.Instant.parse("2026-10-28T10:00:00Z"));
+        runner.inTransaction(context -> context.consultancy().appendDeliverableHistory(tenant, entry))
+                .await().indefinitely();
+
+        var timeline = runner.inTransaction(context -> context.consultancy()
+                .listDeliverableHistory(tenant, deliverable.id())).await().indefinitely();
+        var otherTenant = runner.inTransaction(context -> context.consultancy()
+                .listDeliverableHistory(tenant + "-other", deliverable.id())).await().indefinitely();
+        assertEquals(1, timeline.size());
+        assertEquals(ConsultancyDeliverableHistoryEntry.Action.CREATED, timeline.get(0).action());
+        assertEquals(1, timeline.get(0).revision());
+        assertTrue(otherTenant.isEmpty());
+
+        assertThrows(RuntimeException.class, () -> pool.preparedQuery("""
+                UPDATE construction_consultancy_deliverable_history
+                   SET title = 'tampered'
+                 WHERE tenant_id = $1 AND history_id = $2
+                """).execute(Tuple.of(tenant, entry.historyId())).await().indefinitely());
     }
 
     private static ConsultancyEngagement newEngagement(String number) {

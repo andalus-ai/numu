@@ -9,13 +9,14 @@ The `numou-geo-domain` artifact currently provides:
 - validated WGS84 points in decimal degrees (`GeoPoint`);
 - great-circle distance and path-length estimates in metres (`GeoDistance`);
 - inclusive geographic bounds, including bounds crossing the antimeridian (`GeoBounds`);
+- an exact spherical-radius predicate (`GeoRadius`) using canonical distance semantics;
 - configurable angular grid bucketing with resolution-aware cell identity (`GeoGrid`, `GeoGridCell`);
 - a provider-neutral precision-5 encoded-polyline codec (`GeoPolylineCodec`);
 - deliberately rounded coordinate string representations to reduce accidental precision leakage in logs.
 
-Encoded polylines are quantized transport representations, not lossless coordinate storage. Geo's distance and path-length calculations are spherical approximations. Angular grid cells are coarse candidate buckets, not equal-area cells or distance guarantees; exact geographic predicates must filter candidates.
+Encoded polylines are quantized transport representations, not lossless coordinate storage. Geo's distance and path-length calculations are spherical approximations. Angular grid cells are coarse candidate buckets, not equal-area cells or distance guarantees; exact geographic predicates such as `GeoRadius` must filter candidates.
 
-The domain artifact does **not** currently provide road routing, travel-time estimates, geocoding, address validation, topology-aware polygon operations, administrative-boundary datasets, or a PostGIS adapter.
+The domain artifact does **not** currently provide a stored-location query API, road routing, travel-time estimates, geocoding, address validation, topology-aware polygon operations, administrative-boundary datasets, or a PostGIS adapter.
 
 ## Ownership and reuse
 
@@ -29,7 +30,7 @@ The domain artifact does **not** currently provide road routing, travel-time est
 
 Consumers should depend on Geo only when its public semantics are appropriate. Mobility's `LatLng` and `Polyline` types remain compatibility facades and convert to/from the shared Geo primitives without changing public signatures. The Mobility polyline facade delegates encoding/decoding to `GeoPolylineCodec`, and `GeoMath` delegates great-circle distance and path-length accumulation to `GeoDistance`. Mobility's `GeoCell.of` delegates angular cell calculation to `GeoGrid` while preserving the existing index and database key format.
 
-Mobility's fixed `GeoCell` size (0.01 degrees), legacy key format and radius-to-candidate-cell enumeration remain Mobility-owned because they are part of driver-index/surge-zone behavior. Geo's grid key includes its resolution to prevent collisions between grids. Grid indices do not wrap at the antimeridian; a spatial query must explicitly handle longitude wrap and polar coverage before using grid cells as a complete candidate set. Mobility's route-estimation fallback, movement rules, local-projection segment distance, path simplification and service-area policies also remain Mobility-owned until shared semantics and real non-Mobility consumers justify extraction.
+Mobility's fixed `GeoCell` size (0.01 degrees), legacy key format and radius-to-candidate-cell enumeration remain Mobility-owned because they are part of driver-index/surge-zone behavior. Geo's grid key includes its resolution to prevent collisions between grids. Grid indices do not wrap at the antimeridian; a spatial query must explicitly handle longitude wrap and polar coverage before using grid cells as a complete candidate set. `GeoRadius` defines the exact spherical predicate only; it does not provide or guarantee a complete candidate set. Mobility's route-estimation fallback, movement rules, local-projection segment distance, path simplification and service-area policies also remain Mobility-owned until shared semantics and real non-Mobility consumers justify extraction.
 
 Inventory's existing `BigDecimal` coordinate model is not migrated by this capability change.
 
@@ -39,8 +40,11 @@ Inventory's existing `BigDecimal` coordinate model is not migrated by this capab
 - **M2:** audit consumer semantics and document compatibility/migration boundaries.
 - **M3:** explicit Mobility `LatLng` conversion to/from the shared Geo point, validation/precision compatibility tests, and cross-reactor CI installation order.
 - **M4:** Mobility's great-circle distance delegates to Geo's canonical haversine implementation while preserving `GeoMath` signatures and the public Earth-radius constant.
-- **M5 (this change):** extract precision-5 encoded-polyline encoding/decoding into the neutral Geo domain; add configurable resolution-aware angular grid cells; retain the Mobility `Polyline` and `GeoCell` APIs as compatibility facades; centralize path-length validation and accumulation; add shared and cross-capability regression tests.
-- **Next:** add reusable geometry operations or provider-neutral routing/geocoding ports only after consumer contracts, coordinate semantics, antimeridian/polar behavior, provider failure models, and data-sharing rules are audited. Do not silently turn straight-line estimates into road routes or move ride policies into Geo.
+- **M5:** extract precision-5 encoded-polyline encoding/decoding into the neutral Geo domain; add configurable resolution-aware angular grid cells; retain the Mobility `Polyline` and `GeoCell` APIs as compatibility facades; centralize path-length validation and accumulation; add shared and cross-capability regression tests.
+- **M6:** preserve consumer coordinate compatibility, including Inventory's precision-sensitive `BigDecimal` model and explicit boundary tests.
+- **M7:** define provider-neutral spatial query semantics before adding query APIs or database adapters. See [Spatial Query Contract M7](docs/SPATIAL-QUERY-CONTRACT-M7.md). This is a design contract, not evidence that a query port or adapter already exists.
+- **M8:** add the exact spherical-radius predicate (`GeoRadius`) with inclusive boundary behavior and tests for zero radius, invalid inputs, antimeridian crossing and polar longitude convergence. This remains a pure domain predicate, not a stored-location search API or index.
+- **Next:** select a concrete consumer use case and its storage/tenancy/latency needs. Implement the smallest query port and one candidate adapter only after proving candidate completeness against exact predicates. Do not silently turn straight-line estimates into road routes or move consumer policies into Geo.
 
 ## Compatibility and security
 

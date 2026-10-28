@@ -99,6 +99,23 @@ class TransportCheckoutServiceTest {
     }
 
     @Test
+    void reconciliationPollsOldPendingCheckoutAndMovesRetryCursorForward() {
+        TransportCheckout checkout = service.start(command());
+        clock.set(start.plusSeconds(120));
+
+        TransportCheckoutService.ReconciliationResult result =
+                service.reconcileDue(java.time.Duration.ofSeconds(60), 10);
+
+        assertThat(result.attempted()).isEqualTo(1);
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(result.failed()).isZero();
+        assertThat(result.failedCheckoutIds()).isEmpty();
+        TransportCheckout refreshed = checkouts.find("tenant-1", checkout.checkoutId()).orElseThrow();
+        assertThat(refreshed.updatedAt()).isEqualTo(clock.instant());
+        assertThat(refreshed.version()).isGreaterThan(checkout.version());
+    }
+
+    @Test
     void idempotencyKeyCannotBeReusedForDifferentSegment() {
         service.start(command());
 
@@ -175,6 +192,21 @@ class TransportCheckoutServiceTest {
         public Optional<TransportCheckout> findByPaymentId(String tenantId, String paymentId) {
             return byId.values().stream().filter(c -> c.tenantId().equals(tenantId)
                     && paymentId.equals(c.paymentId())).findFirst();
+        }
+
+        @Override
+        public List<TransportCheckout> findStaleNonTerminal(Instant updatedBefore, int limit) {
+            return byId.values().stream()
+                    .filter(c -> c.updatedAt().isBefore(updatedBefore))
+                    .filter(c -> c.status() == TransportCheckoutStatus.REQUESTED
+                            || c.status() == TransportCheckoutStatus.HOLD_CREATED
+                            || c.status() == TransportCheckoutStatus.PAYMENT_PENDING
+                            || c.status() == TransportCheckoutStatus.PAYMENT_ACTION_REQUIRED)
+                    .sorted(java.util.Comparator.comparing(TransportCheckout::updatedAt)
+                            .thenComparing(TransportCheckout::tenantId)
+                            .thenComparing(TransportCheckout::checkoutId))
+                    .limit(limit)
+                    .toList();
         }
 
         @Override

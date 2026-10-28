@@ -113,6 +113,7 @@ public final class WorkspaceContentApi {
             throw new WorkspaceApi.ApiException(403, "Access denied", denied);
         } catch (IllegalArgumentException invalid) {
             throw new WorkspaceApi.ApiException(400, invalid.getMessage(), invalid);
+        }
     }
 
     @FunctionalInterface

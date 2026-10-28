@@ -87,9 +87,54 @@ are absent. Quarkus Dev Services requires Docker; alternatively configure a reac
 PostgreSQL test endpoint. The normal test profile excludes `*IntegrationTest` so a plain
 unit build does not silently depend on Docker.
 
-This is a first persistence-boundary proof, not yet an end-to-end `ReservationService`
+The rollback scenario is a persistence-boundary proof, not an end-to-end `ReservationService`
 integration test: it exercises the runner's low-level transaction callback and uses SQL
-fixtures for the reservation/ledger/idempotency writes. The remaining acceptance criteria
-above still require tests through the transaction-scoped repositories and application
-service, including concurrent idempotency and capacity allocation.
+fixtures for the reservation/ledger/idempotency writes. The integration suite now also
+exercises `PgReservationRepository.saveIdempotently` through transaction-scoped repositories
+under concurrent same-key/same-fingerprint and same-key/different-fingerprint requests.
+Those tests assert one canonical reservation is persisted and a conflicting fingerprint is
+rejected. They still require execution against PostgreSQL before being treated as verified.
 
+Remaining acceptance criteria include a full `ReservationService` integration path, capacity
+allocation races with overlapping booking windows, runtime composition-root wiring, and
+outbox relay lease/retry/dead-letter recovery.
+
+
+
+### Concurrent capacity-allocation contract
+
+The opt-in PostgreSQL integration suite also races two overlapping allocation attempts against a
+single bookable resource. Both attempts use `PgReservationTransactionRunner.execute` and
+`PgLedgerRepository.findOrCreate`, whose facility/day ledger row is selected `FOR UPDATE`.
+The expected contract is that one attempt persists an allocation and the other observes the
+updated ledger and reports no availability; the persisted snapshot must contain exactly one
+allocation. This test remains unverified until the `pg-integration` Maven profile passes on
+PostgreSQL. It tests the ledger's locking boundary, not the full `ReservationService` path.
+
+## Durable outbox relay contract
+
+The PostgreSQL adapter now exposes a transport-neutral `ReservationOutboxPublisher`
+and a `PgReservationOutboxRelay`. The relay claims a bounded batch using
+`FOR UPDATE SKIP LOCKED`, commits an expiring lease before invoking the publisher,
+and acknowledges only while its unique batch lease token is still current. Expired
+processing leases can be reclaimed after a worker crash. Failed delivery uses capped
+exponential backoff and transitions to `DEAD` when the configured attempt limit is
+reached. Rows whose attempt limit is exhausted while pending or with an expired lease
+are also moved to `DEAD`.
+
+Delivery is **at-least-once**, not exactly-once: a process can publish successfully and
+crash before the database acknowledgement commits. Publishers and consumers must use
+the stable event ID as an idempotency/deduplication key. The relay deliberately does not
+own scheduling, broker credentials, transport-specific serialization, metrics, or runtime
+shutdown; the host composition root supplies the publisher and polling lifecycle.
+
+The opt-in PostgreSQL relay contract tests cover successful acknowledgement, retry/dead-letter
+transition, expired-lease recovery, and concurrent pollers. Run them with:
+
+```bash
+mvn -f reservation/pom.xml -pl reservation-adapter -am -Ppg-integration verify
+```
+
+These tests have not been executed as part of authoring this milestone. Production rollout
+still requires a concrete publisher/runtime wiring, operational metrics and alerting, and a
+successful run against PostgreSQL in CI or a controlled environment.

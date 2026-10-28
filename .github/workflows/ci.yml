@@ -142,6 +142,12 @@ jobs:
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
         run: mvn -B -ntp -f quantity/pom.xml install
+      - name: Install supply parent POM for cross-reactor consumers
+        run: mvn -B -ntp -N -f supply/pom.xml install
+      - name: Verify and install purchasing contracts for integration consumers
+        run: mvn -B -ntp -f supply/purchasing/pom.xml install
+      - name: Verify workshop parts purchasing integration
+        run: mvn -B -ntp -f automotive-parts-purchasing/pom.xml verify
       - name: Verify supply-chain reactor
         run: mvn -B -ntp -f supply/pom.xml verify
       - name: Verify Courier/Cargo reactor
@@ -237,6 +243,59 @@ jobs:
         with:
           name: syirkah-test-reports
           path: "finance/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
+
+
+  affiliate:
+    name: Affiliate capability verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Verify affiliate domain, SPI, and application contracts
+        run: mvn -B -ntp -f commerce/affiliate/pom.xml verify
+      - name: Upload affiliate Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: affiliate-maven-test-reports
+          path: "commerce/affiliate/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
+
+  marketplace:
+    name: Marketplace order and checkout verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Install finance parent POMs for payment API contract
+        run: |
+          mvn -B -ntp -N -f finance/pom.xml install
+          mvn -B -ntp -N -f finance/payment/pom.xml install
+      - name: Install public payment API contract
+        run: mvn -B -ntp -f finance/payment/numou-payment-api/pom.xml install
+      - name: Verify marketplace domain, application, PostgreSQL persistence, and checkout saga
+        run: mvn -B -ntp -f commerce/marketplace/pom.xml verify
+      - name: Upload marketplace Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-maven-test-reports
+          path: "commerce/marketplace/**/target/surefire-reports/**"
           if-no-files-found: warn
           retention-days: 7
 

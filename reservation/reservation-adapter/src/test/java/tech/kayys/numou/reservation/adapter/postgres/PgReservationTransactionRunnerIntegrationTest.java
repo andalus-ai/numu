@@ -8,15 +8,24 @@ import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.reservation.domain.*;
 import tech.kayys.numou.reservation.domain.event.ReservationRequested;
+import tech.kayys.numou.reservation.spi.IdempotentReservationRepository;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -74,6 +83,170 @@ class PgReservationTransactionRunnerIntegrationTest {
         assertEquals(0L, countOutbox(eventId));
     }
 
+    @Test
+    void concurrentSameKeyAndFingerprintConvergeOnOneCanonicalReservation() {
+        UUID tenantId = UUID.randomUUID();
+        UUID facilityId = UUID.randomUUID();
+        String key = "same-request-" + UUID.randomUUID();
+        String fingerprint = "b".repeat(64);
+        Instant now = Instant.parse("2026-10-28T04:00:00Z");
+        Reservation firstCandidate = candidate(facilityId, now);
+        Reservation secondCandidate = candidate(facilityId, now);
+        PgReservationTransactionRunner runner = transactionRunner();
+
+        var results = Uni.combine().all().unis(
+                saveIdempotently(runner, tenantId, key, fingerprint, firstCandidate),
+                saveIdempotently(runner, tenantId, key, fingerprint, secondCandidate)
+        ).asTuple().await().indefinitely();
+
+        assertEquals(1, (results.getItem1().created() ? 1 : 0)
+                + (results.getItem2().created() ? 1 : 0));
+        assertEquals(results.getItem1().reservation().id(), results.getItem2().reservation().id());
+        assertEquals(1L, countIdempotency(tenantId, key));
+        assertEquals(1L, countReservationId(tenantId, results.getItem1().reservation().id().value()));
+    }
+
+    @Test
+    void concurrentSameKeyWithDifferentFingerprintsAllowsOnlyOneRequest() {
+        UUID tenantId = UUID.randomUUID();
+        UUID facilityId = UUID.randomUUID();
+        String key = "conflicting-request-" + UUID.randomUUID();
+        Instant now = Instant.parse("2026-10-28T04:00:00Z");
+        PgReservationTransactionRunner runner = transactionRunner();
+
+        Uni<Boolean> first = saveIdempotently(runner, tenantId, key, "c".repeat(64),
+                candidate(facilityId, now))
+                .map(result -> true)
+                .onFailure(IdempotentReservationRepository.IdempotencyKeyConflictException.class)
+                .recoverWithItem(false);
+        Uni<Boolean> second = saveIdempotently(runner, tenantId, key, "d".repeat(64),
+                candidate(facilityId, now))
+                .map(result -> true)
+                .onFailure(IdempotentReservationRepository.IdempotencyKeyConflictException.class)
+                .recoverWithItem(false);
+
+        var results = Uni.combine().all().unis(first, second).asTuple().await().indefinitely();
+        assertNotEquals(results.getItem1(), results.getItem2());
+        assertEquals(1L, countIdempotency(tenantId, key));
+        assertEquals(1L, countReservationsForTenant(tenantId));
+    }
+
+    @Test
+    void concurrentOverlappingBookingsCannotAllocateTheSameResourceTwice() {
+        UUID tenantId = UUID.randomUUID();
+        FacilityId facilityId = FacilityId.of(UUID.randomUUID());
+        UUID resourceUuid = UUID.randomUUID();
+        ResourceId resourceId = ResourceId.of(resourceUuid);
+        BookableResource onlyResource = new BookableResource(
+                resourceId, "Only bookable unit", 1, 2, java.util.Set.of(), java.util.Set.of());
+        java.util.List<BookableResource> resources = java.util.List.of(onlyResource);
+        Instant now = Instant.parse("2026-10-28T04:00:00Z");
+        Instant startsAt = java.time.LocalDateTime.of(2026, 10, 30, 14, 0)
+                .atZone(ZoneId.of("Asia/Jakarta")).toInstant();
+        BookingRules rules = bookingRules();
+        ReservationId firstId = ReservationId.generate();
+        ReservationId secondId = ReservationId.generate();
+        PgReservationTransactionRunner runner = transactionRunner();
+
+        Uni<Boolean> first = allocateIfAvailable(runner, tenantId, facilityId, firstId,
+                PartySize.of(2), startsAt, rules, resources, now);
+        Uni<Boolean> second = allocateIfAvailable(runner, tenantId, facilityId, secondId,
+                PartySize.of(2), startsAt, rules, resources, now);
+
+        var results = Uni.combine().all().unis(first, second).asTuple().await().indefinitely();
+        assertNotEquals(results.getItem1(), results.getItem2());
+        assertEquals(1L, countLedgerAllocations(tenantId, facilityId.value(),
+                startsAt.atZone(rules.zone()).toLocalDate()));
+    }
+
+    private Uni<Boolean> allocateIfAvailable(PgReservationTransactionRunner runner, UUID tenantId,
+            FacilityId facilityId, ReservationId reservationId, PartySize party, Instant startsAt,
+            BookingRules rules, java.util.List<BookableResource> resources, Instant now) {
+        return runner.execute(context -> context.ledgers()
+                .findOrCreate(tenantId, facilityId, startsAt.atZone(rules.zone()).toLocalDate(), now)
+                .flatMap(ledger -> {
+                    if (!ledger.canAccommodate(party, startsAt, rules.turnTimeFor(party), java.util.Set.of(),
+                            rules, resources)) {
+                        return Uni.createFrom().failure(new NoAvailabilityException("Resource already allocated"));
+                    }
+                    ledger.allocate(reservationId, party, startsAt, rules.turnTimeFor(party),
+                            java.util.Set.of(), rules, resources, now);
+                    return context.ledgers().save(tenantId, ledger).replaceWith(true);
+                }))
+                .onFailure(NoAvailabilityException.class).recoverWithItem(false);
+    }
+
+    private long countLedgerAllocations(UUID tenantId, UUID facilityId, LocalDate day) {
+        return pool.preparedQuery("""
+                SELECT COALESCE(sum(jsonb_array_length(snapshot->'allocations')), 0) AS total
+                  FROM reservation_availability_ledger
+                 WHERE tenant_id = $1 AND facility_id = $2 AND ledger_day = $3
+                """).execute(Tuple.of(tenantId, facilityId, day)).await().indefinitely()
+                .iterator().next().getLong("total");
+    }
+
+    private BookingRules bookingRules() {
+        return new BookingRules(
+                ZoneId.of("Asia/Jakarta"), 1, 10, 30,
+                Duration.ofMinutes(30), Duration.ofMinutes(60), Duration.ofMinutes(15),
+                java.util.Map.of(2, Duration.ofMinutes(60)),
+                30, Money.of(100_000, "IDR"),
+                Duration.ofHours(24), Money.of(50_000, "IDR"),
+                Duration.ofMinutes(15), Duration.ofMinutes(15),
+                java.util.Map.of(DayOfWeek.FRIDAY, java.util.List.of(
+                        new OperatingWindow("Day", LocalTime.of(8, 0), LocalTime.of(22, 0),
+                                LocalTime.of(20, 0))))
+        );
+    }
+
+    private PgReservationTransactionRunner transactionRunner() {
+        return new PgReservationTransactionRunner(pool,
+                connection -> (tenantId, events) -> Uni.createFrom().voidItem());
+    }
+
+    private Uni<IdempotentReservationRepository.IdempotentSaveResult> saveIdempotently(
+            PgReservationTransactionRunner runner, UUID tenantId, String key, String fingerprint,
+            Reservation candidate) {
+        return runner.execute(context -> context.reservations()
+                .saveIdempotently(tenantId, key, fingerprint, candidate));
+    }
+
+    private Reservation candidate(UUID facilityId, Instant now) {
+        ZoneId zone = ZoneId.of("Asia/Jakarta");
+        BookingRules rules = new BookingRules(
+                zone, 1, 10, 30,
+                Duration.ofMinutes(30), Duration.ofMinutes(60), Duration.ofMinutes(15),
+                java.util.Map.of(2, Duration.ofMinutes(60)),
+                30, Money.of(100_000, "IDR"),
+                Duration.ofHours(24), Money.of(50_000, "IDR"),
+                Duration.ofMinutes(15), Duration.ofMinutes(15),
+                java.util.Map.of(DayOfWeek.FRIDAY, java.util.List.of(
+                        new OperatingWindow("Day", LocalTime.of(8, 0), LocalTime.of(22, 0),
+                                LocalTime.of(20, 0))))
+        );
+        Instant startsAt = java.time.LocalDateTime.of(2026, 10, 30, 14, 0)
+                .atZone(zone).toInstant();
+        return Reservation.request(ReservationId.generate(), FacilityId.of(facilityId),
+                new CustomerContact("Integration Guest", "+6281112233", "integration@example.com"),
+                PartySize.of(2), startsAt, BookingSource.WEB, "concurrency test", java.util.Set.of(),
+                Duration.ofHours(1), rules, now);
+    }
+
+    private long countReservationId(UUID tenantId, UUID reservationId) {
+        return pool.preparedQuery("""
+                SELECT count(*) AS total FROM reservation_record
+                 WHERE tenant_id = $1 AND reservation_id = $2
+                """).execute(Tuple.of(tenantId, reservationId)).await().indefinitely()
+                .iterator().next().getLong("total");
+    }
+
+    private long countReservationsForTenant(UUID tenantId) {
+        return pool.preparedQuery("""
+                SELECT count(*) AS total FROM reservation_record WHERE tenant_id = $1
+                """).execute(Tuple.of(tenantId)).await().indefinitely()
+                .iterator().next().getLong("total");
+    }
+
     private Uni<Void> insertReservation(SqlConnection connection, UUID tenantId, UUID reservationId,
                                         UUID facilityId, OffsetDateTime startsAt, OffsetDateTime endsAt,
                                         Instant now) {
@@ -120,7 +293,7 @@ class PgReservationTransactionRunnerIntegrationTest {
                 SELECT count(*) AS total FROM reservation_idempotency_key
                  WHERE tenant_id = $1 AND idempotency_key = $2
                 """).execute(Tuple.of(tenantId, key)).await().indefinitely()
-                .iterator().next().getInteger("total");
+                .iterator().next().getLong("total");
     }
 
     private long countOutbox(UUID eventId) {

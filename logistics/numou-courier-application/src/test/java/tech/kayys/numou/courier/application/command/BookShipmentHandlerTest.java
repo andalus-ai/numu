@@ -33,6 +33,24 @@ class BookShipmentHandlerTest {
         verify(repository).save(tenant, result);
     }
 
+
+    @Test
+    void routesKeyedBookingsThroughDurableIdempotencyPort() {
+        ShipmentRepository repository = mock(ShipmentRepository.class);
+        when(repository.saveIdempotently(any(), anyString(), anyString(), any())).thenAnswer(invocation ->
+                CompletableFuture.completedFuture(invocation.getArgument(3)));
+        TenantId tenant = TenantId.generate();
+        Instant now = Instant.parse("2026-10-24T00:00:00Z");
+        BookShipmentCommand command = new BookShipmentCommand(tenant, ShipmentId.generate(), "SHIP-1003",
+                new ShipmentAddress("Sender", "+62111", "Origin", null, "Bandung", null, null, "ID"),
+                new ShipmentAddress("Recipient", "+62222", "Destination", null, "Jakarta", null, null, "ID"),
+                ServiceLevel.STANDARD, List.of(parcel("P-003")), now, "checkout-123", "a".repeat(64));
+        Shipment result = new BookShipmentHandler(repository).handle(command).toCompletableFuture().join();
+        assertEquals(ShipmentStatus.BOOKED, result.status());
+        verify(repository).saveIdempotently(tenant, "checkout-123", "a".repeat(64), result);
+        verify(repository, never()).save(any(), any());
+    }
+
     @Test
     void rejectsEmptyParcelListBeforePersistence() {
         ShipmentRepository repository = mock(ShipmentRepository.class);

@@ -53,6 +53,37 @@ class GeoDomainTest {
     }
 
     @Test
+    void boundsIncludeAllEdgesAndSupportOrdinaryLongitudeIntervals() {
+        GeoBounds bounds = new GeoBounds(-10, 100, 10, 120);
+
+        assertThat(bounds.contains(new GeoPoint(-10, 100))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(10, 120))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 110))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 99.999))).isFalse();
+        assertThat(bounds.contains(new GeoPoint(0, 120.001))).isFalse();
+    }
+
+    @Test
+    void antimeridianBoundsIncludeBothLongitudeEdgesAndRejectTheMiddle() {
+        GeoBounds bounds = new GeoBounds(-20, 170, 20, -170);
+
+        assertThat(bounds.contains(new GeoPoint(20, 170))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(-20, -170))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 180))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, -180))).isTrue();
+        assertThat(bounds.contains(new GeoPoint(0, 169.999))).isFalse();
+        assertThat(bounds.contains(new GeoPoint(0, -169.999))).isFalse();
+    }
+
+    @Test
+    void rejectsInvalidBoundsAndNullContainmentInput() {
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoBounds(11, 0, 10, 1));
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoBounds(-91, 0, 10, 1));
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoBounds(-10, 0, 10, 181));
+        assertThatNullPointerException().isThrownBy(() -> new GeoBounds(-1, -1, 1, 1).contains(null));
+    }
+
+    @Test
     void sumsPathSegmentsAndTreatsShortPathsAsZero() {
         GeoPoint a = new GeoPoint(0, 0);
         GeoPoint b = new GeoPoint(0, 1);
@@ -66,5 +97,38 @@ class GeoDomainTest {
     void coordinateStringDoesNotExposeFullPrecision() {
         assertThat(new GeoPoint(-6.208812345, 106.845612345).toString())
                 .isEqualTo("GeoPoint[~-6.21,~106.85]");
+    }
+
+    @Test
+    void radiusIncludesCenterAndItsExactBoundaryButExcludesPointsOutside() {
+        GeoPoint center = new GeoPoint(0, 0);
+        GeoPoint edge = new GeoPoint(0, 1);
+        double exactDistance = GeoDistance.metersBetween(center, edge);
+
+        assertThat(new GeoRadius(center, 0).contains(center)).isTrue();
+        assertThat(new GeoRadius(center, exactDistance).contains(edge)).isTrue();
+        assertThat(new GeoRadius(center, Math.nextDown(exactDistance)).contains(edge)).isFalse();
+        assertThat(new GeoRadius(center, exactDistance).distanceTo(edge)).isEqualTo(exactDistance);
+    }
+
+    @Test
+    void radiusPredicateHandlesAntimeridianAndPolarLongitudeConvergence() {
+        GeoRadius antimeridianRadius = new GeoRadius(new GeoPoint(0, 179.9), 25_000);
+        assertThat(antimeridianRadius.contains(new GeoPoint(0, -179.9))).isTrue();
+        assertThat(antimeridianRadius.contains(new GeoPoint(0, 0))).isFalse();
+
+        GeoRadius nearPole = new GeoRadius(new GeoPoint(89.9, 0), 25_000);
+        assertThat(nearPole.contains(new GeoPoint(89.9, 180))).isTrue();
+    }
+
+    @Test
+    void radiusRejectsInvalidValuesAndNullPoints() {
+        GeoPoint center = new GeoPoint(0, 0);
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoRadius(center, -1));
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoRadius(center, Double.NaN));
+        assertThatIllegalArgumentException().isThrownBy(() -> new GeoRadius(center, Double.POSITIVE_INFINITY));
+        assertThatNullPointerException().isThrownBy(() -> new GeoRadius(null, 1));
+        assertThatNullPointerException().isThrownBy(() -> new GeoRadius(center, 1).contains(null));
+        assertThatNullPointerException().isThrownBy(() -> new GeoRadius(center, 1).distanceTo(null));
     }
 }

@@ -38,6 +38,7 @@ public interface ConsultancyAuthorization {
         CANCEL_ENGAGEMENT,
         CREATE_DELIVERABLE,
         SUBMIT_DELIVERABLE,
+        REVISE_DELIVERABLE,
         REVIEW_DELIVERABLE
     }
 }

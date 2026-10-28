@@ -12,8 +12,10 @@
     <artifactId>numou-purchasing</artifactId>
     <packaging>pom</packaging>
     <name>ERP Purchasing</name>
-    <description>Purchasing Bounded Context</description>
+    <description>Reusable purchasing bounded context</description>
     <modules>
         <module>numou-purchasing-domain</module>
+        <module>numou-purchasing-spi</module>
+        <module>numou-purchasing-application</module>
     </modules>
 </project>

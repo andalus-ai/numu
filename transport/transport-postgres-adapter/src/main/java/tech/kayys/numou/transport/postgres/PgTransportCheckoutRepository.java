@@ -11,6 +11,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +31,10 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             + " FROM transport_checkout WHERE tenant_id = ? AND idempotency_key = ?";
     private static final String FIND_BY_PAYMENT = "SELECT " + COLUMNS
             + " FROM transport_checkout WHERE tenant_id = ? AND payment_id = ?";
+    private static final String FIND_STALE = "SELECT " + COLUMNS
+            + " FROM transport_checkout WHERE updated_at < ?"
+            + " AND status IN ('REQUESTED', 'HOLD_CREATED', 'PAYMENT_PENDING', 'PAYMENT_ACTION_REQUIRED')"
+            + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
     private static final String INSERT = """
             INSERT INTO transport_checkout
             (tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
@@ -61,6 +68,26 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
     @Override
     public Optional<TransportCheckout> findByPaymentId(String tenantId, String paymentId) {
         return queryOne(FIND_BY_PAYMENT, requireTenant(tenantId), required(paymentId, "paymentId"));
+    }
+
+    @Override
+    public List<TransportCheckout> findStaleNonTerminal(Instant updatedBefore, int limit) {
+        Objects.requireNonNull(updatedBefore, "updatedBefore");
+        if (limit < 1 || limit > 10_000) {
+            throw new IllegalArgumentException("limit must be between 1 and 10000");
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_STALE)) {
+            statement.setTimestamp(1, Timestamp.from(updatedBefore));
+            statement.setInt(2, limit);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<TransportCheckout> result = new ArrayList<>();
+                while (rows.next()) result.add(read(rows));
+                return List.copyOf(result);
+            }
+        } catch (SQLException failure) {
+            throw persistenceFailure("find stale checkouts", failure);
+        }
     }
 
     @Override
