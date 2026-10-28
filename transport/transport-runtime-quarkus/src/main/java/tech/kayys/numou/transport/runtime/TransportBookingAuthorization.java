@@ -26,8 +26,6 @@ import java.util.UUID;
  */
 @ApplicationScoped
 public class TransportBookingAuthorization {
-    private static final String RESOURCE_TYPE = "transport.booking.hold";
-
     @Inject
     TenantMembershipResolver memberships;
 
@@ -62,11 +60,9 @@ public class TransportBookingAuthorization {
                 throw new SecurityException("active tenant membership is required");
             }
 
-            ActionType action = operation == BookingOperation.CREATE_HOLD
-                    ? ActionType.CREATE : ActionType.UPDATE;
             String resourceId = holdId == null ? departureId.toString() : holdId.toString();
-            AccessRequest request = new AccessRequest(principal, tenant, action, RESOURCE_TYPE,
-                    resourceId, "operation=" + operation.permissionAction());
+            AccessRequest request = new AccessRequest(principal, tenant, operation.actionType(),
+                    operation.resourceType(), resourceId, "operation=" + operation.permissionAction());
             AccessDecision decision = authorization.authorize(request).await().atMost(timeout);
             if (decision == null || !decision.isAllowed()) {
                 throw new SecurityException("booking permission was denied");
@@ -80,18 +76,25 @@ public class TransportBookingAuthorization {
     }
 
     public enum BookingOperation {
-        CREATE_HOLD("create"),
-        CONFIRM_HOLD("confirm"),
-        RELEASE_HOLD("release");
+        CREATE_HOLD("create", "transport.booking.hold", ActionType.CREATE),
+        CONFIRM_HOLD("confirm", "transport.booking.hold", ActionType.UPDATE),
+        RELEASE_HOLD("release", "transport.booking.hold", ActionType.UPDATE),
+        CREATE_CHECKOUT("create", "transport.booking.checkout", ActionType.CREATE),
+        READ_CHECKOUT("read", "transport.booking.checkout", ActionType.READ),
+        REFRESH_CHECKOUT("refresh", "transport.booking.checkout", ActionType.PERFORM);
 
         private final String permissionAction;
+        private final String resourceType;
+        private final ActionType actionType;
 
-        BookingOperation(String permissionAction) {
+        BookingOperation(String permissionAction, String resourceType, ActionType actionType) {
             this.permissionAction = permissionAction;
+            this.resourceType = resourceType;
+            this.actionType = actionType;
         }
 
-        public String permissionAction() {
-            return permissionAction;
-        }
+        public String permissionAction() { return permissionAction; }
+        public String resourceType() { return resourceType; }
+        public ActionType actionType() { return actionType; }
     }
 }

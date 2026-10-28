@@ -25,7 +25,12 @@ public interface TransportFareQuotePort {
             if (quoteId == null || quoteId.isBlank()) throw new IllegalArgumentException("quoteId is required");
             Objects.requireNonNull(amount, "amount");
             if (amount.signum() <= 0) throw new IllegalArgumentException("amount must be positive");
-            if (currency == null || currency.isBlank()) throw new IllegalArgumentException("currency is required");
+            if (amount.stripTrailingZeros().scale() > 4 || amount.precision() > 19) {
+                throw new IllegalArgumentException("amount exceeds supported precision (19 digits, 4 decimal places)");
+            }
+            if (currency == null || !currency.matches("[A-Z]{3}")) {
+                throw new IllegalArgumentException("currency must be uppercase ISO-4217");
+            }
             Currency.getInstance(currency);
             Objects.requireNonNull(expiresAt, "expiresAt");
         }

@@ -19,5 +19,6 @@
         <module>transport-application</module>
         <module>transport-runtime-quarkus</module>
         <module>transport-postgres-adapter</module>
+        <module>transport-payment-adapter</module>
     </modules>
 </project>
