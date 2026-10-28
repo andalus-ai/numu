@@ -107,6 +107,16 @@ public final class DefaultCommissionFinanceService implements CommissionFinanceA
                         .thenCompose(ignored -> dispatchSequentially(tenantId, claimed, index + 1, completed)));
     }
 
+    @Override
+    public CompletionStage<Boolean> reconcile(AffiliateCommandContext context, UUID postingId) {
+        Objects.requireNonNull(context, "context is required");
+        Objects.requireNonNull(postingId, "postingId is required");
+        return outbox.findByIdempotencyKey(context.tenantId(),
+                        "affiliate-finance:" + context.tenantId() + ":" + findEntryKeySuffix(postingId))
+                .thenCompose(ignored -> failed(new UnsupportedOperationException(
+                        "Reconciliation requires a posting-ID lookup in the outbox repository")));
+    }
+
     private static boolean matches(CommissionFinancePosting posting, CommissionFinancePort.FinancePostingReceipt receipt) {
         return receipt != null
                 && posting.tenantId().equals(receipt.tenantId())
