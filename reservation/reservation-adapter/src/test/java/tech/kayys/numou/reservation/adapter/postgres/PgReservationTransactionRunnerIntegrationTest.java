@@ -68,10 +68,10 @@ class PgReservationTransactionRunnerIntegrationTest {
                                 new DeliberateRollbackException())))
                 .await().indefinitely());
 
-        assertEquals(0, count("reservation_record", tenantId, "reservation_id", reservationId));
-        assertEquals(0, count("reservation_availability_ledger", tenantId, "ledger_id", ledgerId));
-        assertEquals(0, countIdempotency(tenantId, idempotencyKey));
-        assertEquals(0, countOutbox(eventId));
+        assertEquals(0L, count("reservation_record", tenantId, "reservation_id", reservationId));
+        assertEquals(0L, count("reservation_availability_ledger", tenantId, "ledger_id", ledgerId));
+        assertEquals(0L, countIdempotency(tenantId, idempotencyKey));
+        assertEquals(0L, countOutbox(eventId));
     }
 
     private Uni<Void> insertReservation(SqlConnection connection, UUID tenantId, UUID reservationId,
@@ -107,12 +107,12 @@ class PgReservationTransactionRunnerIntegrationTest {
                 now.atOffset(ZoneOffset.UTC))).replaceWithVoid();
     }
 
-    private int count(String table, UUID tenantId, String idColumn, UUID id) {
+    private long count(String table, UUID tenantId, String idColumn, UUID id) {
         // Table and column names are constants at call sites, never user input.
         return pool.preparedQuery("SELECT count(*) AS total FROM " + table
                 + " WHERE tenant_id = $1 AND " + idColumn + " = $2")
                 .execute(Tuple.of(tenantId, id)).await().indefinitely()
-                .iterator().next().getInteger("total");
+                .iterator().next().getLong("total");
     }
 
     private int countIdempotency(UUID tenantId, String key) {
