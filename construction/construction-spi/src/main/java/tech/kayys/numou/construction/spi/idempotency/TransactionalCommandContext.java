@@ -48,8 +48,19 @@ public interface TransactionalCommandContext {
         Uni<Optional<ConsultancyEngagement>> findEngagement(
                 String tenantId, ConsultancyEngagementId engagementId);
 
-        Uni<ConsultancyDeliverable> saveDeliverable(String tenantId, ConsultancyDeliverable deliverable);
-        Uni<Optional<ConsultancyDeliverable>> findDeliverable(String tenantId, ConsultancyDeliverableId deliverableId);
+        /** Fails closed for adapters that have not implemented deliverable persistence yet. */
+        default Uni<ConsultancyDeliverable> saveDeliverable(
+                String tenantId, ConsultancyDeliverable deliverable) {
+            return Uni.createFrom().failure(new UnsupportedOperationException(
+                    "Transactional consultancy deliverable inserts are not implemented by this adapter"));
+        }
+
+        /** Fails closed for adapters that have not implemented deliverable persistence yet. */
+        default Uni<Optional<ConsultancyDeliverable>> findDeliverable(
+                String tenantId, ConsultancyDeliverableId deliverableId) {
+            return Uni.createFrom().failure(new UnsupportedOperationException(
+                    "Transactional consultancy deliverable lookups are not implemented by this adapter"));
+        }
 
         /** Updates an existing tenant-scoped engagement in the same command transaction. */
         default Uni<ConsultancyEngagement> updateEngagement(String tenantId, ConsultancyEngagement engagement) {
