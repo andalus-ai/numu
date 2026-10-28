@@ -13,6 +13,7 @@ import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagement;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableHistoryEntry;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableStatus;
 import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
 import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
@@ -290,6 +291,42 @@ class PgConsultancyOperationsIntegrationTest {
 
         assertEquals("CANCELLED", cancelled.status().name());
         assertEquals("Client terminated the engagement", cancelled.cancellationReason());
+    }
+
+    @Test
+    void deliverableHistoryIsTenantScopedOrderedAndAppendOnly() {
+        String tenant = "consultancy-history-" + UUID.randomUUID();
+        ConsultancyEngagement engagement = newEngagement("ENG-" + UUID.randomUUID());
+        ConsultancyDeliverable deliverable = ConsultancyDeliverable.create(
+                ConsultancyEngagementId.of(engagement.id().value()),
+                engagement.clientOrganizationId(), engagement.consultantOrganizationId(),
+                "H-01", "Initial report", "Initial description");
+        runner.inTransaction(context -> context.consultancy().saveEngagement(tenant, engagement)
+                .flatMap(ignored -> context.consultancy().saveDeliverable(tenant, deliverable)))
+                .await().indefinitely();
+
+        ConsultancyDeliverableHistoryEntry entry = new ConsultancyDeliverableHistoryEntry(
+                UUID.randomUUID(), deliverable.id().value(), engagement.id().value(), 1,
+                ConsultancyDeliverableStatus.DRAFT, ConsultancyDeliverableHistoryEntry.Action.CREATED,
+                deliverable.title(), deliverable.description(), null, null, UUID.randomUUID(),
+                java.time.Instant.parse("2026-10-28T10:00:00Z"));
+        runner.inTransaction(context -> context.consultancy().appendDeliverableHistory(tenant, entry))
+                .await().indefinitely();
+
+        var timeline = runner.inTransaction(context -> context.consultancy()
+                .listDeliverableHistory(tenant, deliverable.id())).await().indefinitely();
+        var otherTenant = runner.inTransaction(context -> context.consultancy()
+                .listDeliverableHistory(tenant + "-other", deliverable.id())).await().indefinitely();
+        assertEquals(1, timeline.size());
+        assertEquals(ConsultancyDeliverableHistoryEntry.Action.CREATED, timeline.get(0).action());
+        assertEquals(1, timeline.get(0).revision());
+        assertTrue(otherTenant.isEmpty());
+
+        assertThrows(RuntimeException.class, () -> pool.preparedQuery("""
+                UPDATE construction_consultancy_deliverable_history
+                   SET title = 'tampered'
+                 WHERE tenant_id = $1 AND history_id = $2
+                """).execute(Tuple.of(tenant, entry.historyId())).await().indefinitely());
     }
 
     private static ConsultancyEngagement newEngagement(String number) {

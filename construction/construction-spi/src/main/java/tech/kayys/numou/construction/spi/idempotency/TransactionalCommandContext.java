@@ -5,12 +5,14 @@ import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagement;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableHistoryEntry;
 import tech.kayys.numou.construction.domain.boq.BoqCalculationPolicy;
 import tech.kayys.numou.construction.domain.boq.BoqRevisionSnapshot;
 import tech.kayys.numou.construction.spi.outbox.TransactionalOutboxEvent;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -67,6 +69,19 @@ public interface TransactionalCommandContext {
                 String tenantId, ConsultancyDeliverable deliverable) {
             return Uni.createFrom().failure(new UnsupportedOperationException(
                     "Transactional consultancy deliverable updates are not implemented by this adapter"));
+        }
+
+        /** Appends an immutable snapshot through the same transaction-bound connection. */
+        default Uni<Void> appendDeliverableHistory(String tenantId, ConsultancyDeliverableHistoryEntry entry) {
+            return Uni.createFrom().failure(new UnsupportedOperationException(
+                    "Transactional consultancy deliverable history is not implemented by this adapter"));
+        }
+
+        /** Lists a tenant-scoped immutable deliverable timeline in append order. */
+        default Uni<List<ConsultancyDeliverableHistoryEntry>> listDeliverableHistory(
+                String tenantId, ConsultancyDeliverableId deliverableId) {
+            return Uni.createFrom().failure(new UnsupportedOperationException(
+                    "Transactional consultancy deliverable history queries are not implemented by this adapter"));
         }
 
         /** Updates an existing tenant-scoped engagement in the same command transaction. */

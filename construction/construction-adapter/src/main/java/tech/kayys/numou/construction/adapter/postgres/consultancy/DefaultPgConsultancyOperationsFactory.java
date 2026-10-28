@@ -10,10 +10,13 @@ import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementId;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyEngagementStatus;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverable;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableId;
+import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableHistoryEntry;
 import tech.kayys.numou.construction.domain.consultancy.ConsultancyDeliverableStatus;
 import tech.kayys.numou.construction.spi.idempotency.TransactionalCommandContext;
 
 import java.util.Objects;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -230,6 +233,43 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
             });
         }
 
+        @Override
+        public Uni<Void> appendDeliverableHistory(
+                String tenantId, ConsultancyDeliverableHistoryEntry entry) {
+            requireText(tenantId, "tenantId");
+            Objects.requireNonNull(entry, "entry");
+            String sql = """
+                    INSERT INTO construction_consultancy_deliverable_history
+                        (tenant_id, history_id, deliverable_id, engagement_id, revision, action, status,
+                         title, description, reviewed_by_organization_id, review_comment, actor_id, occurred_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    """;
+            return connection.preparedQuery(sql).execute(Tuple.of(
+                    tenantId, entry.historyId(), entry.deliverableId(), entry.engagementId(),
+                    entry.revision(), entry.action().name(), entry.status().name(), entry.title(),
+                    entry.description(), entry.reviewedByOrganizationId(), entry.reviewComment(),
+                    entry.actorId(), entry.occurredAt())).replaceWithVoid();
+        }
+
+        @Override
+        public Uni<List<ConsultancyDeliverableHistoryEntry>> listDeliverableHistory(
+                String tenantId, ConsultancyDeliverableId deliverableId) {
+            requireText(tenantId, "tenantId");
+            Objects.requireNonNull(deliverableId, "deliverableId");
+            String sql = """
+                    SELECT history_id, deliverable_id, engagement_id, revision, action, status,
+                           title, description, reviewed_by_organization_id, review_comment, actor_id, occurred_at
+                      FROM construction_consultancy_deliverable_history
+                     WHERE tenant_id = $1 AND deliverable_id = $2
+                     ORDER BY sequence_no ASC
+                    """;
+            return connection.preparedQuery(sql).execute(Tuple.of(tenantId, deliverableId.value())).map(rows -> {
+                List<ConsultancyDeliverableHistoryEntry> entries = new ArrayList<>();
+                for (Row row : rows) entries.add(mapHistory(row));
+                return List.copyOf(entries);
+            });
+        }
+
         /**
          * Conditional updates are the concurrency boundary: only a transition from the
          * expected persisted state can win. A stale aggregate cannot overwrite a newer
@@ -274,6 +314,17 @@ public final class DefaultPgConsultancyOperationsFactory implements PgConsultanc
                     row.getString("scope_statement"), row.getInteger("scope_revision"),
                     ConsultancyEngagementStatus.valueOf(row.getString("status")),
                     row.getString("cancellation_reason"));
+        }
+
+        private static ConsultancyDeliverableHistoryEntry mapHistory(Row row) {
+            return new ConsultancyDeliverableHistoryEntry(
+                    row.getUUID("history_id"), row.getUUID("deliverable_id"), row.getUUID("engagement_id"),
+                    row.getInteger("revision"),
+                    ConsultancyDeliverableStatus.valueOf(row.getString("status")),
+                    ConsultancyDeliverableHistoryEntry.Action.valueOf(row.getString("action")),
+                    row.getString("title"), row.getString("description"),
+                    row.getUUID("reviewed_by_organization_id"), row.getString("review_comment"),
+                    row.getUUID("actor_id"), row.getOffsetDateTime("occurred_at").toInstant());
         }
 
         private static ConsultancyDeliverable mapDeliverable(Row row) {
