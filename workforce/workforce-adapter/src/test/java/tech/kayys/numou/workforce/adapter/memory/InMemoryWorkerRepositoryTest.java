@@ -78,14 +78,17 @@ class InMemoryWorkerRepositoryTest {
         var storedPerson = person();
         var otherPerson = person();
         var stored = worker(tenant, storedPerson);
+        var other = worker(tenant, otherPerson);
         repository.save(stored).toCompletableFuture().join();
+        repository.save(other).toCompletableFuture().join();
 
-        // Same aggregate ID but mismatched fields must not remove another person's index.
+        // A stale object with stored's ID must not remove the other person's index.
         var stale = worker(stored.id(), tenant, otherPerson);
         repository.delete(stale).toCompletableFuture().join();
 
         assertThat(repository.findByPersonRef(tenant, storedPerson).toCompletableFuture().join()).isEmpty();
-        assertThat(repository.findByPersonRef(tenant, otherPerson).toCompletableFuture().join()).isEmpty();
+        assertThat(repository.findByPersonRef(tenant, otherPerson).toCompletableFuture().join())
+                .contains(other);
     }
 
     private static Worker worker(TenantId tenant, PersonRef person) {
