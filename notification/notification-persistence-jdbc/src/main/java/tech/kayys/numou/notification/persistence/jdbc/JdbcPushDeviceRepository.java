@@ -57,7 +57,7 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             PushTokenProtector.EncryptedToken encrypted = tokenProtector.protect(
-                    device.tenantId(), device.recipientId(), device.id(), device.token());
+                    device.tenantId(), device.recipientId(), device.token());
             statement.setObject(1, device.id());
             statement.setObject(2, device.tenantId());
             statement.setObject(3, device.recipientId());
@@ -126,7 +126,7 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
         }
     }
 
-    private static PushDevice map(ResultSet row) throws SQLException {
+    private PushDevice map(ResultSet row) throws SQLException {
         Timestamp disabledAt = row.getTimestamp("disabled_at");
         return new PushDevice(
                 row.getObject("id", UUID.class),
@@ -148,7 +148,7 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
             throw new IllegalStateException("Legacy unencrypted push token requires secure re-registration");
         }
         return tokenProtector.reveal(row.getObject("tenant_id", UUID.class),
-                row.getObject("recipient_id", UUID.class), row.getObject("id", UUID.class), keyId, ciphertext);
+                row.getObject("recipient_id", UUID.class), keyId, ciphertext);
     }
 
     private static String fingerprint(String token) {
