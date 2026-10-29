@@ -105,6 +105,13 @@ public final class QueueEntry {
         finish(now);
     }
 
+    /** Mark queue coordination complete after the source capability reports completion. */
+    public void resolveFromSource(Instant now) {
+        requireProfile(QueueProfile.OPERATIONAL_WORK);
+        requireStatus(QueueEntryStatus.WAITING);
+        finish(now);
+    }
+
     public void markNoShow(Instant now) {
         requireProfile(QueueProfile.WAITING_SERVICE);
         requireStatus(QueueEntryStatus.CALLED);
