@@ -74,7 +74,7 @@ public final class JdbcReceiptPostingLedger implements ReceiptPostingLedger {
         require(movementId, "movementId");
         update(tenantId, receiptId, fingerprint, """
                 UPDATE purchasing_receipt_inventory_posting
-                SET status = 'POSTED', movement_id = ?, last_failure = NULL, updated_at = CURRENT_TIMESTAMP
+                SET status = 'POSTED', movement_id = ?, last_failure = NULL, claimed_by = NULL, lease_until = NULL, updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = ? AND receipt_id = ? AND payload_fingerprint = ?
                 """, movementId, tenantId, receiptId, fingerprint);
     }
@@ -83,7 +83,7 @@ public final class JdbcReceiptPostingLedger implements ReceiptPostingLedger {
     public void markRetryable(String tenantId, String receiptId, String fingerprint, String failure) {
         update(tenantId, receiptId, fingerprint, """
                 UPDATE purchasing_receipt_inventory_posting
-                SET last_failure = ?, updated_at = CURRENT_TIMESTAMP
+                SET last_failure = ?, claimed_by = NULL, lease_until = NULL, updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = ? AND receipt_id = ? AND payload_fingerprint = ? AND status = 'PENDING'
                 """, failure == null ? "Unknown posting failure" : failure, tenantId, receiptId, fingerprint);
     }
@@ -109,6 +109,57 @@ public final class JdbcReceiptPostingLedger implements ReceiptPostingLedger {
             return List.copyOf(records);
         } catch (SQLException e) {
             throw new IllegalStateException("Could not query pending goods receipt postings", e);
+        }
+    }
+
+    @Override
+    public List<PostingRecord> claimPending(Instant updatedBefore, String workerId, Instant leaseUntil, int limit) {
+        Objects.requireNonNull(updatedBefore, "updatedBefore is required");
+        Objects.requireNonNull(leaseUntil, "leaseUntil is required");
+        require(workerId, "workerId");
+        if (!leaseUntil.isAfter(Instant.now())) throw new IllegalArgumentException("leaseUntil must be in the future");
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                List<PostingRecord> claimed = new ArrayList<>();
+                try (PreparedStatement select = c.prepareStatement("""
+                        SELECT tenant_id, receipt_id, payload_fingerprint, status, movement_id, attempts, last_failure
+                        FROM purchasing_receipt_inventory_posting
+                        WHERE status = 'PENDING' AND updated_at <= ?
+                          AND (lease_until IS NULL OR lease_until <= CURRENT_TIMESTAMP)
+                        ORDER BY updated_at ASC, tenant_id ASC, receipt_id ASC
+                        LIMIT ? FOR UPDATE SKIP LOCKED
+                        """)) {
+                    select.setTimestamp(1, Timestamp.from(updatedBefore));
+                    select.setInt(2, limit);
+                    try (ResultSet rs = select.executeQuery()) {
+                        while (rs.next()) claimed.add(read(rs));
+                    }
+                }
+                try (PreparedStatement update = c.prepareStatement("""
+                        UPDATE purchasing_receipt_inventory_posting
+                        SET claimed_by = ?, lease_until = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE tenant_id = ? AND receipt_id = ? AND status = 'PENDING'
+                        """)) {
+                    for (PostingRecord record : claimed) {
+                        update.setString(1, workerId);
+                        update.setTimestamp(2, Timestamp.from(leaseUntil));
+                        update.setString(3, record.tenantId());
+                        update.setString(4, record.receiptId());
+                        update.addBatch();
+                    }
+                    update.executeBatch();
+                }
+                c.commit();
+                return List.copyOf(claimed);
+            } catch (SQLException | RuntimeException e) {
+                rollback(c, e);
+                if (e instanceof RuntimeException runtime) throw runtime;
+                throw new IllegalStateException("Could not claim pending goods receipt postings", e);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not access goods receipt posting ledger", e);
         }
     }
 
