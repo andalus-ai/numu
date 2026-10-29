@@ -170,6 +170,17 @@ public final class TransportCheckoutService {
         return new ReconciliationResult(due.size(), succeeded, failed, failedCheckoutIds);
     }
 
+    /** Lists aged unresolved cases for the authenticated tenant; never performs reconciliation. */
+    public List<TransportCheckout> reconciliationQueue(String tenantId, Duration minimumAge, int limit) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
+        Objects.requireNonNull(minimumAge, "minimumAge");
+        if (minimumAge.isNegative() || minimumAge.compareTo(Duration.ofDays(365)) > 0) {
+            throw new IllegalArgumentException("minimumAge must be between 0 and 365 days");
+        }
+        if (limit < 1 || limit > 100) throw new IllegalArgumentException("limit must be between 1 and 100");
+        return checkouts.findReconciliationCases(tenantId.trim(), clock.instant().minus(minimumAge), limit);
+    }
+
     /** Reads checkout state without contacting Payment or mutating inventory. */
     public TransportCheckout get(String tenantId, UUID checkoutId) {
         return checkouts.find(tenantId, checkoutId)

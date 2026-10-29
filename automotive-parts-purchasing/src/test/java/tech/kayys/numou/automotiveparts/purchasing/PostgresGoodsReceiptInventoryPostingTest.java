@@ -37,12 +37,15 @@ class PostgresGoodsReceiptInventoryPostingTest {
         dataSource = ds;
         Flyway.configure().dataSource(ds).locations("classpath:db/migration").load().migrate();
 
-        itemId = ItemId.of("part-filter-postgres");
-        warehouseId = WarehouseId.of("warehouse-bandung-postgres");
+        // Each test owns a distinct stock aggregate so movement-count assertions are isolated
+        // even though the Testcontainers database is shared for the test class lifetime.
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        itemId = ItemId.of("part-filter-" + suffix);
+        warehouseId = WarehouseId.of("warehouse-bandung-" + suffix);
         InventoryService inventory = new InventoryService(new PostgresInventoryRepository(dataSource, "tenant-a"));
-        inventory.registerItem(new InventoryItem(itemId, "FILTER-PG", "Oil filter",
+        inventory.registerItem(new InventoryItem(itemId, "FILTER-" + suffix, "Oil filter",
                 ValuationMethod.WEIGHTED_AVERAGE, TrackingMethod.NONE, "EA"));
-        inventory.registerWarehouse(new Warehouse(warehouseId, "BDG-PG", "Bandung parts store", "Bandung"));
+        inventory.registerWarehouse(new Warehouse(warehouseId, "BDG-" + suffix, "Bandung parts store", "Bandung"));
     }
 
     @Test
@@ -150,6 +153,42 @@ class PostgresGoodsReceiptInventoryPostingTest {
         assertTrue(firstClaim.stream().anyMatch(record -> record.receiptId().equals(receiptId)));
         var competingClaim = ledger.claimPending(staleBefore, "worker-b", Instant.now().plusSeconds(120), 100);
         assertFalse(competingClaim.stream().anyMatch(record -> record.receiptId().equals(receiptId)));
+    }
+
+    @Test
+    void expiredLeaseCanBeReclaimedWithoutAnotherStaleAgeWindow() throws Exception {
+        JdbcReceiptPostingLedger ledger = new JdbcReceiptPostingLedger(dataSource);
+        String receiptId = "receipt-lease-expiry-" + java.util.UUID.randomUUID();
+        ledger.begin("tenant-a", receiptId, "fingerprint-expiry");
+        try (var connection = dataSource.getConnection();
+             PreparedStatement update = connection.prepareStatement("""
+                     UPDATE purchasing_receipt_inventory_posting
+                     SET updated_at = CURRENT_TIMESTAMP - INTERVAL '10 minutes'
+                     WHERE tenant_id = ? AND receipt_id = ?
+                     """)) {
+            update.setString(1, "tenant-a");
+            update.setString(2, receiptId);
+            assertEquals(1, update.executeUpdate());
+        }
+
+        Instant staleBefore = Instant.now().minusSeconds(60);
+        var firstClaim = ledger.claimPending(staleBefore, "worker-a", Instant.now().plusSeconds(120), 100);
+        assertTrue(firstClaim.stream().anyMatch(record -> record.receiptId().equals(receiptId)));
+
+        try (var connection = dataSource.getConnection();
+             PreparedStatement expire = connection.prepareStatement("""
+                     UPDATE purchasing_receipt_inventory_posting
+                     SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                     WHERE tenant_id = ? AND receipt_id = ?
+                     """)) {
+            expire.setString(1, "tenant-a");
+            expire.setString(2, receiptId);
+            assertEquals(1, expire.executeUpdate());
+        }
+
+        var reclaimed = ledger.claimPending(staleBefore, "worker-b", Instant.now().plusSeconds(120), 100);
+        assertTrue(reclaimed.stream().anyMatch(record -> record.receiptId().equals(receiptId)),
+                "expired lease must be reclaimable without waiting for updatedBefore to advance");
     }
 
     private GoodsReceipt receipt(String id, String quantity) {
