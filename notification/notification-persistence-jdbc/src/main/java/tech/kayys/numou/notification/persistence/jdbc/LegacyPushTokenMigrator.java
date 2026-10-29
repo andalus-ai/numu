@@ -60,7 +60,7 @@ public final class LegacyPushTokenMigrator {
             } catch (Exception failure) {
                 rollbackQuietly(connection);
                 recordFailure(batchId, startedAt, scanned);
-                throw new IllegalStateException("Legacy push-token migration batch failed", failure);
+                throw new IllegalStateException("Legacy push-token migration batch failed");
             }
         } catch (SQLException failure) {
             recordFailure(batchId, startedAt, scanned);
@@ -76,8 +76,8 @@ public final class LegacyPushTokenMigrator {
                   AND provider_token_ciphertext IS NULL
                   AND provider_token_key_id IS NULL
                 ORDER BY id
-                FOR UPDATE SKIP LOCKED
                 LIMIT ?
+                FOR UPDATE SKIP LOCKED
                 """;
         List<LegacyToken> rows = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -172,7 +172,12 @@ public final class LegacyPushTokenMigrator {
         try { connection.rollback(); } catch (SQLException ignored) { /* preserve original failure */ }
     }
 
-    private record LegacyToken(UUID id, UUID tenantId, UUID recipientId, String plaintextToken) {}
+    private record LegacyToken(UUID id, UUID tenantId, UUID recipientId, String plaintextToken) {
+        @Override public String toString() {
+            return "LegacyToken[id=" + id + ", tenantId=" + tenantId
+                    + ", recipientId=" + recipientId + ", plaintextToken=[REDACTED]]";
+        }
+    }
 
     public record BatchResult(UUID batchId, int scanned, int migrated, long remaining,
                               Instant startedAt, Instant completedAt) {}
