@@ -1,6 +1,7 @@
 package tech.kayys.numou.notification.persistence.jdbc;
 
 import tech.kayys.numou.notification.application.port.PushDeviceRepository;
+import tech.kayys.numou.notification.application.port.PushTokenProtector;
 import tech.kayys.numou.notification.domain.PushDevice;
 
 import javax.sql.DataSource;
@@ -23,12 +24,14 @@ import java.util.UUID;
  */
 public final class JdbcPushDeviceRepository implements PushDeviceRepository {
     private static final String COLUMNS =
-            "id, tenant_id, recipient_id, provider_token, platform, app_instance, " +
-            "created_at, updated_at, disabled_at";
+            "id, tenant_id, recipient_id, provider_token, provider_token_ciphertext, provider_token_key_id, " +
+            "platform, app_instance, created_at, updated_at, disabled_at";
     private final DataSource dataSource;
+    private final PushTokenProtector tokenProtector;
 
-    public JdbcPushDeviceRepository(DataSource dataSource) {
+    public JdbcPushDeviceRepository(DataSource dataSource, PushTokenProtector tokenProtector) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource is required");
+        this.tokenProtector = Objects.requireNonNull(tokenProtector, "tokenProtector is required");
     }
 
     @Override
@@ -36,10 +39,14 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
         Objects.requireNonNull(device, "device is required");
         String sql = """
                 INSERT INTO notification_push_device
-                    (id, tenant_id, recipient_id, provider_token, token_fingerprint, platform,
-                     app_instance, created_at, updated_at, disabled_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, tenant_id, recipient_id, provider_token, provider_token_ciphertext,
+                     provider_token_key_id, token_fingerprint, platform, app_instance,
+                     created_at, updated_at, disabled_at)
+                VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (token_fingerprint) DO UPDATE SET
+                    provider_token = NULL,
+                    provider_token_ciphertext = EXCLUDED.provider_token_ciphertext,
+                    provider_token_key_id = EXCLUDED.provider_token_key_id,
                     platform = EXCLUDED.platform,
                     app_instance = EXCLUDED.app_instance,
                     updated_at = EXCLUDED.updated_at,
@@ -49,17 +56,20 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
                 """ + "RETURNING " + COLUMNS;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
+            PushTokenProtector.EncryptedToken encrypted = tokenProtector.protect(
+                    device.tenantId(), device.recipientId(), device.token());
             statement.setObject(1, device.id());
             statement.setObject(2, device.tenantId());
             statement.setObject(3, device.recipientId());
-            statement.setString(4, device.token());
-            statement.setString(5, fingerprint(device.token()));
-            statement.setString(6, device.platform().name());
-            statement.setString(7, device.appInstance());
-            statement.setTimestamp(8, Timestamp.from(device.createdAt()));
-            statement.setTimestamp(9, Timestamp.from(device.updatedAt()));
-            if (device.disabledAt() == null) statement.setNull(10, Types.TIMESTAMP_WITH_TIMEZONE);
-            else statement.setTimestamp(10, Timestamp.from(device.disabledAt()));
+            statement.setString(4, encrypted.ciphertext());
+            statement.setString(5, encrypted.keyId());
+            statement.setString(6, fingerprint(device.token()));
+            statement.setString(7, device.platform().name());
+            statement.setString(8, device.appInstance());
+            statement.setTimestamp(9, Timestamp.from(device.createdAt()));
+            statement.setTimestamp(10, Timestamp.from(device.updatedAt()));
+            if (device.disabledAt() == null) statement.setNull(11, Types.TIMESTAMP_WITH_TIMEZONE);
+            else statement.setTimestamp(11, Timestamp.from(device.disabledAt()));
             try (ResultSet rows = statement.executeQuery()) {
                 if (!rows.next()) {
                     throw new IllegalStateException(
@@ -116,18 +126,29 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
         }
     }
 
-    private static PushDevice map(ResultSet row) throws SQLException {
+    private PushDevice map(ResultSet row) throws SQLException {
         Timestamp disabledAt = row.getTimestamp("disabled_at");
         return new PushDevice(
                 row.getObject("id", UUID.class),
                 row.getObject("tenant_id", UUID.class),
                 row.getObject("recipient_id", UUID.class),
-                row.getString("provider_token"),
+                revealToken(row),
                 PushDevice.Platform.valueOf(row.getString("platform")),
                 row.getString("app_instance"),
                 row.getTimestamp("created_at").toInstant(),
                 row.getTimestamp("updated_at").toInstant(),
                 disabledAt == null ? null : disabledAt.toInstant());
+    }
+
+    private String revealToken(ResultSet row) throws SQLException {
+        String ciphertext = row.getString("provider_token_ciphertext");
+        String keyId = row.getString("provider_token_key_id");
+        if (ciphertext == null || keyId == null) {
+            // Legacy plaintext rows must be re-registered/rotated before delivery is enabled.
+            throw new IllegalStateException("Legacy unencrypted push token requires secure re-registration");
+        }
+        return tokenProtector.reveal(row.getObject("tenant_id", UUID.class),
+                row.getObject("recipient_id", UUID.class), keyId, ciphertext);
     }
 
     private static String fingerprint(String token) {

@@ -1,6 +1,7 @@
 package tech.kayys.numou.pos.domain;
 
 import org.junit.jupiter.api.Test;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -11,11 +12,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class PosRegisterShiftTest {
 
     @Test
-    void moneyArithmeticRequiresMatchingCurrency() {
-        Money idr = new Money(new BigDecimal("12500"), "IDR");
-        assertEquals(new BigDecimal("15000"), idr.plus(new Money(new BigDecimal("2500"), "IDR")).amount());
+    void sharedMoneyArithmeticRequiresMatchingCurrency() {
+        Money idr = Money.of(new BigDecimal("12500"), "IDR");
+        assertEquals(new BigDecimal("15000"), idr.add(Money.of(new BigDecimal("2500"), "IDR")).amount());
         assertThrows(IllegalArgumentException.class,
-                () -> idr.plus(new Money(new BigDecimal("1.00"), "USD")));
+                () -> idr.add(Money.of(new BigDecimal("1.00"), "USD")));
     }
 
     @Test
@@ -34,29 +35,29 @@ class PosRegisterShiftTest {
     void shiftCanBeClosedOnceWithMatchingCurrencyAndValidTime() {
         Instant opened = Instant.parse("2026-10-29T08:00:00Z");
         RegisterShift shift = RegisterShift.open(UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), UUID.randomUUID(), opened, new Money(new BigDecimal("100000"), "IDR"));
+                UUID.randomUUID(), UUID.randomUUID(), opened, Money.of(new BigDecimal("100000"), "IDR"));
 
         RegisterShift closed = shift.close(opened.plusSeconds(8 * 60 * 60),
-                new Money(new BigDecimal("450000"), "IDR"));
+                Money.of(new BigDecimal("450000"), "IDR"));
 
         assertEquals(RegisterShift.Status.OPEN, shift.status(), "closing returns a new immutable snapshot");
         assertEquals(RegisterShift.Status.CLOSED, closed.status());
         assertEquals(new BigDecimal("450000"), closed.countedCash().amount());
         assertThrows(IllegalStateException.class,
-                () -> closed.close(opened.plusSeconds(9 * 60 * 60), new Money(new BigDecimal("1"), "IDR")));
+                () -> closed.close(opened.plusSeconds(9 * 60 * 60), Money.of(new BigDecimal("1"), "IDR")));
     }
 
     @Test
     void shiftRejectsNegativeFloatAndCurrencyMismatch() {
         assertThrows(IllegalArgumentException.class, () -> RegisterShift.open(UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), Instant.now(),
-                new Money(new BigDecimal("-1"), "IDR")));
+                Money.of(new BigDecimal("-1"), "IDR")));
 
         RegisterShift shift = RegisterShift.open(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), Instant.parse("2026-10-29T08:00:00Z"),
-                new Money(new BigDecimal("100"), "IDR"));
+                Money.zero("IDR"));
         assertThrows(IllegalArgumentException.class,
-                () -> shift.close(Instant.parse("2026-10-29T09:00:00Z"), new Money(new BigDecimal("10"), "USD")));
+                () -> shift.close(Instant.parse("2026-10-29T09:00:00Z"), Money.of(new BigDecimal("10"), "USD")));
     }
 
     @Test
