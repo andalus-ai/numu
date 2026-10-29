@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TicketResponseTest {
 
     @Test
-    void portalResponseOmitsInternalComments() {
+    void nonStaffResponsesOmitInternalComments() {
         var now = Instant.now();
         var ticket = Ticket.create(
                 TicketId.generate(),
@@ -37,9 +37,12 @@ class TicketResponseTest {
                 "Internal note", true, now), now);
 
         var portalResponse = TicketResponse.fromDomain(ticket, ActorType.CUSTOMER);
+        var partnerResponse = TicketResponse.fromDomain(ticket, ActorType.PARTNER);
         var agentResponse = TicketResponse.fromDomain(ticket, ActorType.AGENT);
 
         assertThat(portalResponse.comments()).extracting(TicketResponse.CommentResponse::body)
+                .containsExactly("Public update");
+        assertThat(partnerResponse.comments()).extracting(TicketResponse.CommentResponse::body)
                 .containsExactly("Public update");
         assertThat(agentResponse.comments()).extracting(TicketResponse.CommentResponse::body)
                 .containsExactly("Public update", "Internal note");
