@@ -124,21 +124,31 @@ class TransportCheckoutServiceTest {
         assertThat(needsReconciliation.status()).isEqualTo(TransportCheckoutStatus.RECONCILIATION_REQUIRED);
 
         payments.nextRefundStatus = TransportPaymentPort.RefundState.PENDING;
-        TransportCheckout pending = service.requestCompensationRefund("tenant-1", checkout.checkoutId(),
-                "capacity expired after successful payment");
+        payments.failNextRefundCall = true;
+        assertThatThrownBy(() -> service.requestCompensationRefund("tenant-1", checkout.checkoutId(),
+                "capacity expired after successful payment")).isInstanceOf(IllegalStateException.class);
+        TransportCheckout durableIntent = checkouts.find("tenant-1", checkout.checkoutId()).orElseThrow();
+        assertThat(durableIntent.status()).isEqualTo(TransportCheckoutStatus.REFUND_REQUESTED);
+        assertThat(durableIntent.refundReason()).isEqualTo("capacity expired after successful payment");
+
+        clock.set(start.plusSeconds(1000));
+        TransportCheckoutService.ReconciliationResult firstPoll =
+                service.reconcileDueRefunds(java.time.Duration.ofSeconds(30), 10);
+        TransportCheckout pending = checkouts.find("tenant-1", checkout.checkoutId()).orElseThrow();
+        assertThat(firstPoll.attempted()).isEqualTo(1);
+        assertThat(firstPoll.succeeded()).isEqualTo(1);
         assertThat(pending.status()).isEqualTo(TransportCheckoutStatus.REFUND_PENDING);
-        assertThat(pending.refundReason()).isEqualTo("capacity expired after successful payment");
         assertThatThrownBy(() -> service.requestCompensationRefund("tenant-1", checkout.checkoutId(),
                 "changed reason")).isInstanceOf(IllegalArgumentException.class);
 
         payments.setRefundStatus(pending.refundId(), TransportPaymentPort.RefundState.SUCCEEDED);
-        clock.set(start.plusSeconds(1000));
-        TransportCheckoutService.ReconciliationResult result =
+        clock.set(start.plusSeconds(1060));
+        TransportCheckoutService.ReconciliationResult secondPoll =
                 service.reconcileDueRefunds(java.time.Duration.ofSeconds(30), 10);
 
         TransportCheckout refunded = checkouts.find("tenant-1", checkout.checkoutId()).orElseThrow();
-        assertThat(result.attempted()).isEqualTo(1);
-        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(secondPoll.attempted()).isEqualTo(1);
+        assertThat(secondPoll.succeeded()).isEqualTo(1);
         assertThat(refunded.status()).isEqualTo(TransportCheckoutStatus.REFUNDED);
         assertThat(refunded.refundStatus()).isEqualTo(
                 tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.SUCCEEDED);
@@ -278,6 +288,7 @@ class TransportCheckoutServiceTest {
         private int createCount;
         private int refundCount;
         private RefundState nextRefundStatus = RefundState.SUCCEEDED;
+        private boolean failNextRefundCall;
         private final Map<String, RefundSnapshot> refundsByKey = new HashMap<>();
 
         private MemoryPayments(Clock clock) {
@@ -299,6 +310,10 @@ class TransportCheckoutServiceTest {
 
         @Override
         public RefundSnapshot requestRefund(RefundCommand command) {
+            if (failNextRefundCall) {
+                failNextRefundCall = false;
+                throw new IllegalStateException("simulated timeout after refund intent persistence");
+            }
             RefundSnapshot existing = refundsByKey.get(command.tenantId() + ":" + command.idempotencyKey());
             if (existing != null) return existing;
             PaymentSnapshot payment = find(command.tenantId(), command.paymentId());
