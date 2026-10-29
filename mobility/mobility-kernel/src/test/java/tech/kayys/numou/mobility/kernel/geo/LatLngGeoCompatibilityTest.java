@@ -47,6 +47,36 @@ class LatLngGeoCompatibilityTest {
                 .isEqualTo(GeoDistance.metersBetween(nearEastDateline.toGeoPoint(), nearWestDateline.toGeoPoint()));
     }
 
+
+    @Test
+    void candidateCellsWrapAcrossTheAntimeridianWithoutChangingLegacyKeys() {
+        LatLng center = new LatLng(0, 179.999);
+        LatLng acrossDateline = new LatLng(0, -179.999);
+
+        assertThat(GeoCell.around(center, 500))
+                .contains(GeoCell.of(acrossDateline))
+                .contains(new GeoCell(0, 18_000))
+                .contains(new GeoCell(0, -18_000));
+    }
+
+    @Test
+    void candidateCellsCoverEveryLongitudeWhenSearchReachesPole() {
+        LatLng center = new LatLng(89.999, 0);
+        LatLng sameLatitudeOppositeLongitude = new LatLng(89.999, 180);
+
+        assertThat(GeoDistance.metersBetween(center.toGeoPoint(), sameLatitudeOppositeLongitude.toGeoPoint()))
+                .isLessThan(500);
+        assertThat(GeoCell.around(center, 500)).contains(GeoCell.of(sameLatitudeOppositeLongitude));
+    }
+
+    @Test
+    void candidateCellEnumerationRejectsInvalidRadii() {
+        LatLng center = new LatLng(0, 0);
+        assertThatIllegalArgumentException().isThrownBy(() -> GeoCell.around(center, -1));
+        assertThatIllegalArgumentException().isThrownBy(() -> GeoCell.around(center, Double.NaN));
+        assertThatIllegalArgumentException().isThrownBy(() -> GeoCell.around(center, Double.POSITIVE_INFINITY));
+    }
+
     @Test
     void pathLengthContinuesToSumGreatCircleSegments() {
         LatLng a = new LatLng(0, 0);

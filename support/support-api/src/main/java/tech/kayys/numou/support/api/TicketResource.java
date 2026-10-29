@@ -1,7 +1,7 @@
 package tech.kayys.numou.support.api;
 
-import tech.kayys.numou.support.application.api.command.CreateTicketCommand;
-import tech.kayys.numou.support.application.api.handler.CreateTicketHandler;
+import tech.kayys.numou.support.application.api.command.CreatePortalTicketCommand;
+import tech.kayys.numou.support.application.api.handler.CreatePortalTicketHandler;
 import tech.kayys.numou.support.domain.ticket.TicketId;
 
 import jakarta.inject.Inject;
@@ -17,16 +17,23 @@ import io.smallrye.mutiny.Uni;
 @Consumes(MediaType.APPLICATION_JSON)
 public class TicketResource {
 
-    private final CreateTicketHandler createTicketHandler;
+    private final CreatePortalTicketHandler createPortalTicketHandler;
 
     @Inject
-    public TicketResource(CreateTicketHandler createTicketHandler) {
-        this.createTicketHandler = createTicketHandler;
+    public TicketResource(CreatePortalTicketHandler createPortalTicketHandler) {
+        this.createPortalTicketHandler = createPortalTicketHandler;
     }
 
+    /**
+     * Creates a ticket for the authenticated portal customer.
+     *
+     * Tenant and requester identity are derived from the authenticated actor context,
+     * never accepted from the request body. Agent/system ticket creation must use a
+     * separately authorized application entry point.
+     */
     @POST
-    public Uni<Response> createTicket(CreateTicketCommand command) {
-        return createTicketHandler.handle(command)
+    public Uni<Response> createTicket(CreatePortalTicketCommand command) {
+        return createPortalTicketHandler.handle(command)
                 .onItem().transform(ticketId -> Response
                         .created(URI.create("/api/v1/support/tickets/" + ticketId.value()))
                         .entity(new CreateTicketResponse(ticketId))
