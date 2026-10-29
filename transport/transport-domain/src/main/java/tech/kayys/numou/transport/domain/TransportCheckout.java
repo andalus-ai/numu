@@ -70,6 +70,7 @@ public record TransportCheckout(
                 || status == TransportCheckoutStatus.PAYMENT_FAILED
                 || status == TransportCheckoutStatus.CANCELLED
                 || status == TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                || status == TransportCheckoutStatus.REFUND_REQUESTED
                 || status == TransportCheckoutStatus.REFUND_PENDING
                 || status == TransportCheckoutStatus.REFUNDED
                 || status == TransportCheckoutStatus.REFUND_FAILED) && holdId == null) {
