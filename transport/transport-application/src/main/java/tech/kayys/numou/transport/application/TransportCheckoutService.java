@@ -145,8 +145,14 @@ public final class TransportCheckoutService {
         List<UUID> failedCheckoutIds = new ArrayList<>();
         for (TransportCheckout checkout : due) {
             try {
-                requestCompensationRefund(checkout.tenantId(), checkout.checkoutId(), checkout.refundReason());
-                succeeded++;
+                TransportCheckout reconciled = requestCompensationRefund(
+                        checkout.tenantId(), checkout.checkoutId(), checkout.refundReason());
+                if (reconciled.status() == TransportCheckoutStatus.REFUND_FAILED) {
+                    failed++;
+                    failedCheckoutIds.add(checkout.checkoutId());
+                } else {
+                    succeeded++;
+                }
             } catch (RuntimeException failure) {
                 failed++;
                 failedCheckoutIds.add(checkout.checkoutId());
