@@ -157,12 +157,23 @@ class PgTransportCheckoutRepositoryTest {
         repository.create(tenantA);
         repository.create(tenantB);
 
-        TransportCheckout caseA = tenantA.withStatus(
-                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(1));
-        repository.save(caseA, tenantA.version());
-        TransportCheckout caseB = tenantB.withStatus(
-                TransportCheckoutStatus.REFUND_FAILED, NOW.plusSeconds(2));
-        repository.save(caseB, tenantB.version());
+        TransportCheckout heldA = tenantA.withHold(tenantA.holdId(), NOW.plusSeconds(1));
+        repository.save(heldA, tenantA.version());
+        TransportCheckout paidPendingA = heldA.withPayment("payment-a", null,
+                TransportCheckoutStatus.PAYMENT_PENDING, NOW.plusSeconds(2));
+        repository.save(paidPendingA, heldA.version());
+        TransportCheckout caseA = paidPendingA.withStatus(
+                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(3));
+        repository.save(caseA, paidPendingA.version());
+
+        TransportCheckout heldB = tenantB.withHold(tenantB.holdId(), NOW.plusSeconds(1));
+        repository.save(heldB, tenantB.version());
+        TransportCheckout paidPendingB = heldB.withPayment("payment-b", null,
+                TransportCheckoutStatus.PAYMENT_PENDING, NOW.plusSeconds(2));
+        repository.save(paidPendingB, heldB.version());
+        TransportCheckout caseB = paidPendingB.withStatus(
+                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(4));
+        repository.save(caseB, paidPendingB.version());
 
         assertThat(repository.findReconciliationCases("tenant-a", NOW.plusSeconds(3), 10))
                 .extracting(TransportCheckout::checkoutId).containsExactly(tenantA.checkoutId());
