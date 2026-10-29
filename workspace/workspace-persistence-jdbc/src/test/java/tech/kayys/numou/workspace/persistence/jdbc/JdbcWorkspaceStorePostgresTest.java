@@ -603,7 +603,7 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
-    void rejectsAuditMetadataThatDoesNotDescribeTheMutation() {
+    void rejectsAuditMetadataThatDoesNotDescribeTheMutation() throws SQLException {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
         UUID otherTenant = UUID.randomUUID();
@@ -640,7 +640,7 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
-    void rejectsPageAuditActorAndRevisionThatDifferFromTheSnapshot() {
+    void rejectsPageAuditActorAndRevisionThatDifferFromTheSnapshot() throws SQLException {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();
         UUID actor = UUID.randomUUID();
