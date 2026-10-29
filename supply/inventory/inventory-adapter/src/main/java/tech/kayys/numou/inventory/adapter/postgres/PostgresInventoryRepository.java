@@ -323,7 +323,7 @@ public final class PostgresInventoryRepository implements InventoryRepository {
         BigDecimal available=onHand(c,item,warehouse).subtract(activeReserved(c,item,warehouse));
         if(available.compareTo(quantity)<0)throw new IllegalStateException("Insufficient available stock: available="+available+", requested="+quantity);
     }
-    private void lockStock(Connection c,ItemId item,WarehouseId warehouse)throws SQLException {
+    private void lockCommand(Connection c,InventoryCommandKey key)throws SQLException {\n        Objects.requireNonNull(key,"Command key is required");\n        try(PreparedStatement ps=c.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?,0))")) {\n            ps.setString(1,tenantId+"|"+key.scope()+"|"+key.key());ps.execute();\n        }\n    }\n    private void lockStock(Connection c,ItemId item,WarehouseId warehouse)throws SQLException {
         try(PreparedStatement ps=c.prepareStatement("INSERT INTO inventory_stock_locks(tenant_id,item_id,warehouse_id) VALUES (?,?,?) ON CONFLICT DO NOTHING")) {
             ps.setString(1,tenantId);ps.setString(2,item.value());ps.setString(3,warehouse.value());ps.executeUpdate();
         }
