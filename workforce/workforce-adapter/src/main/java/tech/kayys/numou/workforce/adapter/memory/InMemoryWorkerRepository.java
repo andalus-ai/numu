@@ -52,6 +52,18 @@ public final class InMemoryWorkerRepository implements WorkerRepository {
     }
 
     @Override
+    public synchronized CompletionStage<Optional<Worker>> findById(TenantId tenantId, WorkerId workerId) {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        Objects.requireNonNull(workerId, "workerId cannot be null");
+        var worker = workersById.get(workerId);
+        return CompletableFuture.completedFuture(
+                worker != null && worker.tenantId().equals(tenantId)
+                        ? Optional.of(worker)
+                        : Optional.empty()
+        );
+    }
+
+    @Override
     public synchronized CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef personRef) {
         Objects.requireNonNull(tenantId, "tenantId cannot be null");
         Objects.requireNonNull(personRef, "personRef cannot be null");

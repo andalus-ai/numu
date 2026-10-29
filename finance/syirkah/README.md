@@ -126,6 +126,7 @@ Base path `/api/v1/syirkah`. Tenant and actor are taken **only** from the verifi
 | `GET /`, `GET /{id}` | any | cursor-paged list (`status`, `cursor`, `limit` ≤ 200); detail with positions |
 | `POST /{id}/closes`, `GET /{id}/closes` | operator / any | close a period; list closes |
 | `POST /{id}/distributions`, `/settlements` | operator | pay out profit; settle a partner liability |
+| `GET /rules`, `/rules.md` | any | the Sharia rule catalog as JSON or Markdown |
 | `GET /{id}/reconciliation`, `/integrity`, `GET /audit` | any / approver+auditor | equity identity, hash chain, tenant-wide audit |
 | `GET /{id}/partners/{p}/statement.csv`, `/closes/{c}/report.csv` | any | CSV exports |
 | `POST /{id}/revisions`, `/corrections`, `/liquidation/start`, `/liquidation` | operator | **governed**: returns `202` with a pending approval |
