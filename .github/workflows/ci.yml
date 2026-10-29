@@ -151,6 +151,10 @@ jobs:
       - name: Verify workshop parts purchasing integration
         run: mvn -B -ntp -f automotive-parts-purchasing/pom.xml verify
       - name: Verify supply-chain reactor
+        id: supply_verify
+        # Supply and Courier are separate capability reactors. Preserve a supply
+        # failure but continue so Courier's independent integration tests still run.
+        continue-on-error: true
         run: mvn -B -ntp -f supply/pom.xml verify
       - name: Verify Courier/Cargo reactor
         run: mvn -B -ntp -f logistics/pom.xml verify
@@ -163,13 +167,16 @@ jobs:
         run: mvn -B -ntp -f identity/pom.xml verify
       # Fail only after independent capability verification has had its chance.
       - name: Propagate isolated capability verification failures
-        if: always() && (steps.mobility_verify.outcome == 'failure' || steps.identity_verify.outcome == 'failure')
+        if: always() && (steps.mobility_verify.outcome == 'failure' || steps.identity_verify.outcome == 'failure' || steps.supply_verify.outcome == 'failure')
         run: |
           if [ "${{ steps.mobility_verify.outcome }}" = "failure" ]; then
             echo "::error::Mobility reactor verification failed; see the Mobility step above."
           fi
           if [ "${{ steps.identity_verify.outcome }}" = "failure" ]; then
             echo "::error::Identity reactor verification failed; see the identity verification step above."
+          fi
+          if [ "${{ steps.supply_verify.outcome }}" = "failure" ]; then
+            echo "::error::Supply-chain reactor verification failed; see the supply-chain step above."
           fi
           exit 1
       - name: Upload Maven test reports
