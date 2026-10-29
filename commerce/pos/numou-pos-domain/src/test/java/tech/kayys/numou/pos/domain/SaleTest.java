@@ -1,6 +1,7 @@
 package tech.kayys.numou.pos.domain;
 
 import org.junit.jupiter.api.Test;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,7 +20,7 @@ class SaleTest {
     private static SaleLine line(String ref, String quantity, String price) {
         return new SaleLine(UUID.randomUUID(), ref, ref, ref,
                 new BigDecimal(quantity), "each",
-                new Money(new BigDecimal(price), "IDR"));
+                Money.of(new BigDecimal(price), "IDR"));
     }
 
     @Test
@@ -29,7 +30,7 @@ class SaleTest {
                 .addLine(line("cake", "1.5", "10000"));
 
         assertEquals(new BigDecimal("45000.0"), sale.subtotal().amount());
-        assertEquals("IDR", sale.subtotal().currency());
+        assertEquals("IDR", sale.subtotal().currency().code());
         assertEquals(2, sale.lines().size());
         assertThrows(UnsupportedOperationException.class, () -> sale.lines().clear());
     }
@@ -38,12 +39,12 @@ class SaleTest {
     void saleCannotMixCurrenciesOrDuplicateLineIds() {
         Sale sale = openSale().addLine(line("coffee", "1", "15000"));
         SaleLine usd = new SaleLine(UUID.randomUUID(), "tea", "Tea", "TEA",
-                BigDecimal.ONE, "each", new Money(new BigDecimal("2"), "USD"));
+                BigDecimal.ONE, "each", Money.of(new BigDecimal("2"), "USD"));
         assertThrows(IllegalArgumentException.class, () -> sale.addLine(usd));
 
         SaleLine original = sale.lines().getFirst();
         SaleLine duplicate = new SaleLine(original.id(), "other", "Other", null,
-                BigDecimal.ONE, "each", new Money(new BigDecimal("1"), "IDR"));
+                BigDecimal.ONE, "each", Money.of(new BigDecimal("1"), "IDR"));
         assertThrows(IllegalArgumentException.class, () -> sale.addLine(duplicate));
     }
 
@@ -79,7 +80,7 @@ class SaleTest {
 
     @Test
     void saleCurrencyIsRequiredEvenBeforeFirstLine() {
-        assertEquals("IDR", openSale().subtotal().currency());
+        assertEquals("IDR", openSale().subtotal().currency().code());
         assertThrows(IllegalArgumentException.class, () -> Sale.open(UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 SaleChannel.POS, "idr", Instant.parse("2026-10-29T08:00:00Z")));

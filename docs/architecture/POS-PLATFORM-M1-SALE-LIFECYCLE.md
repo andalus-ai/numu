@@ -8,6 +8,7 @@
 - A neutral sale aggregate with tenant, branch, register, shift, channel, and explicit currency.
 - A provider-neutral channel enum suitable for POS, web, mobile, marketplace, social commerce, B2B, kiosk, call center, and partner API.
 - Immutable sale-line snapshots preserving an external item reference, display name, optional SKU, unit of measure, quantity, and unit-price snapshot.
+- Sale prices and subtotals use canonical shared `tech.kayys.numou.foundation.domain.valueobject.Money`. POS does not define a duplicate money abstraction.
 - Open, completed, and voided lifecycle transitions with basic time, currency, line, and state invariants.
 - Subtotal calculation using decimal arithmetic without hidden rounding; currency is established when the sale opens, including before its first line.
 
