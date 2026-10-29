@@ -28,3 +28,10 @@ The ledger and Inventory are still separate transactions, not a distributed tran
 `PostgresGoodsReceiptInventoryPostingTest` exercises receipt replay against the PostgreSQL Inventory adapter. It recreates the application service/repository between deliveries to verify the database command receipt—not an in-memory cache—prevents duplicate movements, and checks that a changed receipt payload is rejected. The test uses Testcontainers and is skipped when Docker is unavailable.
 
 This verifies Inventory-side durable idempotency for this integration path. It does not yet make the Purchasing receipt update and Inventory movement one distributed transaction; operational recovery still depends on retrying the same stable receipt identity and reconciling the durable Inventory command receipt.
+
+
+## Pending-posting reconciliation
+
+`ReceiptPostingReconciliationService` provides a bounded reconciliation pass for stale `PENDING` records. It queries the JDBC ledger oldest-first, reloads the authoritative accepted receipt through an injected `GoodsReceiptLookup`, verifies tenant/receipt identity, and retries posting with the same Inventory command key. Missing receipts and transient failures remain pending with a diagnostic and an updated timestamp so the next pass can retry them.
+
+The host application must schedule this service and provide a tenant-scoped receipt lookup. This module does not start background threads or assume a specific scheduler. Configure a conservative stale-age threshold and bounded batch size; monitor repeated failures and add operational alerting/dead-letter policy in the deployment layer. The reconciliation query is not a replacement for an outbox transaction between Purchasing receipt acceptance and Inventory.
