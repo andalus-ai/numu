@@ -41,9 +41,13 @@ public final class QueueEntry {
         this.status = QueueEntryStatus.WAITING;
     }
 
-    public static QueueEntry join(QueueEntryId id, TenantId tenantId, QueueId queueId,
+    public static QueueEntry join(QueueEntryId id, QueueDefinition queue,
                                   QueueSourceReference source, int priority, Instant enteredAt) {
-        return new QueueEntry(id, tenantId, queueId, source, priority, enteredAt);
+        Objects.requireNonNull(queue, "queue must not be null");
+        if (!queue.acceptsEntries()) {
+            throw new IllegalStateException("Only active queues accept new entries");
+        }
+        return new QueueEntry(id, queue.tenantId(), queue.id(), source, priority, enteredAt);
     }
 
     public void call(Instant now) {
