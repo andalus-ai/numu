@@ -43,3 +43,21 @@ Migration V3 adds a queue table referencing existing inbox and device records. T
 The JDBC adapter now writes provider tokens only as AES-GCM ciphertext, with a key identifier stored separately. A host supplies `PushTokenKeyProvider`; production composition must resolve active and historical keys from a managed KMS/secret manager. Never put key bytes in source control, the database, application configuration checked into the repository, or logs. The protector binds ciphertext to tenant and recipient IDs using authenticated additional data, so moving ciphertext between owners fails authentication. Device identity is intentionally not part of the AAD because an idempotent token refresh can retain an existing device ID while the registration command carries a new candidate ID. Rotation is supported by retaining old key IDs for decryption and writing new registrations with the active key; a future bounded re-encryption job should rotate stored envelopes.
 
 Migration V4 preserves pre-existing plaintext rows as legacy rows so deployment does not silently destroy device registrations. The new repository fails closed when it encounters such a row; it will not pass legacy plaintext into a provider. Before enabling delivery on an upgraded installation, either require affected users to re-register devices or run a separately reviewed, audited offline re-encryption migration using the actual key-management integration, then verify that no legacy rows remain. Do not add a plaintext fallback to the worker. The deployment must also restrict database access and backups and define key rotation/recovery procedures.
+
+
+## N6 — bounded legacy token migration
+
+```text
+JdbcLegacyPushTokenMigrator migrator = new JdbcLegacyPushTokenMigrator(dataSource, tokenProtector);
+JdbcLegacyPushTokenMigrator.BatchResult result = migrator.migrateBatch(100);
+```
+
+The migrator is an explicit maintenance operation; it is not started automatically by application startup or by the delivery worker. Supply a `PushTokenProtector` whose key provider is backed by the deployment's managed KMS/secret manager. Never use a test key or a key embedded in source/configuration for production data.
+
+- Each call processes at most 1,000 legacy rows in one database transaction. Use a smaller batch if row locks or transaction duration need to be bounded more tightly.
+- `FOR UPDATE SKIP LOCKED` allows multiple migration workers to process disjoint rows. Re-running is safe: encrypted rows are not selected again.
+- On any row-protection or database failure, the current batch is rolled back. The exception is intentionally generic and does not expose a token or database value.
+- The result contains only the number migrated in the batch and the remaining legacy-row count. Persist those counts in the host's restricted operational audit log with the run ID, actor, timestamps, and deployment/change reference; never log token values or ciphertext.
+- Repeat batches until `complete()` is true. Then independently query for legacy or malformed token-storage rows and verify the count is zero before enabling external delivery.
+- This migrator does not itself create an audit record, provision keys, or enable provider delivery. Those remain host deployment responsibilities. Back up the database securely and test key recovery before migration; loss of the encryption key makes migrated tokens unusable.
+- If migration repeatedly fails, stop and investigate using row identifiers and sanitized diagnostics in a separately authorized maintenance procedure. Do not add plaintext fallback behavior to the repository or worker.

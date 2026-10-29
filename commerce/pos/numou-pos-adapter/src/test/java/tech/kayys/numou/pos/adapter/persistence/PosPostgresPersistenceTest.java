@@ -7,6 +7,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
+import tech.kayys.numou.pos.application.port.out.PosOutboxEvent;
+import tech.kayys.numou.pos.application.port.out.PosOutboxWriter;
 import tech.kayys.numou.pos.application.port.out.SaleRepository.VersionedSale;
 import tech.kayys.numou.pos.domain.Sale;
 import tech.kayys.numou.pos.domain.SaleChannel;
@@ -42,10 +44,14 @@ class PosPostgresPersistenceTest {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    PosOutboxWriter outbox;
+
     @BeforeEach
     void cleanDatabase() throws Exception {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DELETE FROM pos_outbox_event");
             statement.executeUpdate("DELETE FROM pos_command_idempotency");
             statement.executeUpdate("DELETE FROM pos_sale");
         }
@@ -137,6 +143,68 @@ class PosPostgresPersistenceTest {
                 "the sale mutation must roll back with the idempotency reservation");
         assertEquals(0, countIdempotencyRows(tenant, actor, "checkout-rollback"),
                 "a failed command must not leave a committed PROCESSING reservation");
+    }
+
+    @Test
+    void appendsDurablePendingEventWithTenantAndSchemaMetadata() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        UUID saleId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        outbox.append(new PosOutboxEvent(eventId, tenant, "Sale", saleId.toString(),
+                "pos.sale.opened", 1, Instant.parse("2026-10-29T08:00:00Z"),
+                "{\"saleId\":\"" + saleId + "\",\"channel\":\"POS\"}"));
+
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT tenant_id, aggregate_type, aggregate_id, event_type, schema_version, payload::text, delivery_status "
+                             + "FROM pos_outbox_event WHERE event_id = ?")) {
+            statement.setObject(1, eventId);
+            try (var result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(tenant, result.getObject("tenant_id", UUID.class));
+                assertEquals("Sale", result.getString("aggregate_type"));
+                assertEquals(saleId.toString(), result.getString("aggregate_id"));
+                assertEquals("pos.sale.opened", result.getString("event_type"));
+                assertEquals(1, result.getInt("schema_version"));
+                assertTrue(result.getString("payload").contains(saleId.toString()));
+                assertEquals("PENDING", result.getString("delivery_status"));
+            }
+        }
+    }
+
+    @Test
+    void outboxAndSaleWritesRollbackTogetherWhenIdempotentCommandFails() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        UUID saleId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        Sale sale = sale(tenant, saleId);
+
+        assertThrows(IllegalStateException.class,
+                () -> idempotency.execute(tenant, actor, "checkout-outbox-rollback", "OPEN_SALE",
+                        "d".repeat(64), () -> {
+                            sales.create(sale);
+                            outbox.append(new PosOutboxEvent(eventId, tenant, "Sale", saleId.toString(),
+                                    "pos.sale.opened", 1, Instant.parse("2026-10-29T08:00:00Z"),
+                                    "{\"saleId\":\"" + saleId + "\"}"));
+                            throw new IllegalStateException("simulate failure after sale and outbox writes");
+                        }));
+
+        assertTrue(sales.find(tenant, saleId).isEmpty());
+        assertEquals(0, countOutboxEvents(eventId));
+        assertEquals(0, countIdempotencyRows(tenant, actor, "checkout-outbox-rollback"));
+    }
+
+    private int countOutboxEvents(UUID eventId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM pos_outbox_event WHERE event_id = ?")) {
+            statement.setObject(1, eventId);
+            try (var result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        }
     }
 
     private Sale sale(UUID tenantId, UUID saleId) {
