@@ -33,3 +33,7 @@ The first implementation should prefer the outbox/saga when capabilities may dep
 Evidence relationships are append-only. Replacing evidence means adding a new version-pinned relationship; it must not rewrite prior links. The deliverable audit timeline should record the business action and reference identifiers without duplicating document content. Tests must cover tenant isolation, party authorization, document authorization, idempotent retries, cross-tenant/document-version rejection, and recovery from partial failure.
 
 This boundary does not prove a document is digitally signed, legally valid, accepted by a regulator, or Sharia-compliant. Indonesian statutory requirements and Sharia istisna' terms require separate qualified review.
+
+## Authorization port
+
+The application layer now has a dedicated `ConsultancyEvidenceAuthorization` contract with separate checks for deliverable access and document/version access. The attach/read orchestration must call both checks; implementing one must never be treated as satisfying the other. Document access requests require a concrete version ID, preventing a workflow from claiming to authorize an unspecified artifact. This is a port only: runtime adapters must connect it to trusted identity/membership and Document access-policy services before any endpoint is exposed.
