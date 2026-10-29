@@ -139,12 +139,12 @@ class JdbcPushDeviceRepositoryTest {
             assertEquals(1, insert.executeUpdate());
         }
 
-        JdbcLegacyPushTokenMigrator migrator = new JdbcLegacyPushTokenMigrator(
-                new PGSimpleDataSource() {{
-                    setURL(POSTGRES.getJdbcUrl());
-                    setUser(POSTGRES.getUsername());
-                    setPassword(POSTGRES.getPassword());
-                }}, protector());
+        PGSimpleDataSource migrationDataSource = new PGSimpleDataSource();
+        migrationDataSource.setURL(POSTGRES.getJdbcUrl());
+        migrationDataSource.setUser(POSTGRES.getUsername());
+        migrationDataSource.setPassword(POSTGRES.getPassword());
+        JdbcLegacyPushTokenMigrator migrator =
+                new JdbcLegacyPushTokenMigrator(migrationDataSource, protector());
 
         var result = migrator.migrateBatch(1);
         assertEquals(1, result.migratedInBatch());
