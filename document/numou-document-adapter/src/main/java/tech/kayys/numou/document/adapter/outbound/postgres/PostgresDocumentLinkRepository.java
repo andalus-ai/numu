@@ -2,35 +2,66 @@ package tech.kayys.numou.document.adapter.outbound.postgres;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.pgclient.PgPool;
+import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import tech.kayys.numou.accounting.domain.document.DocumentId;
 import tech.kayys.numou.accounting.domain.document.DocumentLink;
 import tech.kayys.numou.accounting.domain.document.DocumentLinkId;
 import tech.kayys.numou.accounting.domain.document.DocumentVersionId;
 import tech.kayys.numou.document.application.port.DocumentLinkRepository;
 
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
 public class PostgresDocumentLinkRepository implements DocumentLinkRepository {
+    private static final String INSERT_LEGACY = """
+            INSERT INTO document_links
+                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_at)
+            VALUES ($1, $2, $3, NULL, $4, $5, $6, $7)
+            ON CONFLICT (tenant_id, document_id, aggregate_type, aggregate_id, relationship)
+                WHERE document_version_id IS NULL
+            DO NOTHING
+            """;
+
+    private static final String INSERT_VERSIONED = """
+            INSERT INTO document_links
+                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship)
+                WHERE document_version_id IS NOT NULL
+            DO NOTHING
+            """;
+
+    @Inject
+    PgPool client;
+
     @Override
     public Uni<Void> save(String tenantId, DocumentLink link) {
         UUID tenantUuid = PostgresDocumentRepository.parseUuid(tenantId, "tenantId");
-        DocumentLinkEntity entity = new DocumentLinkEntity();
-        entity.id = PostgresDocumentRepository.parseUuid(link.id().value(), "documentLinkId");
-        entity.tenantId = tenantUuid;
-        entity.documentId = PostgresDocumentRepository.parseUuid(link.documentId().value(), "documentId");
-        entity.documentVersionId = link.documentVersionId() == null
-                ? null
-                : PostgresDocumentRepository.parseUuid(link.documentVersionId().value(), "documentVersionId");
-        entity.aggregateType = requireText(link.aggregateType(), "aggregateType");
-        entity.aggregateId = requireText(link.aggregateId(), "aggregateId");
-        entity.relationship = requireText(link.relationship(), "relationship");
-        entity.linkedAt = link.linkedAt();
+        UUID linkUuid = PostgresDocumentRepository.parseUuid(link.id().value(), "documentLinkId");
+        UUID documentUuid = PostgresDocumentRepository.parseUuid(link.documentId().value(), "documentId");
+        String aggregateType = requireText(link.aggregateType(), "aggregateType");
+        String aggregateId = requireText(link.aggregateId(), "aggregateId");
+        String relationship = requireText(link.relationship(), "relationship");
+        var linkedAt = link.linkedAt().atOffset(ZoneOffset.UTC);
 
-        // The migration's composite foreign keys enforce tenant and document/version ownership.
-        return Panache.getSession().chain(session -> session.persist(entity));
+        if (link.documentVersionId() == null) {
+            return client.preparedQuery(INSERT_LEGACY)
+                    .execute(Tuple.of(linkUuid, tenantUuid, documentUuid,
+                            aggregateType, aggregateId, relationship, linkedAt))
+                    .replaceWithVoid();
+        }
+
+        UUID versionUuid = PostgresDocumentRepository.parseUuid(
+                link.documentVersionId().value(), "documentVersionId");
+        return client.preparedQuery(INSERT_VERSIONED)
+                .execute(Tuple.of(linkUuid, tenantUuid, documentUuid, versionUuid,
+                        aggregateType, aggregateId, relationship, linkedAt))
+                .replaceWithVoid();
     }
 
     @Override
