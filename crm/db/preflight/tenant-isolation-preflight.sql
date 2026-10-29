@@ -1,4 +1,5 @@
 -- Read-only tenant-isolation preflight for PostgreSQL.
+BEGIN;
 -- Run against a restored/staging copy first. This script does not assign tenants,
 -- alter application tables, or make any ownership assumptions.
 --
@@ -121,3 +122,5 @@ BEGIN
     END LOOP;
 END
 $null_check$;
+
+COMMIT;
