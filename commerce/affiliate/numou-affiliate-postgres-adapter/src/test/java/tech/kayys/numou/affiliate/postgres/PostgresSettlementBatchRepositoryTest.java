@@ -6,6 +6,8 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tech.kayys.numou.affiliate.domain.PartnerPayout;
+import tech.kayys.numou.affiliate.domain.PartnerPayoutStatus;
 import tech.kayys.numou.affiliate.domain.SettlementBatch;
 import tech.kayys.numou.affiliate.domain.SettlementBatchItem;
 import tech.kayys.numou.affiliate.domain.SettlementBatchStatus;
@@ -77,6 +79,31 @@ class PostgresSettlementBatchRepositoryTest {
         SettlementBatch replayed = repository.saveOrGet(replay).toCompletableFuture().join();
         assertEquals(saved.id(), replayed.id());
         assertEquals(1, count("affiliate_settlement_batch", "tenant-a", saved.id()));
+    }
+
+    @Test
+    void rejectsIllegalPayoutLifecycleRegressionAndStaleIntentMutation() throws Exception {
+        UUID payoutId = payout("tenant-a", "100.00");
+        PostgresPartnerPayoutRepository payouts = new PostgresPartnerPayoutRepository(dataSource);
+        PartnerPayout original = payouts.findById("tenant-a", payoutId).toCompletableFuture().join().orElseThrow();
+
+        PartnerPayout submitted = original.submitted("provider-ref-1", original.updatedAt().plusSeconds(1));
+        PartnerPayout stored = payouts.update("tenant-a", payoutId, submitted).toCompletableFuture().join();
+        assertEquals(PartnerPayoutStatus.SUBMITTED, stored.status());
+
+        PartnerPayout illegalRegression = new PartnerPayout(original.id(), original.tenantId(),
+                original.partnerId(), original.commissionEntryId(), original.destinationId(), original.currency(),
+                original.amount(), original.idempotencyKey(), original.correlationId(), PartnerPayoutStatus.REQUESTED,
+                original.attempts(), null, null, original.createdAt(), stored.updatedAt().plusSeconds(1));
+        assertThrows(RuntimeException.class,
+                () -> payouts.update("tenant-a", payoutId, illegalRegression).toCompletableFuture().join());
+
+        PartnerPayout changedAmount = new PartnerPayout(stored.id(), stored.tenantId(), stored.partnerId(),
+                stored.commissionEntryId(), stored.destinationId(), stored.currency(), new BigDecimal("101.00"),
+                stored.idempotencyKey(), stored.correlationId(), PartnerPayoutStatus.PAID, stored.attempts() + 1,
+                "provider-ref-1", null, stored.createdAt(), stored.updatedAt().plusSeconds(2));
+        assertThrows(RuntimeException.class,
+                () -> payouts.update("tenant-a", payoutId, changedAmount).toCompletableFuture().join());
     }
 
     @Test
