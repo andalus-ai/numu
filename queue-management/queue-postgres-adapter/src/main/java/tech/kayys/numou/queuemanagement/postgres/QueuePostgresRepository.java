@@ -71,7 +71,7 @@ public class QueuePostgresRepository implements QueueRepositoryPort {
         String sql = "SELECT tenant_id, queue_id, entry_id, profile, source_capability, "
                 + "source_resource_type, source_resource_id, priority, status, entered_at, updated_at, "
                 + "called_at, serving_started_at, completed_at, call_count FROM queue_entry "
-                + "WHERE tenant_id = ? AND queue_id = ? AND entry_id = ?";
+                + "WHERE tenant_id = ? AND queue_id = ? AND entry_id = ? FOR UPDATE";
         try (Connection connection = dataSource.getConnection()) {
             setTenant(connection, tenantId);
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
