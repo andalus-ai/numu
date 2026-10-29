@@ -43,6 +43,7 @@ class PgTransportCheckoutRepositoryTest {
         executeMigration("/db/migration/V2__transport_checkout.sql");
         executeMigration("/db/migration/V3__transport_checkout_reconciliation_index.sql");
         executeMigration("/db/migration/V4__transport_checkout_refund.sql");
+        executeMigration("/db/migration/V5__transport_checkout_refund_reason.sql");
     }
 
     private static void executeMigration(String resource) throws IOException, SQLException {
@@ -89,12 +90,16 @@ class PgTransportCheckoutRepositoryTest {
                 TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(3));
         repository.save(reconciliation, persisted.version());
         TransportCheckout refundPending = reconciliation.withRefund("refund-a",
-                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING, NOW.plusSeconds(4));
+                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING,
+                "capacity expired after successful payment", NOW.plusSeconds(4));
         repository.save(refundPending, reconciliation.version());
         TransportCheckout refundRoundTrip = repository.find("tenant-a", initial.checkoutId()).orElseThrow();
         assertThat(refundRoundTrip.refundId()).isEqualTo("refund-a");
         assertThat(refundRoundTrip.refundStatus()).isEqualTo(
                 tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING);
+        assertThat(refundRoundTrip.refundReason()).isEqualTo("capacity expired after successful payment");
+        assertThat(repository.findStaleRefunds(NOW.plusSeconds(5), 10))
+                .extracting(TransportCheckout::checkoutId).containsExactly(initial.checkoutId());
         assertThat(refundRoundTrip.status()).isEqualTo(TransportCheckoutStatus.REFUND_PENDING);
     }
 
@@ -147,7 +152,7 @@ class PgTransportCheckoutRepositoryTest {
     private static TransportCheckout checkout(String tenant, UUID id, String key) {
         return new TransportCheckout(tenant, id, key, "a".repeat(64), UUID.randomUUID(), "quote-1",
                 1, 3, 2, new java.math.BigDecimal("125000.00"), "IDR",
-                NOW.plusSeconds(900), UUID.randomUUID(), null, null, null, null,
+                NOW.plusSeconds(900), UUID.randomUUID(), null, null, null, null, null,
                 TransportCheckoutStatus.REQUESTED, 0, NOW, NOW);
     }
 
