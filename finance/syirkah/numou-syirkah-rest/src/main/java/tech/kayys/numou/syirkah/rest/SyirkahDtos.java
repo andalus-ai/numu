@@ -133,6 +133,14 @@ public final class SyirkahDtos {
     public record Page(List<SummaryView> items, String nextCursor) {
     }
 
+    public record RuleView(int id, String title, String source, String enforcement, String adviser,
+                           java.util.List<String> codes, java.util.List<String> testedBy, String note) {
+    }
+
+    public record RulesView(int count, int waitingForAdviser, boolean frozen, String adviserSignoff,
+                            String fingerprint, java.util.List<RuleView> rules) {
+    }
+
     public record CloseView(String id, int sequence, LocalDate periodStart, LocalDate periodEnd, int contractVersion,
                             BigDecimal netResult, String disposition, String status, String supersedes,
                             Instant closedAt, String hash) {

@@ -1,13 +1,15 @@
 package tech.kayys.numou.pos.application;
 
+import tech.kayys.numou.pos.application.event.SaleLifecycleEvents;
 import tech.kayys.numou.pos.application.port.out.OpenShiftAccess;
+import tech.kayys.numou.pos.application.port.out.PosOutboxWriter;
 import tech.kayys.numou.pos.application.port.out.SaleCommandIdempotency;
 import tech.kayys.numou.pos.application.port.out.SaleRepository;
 import tech.kayys.numou.pos.application.port.out.SaleRepository.VersionedSale;
-import tech.kayys.numou.pos.domain.Money;
 import tech.kayys.numou.pos.domain.Sale;
 import tech.kayys.numou.pos.domain.SaleChannel;
 import tech.kayys.numou.pos.domain.SaleLine;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,18 +18,20 @@ import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Neutral sale lifecycle use cases with an explicit durable idempotency boundary. */
+/** Neutral sale lifecycle use cases with durable idempotency and transactional events. */
 public final class SaleCommandService {
     private final SaleRepository sales;
     private final OpenShiftAccess shifts;
     private final SaleCommandIdempotency idempotency;
+    private final PosOutboxWriter outbox;
     private final Clock clock;
 
     public SaleCommandService(SaleRepository sales, OpenShiftAccess shifts,
-            SaleCommandIdempotency idempotency, Clock clock) {
+            SaleCommandIdempotency idempotency, PosOutboxWriter outbox, Clock clock) {
         this.sales = Objects.requireNonNull(sales, "sales cannot be null");
         this.shifts = Objects.requireNonNull(shifts, "shifts cannot be null");
         this.idempotency = Objects.requireNonNull(idempotency, "idempotency cannot be null");
+        this.outbox = Objects.requireNonNull(outbox, "outbox cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
@@ -45,8 +49,11 @@ public final class SaleCommandService {
                 registerId.toString(), shiftId.toString(), channel.name(), normalizedCurrency);
         return execute(context, idempotencyKey, "sale.open", fingerprint, () -> {
             shifts.requireOpenShift(context.tenantId(), branchId, registerId, shiftId, context.actorId());
-            return sales.create(Sale.open(saleId, context.tenantId(), branchId, registerId, shiftId,
-                    channel, normalizedCurrency, clock.instant()));
+            Sale sale = Sale.open(saleId, context.tenantId(), branchId, registerId, shiftId,
+                    channel, normalizedCurrency, clock.instant());
+            VersionedSale created = sales.create(sale);
+            outbox.append(SaleLifecycleEvents.opened(created.sale()));
+            return created;
         });
     }
 
@@ -73,7 +80,10 @@ public final class SaleCommandService {
             VersionedSale current = load(context, saleId);
             requireOpenShift(context, current.sale());
             requireExpectedVersion(current, expectedVersion);
-            return sales.update(current.sale().complete(clock.instant()), expectedVersion);
+            Sale completed = current.sale().complete(clock.instant());
+            VersionedSale updated = sales.update(completed, expectedVersion);
+            outbox.append(SaleLifecycleEvents.completed(updated.sale()));
+            return updated;
         });
     }
 
@@ -84,7 +94,10 @@ public final class SaleCommandService {
             VersionedSale current = load(context, saleId);
             requireOpenShift(context, current.sale());
             requireExpectedVersion(current, expectedVersion);
-            return sales.update(current.sale().voidSale(), expectedVersion);
+            Sale voided = current.sale().voidSale();
+            VersionedSale updated = sales.update(voided, expectedVersion);
+            outbox.append(SaleLifecycleEvents.voided(updated.sale(), clock.instant()));
+            return updated;
         });
     }
 
