@@ -15,7 +15,7 @@ class QueueOrderingTest {
     private final QueueDefinition queue = QueueDefinition.create(
             QueueId.of(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")),
             TenantId.of(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")),
-            "Q1", "Queue", QueueProfile.OPERATIONAL_WORK, QueueOrderingPolicy.FIFO);
+            "Q1", "Queue", QueueProfile.WAITING_SERVICE, QueueOrderingPolicy.FIFO);
 
     private QueueEntry entry(String id, int priority, long offset) {
         return QueueEntry.join(QueueEntryId.of(UUID.fromString(id)), queue,
