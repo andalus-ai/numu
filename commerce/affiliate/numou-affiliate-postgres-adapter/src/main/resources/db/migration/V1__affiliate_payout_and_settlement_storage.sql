@@ -74,13 +74,17 @@ CREATE TABLE IF NOT EXISTS affiliate_settlement_batch_item (
         REFERENCES affiliate_partner_payout (tenant_id, payout_id) ON DELETE RESTRICT
 );
 
--- A payout may belong to only one non-cancelled batch at a time. Historical cancelled
--- batches remain auditable while the payout can be selected into a later batch.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_affiliate_active_batch_payout
-    ON affiliate_settlement_batch_item (tenant_id, payout_id)
-    WHERE NOT EXISTS (
-        SELECT 1 FROM affiliate_settlement_batch b
-        WHERE b.tenant_id = affiliate_settlement_batch_item.tenant_id
-          AND b.batch_id = affiliate_settlement_batch_item.batch_id
-          AND b.batch_status = 'CANCELLED'
-    );
+-- Active reservations are maintained in the same transaction as batch creation/cancellation.
+-- A payout can have at most one active reservation across all concurrent application nodes.
+CREATE TABLE IF NOT EXISTS affiliate_settlement_payout_reservation (
+    tenant_id VARCHAR(200) NOT NULL,
+    payout_id UUID NOT NULL,
+    batch_id UUID NOT NULL,
+    reserved_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id, payout_id),
+    CONSTRAINT uq_affiliate_reservation_tenant_batch_payout UNIQUE (tenant_id, batch_id, payout_id),
+    CONSTRAINT fk_affiliate_reservation_batch FOREIGN KEY (tenant_id, batch_id)
+        REFERENCES affiliate_settlement_batch (tenant_id, batch_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_affiliate_reservation_payout FOREIGN KEY (tenant_id, payout_id)
+        REFERENCES affiliate_partner_payout (tenant_id, payout_id) ON DELETE RESTRICT
+);
