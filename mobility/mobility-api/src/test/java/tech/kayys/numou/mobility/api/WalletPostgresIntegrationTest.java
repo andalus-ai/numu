@@ -14,12 +14,17 @@ import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.wallet.application.WalletService;
 import tech.kayys.numou.wallet.application.WalletView;
+import tech.kayys.numou.wallet.adapter.postgres.PgLedgerRepository;
+import tech.kayys.numou.wallet.adapter.postgres.PgWalletRepository;
+import tech.kayys.numou.wallet.spi.LedgerRepository;
+import tech.kayys.numou.wallet.spi.WalletRepository;
 import tech.kayys.numou.wallet.domain.OwnerKind;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -31,8 +36,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @io.quarkus.test.junit.QuarkusTest
 class WalletPostgresIntegrationTest {
     @Inject WalletService wallets;
+    @Inject WalletRepository walletRepository;
+    @Inject LedgerRepository ledgerRepository;
     @Inject UnitOfWork unitOfWork;
     @Inject PgPool pool;
+
+    @Test
+    void neutralPostgresAdaptersAreSelectedForIntegrationProfile() {
+        assertInstanceOf(PgWalletRepository.class, walletRepository);
+        assertInstanceOf(PgLedgerRepository.class, ledgerRepository);
+    }
 
     @Test
     @RunOnVertxContext
