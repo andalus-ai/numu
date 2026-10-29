@@ -89,16 +89,22 @@ class PgTransportCheckoutRepositoryTest {
         TransportCheckout reconciliation = persisted.withStatus(
                 TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(3));
         repository.save(reconciliation, persisted.version());
-        TransportCheckout refundPending = reconciliation.withRefund("refund-a",
-                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING,
+        TransportCheckout refundIntent = reconciliation.withRefundIntent(
                 "capacity expired after successful payment", NOW.plusSeconds(4));
-        repository.save(refundPending, reconciliation.version());
+        repository.save(refundIntent, reconciliation.version());
+        TransportCheckout intentRoundTrip = repository.find("tenant-a", initial.checkoutId()).orElseThrow();
+        assertThat(intentRoundTrip.status()).isEqualTo(TransportCheckoutStatus.REFUND_REQUESTED);
+        assertThat(intentRoundTrip.refundReason()).isEqualTo("capacity expired after successful payment");
+        TransportCheckout refundPending = intentRoundTrip.withRefund("refund-a",
+                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING,
+                "capacity expired after successful payment", NOW.plusSeconds(5));
+        repository.save(refundPending, intentRoundTrip.version());
         TransportCheckout refundRoundTrip = repository.find("tenant-a", initial.checkoutId()).orElseThrow();
         assertThat(refundRoundTrip.refundId()).isEqualTo("refund-a");
         assertThat(refundRoundTrip.refundStatus()).isEqualTo(
                 tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING);
         assertThat(refundRoundTrip.refundReason()).isEqualTo("capacity expired after successful payment");
-        assertThat(repository.findStaleRefunds(NOW.plusSeconds(5), 10))
+        assertThat(repository.findStaleRefunds(NOW.plusSeconds(6), 10))
                 .extracting(TransportCheckout::checkoutId).containsExactly(initial.checkoutId());
         assertThat(refundRoundTrip.status()).isEqualTo(TransportCheckoutStatus.REFUND_PENDING);
     }
