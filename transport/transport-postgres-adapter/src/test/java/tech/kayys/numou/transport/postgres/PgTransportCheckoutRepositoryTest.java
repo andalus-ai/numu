@@ -172,7 +172,7 @@ class PgTransportCheckoutRepositoryTest {
                 TransportCheckoutStatus.PAYMENT_PENDING, NOW.plusSeconds(2));
         repository.save(paidPendingB, heldB.version());
         TransportCheckout caseB = paidPendingB.withStatus(
-                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(4));
+                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(3));
         repository.save(caseB, paidPendingB.version());
 
         assertThat(repository.findReconciliationCases("tenant-a", NOW.plusSeconds(3), 10))
