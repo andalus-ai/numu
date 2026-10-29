@@ -151,9 +151,14 @@ public class SyirkahApi {
             throw new IllegalArgumentException("request body is required");
         }
         Currency currency = load(id).contract().currency();
+        if (r.trading() != null && r.result() != null) {
+            throw new IllegalArgumentException("give either result or trading, not both");
+        }
+        FinancialResult figures = r.trading() != null ? SyirkahDtos.trading(r.trading(), currency)
+                : SyirkahDtos.result(r.result(), currency);
         return SyirkahDtos.close(service.closePeriod(new Commands.ClosePeriod(tenant(), sid(id),
                 cidOrNew(r.closeId(), "closeId"), r.periodStart(), r.periodEnd(),
-                SyirkahDtos.result(r.result(), currency), SyirkahDtos.fault(r.fault(), currency),
+                figures, SyirkahDtos.fault(r.fault(), currency),
                 SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"))));
     }
 

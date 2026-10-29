@@ -73,7 +73,8 @@ public final class SyirkahDtos {
 
     /** {@code closeId} is optional; supply it to make a retry idempotent. */
     public record ClosePeriodRequest(String closeId, LocalDate periodStart, LocalDate periodEnd,
-                                     FinancialResultDto result, ManagerFaultDto fault, String disposition) {
+                                     FinancialResultDto result, ManagerFaultDto fault, String disposition,
+                                     TradingDto trading) {
     }
 
     public record PaymentRequest(String partnerId, BigDecimal amount, String reference) {
@@ -293,6 +294,25 @@ public final class SyirkahDtos {
                 enumOf(ProfitBasis.class, d.profitBasis() == null ? "NET_PROFIT" : d.profitBasis(), "profitBasis"),
                 loss.isEmpty() ? null : loss, clauses, d.witnesses(), d.ijabQabulRecorded(),
                 required(d.effectiveFrom(), "contract.effectiveFrom"));
+    }
+
+    /** Trading syirkah inputs for a period (Bab XXII); the service works out the cost of goods sold. Omitted amounts are zero. */
+    public record TradingDto(BigDecimal sales, BigDecimal salesReturns, BigDecimal salesDiscounts,
+                             BigDecimal openingStock, BigDecimal purchases, BigDecimal purchaseReturns,
+                             BigDecimal purchaseDiscounts, BigDecimal closingStock, BigDecimal operatingCosts,
+                             BigDecimal otherCosts) {
+    }
+
+    static FinancialResult trading(TradingDto d, Currency c) {
+        required(d, "trading");
+        java.util.function.BiFunction<BigDecimal, String, Money> m =
+                (v, f) -> money(v == null ? BigDecimal.ZERO : v, c, "trading." + f);
+        return TradingResultCalculator.calculate(new TradingResultCalculator.Input(m.apply(d.sales(), "sales"),
+                m.apply(d.salesReturns(), "salesReturns"), m.apply(d.salesDiscounts(), "salesDiscounts"),
+                m.apply(d.openingStock(), "openingStock"), m.apply(d.purchases(), "purchases"),
+                m.apply(d.purchaseReturns(), "purchaseReturns"), m.apply(d.purchaseDiscounts(), "purchaseDiscounts"),
+                m.apply(d.closingStock(), "closingStock"), m.apply(d.operatingCosts(), "operatingCosts"),
+                m.apply(d.otherCosts(), "otherCosts"))).financialResult();
     }
 
     static FinancialResult result(FinancialResultDto d, Currency currency) {
