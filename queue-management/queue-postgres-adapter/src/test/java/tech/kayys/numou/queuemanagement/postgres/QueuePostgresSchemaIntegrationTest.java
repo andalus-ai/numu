@@ -75,7 +75,10 @@ class QueuePostgresSchemaIntegrationTest {
             assertEquals(1, count(connection,
                     "SELECT count(*) FROM queue_definition WHERE queue_id = '" + QUEUE_A + "'"));
 
-            try (PreparedStatement audit = connection.prepareStatement(
+            try (PreparedStatement entry = connection.prepareStatement(
+                    "INSERT INTO queue_entry (tenant_id, queue_id, entry_id, profile, source_capability, source_resource_type, source_resource_id, priority, status, entered_at, updated_at) "
+                            + "VALUES (?, ?, ?, 'WAITING_SERVICE', 'field-service', 'visit', 'visit-1', 0, 'WAITING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+                 PreparedStatement audit = connection.prepareStatement(
                     "INSERT INTO queue_audit (audit_id, tenant_id, actor_id, action, resource_type, resource_id, correlation_id, occurred_at) "
                             + "VALUES (?, ?, 'integration-test', 'QUEUE_JOINED', 'QUEUE_ENTRY', 'entry-1', 'corr-1', CURRENT_TIMESTAMP)");
                  PreparedStatement event = connection.prepareStatement(
@@ -84,6 +87,10 @@ class QueuePostgresSchemaIntegrationTest {
                  PreparedStatement key = connection.prepareStatement(
                     "INSERT INTO queue_idempotency (tenant_id, operation_scope, idempotency_key, request_hash, state) "
                             + "VALUES (?, 'queue.join', 'rollback-key', 'hash', 'IN_PROGRESS')")) {
+                entry.setObject(1, TENANT_A);
+                entry.setObject(2, QUEUE_A);
+                entry.setObject(3, UUID.fromString("22222222-2222-2222-2222-222222222222"));
+                entry.executeUpdate();
                 audit.setObject(1, UUID.randomUUID());
                 audit.setObject(2, TENANT_A);
                 audit.executeUpdate();
@@ -97,6 +104,7 @@ class QueuePostgresSchemaIntegrationTest {
         }
 
         try (Connection connection = ownerConnection()) {
+            assertEquals(0, count(connection, "SELECT count(*) FROM queue_entry WHERE source_resource_id = 'visit-1'"));
             assertEquals(0, count(connection, "SELECT count(*) FROM queue_audit WHERE correlation_id = 'corr-1'"));
             assertEquals(0, count(connection, "SELECT count(*) FROM queue_outbox WHERE correlation_id = 'corr-1'"));
             assertEquals(0, count(connection, "SELECT count(*) FROM queue_idempotency WHERE idempotency_key = 'rollback-key'"));
