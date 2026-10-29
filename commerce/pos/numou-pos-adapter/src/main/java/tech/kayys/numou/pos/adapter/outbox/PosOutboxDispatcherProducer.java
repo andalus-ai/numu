@@ -1,5 +1,6 @@
 package tech.kayys.numou.pos.adapter.outbox;
 
+import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
@@ -13,6 +14,7 @@ import java.time.Duration;
 
 /** Composes the application dispatcher from configured runtime adapters. */
 @ApplicationScoped
+@IfBuildProperty(name = "numou.pos.outbox.enabled", stringValue = "true")
 public class PosOutboxDispatcherProducer {
     @Inject PosOutboxDeliveryStore deliveryStore;
     @Inject PosEventPublisher eventPublisher;
