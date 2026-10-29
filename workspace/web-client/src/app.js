@@ -39,6 +39,7 @@ $("#refresh-button").addEventListener("click",async()=>{if(state.page&&state.vie
 window.addEventListener("beforeunload",(event)=>{if(state.dirty){event.preventDefault();event.returnValue="";}});
 async function restoreNavigation() {
   const workspaces = await runAction(() => api.listWorkspaces());
+  if (workspaces === null) { renderWorkspace(); return; }
   if (!Array.isArray(workspaces) || workspaces.length === 0) {
     state.workspace = null; state.space = null;
     writeSelection(ACTIVE_WORKSPACE_KEY,null); writeSelection(ACTIVE_SPACE_KEY,null);
@@ -48,7 +49,8 @@ async function restoreNavigation() {
   state.workspace = workspaces.find(item => item.id === preferredWorkspace) || workspaces[0];
   writeSelection(ACTIVE_WORKSPACE_KEY,state.workspace.id);
   const spaces = await runAction(() => api.listSpaces(state.workspace.id));
-  if (!Array.isArray(spaces)) { renderWorkspace(); return; }
+  if (spaces === null) { renderWorkspace(); return; }
+  if (!Array.isArray(spaces)) { state.space = null; writeSelection(ACTIVE_SPACE_KEY,null); renderWorkspace(); return; }
   const preferredSpace = readSelection(ACTIVE_SPACE_KEY);
   state.space = spaces.find(item => item.id === preferredSpace) || spaces[0] || null;
   writeSelection(ACTIVE_SPACE_KEY,state.space?.id || null);
