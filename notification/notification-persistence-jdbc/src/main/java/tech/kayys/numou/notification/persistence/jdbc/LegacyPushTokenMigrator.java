@@ -180,5 +180,7 @@ public final class LegacyPushTokenMigrator {
     }
 
     public record BatchResult(UUID batchId, int scanned, int migrated, long remaining,
-                              Instant startedAt, Instant completedAt) {}
+                              Instant startedAt, Instant completedAt) {
+        public boolean complete() { return remaining == 0; }
+    }
 }
