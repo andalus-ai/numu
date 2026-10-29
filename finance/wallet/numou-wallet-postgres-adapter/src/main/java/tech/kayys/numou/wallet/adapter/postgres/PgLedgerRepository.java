@@ -23,8 +23,9 @@ import java.util.UUID;
 
 /**
  * PostgreSQL append-only ledger adapter. Calls use the active Hibernate session so appends can
- * participate in the caller's transaction. A suppressed unique-key conflict is surfaced as a
- * concurrency conflict; it must not permit an aggregate update to commit without its ledger entry.
+ * participate in the caller's transaction. A duplicate primary key for the same deterministic entry is
+ * a replay-safe no-op as required by {@link LedgerRepository}; a collision on another unique constraint
+ * (notably the durable operation-reference constraint) remains a database failure and aborts the transaction.
  */
 @ApplicationScoped
 public class PgLedgerRepository implements LedgerRepository {
