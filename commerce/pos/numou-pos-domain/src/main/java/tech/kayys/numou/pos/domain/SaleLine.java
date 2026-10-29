@@ -1,5 +1,7 @@
 package tech.kayys.numou.pos.domain;
 
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;
@@ -55,6 +57,6 @@ public record SaleLine(
      * and must be applied by the checkout application workflow.
      */
     public Money extendedAmount() {
-        return new Money(unitPrice.amount().multiply(quantity), unitPrice.currency());
+        return unitPrice.multiply(quantity);
     }
 }
