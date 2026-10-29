@@ -188,7 +188,7 @@ public class QueuePostgresRepository implements QueueRepositoryPort {
                 + "AND qd.status = 'ACTIVE' AND ((? = 'CALL_SERVICE_ENTRY' AND e.profile = 'WAITING_SERVICE') "
                 + "OR (? = 'OFFER_DISPATCH_ENTRY' AND e.profile = 'DISPATCH')) "
                 + "ORDER BY CASE WHEN qd.ordering_policy = 'PRIORITY_THEN_ARRIVAL' THEN e.priority END DESC, "
-                + "e.entered_at, e.entry_id FOR UPDATE OF e SKIP LOCKED LIMIT 1) "
+                + "e.entered_at, e.entry_id LIMIT 1 FOR UPDATE OF e SKIP LOCKED) "
                 + "UPDATE queue_entry e SET status = CASE WHEN ? = 'CALL_SERVICE_ENTRY' THEN 'CALLED' ELSE 'OFFERED' END, "
                 + "called_at = CASE WHEN ? = 'CALL_SERVICE_ENTRY' THEN ? ELSE e.called_at END, "
                 + "call_count = CASE WHEN ? = 'CALL_SERVICE_ENTRY' THEN e.call_count + 1 ELSE e.call_count END, "
@@ -206,8 +206,8 @@ public class QueuePostgresRepository implements QueueRepositoryPort {
                 statement.setString(i++, mode.name());
                 statement.setString(i++, mode.name());
                 statement.setString(i++, mode.name());
-                statement.setTimestamp(i++, Timestamp.from(now));
                 statement.setString(i++, mode.name());
+                statement.setTimestamp(i++, Timestamp.from(now));
                 statement.setString(i++, mode.name());
                 statement.setTimestamp(i++, Timestamp.from(now));
                 try (ResultSet rs = statement.executeQuery()) {

@@ -163,6 +163,38 @@ public final class SyirkahJsonCodec {
                 syufah, successions);
     }
 
+    public static String encodeStaff(StaffContract st) {
+        Map<String, Object> o = new LinkedHashMap<>();
+        o.put("employer", st.employer().name());
+        o.put("employeePartner", st.employeePartner() == null ? null : st.employeePartner().value().toString());
+        o.put("workType", st.workType());
+        o.put("workPeriod", st.workPeriod());
+        o.put("effort", st.effort());
+        Map<String, Object> w = new LinkedHashMap<>();
+        w.put("basis", st.wage().basis().name());
+        w.put("fixedAmount", st.wage().fixedAmount() == null ? null : money(st.wage().fixedAmount()));
+        w.put("payPeriod", st.wage().payPeriod());
+        o.put("wage", w);
+        o.put("jaliClauses", new ArrayList<Object>(st.jaliClauses()));
+        o.put("jaliReviewedLawful", st.jaliReviewedLawful());
+        return Json.write(o);
+    }
+
+    public static StaffContract decodeStaff(String json) {
+        Map<String, Object> o = obj(Json.read(json), "staff");
+        Map<String, Object> w = obj(req(o, "wage"), "wage");
+        String emp = optStr(o, "employeePartner");
+        List<String> clauses = new ArrayList<>();
+        for (Object x : list(o, "jaliClauses")) {
+            clauses.add((String) x);
+        }
+        return new StaffContract(StaffContract.Employer.valueOf(str(o, "employer")), emp == null ? null : pid(emp),
+                optStr(o, "workType"), optStr(o, "workPeriod"), optStr(o, "effort"),
+                new StaffContract.Wage(StaffContract.WageBasis.valueOf(str(w, "basis")),
+                        w.get("fixedAmount") == null ? null : money(w, "fixedAmount"), optStr(w, "payPeriod")),
+                clauses, bool(o, "jaliReviewedLawful"));
+    }
+
     public static String encodePolicy(FormationPolicy p) {
         Map<String, Object> o = new LinkedHashMap<>();
         o.put("witnessRule", p.witnessRule().name());
