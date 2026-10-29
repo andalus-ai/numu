@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class QueueOrderingTest {
     private static final Instant T0 = Instant.parse("2026-10-29T00:00:00Z");
@@ -31,6 +32,19 @@ class QueueOrderingTest {
 
         assertThat(QueueOrdering.orderWaiting(List.of(later, sameTimeHigherId, sameTimeLowerId), QueueOrderingPolicy.FIFO))
                 .containsExactly(sameTimeLowerId, sameTimeHigherId, later);
+    }
+
+    @Test
+    void rejectsCandidatesFromDifferentQueues() {
+        QueueEntry first = entry("00000000-0000-0000-0000-000000000001", 10, 1);
+        QueueDefinition otherQueue = QueueDefinition.create(QueueId.generate(), queue.tenantId(),
+                "Q2", "Other queue", QueueProfile.WAITING_SERVICE, QueueOrderingPolicy.FIFO);
+        QueueEntry other = QueueEntry.join(QueueEntryId.generate(), otherQueue,
+                new QueueSourceReference("support", "ticket", "ticket-2"), 10, T0.plusSeconds(2));
+
+        assertThatThrownBy(() -> QueueOrdering.orderWaiting(List.of(first, other), QueueOrderingPolicy.FIFO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("same tenant and queue");
     }
 
     @Test
