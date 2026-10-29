@@ -344,4 +344,16 @@ class SyirkahApiTest {
                 LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), result("1"), null, "retain",
                 new TradingDto(BigDecimal.ONE, null, null, null, null, null, null, null, null, null))));
     }
+
+    @Test
+    void rulesAreListedWithoutATenantAndMatchTheCatalog() {
+        RulesView v = api.rules();
+        assertEquals(26, v.count());
+        assertEquals(26, v.rules().size());
+        assertFalse(v.frozen());
+        assertNull(v.adviserSignoff());
+        assertEquals(tech.kayys.numou.numoudomain.ShariaRuleCatalog.fingerprint(), v.fingerprint());
+        assertEquals(tech.kayys.numou.numoudomain.ShariaRuleCatalog.render(), api.rulesMarkdown());
+        assertTrue(v.rules().get(0).codes().contains("PROFIT_ON_REVENUE"));
+    }
 }

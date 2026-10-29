@@ -20,5 +20,6 @@ Audit and outbox tables are foundations only at this stage. The complete impleme
 
 - Transactional audit and outbox repositories integrated with business mutations.
 - Transactional audit and outbox repositories integrated with business mutations.
-- PostgreSQL integration tests for migrations, duplicate requests, tenant isolation, stale updates, concurrent reservations, rollback, lifecycle transitions, and lease recovery.
+- PostgreSQL integration tests for migrations, idempotent batch replay, tenant-scoped reads, rollback after a reservation conflict, and payout lifecycle regression. The Testcontainers suite skips when Docker is unavailable.
+- Concurrent multi-node reservation stress tests, transactional audit/outbox writes, lease claiming/recovery, and end-to-end dispatch remain outstanding.
 - CI verification against the supported PostgreSQL version. Do not enable this adapter for production payout processing until these are complete.

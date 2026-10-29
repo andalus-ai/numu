@@ -118,6 +118,20 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AuditView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /rules:
+    get:
+      tags: [Syirkah]
+      summary: The Sharia rules this build enforces, with book source, enforcement and adviser status
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/RulesView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /rules.md:
+    get:
+      tags: [Syirkah]
+      summary: The same rules as the generated Markdown document
+      responses:
+        "200": {description: OK, content: {text/markdown: {schema: {type: string}}}}
+        default: {$ref: "#/components/responses/Error"}
   /{id}/revisions:
     parameters: [{$ref: "#/components/parameters/Id"}]
     post:
@@ -445,6 +459,26 @@ components:
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/SummaryView"}}
         nextCursor: {type: string, format: uuid, nullable: true}
+    RuleView:
+      type: object
+      properties:
+        id: {type: integer}
+        title: {type: string}
+        source: {type: string}
+        enforcement: {type: string, enum: [BLOCKS, RECORDED, BEHAVIOUR, OUT_OF_SCOPE]}
+        adviser: {type: string, enum: [BOOK_STATED, PENDING_ADVISER, CONFIRMED]}
+        codes: {type: array, items: {type: string}}
+        testedBy: {type: array, items: {type: string}}
+        note: {type: string, nullable: true}
+    RulesView:
+      type: object
+      properties:
+        count: {type: integer}
+        waitingForAdviser: {type: integer}
+        frozen: {type: boolean}
+        adviserSignoff: {type: string, nullable: true}
+        fingerprint: {type: string}
+        rules: {type: array, items: {$ref: "#/components/schemas/RuleView"}}
     CloseView:
       type: object
       properties:
