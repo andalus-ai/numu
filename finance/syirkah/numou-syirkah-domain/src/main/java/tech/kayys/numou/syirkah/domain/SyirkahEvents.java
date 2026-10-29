@@ -52,6 +52,15 @@ public final class SyirkahEvents {
         }
     }
 
+    /** A partner died. The akad ended with the death (Bab X); what follows is a new akad version. */
+    public record PartnerDied(UUID eventId, Instant occurredAt, SyirkahId syirkahId, PartnerId partner,
+            java.time.LocalDate diedOn) implements DomainEvent {
+        @Override
+        public String eventType() {
+            return "syirkah.partner-died";
+        }
+    }
+
     public record CloseCorrected(UUID eventId, Instant occurredAt, SyirkahId syirkahId, CloseId reversed,
             CloseId replacement, Money delta) implements DomainEvent {
         @Override
