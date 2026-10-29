@@ -52,6 +52,94 @@ public final class QueueEntry {
         return new QueueEntry(id, queue, source, priority, enteredAt);
     }
 
+    /**
+     * Reconstitutes persisted state without replaying lifecycle transitions.
+     *
+     * Persistence adapters must still scope the row lookup by tenant and queue. This
+     * factory validates intrinsic state invariants but does not authorize access to it.
+     */
+    public static QueueEntry reconstitute(QueueEntryId id, TenantId tenantId, QueueId queueId,
+                                          QueueProfile profile, QueueSourceReference source,
+                                          int priority, Instant enteredAt, Instant updatedAt,
+                                          QueueEntryStatus status, Instant calledAt,
+                                          Instant servingStartedAt, Instant completedAt,
+                                          int callCount) {
+        Objects.requireNonNull(id, "id must not be null");
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
+        Objects.requireNonNull(queueId, "queueId must not be null");
+        Objects.requireNonNull(profile, "profile must not be null");
+        Objects.requireNonNull(source, "source must not be null");
+        Objects.requireNonNull(enteredAt, "enteredAt must not be null");
+        Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+        Objects.requireNonNull(status, "status must not be null");
+        if (priority < MIN_PRIORITY || priority > MAX_PRIORITY) {
+            throw new IllegalArgumentException("priority must be between 0 and 100");
+        }
+        if (updatedAt.isBefore(enteredAt)) {
+            throw new IllegalArgumentException("updatedAt cannot be before enteredAt");
+        }
+        if (callCount < 0) {
+            throw new IllegalArgumentException("callCount cannot be negative");
+        }
+        requireTimestampNotAfter(calledAt, updatedAt, "calledAt");
+        requireTimestampNotAfter(servingStartedAt, updatedAt, "servingStartedAt");
+        requireTimestampNotAfter(completedAt, updatedAt, "completedAt");
+        if (calledAt != null && calledAt.isBefore(enteredAt)
+                || servingStartedAt != null && servingStartedAt.isBefore(enteredAt)
+                || completedAt != null && completedAt.isBefore(enteredAt)) {
+            throw new IllegalArgumentException("lifecycle timestamps cannot be before enteredAt");
+        }
+        if ((status == QueueEntryStatus.CALLED || status == QueueEntryStatus.SERVING
+                || status == QueueEntryStatus.NO_SHOW) && profile != QueueProfile.WAITING_SERVICE) {
+            throw new IllegalArgumentException("status " + status + " is only valid for WAITING_SERVICE");
+        }
+        if ((status == QueueEntryStatus.OFFERED || status == QueueEntryStatus.ACCEPTED
+                || status == QueueEntryStatus.REJECTED) && profile != QueueProfile.DISPATCH) {
+            throw new IllegalArgumentException("status " + status + " is only valid for DISPATCH");
+        }
+        if ((status == QueueEntryStatus.CALLED || status == QueueEntryStatus.SERVING
+                || status == QueueEntryStatus.NO_SHOW) && calledAt == null) {
+            throw new IllegalArgumentException("status " + status + " requires calledAt");
+        }
+        if (status == QueueEntryStatus.SERVING && servingStartedAt == null) {
+            throw new IllegalArgumentException("SERVING requires servingStartedAt");
+        }
+        if (status == QueueEntryStatus.COMPLETED && completedAt == null) {
+            throw new IllegalArgumentException("COMPLETED requires completedAt");
+        }
+        if (status == QueueEntryStatus.WAITING && (servingStartedAt != null || completedAt != null)) {
+            throw new IllegalArgumentException("WAITING cannot retain serving/completion timestamps");
+        }
+        QueueEntry entry = new QueueEntry(id, tenantId, queueId, profile, source, priority,
+                enteredAt, updatedAt, status, calledAt, servingStartedAt, completedAt, callCount);
+        return entry;
+    }
+
+    private QueueEntry(QueueEntryId id, TenantId tenantId, QueueId queueId, QueueProfile profile,
+                       QueueSourceReference source, int priority, Instant enteredAt, Instant updatedAt,
+                       QueueEntryStatus status, Instant calledAt, Instant servingStartedAt,
+                       Instant completedAt, int callCount) {
+        this.id = id;
+        this.tenantId = tenantId;
+        this.queueId = queueId;
+        this.profile = profile;
+        this.source = source;
+        this.priority = priority;
+        this.enteredAt = enteredAt;
+        this.updatedAt = updatedAt;
+        this.status = status;
+        this.calledAt = calledAt;
+        this.servingStartedAt = servingStartedAt;
+        this.completedAt = completedAt;
+        this.callCount = callCount;
+    }
+
+    private static void requireTimestampNotAfter(Instant timestamp, Instant upperBound, String field) {
+        if (timestamp != null && timestamp.isAfter(upperBound)) {
+            throw new IllegalArgumentException(field + " cannot be after updatedAt");
+        }
+    }
+
     public void call(Instant now) {
         requireProfile(QueueProfile.WAITING_SERVICE);
         requireStatus(QueueEntryStatus.WAITING);

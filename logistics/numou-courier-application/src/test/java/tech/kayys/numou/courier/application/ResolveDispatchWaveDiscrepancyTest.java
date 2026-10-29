@@ -60,8 +60,9 @@ class ResolveDispatchWaveDiscrepancyTest {
                 tenant, UUID.randomUUID(), waveId, null, "parcel-9", "ACCEPT_UNEXPECTED",
                 "reason", "operator-7", null, "scanner", "key-1", "fingerprint", Instant.now());
 
-        assertThrows(IllegalArgumentException.class,
+        var failure = assertThrows(java.util.concurrent.CompletionException.class,
                 () -> useCase.execute(invalid).toCompletableFuture().join());
+        assertInstanceOf(IllegalArgumentException.class, failure.getCause());
         verifyNoInteractions(authorizer, store);
     }
 

@@ -133,6 +133,14 @@ public final class SyirkahDtos {
     public record Page(List<SummaryView> items, String nextCursor) {
     }
 
+    public record RuleView(int id, String title, String source, String enforcement, String adviser,
+                           java.util.List<String> codes, java.util.List<String> testedBy, String note) {
+    }
+
+    public record RulesView(int count, int waitingForAdviser, boolean frozen, String adviserSignoff,
+                            String fingerprint, java.util.List<RuleView> rules) {
+    }
+
     public record CloseView(String id, int sequence, LocalDate periodStart, LocalDate periodEnd, int contractVersion,
                             BigDecimal netResult, String disposition, String status, String supersedes,
                             Instant closedAt, String hash) {
@@ -217,7 +225,7 @@ public final class SyirkahDtos {
         }
     }
 
-    private static <T> T required(T v, String field) {
+    static <T> T required(T v, String field) {
         if (v == null) {
             throw new IllegalArgumentException(field + " is required");
         }
@@ -351,6 +359,26 @@ public final class SyirkahDtos {
     }
 
     // ------------------------------------------------------------ domain -> response
+
+    static BalanceSheetView balanceSheet(BookStatements.BalanceSheet b) {
+        return new BalanceSheetView(b.syirkahName(), b.asOf(),
+                b.assets().stream().map(a -> new StatementLineView(a.group().name(), a.label(), a.amount().amount()))
+                        .toList(),
+                b.partnerReceivable().amount(), b.totalAssets().amount(),
+                b.liabilities().stream()
+                        .map(l -> new StatementLineView(l.group().name(), l.label(), l.amount().amount())).toList(),
+                b.totalLiabilities().amount(),
+                b.capital().stream().map(c -> new CapitalLineView(c.partner().value().toString(), c.name(),
+                        c.capital().amount(), c.profitPayable().amount())).toList(),
+                b.unallocatedDeficit().amount(), b.totalCapital().amount(),
+                b.totalLiabilitiesAndCapital().amount(), b.difference().amount(), b.balanced());
+    }
+
+    static IncomeStatementView incomeStatement(BookStatements.IncomeStatement i) {
+        return new IncomeStatementView(i.syirkahName(), i.periodStart(), i.periodEnd(), i.revenue().amount(),
+                i.costOfGoodsSold().amount(), i.grossProfit().amount(), i.operatingCosts().amount(),
+                i.otherCosts().amount(), i.netResult().amount(), i.result());
+    }
 
     static BigDecimal amt(Money m) {
         return m.amount();
