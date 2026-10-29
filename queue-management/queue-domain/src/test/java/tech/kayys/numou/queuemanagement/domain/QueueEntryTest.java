@@ -54,6 +54,55 @@ class QueueEntryTest {
     }
 
     @Test
+    void reconstitutesPersistedLifecycleWithoutResettingState() {
+        TenantId tenantId = TenantId.generate();
+        QueueId queueId = QueueId.generate();
+        QueueEntryId entryId = QueueEntryId.generate();
+        Instant calledAt = T0.plusSeconds(1);
+        Instant servingAt = T0.plusSeconds(2);
+        Instant completedAt = T0.plusSeconds(3);
+
+        QueueEntry restored = QueueEntry.reconstitute(entryId, tenantId, queueId,
+                QueueProfile.WAITING_SERVICE,
+                new QueueSourceReference("support", "ticket", "ticket-123"),
+                42, T0, completedAt, QueueEntryStatus.COMPLETED,
+                calledAt, servingAt, completedAt, 2);
+
+        assertThat(restored.id()).isEqualTo(entryId);
+        assertThat(restored.tenantId()).isEqualTo(tenantId);
+        assertThat(restored.queueId()).isEqualTo(queueId);
+        assertThat(restored.priority()).isEqualTo(42);
+        assertThat(restored.status()).isEqualTo(QueueEntryStatus.COMPLETED);
+        assertThat(restored.enteredAt()).isEqualTo(T0);
+        assertThat(restored.updatedAt()).isEqualTo(completedAt);
+        assertThat(restored.calledAt()).isEqualTo(calledAt);
+        assertThat(restored.servingStartedAt()).isEqualTo(servingAt);
+        assertThat(restored.completedAt()).isEqualTo(completedAt);
+        assertThat(restored.callCount()).isEqualTo(2);
+        assertThat(restored.isTerminal()).isTrue();
+    }
+
+    @Test
+    void rejectsInvalidPersistedLifecycleState() {
+        TenantId tenantId = TenantId.generate();
+        QueueId queueId = QueueId.generate();
+        QueueSourceReference source = new QueueSourceReference("support", "ticket", "ticket-123");
+
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                QueueEntry.reconstitute(QueueEntryId.generate(), tenantId, queueId,
+                        QueueProfile.WAITING_SERVICE, source, 10, T0, T0.minusSeconds(1),
+                        QueueEntryStatus.WAITING, null, null, null, 0));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                QueueEntry.reconstitute(QueueEntryId.generate(), tenantId, queueId,
+                        QueueProfile.WAITING_SERVICE, source, 10, T0, T0,
+                        QueueEntryStatus.OFFERED, null, null, null, 0));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                QueueEntry.reconstitute(QueueEntryId.generate(), tenantId, queueId,
+                        QueueProfile.WAITING_SERVICE, source, 10, T0, T0,
+                        QueueEntryStatus.WAITING, null, null, null, -1));
+    }
+
+    @Test
     void rejectsEntriesForPausedOrClosedQueues() {
         QueueDefinition queue = activeQueue();
         queue.pause();
