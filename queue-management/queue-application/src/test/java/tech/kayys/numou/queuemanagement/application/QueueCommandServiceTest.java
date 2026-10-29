@@ -34,7 +34,8 @@ class QueueCommandServiceTest {
         FakeRepository repository = new FakeRepository();
         repository.addQueue(QueueDefinition.create(queueId, tenant, "FRONT-DESK", "Front desk",
                 QueueProfile.WAITING_SERVICE, QueueOrderingPolicy.FIFO));
-        QueueCommandService service = new QueueCommandService(repository, new DirectTransaction());
+        DirectTransaction transaction = new DirectTransaction();
+        QueueCommandService service = new QueueCommandService(repository, transaction);
         QueueCommandContext context = context(tenant, "join-1");
 
         QueueEntry entry = service.join(context, queueId,
@@ -43,7 +44,8 @@ class QueueCommandServiceTest {
         assertEquals(tenant, entry.tenantId());
         assertEquals(queueId, entry.queueId());
         assertSame(entry, repository.entries.get(entry.id()));
-        assertEquals(1, ((DirectTransaction) serviceTransaction(service)).lastResult.auditRecords().size());
+        assertEquals(1, transaction.lastResult.auditRecords().size());
+        assertEquals(1, transaction.lastResult.events().size());
     }
 
     @Test
@@ -82,15 +84,8 @@ class QueueCommandServiceTest {
         return new QueueCommandContext(tenant, "staff-1", "corr-" + key, key, NOW);
     }
 
-    // Accesses the test transaction through a local reference rather than production internals.
-    private static QueueCommandTransactionPort serviceTransaction(QueueCommandService ignored) {
-        return LAST_TRANSACTION;
-    }
-    private static DirectTransaction LAST_TRANSACTION;
-
     private static final class DirectTransaction implements QueueCommandTransactionPort {
         private QueueCommandResult<?> lastResult;
-        DirectTransaction() { LAST_TRANSACTION = this; }
         @Override public <T> T execute(QueueCommandContext context, String scope,
                                       Supplier<QueueCommandResult<T>> work) {
             QueueCommandResult<T> result = work.get();
@@ -115,7 +110,8 @@ class QueueCommandServiceTest {
         }
         @Override public List<QueueEntry> findWaiting(TenantId tenant, QueueId queue) {
             return entries.values().stream().filter(e -> e.tenantId().equals(tenant)
-                    && e.queueId().equals(queue)).toList();
+                    && e.queueId().equals(queue)
+                    && e.status() == tech.kayys.numou.queuemanagement.domain.QueueEntryStatus.WAITING).toList();
         }
         @Override public void saveQueue(QueueDefinition queue) { queues.put(queue.id(), queue); }
         @Override public void saveEntry(QueueEntry entry) { entries.put(entry.id(), entry); }
