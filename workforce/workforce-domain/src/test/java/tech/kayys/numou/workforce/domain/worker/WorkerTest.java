@@ -36,6 +36,45 @@ class WorkerTest {
     }
 
     @Test
+    void shouldReconstitutePersistedStateWithoutEmittingEvents() {
+        var id = WorkerId.generate();
+        var tenantId = TenantId.of(UUID.randomUUID());
+        var personRef = PersonRef.of(UUID.randomUUID());
+        var createdAt = Instant.parse("2024-01-02T03:04:05Z");
+        var updatedAt = Instant.parse("2024-02-03T04:05:06Z");
+        var audit = new tech.kayys.numou.foundation.domain.audit.AuditMeta(
+                "original-actor", createdAt, "last-editor", updatedAt);
+
+        var worker = Worker.reconstitute(
+                id, tenantId, personRef, WorkerType.CONTRACTOR,
+                WorkerStatus.SUSPENDED, audit, 7);
+
+        assertThat(worker.id()).isEqualTo(id);
+        assertThat(worker.tenantId()).isEqualTo(tenantId);
+        assertThat(worker.person()).isEqualTo(personRef);
+        assertThat(worker.type()).isEqualTo(WorkerType.CONTRACTOR);
+        assertThat(worker.status()).isEqualTo(WorkerStatus.SUSPENDED);
+        assertThat(worker.audit()).isEqualTo(audit);
+        assertThat(worker.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(worker.getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(worker.getVersion()).isEqualTo(7);
+        assertThat(worker.pullDomainEvents()).isEmpty();
+    }
+
+    @Test
+    void shouldRejectNegativePersistedVersion() {
+        var audit = tech.kayys.numou.foundation.domain.audit.AuditMeta.initial(
+                "admin", Instant.parse("2024-01-02T03:04:05Z"));
+
+        assertThatThrownBy(() -> Worker.reconstitute(
+                WorkerId.generate(), TenantId.of(UUID.randomUUID()),
+                PersonRef.of(UUID.randomUUID()), WorkerType.EMPLOYEE,
+                WorkerStatus.ACTIVE, audit, -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("version");
+    }
+
+    @Test
     void shouldSuspendAndReactivateWorker() {
         var worker = Worker.create(WorkerId.generate(), TenantId.of(UUID.randomUUID()),
                 PersonRef.of(UUID.randomUUID()), WorkerType.CONTRACTOR, "admin", Instant.now());
