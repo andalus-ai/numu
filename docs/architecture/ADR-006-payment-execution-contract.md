@@ -17,7 +17,7 @@ Hospitality already owns stay-specific quote and inventory semantics. It must no
 
 Introduce a deployment-neutral public application contract owned by the Finance Payment capability. Implement it in stages, retaining the existing gateway strategies and REST API while consumers migrate.
 
-The public contract must be usable in-process by a modular monolith and mappable to a versioned HTTP or messaging contract for distributed deployments. Domain/application contracts must not require Quarkus, Panache, a specific database, a gateway vendor, or Hospitality classes.
+The consumer-facing payment contract must be usable in-process by a modular monolith and mappable to a versioned HTTP or messaging contract for distributed deployments. Provider callback/state mutation is exposed through a separate provider-side application port, not the ordinary consumer port. Domain/application contracts must not require Quarkus, Panache, a specific database, a gateway vendor, or Hospitality classes.
 
 ### Contract responsibilities
 
@@ -26,7 +26,7 @@ The payment application contract must support:
 1. **Create or retrieve a payment obligation** using a caller-supplied stable business reference, amount, ISO currency, tenant scope, and idempotency key. It must return a stable payment identifier and an explicit lifecycle state.
 2. **Retrieve current payment state** by stable identifier under tenant authorization; identifiers alone are not authorization.
 3. **Request cancellation or refund** through an explicit command with reason, amount where applicable, and an idempotency key. The result must distinguish accepted/pending from completed or failed provider operations.
-4. **Consume verified provider outcomes** only after provider-specific signature/authenticity checks. Duplicate delivery must be harmless; mismatched merchant, amount, currency, or payment reference must be rejected or quarantined for investigation.
+4. **Consume verified provider outcomes** through a separate provider-side application port, only after provider-specific signature/authenticity checks. Duplicate delivery must be harmless; mismatched merchant, amount, currency, or payment reference must be rejected or quarantined for investigation.
 5. **Reconcile uncertain outcomes** through a query/reconciliation path rather than treating a timeout as proof of failure.
 6. **Expose durable correlation** for audit and operational support, including tenant, payment ID, caller reference, idempotency scope, provider reference, and correlation metadata. Avoid logging payment secrets or unnecessary customer PII.
 
