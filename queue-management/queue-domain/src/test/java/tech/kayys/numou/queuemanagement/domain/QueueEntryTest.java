@@ -100,6 +100,14 @@ class QueueEntryTest {
                 QueueEntry.reconstitute(QueueEntryId.generate(), tenantId, queueId,
                         QueueProfile.WAITING_SERVICE, source, 10, T0, T0,
                         QueueEntryStatus.WAITING, null, null, null, -1));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                QueueEntry.reconstitute(QueueEntryId.generate(), tenantId, queueId,
+                        QueueProfile.WAITING_SERVICE, source, 10, T0, T0,
+                        QueueEntryStatus.COMPLETED, null, null, null, 1));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                QueueEntry.reconstitute(QueueEntryId.generate(), tenantId, queueId,
+                        QueueProfile.WAITING_SERVICE, source, 10, T0, T0,
+                        QueueEntryStatus.SERVING, T0, null, null, 1));
     }
 
     @Test
