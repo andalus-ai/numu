@@ -60,9 +60,12 @@ class NotificationDeliveryJobTest {
     void errorCodeIsBoundedAndLeaseStateIsValidated() {
         assertThrows(IllegalArgumentException.class, () -> pending().claim(
                 UUID.randomUUID(), NOW, NOW));
-        assertThrows(IllegalArgumentException.class, () -> pending().retry(
-                UUID.randomUUID(), NOW.plusSeconds(10), "x"));
-        assertThrows(IllegalArgumentException.class, () -> new NotificationDeliveryJob(
+        NotificationDeliveryJob claimed = pending().claim(
+                UUID.randomUUID(), NOW.plusSeconds(30), NOW);
+        String oversizedErrorCode = "x".repeat(NotificationDeliveryJob.MAX_ERROR_CODE_LENGTH + 1);
+        assertThrows(IllegalArgumentException.class, () -> claimed.retry(
+                claimed.leaseToken(), NOW.plusSeconds(10), oversizedErrorCode));
+        assertThrows(IllegalStateException.class, () -> new NotificationDeliveryJob(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), "FCM", "key", NotificationDeliveryJob.Status.IN_FLIGHT, 1,
                 NOW, NOW, null, null, null, ""));
