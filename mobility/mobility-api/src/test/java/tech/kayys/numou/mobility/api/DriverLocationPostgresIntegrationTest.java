@@ -12,9 +12,12 @@ import tech.kayys.numou.mobility.kernel.geo.LatLng;
 import tech.kayys.numou.mobility.persistence.PgDriverLocationIndex;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * PostgreSQL contract tests for the production driver-location adapter.
@@ -50,12 +53,12 @@ class DriverLocationPostgresIntegrationTest {
         asserter.execute(() -> index.upsert(tenantB, otherTenant));
 
         asserter.assertThat(() -> index.nearby(tenantA, CENTER, 500.0, VehicleType.CAR, NOW, 10), results -> {
-            assertThat(results).extracting(n -> n.fix().driverId())
-                    .containsExactly(nearest.driverId(), farther.driverId());
-            assertThat(results).extracting(DriverLocationIndex.Nearby::distanceMeters).isSorted();
+            assertEquals(List.of(nearest.driverId(), farther.driverId()),
+                    results.stream().map(n -> n.fix().driverId()).toList());
+            assertTrue(results.get(0).distanceMeters() <= results.get(1).distanceMeters());
         });
         asserter.assertThat(() -> index.nearby(tenantA, CENTER, 500.0, VehicleType.CAR, NOW, 1), results ->
-                assertThat(results).extracting(n -> n.fix().driverId()).containsExactly(nearest.driverId()));
+                assertEquals(List.of(nearest.driverId()), results.stream().map(n -> n.fix().driverId()).toList()));
     }
 
     @Test
@@ -71,12 +74,15 @@ class DriverLocationPostgresIntegrationTest {
         asserter.execute(() -> index.upsert(tenant, original));
         asserter.execute(() -> index.upsert(tenant, moved));
         asserter.assertThat(() -> index.nearby(tenant, CENTER, 500.0, VehicleType.CAR, NOW, 10),
-                results -> assertThat(results).isEmpty());
-        asserter.assertThat(() -> index.last(tenant, id), last -> assertThat(last).contains(moved));
+                results -> assertTrue(results.isEmpty()));
+        asserter.assertThat(() -> index.last(tenant, id), last -> {
+            assertTrue(last.isPresent());
+            assertEquals(moved, last.get());
+        });
         asserter.execute(() -> index.remove(tenant, id));
-        asserter.assertThat(() -> index.last(tenant, id), last -> assertThat(last).isEmpty());
+        asserter.assertThat(() -> index.last(tenant, id), last -> assertTrue(last.isEmpty()));
         asserter.assertThat(() -> index.nearby(tenant, moved.at(), 500.0, VehicleType.CAR, NOW, 10),
-                results -> assertThat(results).isEmpty());
+                results -> assertTrue(results.isEmpty()));
     }
 
     @Test
@@ -88,15 +94,18 @@ class DriverLocationPostgresIntegrationTest {
 
         asserter.execute(() -> index.upsert(tenantA, fix));
         asserter.execute(() -> index.setAvailable(tenantB, fix.driverId(), false));
-        asserter.assertThat(() -> index.last(tenantA, fix.driverId()), last ->
-                assertThat(last).get().extracting(DriverLocationIndex.Fix::available).isEqualTo(true));
+        asserter.assertThat(() -> index.last(tenantA, fix.driverId()), last -> {
+            assertTrue(last.isPresent());
+            assertTrue(last.get().available());
+        });
         asserter.execute(() -> index.setAvailable(tenantA, fix.driverId(), false));
         asserter.assertThat(() -> index.last(tenantA, fix.driverId()), last -> {
-            assertThat(last).get().extracting(DriverLocationIndex.Fix::at).isEqualTo(fix.at());
-            assertThat(last).get().extracting(DriverLocationIndex.Fix::available).isEqualTo(false);
+            assertTrue(last.isPresent());
+            assertEquals(fix.at(), last.get().at());
+            assertFalse(last.get().available());
         });
         asserter.assertThat(() -> index.nearby(tenantA, CENTER, 500.0, VehicleType.CAR, NOW, 10),
-                results -> assertThat(results).isEmpty());
+                results -> assertTrue(results.isEmpty()));
     }
 
     private static DriverLocationIndex.Fix fix(
