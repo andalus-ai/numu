@@ -100,6 +100,13 @@ public class PostgresPartnerPayoutRepository implements PartnerPayoutRepository 
                 if (!sameIntent(current, replacement)) {
                     throw new IllegalArgumentException("Payout intent fields are immutable");
                 }
+                if (!validTransition(current.status(), replacement.status())) {
+                    throw new IllegalStateException("Illegal payout transition: "
+                            + current.status() + " -> " + replacement.status());
+                }
+                if (replacement.attempts() < current.attempts()) {
+                    throw new IllegalArgumentException("Payout attempt count cannot decrease");
+                }
                 if (!replacement.updatedAt().isAfter(current.updatedAt())) {
                     throw new IllegalArgumentException("Payout update timestamp must advance");
                 }
@@ -206,6 +213,23 @@ public class PostgresPartnerPayoutRepository implements PartnerPayoutRepository 
                 rs.getString("last_error"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());
+    }
+
+    private static boolean validTransition(PartnerPayoutStatus current, PartnerPayoutStatus next) {
+        return switch (current) {
+            case REQUESTED -> next == PartnerPayoutStatus.SUBMITTED || next == PartnerPayoutStatus.PAID
+                    || next == PartnerPayoutStatus.HELD || next == PartnerPayoutStatus.RETRYABLE_FAILURE
+                    || next == PartnerPayoutStatus.RECONCILIATION_REQUIRED;
+            case SUBMITTED -> next == PartnerPayoutStatus.PAID || next == PartnerPayoutStatus.RETURNED
+                    || next == PartnerPayoutStatus.RECONCILIATION_REQUIRED
+                    || next == PartnerPayoutStatus.RETRYABLE_FAILURE;
+            case RETRYABLE_FAILURE -> next == PartnerPayoutStatus.SUBMITTED || next == PartnerPayoutStatus.HELD
+                    || next == PartnerPayoutStatus.RECONCILIATION_REQUIRED;
+            case RECONCILIATION_REQUIRED -> next == PartnerPayoutStatus.PAID
+                    || next == PartnerPayoutStatus.RETURNED || next == PartnerPayoutStatus.RETRYABLE_FAILURE
+                    || next == PartnerPayoutStatus.HELD;
+            case PAID, HELD, RETURNED -> false;
+        };
     }
 
     private static boolean sameIntent(PartnerPayout left, PartnerPayout right) {
