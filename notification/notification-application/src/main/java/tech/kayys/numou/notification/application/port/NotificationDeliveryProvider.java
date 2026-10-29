@@ -31,7 +31,7 @@ public interface NotificationDeliveryProvider {
             if (accepted && (retryable || !safeErrorCode.isEmpty()))
                 throw new IllegalArgumentException("accepted delivery cannot carry failure metadata");
         }
-        public static DeliveryResult accepted() { return new DeliveryResult(true, false, ""); }
+        public static DeliveryResult success() { return new DeliveryResult(true, false, ""); }
         public static DeliveryResult retryable(String safeErrorCode) { return new DeliveryResult(false, true, safeErrorCode); }
         public static DeliveryResult permanentFailure(String safeErrorCode) { return new DeliveryResult(false, false, safeErrorCode); }
     }
