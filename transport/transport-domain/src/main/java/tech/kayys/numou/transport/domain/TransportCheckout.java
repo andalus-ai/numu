@@ -92,9 +92,13 @@ public record TransportCheckout(
             throw new IllegalArgumentException("refund state requires a refund operation");
         }
         boolean noRefund = refundId == null && refundStatus == null && refundReason == null;
-        boolean hasRefund = refundId != null && refundStatus != null && refundReason != null && !refundReason.isBlank();
-        if (!noRefund && !hasRefund) {
-            throw new IllegalArgumentException("refund ID, status, and reason must be present together");
+        boolean refundIntent = refundId == null && refundStatus == null
+                && status == TransportCheckoutStatus.REFUND_REQUESTED
+                && refundReason != null && !refundReason.isBlank();
+        boolean hasRefund = refundId != null && refundStatus != null
+                && refundReason != null && !refundReason.isBlank();
+        if (!noRefund && !refundIntent && !hasRefund) {
+            throw new IllegalArgumentException("refund ID, status, and reason must be consistent with refund state");
         }
         if (refundReason != null) refundReason = required(refundReason, "refundReason");
     }
@@ -126,9 +130,20 @@ public record TransportCheckout(
                 refundId, refundStatus, refundReason, nextStatus, now);
     }
 
+    public TransportCheckout withRefundIntent(String nextRefundReason, Instant now) {
+        if (status != TransportCheckoutStatus.RECONCILIATION_REQUIRED) {
+            throw new IllegalStateException("refund intent can only start from reconciliation-required checkout");
+        }
+        String reason = required(nextRefundReason, "refundReason");
+        if (reason.length() > 500) throw new IllegalArgumentException("refundReason must not exceed 500 characters");
+        return copy(holdId, paymentId, paymentActionUri, null, null, reason,
+                TransportCheckoutStatus.REFUND_REQUESTED, now);
+    }
+
     public TransportCheckout withRefund(String nextRefundId, TransportCheckoutRefundStatus nextRefundStatus,
                                         String nextRefundReason, Instant now) {
         if (status != TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                && status != TransportCheckoutStatus.REFUND_REQUESTED
                 && status != TransportCheckoutStatus.REFUND_PENDING) {
             throw new IllegalStateException("refund compensation is only allowed for reconciliation-required checkouts");
         }
