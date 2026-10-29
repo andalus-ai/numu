@@ -129,6 +129,40 @@ public final class TransportCheckoutService {
         return new ReconciliationResult(due.size(), succeeded, failed, failedCheckoutIds);
     }
 
+    /** Reconciles a bounded batch of pending refund operations using their persisted reason and idempotency key. */
+    public ReconciliationResult reconcileDueRefunds(Duration minimumAge, int batchSize) {
+        Objects.requireNonNull(minimumAge, "minimumAge");
+        if (minimumAge.isNegative() || minimumAge.isZero() || minimumAge.compareTo(Duration.ofHours(24)) > 0) {
+            throw new IllegalArgumentException("minimumAge must be between 0 and 24 hours");
+        }
+        if (batchSize < 1 || batchSize > 1_000) {
+            throw new IllegalArgumentException("batchSize must be between 1 and 1000");
+        }
+        Instant cutoff = clock.instant().minus(minimumAge);
+        List<TransportCheckout> due = checkouts.findStaleRefunds(cutoff, batchSize);
+        int succeeded = 0;
+        int failed = 0;
+        List<UUID> failedCheckoutIds = new ArrayList<>();
+        for (TransportCheckout checkout : due) {
+            try {
+                requestCompensationRefund(checkout.tenantId(), checkout.checkoutId(), checkout.refundReason());
+                succeeded++;
+            } catch (RuntimeException failure) {
+                failed++;
+                failedCheckoutIds.add(checkout.checkoutId());
+                try {
+                    TransportCheckout latest = checkouts.find(checkout.tenantId(), checkout.checkoutId()).orElse(null);
+                    if (latest != null && latest.status() == TransportCheckoutStatus.REFUND_PENDING) {
+                        checkouts.save(latest.withStatus(latest.status(), clock.instant()), latest.version());
+                    }
+                } catch (RuntimeException retryCursorFailure) {
+                    failure.addSuppressed(retryCursorFailure);
+                }
+            }
+        }
+        return new ReconciliationResult(due.size(), succeeded, failed, failedCheckoutIds);
+    }
+
     /** Reads checkout state without contacting Payment or mutating inventory. */
     public TransportCheckout get(String tenantId, UUID checkoutId) {
         return checkouts.find(tenantId, checkoutId)
@@ -153,17 +187,27 @@ public final class TransportCheckoutService {
         if (checkout.paymentId() == null) {
             throw new IllegalStateException("checkout has no payment to refund");
         }
+        String normalizedReason = reason == null ? "" : reason.trim();
+        if (normalizedReason.isBlank() || normalizedReason.length() > 500) {
+            throw new IllegalArgumentException("refund reason must contain 1-500 characters");
+        }
+        if (checkout.status() == TransportCheckoutStatus.REFUND_PENDING) {
+            if (!normalizedReason.equals(checkout.refundReason())) {
+                throw new IllegalArgumentException("refund reason must match the original refund request");
+            }
+            normalizedReason = checkout.refundReason();
+        }
         TransportPaymentPort.PaymentSnapshot payment = payments.find(tenantId, checkout.paymentId());
         verifyPayment(checkout, payment, true);
         if (checkout.status() == TransportCheckoutStatus.RECONCILIATION_REQUIRED
                 && payment.status() != TransportPaymentPort.PaymentState.SUCCEEDED) {
             throw new IllegalStateException("only a verified successful payment can be refunded for compensation");
         }
-        // REFUND_PENDING retries use the same refund idempotency key to retrieve the existing
-        // refund operation. The payment may already reflect a refund and no longer be SUCCEEDED.
+        // REFUND_PENDING retries use the persisted reason and same idempotency key to retrieve
+        // the existing refund operation, even if Payment has advanced beyond SUCCEEDED.
         TransportPaymentPort.RefundSnapshot refund = payments.requestRefund(
                 new TransportPaymentPort.RefundCommand(tenantId, checkout.paymentId(),
-                        refundKey(checkout.checkoutId()), checkout.amount(), reason));
+                        refundKey(checkout.checkoutId()), checkout.amount(), normalizedReason));
         if (!tenantId.equals(refund.tenantId())
                 || !checkout.paymentId().equals(refund.paymentId())
                 || checkout.amount().compareTo(refund.amount()) != 0
@@ -171,7 +215,7 @@ public final class TransportCheckoutService {
             throw new IllegalStateException("refund snapshot does not match the persisted checkout");
         }
         return saveOrReload(checkout, checkout.withRefund(refund.refundId(),
-                TransportCheckoutRefundStatus.valueOf(refund.status().name()), clock.instant()));
+                TransportCheckoutRefundStatus.valueOf(refund.status().name()), normalizedReason, clock.instant()));
     }
 
     /** Refreshes persisted payment state and applies safe hold settlement transitions. */
