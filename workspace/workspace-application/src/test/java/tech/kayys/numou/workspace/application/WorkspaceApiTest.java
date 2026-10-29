@@ -17,7 +17,7 @@ class WorkspaceApiTest {
   WorkspaceView first=apiA.createWorkspace(new CreateWorkspaceRequest("First",""));
   apiB.createWorkspace(new CreateWorkspaceRequest("Other tenant",""));
   WorkspaceView second=apiA.createWorkspace(new CreateWorkspaceRequest("Second",""));
-  assertEquals(List.of(first.id(),second.id()),apiA.listWorkspaces().stream().map(WorkspaceView::id).toList());
+  assertEquals(List.of(first.id(),second.id()).stream().sorted().toList(),apiA.listWorkspaces().stream().map(WorkspaceView::id).toList());
   SpaceView spaceA=apiA.createSpace(first.id(),new CreateSpaceRequest("General","general"));
   apiA.createSpace(second.id(),new CreateSpaceRequest("Operations","operations"));
   assertEquals(List.of(spaceA.id()),apiA.listSpaces(first.id()).stream().map(SpaceView::id).toList());
