@@ -88,6 +88,8 @@ jobs:
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Verify Queue Management domain reactor
+        run: mvn -B -ntp -f queue-management/pom.xml verify
       - name: Build and install canonical product domain for automotive parts
         run: mvn -B -ntp -f product/pom.xml -pl product-domain -am install
       # Automotive-parts inventory integration consumes the inventory application contract

@@ -18,5 +18,6 @@
         <module>reservation-spi</module>
         <module>reservation-application</module>
         <module>reservation-adapter</module>
+        <module>reservation-runtime-quarkus</module>
     </modules>
 </project>
