@@ -253,7 +253,8 @@ class TransportCheckoutServiceTest {
         @Override
         public List<TransportCheckout> findStaleRefunds(Instant updatedBefore, int limit) {
             return byId.values().stream()
-                    .filter(c -> c.status() == TransportCheckoutStatus.REFUND_PENDING)
+                    .filter(c -> c.status() == TransportCheckoutStatus.REFUND_REQUESTED
+                            || c.status() == TransportCheckoutStatus.REFUND_PENDING)
                     .filter(c -> c.updatedAt().isBefore(updatedBefore))
                     .sorted(java.util.Comparator.comparing(TransportCheckout::updatedAt)
                             .thenComparing(TransportCheckout::tenantId)
