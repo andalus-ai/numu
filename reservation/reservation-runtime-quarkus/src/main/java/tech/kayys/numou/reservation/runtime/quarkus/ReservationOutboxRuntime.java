@@ -1,9 +1,12 @@
 package tech.kayys.numou.reservation.runtime.quarkus;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -12,6 +15,10 @@ import tech.kayys.numou.reservation.adapter.postgres.PgReservationOutboxRelay;
 import tech.kayys.numou.reservation.adapter.postgres.ReservationOutboxPublisher;
 
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Quarkus composition root for the PostgreSQL outbox relay.
@@ -33,35 +40,99 @@ public class ReservationOutboxRuntime {
     Duration initialBackoff;
     @ConfigProperty(name = "numou.reservation.outbox.max-backoff", defaultValue = "PT5M")
     Duration maxBackoff;
+    @ConfigProperty(name = "numou.reservation.outbox.shutdown-drain-timeout", defaultValue = "PT10S")
+    Duration shutdownDrainTimeout;
 
     @Inject
     PgPool pool;
     @Inject
     ReservationOutboxPublisher publisher;
+    @Inject
+    MeterRegistry meterRegistry;
 
     private PgReservationOutboxRelay relay;
+    private Counter pollCounter;
+    private Counter publishedCounter;
+    private Counter failureCounter;
+    private Counter shutdownDrainTimeoutCounter;
+
+    // Guarded by this: prevents a scheduled poll from starting after shutdown begins.
+    private boolean stopping;
+    private CompletableFuture<Void> inFlight;
 
     @PostConstruct
     void initialize() {
         relay = new PgReservationOutboxRelay(
                 pool, publisher, batchSize, maxAttempts, lease, initialBackoff, maxBackoff);
+        pollCounter = meterRegistry.counter("numou.reservation.outbox.polls");
+        publishedCounter = meterRegistry.counter("numou.reservation.outbox.events.published");
+        failureCounter = meterRegistry.counter("numou.reservation.outbox.poll.failures");
+        shutdownDrainTimeoutCounter = meterRegistry.counter("numou.reservation.outbox.shutdown.drain.timeouts");
     }
 
     /**
-     * Reactive scheduled method: the scheduler does not block a worker thread while the poll
-     * is in flight and skips overlapping invocations in this process. PostgreSQL leases and
-     * SKIP LOCKED continue to coordinate separate replicas.
+     * Reactive scheduled method. In-process overlapping polls are skipped; PostgreSQL leases
+     * and SKIP LOCKED coordinate separate replicas.
      */
     @Scheduled(every = "{numou.reservation.outbox.poll-interval}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     Uni<Void> poll() {
+        CompletableFuture<Void> completed = new CompletableFuture<>();
+        synchronized (this) {
+            if (stopping || inFlight != null) {
+                return Uni.createFrom().voidItem();
+            }
+            inFlight = completed;
+        }
+
+        pollCounter.increment();
         return relay.pollOnce()
                 .invoke(delivered -> {
                     if (delivered > 0) {
+                        publishedCounter.increment(delivered);
                         LOG.debugf("Reservation outbox delivered %d event(s)", delivered);
                     }
                 })
                 .replaceWithVoid()
-                .onFailure().invoke(failure ->
-                        LOG.error("Reservation outbox poll failed; pending events remain recoverable", failure));
+                .onFailure().invoke(failure -> {
+                    failureCounter.increment();
+                    LOG.error("Reservation outbox poll failed; persisted leases and retry state remain recoverable", failure);
+                })
+                .onTermination().invoke(() -> {
+                    synchronized (this) {
+                        if (inFlight == completed) {
+                            inFlight = null;
+                        }
+                    }
+                    completed.complete(null);
+                });
+    }
+
+    /**
+     * Stop admitting polls and allow the current reactive poll to finish within a bounded
+     * shutdown window. Unacknowledged leases remain recoverable after expiry if the host exits.
+     */
+    @PreDestroy
+    void stopAndDrain() {
+        CompletableFuture<Void> active;
+        synchronized (this) {
+            stopping = true;
+            active = inFlight;
+        }
+        if (active == null) {
+            return;
+        }
+        try {
+            active.get(shutdownDrainTimeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException timeout) {
+            shutdownDrainTimeoutCounter.increment();
+            LOG.warnf("Reservation outbox shutdown drain exceeded %d ms; remaining leases will recover after expiry",
+                    shutdownDrainTimeout.toMillis());
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            LOG.warn("Interrupted while draining reservation outbox poll; remaining leases will recover after expiry");
+        } catch (ExecutionException impossible) {
+            // The completion signal is always completed normally; retain defensive handling.
+            LOG.warn("Reservation outbox poll completion signal failed during shutdown", impossible);
+        }
     }
 }
