@@ -341,7 +341,7 @@ public final class PostgresInventoryRepository implements InventoryRepository {
             try(ResultSet rs=ps.executeQuery()){if(!rs.next())return null;
                 if(!type.equals(rs.getString(1))||!fp.equals(rs.getString(2)))throw new IllegalArgumentException("Idempotency key payload mismatch");
                 List<InventoryMovement> result=new ArrayList<>();
-                for(String id:rs.getString(3).split(",")){try(PreparedStatement find=c.prepareStatement("SELECT * FROM inventory_stock_movements WHERE tenant_id=? AND movement_id=?")){
+                Array idsArray=rs.getArray(3);\n                String[] ids=(String[])idsArray.getArray();\n                for(String id:ids){try(PreparedStatement find=c.prepareStatement("SELECT * FROM inventory_stock_movements WHERE tenant_id=? AND movement_id=?")){
                     find.setString(1,tenantId);find.setString(2,id);try(ResultSet row=find.executeQuery()){if(!row.next())throw new IllegalStateException("Command receipt points to missing movement");result.add(readMovement(row));}}}
                 return List.copyOf(result);
             }
@@ -349,7 +349,7 @@ public final class PostgresInventoryRepository implements InventoryRepository {
     }
     private void writeReceipt(Connection c,InventoryCommandKey key,String type,String fp,List<String> ids)throws SQLException {
         try(PreparedStatement ps=c.prepareStatement("INSERT INTO inventory_command_receipts(tenant_id,command_scope,command_key,command_type,payload_fingerprint,result_ids) VALUES (?,?,?,?,?,?)")) {
-            ps.setString(1,tenantId);ps.setString(2,key.scope());ps.setString(3,key.key());ps.setString(4,type);ps.setString(5,fp);ps.setString(6,String.join(",",ids));ps.executeUpdate();
+            ps.setString(1,tenantId);ps.setString(2,key.scope());ps.setString(3,key.key());ps.setString(4,type);ps.setString(5,fp);\n            ps.setArray(6,c.createArrayOf("text",ids.toArray(String[]::new)));ps.executeUpdate();
         }
     }
 
