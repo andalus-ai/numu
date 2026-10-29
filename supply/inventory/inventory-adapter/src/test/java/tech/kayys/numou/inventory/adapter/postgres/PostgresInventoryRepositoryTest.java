@@ -42,6 +42,14 @@ class PostgresInventoryRepositoryTest {
     }
 
     @Test
+    void tenant_scopes_cannot_read_each_others_movements_or_create_foreign_reservations() {
+        PostgresInventoryRepository otherTenant = new PostgresInventoryRepository(dataSource, "tenant-other");
+        assertTrue(otherTenant.findByItem(item).isEmpty());
+        InventoryReservation foreign = reservation(new BigDecimal("1"), "foreign-line");
+        assertThrows(SecurityException.class, () -> otherTenant.reserveIfAvailable(foreign));
+    }
+
+    @Test
     void reservation_command_replay_returns_original_and_conflicting_payload_is_rejected() {
         InventoryCommandKey key = new InventoryCommandKey("checkout", "line-1");
         InventoryReservation request = reservation(new BigDecimal("3"), "order-line-1");
