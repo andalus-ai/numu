@@ -65,7 +65,7 @@ class NotificationDeliveryJobTest {
         String oversizedErrorCode = "x".repeat(NotificationDeliveryJob.MAX_ERROR_CODE_LENGTH + 1);
         assertThrows(IllegalArgumentException.class, () -> claimed.retry(
                 claimed.leaseToken(), NOW.plusSeconds(10), oversizedErrorCode));
-        assertThrows(IllegalStateException.class, () -> new NotificationDeliveryJob(
+        assertThrows(IllegalArgumentException.class, () -> new NotificationDeliveryJob(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), "FCM", "key", NotificationDeliveryJob.Status.IN_FLIGHT, 1,
                 NOW, NOW, null, null, null, ""));
