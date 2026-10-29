@@ -1,5 +1,8 @@
 package tech.kayys.numou.pos.domain;
 
+import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +53,7 @@ public record Sale(
         if (lines.stream().map(SaleLine::id).distinct().count() != lines.size()) {
             throw new IllegalArgumentException("sale line IDs must be unique");
         }
-        if (lines.stream().anyMatch(line -> !currency.equals(line.unitPrice().currency()))) {
+        if (lines.stream().anyMatch(line -> !currency.equals(line.unitPrice().currency().code()))) {
             throw new IllegalArgumentException("all sale lines must use the sale currency");
         }
         if (status == Status.OPEN && completedAt != null) {
@@ -89,7 +92,7 @@ public record Sale(
         if (lines.stream().anyMatch(existing -> existing.id().equals(line.id()))) {
             throw new IllegalArgumentException("sale line ID already exists");
         }
-        if (!currency.equals(line.unitPrice().currency())) {
+        if (!currency.equals(line.unitPrice().currency().code())) {
             throw new IllegalArgumentException("sale line currency must match sale currency");
         }
         List<SaleLine> updated = new ArrayList<>(lines);
@@ -119,9 +122,9 @@ public record Sale(
 
     /** Returns the unrounded line subtotal; tax and discount policy are separate. */
     public Money subtotal() {
-        Money total = Money.zero(currency);
+        Money total = Money.zero(Currency.of(currency));
         for (SaleLine line : lines) {
-            total = total.plus(line.extendedAmount());
+            total = total.add(line.extendedAmount());
         }
         return total;
     }
