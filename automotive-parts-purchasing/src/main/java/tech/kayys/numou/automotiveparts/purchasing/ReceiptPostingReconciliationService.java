@@ -3,6 +3,7 @@ package tech.kayys.numou.automotiveparts.purchasing;
 import tech.kayys.numou.purchasing.domain.procurement.GoodsReceipt;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,13 +16,29 @@ public final class ReceiptPostingReconciliationService {
     private final ReceiptPostingLedger ledger;
     private final GoodsReceiptInventoryPostingService postingService;
     private final GoodsReceiptLookup receiptLookup;
+    private final String workerId;
+    private final Duration leaseDuration;
 
     public ReceiptPostingReconciliationService(ReceiptPostingLedger ledger,
                                                GoodsReceiptInventoryPostingService postingService,
                                                GoodsReceiptLookup receiptLookup) {
+        this(ledger, postingService, receiptLookup, "receipt-reconciler-" + java.util.UUID.randomUUID(),
+                Duration.ofMinutes(2));
+    }
+
+    public ReceiptPostingReconciliationService(ReceiptPostingLedger ledger,
+                                               GoodsReceiptInventoryPostingService postingService,
+                                               GoodsReceiptLookup receiptLookup,
+                                               String workerId, Duration leaseDuration) {
         this.ledger = Objects.requireNonNull(ledger, "ledger is required");
         this.postingService = Objects.requireNonNull(postingService, "postingService is required");
         this.receiptLookup = Objects.requireNonNull(receiptLookup, "receiptLookup is required");
+        if (workerId == null || workerId.isBlank()) throw new IllegalArgumentException("workerId is required");
+        this.workerId = workerId;
+        this.leaseDuration = Objects.requireNonNull(leaseDuration, "leaseDuration is required");
+        if (leaseDuration.isZero() || leaseDuration.isNegative()) {
+            throw new IllegalArgumentException("leaseDuration must be positive");
+        }
     }
 
     /**
@@ -30,7 +47,7 @@ public final class ReceiptPostingReconciliationService {
      */
     public ReconciliationReport reconcile(Instant updatedBefore, int limit) {
         Objects.requireNonNull(updatedBefore, "updatedBefore is required");
-        var pending = ledger.findPending(updatedBefore, limit);
+        var pending = ledger.claimPending(updatedBefore, workerId, Instant.now().plus(leaseDuration), limit);
         int posted = 0, failed = 0, missing = 0;
         for (ReceiptPostingLedger.PostingRecord record : pending) {
             Optional<GoodsReceipt> receipt;
