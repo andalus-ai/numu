@@ -1,5 +1,7 @@
 package tech.kayys.numou.pos.domain;
 
+import tech.kayys.numou.foundation.domain.valueobject.Money;
+
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
