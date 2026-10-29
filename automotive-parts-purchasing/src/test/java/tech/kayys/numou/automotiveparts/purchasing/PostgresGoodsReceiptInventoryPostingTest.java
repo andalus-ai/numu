@@ -37,12 +37,15 @@ class PostgresGoodsReceiptInventoryPostingTest {
         dataSource = ds;
         Flyway.configure().dataSource(ds).locations("classpath:db/migration").load().migrate();
 
-        itemId = ItemId.of("part-filter-postgres");
-        warehouseId = WarehouseId.of("warehouse-bandung-postgres");
+        // Each test owns a distinct stock aggregate so movement-count assertions are isolated
+        // even though the Testcontainers database is shared for the test class lifetime.
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        itemId = ItemId.of("part-filter-" + suffix);
+        warehouseId = WarehouseId.of("warehouse-bandung-" + suffix);
         InventoryService inventory = new InventoryService(new PostgresInventoryRepository(dataSource, "tenant-a"));
-        inventory.registerItem(new InventoryItem(itemId, "FILTER-PG", "Oil filter",
+        inventory.registerItem(new InventoryItem(itemId, "FILTER-" + suffix, "Oil filter",
                 ValuationMethod.WEIGHTED_AVERAGE, TrackingMethod.NONE, "EA"));
-        inventory.registerWarehouse(new Warehouse(warehouseId, "BDG-PG", "Bandung parts store", "Bandung"));
+        inventory.registerWarehouse(new Warehouse(warehouseId, "BDG-" + suffix, "Bandung parts store", "Bandung"));
     }
 
     @Test
