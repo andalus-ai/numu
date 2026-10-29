@@ -81,6 +81,21 @@ public class SyirkahResource {
         return api.integrity(id);
     }
 
+    @POST
+    @Path("/{id}/statements/balance-sheet")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public BalanceSheetView balanceSheet(@PathParam("id") String id, BalanceSheetRequest request) {
+        return api.balanceSheet(id, request);
+    }
+
+    @GET
+    @Path("/{id}/closes/{closeId}/income-statement")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public IncomeStatementView incomeStatement(@PathParam("id") String id, @PathParam("closeId") String closeId,
+                                               @QueryParam("name") String name) {
+        return api.incomeStatement(id, closeId, name);
+    }
+
     @GET
     @Path("/audit")
     @RolesAllowed({APPROVER, AUDITOR})

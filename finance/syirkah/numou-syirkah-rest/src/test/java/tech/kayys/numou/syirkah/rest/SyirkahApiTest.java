@@ -344,4 +344,20 @@ class SyirkahApiTest {
                 LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), result("1"), null, "retain",
                 new TradingDto(BigDecimal.ONE, null, null, null, null, null, null, null, null, null))));
     }
+
+    @Test
+    void statementsInTheBooksLayout() {
+        String id = open();
+        CloseView c = close(id, "2026-01-01", "2026-01-31", "10000000");
+        IncomeStatementView is = api.incomeStatement(id, c.id(), "Toko Maju");
+        assertEquals("Toko Maju", is.name());
+        assertEquals("PROFIT", is.result());
+        assertEquals(0, new BigDecimal("10000000").compareTo(is.netResult()));
+        BalanceSheetView bs = api.balanceSheet(id, new BalanceSheetRequest(null, LocalDate.parse("2026-01-31"),
+                List.of(new StatementLineDto("CURRENT", "Cash", new BigDecimal("110000000"))), List.of()));
+        assertTrue(bs.balanced(), "assets " + bs.totalAssets() + " vs claims " + bs.totalLiabilitiesAndCapital());
+        assertEquals(2, bs.capital().size());
+        assertThrows(IllegalArgumentException.class, () -> api.balanceSheet(id, new BalanceSheetRequest(null, null,
+                List.of(), List.of())));
+    }
 }
