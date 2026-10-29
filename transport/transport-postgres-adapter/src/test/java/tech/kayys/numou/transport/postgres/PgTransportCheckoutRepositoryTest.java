@@ -84,6 +84,18 @@ class PgTransportCheckoutRepositoryTest {
         assertThat(persisted.paymentActionUri()).isEqualTo("https://pay.example/action");
         assertThat(repository.findByPaymentId("tenant-a", "payment-a").orElseThrow().checkoutId())
                 .isEqualTo(persisted.checkoutId());
+
+        TransportCheckout reconciliation = persisted.withStatus(
+                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(3));
+        repository.save(reconciliation, persisted.version());
+        TransportCheckout refundPending = reconciliation.withRefund("refund-a",
+                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING, NOW.plusSeconds(4));
+        repository.save(refundPending, reconciliation.version());
+        TransportCheckout refundRoundTrip = repository.find("tenant-a", initial.checkoutId()).orElseThrow();
+        assertThat(refundRoundTrip.refundId()).isEqualTo("refund-a");
+        assertThat(refundRoundTrip.refundStatus()).isEqualTo(
+                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING);
+        assertThat(refundRoundTrip.status()).isEqualTo(TransportCheckoutStatus.REFUND_PENDING);
     }
 
     @Test
