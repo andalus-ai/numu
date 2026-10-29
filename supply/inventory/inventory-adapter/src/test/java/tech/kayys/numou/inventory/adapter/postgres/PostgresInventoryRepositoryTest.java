@@ -46,8 +46,10 @@ class PostgresInventoryRepositoryTest {
         InventoryCommandKey key = new InventoryCommandKey("checkout", "line-1");
         InventoryReservation request = reservation(new BigDecimal("3"), "order-line-1");
         InventoryReservation created = repository.reserveIfAvailable(key, request);
-        InventoryReservation replay = repository.reserveIfAvailable(key,
-                reservation(new BigDecimal("3"), "order-line-1"));
+        InventoryReservation replayRequest = new InventoryReservation(ReservationId.generate(), request.tenantId(),
+                request.itemId(), request.warehouseId(), request.storageLocationId(), request.quantity(), request.uom(),
+                request.status(), request.sourceReference(), request.createdAt(), request.expiresAt(), request.version());
+        InventoryReservation replay = repository.reserveIfAvailable(key, replayRequest);
 
         assertEquals(created.id(), replay.id());
         assertEquals(created.id(), repository.findReservationByCommandKey(key).orElseThrow().id());
