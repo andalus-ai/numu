@@ -95,6 +95,8 @@ class PgTransportCheckoutRepositoryTest {
         TransportCheckout intentRoundTrip = repository.find("tenant-a", initial.checkoutId()).orElseThrow();
         assertThat(intentRoundTrip.status()).isEqualTo(TransportCheckoutStatus.REFUND_REQUESTED);
         assertThat(intentRoundTrip.refundReason()).isEqualTo("capacity expired after successful payment");
+        assertThat(repository.findStaleRefunds(NOW.plusSeconds(5), 10))
+                .extracting(TransportCheckout::checkoutId).containsExactly(initial.checkoutId());
         TransportCheckout refundPending = intentRoundTrip.withRefund("refund-a",
                 tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING,
                 "capacity expired after successful payment", NOW.plusSeconds(5));
