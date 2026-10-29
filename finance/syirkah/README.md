@@ -126,6 +126,7 @@ Base path `/api/v1/syirkah`. Tenant and actor are taken **only** from the verifi
 | `GET /`, `GET /{id}` | any | cursor-paged list (`status`, `cursor`, `limit` ≤ 200); detail with positions |
 | `POST /{id}/closes`, `GET /{id}/closes` | operator / any | close a period; list closes |
 | `POST /{id}/distributions`, `/settlements` | operator | pay out profit; settle a partner liability |
+| `GET /rules`, `/rules.md` | any | the Sharia rule catalog as JSON or Markdown |
 | `GET /{id}/reconciliation`, `/integrity`, `GET /audit` | any / approver+auditor | equity identity, hash chain, tenant-wide audit |
 | `GET /{id}/partners/{p}/statement.csv`, `/closes/{c}/report.csv` | any | CSV exports |
 | `POST /{id}/revisions`, `/corrections`, `/liquidation/start`, `/liquidation` | operator | **governed**: returns `202` with a pending approval |
@@ -162,3 +163,9 @@ syirkah's akad: the employer must be the syirkah and not one partner acting for 
 or works in the syirkah cannot be salaried; the kind of work, period and effort must be stated; the wage must be a
 fixed nominal amount in the syirkah's currency (a share of sales or profit is rejected as unclear); extra (ja'li)
 clauses need a recorded lawfulness review. It is a pure check: staff contracts are not yet stored or exposed over REST.
+## Agriculture
+
+`AgricultureChecker` (Hukum Muamalah Bab XV section H) keeps muzara'ah and mukhabarah out: both are haram, so the
+akad formation check rejects an akad whose stated activity or combined akad names either (batil, as an akad forbidden
+by the texts). A musaqah, which is allowed only on land that already has its trees, can be checked on its own. Numou
+has no ledger type for these arrangements; the name scan is a safeguard, not a substitute for the lawfulness review.

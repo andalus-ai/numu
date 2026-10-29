@@ -132,6 +132,7 @@ public final class AkadFormationChecker {
             f.add(new FormationFinding("OBJECT_NOT_STATED", AkadDefect.INCOMPLETE,
                     "the business activity (object of the akad) is not stated", "Bab XVIII C.4 b"));
         }
+        f.addAll(AgricultureChecker.scan(formation.businessActivity(), formation.combinedAkad()));
         AkadFormation.LawfulnessReview r = formation.lawfulnessReview();
         if (r == null || isBlank(r.reviewedBy()) || r.reviewedOn() == null) {
             f.add(new FormationFinding("LAWFULNESS_REVIEW_MISSING", AkadDefect.INCOMPLETE,

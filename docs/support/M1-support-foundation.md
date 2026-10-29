@@ -26,9 +26,12 @@ Harden the existing Support capability before adding more channels, automation, 
 - [x] Comment writes check actor identity, comment permission, internal-note role, and ticket tenant.
 - [ ] Add application-level tests for allowed public comments, rejected cross-tenant writes, author spoofing, and customer attempts to create internal notes.
 - [x] `TicketResponse` only includes internal comments for agent/manager/system actors; customer and partner response projections expose public comments only.
-- [ ] Audit every customer-facing ticket read endpoint and ensure access policy, requester ownership, and DTO mapping are enforced.
+- [ ] Audit every customer-facing ticket read endpoint and ensure access policy, requester ownership, and DTO mapping are enforced. See [the runtime wiring audit](M1-support-runtime-wiring-audit.md) for the current composition blockers.
+- [x] Provide a repository-backed default ticket access policy that checks tenant, requester participant, requester role, staff-only resolution, and closed-ticket comment restrictions.
+- [x] Add handler-level regression tests proving portal reads stop when policy denies access, reject cross-tenant tickets even when policy allows them, and return a DTO only after both checks pass.
 - [x] Status, priority, and assignment handlers require authenticated support staff and enforce tenant ownership; resolving/closing additionally checks `TicketAccessPolicy.canResolve`.
 - [ ] Add application-level authorization tests for status, priority, and assignment denial cases; verify production actor-provider and access-policy wiring.
+- [ ] Resolve Support runtime composition blockers: concrete authenticated actor provider, tenant-safe persistence adapter/migrations, explicit handler CDI wiring, and portal read route. See [the runtime wiring audit](M1-support-runtime-wiring-audit.md).
 - [ ] Public replies and internal notes have separate notification / outbound-delivery rules.
 - [ ] Ticket lifecycle transitions, resolution and reopening behavior have regression coverage.
 - [ ] Queue assignment, SLA policy and business-calendar semantics are agreed before implementing timers.
@@ -41,7 +44,7 @@ A domain projection is a defense-in-depth contract, not a substitute for API aut
 
 The public create endpoint is a customer-portal boundary. It derives tenant and requester from the authenticated actor. The generic `CreateTicketCommand` remains an application-level command for trusted, separately authorized workflows and must not be bound directly to a customer-facing HTTP request.
 
-Comment, status, priority, and assignment handlers now require actor context; comment and resolve/close operations also require policy dependencies. Its callers and CDI wiring must supply a correctly authenticated `SupportActorProvider` and a tenant-aware `TicketAccessPolicy`; this change is not a substitute for verifying those implementations and all other command handlers.
+Comment, status, priority, assignment, and portal-read handlers require actor context and policy dependencies. `RepositoryTicketAccessPolicy` supplies a fail-closed repository-backed default: portal actors must match the ticket requester participant and role, and all actors must match the ticket tenant. It is a plain application class and is not automatically registered as a CDI bean; the application composition root must explicitly wire it with the authenticated `SupportActorProvider` and tenant-aware `TicketRepository`. Verify that wiring before production use, and audit all other command/read handlers. The current Support source tree has no concrete actor-provider or persistence adapter and no explicit handler CDI composition; these are tracked in [the runtime wiring audit](M1-support-runtime-wiring-audit.md).
 
 ## Deliberately deferred
 
