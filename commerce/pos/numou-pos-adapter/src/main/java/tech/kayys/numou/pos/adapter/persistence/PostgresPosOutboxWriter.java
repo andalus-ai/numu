@@ -10,6 +10,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Objects;
 
 /** PostgreSQL outbox writer. Inserts are enlisted in the active JTA transaction. */
@@ -40,7 +41,7 @@ public class PostgresPosOutboxWriter implements PosOutboxWriter {
             statement.setString(4, event.aggregateId());
             statement.setString(5, event.eventType());
             statement.setInt(6, event.schemaVersion());
-            statement.setObject(7, event.occurredAt());
+            statement.setTimestamp(7, Timestamp.from(event.occurredAt()));
             statement.setString(8, event.payloadJson());
             statement.executeUpdate();
         } catch (SQLException exception) {
