@@ -15,5 +15,7 @@
     <description>Reusable queue lifecycle and ordering capability; adapters and deployment topology are composed separately.</description>
     <modules>
         <module>queue-domain</module>
+        <module>queue-spi</module>
+        <module>queue-application</module>
     </modules>
 </project>
