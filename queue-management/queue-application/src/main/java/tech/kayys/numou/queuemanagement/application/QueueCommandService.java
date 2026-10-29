@@ -39,7 +39,9 @@ public final class QueueCommandService {
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(queueId, "queueId must not be null");
         Objects.requireNonNull(source, "source must not be null");
-        return transactions.execute(context, "queue.entry.join", () -> {
+        return transactions.execute(context, "queue.entry.join",
+                QueueRequestFingerprint.sha256("queue.entry.join", queueId.value().toString(),
+                        source.capability(), source.resourceType(), source.resourceId(), Integer.toString(priority)), () -> {
             QueueDefinition queue = requireQueue(context, queueId);
             QueueEntry entry = QueueEntry.join(QueueEntryId.generate(), queue, source, priority, context.occurredAt());
             queues.saveEntry(entry);
@@ -55,7 +57,9 @@ public final class QueueCommandService {
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(queueId, "queueId must not be null");
         Objects.requireNonNull(mode, "mode must not be null");
-        return transactions.execute(context, "queue.entry.claim-next." + mode.name(), () -> {
+        String operationScope = "queue.entry.claim-next." + mode.name();
+        return transactions.execute(context, operationScope,
+                QueueRequestFingerprint.sha256(operationScope, queueId.value().toString(), mode.name()), () -> {
             QueueDefinition queue = requireQueue(context, queueId);
             if (mode == ClaimMode.CALL_SERVICE_ENTRY && queue.profile() != QueueProfile.WAITING_SERVICE) {
                 throw new IllegalStateException("CALL_SERVICE_ENTRY requires a waiting/service queue");
@@ -76,7 +80,10 @@ public final class QueueCommandService {
         Objects.requireNonNull(queueId, "queueId must not be null");
         Objects.requireNonNull(entryId, "entryId must not be null");
         Objects.requireNonNull(action, "action must not be null");
-        return transactions.execute(context, "queue.entry.transition." + action.name(), () -> {
+        String operationScope = "queue.entry.transition." + action.name();
+        return transactions.execute(context, operationScope,
+                QueueRequestFingerprint.sha256(operationScope, queueId.value().toString(),
+                        entryId.value().toString(), action.name()), () -> {
             QueueEntry entry = queues.findEntry(context.tenantId(), queueId, entryId)
                     .orElseThrow(() -> new IllegalArgumentException("Queue entry not found"));
             if (!context.tenantId().equals(entry.tenantId()) || !queueId.equals(entry.queueId())) {
