@@ -19,3 +19,10 @@ This adapter translates explicit workshop external-parts demand into a Purchasin
 - The mapping must be validated against the tenant's catalog and receiving authorization before posting.
 
 **Production limitation:** the in-memory Inventory adapter only provides single-process idempotency. This integration is not production-ready for multi-instance deployments until a durable Inventory adapter enforces command-key uniqueness and commits the movement and idempotency record atomically. Receipt persistence and inventory posting also cross module transaction boundaries; a durable outbox/inbox or recoverable posting state is still required to reconcile a receipt accepted by Purchasing when Inventory is unavailable. This service does not claim a distributed transaction or exactly-once delivery.
+
+
+## Durable adapter verification
+
+`PostgresGoodsReceiptInventoryPostingTest` exercises receipt replay against the PostgreSQL Inventory adapter. It recreates the application service/repository between deliveries to verify the database command receipt—not an in-memory cache—prevents duplicate movements, and checks that a changed receipt payload is rejected. The test uses Testcontainers and is skipped when Docker is unavailable.
+
+This verifies Inventory-side durable idempotency for this integration path. It does not yet make the Purchasing receipt update and Inventory movement one distributed transaction; operational recovery still depends on retrying the same stable receipt identity and reconciling the durable Inventory command receipt.
