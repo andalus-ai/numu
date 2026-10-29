@@ -116,6 +116,37 @@ class TransportCheckoutServiceTest {
     }
 
     @Test
+    void compensationRefundIsExplicitIdempotentAndAuditable() {
+        TransportCheckout checkout = service.start(command());
+        payments.setStatus(checkout.paymentId(), TransportPaymentPort.PaymentState.SUCCEEDED);
+        clock.set(start.plusSeconds(901));
+        TransportCheckout needsReconciliation = service.refresh("tenant-1", checkout.checkoutId());
+        assertThat(needsReconciliation.status()).isEqualTo(TransportCheckoutStatus.RECONCILIATION_REQUIRED);
+
+        payments.nextRefundStatus = TransportPaymentPort.RefundState.PENDING;
+        TransportCheckout pending = service.requestCompensationRefund("tenant-1", checkout.checkoutId(),
+                "capacity expired after successful payment");
+        assertThat(pending.status()).isEqualTo(TransportCheckoutStatus.REFUND_PENDING);
+        assertThat(pending.refundReason()).isEqualTo("capacity expired after successful payment");
+        assertThatThrownBy(() -> service.requestCompensationRefund("tenant-1", checkout.checkoutId(),
+                "changed reason")).isInstanceOf(IllegalArgumentException.class);
+
+        payments.setRefundStatus(pending.refundId(), TransportPaymentPort.RefundState.SUCCEEDED);
+        clock.set(start.plusSeconds(1000));
+        TransportCheckoutService.ReconciliationResult result =
+                service.reconcileDueRefunds(java.time.Duration.ofSeconds(30), 10);
+
+        TransportCheckout refunded = checkouts.find("tenant-1", checkout.checkoutId()).orElseThrow();
+        assertThat(result.attempted()).isEqualTo(1);
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(refunded.status()).isEqualTo(TransportCheckoutStatus.REFUNDED);
+        assertThat(refunded.refundStatus()).isEqualTo(
+                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.SUCCEEDED);
+        assertThat(refunded.refundReason()).isEqualTo("capacity expired after successful payment");
+        assertThat(payments.refundCount).isEqualTo(1);
+    }
+
+    @Test
     void idempotencyKeyCannotBeReusedForDifferentSegment() {
         service.start(command());
 
@@ -210,6 +241,18 @@ class TransportCheckoutServiceTest {
         }
 
         @Override
+        public List<TransportCheckout> findStaleRefunds(Instant updatedBefore, int limit) {
+            return byId.values().stream()
+                    .filter(c -> c.status() == TransportCheckoutStatus.REFUND_PENDING)
+                    .filter(c -> c.updatedAt().isBefore(updatedBefore))
+                    .sorted(java.util.Comparator.comparing(TransportCheckout::updatedAt)
+                            .thenComparing(TransportCheckout::tenantId)
+                            .thenComparing(TransportCheckout::checkoutId))
+                    .limit(limit)
+                    .toList();
+        }
+
+        @Override
         public void create(TransportCheckout checkout) {
             if (findByIdempotencyKey(checkout.tenantId(), checkout.idempotencyKey()).isPresent()
                     || byId.putIfAbsent(checkout.tenantId() + ":" + checkout.checkoutId(), checkout) != null) {
@@ -233,6 +276,9 @@ class TransportCheckoutServiceTest {
         private final Map<String, String> idByKey = new HashMap<>();
         private final Clock clock;
         private int createCount;
+        private int refundCount;
+        private RefundState nextRefundStatus = RefundState.SUCCEEDED;
+        private final Map<String, RefundSnapshot> refundsByKey = new HashMap<>();
 
         private MemoryPayments(Clock clock) {
             this.clock = clock;
@@ -252,12 +298,34 @@ class TransportCheckoutServiceTest {
         }
 
         @Override
+        public RefundSnapshot requestRefund(RefundCommand command) {
+            RefundSnapshot existing = refundsByKey.get(command.tenantId() + ":" + command.idempotencyKey());
+            if (existing != null) return existing;
+            PaymentSnapshot payment = find(command.tenantId(), command.paymentId());
+            if (payment.status() != PaymentState.SUCCEEDED) {
+                throw new IllegalStateException("payment has not succeeded");
+            }
+            refundCount++;
+            RefundSnapshot refund = new RefundSnapshot(command.tenantId(), UUID.randomUUID().toString(),
+                    command.paymentId(), command.amount(), payment.currency(), nextRefundStatus, clock.instant());
+            refundsByKey.put(command.tenantId() + ":" + command.idempotencyKey(), refund);
+            return refund;
+        }
+
+        @Override
         public PaymentSnapshot find(String tenantId, String paymentId) {
             PaymentSnapshot result = byId.get(paymentId);
             if (result == null || !result.tenantId().equals(tenantId)) {
                 throw new IllegalArgumentException("payment not found");
             }
             return result;
+        }
+
+        private void setRefundStatus(String refundId, RefundState status) {
+            refundsByKey.replaceAll((key, current) -> current.refundId().equals(refundId)
+                    ? new RefundSnapshot(current.tenantId(), current.refundId(), current.paymentId(),
+                            current.amount(), current.currency(), status, clock.instant())
+                    : current);
         }
 
         private void setStatus(String paymentId, PaymentState status) {

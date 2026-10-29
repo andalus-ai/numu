@@ -323,7 +323,13 @@ public final class PostgresInventoryRepository implements InventoryRepository {
         BigDecimal available=onHand(c,item,warehouse).subtract(activeReserved(c,item,warehouse));
         if(available.compareTo(quantity)<0)throw new IllegalStateException("Insufficient available stock: available="+available+", requested="+quantity);
     }
-    private void lockCommand(Connection c,InventoryCommandKey key)throws SQLException {\n        Objects.requireNonNull(key,"Command key is required");\n        try(PreparedStatement ps=c.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?,0))")) {\n            ps.setString(1,tenantId+"|"+key.scope()+"|"+key.key());ps.execute();\n        }\n    }\n    private void lockStock(Connection c,ItemId item,WarehouseId warehouse)throws SQLException {
+    private void lockCommand(Connection c,InventoryCommandKey key)throws SQLException {
+        Objects.requireNonNull(key,"Command key is required");
+        try(PreparedStatement ps=c.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?,0))")) {
+            ps.setString(1,tenantId+"|"+key.scope()+"|"+key.key());ps.execute();
+        }
+    }
+    private void lockStock(Connection c,ItemId item,WarehouseId warehouse)throws SQLException {
         try(PreparedStatement ps=c.prepareStatement("INSERT INTO inventory_stock_locks(tenant_id,item_id,warehouse_id) VALUES (?,?,?) ON CONFLICT DO NOTHING")) {
             ps.setString(1,tenantId);ps.setString(2,item.value());ps.setString(3,warehouse.value());ps.executeUpdate();
         }
@@ -341,7 +347,9 @@ public final class PostgresInventoryRepository implements InventoryRepository {
             try(ResultSet rs=ps.executeQuery()){if(!rs.next())return null;
                 if(!type.equals(rs.getString(1))||!fp.equals(rs.getString(2)))throw new IllegalArgumentException("Idempotency key payload mismatch");
                 List<InventoryMovement> result=new ArrayList<>();
-                Array idsArray=rs.getArray(3);\n                String[] ids=(String[])idsArray.getArray();\n                for(String id:ids){try(PreparedStatement find=c.prepareStatement("SELECT * FROM inventory_stock_movements WHERE tenant_id=? AND movement_id=?")){
+                Array idsArray=rs.getArray(3);
+                String[] ids=(String[])idsArray.getArray();
+                for(String id:ids){try(PreparedStatement find=c.prepareStatement("SELECT * FROM inventory_stock_movements WHERE tenant_id=? AND movement_id=?")){
                     find.setString(1,tenantId);find.setString(2,id);try(ResultSet row=find.executeQuery()){if(!row.next())throw new IllegalStateException("Command receipt points to missing movement");result.add(readMovement(row));}}}
                 return List.copyOf(result);
             }
@@ -349,7 +357,8 @@ public final class PostgresInventoryRepository implements InventoryRepository {
     }
     private void writeReceipt(Connection c,InventoryCommandKey key,String type,String fp,List<String> ids)throws SQLException {
         try(PreparedStatement ps=c.prepareStatement("INSERT INTO inventory_command_receipts(tenant_id,command_scope,command_key,command_type,payload_fingerprint,result_ids) VALUES (?,?,?,?,?,?)")) {
-            ps.setString(1,tenantId);ps.setString(2,key.scope());ps.setString(3,key.key());ps.setString(4,type);ps.setString(5,fp);\n            ps.setArray(6,c.createArrayOf("text",ids.toArray(String[]::new)));ps.executeUpdate();
+            ps.setString(1,tenantId);ps.setString(2,key.scope());ps.setString(3,key.key());ps.setString(4,type);ps.setString(5,fp);
+            ps.setArray(6,c.createArrayOf("text",ids.toArray(String[]::new)));ps.executeUpdate();
         }
     }
 

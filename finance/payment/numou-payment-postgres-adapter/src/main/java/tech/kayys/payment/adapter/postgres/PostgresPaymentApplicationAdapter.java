@@ -9,6 +9,7 @@ import tech.kayys.payment.api.PaymentApplicationPort;
 import tech.kayys.payment.api.PaymentObligation;
 import tech.kayys.payment.api.PaymentRequestFingerprint;
 import tech.kayys.payment.api.PaymentStatus;
+import tech.kayys.payment.api.VerifiedPaymentOutcomePort;
 import tech.kayys.payment.api.RefundOperation;
 import tech.kayys.payment.api.RefundStatus;
 import tech.kayys.payment.api.VerifiedPaymentOutcome;
@@ -34,7 +35,7 @@ import java.util.UUID;
  * are deliberately performed by separate workers/adapters.</p>
  */
 @ApplicationScoped
-public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort {
+public class PostgresPaymentApplicationAdapter implements PaymentApplicationPort, VerifiedPaymentOutcomePort {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final DataSource dataSource;
