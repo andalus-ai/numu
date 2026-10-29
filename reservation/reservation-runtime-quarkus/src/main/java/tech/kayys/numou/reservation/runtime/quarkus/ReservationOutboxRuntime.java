@@ -3,8 +3,8 @@ package tech.kayys.numou.reservation.runtime.quarkus;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -25,27 +25,25 @@ public class ReservationOutboxRuntime {
 
     @ConfigProperty(name = "numou.reservation.outbox.batch-size", defaultValue = "50")
     int batchSize;
-
     @ConfigProperty(name = "numou.reservation.outbox.max-attempts", defaultValue = "12")
     int maxAttempts;
-
     @ConfigProperty(name = "numou.reservation.outbox.lease", defaultValue = "PT30S")
     Duration lease;
-
     @ConfigProperty(name = "numou.reservation.outbox.initial-backoff", defaultValue = "PT1S")
     Duration initialBackoff;
-
     @ConfigProperty(name = "numou.reservation.outbox.max-backoff", defaultValue = "PT5M")
     Duration maxBackoff;
 
     @Inject
-    PgReservationOutboxRelay relay;
+    PgPool pool;
+    @Inject
+    ReservationOutboxPublisher publisher;
 
-    @Produces
-    @ApplicationScoped
-    PgReservationOutboxRelay reservationOutboxRelay(
-            PgPool pool, ReservationOutboxPublisher publisher) {
-        return new PgReservationOutboxRelay(
+    private PgReservationOutboxRelay relay;
+
+    @PostConstruct
+    void initialize() {
+        relay = new PgReservationOutboxRelay(
                 pool, publisher, batchSize, maxAttempts, lease, initialBackoff, maxBackoff);
     }
 
