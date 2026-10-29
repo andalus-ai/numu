@@ -168,21 +168,3 @@ clauses need a recorded lawfulness review. It is a pure check: staff contracts a
 akad formation check rejects an akad whose stated activity or combined akad names either (batil, as an akad forbidden
 by the texts). A musaqah, which is allowed only on land that already has its trees, can be checked on its own. Numou
 has no ledger type for these arrangements; the name scan is a safeguard, not a substitute for the lawfulness review.
-
-## Statements in the book's layout
-
-`BookStatements` (Hukum Muamalah Bab XIX) builds the balance sheet (neraca) and the profit and loss statement (laporan
-rugi laba) with the titles the book asks for. The ledger holds the equity side only, so the caller supplies the assets
-(except what partners owe the syirkah, which the ledger adds) and the debts to outsiders; the balance sheet shows
-assets, liabilities, each partner's capital and unpaid profit, any loss beyond capital as negative capital, and the
-difference between the two sides instead of hiding it. The statement of changes in capital is the existing
-`capitalRollForward`. Not yet exposed over REST.
-
-## Sharia rule catalog and freeze
-
-All 26 Sharia rules the ledger enforces are listed in one place: `ShariaRuleCatalog` (Java, no rule engine). `doc/SHARIA-RULES.md` is generated from it and a test fails if the two differ, so the document you read is always what the code claims.
-
-- Every finding code a checker can emit must be listed, and every listed code must be produced by a scenario in `ConformanceScenarios`. A rule row cannot be added, dropped or renamed silently.
-- Rules that are behaviour rather than a finding (for example capital is restored before profit) name the test class that proves them.
-- To change a rule: edit the catalog, regenerate with `-Dsharia.rules.update=true`, review the diff of `doc/SHARIA-RULES.md` in the PR.
-- Freeze: when the Sharia adviser has signed off and no rule is `PENDING_ADVISER`, set `ADVISER_SIGNOFF` and `FROZEN_FINGERPRINT`. After that any change to a rule fails the build until a new sign-off is recorded.

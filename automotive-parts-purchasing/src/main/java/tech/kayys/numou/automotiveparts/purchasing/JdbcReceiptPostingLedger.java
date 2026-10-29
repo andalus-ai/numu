@@ -139,7 +139,7 @@ public final class JdbcReceiptPostingLedger implements ReceiptPostingLedger {
                 }
                 try (PreparedStatement update = c.prepareStatement("""
                         UPDATE purchasing_receipt_inventory_posting
-                        SET claimed_by = ?, lease_until = ?, updated_at = CURRENT_TIMESTAMP
+                        SET claimed_by = ?, lease_until = ?
                         WHERE tenant_id = ? AND receipt_id = ? AND status = 'PENDING'
                         """)) {
                     for (PostingRecord record : claimed) {
