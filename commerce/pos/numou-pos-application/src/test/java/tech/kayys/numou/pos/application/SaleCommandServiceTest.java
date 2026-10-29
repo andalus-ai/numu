@@ -5,7 +5,7 @@ import tech.kayys.numou.pos.application.port.out.OpenShiftAccess;
 import tech.kayys.numou.pos.application.port.out.SaleCommandIdempotency;
 import tech.kayys.numou.pos.application.port.out.SaleRepository;
 import tech.kayys.numou.pos.application.port.out.SaleRepository.VersionedSale;
-import tech.kayys.numou.pos.domain.Money;
+import tech.kayys.numou.foundation.domain.valueobject.Money;
 import tech.kayys.numou.pos.domain.Sale;
 import tech.kayys.numou.pos.domain.SaleChannel;
 import tech.kayys.numou.pos.domain.SaleLine;
@@ -72,7 +72,7 @@ class SaleCommandServiceTest {
         UUID id = UUID.randomUUID();
         service.open(context, "open-" + id, id, BRANCH, REGISTER, SHIFT, SaleChannel.POS, "IDR");
         SaleLine line = new SaleLine(UUID.randomUUID(), "item-1", "Coffee", "SKU-1",
-                new BigDecimal("1"), "cup", new Money(new BigDecimal("25000"), "IDR"));
+                new BigDecimal("1"), "cup", Money.of(new BigDecimal("25000"), "IDR"));
         VersionedSale withLine = service.addLine(context, "line-" + id, id, 0, line);
         assertEquals(1, withLine.version());
         assertEquals(withLine, service.addLine(context, "line-" + id, id, 0, line));
