@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import tech.kayys.numou.aggregate.domain.ConcurrencyConflictException;
 import tech.kayys.numou.aggregate.persistence.TenantTransaction;
@@ -27,6 +28,7 @@ import java.util.UUID;
  * a replay-safe no-op as required by {@link LedgerRepository}; a collision on another unique constraint
  * (notably the durable operation-reference constraint) remains a database failure and aborts the transaction.
  */
+@Alternative
 @ApplicationScoped
 public class PgLedgerRepository implements LedgerRepository {
 

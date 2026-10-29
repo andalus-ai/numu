@@ -87,6 +87,21 @@ public class TransportCheckoutResource {
         return CheckoutResponse.from(checkouts.refresh(caller.tenantId(), checkoutId));
     }
 
+    @POST
+    @Path("/checkouts/{checkoutId}/refund")
+    public CheckoutResponse requestRefund(@PathParam("checkoutId") UUID checkoutId,
+                                          RefundRequest request) {
+        TransportIdentityContext caller = caller();
+        if (request == null || request.reason() == null || request.reason().isBlank()
+                || request.reason().length() > 500) {
+            throw new BadRequestException("reason must contain 1-500 characters");
+        }
+        authorization.requireAllowed(caller, identity.getPrincipal().getName(),
+                TransportBookingAuthorization.BookingOperation.REQUEST_REFUND, null, checkoutId);
+        return CheckoutResponse.from(checkouts.requestCompensationRefund(
+                caller.tenantId(), checkoutId, request.reason().trim()));
+    }
+
     private TransportIdentityContext caller() {
         if (identity == null || identity.isAnonymous()) {
             throw new jakarta.ws.rs.NotAuthorizedException("Authentication is required");
@@ -98,13 +113,19 @@ public class TransportCheckoutResource {
     public record CreateCheckoutRequest(Integer fromSequence, Integer toSequence, Integer passengerCount) {
     }
 
+    public record RefundRequest(String reason) {
+    }
+
     public record CheckoutResponse(UUID checkoutId, UUID departureId, UUID holdId, String paymentId,
-                                   String paymentActionUri, BigDecimal amount, String currency,
-                                   String status, Instant holdExpiresAt, Instant updatedAt) {
+                                   String paymentActionUri, String refundId, String refundStatus,
+                                   BigDecimal amount, String currency, String status,
+                                   Instant holdExpiresAt, Instant updatedAt) {
         static CheckoutResponse from(TransportCheckout checkout) {
             return new CheckoutResponse(checkout.checkoutId(), checkout.departureId(), checkout.holdId(),
-                    checkout.paymentId(), checkout.paymentActionUri(), checkout.amount(), checkout.currency(),
-                    checkout.status().name(), checkout.holdExpiresAt(), checkout.updatedAt());
+                    checkout.paymentId(), checkout.paymentActionUri(), checkout.refundId(),
+                    checkout.refundStatus() == null ? null : checkout.refundStatus().name(),
+                    checkout.amount(), checkout.currency(), checkout.status().name(),
+                    checkout.holdExpiresAt(), checkout.updatedAt());
         }
     }
 }

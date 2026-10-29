@@ -8,6 +8,8 @@ import tech.kayys.payment.api.CreatePaymentObligation;
 import tech.kayys.payment.api.PaymentApplicationPort;
 import tech.kayys.payment.api.PaymentObligation;
 import tech.kayys.payment.api.PaymentStatus;
+import tech.kayys.payment.api.RequestPaymentRefund;
+import tech.kayys.payment.api.RefundOperation;
 
 import java.util.Optional;
 
@@ -24,6 +26,16 @@ public class TransportPaymentApplicationAdapter implements TransportPaymentPort 
                 command.tenantId(), command.idempotencyKey(), command.callerReference(),
                 command.amount(), command.currency(), command.description(), command.metadata()));
         return snapshot(payment);
+    }
+
+    @Override
+    public RefundSnapshot requestRefund(RefundCommand command) {
+        RefundOperation refund = payments.requestRefund(new RequestPaymentRefund(
+                command.tenantId(), command.paymentId(), command.idempotencyKey(),
+                command.amount(), command.reason()));
+        return new RefundSnapshot(refund.tenantId(), refund.refundId(), refund.paymentId(),
+                refund.amount(), refund.currency(), RefundState.valueOf(refund.status().name()),
+                refund.updatedAt());
     }
 
     @Override

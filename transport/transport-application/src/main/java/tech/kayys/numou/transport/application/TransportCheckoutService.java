@@ -4,6 +4,7 @@ import tech.kayys.numou.transport.domain.HoldNotActiveException;
 import tech.kayys.numou.transport.domain.PassengerHold;
 import tech.kayys.numou.transport.domain.TransportCheckout;
 import tech.kayys.numou.transport.domain.TransportCheckoutStatus;
+import tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus;
 import tech.kayys.numou.transport.spi.TransportCheckoutConcurrencyException;
 import tech.kayys.numou.transport.spi.TransportCheckoutRepository;
 import tech.kayys.numou.transport.spi.TransportFareQuotePort;
@@ -73,7 +74,7 @@ public final class TransportCheckoutService {
         TransportCheckout proposed = new TransportCheckout(command.tenantId(), UUID.randomUUID(),
                 command.idempotencyKey(), fingerprint, command.departureId(), quote.quoteId(),
                 command.fromSequence(), command.toSequence(), command.passengerCount(),
-                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null, null,
+                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null, null, null, null, null,
                 TransportCheckoutStatus.REQUESTED, 0, now, now);
         try {
             checkouts.create(proposed);
@@ -128,10 +129,107 @@ public final class TransportCheckoutService {
         return new ReconciliationResult(due.size(), succeeded, failed, failedCheckoutIds);
     }
 
+    /** Reconciles a bounded batch of pending refund operations using their persisted reason and idempotency key. */
+    public ReconciliationResult reconcileDueRefunds(Duration minimumAge, int batchSize) {
+        Objects.requireNonNull(minimumAge, "minimumAge");
+        if (minimumAge.isNegative() || minimumAge.isZero() || minimumAge.compareTo(Duration.ofHours(24)) > 0) {
+            throw new IllegalArgumentException("minimumAge must be between 0 and 24 hours");
+        }
+        if (batchSize < 1 || batchSize > 1_000) {
+            throw new IllegalArgumentException("batchSize must be between 1 and 1000");
+        }
+        Instant cutoff = clock.instant().minus(minimumAge);
+        List<TransportCheckout> due = checkouts.findStaleRefunds(cutoff, batchSize);
+        int succeeded = 0;
+        int failed = 0;
+        List<UUID> failedCheckoutIds = new ArrayList<>();
+        for (TransportCheckout checkout : due) {
+            try {
+                TransportCheckout reconciled = requestCompensationRefund(
+                        checkout.tenantId(), checkout.checkoutId(), checkout.refundReason());
+                if (reconciled.status() == TransportCheckoutStatus.REFUND_FAILED) {
+                    failed++;
+                    failedCheckoutIds.add(checkout.checkoutId());
+                } else {
+                    succeeded++;
+                }
+            } catch (RuntimeException failure) {
+                failed++;
+                failedCheckoutIds.add(checkout.checkoutId());
+                try {
+                    TransportCheckout latest = checkouts.find(checkout.tenantId(), checkout.checkoutId()).orElse(null);
+                    if (latest != null && (latest.status() == TransportCheckoutStatus.REFUND_REQUESTED
+                            || latest.status() == TransportCheckoutStatus.REFUND_PENDING)) {
+                        checkouts.save(latest.withStatus(latest.status(), clock.instant()), latest.version());
+                    }
+                } catch (RuntimeException retryCursorFailure) {
+                    failure.addSuppressed(retryCursorFailure);
+                }
+            }
+        }
+        return new ReconciliationResult(due.size(), succeeded, failed, failedCheckoutIds);
+    }
+
     /** Reads checkout state without contacting Payment or mutating inventory. */
     public TransportCheckout get(String tenantId, UUID checkoutId) {
         return checkouts.find(tenantId, checkoutId)
                 .orElseThrow(() -> new IllegalArgumentException("checkout not found"));
+    }
+
+    /**
+     * Requests or re-reads an idempotent full refund when payment succeeded but the capacity
+     * hold could not be confirmed. This is an explicit operator/customer-support action, not an
+     * automatic side effect of polling. A failed refund requires a separate operator decision.
+     */
+    public TransportCheckout requestCompensationRefund(String tenantId, UUID checkoutId, String reason) {
+        TransportCheckout checkout = get(tenantId, checkoutId);
+        if (checkout.status() == TransportCheckoutStatus.REFUNDED) return checkout;
+        if (checkout.status() == TransportCheckoutStatus.REFUND_FAILED) {
+            throw new IllegalStateException("refund failed; a new refund attempt requires operator review");
+        }
+        if (checkout.status() != TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                && checkout.status() != TransportCheckoutStatus.REFUND_REQUESTED
+                && checkout.status() != TransportCheckoutStatus.REFUND_PENDING) {
+            throw new IllegalStateException("checkout is not eligible for compensation refund");
+        }
+        if (checkout.paymentId() == null) {
+            throw new IllegalStateException("checkout has no payment to refund");
+        }
+        String normalizedReason = reason == null ? "" : reason.trim();
+        if (normalizedReason.isBlank() || normalizedReason.length() > 500) {
+            throw new IllegalArgumentException("refund reason must contain 1-500 characters");
+        }
+        if (checkout.status() == TransportCheckoutStatus.REFUND_REQUESTED
+                || checkout.status() == TransportCheckoutStatus.REFUND_PENDING) {
+            if (!normalizedReason.equals(checkout.refundReason())) {
+                throw new IllegalArgumentException("refund reason must match the original refund request");
+            }
+            normalizedReason = checkout.refundReason();
+        }
+        TransportPaymentPort.PaymentSnapshot payment = payments.find(tenantId, checkout.paymentId());
+        verifyPayment(checkout, payment, true);
+        if (checkout.status() == TransportCheckoutStatus.RECONCILIATION_REQUIRED) {
+            if (payment.status() != TransportPaymentPort.PaymentState.SUCCEEDED) {
+                throw new IllegalStateException("only a verified successful payment can be refunded for compensation");
+            }
+            // Persist the reason before crossing the Payment boundary. If the request times out
+            // after provider acceptance, retries can only replay the same semantic command.
+            checkout = saveOrReload(checkout, checkout.withRefundIntent(normalizedReason, clock.instant()));
+            normalizedReason = checkout.refundReason();
+        }
+        // REFUND_REQUESTED and REFUND_PENDING retries use the persisted reason and same key to
+        // retrieve the existing refund operation, even if Payment has advanced beyond SUCCEEDED.
+        TransportPaymentPort.RefundSnapshot refund = payments.requestRefund(
+                new TransportPaymentPort.RefundCommand(tenantId, checkout.paymentId(),
+                        refundKey(checkout.checkoutId()), checkout.amount(), normalizedReason));
+        if (!tenantId.equals(refund.tenantId())
+                || !checkout.paymentId().equals(refund.paymentId())
+                || checkout.amount().compareTo(refund.amount()) != 0
+                || !checkout.currency().equals(refund.currency())) {
+            throw new IllegalStateException("refund snapshot does not match the persisted checkout");
+        }
+        return saveOrReload(checkout, checkout.withRefund(refund.refundId(),
+                TransportCheckoutRefundStatus.valueOf(refund.status().name()), normalizedReason, clock.instant()));
     }
 
     /** Refreshes persisted payment state and applies safe hold settlement transitions. */
@@ -251,11 +349,16 @@ public final class TransportCheckoutService {
         return status == TransportCheckoutStatus.PAYMENT_SUCCEEDED
                 || status == TransportCheckoutStatus.PAYMENT_FAILED
                 || status == TransportCheckoutStatus.CANCELLED
-                || status == TransportCheckoutStatus.RECONCILIATION_REQUIRED;
+                || status == TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                || status == TransportCheckoutStatus.REFUND_REQUESTED
+                || status == TransportCheckoutStatus.REFUND_PENDING
+                || status == TransportCheckoutStatus.REFUNDED
+                || status == TransportCheckoutStatus.REFUND_FAILED;
     }
 
     private static String holdKey(UUID checkoutId) { return KEY_PREFIX + checkoutId; }
     private static String paymentKey(UUID checkoutId) { return KEY_PREFIX + checkoutId; }
+    private static String refundKey(UUID checkoutId) { return KEY_PREFIX + "refund:" + checkoutId; }
 
     private static String fingerprint(StartCommand command) {
         String canonical = command.tenantId().length() + ":" + command.tenantId()

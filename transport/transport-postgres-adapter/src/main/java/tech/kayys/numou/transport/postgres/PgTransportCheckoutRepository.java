@@ -23,7 +23,7 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
     private static final String COLUMNS = """
             tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
             from_sequence, to_sequence, passenger_count, amount, currency, hold_expires_at,
-            hold_id, payment_id, payment_action_uri, status, version, created_at, updated_at
+            hold_id, payment_id, payment_action_uri, refund_id, refund_status, refund_reason, status, version, created_at, updated_at
             """;
     private static final String FIND_BY_ID = "SELECT " + COLUMNS
             + " FROM transport_checkout WHERE tenant_id = ? AND checkout_id = ?";
@@ -35,16 +35,19 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             + " FROM transport_checkout WHERE updated_at < ?"
             + " AND status IN ('REQUESTED', 'HOLD_CREATED', 'PAYMENT_PENDING', 'PAYMENT_ACTION_REQUIRED')"
             + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
+    private static final String FIND_STALE_REFUNDS = "SELECT " + COLUMNS
+            + " FROM transport_checkout WHERE updated_at < ? AND status IN ('REFUND_REQUESTED', 'REFUND_PENDING')"
+            + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
     private static final String INSERT = """
             INSERT INTO transport_checkout
             (tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
              from_sequence, to_sequence, passenger_count, amount, currency, hold_expires_at,
-             hold_id, payment_id, payment_action_uri, status, version, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             hold_id, payment_id, payment_action_uri, refund_id, refund_status, refund_reason, status, version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
     private static final String UPDATE = """
             UPDATE transport_checkout
-            SET hold_id = ?, payment_id = ?, payment_action_uri = ?, status = ?, version = ?, updated_at = ?
+            SET hold_id = ?, payment_id = ?, payment_action_uri = ?, refund_id = ?, refund_status = ?, refund_reason = ?, status = ?, version = ?, updated_at = ?
             WHERE tenant_id = ? AND checkout_id = ? AND version = ?
             """;
 
@@ -91,6 +94,26 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
     }
 
     @Override
+    public List<TransportCheckout> findStaleRefunds(Instant updatedBefore, int limit) {
+        Objects.requireNonNull(updatedBefore, "updatedBefore");
+        if (limit < 1 || limit > 10_000) {
+            throw new IllegalArgumentException("limit must be between 1 and 10000");
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_STALE_REFUNDS)) {
+            statement.setTimestamp(1, Timestamp.from(updatedBefore));
+            statement.setInt(2, limit);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<TransportCheckout> result = new ArrayList<>();
+                while (rows.next()) result.add(read(rows));
+                return List.copyOf(result);
+            }
+        } catch (SQLException failure) {
+            throw persistenceFailure("find stale refund operations", failure);
+        }
+    }
+
+    @Override
     public void create(TransportCheckout checkout) {
         Objects.requireNonNull(checkout, "checkout");
         if (checkout.version() != 0 || checkout.status() != TransportCheckoutStatus.REQUESTED
@@ -122,12 +145,15 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             statement.setObject(1, checkout.holdId());
             statement.setString(2, checkout.paymentId());
             statement.setString(3, checkout.paymentActionUri());
-            statement.setString(4, checkout.status().name());
-            statement.setInt(5, checkout.version());
-            statement.setTimestamp(6, Timestamp.from(checkout.updatedAt()));
-            statement.setString(7, checkout.tenantId());
-            statement.setObject(8, checkout.checkoutId());
-            statement.setInt(9, expectedVersion);
+            statement.setString(4, checkout.refundId());
+            statement.setString(5, checkout.refundStatus() == null ? null : checkout.refundStatus().name());
+            statement.setString(6, checkout.refundReason());
+            statement.setString(7, checkout.status().name());
+            statement.setInt(8, checkout.version());
+            statement.setTimestamp(9, Timestamp.from(checkout.updatedAt()));
+            statement.setString(10, checkout.tenantId());
+            statement.setObject(11, checkout.checkoutId());
+            statement.setInt(12, expectedVersion);
             if (statement.executeUpdate() != 1) {
                 throw new TransportCheckoutConcurrencyException(
                         "checkout version changed or checkout was not found; reload before retrying");
@@ -169,6 +195,10 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
                 row.getObject("hold_id", UUID.class),
                 row.getString("payment_id"),
                 row.getString("payment_action_uri"),
+                row.getString("refund_id"),
+                row.getString("refund_status") == null ? null
+                        : tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.valueOf(row.getString("refund_status")),
+                row.getString("refund_reason"),
                 TransportCheckoutStatus.valueOf(row.getString("status")),
                 row.getInt("version"),
                 row.getTimestamp("created_at").toInstant(),
@@ -191,10 +221,13 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
         statement.setObject(13, checkout.holdId());
         statement.setString(14, checkout.paymentId());
         statement.setString(15, checkout.paymentActionUri());
-        statement.setString(16, checkout.status().name());
-        statement.setInt(17, checkout.version());
-        statement.setTimestamp(18, Timestamp.from(checkout.createdAt()));
-        statement.setTimestamp(19, Timestamp.from(checkout.updatedAt()));
+        statement.setString(16, checkout.refundId());
+        statement.setString(17, checkout.refundStatus() == null ? null : checkout.refundStatus().name());
+        statement.setString(18, checkout.refundReason());
+        statement.setString(19, checkout.status().name());
+        statement.setInt(20, checkout.version());
+        statement.setTimestamp(21, Timestamp.from(checkout.createdAt()));
+        statement.setTimestamp(22, Timestamp.from(checkout.updatedAt()));
     }
 
     private static String requireTenant(String tenantId) {

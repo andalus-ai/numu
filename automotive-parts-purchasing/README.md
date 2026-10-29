@@ -18,4 +18,15 @@ This adapter translates explicit workshop external-parts demand into a Purchasin
 - Replaying the same receipt uses the same idempotency key. Reusing that key with a changed quantity is rejected by the Inventory adapter contract.
 - The mapping must be validated against the tenant's catalog and receiving authorization before posting.
 
-**Production limitation:** the in-memory Inventory adapter only provides single-process idempotency. This integration is not production-ready for multi-instance deployments until a durable Inventory adapter enforces command-key uniqueness and commits the movement and idempotency record atomically. Receipt persistence and inventory posting also cross module transaction boundaries; a durable outbox/inbox or recoverable posting state is still required to reconcile a receipt accepted by Purchasing when Inventory is unavailable. This service does not claim a distributed transaction or exactly-once delivery.
+**Production boundary:** use the PostgreSQL Inventory adapter (which commits movement and command receipt atomically) together with `JdbcReceiptPostingLedger` for durable multi-instance retries. Apply the integration migration `db/migration/V1000__receipt_posting_ledger.sql` with the deployment's normal migration runner. The ledger stores a tenant-scoped payload fingerprint, PENDING/POSTED state, attempt count, movement ID, and last failure. A crash after Inventory commits but before the ledger is marked POSTED is recovered by retrying the same receipt command key; Inventory returns the original movement rather than posting stock twice.
+
+The ledger and Inventory are still separate transactions, not a distributed transaction. The pending-row index supports reconciliation workers. Migration `V1001__receipt_posting_worker_leases.sql` adds worker lease fields. Reconciliation claims stale rows atomically using PostgreSQL row locks and `SKIP LOCKED`, so multiple workers do not intentionally claim the same unexpired row. If a worker crashes, the lease expires and a later pass can reclaim the row. Lease duration should exceed typical posting latency; Inventory command idempotency remains the final duplicate-movement safeguard.
+
+The host application still owns scheduling, dead-letter policy, alerting, and operator-facing reconciliation endpoints. The two-argument service constructor remains for tests/single-process use; production wiring should inject the JDBC ledger and durable Inventory adapter.
+
+
+## Durable adapter verification
+
+`PostgresGoodsReceiptInventoryPostingTest` exercises receipt replay against the PostgreSQL Inventory adapter. It recreates the application service/repository between deliveries to verify the database command receipt—not an in-memory cache—prevents duplicate movements, and checks that a changed receipt payload is rejected. The test uses Testcontainers and is skipped when Docker is unavailable.
+
+This verifies Inventory-side durable idempotency for this integration path. It does not yet make the Purchasing receipt update and Inventory movement one distributed transaction; operational recovery still depends on retrying the same stable receipt identity and reconciling the durable Inventory command receipt.
