@@ -5,6 +5,8 @@ import tech.kayys.numou.foundation.application.command.CommandHandler;
 import tech.kayys.numou.foundation.application.event.EventPublisher;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 import tech.kayys.numou.foundation.domain.exception.InvalidStateException;
+import tech.kayys.numou.support.application.api.ActorType;
+import tech.kayys.numou.support.application.api.SupportActorProvider;
 import tech.kayys.numou.support.application.api.command.AssignTicketCommand;
 import tech.kayys.numou.support.application.port.TicketRepository;
 import tech.kayys.numou.support.domain.ticket.Ticket;
@@ -18,23 +20,35 @@ public final class AssignTicketHandler implements CommandHandler<AssignTicketCom
     private final EventPublisher eventPublisher;
     private final UnitOfWork unitOfWork;
     private final DomainClock clock;
+    private final SupportActorProvider actorProvider;
 
     public AssignTicketHandler(TicketRepository ticketRepository, EventPublisher eventPublisher,
-                               UnitOfWork unitOfWork, DomainClock clock) {
+                               UnitOfWork unitOfWork, DomainClock clock, SupportActorProvider actorProvider) {
         this.ticketRepository = Objects.requireNonNull(ticketRepository);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
         this.unitOfWork = Objects.requireNonNull(unitOfWork);
         this.clock = Objects.requireNonNull(clock);
+        this.actorProvider = Objects.requireNonNull(actorProvider);
     }
 
     @Override
     public Uni<Void> handle(AssignTicketCommand command) {
         Objects.requireNonNull(command, "command cannot be null");
-        return unitOfWork.execute(() -> ticketRepository.findById(command.ticketId())
-                .flatMap(optional -> optional
-                        .map(ticket -> persistAssignment(ticket, command))
-                        .orElseGet(() -> Uni.createFrom().failure(
-                                new InvalidStateException("Ticket not found: " + command.ticketId())))));
+        return actorProvider.currentActor().flatMap(actor -> {
+            if (actor.type() != ActorType.AGENT && actor.type() != ActorType.MANAGER
+                    && actor.type() != ActorType.SYSTEM) {
+                return notFound();
+            }
+            return unitOfWork.execute(() -> ticketRepository.findById(command.ticketId())
+                    .flatMap(optional -> optional
+                            .filter(ticket -> ticket.tenantId().equals(actor.tenantId()))
+                            .map(ticket -> persistAssignment(ticket, command))
+                            .orElseGet(this::notFound)));
+        });
+    }
+
+    private Uni<Void> notFound() {
+        return Uni.createFrom().failure(new InvalidStateException("Ticket not found"));
     }
 
     private Uni<Void> persistAssignment(Ticket ticket, AssignTicketCommand command) {

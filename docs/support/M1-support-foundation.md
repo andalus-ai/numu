@@ -13,6 +13,7 @@ Harden the existing Support capability before adding more channels, automation, 
 - Validate the comment event timestamp before mutating the aggregate, so a rejected command cannot leave an in-memory ticket partially changed.
 - Route public ticket creation through `CreatePortalTicketHandler`; tenant and requester identity are derived from the authenticated actor context rather than client-controlled request fields.
 - Require authenticated actor context and `TicketAccessPolicy.canComment` before adding comments.
+- Require support staff (agent/manager/system), tenant ownership, and resolve authorization before status mutations; require support staff and tenant ownership for priority and assignment mutations.
 - Require the command author to match the authenticated actor's user ID, reject internal notes from customer/partner actors, and verify the loaded ticket belongs to the actor's tenant before mutation.
 - Return a non-specific “Ticket not found” failure for inaccessible tickets to reduce identifier-based information disclosure.
 
@@ -24,7 +25,8 @@ Harden the existing Support capability before adding more channels, automation, 
 - [x] Comment writes check actor identity, comment permission, internal-note role, and ticket tenant.
 - [ ] Add application-level tests for allowed public comments, rejected cross-tenant writes, author spoofing, and customer attempts to create internal notes.
 - [ ] Every customer-facing ticket read model / endpoint uses a safe projection and never serializes the complete internal comment history.
-- [ ] Application handlers enforce tenant and actor authorization for status, priority, and assignment operations; identifier possession is not authorization.
+- [x] Status, priority, and assignment handlers require authenticated support staff and enforce tenant ownership; resolving/closing additionally checks `TicketAccessPolicy.canResolve`.
+- [ ] Add application-level authorization tests for status, priority, and assignment denial cases; verify production actor-provider and access-policy wiring.
 - [ ] Public replies and internal notes have separate notification / outbound-delivery rules.
 - [ ] Ticket lifecycle transitions, resolution and reopening behavior have regression coverage.
 - [ ] Queue assignment, SLA policy and business-calendar semantics are agreed before implementing timers.
@@ -37,7 +39,7 @@ A domain projection is a defense-in-depth contract, not a substitute for API aut
 
 The public create endpoint is a customer-portal boundary. It derives tenant and requester from the authenticated actor. The generic `CreateTicketCommand` remains an application-level command for trusted, separately authorized workflows and must not be bound directly to a customer-facing HTTP request.
 
-The comment handler now requires actor and policy dependencies. Its callers and CDI wiring must supply a correctly authenticated `SupportActorProvider` and a tenant-aware `TicketAccessPolicy`; this change is not a substitute for verifying those implementations and all other command handlers.
+Comment, status, priority, and assignment handlers now require actor context; comment and resolve/close operations also require policy dependencies. Its callers and CDI wiring must supply a correctly authenticated `SupportActorProvider` and a tenant-aware `TicketAccessPolicy`; this change is not a substitute for verifying those implementations and all other command handlers.
 
 ## Deliberately deferred
 
