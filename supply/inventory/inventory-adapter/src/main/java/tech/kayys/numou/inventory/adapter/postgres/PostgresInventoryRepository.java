@@ -387,7 +387,8 @@ public final class PostgresInventoryRepository implements InventoryRepository {
         try(Connection c=dataSource.getConnection()) {
             boolean auto=c.getAutoCommit();c.setAutoCommit(false);
             try {T result=work.apply(c);c.commit();c.setAutoCommit(auto);return result;}
-            catch(Throwable t){try{c.rollback();}catch(SQLException rollback){t.addSuppressed(rollback);}throw t;}
+            catch(Exception e){try{c.rollback();}catch(SQLException rollback){e.addSuppressed(rollback);}throw e;}
+            catch(Error e){try{c.rollback();}catch(SQLException rollback){e.addSuppressed(rollback);}throw e;}
         } catch(RuntimeException e){throw e;} catch(Exception e){throw new IllegalStateException("Inventory PostgreSQL operation failed",e);}
     }
     @FunctionalInterface private interface SqlWork<T>{T apply(Connection c)throws Exception;}
