@@ -4,6 +4,7 @@ import tech.kayys.numou.transport.domain.HoldNotActiveException;
 import tech.kayys.numou.transport.domain.PassengerHold;
 import tech.kayys.numou.transport.domain.TransportCheckout;
 import tech.kayys.numou.transport.domain.TransportCheckoutStatus;
+import tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus;
 import tech.kayys.numou.transport.spi.TransportCheckoutConcurrencyException;
 import tech.kayys.numou.transport.spi.TransportCheckoutRepository;
 import tech.kayys.numou.transport.spi.TransportFareQuotePort;
@@ -73,7 +74,7 @@ public final class TransportCheckoutService {
         TransportCheckout proposed = new TransportCheckout(command.tenantId(), UUID.randomUUID(),
                 command.idempotencyKey(), fingerprint, command.departureId(), quote.quoteId(),
                 command.fromSequence(), command.toSequence(), command.passengerCount(),
-                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null, null,
+                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null, null, null, null,
                 TransportCheckoutStatus.REQUESTED, 0, now, now);
         try {
             checkouts.create(proposed);
@@ -132,6 +133,42 @@ public final class TransportCheckoutService {
     public TransportCheckout get(String tenantId, UUID checkoutId) {
         return checkouts.find(tenantId, checkoutId)
                 .orElseThrow(() -> new IllegalArgumentException("checkout not found"));
+    }
+
+    /**
+     * Requests or re-reads an idempotent full refund when payment succeeded but the capacity
+     * hold could not be confirmed. This is an explicit operator/customer-support action, not an
+     * automatic side effect of polling. A failed refund requires a separate operator decision.
+     */
+    public TransportCheckout requestCompensationRefund(String tenantId, UUID checkoutId, String reason) {
+        TransportCheckout checkout = get(tenantId, checkoutId);
+        if (checkout.status() == TransportCheckoutStatus.REFUNDED) return checkout;
+        if (checkout.status() == TransportCheckoutStatus.REFUND_FAILED) {
+            throw new IllegalStateException("refund failed; a new refund attempt requires operator review");
+        }
+        if (checkout.status() != TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                && checkout.status() != TransportCheckoutStatus.REFUND_PENDING) {
+            throw new IllegalStateException("checkout is not eligible for compensation refund");
+        }
+        if (checkout.paymentId() == null) {
+            throw new IllegalStateException("checkout has no payment to refund");
+        }
+        TransportPaymentPort.PaymentSnapshot payment = payments.find(tenantId, checkout.paymentId());
+        verifyPayment(checkout, payment, true);
+        if (payment.status() != TransportPaymentPort.PaymentState.SUCCEEDED) {
+            throw new IllegalStateException("only a verified successful payment can be refunded for compensation");
+        }
+        TransportPaymentPort.RefundSnapshot refund = payments.requestRefund(
+                new TransportPaymentPort.RefundCommand(tenantId, checkout.paymentId(),
+                        refundKey(checkout.checkoutId()), checkout.amount(), reason));
+        if (!tenantId.equals(refund.tenantId())
+                || !checkout.paymentId().equals(refund.paymentId())
+                || checkout.amount().compareTo(refund.amount()) != 0
+                || !checkout.currency().equals(refund.currency())) {
+            throw new IllegalStateException("refund snapshot does not match the persisted checkout");
+        }
+        return saveOrReload(checkout, checkout.withRefund(refund.refundId(),
+                TransportCheckoutRefundStatus.valueOf(refund.status().name()), clock.instant()));
     }
 
     /** Refreshes persisted payment state and applies safe hold settlement transitions. */
@@ -251,11 +288,15 @@ public final class TransportCheckoutService {
         return status == TransportCheckoutStatus.PAYMENT_SUCCEEDED
                 || status == TransportCheckoutStatus.PAYMENT_FAILED
                 || status == TransportCheckoutStatus.CANCELLED
-                || status == TransportCheckoutStatus.RECONCILIATION_REQUIRED;
+                || status == TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                || status == TransportCheckoutStatus.REFUND_PENDING
+                || status == TransportCheckoutStatus.REFUNDED
+                || status == TransportCheckoutStatus.REFUND_FAILED;
     }
 
     private static String holdKey(UUID checkoutId) { return KEY_PREFIX + checkoutId; }
     private static String paymentKey(UUID checkoutId) { return KEY_PREFIX + checkoutId; }
+    private static String refundKey(UUID checkoutId) { return KEY_PREFIX + "refund:" + checkoutId; }
 
     private static String fingerprint(StartCommand command) {
         String canonical = command.tenantId().length() + ":" + command.tenantId()
