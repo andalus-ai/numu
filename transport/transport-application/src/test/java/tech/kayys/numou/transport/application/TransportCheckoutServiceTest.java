@@ -311,10 +311,6 @@ class TransportCheckoutServiceTest {
 
         @Override
         public RefundSnapshot requestRefund(RefundCommand command) {
-            if (failNextRefundCall) {
-                failNextRefundCall = false;
-                throw new IllegalStateException("simulated timeout after refund intent persistence");
-            }
             RefundSnapshot existing = refundsByKey.get(command.tenantId() + ":" + command.idempotencyKey());
             if (existing != null) return existing;
             PaymentSnapshot payment = find(command.tenantId(), command.paymentId());
@@ -325,6 +321,10 @@ class TransportCheckoutServiceTest {
             RefundSnapshot refund = new RefundSnapshot(command.tenantId(), UUID.randomUUID().toString(),
                     command.paymentId(), command.amount(), payment.currency(), nextRefundStatus, clock.instant());
             refundsByKey.put(command.tenantId() + ":" + command.idempotencyKey(), refund);
+            if (failNextRefundCall) {
+                failNextRefundCall = false;
+                throw new IllegalStateException("simulated timeout after provider accepted refund");
+            }
             return refund;
         }
 
