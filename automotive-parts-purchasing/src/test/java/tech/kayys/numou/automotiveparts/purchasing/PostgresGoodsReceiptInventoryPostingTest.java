@@ -14,6 +14,8 @@ import tech.kayys.numou.purchasing.domain.procurement.GoodsReceipt;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.sql.PreparedStatement;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -103,6 +105,26 @@ class PostgresGoodsReceiptInventoryPostingTest {
         var otherTenant = ledger.begin("tenant-b", "same-receipt", "fingerprint-b");
         assertEquals("tenant-b", otherTenant.tenantId());
         assertEquals(ReceiptPostingLedger.Status.PENDING, otherTenant.status());
+    }
+
+    @Test
+    void pendingLedgerQueryReturnsOnlyStalePendingRows() throws Exception {
+        JdbcReceiptPostingLedger ledger = new JdbcReceiptPostingLedger(dataSource);
+        String receiptId = "receipt-stale-query-" + java.util.UUID.randomUUID();
+        ledger.begin("tenant-a", receiptId, "fingerprint-stale");
+        try (var connection = dataSource.getConnection();
+             PreparedStatement update = connection.prepareStatement("""
+                     UPDATE purchasing_receipt_inventory_posting
+                     SET updated_at = CURRENT_TIMESTAMP - INTERVAL '10 minutes'
+                     WHERE tenant_id = ? AND receipt_id = ?
+                     """)) {
+            update.setString(1, "tenant-a");
+            update.setString(2, receiptId);
+            assertEquals(1, update.executeUpdate());
+        }
+        var stale = ledger.findPending(Instant.now().minusSeconds(60), 1000);
+        assertTrue(stale.stream().anyMatch(record -> record.receiptId().equals(receiptId)));
+        assertTrue(stale.stream().allMatch(record -> record.status() == ReceiptPostingLedger.Status.PENDING));
     }
 
     private GoodsReceipt receipt(String id, String quantity) {
