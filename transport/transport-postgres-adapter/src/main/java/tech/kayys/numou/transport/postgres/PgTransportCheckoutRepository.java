@@ -35,6 +35,9 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             + " FROM transport_checkout WHERE updated_at < ?"
             + " AND status IN ('REQUESTED', 'HOLD_CREATED', 'PAYMENT_PENDING', 'PAYMENT_ACTION_REQUIRED')"
             + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
+    private static final String FIND_STALE_REFUNDS = "SELECT " + COLUMNS
+            + " FROM transport_checkout WHERE updated_at < ? AND status = 'REFUND_PENDING'"
+            + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
     private static final String INSERT = """
             INSERT INTO transport_checkout
             (tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
@@ -87,6 +90,26 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             }
         } catch (SQLException failure) {
             throw persistenceFailure("find stale checkouts", failure);
+        }
+    }
+
+    @Override
+    public List<TransportCheckout> findStaleRefunds(Instant updatedBefore, int limit) {
+        Objects.requireNonNull(updatedBefore, "updatedBefore");
+        if (limit < 1 || limit > 10_000) {
+            throw new IllegalArgumentException("limit must be between 1 and 10000");
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_STALE_REFUNDS)) {
+            statement.setTimestamp(1, Timestamp.from(updatedBefore));
+            statement.setInt(2, limit);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<TransportCheckout> result = new ArrayList<>();
+                while (rows.next()) result.add(read(rows));
+                return List.copyOf(result);
+            }
+        } catch (SQLException failure) {
+            throw persistenceFailure("find stale refund operations", failure);
         }
     }
 
