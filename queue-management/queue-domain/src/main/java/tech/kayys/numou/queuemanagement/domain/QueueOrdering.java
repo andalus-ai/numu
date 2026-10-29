@@ -5,11 +5,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
-/** Pure deterministic ordering for a caller-provided, tenant/queue-filtered candidate set. */
+/** Pure deterministic ordering for waiting entries from one already tenant/queue-scoped query. */
 public final class QueueOrdering {
     private QueueOrdering() {}
 
-    public static List<QueueEntry> order(List<QueueEntry> entries, QueueOrderingPolicy policy) {
+    public static List<QueueEntry> orderWaiting(List<QueueEntry> entries, QueueOrderingPolicy policy) {
         Objects.requireNonNull(entries, "entries must not be null");
         Objects.requireNonNull(policy, "policy must not be null");
         Comparator<QueueEntry> comparator = Comparator.comparing(QueueEntry::enteredAt)
@@ -19,7 +19,12 @@ public final class QueueOrdering {
                     .thenComparing(QueueEntry::enteredAt)
                     .thenComparing(entry -> entry.id().value().toString());
         }
-        List<QueueEntry> ordered = new ArrayList<>(entries);
+        List<QueueEntry> ordered = new ArrayList<>();
+        for (QueueEntry entry : entries) {
+            if (entry != null && entry.status() == QueueEntryStatus.WAITING) {
+                ordered.add(entry);
+            }
+        }
         ordered.sort(comparator);
         return List.copyOf(ordered);
     }
