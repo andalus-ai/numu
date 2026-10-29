@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.numouadapter.memory.*;
+import tech.kayys.numou.numouapplication.StaffContractService;
 import tech.kayys.numou.numouapplication.SyirkahAccountMap;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
@@ -355,5 +356,26 @@ class SyirkahApiTest {
         assertEquals(tech.kayys.numou.numoudomain.ShariaRuleCatalog.fingerprint(), v.fingerprint());
         assertEquals(tech.kayys.numou.numoudomain.ShariaRuleCatalog.render(), api.rulesMarkdown());
         assertTrue(v.rules().get(0).codes().contains("PROFIT_ON_REVENUE"));
+    }
+
+    @Test
+    void staffAreEngagedOnlyOnAFixedWageAndListedBack() {
+        InMemoryStaffRecordPort store = new InMemoryStaffRecordPort();
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts);
+        SyirkahApi withStaff = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx,
+                new StaffContractService(repo, store, tx, Clock.system(ZoneOffset.UTC)));
+        String id = withStaff.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+
+        StaffView v = withStaff.engageStaff(id, new StaffRequest("SYIRKAH", null, "Cashier", "12 months",
+                "8 hours a day", "FIXED_AMOUNT", new BigDecimal("3000000"), "monthly", List.of(), false));
+        assertEquals(1, v.sequence());
+        assertEquals(1, v.contractVersion());
+        assertEquals(0, new BigDecimal("3000000").compareTo(v.wageAmount()));
+        assertThrows(BusinessRuleViolation.class, () -> withStaff.engageStaff(id, new StaffRequest("SYIRKAH", null,
+                "Cashier", "12 months", "8 hours a day", "PERCENT_OF_SALES", null, null, List.of(), false)));
+        assertEquals(1, withStaff.staffContracts(id).size(), "a refused contract must not be stored");
     }
 }

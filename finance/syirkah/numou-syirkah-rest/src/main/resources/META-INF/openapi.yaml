@@ -118,6 +118,21 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AuditView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/staff:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    get:
+      tags: [Syirkah]
+      summary: Staff contracts engaged by the syirkah
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/StaffView"}}}}}
+        default: {$ref: "#/components/responses/Error"}
+    post:
+      tags: [Syirkah]
+      summary: Engage staff (role operator); stored only if the contract passes the Bab XVII check
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/StaffRequest"}}}}
+      responses:
+        "201": {description: Stored, content: {application/json: {schema: {$ref: "#/components/schemas/StaffView"}}}}
+        default: {$ref: "#/components/responses/Error"}
   /rules:
     get:
       tags: [Syirkah]
@@ -459,6 +474,36 @@ components:
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/SummaryView"}}
         nextCursor: {type: string, format: uuid, nullable: true}
+    StaffRequest:
+      type: object
+      required: [employer, wageBasis]
+      properties:
+        employer: {type: string, enum: [SYIRKAH, INDIVIDUAL_PARTNER]}
+        employeePartner: {type: string, format: uuid, nullable: true}
+        workType: {type: string}
+        workPeriod: {type: string}
+        effort: {type: string}
+        wageBasis: {type: string, enum: [FIXED_AMOUNT, PERCENT_OF_SALES, PERCENT_OF_PROFIT, OTHER], description: "only FIXED_AMOUNT is accepted"}
+        wageAmount: {type: number, nullable: true}
+        payPeriod: {type: string}
+        jaliClauses: {type: array, items: {type: string}}
+        jaliReviewedLawful: {type: boolean}
+    StaffView:
+      type: object
+      properties:
+        sequence: {type: integer}
+        contractVersion: {type: integer}
+        employer: {type: string}
+        employeePartner: {type: string, nullable: true}
+        workType: {type: string}
+        workPeriod: {type: string}
+        effort: {type: string}
+        wageBasis: {type: string}
+        wageAmount: {type: number, nullable: true}
+        payPeriod: {type: string}
+        jaliClauses: {type: array, items: {type: string}}
+        jaliReviewedLawful: {type: boolean}
+        recordedAt: {type: string, format: date-time}
     RuleView:
       type: object
       properties:
