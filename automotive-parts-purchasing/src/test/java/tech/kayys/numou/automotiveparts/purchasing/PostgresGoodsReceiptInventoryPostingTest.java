@@ -1,0 +1,86 @@
+package tech.kayys.numou.automotiveparts.purchasing;
+
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.postgresql.ds.PGSimpleDataSource;
+import tech.kayys.numou.inventory.adapter.postgres.PostgresInventoryRepository;
+import tech.kayys.numou.inventory.application.InventoryService;
+import tech.kayys.numou.inventory.domain.inventory.*;
+import tech.kayys.numou.purchasing.domain.procurement.GoodsReceipt;
+
+import javax.sql.DataSource;
+import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@Testcontainers(disabledWithoutDocker = true)
+class PostgresGoodsReceiptInventoryPostingTest {
+    @Container
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    private DataSource dataSource;
+    private ItemId itemId;
+    private WarehouseId warehouseId;
+
+    @BeforeEach
+    void setUp() {
+        PGSimpleDataSource ds = new PGSimpleDataSource();
+        ds.setURL(POSTGRES.getJdbcUrl());
+        ds.setUser(POSTGRES.getUsername());
+        ds.setPassword(POSTGRES.getPassword());
+        dataSource = ds;
+        Flyway.configure().dataSource(ds).locations("classpath:db/migration").load().migrate();
+
+        itemId = ItemId.of("part-filter-postgres");
+        warehouseId = WarehouseId.of("warehouse-bandung-postgres");
+        InventoryService inventory = new InventoryService(new PostgresInventoryRepository(dataSource, "tenant-a"));
+        inventory.registerItem(new InventoryItem(itemId, "FILTER-PG", "Oil filter",
+                ValuationMethod.WEIGHTED_AVERAGE, TrackingMethod.NONE, "EA"));
+        inventory.registerWarehouse(new Warehouse(warehouseId, "BDG-PG", "Bandung parts store", "Bandung"));
+    }
+
+    @Test
+    void receiptReplayAfterRepositoryRecreationPostsExactlyOneMovement() {
+        GoodsReceipt receipt = new GoodsReceipt("receipt-durable-1", "tenant-a", "ledger-a",
+                "PO-100", "PO-100-L1", new BigDecimal("2"), "receiver-1");
+        var mapping = (GoodsReceiptInventoryPostingService.ReceiptInventoryMapping) (tenant, po, line) ->
+                new GoodsReceiptInventoryPostingService.ReceiptInventoryTarget(itemId, warehouseId,
+                        new BigDecimal("12"), new BigDecimal("25000"), "IDR");
+
+        var first = new GoodsReceiptInventoryPostingService(
+                new InventoryService(new PostgresInventoryRepository(dataSource, "tenant-a")), mapping).post(receipt);
+
+        // A new repository/service instance simulates process restart; the database is the idempotency authority.
+        var replay = new GoodsReceiptInventoryPostingService(
+                new InventoryService(new PostgresInventoryRepository(dataSource, "tenant-a")), mapping).post(receipt);
+
+        var repository = new PostgresInventoryRepository(dataSource, "tenant-a");
+        assertEquals(first.id(), replay.id());
+        assertEquals(1, repository.findByItemAndWarehouse(itemId, warehouseId).size());
+        assertEquals(new BigDecimal("24.00000000"),
+                repository.findByItemAndWarehouse(itemId, warehouseId).get(0).quantity());
+    }
+
+    @Test
+    void sameReceiptKeyWithChangedQuantityIsRejectedWithoutAdditionalMovement() {
+        var mapping = (GoodsReceiptInventoryPostingService.ReceiptInventoryMapping) (tenant, po, line) ->
+                new GoodsReceiptInventoryPostingService.ReceiptInventoryTarget(itemId, warehouseId,
+                        BigDecimal.ONE, new BigDecimal("25000"), "IDR");
+        var service = new GoodsReceiptInventoryPostingService(
+                new InventoryService(new PostgresInventoryRepository(dataSource, "tenant-a")), mapping);
+
+        service.post(receipt("receipt-durable-2", "2"));
+        assertThrows(IllegalArgumentException.class, () -> service.post(receipt("receipt-durable-2", "3")));
+        assertEquals(1, new PostgresInventoryRepository(dataSource, "tenant-a")
+                .findByItemAndWarehouse(itemId, warehouseId).size());
+    }
+
+    private GoodsReceipt receipt(String id, String quantity) {
+        return new GoodsReceipt(id, "tenant-a", "ledger-a", "PO-100", "PO-100-L1",
+                new BigDecimal(quantity), "receiver-1");
+    }
+}

@@ -13,8 +13,11 @@ public interface TransportCheckoutRepository {
     Optional<TransportCheckout> findByIdempotencyKey(String tenantId, String idempotencyKey);
     Optional<TransportCheckout> findByPaymentId(String tenantId, String paymentId);
 
-    /** Returns a bounded, stable batch of nonterminal checkouts due for reconciliation. */
+    /** Returns a bounded, stable batch of payment checkouts due for reconciliation. */
     List<TransportCheckout> findStaleNonTerminal(Instant updatedBefore, int limit);
+
+    /** Returns a bounded, stable batch of pending refund operations due for reconciliation. */
+    List<TransportCheckout> findStaleRefunds(Instant updatedBefore, int limit);
 
     /** Creates a new REQUESTED checkout. Duplicate tenant/idempotency keys are conflicts. */
     void create(TransportCheckout checkout);
