@@ -66,7 +66,7 @@ class SyirkahApiTest {
 
     CloseView close(String id, String start, String end, String revenue) {
         return api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse(start), LocalDate.parse(end),
-                result(revenue), null, "distribute"));
+                result(revenue), null, "distribute", null));
     }
 
     @Test
@@ -155,7 +155,7 @@ class SyirkahApiTest {
         assertThrows(IllegalArgumentException.class, () -> api.get("not-a-uuid"));
         assertThrows(IllegalArgumentException.class, () -> api.closePeriod(id, null));
         assertThrows(IllegalArgumentException.class, () -> api.closePeriod(id, new ClosePeriodRequest(null,
-                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), result("1"), null, "burn")));
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), result("1"), null, "burn", null)));
         assertThrows(IllegalArgumentException.class, () -> api.distribute(id, new PaymentRequest(A, null, "x")));
     }
 
@@ -302,7 +302,7 @@ class SyirkahApiTest {
     void partnerDeathWithHeirContinuingGoesThroughApproval() {
         String id = open();
         api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
-                result("10000000"), null, "retain"));
+                result("10000000"), null, "retain", null));
         // no heir decision: refused when proposed, nothing waits for a checker
         assertThrows(BusinessRuleViolation.class,
                 () -> api.proposeRevision(id, new ReviseRequest(heirContract(), null, death(false))));
@@ -323,5 +323,25 @@ class SyirkahApiTest {
         assertThrows(IllegalArgumentException.class, () -> api.proposeRevision(id, new ReviseRequest(heirContract(),
                 null, new LifecycleDto("explode", List.of(), LocalDate.parse("2026-02-01"), List.of(), null,
                         List.of(), List.of()))));
+    }
+
+    @Test
+    void tradingPeriodCloseWorksOutCostOfGoodsSold() {
+        String id = open();
+        // sales 2,000,000; stock 500,000 + purchases 1,000,000 - counted stock 300,000 -> HPP 1,200,000; costs 300,000
+        CloseView c = api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-31"), null, null, "retain", new TradingDto(new BigDecimal("2000000"), null,
+                        null, new BigDecimal("500000"), new BigDecimal("1000000"), null, null,
+                        new BigDecimal("300000"), new BigDecimal("300000"), null)));
+        assertEquals(0, new BigDecimal("500000").compareTo(c.netResult()));
+        assertTrue(api.reconciliation(id).balanced());
+    }
+
+    @Test
+    void tradingAndResultTogetherAreRejected() {
+        String id = open();
+        assertThrows(IllegalArgumentException.class, () -> api.closePeriod(id, new ClosePeriodRequest(null,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), result("1"), null, "retain",
+                new TradingDto(BigDecimal.ONE, null, null, null, null, null, null, null, null, null))));
     }
 }

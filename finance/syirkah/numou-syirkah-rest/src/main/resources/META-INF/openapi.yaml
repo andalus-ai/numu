@@ -297,14 +297,33 @@ components:
         reason: {type: string}
     ClosePeriodRequest:
       type: object
-      required: [periodStart, periodEnd, result, disposition]
+      description: Give either result or trading (a trading syirkah's period inputs), not both.
+      required: [periodStart, periodEnd, disposition]
       properties:
         closeId: {type: string, format: uuid}
         periodStart: {type: string, format: date}
         periodEnd: {type: string, format: date}
         result: {$ref: "#/components/schemas/FinancialResultDto"}
+        trading: {$ref: "#/components/schemas/TradingDto"}
         fault: {$ref: "#/components/schemas/ManagerFaultDto"}
         disposition: {type: string, enum: [DISTRIBUTE, RETAIN]}
+    TradingDto:
+      type: object
+      description: >
+        Bab XXII, periodic method. Cost of goods sold = openingStock + purchases - purchaseReturns -
+        purchaseDiscounts - closingStock. closingStock must be the counted stock. Omitted amounts are zero.
+      required: [sales]
+      properties:
+        sales: {type: number}
+        salesReturns: {type: number}
+        salesDiscounts: {type: number}
+        openingStock: {type: number}
+        purchases: {type: number}
+        purchaseReturns: {type: number}
+        purchaseDiscounts: {type: number}
+        closingStock: {type: number}
+        operatingCosts: {type: number}
+        otherCosts: {type: number}
     PaymentRequest:
       type: object
       required: [partnerId, amount]
