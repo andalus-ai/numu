@@ -167,6 +167,23 @@ class TransportCheckoutServiceTest {
     }
 
     @Test
+    void reconciliationQueueIsTenantScopedBoundedAndReadOnly() {
+        TransportCheckout checkout = service.start(command());
+        TransportCheckout unresolved = checkout.withStatus(
+                TransportCheckoutStatus.RECONCILIATION_REQUIRED, start.plusSeconds(1));
+        checkouts.save(unresolved, checkout.version());
+        clock.set(start.plusSeconds(120));
+
+        assertThat(service.reconciliationQueue("tenant-1", java.time.Duration.ofSeconds(60), 10))
+                .extracting(TransportCheckout::checkoutId).containsExactly(checkout.checkoutId());
+        assertThat(service.reconciliationQueue("tenant-2", java.time.Duration.ZERO, 10)).isEmpty();
+        assertThat(checkouts.find("tenant-1", checkout.checkoutId()).orElseThrow().version())
+                .isEqualTo(unresolved.version());
+        assertThatThrownBy(() -> service.reconciliationQueue("tenant-1", java.time.Duration.ZERO, 101))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void checkoutLookupIsTenantScoped() {
         TransportCheckout checkout = service.start(command());
 
@@ -245,6 +262,21 @@ class TransportCheckoutServiceTest {
                             || c.status() == TransportCheckoutStatus.PAYMENT_ACTION_REQUIRED)
                     .sorted(java.util.Comparator.comparing(TransportCheckout::updatedAt)
                             .thenComparing(TransportCheckout::tenantId)
+                            .thenComparing(TransportCheckout::checkoutId))
+                    .limit(limit)
+                    .toList();
+        }
+
+        @Override
+        public List<TransportCheckout> findReconciliationCases(String tenantId, Instant updatedBefore, int limit) {
+            return byId.values().stream()
+                    .filter(c -> c.tenantId().equals(tenantId))
+                    .filter(c -> !c.updatedAt().isAfter(updatedBefore))
+                    .filter(c -> c.status() == TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                            || c.status() == TransportCheckoutStatus.REFUND_REQUESTED
+                            || c.status() == TransportCheckoutStatus.REFUND_PENDING
+                            || c.status() == TransportCheckoutStatus.REFUND_FAILED)
+                    .sorted(java.util.Comparator.comparing(TransportCheckout::updatedAt)
                             .thenComparing(TransportCheckout::checkoutId))
                     .limit(limit)
                     .toList();

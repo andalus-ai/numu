@@ -16,6 +16,11 @@ public interface TransportCheckoutRepository {
     /** Returns a bounded, stable batch of payment checkouts due for reconciliation. */
     List<TransportCheckout> findStaleNonTerminal(Instant updatedBefore, int limit);
 
+    /** Returns a bounded, oldest-first, tenant-scoped operator queue of unresolved cases. */
+    default List<TransportCheckout> findReconciliationCases(String tenantId, Instant updatedBefore, int limit) {
+        throw new UnsupportedOperationException("operator reconciliation queue is not supported by this adapter");
+    }
+
     /** Returns a bounded, stable batch of pending refund operations due for reconciliation. */
     List<TransportCheckout> findStaleRefunds(Instant updatedBefore, int limit);
 
