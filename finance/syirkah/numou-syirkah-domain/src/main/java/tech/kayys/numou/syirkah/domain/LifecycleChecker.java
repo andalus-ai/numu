@@ -67,14 +67,15 @@ public final class LifecycleChecker {
         for (LifecycleConsent c : ch.consents()) {
             if (!c.approved()) {
                 f.add(new LifecycleFinding("DISSENT", "partner " + c.partner().value() + " did not agree; the "
-                        + "change cannot proceed without every partner, and a partner who will not agree can only "
-                        + "leave by dissolution or replacement", "Bab XVI, XXV"));
+                        + "change cannot proceed without every partner. If the partner stays firm the syirkah is "
+                        + "dissolved, and those who agree may start a new syirkah under a new akad",
+                        "Bab XIV principles 6 to 8"));
             }
         }
         for (PartnerId p : required) {
             if (!approved.contains(p) && ch.consents().stream().noneMatch(c -> c.partner().equals(p))) {
                 f.add(new LifecycleFinding("CONSENT_MISSING", "no recorded consent from partner " + p.value(),
-                        "Bab XVI, XXIV, XXV"));
+                        "Bab XIV principle 8, XXIV, XXV"));
             }
         }
     }
