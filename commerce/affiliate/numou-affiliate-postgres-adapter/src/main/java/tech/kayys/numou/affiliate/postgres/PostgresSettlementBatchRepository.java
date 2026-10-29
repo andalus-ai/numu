@@ -134,6 +134,10 @@ public class PostgresSettlementBatchRepository implements SettlementBatchReposit
                 if (!sameIntent(current, replacement)) {
                     throw new IllegalArgumentException("Settlement batch intent and items are immutable");
                 }
+                if (!validTransition(current.status(), replacement.status())) {
+                    throw new IllegalStateException("Illegal settlement batch transition: "
+                            + current.status() + " -> " + replacement.status());
+                }
                 if (!replacement.updatedAt().isAfter(current.updatedAt())) {
                     throw new IllegalArgumentException("Batch update timestamp must advance");
                 }
@@ -290,8 +294,7 @@ public class PostgresSettlementBatchRepository implements SettlementBatchReposit
     }
 
     private static boolean sameIntent(SettlementBatch left, SettlementBatch right) {
-        if (!left.id().equals(right.id())
-                || !left.tenantId().equals(right.tenantId())
+        if (!left.tenantId().equals(right.tenantId())
                 || !left.currency().equals(right.currency())
                 || left.totalAmount().compareTo(right.totalAmount()) != 0
                 || !left.idempotencyKey().equals(right.idempotencyKey())
@@ -311,6 +314,19 @@ public class PostgresSettlementBatchRepository implements SettlementBatchReposit
                     || a.amount().compareTo(b.amount()) != 0 || !a.currency().equals(b.currency())) return false;
         }
         return true;
+    }
+
+    private static boolean validTransition(SettlementBatchStatus current, SettlementBatchStatus next) {
+        return switch (current) {
+            case READY_FOR_APPROVAL -> next == SettlementBatchStatus.APPROVED
+                    || next == SettlementBatchStatus.CANCELLED;
+            case APPROVED -> next == SettlementBatchStatus.SUBMITTING;
+            case SUBMITTING -> next == SettlementBatchStatus.COMPLETED
+                    || next == SettlementBatchStatus.PARTIALLY_COMPLETED
+                    || next == SettlementBatchStatus.RECONCILIATION_REQUIRED;
+            case PARTIALLY_COMPLETED -> next == SettlementBatchStatus.RECONCILIATION_REQUIRED;
+            case COMPLETED, CANCELLED, RECONCILIATION_REQUIRED -> false;
+        };
     }
 
     private static void rollback(Connection connection, Throwable failure) {
