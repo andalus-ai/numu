@@ -165,7 +165,7 @@ public final class PostgresInventoryRepository implements InventoryRepository {
             if(!sameReservationIdentity(current,updated))throw new IllegalArgumentException("Reservation identity and quantity are immutable");
             boolean valid=current.status()==ReservationStatus.ACTIVE
                 && (updated.status()==ReservationStatus.RELEASED||updated.status()==ReservationStatus.EXPIRED
-                    ||updated.status()==ReservationStatus.COMMITTED);
+                    );
             if(!valid)throw new IllegalStateException("Invalid reservation transition "+current.status()+" -> "+updated.status());
             try(PreparedStatement ps=c.prepareStatement("""
                 UPDATE inventory_reservations SET status=?,version=?
