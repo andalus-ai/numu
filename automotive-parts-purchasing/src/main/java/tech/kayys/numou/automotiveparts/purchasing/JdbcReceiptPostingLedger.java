@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * PostgreSQL-compatible JDBC implementation. Apply V1__receipt_posting_ledger.sql
+ * PostgreSQL-compatible JDBC implementation. Apply V1000__receipt_posting_ledger.sql and V1001__receipt_posting_worker_leases.sql
  * through the deployment's normal migration runner before enabling this adapter.
  */
 public final class JdbcReceiptPostingLedger implements ReceiptPostingLedger {
