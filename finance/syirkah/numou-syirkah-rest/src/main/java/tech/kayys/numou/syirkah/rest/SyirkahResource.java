@@ -97,6 +97,20 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/staff")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public java.util.List<StaffView> staff(@PathParam("id") String id) {
+        return api.staffContracts(id);
+    }
+
+    @POST
+    @Path("/{id}/staff")
+    @RolesAllowed(OPERATOR)
+    public Response engageStaff(@PathParam("id") String id, StaffRequest request) {
+        return Response.status(Response.Status.CREATED).entity(api.engageStaff(id, request)).build();
+    }
+
+    @GET
     @Path("/audit")
     @RolesAllowed({APPROVER, AUDITOR})
     public AuditView audit() {
