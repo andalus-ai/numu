@@ -187,6 +187,7 @@ public final class TransportCheckoutService {
             throw new IllegalStateException("refund failed; a new refund attempt requires operator review");
         }
         if (checkout.status() != TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                && checkout.status() != TransportCheckoutStatus.REFUND_REQUESTED
                 && checkout.status() != TransportCheckoutStatus.REFUND_PENDING) {
             throw new IllegalStateException("checkout is not eligible for compensation refund");
         }
@@ -197,7 +198,8 @@ public final class TransportCheckoutService {
         if (normalizedReason.isBlank() || normalizedReason.length() > 500) {
             throw new IllegalArgumentException("refund reason must contain 1-500 characters");
         }
-        if (checkout.status() == TransportCheckoutStatus.REFUND_PENDING) {
+        if (checkout.status() == TransportCheckoutStatus.REFUND_REQUESTED
+                || checkout.status() == TransportCheckoutStatus.REFUND_PENDING) {
             if (!normalizedReason.equals(checkout.refundReason())) {
                 throw new IllegalArgumentException("refund reason must match the original refund request");
             }
@@ -205,12 +207,17 @@ public final class TransportCheckoutService {
         }
         TransportPaymentPort.PaymentSnapshot payment = payments.find(tenantId, checkout.paymentId());
         verifyPayment(checkout, payment, true);
-        if (checkout.status() == TransportCheckoutStatus.RECONCILIATION_REQUIRED
-                && payment.status() != TransportPaymentPort.PaymentState.SUCCEEDED) {
-            throw new IllegalStateException("only a verified successful payment can be refunded for compensation");
+        if (checkout.status() == TransportCheckoutStatus.RECONCILIATION_REQUIRED) {
+            if (payment.status() != TransportPaymentPort.PaymentState.SUCCEEDED) {
+                throw new IllegalStateException("only a verified successful payment can be refunded for compensation");
+            }
+            // Persist the reason before crossing the Payment boundary. If the request times out
+            // after provider acceptance, retries can only replay the same semantic command.
+            checkout = saveOrReload(checkout, checkout.withRefundIntent(normalizedReason, clock.instant()));
+            normalizedReason = checkout.refundReason();
         }
-        // REFUND_PENDING retries use the persisted reason and same idempotency key to retrieve
-        // the existing refund operation, even if Payment has advanced beyond SUCCEEDED.
+        // REFUND_REQUESTED and REFUND_PENDING retries use the persisted reason and same key to
+        // retrieve the existing refund operation, even if Payment has advanced beyond SUCCEEDED.
         TransportPaymentPort.RefundSnapshot refund = payments.requestRefund(
                 new TransportPaymentPort.RefundCommand(tenantId, checkout.paymentId(),
                         refundKey(checkout.checkoutId()), checkout.amount(), normalizedReason));
@@ -342,6 +349,7 @@ public final class TransportCheckoutService {
                 || status == TransportCheckoutStatus.PAYMENT_FAILED
                 || status == TransportCheckoutStatus.CANCELLED
                 || status == TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                || status == TransportCheckoutStatus.REFUND_REQUESTED
                 || status == TransportCheckoutStatus.REFUND_PENDING
                 || status == TransportCheckoutStatus.REFUNDED
                 || status == TransportCheckoutStatus.REFUND_FAILED;
