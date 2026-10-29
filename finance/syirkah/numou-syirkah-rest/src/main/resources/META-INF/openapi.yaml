@@ -118,6 +118,26 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AuditView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/statements/balance-sheet:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Syirkah]
+      summary: Balance sheet (neraca) in the book's layout; the caller supplies assets and outside debts
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/BalanceSheetRequest"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/BalanceSheetView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/closes/{closeId}/income-statement:
+    parameters:
+      - {$ref: "#/components/parameters/Id"}
+      - {name: closeId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: name, in: query, required: false, schema: {type: string}}
+    get:
+      tags: [Syirkah]
+      summary: Profit and loss statement (laporan rugi laba) of one close
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IncomeStatementView"}}}}
+        default: {$ref: "#/components/responses/Error"}
   /rules:
     get:
       tags: [Syirkah]
@@ -459,6 +479,57 @@ components:
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/SummaryView"}}
         nextCursor: {type: string, format: uuid, nullable: true}
+    StatementLine:
+      type: object
+      properties:
+        group: {type: string}
+        label: {type: string}
+        amount: {type: number}
+    BalanceSheetRequest:
+      type: object
+      required: [asOf]
+      properties:
+        name: {type: string}
+        asOf: {type: string, format: date}
+        assets: {type: array, items: {$ref: "#/components/schemas/StatementLine"}, description: "group CURRENT or FIXED"}
+        liabilities: {type: array, items: {$ref: "#/components/schemas/StatementLine"}, description: "group SHORT_TERM or LONG_TERM"}
+    BalanceSheetView:
+      type: object
+      properties:
+        name: {type: string}
+        asOf: {type: string, format: date}
+        assets: {type: array, items: {$ref: "#/components/schemas/StatementLine"}}
+        partnerReceivable: {type: number}
+        totalAssets: {type: number}
+        liabilities: {type: array, items: {$ref: "#/components/schemas/StatementLine"}}
+        totalLiabilities: {type: number}
+        capital:
+          type: array
+          items:
+            type: object
+            properties:
+              partner: {type: string, format: uuid}
+              name: {type: string}
+              capital: {type: number}
+              profitPayable: {type: number}
+        unallocatedDeficit: {type: number}
+        totalCapital: {type: number}
+        totalLiabilitiesAndCapital: {type: number}
+        difference: {type: number}
+        balanced: {type: boolean}
+    IncomeStatementView:
+      type: object
+      properties:
+        name: {type: string}
+        periodStart: {type: string, format: date}
+        periodEnd: {type: string, format: date}
+        revenue: {type: number}
+        costOfGoodsSold: {type: number}
+        grossProfit: {type: number}
+        operatingCosts: {type: number}
+        otherCosts: {type: number}
+        netResult: {type: number}
+        result: {type: string, enum: [PROFIT, BREAK-EVEN, LOSS]}
     RuleView:
       type: object
       properties:
