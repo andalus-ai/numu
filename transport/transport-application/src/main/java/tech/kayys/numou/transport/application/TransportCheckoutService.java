@@ -74,7 +74,7 @@ public final class TransportCheckoutService {
         TransportCheckout proposed = new TransportCheckout(command.tenantId(), UUID.randomUUID(),
                 command.idempotencyKey(), fingerprint, command.departureId(), quote.quoteId(),
                 command.fromSequence(), command.toSequence(), command.passengerCount(),
-                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null, null, null, null,
+                quote.amount(), quote.currency(), holdExpiry, UUID.randomUUID(), null, null, null, null, null,
                 TransportCheckoutStatus.REQUESTED, 0, now, now);
         try {
             checkouts.create(proposed);
