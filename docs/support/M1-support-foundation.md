@@ -9,6 +9,7 @@ Harden the existing Support capability before adding more channels, automation, 
 ## Changes in these slices
 
 - Provide an explicit `customerVisibleComments()` projection that excludes internal agent notes.
+- Restrict internal-comment visibility in response mapping to support staff; customer and partner actors both receive public comments only.
 - Keep `comments()` as the complete domain history and document that it must not be serialized directly to a customer-facing response.
 - Validate the comment event timestamp before mutating the aggregate, so a rejected command cannot leave an in-memory ticket partially changed.
 - Route public ticket creation through `CreatePortalTicketHandler`; tenant and requester identity are derived from the authenticated actor context rather than client-controlled request fields.
@@ -24,7 +25,8 @@ Harden the existing Support capability before adding more channels, automation, 
 - [x] Public ticket creation no longer accepts caller-supplied tenant or requester identity.
 - [x] Comment writes check actor identity, comment permission, internal-note role, and ticket tenant.
 - [ ] Add application-level tests for allowed public comments, rejected cross-tenant writes, author spoofing, and customer attempts to create internal notes.
-- [ ] Every customer-facing ticket read model / endpoint uses a safe projection and never serializes the complete internal comment history.
+- [x] `TicketResponse` only includes internal comments for agent/manager/system actors; customer and partner response projections expose public comments only.
+- [ ] Audit every customer-facing ticket read endpoint and ensure access policy, requester ownership, and DTO mapping are enforced.
 - [x] Status, priority, and assignment handlers require authenticated support staff and enforce tenant ownership; resolving/closing additionally checks `TicketAccessPolicy.canResolve`.
 - [ ] Add application-level authorization tests for status, priority, and assignment denial cases; verify production actor-provider and access-policy wiring.
 - [ ] Public replies and internal notes have separate notification / outbound-delivery rules.
@@ -35,7 +37,7 @@ Harden the existing Support capability before adding more channels, automation, 
 
 ## Security note
 
-A domain projection is a defense-in-depth contract, not a substitute for API authorization or DTO mapping. Customer-facing handlers must explicitly map only approved fields and use `customerVisibleComments()`; they must not return a serialized `Ticket` aggregate.
+A domain projection is a defense-in-depth contract, not a substitute for API authorization or DTO mapping. Customer-facing handlers must explicitly map only approved fields and use `customerVisibleComments()` or an equivalent role-safe projection; they must not return a serialized `Ticket` aggregate.
 
 The public create endpoint is a customer-portal boundary. It derives tenant and requester from the authenticated actor. The generic `CreateTicketCommand` remains an application-level command for trusted, separately authorized workflows and must not be bound directly to a customer-facing HTTP request.
 

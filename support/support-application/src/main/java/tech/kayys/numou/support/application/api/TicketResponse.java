@@ -28,7 +28,7 @@ public record TicketResponse(
         UUID requesterId = ticket.requester() instanceof tech.kayys.numou.support.domain.ticket.Requester.Party party
                 ? party.participantId().value() : null;
         List<CommentResponse> visibleComments = ticket.comments().stream()
-                .filter(comment -> actorType != ActorType.CUSTOMER || !comment.internal())
+                .filter(comment -> mayViewInternalComments(actorType) || !comment.internal())
                 .map(CommentResponse::fromDomain)
                 .toList();
         return new TicketResponse(
@@ -43,6 +43,12 @@ public record TicketResponse(
                 ticket.getCreatedAt(),
                 ticket.getUpdatedAt(),
                 visibleComments);
+    }
+
+    private static boolean mayViewInternalComments(ActorType actorType) {
+        return actorType == ActorType.AGENT
+                || actorType == ActorType.MANAGER
+                || actorType == ActorType.SYSTEM;
     }
 
     public record CommentResponse(UUID id, String body, Instant createdAt) {
