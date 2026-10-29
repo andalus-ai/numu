@@ -3,9 +3,9 @@ package tech.kayys.numou.pos.adapter.outbox;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 import tech.kayys.numou.pos.application.port.out.PosOutboxOperations;
 
 import java.util.Map;
@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Low-cardinality metrics for delivery passes and durable outbox backlog states. */
 @ApplicationScoped
 public class PosOutboxMetrics {
+    private static final Logger LOG = Logger.getLogger(PosOutboxMetrics.class);
     private final MeterRegistry registry;
     private final PosOutboxOperations operations;
     private final AtomicLong pending = new AtomicLong();
@@ -30,7 +31,7 @@ public class PosOutboxMetrics {
         this.operations = operations;
     }
 
-    @PostConstruct
+    @jakarta.annotation.PostConstruct
     void register() {
         successfulPasses = Counter.builder("numou.pos.outbox.dispatch.passes")
                 .tag("outcome", "success").register(registry);
@@ -41,13 +42,16 @@ public class PosOutboxMetrics {
         Gauge.builder("numou.pos.outbox.events", inFlight, AtomicLong::get).tag("status", "in_flight").register(registry);
         Gauge.builder("numou.pos.outbox.events", published, AtomicLong::get).tag("status", "published").register(registry);
         Gauge.builder("numou.pos.outbox.events", dead, AtomicLong::get).tag("status", "dead").register(registry);
-        refreshBacklog();
     }
 
     public void passSucceeded(int count) {
         successfulPasses.increment();
         if (count > 0) publishedEvents.increment(count);
-        refreshBacklog();
+        try {
+            refreshBacklog();
+        } catch (RuntimeException failure) {
+            LOG.warn("Unable to refresh POS outbox backlog gauges", failure);
+        }
     }
 
     public void passFailed() {
