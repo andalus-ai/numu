@@ -6,8 +6,8 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * A queue-owned lifecycle around a source reference. It deliberately does not
- * mutate the referenced source record; application handlers coordinate that via ports.
+ * Queue-owned lifecycle around a source reference. Source records and their
+ * business outcomes remain owned by their originating capabilities.
  */
 public final class QueueEntry {
     public static final int MIN_PRIORITY = 0;
@@ -16,6 +16,7 @@ public final class QueueEntry {
     private final QueueEntryId id;
     private final TenantId tenantId;
     private final QueueId queueId;
+    private final QueueProfile profile;
     private final QueueSourceReference source;
     private final Instant enteredAt;
     private final int priority;
@@ -26,11 +27,16 @@ public final class QueueEntry {
     private Instant completedAt;
     private int callCount;
 
-    private QueueEntry(QueueEntryId id, TenantId tenantId, QueueId queueId,
-                       QueueSourceReference source, int priority, Instant enteredAt) {
+    private QueueEntry(QueueEntryId id, QueueDefinition queue, QueueSourceReference source,
+                       int priority, Instant enteredAt) {
         this.id = Objects.requireNonNull(id, "id must not be null");
-        this.tenantId = Objects.requireNonNull(tenantId, "tenantId must not be null");
-        this.queueId = Objects.requireNonNull(queueId, "queueId must not be null");
+        Objects.requireNonNull(queue, "queue must not be null");
+        if (!queue.acceptsEntries()) {
+            throw new IllegalStateException("Only active queues accept new entries");
+        }
+        this.tenantId = queue.tenantId();
+        this.queueId = queue.id();
+        this.profile = queue.profile();
         this.source = Objects.requireNonNull(source, "source must not be null");
         if (priority < MIN_PRIORITY || priority > MAX_PRIORITY) {
             throw new IllegalArgumentException("priority must be between 0 and 100");
@@ -43,14 +49,11 @@ public final class QueueEntry {
 
     public static QueueEntry join(QueueEntryId id, QueueDefinition queue,
                                   QueueSourceReference source, int priority, Instant enteredAt) {
-        Objects.requireNonNull(queue, "queue must not be null");
-        if (!queue.acceptsEntries()) {
-            throw new IllegalStateException("Only active queues accept new entries");
-        }
-        return new QueueEntry(id, queue.tenantId(), queue.id(), source, priority, enteredAt);
+        return new QueueEntry(id, queue, source, priority, enteredAt);
     }
 
     public void call(Instant now) {
+        requireProfile(QueueProfile.WAITING_SERVICE);
         requireStatus(QueueEntryStatus.WAITING);
         Instant at = monotonic(now);
         calledAt = at;
@@ -60,6 +63,7 @@ public final class QueueEntry {
     }
 
     public void startServing(Instant now) {
+        requireProfile(QueueProfile.WAITING_SERVICE);
         requireStatus(QueueEntryStatus.CALLED);
         Instant at = monotonic(now);
         servingStartedAt = at;
@@ -68,44 +72,87 @@ public final class QueueEntry {
     }
 
     public void complete(Instant now) {
+        requireProfile(QueueProfile.WAITING_SERVICE);
         requireStatus(QueueEntryStatus.SERVING);
-        Instant at = monotonic(now);
-        completedAt = at;
-        updatedAt = at;
-        status = QueueEntryStatus.COMPLETED;
+        finish(now);
+    }
+
+    /** Offer a dispatch item to an assignee; assignment identity belongs in the application layer. */
+    public void offer(Instant now) {
+        requireProfile(QueueProfile.DISPATCH);
+        requireStatus(QueueEntryStatus.WAITING);
+        updatedAt = monotonic(now);
+        status = QueueEntryStatus.OFFERED;
+    }
+
+    public void acceptOffer(Instant now) {
+        requireProfile(QueueProfile.DISPATCH);
+        requireStatus(QueueEntryStatus.OFFERED);
+        updatedAt = monotonic(now);
+        status = QueueEntryStatus.ACCEPTED;
+    }
+
+    public void rejectOffer(Instant now) {
+        requireProfile(QueueProfile.DISPATCH);
+        requireStatus(QueueEntryStatus.OFFERED);
+        updatedAt = monotonic(now);
+        status = QueueEntryStatus.REJECTED;
+    }
+
+    public void completeDispatch(Instant now) {
+        requireProfile(QueueProfile.DISPATCH);
+        requireStatus(QueueEntryStatus.ACCEPTED);
+        finish(now);
     }
 
     public void markNoShow(Instant now) {
+        requireProfile(QueueProfile.WAITING_SERVICE);
         requireStatus(QueueEntryStatus.CALLED);
         updatedAt = monotonic(now);
         status = QueueEntryStatus.NO_SHOW;
     }
 
     public void abandon(Instant now) {
-        if (status != QueueEntryStatus.WAITING && status != QueueEntryStatus.CALLED) {
-            throw new IllegalStateException("Only waiting or called entries can be abandoned");
+        if (status != QueueEntryStatus.WAITING && status != QueueEntryStatus.CALLED
+                && status != QueueEntryStatus.OFFERED && status != QueueEntryStatus.REJECTED) {
+            throw new IllegalStateException("Only unserved or unaccepted entries can be abandoned");
         }
         updatedAt = monotonic(now);
         status = QueueEntryStatus.ABANDONED;
     }
 
     public void transfer(Instant now) {
-        if (status != QueueEntryStatus.WAITING && status != QueueEntryStatus.CALLED) {
-            throw new IllegalStateException("Only waiting or called entries can be transferred");
+        if (status != QueueEntryStatus.WAITING && status != QueueEntryStatus.CALLED
+                && status != QueueEntryStatus.OFFERED && status != QueueEntryStatus.REJECTED) {
+            throw new IllegalStateException("Only unserved or unaccepted entries can be transferred");
         }
         updatedAt = monotonic(now);
         status = QueueEntryStatus.TRANSFERRED;
     }
 
     public void requeue(Instant now) {
-        if (status != QueueEntryStatus.CALLED && status != QueueEntryStatus.NO_SHOW) {
-            throw new IllegalStateException("Only called or no-show entries can be requeued");
+        if (status != QueueEntryStatus.CALLED && status != QueueEntryStatus.NO_SHOW
+                && status != QueueEntryStatus.OFFERED && status != QueueEntryStatus.REJECTED) {
+            throw new IllegalStateException("Only called, no-show, offered, or rejected entries can be requeued");
         }
         updatedAt = monotonic(now);
         calledAt = null;
         servingStartedAt = null;
         completedAt = null;
         status = QueueEntryStatus.WAITING;
+    }
+
+    private void finish(Instant now) {
+        Instant at = monotonic(now);
+        completedAt = at;
+        updatedAt = at;
+        status = QueueEntryStatus.COMPLETED;
+    }
+
+    private void requireProfile(QueueProfile expected) {
+        if (profile != expected) {
+            throw new IllegalStateException("Operation requires queue profile " + expected + " but was " + profile);
+        }
     }
 
     private void requireStatus(QueueEntryStatus expected) {
@@ -125,6 +172,7 @@ public final class QueueEntry {
     public QueueEntryId id() { return id; }
     public TenantId tenantId() { return tenantId; }
     public QueueId queueId() { return queueId; }
+    public QueueProfile profile() { return profile; }
     public QueueSourceReference source() { return source; }
     public Instant enteredAt() { return enteredAt; }
     public int priority() { return priority; }
@@ -135,7 +183,7 @@ public final class QueueEntry {
     public Instant completedAt() { return completedAt; }
     public int callCount() { return callCount; }
     public boolean isTerminal() {
-        return status == QueueEntryStatus.COMPLETED || status == QueueEntryStatus.NO_SHOW
-                || status == QueueEntryStatus.ABANDONED || status == QueueEntryStatus.TRANSFERRED;
+        return status == QueueEntryStatus.COMPLETED || status == QueueEntryStatus.ABANDONED
+                || status == QueueEntryStatus.TRANSFERRED;
     }
 }
