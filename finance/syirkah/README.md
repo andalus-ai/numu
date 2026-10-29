@@ -154,3 +154,11 @@ tenant RLS), one row per akad version.
 
 Limit: the heir's inherited capital is not transferred as a single movement. The ledger returns the deceased's capital
 (payable to the estate) and records the heir's contribution, so the cash side must be settled outside this module.
+
+## Trading syirkah
+
+`TradingResultCalculator` (Hukum Muamalah Bab XXII) turns a trading period into the `FinancialResult` the profit split
+starts from: cost of goods sold (HPP) = opening stock + net purchases - closing stock, and net sales and purchases
+after returns and discounts. It follows the book's periodic method, so the closing stock must be the counted stock;
+lost goods are not separated out and sit inside HPP. It refuses a closing stock larger than the goods available and
+returns or discounts larger than sales or purchases. It does not keep stock records or post journals.
