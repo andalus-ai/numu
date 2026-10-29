@@ -125,6 +125,34 @@ public class SyirkahApi {
         return CsvExport.closeReport(load(id).closeReport(cid(closeId, "closeId")));
     }
 
+    public BalanceSheetView balanceSheet(String id, BalanceSheetRequest r) {
+        Syirkah s = load(id);
+        Currency cur = s.contract().currency();
+        List<BookStatements.AssetLine> assets = new ArrayList<>();
+        for (StatementLineDto l : r.assets() == null ? List.<StatementLineDto>of() : r.assets()) {
+            assets.add(new BookStatements.AssetLine(SyirkahDtos.enumOf(BookStatements.AssetGroup.class, l.group(),
+                    "assets.group"), SyirkahDtos.required(l.label(), "assets.label"),
+                    SyirkahDtos.money(l.amount(), cur, "assets.amount")));
+        }
+        List<BookStatements.LiabilityLine> liabilities = new ArrayList<>();
+        for (StatementLineDto l : r.liabilities() == null ? List.<StatementLineDto>of() : r.liabilities()) {
+            liabilities.add(new BookStatements.LiabilityLine(SyirkahDtos.enumOf(BookStatements.LiabilityGroup.class,
+                    l.group(), "liabilities.group"), SyirkahDtos.required(l.label(), "liabilities.label"),
+                    SyirkahDtos.money(l.amount(), cur, "liabilities.amount")));
+        }
+        return SyirkahDtos.balanceSheet(BookStatements.balanceSheet(s, statementName(r.name(), id),
+                SyirkahDtos.required(r.asOf(), "asOf"), assets, liabilities));
+    }
+
+    public IncomeStatementView incomeStatement(String id, String closeId, String name) {
+        return SyirkahDtos.incomeStatement(BookStatements.incomeStatement(statementName(name, id),
+                load(id).close(cid(closeId, "closeId"))));
+    }
+
+    private static String statementName(String name, String id) {
+        return name == null || name.isBlank() ? "Syirkah " + id : name;
+    }
+
     public AuditView audit() {
         SyirkahIntegrityAuditor.Report r = auditor.audit(tenant());
         return new AuditView(r.checked(), r.ok(), r.findings().stream()
