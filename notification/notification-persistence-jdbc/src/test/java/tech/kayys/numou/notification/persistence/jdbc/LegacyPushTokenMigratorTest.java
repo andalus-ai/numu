@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,11 +56,13 @@ class LegacyPushTokenMigratorTest {
         assertEquals(2, first.scanned());
         assertEquals(2, first.migrated());
         assertEquals(1, first.remaining());
+        assertFalse(first.complete());
 
         var second = migrator.migrateBatch(2);
         assertEquals(1, second.scanned());
         assertEquals(1, second.migrated());
         assertEquals(0, second.remaining());
+        assertTrue(second.complete());
 
         try (var connection = dataSource.getConnection();
              var statement = connection.createStatement();
@@ -72,6 +75,22 @@ class LegacyPushTokenMigratorTest {
             assertTrue(rows.next());
             assertEquals(0, rows.getInt("plaintext"));
             assertEquals(3, rows.getInt("encrypted"));
+        }
+        try (var connection = dataSource.getConnection();
+             var statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery("""
+                     SELECT tenant_id, recipient_id, provider_token, provider_token_ciphertext, provider_token_key_id
+                     FROM notification_push_device
+                     """)) {
+            Set<String> decrypted = new java.util.HashSet<>();
+            while (rows.next()) {
+                assertNull(rows.getString("provider_token"));
+                decrypted.add(protector.reveal(rows.getObject("tenant_id", UUID.class),
+                        rows.getObject("recipient_id", UUID.class),
+                        rows.getString("provider_token_key_id"),
+                        rows.getString("provider_token_ciphertext")));
+            }
+            assertEquals(Set.of("legacy-token-one", "legacy-token-two", "legacy-token-three"), decrypted);
         }
         try (var connection = dataSource.getConnection();
              var statement = connection.createStatement();
