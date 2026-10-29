@@ -862,6 +862,23 @@ public class Syirkah extends AbstractAggregateRoot<SyirkahId> {
         touch(now);
     }
 
+    /**
+     * Records that a partner died, as an event. It changes no balance: the books are closed up to the date of
+     * death by an ordinary close, and the akad continues only as a new version ({@link #reviseContract}), so a
+     * death is never a silent edit (Bab X, roadmap gate C).
+     */
+    public void recordPartnerDeath(PartnerId partner, LocalDate diedOn, Instant now) {
+        Objects.requireNonNull(partner, "partner");
+        Objects.requireNonNull(diedOn, "diedOn");
+        Objects.requireNonNull(now, "now");
+        requireActive();
+        if (!contract().hasPartner(partner)) {
+            throw new BusinessRuleViolation("not a partner of the current akad: " + partner.value());
+        }
+        raise(new SyirkahEvents.PartnerDied(UUID.randomUUID(), now, id(), partner, diedOn));
+        touch(now);
+    }
+
     // ------------------------------------------------------------------ correction
 
     /**
