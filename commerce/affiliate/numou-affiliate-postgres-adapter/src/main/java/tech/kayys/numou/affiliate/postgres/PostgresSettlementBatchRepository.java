@@ -69,7 +69,7 @@ public class PostgresSettlementBatchRepository implements SettlementBatchReposit
                     if (stored.isEmpty()) {
                         throw new IllegalStateException("Batch insert conflicted but existing batch was not found");
                     }
-                    if (!sameIntent(stored.get(), proposed)) {
+                    if (!sameRequest(stored.get(), proposed)) {
                         throw new IllegalStateException(
                                 "Idempotency key was already used for a different settlement batch");
                     }
@@ -293,19 +293,31 @@ public class PostgresSettlementBatchRepository implements SettlementBatchReposit
                 rs.getTimestamp("updated_at").toInstant(), rs.getLong("version"));
     }
 
+    private static boolean sameRequest(SettlementBatch left, SettlementBatch right) {
+        return left.tenantId().equals(right.tenantId())
+                && left.currency().equals(right.currency())
+                && left.totalAmount().compareTo(right.totalAmount()) == 0
+                && left.idempotencyKey().equals(right.idempotencyKey())
+                && left.createdBy().equals(right.createdBy())
+                && sameItems(left.items(), right.items());
+    }
+
     private static boolean sameIntent(SettlementBatch left, SettlementBatch right) {
-        if (!left.tenantId().equals(right.tenantId())
-                || !left.currency().equals(right.currency())
-                || left.totalAmount().compareTo(right.totalAmount()) != 0
-                || !left.idempotencyKey().equals(right.idempotencyKey())
-                || !left.createdBy().equals(right.createdBy())
-                || !left.createdAt().equals(right.createdAt())
-                || left.items().size() != right.items().size()) {
-            return false;
-        }
-        List<SettlementBatchItem> leftItems = left.items().stream()
+        return left.id().equals(right.id())
+                && left.tenantId().equals(right.tenantId())
+                && left.currency().equals(right.currency())
+                && left.totalAmount().compareTo(right.totalAmount()) == 0
+                && left.idempotencyKey().equals(right.idempotencyKey())
+                && left.createdBy().equals(right.createdBy())
+                && left.createdAt().equals(right.createdAt())
+                && sameItems(left.items(), right.items());
+    }
+
+    private static boolean sameItems(List<SettlementBatchItem> left, List<SettlementBatchItem> right) {
+        if (left.size() != right.size()) return false;
+        List<SettlementBatchItem> leftItems = left.stream()
                 .sorted(Comparator.comparing(item -> item.payoutId().toString())).toList();
-        List<SettlementBatchItem> rightItems = right.items().stream()
+        List<SettlementBatchItem> rightItems = right.stream()
                 .sorted(Comparator.comparing(item -> item.payoutId().toString())).toList();
         for (int i = 0; i < leftItems.size(); i++) {
             SettlementBatchItem a = leftItems.get(i);
