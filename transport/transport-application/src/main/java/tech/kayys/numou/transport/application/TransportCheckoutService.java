@@ -155,9 +155,12 @@ public final class TransportCheckoutService {
         }
         TransportPaymentPort.PaymentSnapshot payment = payments.find(tenantId, checkout.paymentId());
         verifyPayment(checkout, payment, true);
-        if (payment.status() != TransportPaymentPort.PaymentState.SUCCEEDED) {
+        if (checkout.status() == TransportCheckoutStatus.RECONCILIATION_REQUIRED
+                && payment.status() != TransportPaymentPort.PaymentState.SUCCEEDED) {
             throw new IllegalStateException("only a verified successful payment can be refunded for compensation");
         }
+        // REFUND_PENDING retries use the same refund idempotency key to retrieve the existing
+        // refund operation. The payment may already reflect a refund and no longer be SUCCEEDED.
         TransportPaymentPort.RefundSnapshot refund = payments.requestRefund(
                 new TransportPaymentPort.RefundCommand(tenantId, checkout.paymentId(),
                         refundKey(checkout.checkoutId()), checkout.amount(), reason));
