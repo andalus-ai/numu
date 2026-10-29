@@ -30,6 +30,21 @@ class QueueDefinitionTest {
     }
 
     @Test
+    void reconstitutesPausedAndClosedQueueStatus() {
+        var paused = QueueDefinition.reconstitute(QueueId.generate(), TenantId.generate(),
+                "Q-PAUSED", "Paused queue", QueueProfile.DISPATCH,
+                QueueOrderingPolicy.PRIORITY_THEN_ARRIVAL, QueueStatus.PAUSED);
+        var closed = QueueDefinition.reconstitute(QueueId.generate(), TenantId.generate(),
+                "Q-CLOSED", "Closed queue", QueueProfile.DISPATCH,
+                QueueOrderingPolicy.FIFO, QueueStatus.CLOSED);
+
+        assertThat(paused.status()).isEqualTo(QueueStatus.PAUSED);
+        assertThat(paused.acceptsEntries()).isFalse();
+        assertThat(closed.status()).isEqualTo(QueueStatus.CLOSED);
+        assertThat(closed.acceptsEntries()).isFalse();
+    }
+
+    @Test
     void rejectsInvalidCodesAndNames() {
         assertThatIllegalArgumentException().isThrownBy(() ->
                 QueueDefinition.create(QueueId.generate(), TenantId.generate(), "invalid code",
