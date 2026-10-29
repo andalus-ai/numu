@@ -152,7 +152,7 @@ class PgTransportCheckoutRepositoryTest {
     private static TransportCheckout checkout(String tenant, UUID id, String key) {
         return new TransportCheckout(tenant, id, key, "a".repeat(64), UUID.randomUUID(), "quote-1",
                 1, 3, 2, new java.math.BigDecimal("125000.00"), "IDR",
-                NOW.plusSeconds(900), UUID.randomUUID(), null, null, null, null,
+                NOW.plusSeconds(900), UUID.randomUUID(), null, null, null, null, null,
                 TransportCheckoutStatus.REQUESTED, 0, NOW, NOW);
     }
 
