@@ -45,7 +45,7 @@ class QueueCommandServiceTest {
         assertEquals(queueId, entry.queueId());
         assertSame(entry, repository.entries.get(entry.id()));
         assertEquals(1, transaction.lastResult.auditRecords().size());
-        assertEquals(1, transaction.lastResult.events().size());
+        assertEquals(1, transaction.lastResult.events().size());\n        assertEquals(64, transaction.lastRequestHash.length());
     }
 
     @Test
@@ -85,7 +85,7 @@ class QueueCommandServiceTest {
     }
 
     private static final class DirectTransaction implements QueueCommandTransactionPort {
-        private QueueCommandResult<?> lastResult;
+        private QueueCommandResult<?> lastResult;\n        private String lastRequestHash;
         @Override public <T> T execute(QueueCommandContext context, String scope,
                                       Supplier<QueueCommandResult<T>> work) {
             QueueCommandResult<T> result = work.get();

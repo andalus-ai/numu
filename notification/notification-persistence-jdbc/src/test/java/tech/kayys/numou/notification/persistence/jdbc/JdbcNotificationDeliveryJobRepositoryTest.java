@@ -6,14 +6,18 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tech.kayys.numou.notification.application.port.PushTokenProtector;
 import tech.kayys.numou.notification.domain.Notification;
 import tech.kayys.numou.notification.domain.NotificationDeliveryJob;
 import tech.kayys.numou.notification.domain.PushDevice;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,7 +41,7 @@ class JdbcNotificationDeliveryJobRepositoryTest {
         executeMigrations(dataSource);
         repository = new JdbcNotificationDeliveryJobRepository(dataSource);
         notifications = new JdbcNotificationRepository(dataSource);
-        devices = new JdbcPushDeviceRepository(dataSource);
+        devices = new JdbcPushDeviceRepository(dataSource, protector());
     }
 
     @Test
@@ -128,6 +132,17 @@ class JdbcNotificationDeliveryJobRepositoryTest {
                 f.device().id(), "FCM", key, now);
     }
 
+    private PushTokenProtector protector() {
+        SecretKey key = new SecretKeySpec(new byte[32], "AES");
+        PushTokenKeyProvider keys = new PushTokenKeyProvider() {
+            public KeyMaterial activeKey() { return new KeyMaterial("test-key-v1", key); }
+            public Optional<SecretKey> keyFor(String keyId) {
+                return "test-key-v1".equals(keyId) ? Optional.of(key) : Optional.empty();
+            }
+        };
+        return new AesGcmPushTokenProtector(keys);
+    }
+
     private static void executeMigrations(DataSource dataSource) throws Exception {
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS notification_delivery_job CASCADE");
@@ -137,7 +152,8 @@ class JdbcNotificationDeliveryJobRepositoryTest {
         for (String migration : List.of(
                 "V1__notification_inbox.sql",
                 "V2__notification_push_device.sql",
-                "V3__notification_delivery_jobs.sql")) {
+                "V3__notification_delivery_jobs.sql",
+                "V4__notification_push_token_encryption.sql")) {
             String sql;
             try (var stream = JdbcNotificationDeliveryJobRepositoryTest.class
                     .getResourceAsStream("/db/migration/" + migration)) {
