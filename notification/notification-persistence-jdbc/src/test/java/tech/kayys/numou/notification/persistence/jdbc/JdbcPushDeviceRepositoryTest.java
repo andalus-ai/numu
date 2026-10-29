@@ -7,6 +7,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tech.kayys.numou.notification.domain.PushDevice;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.sql.ResultSet;
+import java.util.Optional;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +34,7 @@ class JdbcPushDeviceRepositoryTest {
         dataSource.setUser(POSTGRES.getUsername());
         dataSource.setPassword(POSTGRES.getPassword());
         executeMigration(dataSource);
-        repository = new JdbcPushDeviceRepository(dataSource);
+        repository = new JdbcPushDeviceRepository(dataSource, protector());
     }
 
     @Test
@@ -80,6 +84,23 @@ class JdbcPushDeviceRepositoryTest {
     }
 
     @Test
+    void providerTokenIsEncryptedAtRestAndRoundTripsForOwner() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        UUID recipient = UUID.randomUUID();
+        PushDevice saved = repository.registerOrRefresh(device(tenant, recipient, "high-entropy-token", now));
+
+        try (var connection = POSTGRES.createConnection(""); var statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery("SELECT provider_token, provider_token_ciphertext, provider_token_key_id FROM notification_push_device WHERE id = '" + saved.id() + "'")) {
+            assertTrue(rows.next());
+            assertNull(rows.getString("provider_token"));
+            assertNotEquals("high-entropy-token", rows.getString("provider_token_ciphertext"));
+            assertEquals("test-key-v1", rows.getString("provider_token_key_id"));
+        }
+        assertEquals("high-entropy-token",
+                repository.findActiveByRecipient(tenant, recipient).getFirst().token());
+    }
+
+    @Test
     void activeDeviceListingIsTenantAndRecipientScoped() {
         UUID tenant = UUID.randomUUID();
         UUID recipient = UUID.randomUUID();
@@ -95,17 +116,33 @@ class JdbcPushDeviceRepositoryTest {
         return PushDevice.register(tenant, recipient, token, PushDevice.Platform.ANDROID, "test-app", time);
     }
 
+    private PushTokenProtector protector() {
+        SecretKey key = new SecretKeySpec(new byte[32], "AES");
+        PushTokenKeyProvider keys = new PushTokenKeyProvider() {
+            public KeyMaterial activeKey() { return new KeyMaterial("test-key-v1", key); }
+            public Optional<SecretKey> keyFor(String keyId) {
+                return "test-key-v1".equals(keyId) ? Optional.of(key) : Optional.empty();
+            }
+        };
+        return new AesGcmPushTokenProtector(keys);
+    }
+
     private static void executeMigration(DataSource dataSource) throws Exception {
-        String sql;
-        try (var stream = JdbcPushDeviceRepositoryTest.class
-                .getResourceAsStream("/db/migration/V2__notification_push_device.sql")) {
-            if (stream == null) throw new IllegalStateException("Push device migration resource missing");
-            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        }
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS notification_push_device CASCADE");
-            for (String command : sql.split(";")) {
-                if (!command.isBlank()) statement.execute(command);
+        }
+        for (String resource : new String[]{
+                "/db/migration/V2__notification_push_device.sql",
+                "/db/migration/V4__notification_push_token_encryption.sql"}) {
+            String sql;
+            try (var stream = JdbcPushDeviceRepositoryTest.class.getResourceAsStream(resource)) {
+                if (stream == null) throw new IllegalStateException("Migration resource missing: " + resource);
+                sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                for (String command : sql.split(";")) {
+                    if (!command.isBlank()) statement.execute(command);
+                }
             }
         }
     }
