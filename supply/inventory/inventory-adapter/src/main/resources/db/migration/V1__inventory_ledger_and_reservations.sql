@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS inventory_command_receipts (
     command_key VARCHAR(200) NOT NULL,
     command_type VARCHAR(40) NOT NULL,
     payload_fingerprint CHAR(64) NOT NULL,
-    result_ids TEXT NOT NULL,
+    result_ids TEXT[] NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (tenant_id, command_scope, command_key)
 );
