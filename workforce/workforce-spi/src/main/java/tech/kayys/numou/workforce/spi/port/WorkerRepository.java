@@ -18,4 +18,11 @@ public interface WorkerRepository extends Repository<Worker, WorkerId> {
      * Looks up a worker by their cross-domain person reference.
      */
     CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef personRef);
+
+    /**
+     * Finds a worker only when both its identifier and owning tenant match.
+     * Use this overload at tenant-scoped application boundaries instead of
+     * the generic repository's unscoped identifier lookup.
+     */
+    CompletionStage<Optional<Worker>> findById(TenantId tenantId, WorkerId workerId);
 }
