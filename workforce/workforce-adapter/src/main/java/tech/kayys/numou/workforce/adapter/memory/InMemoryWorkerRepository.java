@@ -6,33 +6,53 @@ import tech.kayys.numou.workforce.domain.worker.Worker;
 import tech.kayys.numou.workforce.domain.worker.WorkerId;
 import tech.kayys.numou.workforce.spi.port.WorkerRepository;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * In-memory test/development adapter. Mutations are synchronized so the primary
+ * aggregate map and the tenant/person uniqueness index change as one operation.
+ */
 public final class InMemoryWorkerRepository implements WorkerRepository {
 
-    private final Map<WorkerId, Worker> workersById = new ConcurrentHashMap<>();
-    private final Map<TenantPersonKey, WorkerId> idsByPerson = new ConcurrentHashMap<>();
+    private final Map<WorkerId, Worker> workersById = new HashMap<>();
+    private final Map<TenantPersonKey, WorkerId> idsByPerson = new HashMap<>();
 
     @Override
-    public CompletionStage<Worker> save(Worker worker) {
+    public synchronized CompletionStage<Worker> save(Worker worker) {
         Objects.requireNonNull(worker, "worker cannot be null");
+
+        var newKey = new TenantPersonKey(worker.tenantId(), worker.person());
+        var indexedWorkerId = idsByPerson.get(newKey);
+        if (indexedWorkerId != null && !indexedWorkerId.equals(worker.id())) {
+            throw new IllegalStateException("A worker already exists for this tenant and person");
+        }
+
+        var previous = workersById.get(worker.id());
+        if (previous != null) {
+            var previousKey = new TenantPersonKey(previous.tenantId(), previous.person());
+            if (!previousKey.equals(newKey)) {
+                idsByPerson.remove(previousKey, worker.id());
+            }
+        }
+
         workersById.put(worker.id(), worker);
-        idsByPerson.put(new TenantPersonKey(worker.tenantId(), worker.person()), worker.id());
+        idsByPerson.put(newKey, worker.id());
         return CompletableFuture.completedFuture(worker);
     }
 
     @Override
-    public CompletionStage<Optional<Worker>> findById(WorkerId id) {
+    public synchronized CompletionStage<Optional<Worker>> findById(WorkerId id) {
+        Objects.requireNonNull(id, "id cannot be null");
         return CompletableFuture.completedFuture(Optional.ofNullable(workersById.get(id)));
     }
 
     @Override
-    public CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef personRef) {
+    public synchronized CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef personRef) {
         Objects.requireNonNull(tenantId, "tenantId cannot be null");
         Objects.requireNonNull(personRef, "personRef cannot be null");
         var id = idsByPerson.get(new TenantPersonKey(tenantId, personRef));
@@ -42,25 +62,30 @@ public final class InMemoryWorkerRepository implements WorkerRepository {
     }
 
     @Override
-    public CompletionStage<Boolean> existsById(WorkerId id) {
+    public synchronized CompletionStage<Boolean> existsById(WorkerId id) {
+        Objects.requireNonNull(id, "id cannot be null");
         return CompletableFuture.completedFuture(workersById.containsKey(id));
     }
 
     @Override
-    public CompletionStage<Void> delete(Worker worker) {
+    public synchronized CompletionStage<Void> delete(Worker worker) {
         Objects.requireNonNull(worker, "worker cannot be null");
-        workersById.remove(worker.id());
-        idsByPerson.remove(new TenantPersonKey(worker.tenantId(), worker.person()));
-        return CompletableFuture.completedFuture(null);
+        return deleteStoredWorker(worker.id());
     }
 
     @Override
-    public CompletionStage<Void> deleteById(WorkerId id) {
+    public synchronized CompletionStage<Void> deleteById(WorkerId id) {
+        Objects.requireNonNull(id, "id cannot be null");
+        return deleteStoredWorker(id);
+    }
+
+    private CompletionStage<Void> deleteStoredWorker(WorkerId id) {
         var removed = workersById.remove(id);
         if (removed != null) {
-            idsByPerson.remove(new TenantPersonKey(removed.tenantId(), removed.person()));
+            idsByPerson.remove(new TenantPersonKey(removed.tenantId(), removed.person()), id);
         }
         return CompletableFuture.completedFuture(null);
     }
+
     private record TenantPersonKey(TenantId tenantId, PersonRef personRef) { }
 }
