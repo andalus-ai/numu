@@ -1,6 +1,6 @@
 # POS Platform M2: Durable sale storage and idempotency
 
-**Status:** Proposed for review; verify against the full Maven reactor and PostgreSQL integration tests before production use.  
+**Status:** Implemented in code; PostgreSQL integration verification added in the follow-up milestone. Do not treat as production-certified until the commerce reactor and Docker-backed tests pass.  
 **Roadmap:** [Issue #1102](https://github.com/andalus-ai/numu/issues/1102)
 
 ## Ownership and boundary
@@ -14,6 +14,7 @@ POS owns sale lifecycle state and sale-time line snapshots. The application owns
 - A unique database constraint serializes concurrent attempts for the same key. The command reservation, sale mutation, and completed response are intended to participate in one JTA transaction; an exception rolls the transaction back.
 - Flyway migration for sale rows and idempotency rows.
 - PostgreSQL JDBC and Flyway runtime dependencies.
+- Shared foundation `Money` and `Currency` value objects are the canonical money representation; POS must not introduce a duplicate.
 
 ## Transaction assumptions
 
@@ -29,9 +30,21 @@ V1__pos_sale_storage.sql defines:
 
 Flyway migration-at-start is enabled for this service configuration. Production rollout must ensure the database role has the required migration privileges, backups are current, and schema migration is controlled through the deployment process.
 
+## Integration coverage added
+
+The adapter module now has a Docker-backed PostgreSQL test resource and integration tests for:
+- JSON round-trip of a sale line using the shared foundation Money/Currency type.
+- Tenant isolation for sale lookup.
+- Optimistic version conflicts.
+- Concurrent requests using the same idempotency key executing the business supplier once and replaying the stored result.
+- Request-fingerprint conflicts.
+- Transaction rollback when a command fails after writing the sale but before completing idempotency.
+
+The tests intentionally use a real PostgreSQL container because mocks cannot establish PostgreSQL unique-index locking, JSONB serialization, or transaction enlistment behavior. They require Docker or a compatible Testcontainers runtime.
+
 ## Verification still required
 
-- Build the commerce Maven reactor and run POS application tests.
-- Run PostgreSQL-backed integration tests for JSON serialization, optimistic conflicts, concurrent duplicate commands, rollback, and tenant isolation.
+- Run `mvn -pl commerce/pos -am test` from the `core/framework` Maven reactor root (confirm the exact reactor invocation against the checkout before relying on it).
+- Run the adapter integration tests with Docker available and inspect any failures before considering the transaction guarantee verified.
 - Verify the Quarkus version's JDBC/Flyway dependency alignment and the application's actual datasource configuration.
 - Add a durable outbox/audit trail before publishing external effects; this milestone intentionally does not call payment, inventory, tax, or accounting systems.
