@@ -158,7 +158,8 @@ public final class TransportCheckoutService {
                 failedCheckoutIds.add(checkout.checkoutId());
                 try {
                     TransportCheckout latest = checkouts.find(checkout.tenantId(), checkout.checkoutId()).orElse(null);
-                    if (latest != null && latest.status() == TransportCheckoutStatus.REFUND_PENDING) {
+                    if (latest != null && (latest.status() == TransportCheckoutStatus.REFUND_REQUESTED
+                            || latest.status() == TransportCheckoutStatus.REFUND_PENDING)) {
                         checkouts.save(latest.withStatus(latest.status(), clock.instant()), latest.version());
                     }
                 } catch (RuntimeException retryCursorFailure) {
