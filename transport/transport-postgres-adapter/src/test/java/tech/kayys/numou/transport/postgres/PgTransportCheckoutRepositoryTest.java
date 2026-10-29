@@ -42,6 +42,7 @@ class PgTransportCheckoutRepositoryTest {
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         executeMigration("/db/migration/V2__transport_checkout.sql");
         executeMigration("/db/migration/V3__transport_checkout_reconciliation_index.sql");
+        executeMigration("/db/migration/V4__transport_checkout_refund.sql");
     }
 
     private static void executeMigration(String resource) throws IOException, SQLException {
