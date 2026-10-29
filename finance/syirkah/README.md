@@ -155,10 +155,10 @@ tenant RLS), one row per akad version.
 Limit: the heir's inherited capital is not transferred as a single movement. The ledger returns the deceased's capital
 (payable to the estate) and records the heir's contribution, so the cash side must be settled outside this module.
 
-## Trading syirkah
+## Staff contracts (ijarah)
 
-`TradingResultCalculator` (Hukum Muamalah Bab XXII) turns a trading period into the `FinancialResult` the profit split
-starts from: cost of goods sold (HPP) = opening stock + net purchases - closing stock, and net sales and purchases
-after returns and discounts. It follows the book's periodic method, so the closing stock must be the counted stock;
-lost goods are not separated out and sit inside HPP. It refuses a closing stock larger than the goods available and
-returns or discounts larger than sales or purchases. It does not keep stock records or post journals.
+`StaffContractChecker` (Hukum Muamalah Bab XIV principle 10, XVI section D, XVII) checks a staff contract against the
+syirkah's akad: the employer must be the syirkah and not one partner acting for himself (batil); a partner who manages
+or works in the syirkah cannot be salaried; the kind of work, period and effort must be stated; the wage must be a
+fixed nominal amount in the syirkah's currency (a share of sales or profit is rejected as unclear); extra (ja'li)
+clauses need a recorded lawfulness review. It is a pure check: staff contracts are not yet stored or exposed over REST.

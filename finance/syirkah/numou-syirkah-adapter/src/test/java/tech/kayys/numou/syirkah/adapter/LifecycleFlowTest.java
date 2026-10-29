@@ -42,6 +42,7 @@ class LifecycleFlowTest {
     private final TenantId tenant = TenantId.generate();
     private final InMemorySyirkahRepository repo = new InMemorySyirkahRepository();
     private final InMemoryLifecycleRecordPort records = new InMemoryLifecycleRecordPort();
+    private final CollectingEventPublisher published = new CollectingEventPublisher();
     private final SyirkahAccountMap accounts = new SyirkahAccountMap(Map.of(
             SyirkahPostingPlan.AccountRole.CASH, "1100",
             SyirkahPostingPlan.AccountRole.PARTNER_CAPITAL, "3100",
@@ -49,7 +50,7 @@ class LifecycleFlowTest {
             SyirkahPostingPlan.AccountRole.PERIOD_RESULT, "3900",
             SyirkahPostingPlan.AccountRole.PARTNER_RECEIVABLE, "1300"));
     private final SyirkahApplicationService service = new SyirkahApplicationService(repo,
-            new InMemoryJournalPostingPort(), new CollectingEventPublisher(), new LocalTransactionPort(), accounts,
+            new InMemoryJournalPostingPort(), published, new LocalTransactionPort(), accounts,
             Clock.system(ZoneOffset.UTC), FormationEnforcement.OFF, null, records);
 
     private static Money idr(long v) {
@@ -100,6 +101,11 @@ class LifecycleFlowTest {
         assertEquals(1, kept.size());
         assertEquals(2, kept.get(0).contractVersion());
         assertEquals(death, kept.get(0).change());
+        var died = published.events().stream().filter(e -> e instanceof SyirkahEvents.PartnerDied)
+                .map(e -> (SyirkahEvents.PartnerDied) e).toList();
+        assertEquals(1, died.size());
+        assertEquals(B, died.get(0).partner());
+        assertEquals(JAN31, died.get(0).diedOn());
     }
 
     @Test
@@ -111,5 +117,6 @@ class LifecycleFlowTest {
                 new Commands.ReviseContract(tenant, id, v(2, A, C, FEB1), Set.of()), noHeirDecision));
         assertEquals(1, repo.find(tenant, id).orElseThrow().contract().version());
         assertEquals(List.of(), records.list(tenant, id));
+        assertTrue(published.events().stream().noneMatch(e -> e instanceof SyirkahEvents.PartnerDied));
     }
 }

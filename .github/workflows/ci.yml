@@ -32,6 +32,64 @@ jobs:
       - name: Enforce declared capability dependency directions
         run: python3 tools/verify-capability-boundaries.py
 
+  wallet-postgres-integration:
+    name: Wallet PostgreSQL integration
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: numou
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d numou"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation capabilities
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Verify and install Geo capability
+        run: mvn -B -ntp -f geo/pom.xml install
+      - name: Build and install cache contracts
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
+      - name: Build and install observability contracts
+        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install security capability
+        run: mvn -B -ntp -f security/pom.xml install
+      - name: Build and install framework reactor
+        run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Run Mobility and neutral wallet PostgreSQL integration tests
+        env:
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_NAME: numou_mobility_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_SSLMODE: disable
+        run: |
+          PGPASSWORD=postgres createdb -h localhost -U postgres numou_mobility_test
+          mvn -B -ntp -f mobility/pom.xml -Ppg-integration verify
+      - name: Upload wallet PostgreSQL test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallet-postgres-integration-reports
+          path: "mobility/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
+
   framework-and-logistics:
     name: Framework and Courier/Cargo verification
     runs-on: ubuntu-24.04
@@ -118,22 +176,8 @@ jobs:
         run: mvn -B -ntp -f documents/pom.xml verify
       - name: Build and install full security reactor
         run: mvn -B -ntp -f security/pom.xml install
-      - name: Verify Mobility reactor and wallet PostgreSQL invariants
-        id: mobility_verify
-        # Mobility is an independent reactor. Preserve the failure result, but let
-        # identity/organization/supply/logistics verification run so one capability
-        # cannot hide regressions in another.
-        continue-on-error: true
-        env:
-          DB_HOST: localhost
-          DB_PORT: "5432"
-          DB_NAME: numou_mobility_test
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_SSLMODE: disable
-        run: |
-          PGPASSWORD=postgres createdb -h localhost -U postgres numou_mobility_test
-          mvn -B -ntp -f mobility/pom.xml -Ppg-integration verify
+      # Wallet PostgreSQL integration is isolated in its own job so failures in unrelated
+      # capabilities cannot prevent this verification from running.
       # Install identity artifacts without running identity tests here. This
       # bootstrap is a prerequisite for downstream reactors, not the identity
       # verification gate; an identity test failure must not hide Courier results.
@@ -167,11 +211,8 @@ jobs:
         run: mvn -B -ntp -f identity/pom.xml verify
       # Fail only after independent capability verification has had its chance.
       - name: Propagate isolated capability verification failures
-        if: always() && (steps.mobility_verify.outcome == 'failure' || steps.identity_verify.outcome == 'failure' || steps.supply_verify.outcome == 'failure')
+        if: always() && (steps.identity_verify.outcome == 'failure' || steps.supply_verify.outcome == 'failure')
         run: |
-          if [ "${{ steps.mobility_verify.outcome }}" = "failure" ]; then
-            echo "::error::Mobility reactor verification failed; see the Mobility step above."
-          fi
           if [ "${{ steps.identity_verify.outcome }}" = "failure" ]; then
             echo "::error::Identity reactor verification failed; see the identity verification step above."
           fi
