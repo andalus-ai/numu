@@ -64,7 +64,7 @@ public final class LegacyPushTokenMigrator {
             }
         } catch (SQLException failure) {
             recordFailure(batchId, startedAt, scanned);
-            throw new IllegalStateException("Legacy push-token migration batch failed", failure);
+            throw new IllegalStateException("Legacy push-token migration batch failed");
         }
     }
 
