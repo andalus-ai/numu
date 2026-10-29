@@ -14,51 +14,17 @@
     <name>ERP  POS - Adapter</name>
     <description>Quarkus microservice adapter for  POS</description>
     <dependencies>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-pos-application</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-foundation-adapter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-rest</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-rest-jackson</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-arc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-flyway</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-junit5</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>1.20.3</version>
-            <scope>test</scope>
-        </dependency>
+        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-pos-application</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-foundation-adapter</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-jackson</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-scheduler</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-jdbc-postgresql</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-flyway</artifactId></dependency>
+        <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit5</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>postgresql</artifactId><version>1.20.3</version><scope>test</scope></dependency>
     </dependencies>
     <build>
         <plugins>
@@ -67,15 +33,7 @@
                 <artifactId>quarkus-maven-plugin</artifactId>
                 <version>${quarkus.platform.version}</version>
                 <extensions>true</extensions>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>build</goal>
-                            <goal>generate-code</goal>
-                            <goal>generate-code-tests</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <executions><execution><goals><goal>build</goal><goal>generate-code</goal><goal>generate-code-tests</goal></goals></execution></executions>
             </plugin>
         </plugins>
     </build>
