@@ -101,8 +101,7 @@ public final class LegacyPushTokenMigrator {
                 UPDATE notification_push_device
                 SET provider_token = NULL,
                     provider_token_ciphertext = ?,
-                    provider_token_key_id = ?,
-                    updated_at = GREATEST(updated_at, ?)
+                    provider_token_key_id = ?
                 WHERE id = ?
                   AND tenant_id = ?
                   AND recipient_id = ?
@@ -112,10 +111,9 @@ public final class LegacyPushTokenMigrator {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, encrypted.ciphertext());
             statement.setString(2, encrypted.keyId());
-            statement.setTimestamp(3, Timestamp.from(clock.instant()));
-            statement.setObject(4, row.id());
-            statement.setObject(5, row.tenantId());
-            statement.setObject(6, row.recipientId());
+            statement.setObject(3, row.id());
+            statement.setObject(4, row.tenantId());
+            statement.setObject(5, row.recipientId());
             int changed = statement.executeUpdate();
             if (changed != 1) throw new SQLException("Legacy push-token row changed during migration");
             return changed;
