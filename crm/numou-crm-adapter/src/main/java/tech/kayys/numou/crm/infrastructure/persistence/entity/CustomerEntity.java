@@ -18,7 +18,11 @@ import java.util.UUID;
 })
 public class CustomerEntity extends BaseEntity {
 
-    @Column(name = "customer_number", unique = true, length = 50)
+    /** Null for unreconciled legacy rows; tenant-scoped operations never expose those rows. */
+    @Column(name = "tenant_id")
+    public UUID tenantId;
+
+    @Column(name = "customer_number", length = 50)
     public String customerNumber;
 
     @Column(name = "company_name", length = 100)
