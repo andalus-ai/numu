@@ -40,17 +40,34 @@ public final class SaleCommandService {
 
     public VersionedSale addLine(SaleCommandContext context, UUID saleId, long expectedVersion, SaleLine line) {
         VersionedSale current = load(context, saleId);
+        requireOpenShift(context, current.sale());
+        requireExpectedVersion(current, expectedVersion);
         return sales.update(current.sale().addLine(line), expectedVersion);
     }
 
     public VersionedSale complete(SaleCommandContext context, UUID saleId, long expectedVersion) {
         VersionedSale current = load(context, saleId);
+        requireOpenShift(context, current.sale());
+        requireExpectedVersion(current, expectedVersion);
         return sales.update(current.sale().complete(clock.instant()), expectedVersion);
     }
 
     public VersionedSale voidOpenSale(SaleCommandContext context, UUID saleId, long expectedVersion) {
         VersionedSale current = load(context, saleId);
+        requireOpenShift(context, current.sale());
+        requireExpectedVersion(current, expectedVersion);
         return sales.update(current.sale().voidSale(), expectedVersion);
+    }
+
+    private void requireOpenShift(SaleCommandContext context, Sale sale) {
+        shifts.requireOpenShift(context.tenantId(), sale.branchId(), sale.registerId(),
+                sale.shiftId(), context.actorId());
+    }
+
+    private void requireExpectedVersion(VersionedSale current, long expectedVersion) {
+        if (current.version() != expectedVersion) {
+            throw new ConcurrentSaleModificationException(current.sale().id(), expectedVersion, current.version());
+        }
     }
 
     private VersionedSale load(SaleCommandContext context, UUID saleId) {
@@ -62,5 +79,11 @@ public final class SaleCommandService {
 
     public static final class SaleNotFoundException extends RuntimeException {
         public SaleNotFoundException(UUID saleId) { super("sale not found: " + saleId); }
+    }
+
+    public static final class ConcurrentSaleModificationException extends IllegalStateException {
+        public ConcurrentSaleModificationException(UUID saleId, long expected, long actual) {
+            super("sale " + saleId + " version conflict: expected " + expected + ", actual " + actual);
+        }
     }
 }
