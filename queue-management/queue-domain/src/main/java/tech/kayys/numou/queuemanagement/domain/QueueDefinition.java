@@ -31,6 +31,18 @@ public final class QueueDefinition {
         return new QueueDefinition(id, tenantId, code, name, profile, orderingPolicy);
     }
 
+    /**
+     * Reconstitutes persisted configuration, including its lifecycle status.
+     * Tenant authorization and row scoping remain responsibilities of the adapter.
+     */
+    public static QueueDefinition reconstitute(QueueId id, TenantId tenantId, String code, String name,
+                                               QueueProfile profile, QueueOrderingPolicy orderingPolicy,
+                                               QueueStatus status) {
+        QueueDefinition queue = new QueueDefinition(id, tenantId, code, name, profile, orderingPolicy);
+        queue.status = Objects.requireNonNull(status, "status must not be null");
+        return queue;
+    }
+
     public void rename(String name) {
         ensureNotClosed();
         this.name = requiredName(name);
