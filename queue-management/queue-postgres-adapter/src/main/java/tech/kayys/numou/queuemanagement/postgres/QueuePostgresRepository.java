@@ -21,7 +21,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -92,11 +91,13 @@ public class QueuePostgresRepository implements QueueRepositoryPort {
     @Override
     @Transactional
     public List<QueueEntry> findWaiting(TenantId tenantId, QueueId queueId) {
-        String sql = "SELECT tenant_id, queue_id, entry_id, profile, source_capability, "
-                + "source_resource_type, source_resource_id, priority, status, entered_at, updated_at, "
-                + "called_at, serving_started_at, completed_at, call_count FROM queue_entry "
-                + "WHERE tenant_id = ? AND queue_id = ? AND status = 'WAITING' "
-                + "ORDER BY entered_at, entry_id";
+        String sql = "SELECT e.tenant_id, e.queue_id, e.entry_id, e.profile, e.source_capability, "
+                + "e.source_resource_type, e.source_resource_id, e.priority, e.status, e.entered_at, e.updated_at, "
+                + "e.called_at, e.serving_started_at, e.completed_at, e.call_count FROM queue_entry e "
+                + "JOIN queue_definition qd ON qd.tenant_id = e.tenant_id AND qd.queue_id = e.queue_id "
+                + "WHERE e.tenant_id = ? AND e.queue_id = ? AND e.status = 'WAITING' "
+                + "ORDER BY CASE WHEN qd.ordering_policy = 'PRIORITY_THEN_ARRIVAL' THEN e.priority END DESC, "
+                + "e.entered_at, e.entry_id";
         try (Connection connection = dataSource.getConnection()) {
             setTenant(connection, tenantId);
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -149,9 +150,7 @@ public class QueuePostgresRepository implements QueueRepositoryPort {
                 + "ON CONFLICT (tenant_id, queue_id, entry_id) DO UPDATE SET "
                 + "status = EXCLUDED.status, updated_at = EXCLUDED.updated_at, called_at = EXCLUDED.called_at, "
                 + "serving_started_at = EXCLUDED.serving_started_at, completed_at = EXCLUDED.completed_at, "
-                + "call_count = EXCLUDED.call_count, version = queue_entry.version + 1 "
-                + "WHERE queue_entry.version = EXCLUDED.version";
-        // Optimistic updates use the persisted row version in the dedicated update path below.
+                + "call_count = EXCLUDED.call_count, version = queue_entry.version + 1";
         try (Connection connection = dataSource.getConnection()) {
             setTenant(connection, entry.tenantId());
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -182,8 +181,6 @@ public class QueuePostgresRepository implements QueueRepositoryPort {
     @Transactional
     public QueueEntry claimNext(TenantId tenantId, QueueId queueId, ClaimMode mode,
                                 String actorId, Instant now) {
-        String ordering = "qd.ordering_policy = 'PRIORITY_THEN_ARRIVAL' "
-                + "THEN e.priority DESC, e.entered_at, e.entry_id ELSE e.entered_at, e.entry_id";
         String sql = "WITH candidate AS (SELECT e.tenant_id, e.queue_id, e.entry_id, e.profile "
                 + "FROM queue_entry e JOIN queue_definition qd "
                 + "ON qd.tenant_id = e.tenant_id AND qd.queue_id = e.queue_id "
