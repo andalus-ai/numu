@@ -155,6 +155,42 @@ class PostgresGoodsReceiptInventoryPostingTest {
         assertFalse(competingClaim.stream().anyMatch(record -> record.receiptId().equals(receiptId)));
     }
 
+    @Test
+    void expiredLeaseCanBeReclaimedWithoutAnotherStaleAgeWindow() throws Exception {
+        JdbcReceiptPostingLedger ledger = new JdbcReceiptPostingLedger(dataSource);
+        String receiptId = "receipt-lease-expiry-" + java.util.UUID.randomUUID();
+        ledger.begin("tenant-a", receiptId, "fingerprint-expiry");
+        try (var connection = dataSource.getConnection();
+             PreparedStatement update = connection.prepareStatement("""
+                     UPDATE purchasing_receipt_inventory_posting
+                     SET updated_at = CURRENT_TIMESTAMP - INTERVAL '10 minutes'
+                     WHERE tenant_id = ? AND receipt_id = ?
+                     """)) {
+            update.setString(1, "tenant-a");
+            update.setString(2, receiptId);
+            assertEquals(1, update.executeUpdate());
+        }
+
+        Instant staleBefore = Instant.now().minusSeconds(60);
+        var firstClaim = ledger.claimPending(staleBefore, "worker-a", Instant.now().plusSeconds(120), 100);
+        assertTrue(firstClaim.stream().anyMatch(record -> record.receiptId().equals(receiptId)));
+
+        try (var connection = dataSource.getConnection();
+             PreparedStatement expire = connection.prepareStatement("""
+                     UPDATE purchasing_receipt_inventory_posting
+                     SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                     WHERE tenant_id = ? AND receipt_id = ?
+                     """)) {
+            expire.setString(1, "tenant-a");
+            expire.setString(2, receiptId);
+            assertEquals(1, expire.executeUpdate());
+        }
+
+        var reclaimed = ledger.claimPending(staleBefore, "worker-b", Instant.now().plusSeconds(120), 100);
+        assertTrue(reclaimed.stream().anyMatch(record -> record.receiptId().equals(receiptId)),
+                "expired lease must be reclaimable without waiting for updatedBefore to advance");
+    }
+
     private GoodsReceipt receipt(String id, String quantity) {
         return new GoodsReceipt(id, "tenant-a", "ledger-a", "PO-100", "PO-100-L1",
                 new BigDecimal(quantity), "receiver-1");
