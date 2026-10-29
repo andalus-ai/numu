@@ -44,6 +44,7 @@ class PgTransportCheckoutRepositoryTest {
         executeMigration("/db/migration/V3__transport_checkout_reconciliation_index.sql");
         executeMigration("/db/migration/V4__transport_checkout_refund.sql");
         executeMigration("/db/migration/V5__transport_checkout_refund_reason.sql");
+        executeMigration("/db/migration/V6__transport_checkout_operator_queue.sql");
     }
 
     private static void executeMigration(String resource) throws IOException, SQLException {
@@ -147,6 +148,29 @@ class PgTransportCheckoutRepositoryTest {
                 TransportCheckoutStatus.PAYMENT_FAILED, NOW.plusSeconds(4));
         repository.save(failed, pending.version());
         assertThat(repository.findStaleNonTerminal(NOW.plusSeconds(10), 10)).isEmpty();
+    }
+
+    @Test
+    void operatorQueueIsTenantScopedBoundedAndOnlyIncludesUnresolvedCases() {
+        TransportCheckout tenantA = checkout("tenant-a", UUID.randomUUID(), "case-a");
+        TransportCheckout tenantB = checkout("tenant-b", UUID.randomUUID(), "case-b");
+        repository.create(tenantA);
+        repository.create(tenantB);
+
+        TransportCheckout caseA = tenantA.withStatus(
+                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(1));
+        repository.save(caseA, tenantA.version());
+        TransportCheckout caseB = tenantB.withStatus(
+                TransportCheckoutStatus.REFUND_FAILED, NOW.plusSeconds(2));
+        repository.save(caseB, tenantB.version());
+
+        assertThat(repository.findReconciliationCases("tenant-a", NOW.plusSeconds(3), 10))
+                .extracting(TransportCheckout::checkoutId).containsExactly(tenantA.checkoutId());
+        assertThat(repository.findReconciliationCases("tenant-b", NOW.plusSeconds(3), 10))
+                .extracting(TransportCheckout::checkoutId).containsExactly(tenantB.checkoutId());
+        assertThat(repository.findReconciliationCases("tenant-a", NOW, 10)).isEmpty();
+        assertThatThrownBy(() -> repository.findReconciliationCases("tenant-a", NOW, 0))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
