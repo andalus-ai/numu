@@ -179,3 +179,21 @@ This milestone wires scheduling and a Kafka adapter but does not yet provide ded
 outbox metrics, dead-letter alerting, operator replay tooling, or a graceful in-flight drain.
 The module and its runtime behavior remain unverified until the reservation reactor and a
 host-level Quarkus integration test pass.
+
+
+## Outbox runtime operational signals and shutdown
+
+The optional Quarkus runtime registers these Micrometer counters:
+
+- `numou.reservation.outbox.polls`: poll attempts started.
+- `numou.reservation.outbox.events.published`: events successfully published and acknowledged by the PostgreSQL relay.
+- `numou.reservation.outbox.poll.failures`: poll-level failures.
+- `numou.reservation.outbox.shutdown.drain.timeouts`: shutdowns where the active poll exceeded the configured drain window.
+
+Expose these through the host's configured Micrometer registry/exporter and alert on sustained poll failures, increasing dead-letter rows, and a growing pending/expired-lease backlog. Counter metrics intentionally avoid tenant or event IDs as labels to prevent high-cardinality and sensitive dimensions. The current milestone does not yet expose a database backlog gauge or dead-letter counter; those require a bounded aggregate query and should be added with operational alert definitions.
+
+On shutdown, the runtime stops admitting new polls and waits up to
+`numou.reservation.outbox.shutdown-drain-timeout` (default `PT10S`) for the active poll.
+If the timeout expires, it logs a warning and leaves unacknowledged rows to recover through
+lease expiry. This is bounded graceful draining, not a guarantee that an external broker
+publication and database acknowledgement are atomic.
