@@ -44,7 +44,7 @@ The tests intentionally use a real PostgreSQL container because mocks cannot est
 
 ## Verification still required
 
-- Run `mvn -pl commerce/pos -am test` from the `core/framework` Maven reactor root (confirm the exact reactor invocation against the checkout before relying on it).
+- Run `mvn -f commerce/pom.xml -pl pos -am test` from the repository root. Ensure required framework SNAPSHOT artifacts are available to that reactor (or run the repository's supported composite build first).
 - Run the adapter integration tests with Docker available and inspect any failures before considering the transaction guarantee verified.
 - Verify the Quarkus version's JDBC/Flyway dependency alignment and the application's actual datasource configuration.
 - Add a durable outbox/audit trail before publishing external effects; this milestone intentionally does not call payment, inventory, tax, or accounting systems.
