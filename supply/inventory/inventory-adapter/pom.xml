@@ -20,6 +20,12 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-flyway</artifactId>
         </dependency>
+        <!-- Flyway 10+ ships PostgreSQL support as a separate database module. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-inventory-domain</artifactId>

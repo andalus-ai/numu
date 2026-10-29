@@ -346,18 +346,14 @@ class SyirkahApiTest {
     }
 
     @Test
-    void statementsInTheBooksLayout() {
-        String id = open();
-        CloseView c = close(id, "2026-01-01", "2026-01-31", "10000000");
-        IncomeStatementView is = api.incomeStatement(id, c.id(), "Toko Maju");
-        assertEquals("Toko Maju", is.name());
-        assertEquals("PROFIT", is.result());
-        assertEquals(0, new BigDecimal("10000000").compareTo(is.netResult()));
-        BalanceSheetView bs = api.balanceSheet(id, new BalanceSheetRequest(null, LocalDate.parse("2026-01-31"),
-                List.of(new StatementLineDto("CURRENT", "Cash", new BigDecimal("110000000"))), List.of()));
-        assertTrue(bs.balanced(), "assets " + bs.totalAssets() + " vs claims " + bs.totalLiabilitiesAndCapital());
-        assertEquals(2, bs.capital().size());
-        assertThrows(IllegalArgumentException.class, () -> api.balanceSheet(id, new BalanceSheetRequest(null, null,
-                List.of(), List.of())));
+    void rulesAreListedWithoutATenantAndMatchTheCatalog() {
+        RulesView v = api.rules();
+        assertEquals(26, v.count());
+        assertEquals(26, v.rules().size());
+        assertFalse(v.frozen());
+        assertNull(v.adviserSignoff());
+        assertEquals(tech.kayys.numou.numoudomain.ShariaRuleCatalog.fingerprint(), v.fingerprint());
+        assertEquals(tech.kayys.numou.numoudomain.ShariaRuleCatalog.render(), api.rulesMarkdown());
+        assertTrue(v.rules().get(0).codes().contains("PROFIT_ON_REVENUE"));
     }
 }

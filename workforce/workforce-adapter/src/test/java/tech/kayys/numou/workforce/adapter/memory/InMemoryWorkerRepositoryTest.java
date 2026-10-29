@@ -35,6 +35,22 @@ class InMemoryWorkerRepositoryTest {
     }
 
     @Test
+    void tenantScopedIdLookupDoesNotRevealWorkerFromAnotherTenant() {
+        var repository = new InMemoryWorkerRepository();
+        var ownerTenant = tenant();
+        var otherTenant = tenant();
+        var worker = worker(ownerTenant, person());
+        repository.save(worker).toCompletableFuture().join();
+
+        assertThat(repository.findById(ownerTenant, worker.id()).toCompletableFuture().join())
+                .contains(worker);
+        assertThat(repository.findById(otherTenant, worker.id()).toCompletableFuture().join())
+                .isEmpty();
+        assertThat(repository.findById(ownerTenant, WorkerId.generate()).toCompletableFuture().join())
+                .isEmpty();
+    }
+
+    @Test
     void allowsSamePersonInDifferentTenants() {
         var repository = new InMemoryWorkerRepository();
         var person = person();

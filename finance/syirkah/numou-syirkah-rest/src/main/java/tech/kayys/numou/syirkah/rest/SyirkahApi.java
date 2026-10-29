@@ -159,6 +159,21 @@ public class SyirkahApi {
                 .map(f -> new AuditFindingView(f.id().value().toString(), f.problems())).toList());
     }
 
+    /** The Sharia rules this build enforces. Static, the same for every tenant. */
+    public RulesView rules() {
+        java.util.List<ShariaRule> all = ShariaRuleCatalog.all();
+        return new RulesView(all.size(),
+                (int) all.stream().filter(r -> r.ruling() == ShariaRule.Ruling.PENDING_ADVISER).count(),
+                ShariaRuleCatalog.FROZEN_FINGERPRINT != null, ShariaRuleCatalog.ADVISER_SIGNOFF,
+                ShariaRuleCatalog.fingerprint(),
+                all.stream().map(r -> new RuleView(r.id(), r.title(), r.source(), r.enforcement().name(),
+                        r.ruling().name(), r.codes(), r.testedBy(), r.note())).toList());
+    }
+
+    public String rulesMarkdown() {
+        return ShariaRuleCatalog.render();
+    }
+
     // ------------------------------------------------------------ direct commands
 
     public SyirkahView open(OpenRequest r) {
