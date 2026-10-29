@@ -36,13 +36,13 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             + " AND status IN ('REQUESTED', 'HOLD_CREATED', 'PAYMENT_PENDING', 'PAYMENT_ACTION_REQUIRED')"
             + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
     private static final String FIND_STALE_REFUNDS = "SELECT " + COLUMNS
-            + " FROM transport_checkout WHERE updated_at < ? AND status = 'REFUND_PENDING'"
+            + " FROM transport_checkout WHERE updated_at < ? AND status IN ('REFUND_REQUESTED', 'REFUND_PENDING')"
             + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
     private static final String INSERT = """
             INSERT INTO transport_checkout
             (tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
              from_sequence, to_sequence, passenger_count, amount, currency, hold_expires_at,
-             hold_id, payment_id, payment_action_uri, refund_id, refund_status, status, version, created_at, updated_at)
+             hold_id, payment_id, payment_action_uri, refund_id, refund_status, refund_reason, status, version, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
     private static final String UPDATE = """
