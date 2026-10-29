@@ -17,5 +17,6 @@
         <module>queue-domain</module>
         <module>queue-spi</module>
         <module>queue-application</module>
+        <module>queue-postgres-adapter</module>
     </modules>
 </project>
