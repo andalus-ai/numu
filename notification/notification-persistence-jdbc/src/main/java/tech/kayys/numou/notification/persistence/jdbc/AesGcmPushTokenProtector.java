@@ -47,7 +47,7 @@ public final class AesGcmPushTokenProtector implements PushTokenProtector {
 
     @Override
     public String reveal(UUID tenantId, UUID recipientId, String keyId, String ciphertext) {
-        requireScope(tenantId, recipientId, deviceId);
+        requireScope(tenantId, recipientId);
         if (keyId == null || keyId.isBlank()) throw new IllegalArgumentException("keyId is required");
         final byte[] envelope;
         try {
@@ -62,7 +62,7 @@ public final class AesGcmPushTokenProtector implements PushTokenProtector {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, nonce));
-            cipher.updateAAD(aad(tenantId, recipientId, deviceId));
+            cipher.updateAAD(aad(tenantId, recipientId));
             return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
         } catch (GeneralSecurityException exception) {
             throw new IllegalStateException("Unable to decrypt push token", exception);
