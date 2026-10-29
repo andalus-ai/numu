@@ -7,8 +7,6 @@ import io.vertx.mutiny.pgclient.PgPool;
 import io.vertx.mutiny.sqlclient.SqlConnection;
 import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
-import io.quarkus.test.vertx.RunOnVertxContext;
-import io.quarkus.test.vertx.UniAsserter;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
