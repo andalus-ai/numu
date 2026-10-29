@@ -36,7 +36,7 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             + " AND status IN ('REQUESTED', 'HOLD_CREATED', 'PAYMENT_PENDING', 'PAYMENT_ACTION_REQUIRED')"
             + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
     private static final String FIND_STALE_REFUNDS = "SELECT " + COLUMNS
-            + " FROM transport_checkout WHERE updated_at < ? AND status = 'REFUND_PENDING'"
+            + " FROM transport_checkout WHERE updated_at < ? AND status IN ('REFUND_REQUESTED', 'REFUND_PENDING')"
             + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
     private static final String INSERT = """
             INSERT INTO transport_checkout
