@@ -81,7 +81,8 @@ public class TransportBookingAuthorization {
         RELEASE_HOLD("release", "transport.booking.hold", ActionType.UPDATE),
         CREATE_CHECKOUT("create", "transport.booking.checkout", ActionType.CREATE),
         READ_CHECKOUT("read", "transport.booking.checkout", ActionType.READ),
-        REFRESH_CHECKOUT("refresh", "transport.booking.checkout", ActionType.PERFORM);
+        REFRESH_CHECKOUT("refresh", "transport.booking.checkout", ActionType.PERFORM),
+        REQUEST_REFUND("refund", "transport.booking.checkout", ActionType.PERFORM);
 
         private final String permissionAction;
         private final String resourceType;

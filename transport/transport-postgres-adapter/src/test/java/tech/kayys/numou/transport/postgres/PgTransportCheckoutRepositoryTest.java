@@ -42,6 +42,7 @@ class PgTransportCheckoutRepositoryTest {
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         executeMigration("/db/migration/V2__transport_checkout.sql");
         executeMigration("/db/migration/V3__transport_checkout_reconciliation_index.sql");
+        executeMigration("/db/migration/V4__transport_checkout_refund.sql");
     }
 
     private static void executeMigration(String resource) throws IOException, SQLException {
@@ -83,6 +84,18 @@ class PgTransportCheckoutRepositoryTest {
         assertThat(persisted.paymentActionUri()).isEqualTo("https://pay.example/action");
         assertThat(repository.findByPaymentId("tenant-a", "payment-a").orElseThrow().checkoutId())
                 .isEqualTo(persisted.checkoutId());
+
+        TransportCheckout reconciliation = persisted.withStatus(
+                TransportCheckoutStatus.RECONCILIATION_REQUIRED, NOW.plusSeconds(3));
+        repository.save(reconciliation, persisted.version());
+        TransportCheckout refundPending = reconciliation.withRefund("refund-a",
+                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING, NOW.plusSeconds(4));
+        repository.save(refundPending, reconciliation.version());
+        TransportCheckout refundRoundTrip = repository.find("tenant-a", initial.checkoutId()).orElseThrow();
+        assertThat(refundRoundTrip.refundId()).isEqualTo("refund-a");
+        assertThat(refundRoundTrip.refundStatus()).isEqualTo(
+                tech.kayys.numou.transport.domain.TransportCheckoutRefundStatus.PENDING);
+        assertThat(refundRoundTrip.status()).isEqualTo(TransportCheckoutStatus.REFUND_PENDING);
     }
 
     @Test
@@ -134,7 +147,7 @@ class PgTransportCheckoutRepositoryTest {
     private static TransportCheckout checkout(String tenant, UUID id, String key) {
         return new TransportCheckout(tenant, id, key, "a".repeat(64), UUID.randomUUID(), "quote-1",
                 1, 3, 2, new java.math.BigDecimal("125000.00"), "IDR",
-                NOW.plusSeconds(900), UUID.randomUUID(), null, null,
+                NOW.plusSeconds(900), UUID.randomUUID(), null, null, null, null,
                 TransportCheckoutStatus.REQUESTED, 0, NOW, NOW);
     }
 
