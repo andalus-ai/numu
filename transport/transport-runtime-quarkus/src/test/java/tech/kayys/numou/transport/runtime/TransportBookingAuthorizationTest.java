@@ -51,7 +51,7 @@ class TransportBookingAuthorizationTest {
 
         assertThat(observed.get().resourceType()).isEqualTo("transport.booking.reconciliation");
         assertThat(observed.get().resourceId()).isEqualTo(tenantId.toString());
-        assertThat(observed.get().action).isEqualTo(
+        assertThat(observed.get().action()).isEqualTo(
                 tech.kayys.numou.security.domain.valueobject.ActionType.READ);
     }
 
