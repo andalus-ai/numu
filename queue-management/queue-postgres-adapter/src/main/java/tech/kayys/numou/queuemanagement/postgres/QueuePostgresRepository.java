@@ -49,7 +49,7 @@ public class QueuePostgresRepository implements QueueRepositoryPort {
     @Transactional
     public Optional<QueueDefinition> findQueue(TenantId tenantId, QueueId queueId) {
         String sql = "SELECT queue_id, tenant_id, code, display_name, profile, ordering_policy, status "
-                + "FROM queue_definition WHERE tenant_id = ? AND queue_id = ?";
+                + "FROM queue_definition WHERE tenant_id = ? AND queue_id = ? FOR SHARE";
         try (Connection connection = dataSource.getConnection()) {
             setTenant(connection, tenantId);
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
