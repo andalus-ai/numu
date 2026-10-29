@@ -70,6 +70,11 @@ jobs:
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Build and install shared wallet capability artifacts
+        run: >-
+          mvn -B -ntp -f finance/pom.xml
+          -pl wallet/numou-wallet-domain,wallet/numou-wallet-spi,wallet/numou-wallet-application,wallet/numou-wallet-adapter,wallet/numou-wallet-postgres-adapter
+          -am install
       - name: Run Mobility and neutral wallet PostgreSQL integration tests
         env:
           DB_HOST: localhost
