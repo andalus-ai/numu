@@ -22,10 +22,18 @@ import java.util.Objects;
 public final class GoodsReceiptInventoryPostingService {
     private final InventoryService inventory;
     private final ReceiptInventoryMapping mapping;
+    private final ReceiptPostingLedger postingLedger;
 
+    /** Compatibility constructor for tests and single-process use. Production deployments should inject a durable ledger. */
     public GoodsReceiptInventoryPostingService(InventoryService inventory, ReceiptInventoryMapping mapping) {
+        this(inventory, mapping, null);
+    }
+
+    public GoodsReceiptInventoryPostingService(InventoryService inventory, ReceiptInventoryMapping mapping,
+                                               ReceiptPostingLedger postingLedger) {
         this.inventory = Objects.requireNonNull(inventory, "inventory is required");
         this.mapping = Objects.requireNonNull(mapping, "mapping is required");
+        this.postingLedger = postingLedger;
     }
 
     /**
@@ -50,8 +58,43 @@ public final class GoodsReceiptInventoryPostingService {
 
         InventoryCommandKey key = new InventoryCommandKey(
                 "purchasing.goods-receipt:" + receipt.tenantId(), receipt.receiptId());
-        return inventory.receive(key, target.itemId(), target.warehouseId(), inventoryQuantity,
-                target.unitCost(), target.currency(), "goods-receipt:" + receipt.receiptId());
+        if (postingLedger == null) {
+            return inventory.receive(key, target.itemId(), target.warehouseId(), inventoryQuantity,
+                    target.unitCost(), target.currency(), "goods-receipt:" + receipt.receiptId());
+        }
+
+        String fingerprint = fingerprint(receipt, target, inventoryQuantity);
+        postingLedger.begin(receipt.tenantId(), receipt.receiptId(), fingerprint);
+        // Even POSTED records are replayed through Inventory's durable command receipt so
+        // the canonical movement can be returned without storing a second copy here.
+        try {
+            InventoryMovement movement = inventory.receive(key, target.itemId(), target.warehouseId(),
+                    inventoryQuantity, target.unitCost(), target.currency(),
+                    "goods-receipt:" + receipt.receiptId());
+            postingLedger.markPosted(receipt.tenantId(), receipt.receiptId(), fingerprint, movement.id().toString());
+            return movement;
+        } catch (RuntimeException failure) {
+            postingLedger.markRetryable(receipt.tenantId(), receipt.receiptId(), fingerprint,
+                    failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            throw failure;
+        }
+    }
+
+    private static String fingerprint(GoodsReceipt receipt, ReceiptInventoryTarget target,
+                                      BigDecimal inventoryQuantity) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            String canonical = String.join("\\n", receipt.tenantId(), receipt.receiptId(),
+                    receipt.poId(), receipt.poLineId(), receipt.quantityReceived().stripTrailingZeros().toPlainString(),
+                    target.itemId().toString(), target.warehouseId().toString(),
+                    target.inventoryUnitsPerReceiptUnit().stripTrailingZeros().toPlainString(),
+                    inventoryQuantity.stripTrailingZeros().toPlainString(),
+                    target.unitCost().stripTrailingZeros().toPlainString(), target.currency());
+            return java.util.HexFormat.of().formatHex(digest.digest(
+                    canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is required by the Java platform", impossible);
+        }
     }
 
     @FunctionalInterface

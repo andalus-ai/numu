@@ -79,6 +79,32 @@ class PostgresGoodsReceiptInventoryPostingTest {
                 .findByItemAndWarehouse(itemId, warehouseId).size());
     }
 
+    @Test
+    void durablePostingLedgerRecoversPostedStateAndRejectsChangedPayload() {
+        JdbcReceiptPostingLedger ledger = new JdbcReceiptPostingLedger(dataSource);
+        var first = ledger.begin("tenant-a", "receipt-ledger-1", "fingerprint-a");
+        assertEquals(ReceiptPostingLedger.Status.PENDING, first.status());
+        ledger.markPosted("tenant-a", "receipt-ledger-1", "fingerprint-a", "movement-1");
+
+        // A new adapter instance reads the committed lifecycle from PostgreSQL.
+        var recovered = new JdbcReceiptPostingLedger(dataSource)
+                .begin("tenant-a", "receipt-ledger-1", "fingerprint-a");
+        assertEquals(ReceiptPostingLedger.Status.POSTED, recovered.status());
+        assertEquals("movement-1", recovered.movementId());
+        assertEquals(2, recovered.attempts());
+        assertThrows(IllegalArgumentException.class,
+                () -> ledger.begin("tenant-a", "receipt-ledger-1", "different-fingerprint"));
+    }
+
+    @Test
+    void durablePostingLedgerKeepsTenantsIsolated() {
+        JdbcReceiptPostingLedger ledger = new JdbcReceiptPostingLedger(dataSource);
+        ledger.begin("tenant-a", "same-receipt", "fingerprint-a");
+        var otherTenant = ledger.begin("tenant-b", "same-receipt", "fingerprint-b");
+        assertEquals("tenant-b", otherTenant.tenantId());
+        assertEquals(ReceiptPostingLedger.Status.PENDING, otherTenant.status());
+    }
+
     private GoodsReceipt receipt(String id, String quantity) {
         return new GoodsReceipt(id, "tenant-a", "ledger-a", "PO-100", "PO-100-L1",
                 new BigDecimal(quantity), "receiver-1");

@@ -18,7 +18,9 @@ This adapter translates explicit workshop external-parts demand into a Purchasin
 - Replaying the same receipt uses the same idempotency key. Reusing that key with a changed quantity is rejected by the Inventory adapter contract.
 - The mapping must be validated against the tenant's catalog and receiving authorization before posting.
 
-**Production limitation:** the in-memory Inventory adapter only provides single-process idempotency. This integration is not production-ready for multi-instance deployments until a durable Inventory adapter enforces command-key uniqueness and commits the movement and idempotency record atomically. Receipt persistence and inventory posting also cross module transaction boundaries; a durable outbox/inbox or recoverable posting state is still required to reconcile a receipt accepted by Purchasing when Inventory is unavailable. This service does not claim a distributed transaction or exactly-once delivery.
+**Production boundary:** use the PostgreSQL Inventory adapter (which commits movement and command receipt atomically) together with `JdbcReceiptPostingLedger` for durable multi-instance retries. Apply the integration migration `db/migration/V1000__receipt_posting_ledger.sql` with the deployment's normal migration runner. The ledger stores a tenant-scoped payload fingerprint, PENDING/POSTED state, attempt count, movement ID, and last failure. A crash after Inventory commits but before the ledger is marked POSTED is recovered by retrying the same receipt command key; Inventory returns the original movement rather than posting stock twice.
+
+The ledger and Inventory are still separate transactions, not a distributed transaction. The pending-row index supports reconciliation workers, but this change does not add a scheduler, dead-letter policy, or operator-facing reconciliation endpoint. The two-argument service constructor remains for tests/single-process use; production wiring should inject the JDBC ledger and durable Inventory adapter.
 
 
 ## Durable adapter verification

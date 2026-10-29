@@ -20,11 +20,9 @@ class NotificationDeliveryWorkerTest {
                 "Assigned", "Private content", "task:1", "notification-1", NOW);
         PushDevice device = PushDevice.register(tenant, recipient, "secret-provider-token",
                 PushDevice.Platform.ANDROID, "app", NOW);
-        UUID lease = UUID.randomUUID();
         NotificationDeliveryJob pending = NotificationDeliveryJob.pending(tenant, recipient,
                 notification.id(), device.id(), "TEST", "job-1", NOW);
-        NotificationDeliveryJob claimed = pending.claim(lease, NOW.plusSeconds(30), NOW);
-        RecordingJobs jobs = new RecordingJobs(claimed, lease);
+        RecordingJobs jobs = new RecordingJobs(pending);
         RecordingProvider provider = new RecordingProvider();
         NotificationRepository notificationRepository = new NotificationRepository() {
             public Notification createIfAbsent(Notification n) { return n; }
@@ -67,15 +65,18 @@ class NotificationDeliveryWorkerTest {
     }
 
     private static final class RecordingJobs implements NotificationDeliveryJobRepository {
-        private final NotificationDeliveryJob claimed;
-        private final UUID lease;
+        private final NotificationDeliveryJob pending;
+        private NotificationDeliveryJob claimed;
+        private UUID lease;
         private boolean delivered;
-        RecordingJobs(NotificationDeliveryJob claimed, UUID lease) { this.claimed = claimed; this.lease = lease; }
+        RecordingJobs(NotificationDeliveryJob pending) { this.pending = pending; }
         public NotificationDeliveryJob enqueue(NotificationDeliveryJob job) { return job; }
         public List<NotificationDeliveryJob> claimDue(Instant now, Instant expiry, int limit, UUID leaseToken) {
             assertEquals(NOW, now);
             assertEquals(NOW.plusSeconds(30), expiry);
             assertEquals(10, limit);
+            lease = leaseToken;
+            claimed = pending.claim(leaseToken, expiry, now);
             return List.of(claimed);
         }
         public Optional<NotificationDeliveryJob> markDelivered(UUID tenant, UUID id, UUID token, Instant now) {
