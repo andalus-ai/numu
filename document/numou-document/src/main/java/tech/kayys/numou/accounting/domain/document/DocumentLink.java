@@ -3,10 +3,14 @@ package tech.kayys.numou.accounting.domain.document;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Evidence relationship linking a document to a domain aggregate (e.g. Invoice, Journal). */
+/**
+ * Evidence relationship linking a document (optionally a pinned immutable version)
+ * to a domain aggregate (e.g. Invoice, Journal or consultancy deliverable).
+ */
 public record DocumentLink(
         DocumentLinkId id,
         DocumentId documentId,
+        DocumentVersionId documentVersionId,
         String aggregateType,
         String aggregateId,
         String relationship,
@@ -15,12 +19,42 @@ public record DocumentLink(
     public DocumentLink {
         Objects.requireNonNull(id);
         Objects.requireNonNull(documentId);
-        Objects.requireNonNull(aggregateType);
-        Objects.requireNonNull(aggregateId);
-        Objects.requireNonNull(relationship);
+        if (aggregateType == null || aggregateType.isBlank()) {
+            throw new IllegalArgumentException("aggregateType must not be blank");
+        }
+        if (aggregateId == null || aggregateId.isBlank()) {
+            throw new IllegalArgumentException("aggregateId must not be blank");
+        }
+        if (relationship == null || relationship.isBlank()) {
+            throw new IllegalArgumentException("relationship must not be blank");
+        }
         Objects.requireNonNull(linkedAt);
+        aggregateType = aggregateType.trim();
+        aggregateId = aggregateId.trim();
+        relationship = relationship.trim();
     }
+
+    /** Backwards-compatible constructor for legacy links without a pinned version. */
+    public DocumentLink(
+            DocumentLinkId id,
+            DocumentId documentId,
+            String aggregateType,
+            String aggregateId,
+            String relationship,
+            Instant linkedAt) {
+        this(id, documentId, null, aggregateType, aggregateId, relationship, linkedAt);
+    }
+
+    /** Creates a legacy link that does not pin a version. */
     public static DocumentLink create(DocumentId docId, String aggType, String aggId, String rel) {
-        return new DocumentLink(DocumentLinkId.generate(), docId, aggType, aggId, rel, Instant.now());
+        return new DocumentLink(DocumentLinkId.generate(), docId, null, aggType, aggId, rel, Instant.now());
+    }
+
+    /** Creates a link to a specific immutable document version. */
+    public static DocumentLink create(
+            DocumentId docId, DocumentVersionId versionId, String aggType, String aggId, String rel) {
+        return new DocumentLink(
+                DocumentLinkId.generate(), docId, Objects.requireNonNull(versionId),
+                aggType, aggId, rel, Instant.now());
     }
 }
