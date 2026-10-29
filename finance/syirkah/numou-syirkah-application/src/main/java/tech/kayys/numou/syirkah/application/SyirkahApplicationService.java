@@ -174,6 +174,11 @@ public class SyirkahApplicationService {
                 approvals.addAll(change.affected());
             }
             Instant at = now();
+            if (change.kind() == LifecycleKind.PARTNER_DEATH) {
+                for (PartnerId dead : change.affected()) {
+                    s.recordPartnerDeath(dead, change.eventDate(), at);
+                }
+            }
             s.reviseContract(c.next(), approvals, at);
             if (lifecycle != null) {
                 lifecycle.record(c.tenant(), c.id(), c.next().version(), change, at);
