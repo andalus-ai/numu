@@ -141,6 +141,33 @@ public final class SyirkahDtos {
                             String fingerprint, java.util.List<RuleView> rules) {
     }
 
+    public record StatementLineDto(String group, String label, BigDecimal amount) {
+    }
+
+    public record BalanceSheetRequest(String name, LocalDate asOf, List<StatementLineDto> assets,
+                                      List<StatementLineDto> liabilities) {
+    }
+
+    public record StatementLineView(String group, String label, BigDecimal amount) {
+    }
+
+    public record CapitalLineView(String partner, String name, BigDecimal capital, BigDecimal profitPayable) {
+    }
+
+    public record BalanceSheetView(String name, LocalDate asOf, List<StatementLineView> assets,
+                                   BigDecimal partnerReceivable, BigDecimal totalAssets,
+                                   List<StatementLineView> liabilities, BigDecimal totalLiabilities,
+                                   List<CapitalLineView> capital, BigDecimal unallocatedDeficit,
+                                   BigDecimal totalCapital, BigDecimal totalLiabilitiesAndCapital,
+                                   BigDecimal difference, boolean balanced) {
+    }
+
+    public record IncomeStatementView(String name, LocalDate periodStart, LocalDate periodEnd, BigDecimal revenue,
+                                      BigDecimal costOfGoodsSold, BigDecimal grossProfit,
+                                      BigDecimal operatingCosts, BigDecimal otherCosts, BigDecimal netResult,
+                                      String result) {
+    }
+
     public record CloseView(String id, int sequence, LocalDate periodStart, LocalDate periodEnd, int contractVersion,
                             BigDecimal netResult, String disposition, String status, String supersedes,
                             Instant closedAt, String hash) {
