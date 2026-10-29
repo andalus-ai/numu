@@ -155,7 +155,7 @@ class DefaultCommissionFinanceServiceTest {
         DefaultCommissionFinanceService service = new DefaultCommissionFinanceService(entries, outbox, finance);
         CommissionFinancePosting request = service.requestLiabilityPosting(context, ENTRY_ID)
                 .toCompletableFuture().join();
-        outbox.stored = request.reconciliationRequired("timeout", NOW.plusSeconds(1));
+        outbox.stored = request.reconciliationRequired("timeout", request.createdAt().plusSeconds(1));
 
         assertTrue(service.reconcile(context, request.id()).toCompletableFuture().join());
         assertEquals(CommissionFinancePostingStatus.POSTED, outbox.stored.status());

@@ -145,3 +145,37 @@ successful run against PostgreSQL in CI or a controlled environment.
 A successful external publish followed by an expired lease before database acknowledgement is an expected at-least-once failure mode. The relay must reject the stale acknowledgement, leave the row reclaimable, and allow a later worker to publish the same stable event ID. Downstream consumers therefore must deduplicate on the event ID; broker producer idempotence alone does not close the database/broker transaction gap.
 
 The PostgreSQL integration contract now includes this publish/ack-gap scenario in addition to concurrent pollers and retry/dead-letter recovery. It remains opt-in and is not verified until the documented `pg-integration` Maven command passes against PostgreSQL.
+
+
+## Optional Quarkus outbox runtime
+
+The `reservation-runtime-quarkus` module provides a host-runtime adapter without adding
+Quarkus or Kafka dependencies to the reservation domain or PostgreSQL adapter:
+
+- `KafkaReservationOutboxPublisher` serializes the complete delivery envelope and uses
+  the stable event ID as the Kafka record key.
+- `ReservationOutboxRuntime` constructs the relay from the host-provided reactive
+  `PgPool` and publisher, then polls on a reactive Quarkus scheduled task. Overlapping
+  polls are skipped within one process; PostgreSQL leases and `SKIP LOCKED` coordinate
+  replicas.
+- Poll failures are logged and the relay's persisted retry/lease behavior keeps events
+  recoverable. This is not a substitute for production alerting or consumer-side deduplication.
+
+To opt in, add `numou-reservation-runtime-quarkus` to a Quarkus host and configure the
+reactive PostgreSQL client plus Kafka credentials/servers. The optional defaults are in
+`reservation-runtime-quarkus/src/main/resources/application-reservation-outbox.properties`;
+load that file through the host's supported configuration-location mechanism or copy its
+non-secret settings into the host's `application.properties`. Set
+`NUMOU_RESERVATION_EVENTS_TOPIC` for the target topic and provide the host's Kafka
+bootstrap configuration. Never package credentials in the module.
+
+The relay publishes the JSON envelope with `eventId`, `tenantId`, `aggregateType`,
+`aggregateId`, `eventType`, `payloadJson`, `occurredAt`, and `attempts`. Consumers
+should use `eventId` for deduplication. Kafka producer idempotence helps within Kafka's
+producer session but cannot atomically commit a PostgreSQL acknowledgement, so duplicates
+remain possible after a publish/ack crash.
+
+This milestone wires scheduling and a Kafka adapter but does not yet provide dedicated
+outbox metrics, dead-letter alerting, operator replay tooling, or a graceful in-flight drain.
+The module and its runtime behavior remain unverified until the reservation reactor and a
+host-level Quarkus integration test pass.
