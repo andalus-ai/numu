@@ -5,11 +5,11 @@
 
 ## Scope
 
-This change introduces a small, deployment-neutral domain foundation for register identity, cash-shift lifecycle, and currency-aware amounts. It does not replace or rename the existing grocery API.
+This change introduces a deployment-neutral domain foundation for register identity and cash-shift lifecycle. Monetary values use the canonical shared `tech.kayys.numou.foundation.domain.valueobject.Money` and `Currency` value objects from `numou-foundation-domain`; POS must not define a competing money primitive.
 
 - `Register` stores opaque tenant, branch, and store IDs; organization remains the owner of location aggregates.
 - `RegisterShift` is an immutable open/closed snapshot with explicit opening float, counted cash, timestamps, and operator/register references.
-- `Money` enforces currency identity for arithmetic but intentionally does not impose tax, pricing, discount, or currency-rounding policy.
+- Shared `Money` enforces currency identity for arithmetic without imposing tax, pricing, discount, or currency-rounding policy.
 - Closing a shift records counted cash only. Expected-cash computation, discrepancy review, cash movement posting, and reconciliation belong in later application workflows and their owning capabilities.
 
 ## Explicit non-goals
@@ -21,6 +21,6 @@ This change introduces a small, deployment-neutral domain foundation for registe
 
 ## Acceptance checks
 
-- Unit tests cover currency mismatch, register identity, immutable shift close, duplicate close, negative cash, and invalid close time.
-- Domain classes use only JDK types and do not depend on transport, persistence, or provider SDKs.
-- Before production use, the next implementation must add application ports/use cases, persistence and concurrency controls, authenticated tenant/branch authorization, audit, idempotency, and reconciliation tests.
+- Unit tests cover shared Money currency mismatch, register identity, immutable shift close, duplicate close, negative cash, and invalid close time.
+- Domain classes use JDK types and shared foundation value objects, not transport, persistence, or provider SDKs.
+- Before production use, add application ports/use cases, persistence and concurrency controls, authenticated tenant/branch authorization, audit, idempotency, and reconciliation tests.
