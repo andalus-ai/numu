@@ -20,8 +20,16 @@ public final class QueueOrdering {
                     .thenComparing(entry -> entry.id().value().toString());
         }
         List<QueueEntry> ordered = new ArrayList<>();
+        QueueEntry first = null;
         for (QueueEntry entry : entries) {
-            if (entry != null && entry.status() == QueueEntryStatus.WAITING) {
+            Objects.requireNonNull(entry, "entries must not contain null");
+            if (first == null) {
+                first = entry;
+            } else if (!first.tenantId().equals(entry.tenantId())
+                    || !first.queueId().equals(entry.queueId())) {
+                throw new IllegalArgumentException("entries must belong to the same tenant and queue");
+            }
+            if (entry.status() == QueueEntryStatus.WAITING) {
                 ordered.add(entry);
             }
         }
