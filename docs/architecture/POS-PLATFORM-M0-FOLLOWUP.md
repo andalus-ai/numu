@@ -1,0 +1,5 @@
+# POS M0 follow-up
+
+Source-level findings are recorded in the open draft PR's audit: the existing `PosService` is grocery-specific; `PosProduct` carries grocery-only lot, expiry, temperature, and allergen fields; `Weight` normalizes precision to three decimals; inventory has idempotent and non-idempotent issue/receipt APIs; omnichannel `ChannelContext` requires authenticated tenant/branch resolution; payment uses legacy package root `tech.kayys.payment`; the POS adapter source tree was not present at the expected path during inspection. These findings mean M1 should preserve the current grocery API, avoid duplicating catalog/offering, use stable idempotency keys for stock effects, and verify the adapter/reactor before adding neutral contracts.
+
+Full persistence/test/CI and adjacent public-contract audit remain pending. Maven tests were not run.
