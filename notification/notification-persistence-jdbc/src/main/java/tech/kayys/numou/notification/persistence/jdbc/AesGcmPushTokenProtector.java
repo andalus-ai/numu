@@ -25,8 +25,8 @@ public final class AesGcmPushTokenProtector implements PushTokenProtector {
     }
 
     @Override
-    public EncryptedToken protect(UUID tenantId, UUID recipientId, UUID deviceId, String plaintextToken) {
-        requireScope(tenantId, recipientId, deviceId);
+    public EncryptedToken protect(UUID tenantId, UUID recipientId, String plaintextToken) {
+        requireScope(tenantId, recipientId);
         if (plaintextToken == null || plaintextToken.isBlank())
             throw new IllegalArgumentException("provider token is required");
         PushTokenKeyProvider.KeyMaterial active = Objects.requireNonNull(keys.activeKey(), "active key is required");
@@ -35,7 +35,7 @@ public final class AesGcmPushTokenProtector implements PushTokenProtector {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, active.key(), new GCMParameterSpec(TAG_BITS, nonce));
-            cipher.updateAAD(aad(tenantId, recipientId, deviceId));
+            cipher.updateAAD(aad(tenantId, recipientId));
             byte[] encrypted = cipher.doFinal(plaintextToken.getBytes(StandardCharsets.UTF_8));
             ByteBuffer envelope = ByteBuffer.allocate(nonce.length + encrypted.length);
             envelope.put(nonce).put(encrypted);
@@ -46,7 +46,7 @@ public final class AesGcmPushTokenProtector implements PushTokenProtector {
     }
 
     @Override
-    public String reveal(UUID tenantId, UUID recipientId, UUID deviceId, String keyId, String ciphertext) {
+    public String reveal(UUID tenantId, UUID recipientId, String keyId, String ciphertext) {
         requireScope(tenantId, recipientId, deviceId);
         if (keyId == null || keyId.isBlank()) throw new IllegalArgumentException("keyId is required");
         final byte[] envelope;
@@ -69,14 +69,13 @@ public final class AesGcmPushTokenProtector implements PushTokenProtector {
         }
     }
 
-    private static byte[] aad(UUID tenantId, UUID recipientId, UUID deviceId) {
-        return ("numou:notification:push-token:v1:" + tenantId + ":" + recipientId + ":" + deviceId)
+    private static byte[] aad(UUID tenantId, UUID recipientId) {
+        return ("numou:notification:push-token:v1:" + tenantId + ":" + recipientId)
                 .getBytes(StandardCharsets.UTF_8);
     }
 
-    private static void requireScope(UUID tenantId, UUID recipientId, UUID deviceId) {
+    private static void requireScope(UUID tenantId, UUID recipientId) {
         Objects.requireNonNull(tenantId, "tenantId is required");
         Objects.requireNonNull(recipientId, "recipientId is required");
-        Objects.requireNonNull(deviceId, "deviceId is required");
     }
 }
