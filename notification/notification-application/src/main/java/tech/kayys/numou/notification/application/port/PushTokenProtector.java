@@ -7,8 +7,8 @@ import java.util.UUID;
  * Implementations must use authenticated encryption and versioned key identifiers.
  */
 public interface PushTokenProtector {
-    EncryptedToken protect(UUID tenantId, UUID recipientId, UUID deviceId, String plaintextToken);
-    String reveal(UUID tenantId, UUID recipientId, UUID deviceId, String keyId, String ciphertext);
+    EncryptedToken protect(UUID tenantId, UUID recipientId, String plaintextToken);
+    String reveal(UUID tenantId, UUID recipientId, String keyId, String ciphertext);
 
     record EncryptedToken(String keyId, String ciphertext) {
         public EncryptedToken {
