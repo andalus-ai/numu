@@ -12,8 +12,13 @@ import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 class QueueEntryTest {
     private static final Instant T0 = Instant.parse("2026-10-29T00:00:00Z");
 
+    private QueueDefinition activeQueue() {
+        return QueueDefinition.create(QueueId.generate(), TenantId.generate(), "Q1", "Queue",
+                QueueProfile.WAITING_SERVICE, QueueOrderingPolicy.FIFO);
+    }
+
     private QueueEntry entry(int priority) {
-        return QueueEntry.join(QueueEntryId.generate(), TenantId.generate(), QueueId.generate(),
+        return QueueEntry.join(QueueEntryId.generate(), activeQueue(),
                 new QueueSourceReference("support", "ticket", "ticket-123"), priority, T0);
     }
 
@@ -46,6 +51,14 @@ class QueueEntryTest {
         assertThat(entry.status()).isEqualTo(QueueEntryStatus.WAITING);
         entry.abandon(T0.plusSeconds(4));
         assertThat(entry.status()).isEqualTo(QueueEntryStatus.ABANDONED);
+    }
+
+    @Test
+    void rejectsEntriesForPausedOrClosedQueues() {
+        QueueDefinition queue = activeQueue();
+        queue.pause();
+        assertThatIllegalStateException().isThrownBy(() -> QueueEntry.join(QueueEntryId.generate(), queue,
+                new QueueSourceReference("support", "ticket", "ticket-123"), 10, T0));
     }
 
     @Test
