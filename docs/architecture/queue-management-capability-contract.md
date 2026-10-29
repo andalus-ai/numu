@@ -318,3 +318,30 @@ Therefore:
 - Before M1 implementation is considered production-ready, obtain a real run of the target reactor and its dependency closure; do not treat a missing CI job as a passing baseline.
 
 The remaining M0 checklist in Section 15 remains open.
+
+## 17. Further source overlap audit: Scheduling, Vehicle Service, and Courier/Cargo
+
+### Scheduling
+
+The Scheduling domain's `Schedule` aggregate is tenant-owned and represents a date-bounded plan with `DRAFT`, `PUBLISHED`, and `CANCELLED` lifecycle states. It is not a customer waiting ticket and does not provide a general queue-entry lifecycle. Reuse it for scheduling/availability integration; do not overload it as a queue.
+
+### Vehicle Service
+
+Vehicle Service already defines `WorkshopWorkOrder`, which stores tenant and customer/vehicle/service references, an optional reservation ID, technician assignment, and work-order status. Its `WorkshopReservationPort` explicitly requires atomic capacity allocation, tenant-scoped persistence, and idempotency for committing reservations; an availability check is advisory only.
+
+This is useful precedent for Queue Management: expose stable application ports, use the authoritative reservation/work-order capability for its own state, and distinguish an advisory candidate read from the atomic state-changing operation. Queue claiming has the same kind of atomicity requirement, but a different aggregate and lifecycle.
+
+### Courier/Cargo
+
+Courier/Cargo has `DeliveryTask` and `DispatchWave` aggregates. `DeliveryTask` owns courier assignment and delivery outcome for a shipment; `DispatchWave` reconciles expected parcel references with physical scans before departure. These are operational dispatch and custody concepts, not generic customer waiting queues.
+
+Therefore the capability boundary remains three-profile:
+- **Waiting/service queue:** queue position, calling, serving, no-show/abandonment.
+- **Dispatch queue:** eligible work, offer/assignment, accept/reject/requeue/escalation.
+- **Operational work queue:** a coordination view over source-owned tickets, work orders, delivery tasks, or other work references.
+
+The first runtime milestone should implement the generic queue-entry and concurrency invariants without trying to migrate the Courier dispatch-wave or Vehicle Service work-order lifecycles into the new capability.
+
+### Audit conclusion
+
+Source inspection now confirms meaningful adjacent concepts in Support, Scheduling, Vehicle Service, and Courier/Cargo, while not finding a dedicated generic Queue/Waitlist aggregate in the paths inspected. This is enough to reinforce the capability boundary, but not enough to assert every relevant package has been exhaustively searched or to declare M0 complete. Dependency graph, persistence conventions, and an executed target-reactor build baseline remain outstanding.

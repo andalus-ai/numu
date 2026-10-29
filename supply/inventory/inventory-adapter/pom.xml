@@ -13,6 +13,14 @@
     <name>Numou Inventory - Adapter</name>
     <dependencies>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway</artifactId>
+        </dependency>
+        <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-inventory-domain</artifactId>
             <version>${project.version}</version>

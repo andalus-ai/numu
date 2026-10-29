@@ -7,16 +7,16 @@
 
 ## Executive finding
 
-The inspected source contains useful safeguards, including a tenant-scoped append-only PostgreSQL wallet ledger, deterministic entry IDs, transaction-aware ledger append comments, and optimistic-lock retry orchestration. However, the source inspection does **not** prove end-to-end exactly-once wallet effects or safe concurrency. The existing SQL ledger has uniqueness for `(tenant_id, entry_id)`, but the inspected table does not declare uniqueness for per-wallet `seq` or a separate operation key across all movement kinds. The Mobility aggregate keeps only a bounded recent set of refs. The Pesantren wallet adapter inspected is in-memory and does not provide durable persistence.
+The inspected source contains useful safeguards, including a tenant-scoped append-only PostgreSQL wallet ledger, deterministic entry IDs, transaction-aware ledger append comments, and optimistic-lock retry orchestration. However, the source inspection does **not** prove end-to-end exactly-once wallet effects or safe concurrency. The schema includes a durable unique index on `(tenant_id, wallet_id, ref)` in migration V302 in addition to the ledger primary key `(tenant_id, entry_id)`. The aggregate still keeps only a bounded recent set of refs, so the database constraint—not that cache—must be the lifetime operation guard. The schema does not declare uniqueness for per-wallet `seq`. The Pesantren wallet adapter inspected is in-memory and does not provide durable persistence.
 
-These findings are a design review, not a claim that production runtime behavior has been tested. The relevant Mobility persistence file itself labels `PgLedgerRepository` “NOT COMPILED in sandbox”.
+These findings are a design review, not a claim that production runtime behavior has been tested. The original Mobility persistence source labels its adapter “NOT COMPILED in sandbox”; the extracted neutral adapter and its integration wiring still require verified CI and PostgreSQL runtime tests.
 
 ## Mobility findings
 
 ### Positive controls found
 
 1. `LedgerEntry.of(...)` derives a deterministic UUID from wallet ID, operation ref and entry kind.
-2. `wallet_ledger` is keyed by `(tenant_id, entry_id)`; `PgLedgerRepository.append` uses `ON CONFLICT DO NOTHING`.
+2. `wallet_ledger` is keyed by `(tenant_id, entry_id)`; migration V302 adds unique `(tenant_id, wallet_id, ref)` to enforce lifetime operation-reference uniqueness. The extracted neutral adapter now targets the primary-key conflict explicitly so exact entry replay is a no-op while other unique violations remain failures.
 3. The migration installs a trigger rejecting UPDATE/DELETE and TRUNCATE on the ledger table.
 4. The migration enables and forces row-level security with a tenant policy using `app.tenant_id`.
 5. `PgLedgerRepository` wraps queries in `TenantTransaction.run(tenantId, ...)` and comments that ledger append joins the wallet transaction.
@@ -27,8 +27,8 @@ These findings are a design review, not a claim that production runtime behavior
 
 | Concern | Evidence from inspected source | Required follow-up |
 |---|---|---|
-| Lifetime idempotency | `Wallet` stores a bounded set of recent refs (`MAX_REFS = 500`); ledger entry ID includes ref **and kind**. | Define durable idempotency scope independent of the aggregate cache. Verify repeated operations after eviction/restart cannot apply a second balance change. |
-| Operation identity across kinds | `wallet_ledger` primary key is `(tenant_id, entry_id)`; no separate unique constraint on `(tenant_id, wallet_id, ref)` is present in inspected V300. Because kind contributes to the deterministic ID, the same ref with a different kind can produce a different entry ID. | Decide whether a ref is allowed to be reused across kinds; enforce that rule at the command/operation registry layer if required. Test key reuse with different payloads and operation types. |
+| Lifetime idempotency | V302 enforces unique `(tenant_id, wallet_id, ref)`; `Wallet` also stores a bounded recent-ref cache (`MAX_REFS = 500`). Ledger entry ID includes ref **and kind**. | Verify the migration is applied in every runtime that uses the neutral adapter, and test replay after eviction/restart plus same-ref/different-payload rejection. |
+| Operation identity across kinds | V302 adds a unique index on `(tenant_id, wallet_id, ref)`, which rejects reuse of the same ref for a different movement kind on the same wallet. | Verify SQL conflict behavior and the service's durable lookup/fingerprint checks under sequential replay and concurrency. |
 | Sequence ordering | `seq` is documented as wallet version and used for ordered history, but the inspected ledger table has no `UNIQUE (tenant_id, wallet_id, seq)` constraint. | Confirm the wallet aggregate's optimistic version and write transaction serialize sequence assignment. Add a database constraint or equivalent atomic guarantee if the invariant requires it. Test concurrent writes. |
 | Duplicate ledger append vs duplicate wallet mutation | `ON CONFLICT DO NOTHING` suppresses duplicate ledger rows, but by itself does not roll back or suppress a separate wallet balance update. | Test duplicate command replay through the full service transaction, including the case where the ledger insert conflicts after aggregate mutation. Ensure the entire operation is atomic and duplicate semantics are surfaced correctly. |
 | Ledger-to-wallet atomicity | Adapter comments say append joins the wallet change transaction; service comments describe a unit of work. | Trace the actual wallet repository and `UnitOfWork` wiring. Add an integration test proving wallet save + ledger append roll back together on failure. |
