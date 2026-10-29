@@ -154,3 +154,11 @@ tenant RLS), one row per akad version.
 
 Limit: the heir's inherited capital is not transferred as a single movement. The ledger returns the deceased's capital
 (payable to the estate) and records the heir's contribution, so the cash side must be settled outside this module.
+
+## Staff contracts (ijarah)
+
+`StaffContractChecker` (Hukum Muamalah Bab XIV principle 10, XVI section D, XVII) checks a staff contract against the
+syirkah's akad: the employer must be the syirkah and not one partner acting for himself (batil); a partner who manages
+or works in the syirkah cannot be salaried; the kind of work, period and effort must be stated; the wage must be a
+fixed nominal amount in the syirkah's currency (a share of sales or profit is rejected as unclear); extra (ja'li)
+clauses need a recorded lawfulness review. It is a pure check: staff contracts are not yet stored or exposed over REST.
