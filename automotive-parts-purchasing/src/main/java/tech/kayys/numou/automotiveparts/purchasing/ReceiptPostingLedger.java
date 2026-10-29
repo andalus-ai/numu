@@ -1,5 +1,8 @@
 package tech.kayys.numou.automotiveparts.purchasing;
 
+import java.time.Instant;
+import java.util.List;
+
 /**
  * Durable lifecycle for the cross-module goods-receipt posting attempt.
  * Inventory's command receipt remains the authority for movement idempotency;
@@ -11,6 +14,9 @@ public interface ReceiptPostingLedger {
     void markPosted(String tenantId, String receiptId, String payloadFingerprint, String movementId);
 
     void markRetryable(String tenantId, String receiptId, String payloadFingerprint, String failure);
+
+    /** Pending attempts that have not been updated since the cutoff, oldest first. */
+    List<PostingRecord> findPending(Instant updatedBefore, int limit);
 
     enum Status { PENDING, POSTED }
 

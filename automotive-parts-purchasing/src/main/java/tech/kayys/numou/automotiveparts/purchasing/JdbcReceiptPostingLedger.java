@@ -6,6 +6,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Instant;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -82,6 +86,30 @@ public final class JdbcReceiptPostingLedger implements ReceiptPostingLedger {
                 SET last_failure = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = ? AND receipt_id = ? AND payload_fingerprint = ? AND status = 'PENDING'
                 """, failure == null ? "Unknown posting failure" : failure, tenantId, receiptId, fingerprint);
+    }
+
+    @Override
+    public List<PostingRecord> findPending(Instant updatedBefore, int limit) {
+        Objects.requireNonNull(updatedBefore, "updatedBefore is required");
+        if (limit < 1 || limit > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement("""
+                     SELECT tenant_id, receipt_id, payload_fingerprint, status, movement_id, attempts, last_failure
+                     FROM purchasing_receipt_inventory_posting
+                     WHERE status = 'PENDING' AND updated_at <= ?
+                     ORDER BY updated_at ASC, tenant_id ASC, receipt_id ASC
+                     LIMIT ?
+                     """)) {
+            ps.setTimestamp(1, Timestamp.from(updatedBefore));
+            ps.setInt(2, limit);
+            List<PostingRecord> records = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) records.add(read(rs));
+            }
+            return List.copyOf(records);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not query pending goods receipt postings", e);
+        }
     }
 
     private void update(String tenantId, String receiptId, String fingerprint, String sql, String... values) {
