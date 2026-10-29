@@ -8,6 +8,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.GET;
@@ -23,6 +25,8 @@ import tech.kayys.numou.transport.domain.TransportCheckout;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
+import java.time.Duration;
 
 /** Optional, authenticated HTTP surface for the Transport + Payment checkout saga. */
 @Authenticated
@@ -70,6 +74,24 @@ public class TransportCheckoutResource {
     }
 
     @GET
+    @Path("/checkouts/reconciliation")
+    public ReconciliationQueueResponse reconciliationQueue(
+            @QueryParam("olderThanSeconds") @DefaultValue("60") long olderThanSeconds,
+            @QueryParam("limit") @DefaultValue("50") int limit) {
+        TransportIdentityContext caller = caller();
+        authorization.requireAllowedForResource(caller, identity.getPrincipal().getName(),
+                TransportBookingAuthorization.BookingOperation.READ_RECONCILIATION, caller.tenantId());
+        if (olderThanSeconds < 0 || olderThanSeconds > 31_536_000) {
+            throw new BadRequestException("olderThanSeconds must be between 0 and 31536000");
+        }
+        if (limit < 1 || limit > 100) throw new BadRequestException("limit must be between 1 and 100");
+        List<ReconciliationCase> cases = checkouts.reconciliationQueue(caller.tenantId(),
+                        Duration.ofSeconds(olderThanSeconds), limit).stream()
+                .map(ReconciliationCase::from).toList();
+        return new ReconciliationQueueResponse(cases, cases.size(), limit, olderThanSeconds);
+    }
+
+    @GET
     @Path("/checkouts/{checkoutId}")
     public CheckoutResponse get(@PathParam("checkoutId") UUID checkoutId) {
         TransportIdentityContext caller = caller();
@@ -114,6 +136,26 @@ public class TransportCheckoutResource {
     }
 
     public record RefundRequest(String reason) {
+    }
+
+    public record ReconciliationQueueResponse(List<ReconciliationCase> cases, int count,
+                                             int limit, long olderThanSeconds) {
+        public ReconciliationQueueResponse {
+            cases = List.copyOf(cases);
+        }
+    }
+
+    public record ReconciliationCase(UUID checkoutId, UUID departureId, UUID holdId,
+                                     String paymentId, String refundId, String refundStatus,
+                                     String status, BigDecimal amount, String currency,
+                                     String refundReason, Instant updatedAt) {
+        static ReconciliationCase from(TransportCheckout checkout) {
+            return new ReconciliationCase(checkout.checkoutId(), checkout.departureId(), checkout.holdId(),
+                    checkout.paymentId(), checkout.refundId(),
+                    checkout.refundStatus() == null ? null : checkout.refundStatus().name(),
+                    checkout.status().name(), checkout.amount(), checkout.currency(),
+                    checkout.refundReason(), checkout.updatedAt());
+        }
     }
 
     public record CheckoutResponse(UUID checkoutId, UUID departureId, UUID holdId, String paymentId,

@@ -6,15 +6,17 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tech.kayys.numou.notification.application.port.PushTokenProtector;
 import tech.kayys.numou.notification.domain.PushDevice;
+
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.sql.ResultSet;
-import java.util.Optional;
-
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
+import java.sql.PreparedStatement;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -110,6 +112,60 @@ class JdbcPushDeviceRepositoryTest {
 
         assertEquals(1, repository.findActiveByRecipient(tenant, recipient).size());
         assertTrue(repository.findActiveByRecipient(UUID.randomUUID(), recipient).isEmpty());
+    }
+
+
+    @Test
+    void legacyTokenMigrationIsBoundedResumableAndRemovesPlaintext() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        UUID recipient = UUID.randomUUID();
+        UUID id = UUID.randomUUID();
+        String legacyToken = "legacy-provider-token";
+        try (var connection = POSTGRES.createConnection("");
+             PreparedStatement insert = connection.prepareStatement("""
+                     INSERT INTO notification_push_device
+                         (id, tenant_id, recipient_id, provider_token, provider_token_ciphertext,
+                          provider_token_key_id, token_fingerprint, platform, app_instance,
+                          created_at, updated_at, disabled_at)
+                     VALUES (?, ?, ?, ?, NULL, NULL, ?, 'ANDROID', 'legacy-app', ?, ?, NULL)
+                     """)) {
+            insert.setObject(1, id);
+            insert.setObject(2, tenant);
+            insert.setObject(3, recipient);
+            insert.setString(4, legacyToken);
+            insert.setString(5, "a".repeat(64));
+            insert.setTimestamp(6, java.sql.Timestamp.from(now));
+            insert.setTimestamp(7, java.sql.Timestamp.from(now));
+            assertEquals(1, insert.executeUpdate());
+        }
+
+        PGSimpleDataSource migrationDataSource = new PGSimpleDataSource();
+        migrationDataSource.setURL(POSTGRES.getJdbcUrl());
+        migrationDataSource.setUser(POSTGRES.getUsername());
+        migrationDataSource.setPassword(POSTGRES.getPassword());
+        JdbcLegacyPushTokenMigrator migrator =
+                new JdbcLegacyPushTokenMigrator(migrationDataSource, protector());
+
+        var result = migrator.migrateBatch(1);
+        assertEquals(1, result.migratedInBatch());
+        assertEquals(0, result.remainingLegacyRows());
+        assertTrue(result.complete());
+        var repeated = migrator.migrateBatch(1);
+        assertEquals(0, repeated.migratedInBatch());
+        assertTrue(repeated.complete());
+
+        try (var connection = POSTGRES.createConnection("");
+             var statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery(
+                     "SELECT provider_token, provider_token_ciphertext, provider_token_key_id " +
+                     "FROM notification_push_device WHERE id = '" + id + "'")) {
+            assertTrue(rows.next());
+            assertNull(rows.getString("provider_token"));
+            assertEquals("test-key-v1", rows.getString("provider_token_key_id"));
+            assertEquals(legacyToken, protector().reveal(
+                    tenant, recipient, rows.getString("provider_token_key_id"),
+                    rows.getString("provider_token_ciphertext")));
+        }
     }
 
     private PushDevice device(UUID tenant, UUID recipient, String token, Instant time) {

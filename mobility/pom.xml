@@ -16,10 +16,6 @@
     <modules>
         <module>mobility-kernel</module>
         <module>mobility-pricing</module>
-        <module>wallet/mobility-wallet-domain</module>
-        <module>wallet/mobility-wallet-spi</module>
-        <module>wallet/mobility-wallet-application</module>
-        <module>wallet/mobility-wallet-adapter</module>
         <module>driver/mobility-driver-domain</module>
         <module>driver/mobility-driver-spi</module>
         <module>driver/mobility-driver-application</module>

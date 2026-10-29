@@ -38,6 +38,10 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
     private static final String FIND_STALE_REFUNDS = "SELECT " + COLUMNS
             + " FROM transport_checkout WHERE updated_at < ? AND status IN ('REFUND_REQUESTED', 'REFUND_PENDING')"
             + " ORDER BY updated_at ASC, tenant_id ASC, checkout_id ASC LIMIT ?";
+    private static final String FIND_RECONCILIATION_CASES = "SELECT " + COLUMNS
+            + " FROM transport_checkout WHERE tenant_id = ? AND updated_at <= ?"
+            + " AND status IN ('RECONCILIATION_REQUIRED', 'REFUND_REQUESTED', 'REFUND_PENDING', 'REFUND_FAILED')"
+            + " ORDER BY updated_at ASC, checkout_id ASC LIMIT ?";
     private static final String INSERT = """
             INSERT INTO transport_checkout
             (tenant_id, checkout_id, idempotency_key, request_fingerprint, departure_id, quote_id,
@@ -90,6 +94,28 @@ public final class PgTransportCheckoutRepository implements TransportCheckoutRep
             }
         } catch (SQLException failure) {
             throw persistenceFailure("find stale checkouts", failure);
+        }
+    }
+
+    @Override
+    public List<TransportCheckout> findReconciliationCases(String tenantId, Instant updatedBefore, int limit) {
+        String requiredTenant = requireTenant(tenantId);
+        Objects.requireNonNull(updatedBefore, "updatedBefore");
+        if (limit < 1 || limit > 500) {
+            throw new IllegalArgumentException("limit must be between 1 and 500");
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_RECONCILIATION_CASES)) {
+            statement.setString(1, requiredTenant);
+            statement.setTimestamp(2, Timestamp.from(updatedBefore));
+            statement.setInt(3, limit);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<TransportCheckout> result = new ArrayList<>();
+                while (rows.next()) result.add(read(rows));
+                return List.copyOf(result);
+            }
+        } catch (SQLException failure) {
+            throw persistenceFailure("find operator reconciliation cases", failure);
         }
     }
 

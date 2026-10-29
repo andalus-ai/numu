@@ -94,11 +94,6 @@ class PaymentCapabilityCheckoutAdapterTest {
         }
 
         @Override
-        public PaymentObligation applyVerifiedOutcome(VerifiedPaymentOutcome outcome) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public RefundOperation requestRefund(RequestPaymentRefund command) {
             throw new UnsupportedOperationException();
         }
