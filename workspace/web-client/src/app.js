@@ -3,6 +3,10 @@ const apiBase = document.querySelector('meta[name="numou-api-base"]')?.content |
 const api = createWorkspaceApi({ baseUrl: apiBase });
 const $ = (selector) => document.querySelector(selector);
 const state = { workspace:null, space:null, page:null, revision:null, savedTitle:"", savedBody:"", dirty:false, view:"home", toastTimer:null };
+const ACTIVE_WORKSPACE_KEY = "numou.workspace.activeWorkspaceId";
+const ACTIVE_SPACE_KEY = "numou.workspace.activeSpaceId";
+function readSelection(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function writeSelection(key, value) { try { if(value) localStorage.setItem(key,value); else localStorage.removeItem(key); } catch { /* storage is optional */ } }
 const forms = { workspace:$("#workspace-form"), space:$("#space-form"), page:$("#page-form") };
 const submitButton = (form) => form.querySelector('button[type="submit"]');
 const field = (form, name) => form.elements.namedItem(name);
@@ -19,8 +23,8 @@ function textToBlocks(text,currentBlocks=[]) { const existing=Array.isArray(curr
 function renderEditor(page) { state.page=page; state.revision=Number(page.revision??page.currentRevision??0); state.savedTitle=safeText(page.title); state.savedBody=blocksToText(page.blocks); state.dirty=false; $("#editor-title").value=state.savedTitle; $("#editor-body").value=state.savedBody; $("#editor-meta").textContent=`Revision ${state.revision} · Changes are saved when confirmed by the server.`; $("#history-panel").hidden=true; $("#save-button").disabled=true; $("#save-button").textContent="Save changes"; showView("editor"); }
 async function refreshPages() { if(!state.space)return; const pages=await runAction(()=>api.listPages(state.space.id)); if(pages)renderPageNavigation(pages); }
 async function openPage(pageId) { if(!pageId){showToast("The API response did not include a page ID.");return;} const page=await runAction(()=>api.getPage(pageId)); if(page)renderEditor(page); }
-forms.workspace.addEventListener("submit",async(event)=>{event.preventDefault();const button=submitButton(forms.workspace);button.disabled=true;const created=await runAction(()=>api.createWorkspace({name:field(forms.workspace,"name").value.trim(),description:field(forms.workspace,"description").value.trim()||null}),"Workspace created.");button.disabled=false;if(!created)return;state.workspace=created;renderWorkspace();field(forms.space,"name").focus();});
-forms.space.addEventListener("submit",async(event)=>{event.preventDefault();if(!state.workspace)return;const button=submitButton(forms.space);button.disabled=true;const created=await runAction(()=>api.createSpace(state.workspace.id,{name:field(forms.space,"name").value.trim(),slug:field(forms.space,"slug").value.trim()}),"Space created.");button.disabled=false;if(!created)return;state.space=created;renderWorkspace();field(forms.page,"title").focus();await refreshPages();});
+forms.workspace.addEventListener("submit",async(event)=>{event.preventDefault();const button=submitButton(forms.workspace);button.disabled=true;const created=await runAction(()=>api.createWorkspace({name:field(forms.workspace,"name").value.trim(),description:field(forms.workspace,"description").value.trim()||null}),"Workspace created.");button.disabled=false;if(!created)return;state.workspace=created;state.space=null;writeSelection(ACTIVE_WORKSPACE_KEY,created.id);writeSelection(ACTIVE_SPACE_KEY,null);renderWorkspace();field(forms.space,"name").focus();});
+forms.space.addEventListener("submit",async(event)=>{event.preventDefault();if(!state.workspace)return;const button=submitButton(forms.space);button.disabled=true;const created=await runAction(()=>api.createSpace(state.workspace.id,{name:field(forms.space,"name").value.trim(),slug:field(forms.space,"slug").value.trim()}),"Space created.");button.disabled=false;if(!created)return;state.space=created;writeSelection(ACTIVE_SPACE_KEY,created.id);renderWorkspace();field(forms.page,"title").focus();await refreshPages();});
 forms.page.addEventListener("submit",async(event)=>{event.preventDefault();if(!state.workspace||!state.space)return;const button=submitButton(forms.page);button.disabled=true;const title=field(forms.page,"title").value.trim();const content=field(forms.page,"content").value;const created=await runAction(()=>api.createPage(state.workspace.id,state.space.id,{title,blocks:content?textToBlocks(content):[]}),"Page created.");button.disabled=false;if(!created)return;field(forms.page,"title").value="";field(forms.page,"content").value="";await refreshPages();renderEditor(created);});
 $("#editor-title").addEventListener("input",markDirty); $("#editor-body").addEventListener("input",markDirty);
 function markDirty(){state.dirty=$("#editor-title").value!==state.savedTitle||$("#editor-body").value!==state.savedBody;$("#save-state").textContent=state.dirty?"Unsaved changes":"Saved";$("#save-button").disabled=!state.dirty;}
@@ -33,4 +37,22 @@ $("#nav-templates").addEventListener("click",async()=>{showView("templates");if(
 $("#new-workspace-shortcut").addEventListener("click",()=>{showView("home");field(forms.workspace,"name").focus();});
 $("#refresh-button").addEventListener("click",async()=>{if(state.page&&state.view==="editor"){if(state.dirty&&!window.confirm("Reload from server and discard your unsaved edits?"))return;await openPage(state.page.id);}else await refreshPages();});
 window.addEventListener("beforeunload",(event)=>{if(state.dirty){event.preventDefault();event.returnValue="";}});
-renderWorkspace();setStatus("Ready");
+async function restoreNavigation() {
+  const workspaces = await runAction(() => api.listWorkspaces());
+  if (!Array.isArray(workspaces) || workspaces.length === 0) {
+    state.workspace = null; state.space = null;
+    writeSelection(ACTIVE_WORKSPACE_KEY,null); writeSelection(ACTIVE_SPACE_KEY,null);
+    renderWorkspace(); return;
+  }
+  const preferredWorkspace = readSelection(ACTIVE_WORKSPACE_KEY);
+  state.workspace = workspaces.find(item => item.id === preferredWorkspace) || workspaces[0];
+  writeSelection(ACTIVE_WORKSPACE_KEY,state.workspace.id);
+  const spaces = await runAction(() => api.listSpaces(state.workspace.id));
+  if (!Array.isArray(spaces)) { renderWorkspace(); return; }
+  const preferredSpace = readSelection(ACTIVE_SPACE_KEY);
+  state.space = spaces.find(item => item.id === preferredSpace) || spaces[0] || null;
+  writeSelection(ACTIVE_SPACE_KEY,state.space?.id || null);
+  renderWorkspace();
+  if (state.space) await refreshPages();
+}
+renderWorkspace();setStatus("Ready");void restoreNavigation();
