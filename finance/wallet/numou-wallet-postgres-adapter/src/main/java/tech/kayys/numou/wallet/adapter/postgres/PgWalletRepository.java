@@ -2,6 +2,7 @@ package tech.kayys.numou.wallet.adapter.postgres;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import tech.kayys.numou.aggregate.persistence.PgDocumentRepository;
 import tech.kayys.numou.wallet.domain.Wallet;
@@ -18,6 +19,7 @@ import tech.kayys.numou.wallet.spi.WalletRepository;
  * <p>Atomicity with ledger appends and the transactional outbox depends on the caller's unit of
  * work. Production readiness requires integration tests proving those writes share one transaction.
  */
+@Alternative
 @ApplicationScoped
 public class PgWalletRepository extends PgDocumentRepository<Wallet, WalletId, Wallet.Snapshot>
         implements WalletRepository {
