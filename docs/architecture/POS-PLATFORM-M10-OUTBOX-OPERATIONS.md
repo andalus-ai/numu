@@ -4,6 +4,13 @@
 
 The persistence operations port exposes aggregate counts for PENDING, IN_FLIGHT, PUBLISHED, and DEAD rows. Counts are system-level operational totals and must be exposed only to authorized operations tooling; do not present them as tenant-scoped data.
 
+The adapter exports low-cardinality Micrometer metrics:
+- `numou.pos.outbox.dispatch.passes{outcome=success|failure}`
+- `numou.pos.outbox.events.published`
+- `numou.pos.outbox.events{status=pending|in_flight|published|dead}`
+
+Backlog gauges refresh after each successful dispatch pass. Metrics avoid tenant, event, and aggregate identifiers as labels. Gauge refresh failures are logged and do not fail delivery or application startup.
+
 ## Dead-letter replay
 
 Replay is an explicit command, not an automatic retry:
