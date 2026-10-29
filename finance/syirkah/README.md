@@ -162,3 +162,9 @@ syirkah's akad: the employer must be the syirkah and not one partner acting for 
 or works in the syirkah cannot be salaried; the kind of work, period and effort must be stated; the wage must be a
 fixed nominal amount in the syirkah's currency (a share of sales or profit is rejected as unclear); extra (ja'li)
 clauses need a recorded lawfulness review. It is a pure check: staff contracts are not yet stored or exposed over REST.
+## Agriculture
+
+`AgricultureChecker` (Hukum Muamalah Bab XV section H) keeps muzara'ah and mukhabarah out: both are haram, so the
+akad formation check rejects an akad whose stated activity or combined akad names either (batil, as an akad forbidden
+by the texts). A musaqah, which is allowed only on land that already has its trees, can be checked on its own. Numou
+has no ledger type for these arrangements; the name scan is a safeguard, not a substitute for the lawfulness review.
