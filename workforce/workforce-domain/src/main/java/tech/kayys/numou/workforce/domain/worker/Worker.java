@@ -64,6 +64,35 @@ public final class Worker extends AbstractAggregateRoot<WorkerId> {
         return worker;
     }
 
+    /**
+     * Reconstitutes a persisted Worker without treating hydration as a new domain action.
+     *
+     * <p>This factory deliberately raises no domain events. Persisted state and the aggregate
+     * version are restored exactly as stored; callers must only use it for trusted persistence
+     * data after validating the row's tenant and identity fields.</p>
+     */
+    public static Worker reconstitute(
+            WorkerId id,
+            TenantId tenantId,
+            PersonRef person,
+            WorkerType type,
+            WorkerStatus status,
+            AuditMeta audit,
+            int version
+    ) {
+        Objects.requireNonNull(id, "WorkerId must not be null");
+        Objects.requireNonNull(audit, "AuditMeta must not be null");
+        if (version < 0) {
+            throw new IllegalArgumentException("Aggregate version must not be negative");
+        }
+
+        Worker worker = new Worker(id, tenantId, person, type, status, audit);
+        worker.createdAt = audit.createdAt();
+        worker.updatedAt = audit.updatedAt();
+        worker.version = version;
+        return worker;
+    }
+
     public void suspend(String actor, Instant now, String reason) {
         if (status == WorkerStatus.INACTIVE) {
             throw new IllegalStateException("Inactive worker cannot be suspended");
