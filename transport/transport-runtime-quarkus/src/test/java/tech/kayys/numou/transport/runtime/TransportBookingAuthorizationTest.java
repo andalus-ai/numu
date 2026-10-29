@@ -39,6 +39,23 @@ class TransportBookingAuthorizationTest {
     }
 
     @Test
+    void reconciliationQueueRequiresDedicatedReadPermission() {
+        AtomicReference<AccessRequest> observed = new AtomicReference<>();
+        TransportBookingAuthorization guard = guard(true, request -> {
+            observed.set(request);
+            return AccessDecision.allow("operator read permitted");
+        });
+
+        guard.requireAllowedForResource(caller(), "oidc-subject",
+                TransportBookingAuthorization.BookingOperation.READ_RECONCILIATION, tenantId.toString());
+
+        assertThat(observed.get().resourceType()).isEqualTo("transport.booking.reconciliation");
+        assertThat(observed.get().resourceId()).isEqualTo(tenantId.toString());
+        assertThat(observed.get().actionType()).isEqualTo(
+                tech.kayys.numou.security.domain.valueobject.ActionType.READ);
+    }
+
+    @Test
     void deniesInactiveTenantMembershipBeforeCallingPolicy() {
         AtomicReference<Boolean> policyCalled = new AtomicReference<>(false);
         TransportBookingAuthorization guard = guard(false, request -> {
