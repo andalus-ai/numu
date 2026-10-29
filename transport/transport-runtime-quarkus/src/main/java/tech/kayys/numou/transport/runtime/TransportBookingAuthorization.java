@@ -60,9 +60,8 @@ public class TransportBookingAuthorization {
                 throw new SecurityException("active tenant membership is required");
             }
 
-            String resourceId = holdId == null ? departureId.toString() : holdId.toString();
-            AccessRequest request = new AccessRequest(principal, tenant, operation.actionType(),
-                    operation.resourceType(), resourceId, "operation=" + operation.permissionAction());
+                String resourceId = holdId == null ? departureId.toString() : holdId.toString();
+            requireAllowedForResource(caller, principalName, operation, resourceId);
             AccessDecision decision = authorization.authorize(request).await().atMost(timeout);
             if (decision == null || !decision.isAllowed()) {
                 throw new SecurityException("booking permission was denied");
@@ -75,6 +74,39 @@ public class TransportBookingAuthorization {
         }
     }
 
+    public void requireAllowedForResource(TransportIdentityContext caller, String principalName,
+                                          BookingOperation operation, String resourceId) {
+        if (caller == null || principalName == null || principalName.isBlank()
+                || resourceId == null || resourceId.isBlank()) {
+            throw new SecurityException("verified caller identity and resource are required");
+        }
+        if (timeoutMillis < 100 || timeoutMillis > 10_000) {
+            throw new TransportAuthorizationUnavailableException("authorization timeout configuration is invalid");
+        }
+        final Principal principal;
+        final TenantId tenant;
+        try {
+            principal = new Principal(PrincipalId.fromString(caller.actorId()), principalName, Set.of());
+            tenant = TenantId.of(caller.tenantId());
+        } catch (RuntimeException invalidIdentity) {
+            throw new SecurityException("verified actor and tenant identifiers must be UUIDs", invalidIdentity);
+        }
+        Duration timeout = Duration.ofMillis(timeoutMillis);
+        try {
+            Boolean activeMember = memberships.isMember(principal, tenant).await().atMost(timeout);
+            if (!Boolean.TRUE.equals(activeMember)) throw new SecurityException("active tenant membership is required");
+            AccessRequest request = new AccessRequest(principal, tenant, operation.actionType(),
+                    operation.resourceType(), resourceId, "operation=" + operation.permissionAction());
+            AccessDecision decision = authorization.authorize(request).await().atMost(timeout);
+            if (decision == null || !decision.isAllowed()) throw new SecurityException("booking permission was denied");
+        } catch (SecurityException denied) {
+            throw denied;
+        } catch (RuntimeException unavailable) {
+            throw new TransportAuthorizationUnavailableException(
+                    "tenant membership or authorization service is unavailable", unavailable);
+        }
+    }
+
     public enum BookingOperation {
         CREATE_HOLD("create", "transport.booking.hold", ActionType.CREATE),
         CONFIRM_HOLD("confirm", "transport.booking.hold", ActionType.UPDATE),
@@ -82,7 +114,8 @@ public class TransportBookingAuthorization {
         CREATE_CHECKOUT("create", "transport.booking.checkout", ActionType.CREATE),
         READ_CHECKOUT("read", "transport.booking.checkout", ActionType.READ),
         REFRESH_CHECKOUT("refresh", "transport.booking.checkout", ActionType.PERFORM),
-        REQUEST_REFUND("refund", "transport.booking.checkout", ActionType.PERFORM);
+        REQUEST_REFUND("refund", "transport.booking.checkout", ActionType.PERFORM),
+        READ_RECONCILIATION("read", "transport.booking.reconciliation", ActionType.READ);
 
         private final String permissionAction;
         private final String resourceType;
