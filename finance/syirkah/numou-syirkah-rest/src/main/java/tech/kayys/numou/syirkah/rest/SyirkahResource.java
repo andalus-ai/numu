@@ -88,6 +88,21 @@ public class SyirkahResource {
         return api.audit();
     }
 
+    @GET
+    @Path("/rules")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public RulesView rules() {
+        return api.rules();
+    }
+
+    @GET
+    @Path("/rules.md")
+    @Produces("text/markdown")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public String rulesMarkdown() {
+        return api.rulesMarkdown();
+    }
+
     // ---- direct commands
 
     @POST

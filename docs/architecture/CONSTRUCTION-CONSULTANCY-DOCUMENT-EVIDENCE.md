@@ -36,4 +36,10 @@ This boundary does not prove a document is digitally signed, legally valid, acce
 
 ## Authorization port
 
-The application layer now has a dedicated `ConsultancyEvidenceAuthorization` contract with separate checks for deliverable access and document/version access. The attach/read orchestration must call both checks; implementing one must never be treated as satisfying the other. Document access requests require a concrete version ID, preventing a workflow from claiming to authorize an unspecified artifact. This is a port only: runtime adapters must connect it to trusted identity/membership and Document access-policy services before any endpoint is exposed.
+The application layer has a dedicated `ConsultancyEvidenceAuthorization` contract with separate checks for deliverable access and document/version access. The attach/read orchestration must call both checks; implementing one must never be treated as satisfying the other. Document access requests require a concrete version ID, preventing a workflow from claiming to authorize an unspecified artifact. Runtime adapters must connect it to trusted identity/membership and Document access-policy services before any endpoint is exposed.
+
+## Durable operation contract
+
+`ConsultancyEvidenceOperation` models the saga state machine: `PENDING`, `LINKED`, `RETRYABLE_FAILURE`, and `TERMINAL_FAILURE`. Retryable failures can return to pending; terminal failures cannot be silently retried. The tenant-scoped idempotency key identifies a logical request, while the document version remains explicit on the operation.
+
+`ConsultancyEvidenceOperationStore` is the persistence boundary. A production adapter must enforce uniqueness for `(tenant_id, idempotency_key)`, perform atomic worker claims (for example with a database lease or `FOR UPDATE SKIP LOCKED`), persist attempt/failure metadata, and support operational inspection. This PR establishes the application contract and state transitions only: it does not add a database migration, worker, Document adapter, or HTTP endpoint. Those are required before production use.
