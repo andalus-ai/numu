@@ -6,15 +6,16 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tech.kayys.numou.notification.application.port.PushTokenProtector;
 import tech.kayys.numou.notification.domain.PushDevice;
+
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.sql.ResultSet;
-import java.util.Optional;
-
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;

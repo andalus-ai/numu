@@ -27,6 +27,7 @@ Harden the existing Support capability before adding more channels, automation, 
 - [ ] Add application-level tests for allowed public comments, rejected cross-tenant writes, author spoofing, and customer attempts to create internal notes.
 - [x] `TicketResponse` only includes internal comments for agent/manager/system actors; customer and partner response projections expose public comments only.
 - [ ] Audit every customer-facing ticket read endpoint and ensure access policy, requester ownership, and DTO mapping are enforced.
+- [x] Add handler-level regression tests proving portal reads stop when policy denies access, reject cross-tenant tickets even when policy allows them, and return a DTO only after both checks pass.
 - [x] Status, priority, and assignment handlers require authenticated support staff and enforce tenant ownership; resolving/closing additionally checks `TicketAccessPolicy.canResolve`.
 - [ ] Add application-level authorization tests for status, priority, and assignment denial cases; verify production actor-provider and access-policy wiring.
 - [ ] Public replies and internal notes have separate notification / outbound-delivery rules.
