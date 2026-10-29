@@ -97,6 +97,19 @@ public final class QueueEntry {
                 || status == QueueEntryStatus.REJECTED) && profile != QueueProfile.DISPATCH) {
             throw new IllegalArgumentException("status " + status + " is only valid for DISPATCH");
         }
+        if ((status == QueueEntryStatus.CALLED || status == QueueEntryStatus.SERVING
+                || status == QueueEntryStatus.NO_SHOW) && calledAt == null) {
+            throw new IllegalArgumentException("status " + status + " requires calledAt");
+        }
+        if (status == QueueEntryStatus.SERVING && servingStartedAt == null) {
+            throw new IllegalArgumentException("SERVING requires servingStartedAt");
+        }
+        if (status == QueueEntryStatus.COMPLETED && completedAt == null) {
+            throw new IllegalArgumentException("COMPLETED requires completedAt");
+        }
+        if (status == QueueEntryStatus.WAITING && (servingStartedAt != null || completedAt != null)) {
+            throw new IllegalArgumentException("WAITING cannot retain serving/completion timestamps");
+        }
         QueueEntry entry = new QueueEntry(id, tenantId, queueId, profile, source, priority,
                 enteredAt, updatedAt, status, calledAt, servingStartedAt, completedAt, callCount);
         return entry;
