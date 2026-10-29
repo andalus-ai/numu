@@ -17,5 +17,6 @@
         <module>numou-affiliate-domain</module>
         <module>numou-affiliate-spi</module>
         <module>numou-affiliate-application</module>
+        <module>numou-affiliate-postgres-adapter</module>
     </modules>
 </project>
