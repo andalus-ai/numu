@@ -37,10 +37,5 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
-      <dependency>
-      <groupId>tech.kayys.numou</groupId>
-      <artifactId>numou-notification-application</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-  </dependencies>
+    </dependencies>
 </project>
