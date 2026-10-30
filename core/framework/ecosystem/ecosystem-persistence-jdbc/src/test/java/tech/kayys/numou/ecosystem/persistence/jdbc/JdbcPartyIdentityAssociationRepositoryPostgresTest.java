@@ -49,6 +49,13 @@ class JdbcPartyIdentityAssociationRepositoryPostgresTest {
         assertTrue(repository.findByTenantAndParty(otherTenant, party)
                 .await().indefinitely().isEmpty());
 
+        // The same issuer/subject pair may independently exist in another tenant.
+        var otherTenantLink = PartyIdentityAssociation.link(UUID.randomUUID(), otherTenant, party,
+                identity, linkedAt);
+        assertEquals(otherTenantLink, repository.save(otherTenantLink).await().indefinitely());
+        assertEquals(otherTenantLink, repository.findActiveByTenantAndIdentity(otherTenant, identity)
+                .await().indefinitely().orElseThrow());
+
         PartyIdentityAssociation revoked = active.revoke(linkedAt.plusSeconds(90));
         assertEquals(revoked, repository.save(revoked).await().indefinitely());
         assertTrue(repository.findActiveByTenantAndIdentity(tenant, identity)
@@ -128,6 +135,9 @@ class JdbcPartyIdentityAssociationRepositoryPostgresTest {
             assertNotNull(input, "Missing migration resource " + resource);
             String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
             try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+                // Test methods share the static Testcontainers database; reset this adapter's
+                // isolated schema before applying its single-version migration.
+                statement.execute("DROP TABLE IF EXISTS ecosystem_party_identity_associations CASCADE");
                 statement.execute(sql);
             }
         }
