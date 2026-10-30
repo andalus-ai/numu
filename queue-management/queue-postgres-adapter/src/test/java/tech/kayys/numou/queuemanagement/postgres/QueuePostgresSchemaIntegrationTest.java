@@ -230,7 +230,8 @@ class QueuePostgresSchemaIntegrationTest {
         try (Connection connection = ownerConnection();
              PreparedStatement insert = connection.prepareStatement(
                      "INSERT INTO queue_definition (tenant_id, queue_id, code, display_name, profile, ordering_policy, status) "
-                             + "VALUES (?, ?, 'main', 'Main Queue', 'WAITING_SERVICE', 'FIFO', 'ACTIVE')")) {
+                             + "VALUES (?, ?, 'main', 'Main Queue', 'WAITING_SERVICE', 'FIFO', 'ACTIVE') "
+                             + "ON CONFLICT (tenant_id, queue_id) DO NOTHING")) {
             insert.setObject(1, tenant);
             insert.setObject(2, queue);
             insert.executeUpdate();
