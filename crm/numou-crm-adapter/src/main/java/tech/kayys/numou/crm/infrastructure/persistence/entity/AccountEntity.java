@@ -15,9 +15,14 @@ import tech.kayys.numou.crm.domain.valueobject.AccountStatus;
 @Entity
 @Table(name = "crm_accounts", indexes = {
         @Index(name = "idx_crm_account_participant", columnList = "participant_id"),
-        @Index(name = "idx_crm_account_parent", columnList = "parent_account_id")
+        @Index(name = "idx_crm_account_parent", columnList = "parent_account_id"),
+        @Index(name = "idx_crm_account_tenant", columnList = "tenant_id"),
+        @Index(name = "idx_crm_account_tenant_parent", columnList = "tenant_id, parent_account_id")
 })
 public class AccountEntity extends BaseEntity {
+
+    @Column(name = "tenant_id")
+    public UUID tenantId;
 
     @Column(name = "participant_id", nullable = false, updatable = false)
     public UUID participantId;

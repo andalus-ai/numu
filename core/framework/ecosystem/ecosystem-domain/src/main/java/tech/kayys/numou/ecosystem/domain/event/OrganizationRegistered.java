@@ -1,6 +1,7 @@
 package tech.kayys.numou.ecosystem.domain.event;
 
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
+import tech.kayys.numou.ecosystem.domain.organization.OrganizationType;
 
 import java.time.Instant;
 import java.util.Objects;
