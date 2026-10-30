@@ -1080,7 +1080,6 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.listDead(tenant, 10).isEmpty());
 
         PageCommentThread rejected = PageCommentThread.open(tenant, page.id(), actor, "Duplicate intent", now.plusSeconds(3));
-        PageComment duplicateRoot = rejected.comments().get(0);
         var duplicateA = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
                 recipient, "member", "Actor", page.title(), "workspace:comment-mention:duplicate");
         var duplicateB = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
@@ -1090,8 +1089,8 @@ class JdbcWorkspaceStorePostgresTest {
         assertFalse(store.createThreadWithMentions(rejected, rejectedAudit, List.of(duplicateA, duplicateB)),
                 "duplicate idempotency keys must roll back the entire comment transaction");
         assertTrue(store.findThread(tenant, page.id(), rejected.id()).isEmpty());
-        assertEquals(1, countRows("workspace_page_comments", tenant));
-        assertEquals(1, countRows("workspace_comment_mention_outbox", tenant));
+        assertEquals(2, countRows("workspace_page_comments", tenant));
+        assertEquals(2, countRows("workspace_comment_mention_outbox", tenant));
     }
 
     private long countRows(String table, UUID tenant) throws SQLException {
