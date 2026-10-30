@@ -1,6 +1,7 @@
 package tech.kayys.numou.workspace.adapter.rest;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.Dependent;
 import jakarta.enterprise.inject.Produces;
 import tech.kayys.numou.workspace.application.PageCommentService;
 import tech.kayys.numou.workspace.application.WorkspaceApi;
@@ -16,7 +17,7 @@ import java.time.Clock;
 public class WorkspaceCommentConfiguration {
 
     @Produces
-    @ApplicationScoped
+    @Dependent
     PageCommentService pageCommentService(PageRepository pages,
                                           AuditedPageCommentRepository comments,
                                           AccessPolicy access) {
@@ -24,7 +25,7 @@ public class WorkspaceCommentConfiguration {
     }
 
     @Produces
-    @ApplicationScoped
+    @Dependent
     WorkspaceCommentApi workspaceCommentApi(WorkspaceApi.IdentityProvider identity,
                                              PageCommentService service) {
         return new WorkspaceCommentApi(identity, service);
