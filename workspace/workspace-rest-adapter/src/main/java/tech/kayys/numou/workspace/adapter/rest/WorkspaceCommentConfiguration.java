@@ -3,9 +3,11 @@ package tech.kayys.numou.workspace.adapter.rest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.Dependent;
 import jakarta.enterprise.inject.Produces;
+import jakarta.enterprise.inject.Instance;
 import tech.kayys.numou.workspace.application.PageCommentService;
 import tech.kayys.numou.workspace.application.WorkspaceApi;
 import tech.kayys.numou.workspace.application.WorkspaceCommentApi;
+import tech.kayys.numou.workspace.application.WorkspaceMentionService;
 import tech.kayys.numou.workspace.application.WorkspacePorts.AccessPolicy;
 import tech.kayys.numou.workspace.application.WorkspacePorts.AuditedPageCommentRepository;
 import tech.kayys.numou.workspace.application.WorkspacePorts.PageRepository;
@@ -27,7 +29,8 @@ public class WorkspaceCommentConfiguration {
     @Produces
     @Dependent
     WorkspaceCommentApi workspaceCommentApi(WorkspaceApi.IdentityProvider identity,
-                                             PageCommentService service) {
-        return new WorkspaceCommentApi(identity, service);
+                                             PageCommentService service,
+                                             Instance<WorkspaceMentionService> mentions) {
+        return new WorkspaceCommentApi(identity, service, mentions.isResolvable() ? mentions.get() : null);
     }
 }

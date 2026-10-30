@@ -2,6 +2,7 @@ package tech.kayys.numou.workspace.application;
 
 import tech.kayys.numou.workspace.domain.PageComment;
 import tech.kayys.numou.workspace.domain.PageCommentThread;
+import tech.kayys.numou.workspace.application.port.WorkspaceMentionDirectory;
 
 import java.time.Instant;
 import java.util.List;
@@ -12,18 +13,32 @@ import java.util.UUID;
 public final class WorkspaceCommentApi {
     private final WorkspaceApi.IdentityProvider identity;
     private final PageCommentService service;
+    private final WorkspaceMentionService mentions;
 
     public WorkspaceCommentApi(WorkspaceApi.IdentityProvider identity, PageCommentService service) {
+        this(identity, service, null);
+    }
+
+    public WorkspaceCommentApi(WorkspaceApi.IdentityProvider identity, PageCommentService service,
+                               WorkspaceMentionService mentions) {
         this.identity = Objects.requireNonNull(identity, "identity");
         this.service = Objects.requireNonNull(service, "service");
+        this.mentions = mentions;
     }
 
     public ThreadView createThread(UUID pageId, CreateThreadRequest request) {
         Objects.requireNonNull(pageId, "pageId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
-        return call(() -> ThreadView.from(service.createThread(
-                actor.tenantId(), actor.actorId(), pageId, request.body())));
+        ThreadView created = call(() -> {
+            if (mentions != null) CommentMentionParser.parse(request.body());
+            return ThreadView.from(service.createThread(actor.tenantId(), actor.actorId(), pageId, request.body()));
+        });
+        if (mentions != null) {
+            CommentView root = created.comments().get(0);
+            mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, root.id(), root.body());
+        }
+        return created;
     }
 
     public ThreadView reply(UUID pageId, UUID threadId, ReplyRequest request) {
@@ -31,8 +46,23 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(threadId, "threadId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
-        return call(() -> ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
-                pageId, threadId, request.parentCommentId(), request.body())));
+        ThreadView updated = call(() -> {
+            if (mentions != null) CommentMentionParser.parse(request.body());
+            return ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
+                    pageId, threadId, request.parentCommentId(), request.body()));
+        });
+        if (mentions != null) {
+            CommentView reply = updated.comments().get(updated.comments().size() - 1);
+            mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, reply.id(), reply.body());
+        }
+        return updated;
+    }
+
+    public List<WorkspaceMentionDirectory.Member> suggestMentions(UUID pageId, String query, int limit) {
+        Objects.requireNonNull(pageId, "pageId");
+        var actor = currentActor();
+        if (mentions == null) return List.of();
+        return call(() -> mentions.suggest(actor.tenantId(), actor.actorId(), pageId, query, limit));
     }
 
     public List<ThreadView> listThreads(UUID pageId) {

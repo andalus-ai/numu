@@ -170,6 +170,10 @@ class WorkforceCommandHandlerTest {
         @Override public CompletionStage<Boolean> existsById(WorkerId id) { return CompletableFuture.completedFuture(map.containsKey(id)); }
         @Override public CompletionStage<Void> delete(Worker w) { map.remove(w.id()); return CompletableFuture.completedFuture(null); }
         @Override public CompletionStage<Void> deleteById(WorkerId id) { map.remove(id); return CompletableFuture.completedFuture(null); }
+        @Override public CompletionStage<Void> deleteById(TenantId tenantId, WorkerId id) {
+            map.computeIfPresent(id, (key, worker) -> worker.tenantId().equals(tenantId) ? null : worker);
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     private static class FakeEmploymentRepository implements EmploymentRepository {
