@@ -4,6 +4,7 @@ import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.numouapplication.StaffContractService;
+import tech.kayys.numou.numouapplication.port.BusinessAssetsPort;
 import tech.kayys.numou.numouapplication.port.TradingRecordPort;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.command.Commands;
@@ -35,6 +36,7 @@ public class SyirkahApi {
     private final StaffContractService staff;
     private final TradingRecordPort tradingRecords;
     private final tech.kayys.numou.numouapplication.port.TransactionPort tx;
+    private final BusinessAssetsPort assetsPort;
     private final java.time.Clock clock = java.time.Clock.systemUTC();
 
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
@@ -59,6 +61,15 @@ public class SyirkahApi {
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
                       StaffContractService staff, TradingRecordPort tradingRecords,
                       tech.kayys.numou.numouapplication.port.TransactionPort tx) {
+        this(service, governed, auditor, catalog, context, staff, tradingRecords, tx, null);
+    }
+
+    /** @param assetsPort when given, a balance sheet requested without assets and debts reads them from it */
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff, TradingRecordPort tradingRecords,
+                      tech.kayys.numou.numouapplication.port.TransactionPort tx, BusinessAssetsPort assetsPort) {
+        this.assetsPort = assetsPort;
         this.tx = tx;
         this.staff = staff;
         this.tradingRecords = tradingRecords;
@@ -158,12 +169,21 @@ public class SyirkahApi {
         Syirkah s = load(id);
         Currency cur = s.contract().currency();
         List<BookStatements.AssetLine> assets = new ArrayList<>();
+        List<BookStatements.LiabilityLine> liabilities = new ArrayList<>();
+        if (r.assets() == null && r.liabilities() == null) {
+            if (assetsPort == null) {
+                throw new IllegalArgumentException("assets and liabilities are required");
+            }
+            var snap = assetsPort.forSyirkah(tenant(), sid(id)).orElseThrow(() -> new IllegalArgumentException(
+                    "this syirkah has no books to read; send assets and liabilities"));
+            assets.addAll(snap.assets());
+            liabilities.addAll(snap.liabilities());
+        }
         for (StatementLineDto l : r.assets() == null ? List.<StatementLineDto>of() : r.assets()) {
             assets.add(new BookStatements.AssetLine(SyirkahDtos.enumOf(BookStatements.AssetGroup.class, l.group(),
                     "assets.group"), SyirkahDtos.required(l.label(), "assets.label"),
                     SyirkahDtos.money(l.amount(), cur, "assets.amount")));
         }
-        List<BookStatements.LiabilityLine> liabilities = new ArrayList<>();
         for (StatementLineDto l : r.liabilities() == null ? List.<StatementLineDto>of() : r.liabilities()) {
             liabilities.add(new BookStatements.LiabilityLine(SyirkahDtos.enumOf(BookStatements.LiabilityGroup.class,
                     l.group(), "liabilities.group"), SyirkahDtos.required(l.label(), "liabilities.label"),
