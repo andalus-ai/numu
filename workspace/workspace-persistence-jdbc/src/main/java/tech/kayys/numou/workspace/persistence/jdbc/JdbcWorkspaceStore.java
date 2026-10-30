@@ -457,7 +457,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
 
 
     @Override public Optional<PageCommentThread> findThread(UUID tenantId, UUID pageId, UUID threadId) {
-        String sql = "SELECT id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
+        String sql = "SELECT id,tenant_id,page_id,anchor_block_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
                 "FROM workspace_page_comment_threads WHERE tenant_id=? AND page_id=? AND id=?";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setObject(1, tenantId); p.setObject(2, pageId); p.setObject(3, threadId);
@@ -468,7 +468,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public List<PageCommentThread> findThreads(UUID tenantId, UUID pageId) {
-        String sql = "SELECT id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
+        String sql = "SELECT id,tenant_id,page_id,anchor_block_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
                 "FROM workspace_page_comment_threads WHERE tenant_id=? AND page_id=? ORDER BY created_at DESC,id";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setObject(1, tenantId); p.setObject(2, pageId);
@@ -482,12 +482,14 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
 
     private PageCommentThread readCommentThread(Connection c, ResultSet r) throws SQLException {
         UUID id = uuid(r, 1), tenant = uuid(r, 2), page = uuid(r, 3);
-        boolean resolved = r.getBoolean(4);
-        long revision = r.getLong(5);
-        Object resolverValue = r.getObject(6);
-        UUID resolver = resolverValue == null ? null : uuid(r, 6);
-        Instant resolvedAt = r.getTimestamp(7) == null ? null : instant(r, 7);
-        Instant created = instant(r, 8), updated = instant(r, 9);
+        Object anchorValue = r.getObject(4);
+        UUID anchorBlockId = anchorValue == null ? null : uuid(r, 4);
+        boolean resolved = r.getBoolean(5);
+        long revision = r.getLong(6);
+        Object resolverValue = r.getObject(7);
+        UUID resolver = resolverValue == null ? null : uuid(r, 7);
+        Instant resolvedAt = r.getTimestamp(8) == null ? null : instant(r, 8);
+        Instant created = instant(r, 9), updated = instant(r, 10);
         List<PageComment> entries = new ArrayList<>();
         String commentsSql = "SELECT id,tenant_id,page_id,thread_id,parent_comment_id,author_id,body,created_at " +
                 "FROM workspace_page_comments WHERE tenant_id=? AND page_id=? AND thread_id=? ORDER BY CASE WHEN parent_comment_id IS NULL THEN 0 ELSE 1 END,created_at,id";
@@ -502,7 +504,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
                 }
             }
         }
-        return new PageCommentThread(id, tenant, page, resolved, revision, resolver,
+        return new PageCommentThread(id, tenant, page, anchorBlockId, resolved, revision, resolver,
                 resolvedAt, created, updated, entries);
     }
 
@@ -516,10 +518,11 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             throw new IllegalArgumentException("invalid initial comment thread");
         }
         return atomicMutation("create page comment thread with audit", c -> {
-            String insertThread = "INSERT INTO workspace_page_comment_threads(id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at) VALUES(?,?,?,false,1,NULL,NULL,?,?)";
+            String insertThread = "INSERT INTO workspace_page_comment_threads(id,tenant_id,page_id,anchor_block_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at) VALUES(?,?,?,?,false,1,NULL,NULL,?,?)";
             try (PreparedStatement p = c.prepareStatement(insertThread)) {
                 p.setObject(1, thread.id()); p.setObject(2, thread.tenantId()); p.setObject(3, thread.pageId());
-                p.setTimestamp(4, Timestamp.from(thread.createdAt())); p.setTimestamp(5, Timestamp.from(thread.updatedAt()));
+                p.setObject(4, thread.anchorBlockId());
+                p.setTimestamp(5, Timestamp.from(thread.createdAt())); p.setTimestamp(6, Timestamp.from(thread.updatedAt()));
                 p.executeUpdate();
             }
             insertPageComment(c, root);
