@@ -394,4 +394,27 @@ class SyirkahApiTest {
         assertThrows(IllegalArgumentException.class, () -> api.balanceSheet(id, new BalanceSheetRequest(null, null,
                 List.of(), List.of())));
     }
+
+    @Test
+    void tradingFiguresBehindAClosePeriodAreKeptAndReadable() {
+        InMemoryTradingRecordPort store = new InMemoryTradingRecordPort();
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts);
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx, null, store);
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        TradingDto t = new TradingDto(new BigDecimal("1000"), null, null, new BigDecimal("200"),
+                new BigDecimal("600"), null, null, new BigDecimal("300"), new BigDecimal("50"), null);
+        CloseView c = a.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-31"), null, null, "retain", t));
+        TradingDto back = a.closeTrading(id, c.id());
+        assertEquals(0, new BigDecimal("300").compareTo(back.closingStock()));
+        assertEquals(0, new BigDecimal("1000").compareTo(back.sales()));
+        // cost of goods sold = 200 + 600 - 300 = 500, so net = 1000 - 500 - 50
+        assertEquals(0, new BigDecimal("450").compareTo(c.netResult()));
+        String other = a.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-02-01"),
+                LocalDate.parse("2026-02-28"), result("10"), null, "retain", null)).id();
+        assertThrows(tech.kayys.numou.numoudomain.SyirkahNotFoundException.class, () -> a.closeTrading(id, other));
+    }
 }

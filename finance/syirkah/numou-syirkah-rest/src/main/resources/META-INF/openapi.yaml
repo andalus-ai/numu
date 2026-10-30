@@ -152,6 +152,16 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IncomeStatementView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/closes/{closeId}/trading:
+    parameters:
+      - {$ref: "#/components/parameters/Id"}
+      - {name: closeId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Syirkah]
+      summary: The trading figures (Bab XXII) a close was worked out from
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/TradingDto"}}}}
+        default: {$ref: "#/components/responses/Error"}
   /rules:
     get:
       tags: [Syirkah]
