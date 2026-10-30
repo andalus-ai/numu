@@ -77,6 +77,12 @@ public class SyirkahProducers {
 
     @Produces
     @ApplicationScoped
+    JdbcTradingRecordPort tradingRecords(JdbcUnitOfWork uow) {
+        return new JdbcTradingRecordPort(uow);
+    }
+
+    @Produces
+    @ApplicationScoped
     JdbcStaffRecordPort staffRecords(JdbcUnitOfWork uow) {
         return new JdbcStaffRecordPort(uow);
     }
@@ -119,7 +125,8 @@ public class SyirkahProducers {
     @Produces
     @ApplicationScoped
     SyirkahApi api(SyirkahApplicationService service, GovernedSyirkahService governed,
-                   SyirkahIntegrityAuditor auditor, JdbcOperationsSupport ops, StaffContractService staff) {
-        return new SyirkahApi(service, governed, auditor, ops, context, staff);
+                   SyirkahIntegrityAuditor auditor, JdbcOperationsSupport ops, StaffContractService staff,
+                   JdbcTradingRecordPort trading) {
+        return new SyirkahApi(service, governed, auditor, ops, context, staff, trading);
     }
 }

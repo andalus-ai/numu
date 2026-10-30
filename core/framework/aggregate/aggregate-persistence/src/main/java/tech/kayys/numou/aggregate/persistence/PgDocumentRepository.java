@@ -146,12 +146,30 @@ public abstract class PgDocumentRepository<A extends VersionedAggregate<ID>, ID 
     private A read(String versionAndDoc) {
         final int sep = versionAndDoc.indexOf(':');
         try {
-            final A aggregate = fromSnapshot.apply(mapper.readValue(versionAndDoc.substring(sep + 1), snapshotType));
+            final S snapshot = decodeSnapshot(versionAndDoc.substring(sep + 1), snapshotType, mapper);
+            final A aggregate = fromSnapshot.apply(snapshot);
             aggregate.markStored(Long.parseLong(versionAndDoc.substring(0, sep)));
             return aggregate;
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Corrupt " + kind + " document", e);
         }
+    }
+
+    /**
+     * Reads the JSONB document payload. Object-shaped JSON is the canonical format; a JSON string
+     * containing an object is also accepted for compatibility with rows written by older adapters
+     * that bound an already-serialized document as a JSON scalar.
+     */
+    static <T> T decodeSnapshot(String json, Class<T> snapshotType, ObjectMapper mapper)
+            throws JsonProcessingException {
+        var node = mapper.readTree(json);
+        if (node != null && node.isTextual()) {
+            node = mapper.readTree(node.textValue());
+        }
+        if (node == null || !node.isObject()) {
+            throw new IllegalStateException("Aggregate document must contain a JSON object");
+        }
+        return mapper.treeToValue(node, snapshotType);
     }
 
     private String write(S snapshot) {

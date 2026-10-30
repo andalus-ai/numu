@@ -2,7 +2,7 @@ package tech.kayys.numou.ecosystem.application.api.command;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.ecosystem.application.port.OrganizationRepository;
-import tech.kayys.numou.ecosystem.application.port.PartyKindLookupPort;
+import tech.kayys.numou.ecosystem.application.port.PartyLookupPort;
 import tech.kayys.numou.ecosystem.domain.organization.Organization;
 import tech.kayys.numou.ecosystem.domain.party.PartyKind;
 import tech.kayys.numou.foundation.application.command.CommandHandler;
@@ -18,13 +18,13 @@ public final class RegisterOrganizationHandler
         implements CommandHandler<RegisterOrganizationCommand, Result<RegisterOrganizationResult>> {
 
     private final OrganizationRepository organizations;
-    private final PartyKindLookupPort parties;
+    private final PartyLookupPort parties;
     private final EventPublisher eventPublisher;
     private final UnitOfWork unitOfWork;
 
     public RegisterOrganizationHandler(
             OrganizationRepository organizations,
-            PartyKindLookupPort parties,
+            PartyLookupPort parties,
             EventPublisher eventPublisher,
             UnitOfWork unitOfWork) {
         this.organizations = Objects.requireNonNull(organizations, "organizations cannot be null");
@@ -36,17 +36,22 @@ public final class RegisterOrganizationHandler
     @Override
     public Uni<Result<RegisterOrganizationResult>> handle(RegisterOrganizationCommand command) {
         Objects.requireNonNull(command, "command cannot be null");
-        return unitOfWork.execute(() -> parties.findKind(command.partyId())
-                .flatMap(kind -> {
-                    if (kind.isEmpty()) {
+        return unitOfWork.execute(() -> parties.findParty(command.partyId())
+                .flatMap(party -> {
+                    if (party.isEmpty()) {
                         return Uni.createFrom().item(Result.<RegisterOrganizationResult>failure(
                                 ApplicationError.of("ECOSYSTEM_PARTY_NOT_FOUND",
                                         "The referenced Party does not exist")));
                     }
-                    if (kind.get() != PartyKind.ORGANIZATION) {
+                    if (party.get().kind() != PartyKind.ORGANIZATION) {
                         return Uni.createFrom().item(Result.<RegisterOrganizationResult>failure(
                                 ApplicationError.of("ECOSYSTEM_PARTY_KIND_MISMATCH",
                                         "An organization profile requires a Party of kind ORGANIZATION")));
+                    }
+                    if (!party.get().isActive()) {
+                        return Uni.createFrom().item(Result.<RegisterOrganizationResult>failure(
+                                ApplicationError.of("ECOSYSTEM_PARTY_INACTIVE",
+                                        "An inactive Party cannot receive a new organization profile")));
                     }
                     return organizations.findByPartyId(command.partyId()).flatMap(existing -> {
                         if (existing.isPresent()) {

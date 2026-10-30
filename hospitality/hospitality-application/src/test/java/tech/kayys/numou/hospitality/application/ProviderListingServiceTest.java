@@ -51,7 +51,7 @@ class ProviderListingServiceTest {
 
         assertThatThrownBy(() -> service.publish(new ProviderListingService.ListingAction(
                 "tenant-a", "actor-a", "provider-a", foreign.id())).await().indefinitely())
-                .hasCauseInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
     }
 
     @Test

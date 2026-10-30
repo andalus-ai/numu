@@ -195,6 +195,29 @@ public final class SyirkahJsonCodec {
                 clauses, bool(o, "jaliReviewedLawful"));
     }
 
+    private static final String[] TRADING_FIELDS = {"sales", "salesReturns", "salesDiscounts", "openingStock",
+            "purchases", "purchaseReturns", "purchaseDiscounts", "closingStock", "operatingCosts", "otherCosts"};
+
+    public static String encodeTrading(TradingResultCalculator.Input in) {
+        Money[] v = {in.sales(), in.salesReturns(), in.salesDiscounts(), in.openingStock(), in.purchases(),
+                in.purchaseReturns(), in.purchaseDiscounts(), in.closingStock(), in.operatingCosts(),
+                in.otherCosts()};
+        Map<String, Object> o = new LinkedHashMap<>();
+        for (int i = 0; i < v.length; i++) {
+            o.put(TRADING_FIELDS[i], money(v[i]));
+        }
+        return Json.write(o);
+    }
+
+    public static TradingResultCalculator.Input decodeTrading(String json) {
+        Map<String, Object> o = obj(Json.read(json), "trading");
+        Money[] m = new Money[TRADING_FIELDS.length];
+        for (int i = 0; i < m.length; i++) {
+            m[i] = money(o, TRADING_FIELDS[i]);
+        }
+        return new TradingResultCalculator.Input(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9]);
+    }
+
     public static String encodePolicy(FormationPolicy p) {
         Map<String, Object> o = new LinkedHashMap<>();
         o.put("witnessRule", p.witnessRule().name());

@@ -118,6 +118,14 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/AuditView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/lifecycle:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    get:
+      tags: [Syirkah]
+      summary: Records behind each lifecycle change (consents with evidence, dissent, syuf'ah, heirs), oldest akad version first
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/LifecycleRecordView"}}}}}
+        default: {$ref: "#/components/responses/Error"}
   /{id}/staff:
     parameters: [{$ref: "#/components/parameters/Id"}]
     get:
@@ -151,6 +159,16 @@ paths:
       summary: Profit and loss statement (laporan rugi laba) of one close
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IncomeStatementView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/closes/{closeId}/trading:
+    parameters:
+      - {$ref: "#/components/parameters/Id"}
+      - {name: closeId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Syirkah]
+      summary: The trading figures (Bab XXII) a close was worked out from
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/TradingDto"}}}}
         default: {$ref: "#/components/responses/Error"}
   /rules:
     get:
@@ -493,6 +511,12 @@ components:
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/SummaryView"}}
         nextCursor: {type: string, format: uuid, nullable: true}
+    LifecycleRecordView:
+      type: object
+      properties:
+        contractVersion: {type: integer}
+        lifecycle: {type: object, description: "same shape as the lifecycle block of a revision request"}
+        recordedAt: {type: string, format: date-time}
     StaffRequest:
       type: object
       required: [employer, wageBasis]

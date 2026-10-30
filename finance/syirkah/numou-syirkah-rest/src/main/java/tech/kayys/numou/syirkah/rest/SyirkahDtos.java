@@ -95,6 +95,9 @@ public final class SyirkahDtos {
                                String profitDecision, List<SyufahDto> syufah, List<SuccessionDto> successions) {
     }
 
+    public record LifecycleRecordView(int contractVersion, LifecycleDto lifecycle, Instant recordedAt) {
+    }
+
     /** {@code lifecycle} is optional; when present, approvals come from its consents and {@code approvals} is ignored. */
     public record ReviseRequest(ContractDto next, List<String> approvals, LifecycleDto lifecycle) {
     }
@@ -350,15 +353,26 @@ public final class SyirkahDtos {
     }
 
     static FinancialResult trading(TradingDto d, Currency c) {
+        return TradingResultCalculator.calculate(tradingInput(d, c)).financialResult();
+    }
+
+    static TradingResultCalculator.Input tradingInput(TradingDto d, Currency c) {
         required(d, "trading");
         java.util.function.BiFunction<BigDecimal, String, Money> m =
                 (v, f) -> money(v == null ? BigDecimal.ZERO : v, c, "trading." + f);
-        return TradingResultCalculator.calculate(new TradingResultCalculator.Input(m.apply(d.sales(), "sales"),
+        return new TradingResultCalculator.Input(m.apply(d.sales(), "sales"),
                 m.apply(d.salesReturns(), "salesReturns"), m.apply(d.salesDiscounts(), "salesDiscounts"),
                 m.apply(d.openingStock(), "openingStock"), m.apply(d.purchases(), "purchases"),
                 m.apply(d.purchaseReturns(), "purchaseReturns"), m.apply(d.purchaseDiscounts(), "purchaseDiscounts"),
                 m.apply(d.closingStock(), "closingStock"), m.apply(d.operatingCosts(), "operatingCosts"),
-                m.apply(d.otherCosts(), "otherCosts"))).financialResult();
+                m.apply(d.otherCosts(), "otherCosts"));
+    }
+
+    static TradingDto tradingView(TradingResultCalculator.Input i) {
+        return new TradingDto(i.sales().amount(), i.salesReturns().amount(), i.salesDiscounts().amount(),
+                i.openingStock().amount(), i.purchases().amount(), i.purchaseReturns().amount(),
+                i.purchaseDiscounts().amount(), i.closingStock().amount(), i.operatingCosts().amount(),
+                i.otherCosts().amount());
     }
 
     static FinancialResult result(FinancialResultDto d, Currency currency) {
@@ -435,6 +449,20 @@ public final class SyirkahDtos {
                 c.workPeriod(), c.effort(), c.wage().basis().name(),
                 c.wage().fixedAmount() == null ? null : c.wage().fixedAmount().amount(), c.wage().payPeriod(),
                 c.jaliClauses(), c.jaliReviewedLawful(), r.recordedAt());
+    }
+
+    static LifecycleRecordView lifecycleRecord(tech.kayys.numou.numouapplication.port.LifecycleRecordPort.Recorded r) {
+        LifecycleChange c = r.change();
+        return new LifecycleRecordView(r.contractVersion(), new LifecycleDto(c.kind().name(),
+                c.affected().stream().map(x -> x.value().toString()).sorted().toList(), c.eventDate(),
+                c.consents().stream().map(x -> new ConsentDto(x.partner().value().toString(), x.approved(),
+                        x.decidedOn(), x.evidence())).toList(),
+                c.profitDecision() == null ? null : c.profitDecision().name(),
+                c.syufah().stream().map(x -> new SyufahDto(x.partner().value().toString(), x.exercised(),
+                        x.answeredOn())).toList(),
+                c.successions().stream().map(x -> new SuccessionDto(x.deceased().value().toString(),
+                        x.heir().value().toString(), x.continues(), x.decidedOn(), x.evidence())).toList()),
+                r.recordedAt());
     }
 
     static BigDecimal amt(Money m) {

@@ -97,6 +97,13 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/lifecycle")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public java.util.List<LifecycleRecordView> lifecycle(@PathParam("id") String id) {
+        return api.lifecycleRecords(id);
+    }
+
+    @GET
     @Path("/{id}/staff")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
     public java.util.List<StaffView> staff(@PathParam("id") String id) {
@@ -108,6 +115,13 @@ public class SyirkahResource {
     @RolesAllowed(OPERATOR)
     public Response engageStaff(@PathParam("id") String id, StaffRequest request) {
         return Response.status(Response.Status.CREATED).entity(api.engageStaff(id, request)).build();
+    }
+
+    @GET
+    @Path("/{id}/closes/{closeId}/trading")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public TradingDto closeTrading(@PathParam("id") String id, @PathParam("closeId") String closeId) {
+        return api.closeTrading(id, closeId);
     }
 
     @GET

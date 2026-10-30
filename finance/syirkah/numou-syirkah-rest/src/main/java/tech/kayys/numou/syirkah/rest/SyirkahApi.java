@@ -4,6 +4,7 @@ import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.numouapplication.StaffContractService;
+import tech.kayys.numou.numouapplication.port.TradingRecordPort;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.command.Commands;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
@@ -32,6 +33,8 @@ public class SyirkahApi {
     private final SyirkahCatalogPort catalog;
     private final RequestContextHolder context;
     private final StaffContractService staff;
+    private final TradingRecordPort tradingRecords;
+    private final java.time.Clock clock = java.time.Clock.systemUTC();
 
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context) {
@@ -41,7 +44,14 @@ public class SyirkahApi {
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
                       StaffContractService staff) {
+        this(service, governed, auditor, catalog, context, staff, null);
+    }
+
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff, TradingRecordPort tradingRecords) {
         this.staff = staff;
+        this.tradingRecords = tradingRecords;
         this.service = Objects.requireNonNull(service);
         this.governed = Objects.requireNonNull(governed);
         this.auditor = Objects.requireNonNull(auditor);
@@ -162,6 +172,10 @@ public class SyirkahApi {
         return name == null || name.isBlank() ? "Syirkah " + id : name;
     }
 
+    public List<LifecycleRecordView> lifecycleRecords(String id) {
+        return service.lifecycleRecords(tenant(), sid(id)).stream().map(SyirkahDtos::lifecycleRecord).toList();
+    }
+
     public StaffView engageStaff(String id, StaffRequest r) {
         if (staff == null) {
             throw new IllegalStateException("staff contracts are not configured");
@@ -229,10 +243,27 @@ public class SyirkahApi {
         }
         FinancialResult figures = r.trading() != null ? SyirkahDtos.trading(r.trading(), currency)
                 : SyirkahDtos.result(r.result(), currency);
-        return SyirkahDtos.close(service.closePeriod(new Commands.ClosePeriod(tenant(), sid(id),
-                cidOrNew(r.closeId(), "closeId"), r.periodStart(), r.periodEnd(),
+        CloseId closeId = cidOrNew(r.closeId(), "closeId");
+        CloseView view = SyirkahDtos.close(service.closePeriod(new Commands.ClosePeriod(tenant(), sid(id),
+                closeId, r.periodStart(), r.periodEnd(),
                 figures, SyirkahDtos.fault(r.fault(), currency),
                 SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"))));
+        if (r.trading() != null && tradingRecords != null) {
+            // written right after the close; a failure here leaves the close in place without its working
+            tradingRecords.record(tenant(), sid(id), closeId, SyirkahDtos.tradingInput(r.trading(), currency),
+                    clock.instant());
+        }
+        return view;
+    }
+
+    /** The trading figures a close was worked out from, if it was closed from trading figures. */
+    public TradingDto closeTrading(String id, String closeId) {
+        if (tradingRecords == null) {
+            throw new IllegalStateException("trading records are not configured");
+        }
+        return tradingRecords.find(tenant(), sid(id), cid(closeId, "closeId"))
+                .map(x -> SyirkahDtos.tradingView(x.input()))
+                .orElseThrow(() -> new SyirkahNotFoundException("no trading figures for close " + closeId));
     }
 
     public SyirkahView distribute(String id, PaymentRequest r) {

@@ -33,7 +33,7 @@ class ProviderStayInventoryServiceTest {
         PropertyListing listing = listing(PROVIDER);
         AccommodationUnit unit = new AccommodationUnit(UNIT_ID, LISTING_ID, "Deluxe Room", 3, 8);
         RecordingInventory inventory = new RecordingInventory();
-        ProviderStayInventoryService service = service(listing, unit, inventory, ignored -> Uni.createFrom().voidItem());
+        ProviderStayInventoryService service = service(listing, unit, inventory, (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
 
         service.provision(command(5, CHECK_IN, CHECK_OUT)).await().indefinitely();
 
@@ -51,11 +51,11 @@ class ProviderStayInventoryServiceTest {
         RecordingInventory inventory = new RecordingInventory();
         ProviderStayInventoryService service = service(listing(PROVIDER),
                 new AccommodationUnit(UNIT_ID, LISTING_ID, "Room", 2, 4),
-                inventory, ignored -> Uni.createFrom().voidItem());
+                inventory, (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
 
         assertThatThrownBy(() -> service.provision(command(5, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
@@ -64,11 +64,11 @@ class ProviderStayInventoryServiceTest {
         RecordingInventory inventory = new RecordingInventory();
         ProviderStayInventoryService service = service(listing("provider-b"),
                 new AccommodationUnit(UNIT_ID, LISTING_ID, "Room", 2, 4),
-                inventory, ignored -> Uni.createFrom().voidItem());
+                inventory, (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
 
         assertThatThrownBy(() -> service.provision(command(2, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
@@ -79,11 +79,11 @@ class ProviderStayInventoryServiceTest {
         RecordingInventory inventory = new RecordingInventory();
         ProviderStayInventoryService service = service(listing,
                 new AccommodationUnit(UNIT_ID, LISTING_ID, "Room", 2, 4),
-                inventory, ignored -> Uni.createFrom().voidItem());
+                inventory, (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
 
         assertThatThrownBy(() -> service.provision(command(2, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
@@ -91,7 +91,7 @@ class ProviderStayInventoryServiceTest {
     void rejectsInvalidDateRangeAndCapacity() {
         ProviderStayInventoryService service = service(listing(PROVIDER),
                 new AccommodationUnit(UNIT_ID, LISTING_ID, "Room", 2, 4),
-                new RecordingInventory(), ignored -> Uni.createFrom().voidItem());
+                new RecordingInventory(), (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
 
         assertThatThrownBy(() -> service.provision(command(1, CHECK_IN, CHECK_IN)))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -104,11 +104,11 @@ class ProviderStayInventoryServiceTest {
         RecordingInventory inventory = new RecordingInventory();
         ProviderStayInventoryService service = service(listing(PROVIDER),
                 new AccommodationUnit(UNIT_ID, LISTING_ID, "Room", 2, 4),
-                inventory, ignored -> Uni.createFrom().failure(new SecurityException("denied")));
+                inventory, (tenantId, actorId, providerId) -> Uni.createFrom().failure(new SecurityException("denied")));
 
         assertThatThrownBy(() -> service.provision(command(2, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(SecurityException.class);
+                .isInstanceOf(SecurityException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
