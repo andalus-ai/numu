@@ -43,7 +43,7 @@ public class KafkaEventPublisherAdapter implements EventPublisherPort {
 
     @Inject
     public KafkaEventPublisherAdapter(
-            @Channel(CHANNEL) MutinyEmitter<Message<String>> emitter,
+            @Channel(CHANNEL) MutinyEmitter<String> emitter,
             EventSerializerPort serializer,
             @ConfigProperty(name = "numou.events.kafka.topic-prefix", defaultValue = "numou.events.")
             String topicPrefix) {
