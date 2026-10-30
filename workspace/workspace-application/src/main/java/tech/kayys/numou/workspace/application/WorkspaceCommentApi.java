@@ -30,6 +30,7 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(pageId, "pageId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
+        if (mentions != null) CommentMentionParser.parse(request.body());
         ThreadView created = call(() -> ThreadView.from(service.createThread(
                 actor.tenantId(), actor.actorId(), pageId, request.body())));
         if (mentions != null) {
@@ -44,6 +45,7 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(threadId, "threadId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
+        if (mentions != null) CommentMentionParser.parse(request.body());
         ThreadView updated = call(() -> ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
                 pageId, threadId, request.parentCommentId(), request.body())));
         if (mentions != null) {
