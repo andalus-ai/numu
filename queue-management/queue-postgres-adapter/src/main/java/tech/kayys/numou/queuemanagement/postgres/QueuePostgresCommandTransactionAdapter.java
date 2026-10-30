@@ -51,7 +51,7 @@ public class QueuePostgresCommandTransactionAdapter implements QueueCommandTrans
 
         try (Connection connection = dataSource.getConnection()) {
             setTenant(connection, context);
-            reserveKey(connection, context, operationScope, requestHash);
+            boolean reservationCreated = reserveKey(connection, context, operationScope, requestHash);
             StoredResult stored = readResult(connection, context, operationScope);
             if (stored.completed()) {
                 if (!requestHash.equals(stored.requestHash())) {
@@ -63,6 +63,10 @@ public class QueuePostgresCommandTransactionAdapter implements QueueCommandTrans
             if (!requestHash.equals(stored.requestHash())) {
                 throw new IdempotencyConflictException(
                         "Idempotency key was concurrently reserved for a different request");
+            }
+            if (!reservationCreated || !"IN_PROGRESS".equals(stored.state())) {
+                throw new IllegalStateException(
+                        "Queue idempotency record is not in a valid executable state: " + stored.state());
             }
 
             QueueCommandResult<T> result = Objects.requireNonNull(work.get(),
@@ -88,8 +92,8 @@ public class QueuePostgresCommandTransactionAdapter implements QueueCommandTrans
         }
     }
 
-    private static void reserveKey(Connection connection, QueueCommandContext context,
-                                   String scope, String hash) throws SQLException {
+    private static boolean reserveKey(Connection connection, QueueCommandContext context,
+                                       String scope, String hash) throws SQLException {
         String sql = "INSERT INTO queue_idempotency "
                 + "(tenant_id, operation_scope, idempotency_key, request_hash, state) "
                 + "VALUES (?, ?, ?, ?, 'IN_PROGRESS') ON CONFLICT "
@@ -99,7 +103,7 @@ public class QueuePostgresCommandTransactionAdapter implements QueueCommandTrans
             statement.setString(2, scope);
             statement.setString(3, context.idempotencyKey());
             statement.setString(4, hash);
-            statement.executeUpdate();
+            return statement.executeUpdate() == 1;
         }
     }
 
@@ -115,7 +119,7 @@ public class QueuePostgresCommandTransactionAdapter implements QueueCommandTrans
             try (ResultSet rs = statement.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Idempotency reservation disappeared");
                 String state = rs.getString("state");
-                return new StoredResult(rs.getString("request_hash"), "COMPLETED".equals(state),
+                return new StoredResult(rs.getString("request_hash"), state,
                         rs.getString("result_type"), rs.getString("result_payload"));
             }
         }
@@ -226,7 +230,9 @@ public class QueuePostgresCommandTransactionAdapter implements QueueCommandTrans
         if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
     }
 
-    private record StoredResult(String requestHash, boolean completed, String resultType, String payload) { }
+    private record StoredResult(String requestHash, String state, String resultType, String payload) {
+        boolean completed() { return "COMPLETED".equals(state); }
+    }
 
     /** Signals safe client-visible idempotency-key reuse conflict. */
     public static final class IdempotencyConflictException extends IllegalStateException {

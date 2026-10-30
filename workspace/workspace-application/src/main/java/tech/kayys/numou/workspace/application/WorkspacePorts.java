@@ -9,8 +9,23 @@ import java.util.UUID;
 /** Adapter ports keep the workspace domain independent from persistence, auth, files, and other Numou modules. */
 public final class WorkspacePorts {
  private WorkspacePorts() {}
- public interface WorkspaceRepository { boolean save(Workspace workspace); Optional<Workspace> findWorkspace(UUID tenantId,UUID workspaceId); }
- public interface SpaceRepository { boolean save(Space space); Optional<Space> find(UUID tenantId,UUID workspaceId,UUID spaceId); boolean slugExists(UUID tenantId,UUID workspaceId,String slug); }
+ public interface WorkspaceRepository {
+  boolean save(Workspace workspace);
+  Optional<Workspace> findWorkspace(UUID tenantId,UUID workspaceId);
+  /** Returns only rows owned by the tenant, in deterministic created-at/id order. */
+  default List<Workspace> findByTenant(UUID tenantId) {
+   throw new UnsupportedOperationException("Tenant workspace listing is not implemented by this adapter");
+  }
+ }
+ public interface SpaceRepository {
+  boolean save(Space space);
+  Optional<Space> find(UUID tenantId,UUID workspaceId,UUID spaceId);
+  boolean slugExists(UUID tenantId,UUID workspaceId,String slug);
+  /** Returns spaces for the specified tenant/workspace in deterministic created-at/id order. */
+  default List<Space> findByWorkspace(UUID tenantId, UUID workspaceId) {
+   throw new UnsupportedOperationException("Workspace space listing is not implemented by this adapter");
+  }
+ }
  public interface PageRepository {
   Optional<Page> findPage(UUID tenantId,UUID pageId); List<Page> findChildren(UUID tenantId,UUID spaceId,UUID parentPageId);
   /** Atomically persists page and immutable revision; expectedRevision=0 means create-only. */
