@@ -131,6 +131,10 @@ public class PostgresPartnerPayoutRepository implements PartnerPayoutRepository 
                 if (changed != 1) {
                     throw new IllegalStateException("Stale payout update; reload before retrying");
                 }
+                AffiliateEventWriter.append(connection, tenantId, "PARTNER_PAYOUT", payoutId,
+                        "PartnerPayout" + replacement.status().name(), "SYSTEM", replacement.correlationId(),
+                        "payout:" + payoutId + ":" + replacement.updatedAt(),
+                        AffiliateEventWriter.json(replacement.status().name()), replacement.updatedAt());
                 connection.commit();
                 return CompletableFuture.completedFuture(replacement);
             } catch (RuntimeException | SQLException e) {
