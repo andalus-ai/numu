@@ -121,7 +121,7 @@ public class KafkaEventPublisherAdapter implements EventPublisherPort {
         addHeader(headers, "numou-participant-id", uuid(metadata.participantId()));
         addHeader(headers, "numou-actor-id", metadata.actorId());
         addHeader(headers, "numou-occurred-at", metadata.occurredAt());
-        addHeader(headers, "traceparent", metadata.traceId());
+        addHeader(headers, "numou-trace-id", metadata.traceId());
 
         return OutgoingKafkaRecordMetadata.<String>builder()
                 .withTopic(topic)
