@@ -15,7 +15,7 @@ import java.util.Arrays;
 
 /** RFC 8291 aes128gcm single-record payload encryption. */
 final class WebPushPayloadEncryptor {
-    private static final byte[] KEY_INFO = "WebPush: info\0".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] KEY_INFO = "WebPush: info".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] CEK_INFO = "Content-Encoding: aes128gcm\0".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] NONCE_INFO = "Content-Encoding: nonce\0".getBytes(StandardCharsets.US_ASCII);
     private static final SecureRandom RANDOM = new SecureRandom();
