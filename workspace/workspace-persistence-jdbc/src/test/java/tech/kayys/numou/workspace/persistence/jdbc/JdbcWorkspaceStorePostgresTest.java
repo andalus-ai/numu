@@ -1074,7 +1074,7 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.appendCommentWithMentions(tenant, page.id(), thread.id(), reply, replyAudit, List.of(replyIntent)));
         var replyClaim = store.claimDue("integration-worker", now.plusSeconds(4), now.plusSeconds(34), 10)
                 .stream().filter(item -> item.commentId().equals(reply.id())).findFirst().orElseThrow();
-        assertTrue(store.markDelivered(tenant, replyClaim.id(), replyClaim.leaseToken(), now.plusSeconds(3)));
+        assertTrue(store.markDelivered(tenant, replyClaim.id(), replyClaim.leaseToken(), now.plusSeconds(5)));
 
         PageCommentThread deadThread = PageCommentThread.open(tenant, page.id(), actor, "Dead letter test", now.plusSeconds(4));
         PageComment deadRoot = deadThread.comments().get(0);
@@ -1084,7 +1084,7 @@ class JdbcWorkspaceStorePostgresTest {
         AuditEntry deadAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
                 "PAGE_COMMENT_THREAD", deadThread.id(), 1, page.title(), now.plusSeconds(4));
         assertTrue(store.createThreadWithMentions(deadThread, deadAudit, List.of(deadIntent)));
-        var deadClaim = store.claimDue("integration-worker", now.plusSeconds(2), now.plusSeconds(32), 10)
+        var deadClaim = store.claimDue("integration-worker", now.plusSeconds(4), now.plusSeconds(34), 10)
                 .stream().filter(item -> item.commentId().equals(deadRoot.id())).findFirst().orElseThrow();
         assertTrue(store.markDead(tenant, deadClaim.id(), deadClaim.leaseToken(), "provider rejected", now.plusSeconds(5)));
         assertEquals(1, store.listDead(tenant, 10).size());
