@@ -182,15 +182,15 @@ $("#history-button").addEventListener("click",async()=>{if(!state.page)return;co
 let mentionSuggestionSequence=0;
 $("#comment-body").addEventListener("input",async()=>{
   const input=$("#comment-body"),panel=$("#mention-suggestions"),pageId=state.page?.id;
-  const sequence=++mentionSuggestionSequence, before=input.value.slice(0,input.selectionStart);
+  const sequence=++mentionSuggestionSequence, cursor=input.selectionStart, before=input.value.slice(0,cursor);
   const match=before.match(/(?:^|\\s)@([A-Za-z0-9._-]{1,64})$/);
   if(!pageId||!match){panel.hidden=true;panel.replaceChildren();return;}
   const query=match[1];
   const members=await api.suggestMentions(pageId,query,8).catch(()=>[]);
-  if(sequence!==mentionSuggestionSequence||state.page?.id!==pageId)return;
+  if(sequence!==mentionSuggestionSequence||state.page?.id!==pageId||input.selectionStart!==cursor)return;
   panel.replaceChildren();
   if(!Array.isArray(members)||!members.length){panel.hidden=true;return;}
-  const tokenStart=input.selectionStart-match[0].length+match[0].lastIndexOf("@");
+  const tokenStart=cursor-match[0].length+match[0].lastIndexOf("@");
   for(const member of members){
     const option=document.createElement("button");option.type="button";option.className="mention-option";
     const name=document.createElement("strong");name.textContent=safeText(member.displayName);
