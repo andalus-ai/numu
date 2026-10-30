@@ -36,15 +36,39 @@ public final class PushDeviceService {
                 PushDevice.register(tenantId, recipientId, token, platform, appInstance, now));
     }
 
+    /**
+     * Internal delivery-oriented view. Do not serialize this token-bearing
+     * entity from an HTTP/API management endpoint; use activeDeviceSummaries.
+     */
+    @Deprecated(forRemoval = false)
     public List<PushDevice> activeDevices(UUID tenantId, UUID recipientId) {
         requireScope(tenantId, recipientId);
         return List.copyOf(repository.findActiveByRecipient(tenantId, recipientId));
     }
 
+    /**
+     * Internal token-bearing result. Management endpoints should use
+     * unregisterSummary so the response cannot expose provider credentials.
+     */
+    @Deprecated(forRemoval = false)
     public Optional<PushDevice> unregister(UUID tenantId, UUID recipientId, UUID deviceId) {
         requireScope(tenantId, recipientId);
         Objects.requireNonNull(deviceId, "deviceId is required");
         return repository.disable(tenantId, recipientId, deviceId, Instant.now(clock));
+    }
+
+    /** Returns only safe device metadata; provider credentials are never loaded for JDBC. */
+    public List<PushDeviceSummary> activeDeviceSummaries(UUID tenantId, UUID recipientId) {
+        requireScope(tenantId, recipientId);
+        return List.copyOf(repository.findActiveSummaries(tenantId, recipientId));
+    }
+
+    /** Disables a device and returns a secret-free management projection. */
+    public Optional<PushDeviceSummary> unregisterSummary(
+            UUID tenantId, UUID recipientId, UUID deviceId) {
+        requireScope(tenantId, recipientId);
+        Objects.requireNonNull(deviceId, "deviceId is required");
+        return repository.disableSummary(tenantId, recipientId, deviceId, Instant.now(clock));
     }
 
     private static void requireScope(UUID tenantId, UUID recipientId) {
