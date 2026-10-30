@@ -51,7 +51,7 @@ class CustomerStayServiceTest {
         CustomerStayService service = fixture.service(true);
 
         assertThatThrownBy(() -> service.quote("tenant-a", fixture.search(), "IDR").await().indefinitely())
-                .hasCauseInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
         assertThat(fixture.availabilityCalls).isZero();
     }
 
@@ -61,7 +61,7 @@ class CustomerStayServiceTest {
         CustomerStayService service = fixture.service(false);
 
         assertThatThrownBy(() -> service.quote("tenant-a", fixture.search(), "IDR").await().indefinitely())
-                .hasCauseInstanceOf(StayUnavailableException.class);
+                .isInstanceOf(StayUnavailableException.class);
         assertThat(fixture.quoteCalls).isZero();
     }
 
@@ -71,7 +71,7 @@ class CustomerStayServiceTest {
         CustomerStayService service = fixture.service(true, true);
 
         assertThatThrownBy(() -> service.quote("tenant-a", fixture.search(), "IDR").await().indefinitely())
-                .hasCauseInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private static final class Fixture {
