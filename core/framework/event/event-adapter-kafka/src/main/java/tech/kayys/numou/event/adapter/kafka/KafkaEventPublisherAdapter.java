@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Kafka-backed implementation of the shared event publisher port.
@@ -36,7 +37,7 @@ public class KafkaEventPublisherAdapter implements EventPublisherPort {
 
     private static final String CHANNEL = "numou-events";
 
-    private final MutinyEmitter<Message<String>> emitter;
+    private final Function<Message<String>, Uni<Void>> sendMessage;
     private final EventSerializerPort serializer;
     private final String topicPrefix;
 
@@ -46,7 +47,14 @@ public class KafkaEventPublisherAdapter implements EventPublisherPort {
             EventSerializerPort serializer,
             @ConfigProperty(name = "numou.events.kafka.topic-prefix", defaultValue = "numou.events.")
             String topicPrefix) {
-        this.emitter = Objects.requireNonNull(emitter, "Kafka emitter is required");
+        this(emitter::sendMessage, serializer, topicPrefix);
+    }
+
+    KafkaEventPublisherAdapter(
+            Function<Message<String>, Uni<Void>> sendMessage,
+            EventSerializerPort serializer,
+            String topicPrefix) {
+        this.sendMessage = Objects.requireNonNull(sendMessage, "Kafka sender is required");
         this.serializer = Objects.requireNonNull(serializer, "Event serializer is required");
         this.topicPrefix = requireTopicPrefix(topicPrefix);
     }
