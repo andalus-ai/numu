@@ -92,3 +92,24 @@ test("turns transport failures into safe user-facing errors", async () => {
   await assert.rejects(api.getPage("p-1"), (error) =>
     error.code === "NETWORK_ERROR" && !error.message.includes("secret"));
 });
+
+
+test("lists tenant-authorized workspaces and spaces without sending identity", async () => {
+  const calls = [];
+  const api = createWorkspaceApi({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response(200, []);
+    },
+  });
+
+  await api.listWorkspaces();
+  await api.listSpaces("workspace / 1");
+
+  assert.equal(calls[0].url, "/api/v1/workspaces");
+  assert.equal(calls[1].url, "/api/v1/workspaces/workspace%20%2F%201/spaces");
+  assert.equal(calls[0].init.credentials, "same-origin");
+  assert.equal(calls[1].init.credentials, "same-origin");
+  assert.equal(calls[0].init.body, undefined);
+  assert.equal(calls[1].init.body, undefined);
+});

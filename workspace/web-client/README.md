@@ -4,6 +4,8 @@ An optional browser client for the workspace REST capability. It is separate fro
 
 ## First vertical slice
 
+- List the authenticated actor's accessible workspaces and spaces from the server.
+- Restore the last selected workspace and space after a browser reload.
 - Create a workspace, a space, and a page through the real API.
 - Browse root pages in the selected space and open a page.
 - Edit page title and paragraph text with an optimistic `expectedRevision` guard.
@@ -35,6 +37,6 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 
 ## Known limits
 
-The REST adapter does not currently expose list-workspaces/list-spaces endpoints, so the first slice keeps the created workspace and space in memory for this browser session. A later backend milestone should add authorized navigation read models before reload and multi-workspace navigation are considered complete.
+The client restores the last selected workspace and space from tenant-authorized server listings. It currently selects the first accessible workspace/space when the saved selection is no longer available; a full multi-workspace switcher remains follow-up work.
 
 Page editing currently presents paragraph blocks as plain text. It is not a full structured block editor. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.

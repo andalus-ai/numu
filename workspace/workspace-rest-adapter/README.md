@@ -8,7 +8,9 @@ Base path: `/api/v1`
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET | `/workspaces` | List workspaces readable by the authenticated actor in the current tenant, ordered by creation time and ID |
 | POST | `/workspaces` | Create a workspace |
+| GET | `/workspaces/{workspaceId}/spaces` | List spaces in a readable workspace, ordered by creation time and ID |
 | POST | `/workspaces/{workspaceId}/spaces` | Create a space |
 | POST | `/workspaces/{workspaceId}/spaces/{spaceId}/pages` | Create a page with typed blocks |
 | GET | `/pages/{pageId}` | Read a page |
@@ -29,7 +31,7 @@ Successful create operations return `201 Created` with a resource location; link
 
 ## Authentication and tenant isolation
 
-The adapter intentionally does **not** accept tenant or actor IDs in request bodies. A host runtime must provide CDI-managed `WorkspaceApi` and `WorkspaceContentApi` instances configured with an `IdentityProvider` that obtains tenant and actor identifiers from trusted, authenticated request context. The resources are not a standalone deployable server and do not invent an authentication strategy or a default tenant. A host must also compose the workspace services, persistence adapters, and authorization policy.
+Navigation discovery is tenant-scoped in the repository and resource-authorized in the application service. The workspace list omits resources the actor cannot read; listing spaces first verifies access to the parent workspace. The adapter intentionally does **not** accept tenant or actor IDs in request bodies. A host runtime must provide CDI-managed `WorkspaceApi` and `WorkspaceContentApi` instances configured with an `IdentityProvider` that obtains tenant and actor identifiers from trusted, authenticated request context. The resources are not a standalone deployable server and do not invent an authentication strategy or a default tenant. A host must also compose the workspace services, persistence adapters, and authorization policy.
 
 ## Composition
 

@@ -354,6 +354,32 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+
+  workforce:
+    name: Workforce domain, application, SPI and adapter verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation capabilities
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Verify Workforce reactor
+        run: mvn -B -ntp -f workforce/pom.xml verify
+      - name: Upload Workforce Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workforce-maven-test-reports
+          path: "workforce/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
+
   workspace:
     name: Workspace capability verification
     runs-on: ubuntu-24.04
@@ -394,9 +420,9 @@ jobs:
         run: mvn -B -ntp -f core/framework/pom.xml install
       - name: Verify workspace domain, application, persistence, and REST adapter
         env:
-          NUMOU_WORKSPACE_PG_URL: jdbc:postgresql://localhost:5432/numou_workspace
-          NUMOU_WORKSPACE_PG_USER: postgres
-          NUMOU_WORKSPACE_PG_PASSWORD: postgres
+          NUMOU_WORKSPACE_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/numou_workspace
+          NUMOU_WORKSPACE_TEST_DB_USER: postgres
+          NUMOU_WORKSPACE_TEST_DB_PASSWORD: postgres
         run: mvn -B -ntp -f workspace/pom.xml verify
       - name: Upload workspace Maven test reports
         if: always()
@@ -404,5 +430,32 @@ jobs:
         with:
           name: workspace-maven-test-reports
           path: "workspace/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
+
+  hospitality:
+    name: Hospitality capability verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Validate capability reactor parent paths
+        run: python3 tools/verify-module-topology.py
+      - name: Enforce domain dependency boundaries
+        run: python3 tools/verify-domain-boundaries.py
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Verify Hospitality capability reactor
+        run: mvn -B -ntp -f hospitality/pom.xml verify
+      - name: Upload Hospitality Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hospitality-maven-test-reports
+          path: "hospitality/**/target/surefire-reports/**"
           if-no-files-found: warn
           retention-days: 7
