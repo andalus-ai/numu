@@ -6,8 +6,11 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import java.time.Instant;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PartyIdentityAssociationTest {
 
@@ -18,9 +21,9 @@ class PartyIdentityAssociationTest {
                 TenantId.generate(), PartyId.generate(),
                 new IdentitySubjectRef("https://id.example", "subject-123"), linkedAt);
 
-        assertThat(association.isActive()).isTrue();
-        assertThat(association.revokedAt()).isNull();
-        assertThat(association.identity().issuer()).isEqualTo("https://id.example");
+        assertTrue(association.isActive());
+        assertNull(association.revokedAt());
+        assertEquals("https://id.example", association.identity().issuer());
     }
 
     @Test
@@ -32,10 +35,10 @@ class PartyIdentityAssociationTest {
 
         var revoked = original.revoke(linkedAt.plusSeconds(60));
 
-        assertThat(original.isActive()).isTrue();
-        assertThat(revoked.isActive()).isFalse();
-        assertThat(revoked.revokedAt()).isEqualTo(linkedAt.plusSeconds(60));
-        assertThat(revoked.id()).isEqualTo(original.id());
+        assertTrue(original.isActive());
+        assertFalse(revoked.isActive());
+        assertEquals(linkedAt.plusSeconds(60), revoked.revokedAt());
+        assertEquals(original.id(), revoked.id());
     }
 
     @Test
@@ -45,25 +48,25 @@ class PartyIdentityAssociationTest {
                 TenantId.generate(), PartyId.generate(),
                 new IdentitySubjectRef("numou-user", "user-123"), linkedAt);
 
-        assertThatThrownBy(() -> association.revoke(linkedAt.minusSeconds(1)))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThrows(IllegalArgumentException.class,
+                () -> association.revoke(linkedAt.minusSeconds(1)));
     }
 
     @Test
     void requiresIssuerAndSubject() {
-        assertThatThrownBy(() -> new IdentitySubjectRef(" ", "subject"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new IdentitySubjectRef("issuer", " "))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThrows(IllegalArgumentException.class,
+                () -> new IdentitySubjectRef(" ", "subject"));
+        assertThrows(IllegalArgumentException.class,
+                () -> new IdentitySubjectRef("issuer", " "));
     }
 
     @Test
     void rejectsRevokedAssociationWithoutRevocationTime() {
-        assertThatThrownBy(() -> new PartyIdentityAssociation(UUID.randomUUID(),
-                TenantId.generate(), PartyId.generate(),
-                new IdentitySubjectRef("issuer", "subject"),
-                PartyIdentityAssociationStatus.REVOKED,
-                Instant.parse("2026-01-01T00:00:00Z"), null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThrows(IllegalArgumentException.class,
+                () -> new PartyIdentityAssociation(UUID.randomUUID(),
+                        TenantId.generate(), PartyId.generate(),
+                        new IdentitySubjectRef("issuer", "subject"),
+                        PartyIdentityAssociationStatus.REVOKED,
+                        Instant.parse("2026-01-01T00:00:00Z"), null));
     }
 }
