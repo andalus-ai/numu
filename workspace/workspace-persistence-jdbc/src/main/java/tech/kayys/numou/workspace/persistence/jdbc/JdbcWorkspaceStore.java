@@ -518,6 +518,17 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             throw new IllegalArgumentException("invalid initial comment thread");
         }
         return atomicMutation("create page comment thread with audit", c -> {
+            if (thread.anchorBlockId() != null) {
+                try (PreparedStatement anchor = c.prepareStatement(
+                        "SELECT 1 FROM workspace_page_blocks WHERE tenant_id=? AND page_id=? AND block_id=?")) {
+                    anchor.setObject(1, thread.tenantId());
+                    anchor.setObject(2, thread.pageId());
+                    anchor.setObject(3, thread.anchorBlockId());
+                    try (ResultSet result = anchor.executeQuery()) {
+                        if (!result.next()) return false;
+                    }
+                }
+            }
             String insertThread = "INSERT INTO workspace_page_comment_threads(id,tenant_id,page_id,anchor_block_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at) VALUES(?,?,?,?,false,1,NULL,NULL,?,?)";
             try (PreparedStatement p = c.prepareStatement(insertThread)) {
                 p.setObject(1, thread.id()); p.setObject(2, thread.tenantId()); p.setObject(3, thread.pageId());
