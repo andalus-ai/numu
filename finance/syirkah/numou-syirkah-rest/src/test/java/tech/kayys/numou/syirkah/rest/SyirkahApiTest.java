@@ -418,4 +418,27 @@ class SyirkahApiTest {
                 LocalDate.parse("2026-02-28"), result("10"), null, "retain", null)).id();
         assertThrows(tech.kayys.numou.numoudomain.SyirkahNotFoundException.class, () -> a.closeTrading(id, other));
     }
+
+    @Test
+    void lifecycleRecordsAreReadableAfterAnApprovedDeathRevision() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts, Clock.system(ZoneOffset.UTC),
+                tech.kayys.numou.numouapplication.FormationEnforcement.OFF, null, new InMemoryLifecycleRecordPort());
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx);
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        assertTrue(a.lifecycleRecords(id).isEmpty());
+        a.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain", null));
+        ApprovalView p = a.proposeRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        ctx.actor("checker");
+        a.approve(p.id());
+        var recs = a.lifecycleRecords(id);
+        assertEquals(1, recs.size());
+        assertEquals(2, recs.get(0).contractVersion());
+        assertEquals("PARTNER_DEATH", recs.get(0).lifecycle().kind());
+        assertEquals(1, recs.get(0).lifecycle().successions().size());
+        assertEquals(2, recs.get(0).lifecycle().consents().size());
+    }
 }

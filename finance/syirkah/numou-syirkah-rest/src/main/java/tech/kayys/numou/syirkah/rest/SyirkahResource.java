@@ -97,6 +97,13 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/lifecycle")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public java.util.List<LifecycleRecordView> lifecycle(@PathParam("id") String id) {
+        return api.lifecycleRecords(id);
+    }
+
+    @GET
     @Path("/{id}/staff")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
     public java.util.List<StaffView> staff(@PathParam("id") String id) {
