@@ -34,6 +34,7 @@ public class SyirkahApi {
     private final RequestContextHolder context;
     private final StaffContractService staff;
     private final TradingRecordPort tradingRecords;
+    private final tech.kayys.numou.numouapplication.port.TransactionPort tx;
     private final java.time.Clock clock = java.time.Clock.systemUTC();
 
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
@@ -50,6 +51,15 @@ public class SyirkahApi {
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
                       StaffContractService staff, TradingRecordPort tradingRecords) {
+        this(service, governed, auditor, catalog, context, staff, tradingRecords, null);
+    }
+
+    /** @param tx when given, a close and its trading figures are written in one transaction */
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff, TradingRecordPort tradingRecords,
+                      tech.kayys.numou.numouapplication.port.TransactionPort tx) {
+        this.tx = tx;
         this.staff = staff;
         this.tradingRecords = tradingRecords;
         this.service = Objects.requireNonNull(service);
@@ -244,16 +254,19 @@ public class SyirkahApi {
         FinancialResult figures = r.trading() != null ? SyirkahDtos.trading(r.trading(), currency)
                 : SyirkahDtos.result(r.result(), currency);
         CloseId closeId = cidOrNew(r.closeId(), "closeId");
-        CloseView view = SyirkahDtos.close(service.closePeriod(new Commands.ClosePeriod(tenant(), sid(id),
+        Commands.ClosePeriod command = new Commands.ClosePeriod(tenant(), sid(id),
                 closeId, r.periodStart(), r.periodEnd(),
                 figures, SyirkahDtos.fault(r.fault(), currency),
-                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"))));
-        if (r.trading() != null && tradingRecords != null) {
-            // written right after the close; a failure here leaves the close in place without its working
-            tradingRecords.record(tenant(), sid(id), closeId, SyirkahDtos.tradingInput(r.trading(), currency),
-                    clock.instant());
-        }
-        return view;
+                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"));
+        java.util.function.Supplier<CloseView> work = () -> {
+            CloseView view = SyirkahDtos.close(service.closePeriod(command));
+            if (r.trading() != null && tradingRecords != null) {
+                tradingRecords.record(tenant(), sid(id), closeId, SyirkahDtos.tradingInput(r.trading(), currency),
+                        clock.instant());
+            }
+            return view;
+        };
+        return tx == null ? work.get() : tx.inTransaction(work);
     }
 
     /** The trading figures a close was worked out from, if it was closed from trading figures. */
