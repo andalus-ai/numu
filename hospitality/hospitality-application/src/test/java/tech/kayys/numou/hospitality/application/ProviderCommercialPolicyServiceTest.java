@@ -55,7 +55,7 @@ class ProviderCommercialPolicyServiceTest {
 
         assertThatThrownBy(() -> service.saveRatePlan(new ProviderCommercialPolicyService.SaveRatePlan(
                 TENANT, ACTOR, PROVIDER, LISTING_ID, UNIT_ID, plan())).await().indefinitely())
-                .hasRootCauseInstanceOf(SecurityException.class);
+                .isInstanceOf(SecurityException.class);
         assertThat(policies.savedPlan).isNull();
     }
 
@@ -67,7 +67,7 @@ class ProviderCommercialPolicyServiceTest {
 
         assertThatThrownBy(() -> service.saveRatePlan(new ProviderCommercialPolicyService.SaveRatePlan(
                 TENANT, ACTOR, PROVIDER, LISTING_ID, UNIT_ID, plan())).await().indefinitely())
-                .hasRootCauseInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
         assertThat(policies.savedPlan).isNull();
     }
 
@@ -83,7 +83,7 @@ class ProviderCommercialPolicyServiceTest {
         assertThatThrownBy(() -> service.saveNightlyRateOverrides(
                 new ProviderCommercialPolicyService.SaveRateOverrides(TENANT, ACTOR, PROVIDER,
                         LISTING_ID, UNIT_ID, plan.id(), List.of(outside))).await().indefinitely())
-                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         assertThat(policies.savedOverrides).isEmpty();
     }
 
