@@ -18,6 +18,7 @@ public record ConsultancyEvidenceOperation(
         UUID documentVersionId,
         String relationship,
         UUID requestedBy,
+        UUID requestingOrganizationId,
         Status status,
         int attempts,
         String lastFailure,
@@ -33,6 +34,7 @@ public record ConsultancyEvidenceOperation(
         Objects.requireNonNull(documentVersionId, "Document version id is required");
         relationship = requireText(relationship, "Relationship");
         Objects.requireNonNull(requestedBy, "Requesting actor is required");
+        Objects.requireNonNull(requestingOrganizationId, "Requesting organization is required");
         Objects.requireNonNull(status, "Status is required");
         if (attempts < 0) {
             throw new IllegalArgumentException("Attempts cannot be negative");
@@ -56,10 +58,11 @@ public record ConsultancyEvidenceOperation(
             UUID documentVersionId,
             String relationship,
             UUID requestedBy,
+            UUID requestingOrganizationId,
             Instant now) {
         return new ConsultancyEvidenceOperation(operationId, tenantId, idempotencyKey,
                 deliverableId, documentId, documentVersionId, relationship, requestedBy,
-                Status.PENDING, 0, null, now, now);
+                requestingOrganizationId, Status.PENDING, 0, null, now, now);
     }
 
     public ConsultancyEvidenceOperation linked(Instant now) {
@@ -99,7 +102,7 @@ public record ConsultancyEvidenceOperation(
             throw new IllegalArgumentException("Update time cannot move backwards");
         }
         return new ConsultancyEvidenceOperation(operationId, tenantId, idempotencyKey,
-                deliverableId, documentId, documentVersionId, relationship, requestedBy,
+                deliverableId, documentId, documentVersionId, relationship, requestedBy, requestingOrganizationId,
                 next, nextAttempts, failure, createdAt, now);
     }
 
