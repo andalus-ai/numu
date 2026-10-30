@@ -105,7 +105,12 @@ class JdbcWorkspaceMigrationChainPostgresTest {
     @Test
     void commentEntriesAreAppendOnlyWhileThreadResolutionRemainsMutable() throws SQLException, IOException {
         DataSource dataSource = dataSource();
+        String schema = "workspace_comments_" + UUID.randomUUID().toString().replace("-", "");
         try (Connection connection = dataSource.getConnection()) {
+            try (Statement setup = connection.createStatement()) {
+                setup.execute("CREATE SCHEMA " + schema);
+                setup.execute("SET search_path TO " + schema);
+            }
             for (String migration : MIGRATIONS) {
                 String sql = readMigration(migration);
                 for (String statementSql : JdbcWorkspaceStorePostgresTest.splitSqlStatements(sql)) {
@@ -114,17 +119,15 @@ class JdbcWorkspaceMigrationChainPostgresTest {
                     }
                 }
             }
-        }
 
-        UUID tenant = java.util.UUID.randomUUID();
-        UUID workspace = java.util.UUID.randomUUID();
-        UUID space = java.util.UUID.randomUUID();
-        UUID page = java.util.UUID.randomUUID();
-        UUID thread = java.util.UUID.randomUUID();
-        UUID comment = java.util.UUID.randomUUID();
-        UUID actor = java.util.UUID.randomUUID();
-        Instant now = Instant.parse("2026-10-30T00:00:00Z");
-        try (Connection connection = dataSource.getConnection()) {
+            UUID tenant = UUID.randomUUID();
+            UUID workspace = UUID.randomUUID();
+            UUID space = UUID.randomUUID();
+            UUID page = UUID.randomUUID();
+            UUID thread = UUID.randomUUID();
+            UUID comment = UUID.randomUUID();
+            UUID actor = UUID.randomUUID();
+            Instant now = Instant.parse("2026-10-30T00:00:00Z");
             try (var insert = connection.prepareStatement(
                     "INSERT INTO workspace_workspaces(id,tenant_id,name,description,created_at) VALUES(?,?,?,?,?)")) {
                 insert.setObject(1, workspace); insert.setObject(2, tenant); insert.setString(3, "Comments");
