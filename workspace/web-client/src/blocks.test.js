@@ -35,7 +35,7 @@ test("creates only supported new block types and retains stable existing identif
   assert.equal(createBlock("quote").type, "quote");
   assert.equal(createBlock("not-supported").type, "paragraph");
 
-  const converted = blocksFromPlainText("first\\n\\nsecond", [
+  const converted = blocksFromPlainText("first\n\nsecond", [
     { id: "stable-1", type: "heading-1", attributes: { level: 1 } },
   ]);
   assert.equal(converted[0].id, "stable-1");
