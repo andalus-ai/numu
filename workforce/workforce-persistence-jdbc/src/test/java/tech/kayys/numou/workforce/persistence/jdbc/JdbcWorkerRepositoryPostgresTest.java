@@ -88,7 +88,23 @@ class JdbcWorkerRepositoryPostgresTest {
 
         staleRead.suspend("operator-b", Instant.parse("2026-10-30T10:01:00Z"), "stale update");
         assertThatThrownBy(() -> repository.save(staleRead).toCompletableFuture().join())
-                .hasRootCauseInstanceOf(java.sql.SQLException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("concurrently modified");
+    }
+
+
+    @Test
+    void tenantScopedDeleteCannotDeleteAnotherTenantsWorker() {
+        TenantId owner = TenantId.generate();
+        TenantId other = TenantId.generate();
+        Worker worker = worker(owner, UUID.randomUUID());
+        repository.save(worker).toCompletableFuture().join();
+
+        repository.deleteById(other, worker.id()).toCompletableFuture().join();
+
+        assertThat(repository.findById(owner, worker.id()).toCompletableFuture().join()).isPresent();
+        repository.deleteById(owner, worker.id()).toCompletableFuture().join();
+        assertThat(repository.findById(owner, worker.id()).toCompletableFuture().join()).isEmpty();
     }
 
     @Test
