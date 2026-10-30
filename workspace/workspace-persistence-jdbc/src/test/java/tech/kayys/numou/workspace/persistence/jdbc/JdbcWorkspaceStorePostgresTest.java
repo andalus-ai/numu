@@ -115,6 +115,13 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.createThread(thread, createdAudit));
         assertEquals(1, store.findThread(tenant, page.id(), thread.id()).orElseThrow().comments().size());
         assertEquals(anchorBlock.id(), store.findThread(tenant, page.id(), thread.id()).orElseThrow().anchorBlockId());
+
+        PageCommentThread invalidAnchor = PageCommentThread.open(tenant, page.id(), UUID.randomUUID(), actor, "Invalid anchor", now);
+        AuditEntry invalidAnchorAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", invalidAnchor.id(), 1, page.title(), now);
+        assertFalse(store.createThread(invalidAnchor, invalidAnchorAudit),
+                "the persistence boundary must reject anchors not present in the page");
+        assertTrue(store.findThread(tenant, page.id(), invalidAnchor.id()).isEmpty());
         try (Connection connection = dataSource.getConnection();
              var deleteBlock = connection.prepareStatement(
                      "DELETE FROM workspace_page_blocks WHERE tenant_id=? AND page_id=? AND block_id=?")) {
