@@ -94,7 +94,7 @@ class ApnsNotificationDeliveryProviderTest {
 
     private static NotificationDeliveryProvider.DeliveryRequest request(UUID tenant) {
         return new NotificationDeliveryProvider.DeliveryRequest(tenant, UUID.randomUUID(), UUID.randomUUID(),
-                "device-token", "Order updated", "Your order has shipped", "order:123");
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Order updated", "Your order has shipped", "order:123");
     }
 
     private URI baseUri() { return URI.create("http://localhost:" + server.getAddress().getPort()); }
