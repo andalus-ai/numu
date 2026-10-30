@@ -61,11 +61,13 @@ public final class WorkspaceMentionService {
                     .filter(member -> !member.userId().equals(actorId))
                     .ifPresent(member -> recipients.putIfAbsent(member.userId(), member));
         }
+        String actorName = directory.findActiveByUserId(tenantId, actorId)
+                .map(Member::displayName).orElse("A teammate");
         List<UUID> notified = new ArrayList<>();
         for (Member member : recipients.values()) {
             String key = "workspace:comment-mention:" + commentId + ":" + member.userId();
             notifications.notifyMention(new MentionNotification(tenantId, member.userId(), actorId,
-                    pageId, commentId, member.handle(), "A teammate", page.title(), key));
+                    pageId, commentId, member.handle(), actorName, page.title(), key));
             notified.add(member.userId());
         }
         return List.copyOf(notified);
