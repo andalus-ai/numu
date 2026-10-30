@@ -42,7 +42,7 @@ class PageCommentServiceTest {
         assertFalse(reopened.resolved());
         assertEquals(3, reopened.revision());
         assertNull(reopened.resolvedBy());
-        assertEquals(3, store.audits.size());
+        assertEquals(4, store.audits.size());
     }
 
     @Test
