@@ -37,8 +37,8 @@ class WorkspaceNotificationBridgeTest {
         assertEquals(tenant,result.tenantId());
         assertEquals(recipient,result.recipientId());
         assertEquals("workspace.mention",result.type());
-        assertEquals("Project Lead mentioned you",result.title());
-        assertTrue(result.body().contains("Operations roadmap"));
+        assertEquals("You were mentioned",result.title());
+        assertEquals("Someone mentioned you in a workspace page comment.",result.body());
         assertTrue(result.sourceReference().contains(comment.toString()));
     }
 }
