@@ -45,3 +45,14 @@ The application layer has a dedicated `ConsultancyEvidenceAuthorization` contrac
 `ConsultancyEvidenceOperationStore` is the persistence boundary. The PostgreSQL adapter creates operations idempotently, rejects reuse of a tenant-scoped key for a different immutable request, and claims due work with a single `FOR UPDATE SKIP LOCKED` update. A claim carries a fresh lease token; completion and failure transitions are conditional on that token and a live lease. Long-running work may renew the lease without changing its token. Stale workers receive `false`/an empty renewal result and cannot overwrite a newer attempt.
 
 The adapter is still only the persistence layer. It does not execute the saga, call Document, enforce runtime party/document authorization, or prove cross-capability atomicity. PostgreSQL integration tests for concurrent claims, expired-lease recovery, stale-token rejection, idempotency conflicts, and tenant isolation remain required before production use.
+
+
+## Evidence execution and actor attribution
+
+A durable operation stores both the requesting actor and the requesting organization. The worker must re-check access to the persisted deliverable and the exact document version before every attach attempt; it must not infer an organization from a UUID or trust authorization performed only when the request was first submitted. Existing operation rows require an explicit organization backfill before the requester-organization column can become mandatory.
+
+The Construction adapter implements the evidence-link SPI by calling Document's `DocumentLinkRepository` application port. It does not query Document tables. Document links now preserve the actor who created a version-pinned relationship; historical links retain a null actor because their creator cannot safely be inferred. The Document write remains idempotent, and the bridge reads back the persisted relationship after save so a retry returns the original link identity and original actor.
+
+`ConsultancyEvidenceOperationWorker` processes a lease already claimed by the store. Authorization denials are terminal; other execution failures are retryable. It marks the operation linked only after Document returns the persisted link and the lease-fenced state transition succeeds. If the lease expires after Document saves, a retry can safely resolve the same Document relationship. A stale worker never reports a successful link transition.
+
+This worker still requires the host application to provide a real `ConsultancyEvidenceAuthorization` implementation. That implementation must verify deliverable-party membership and Document-version access independently and must report denials as `ConsultancyEvidenceAccessDeniedException`. No permissive/no-op authorization adapter is supplied. A scheduler/claim loop, PostgreSQL integration tests, and runtime authorization integration tests remain prerequisites for production exposure.
