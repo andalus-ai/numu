@@ -51,16 +51,23 @@ class KafkaConsumerConnectorTest {
     @Test
     void connectorConsumesAndDispatchesARealBrokerRecord() throws Exception {
         String saleId = UUID.randomUUID().toString();
+        EventMetadata expectedMetadata = new EventMetadata(
+                EventId.generate(), CorrelationId.generate(), null,
+                UUID.randomUUID(), UUID.randomUUID(), "connector-test",
+                Instant.now().toString(), "trace-" + UUID.randomUUID());
         EventEnvelope<TestSaleCompleted> envelope = EventEnvelope.of(
-                new EventMetadata(EventId.generate(), CorrelationId.generate(), null,
-                        UUID.randomUUID(), UUID.randomUUID(), "connector-test",
-                        Instant.now().toString(), null),
-                new TestSaleCompleted(saleId));
+                expectedMetadata, new TestSaleCompleted(saleId));
 
         send(SOURCE_TOPIC, serializer.serialize(envelope), EVENT_TYPE);
 
         EventEnvelope<?> received = probe.await(Duration.ofSeconds(20));
         assertThat(received.eventType()).isEqualTo(EVENT_TYPE);
+        assertThat(received.metadata()).isEqualTo(expectedMetadata);
+        assertThat(received.metadata().tenantId()).isEqualTo(expectedMetadata.tenantId());
+        assertThat(received.metadata().participantId()).isEqualTo(expectedMetadata.participantId());
+        assertThat(received.metadata().actorId()).isEqualTo(expectedMetadata.actorId());
+        assertThat(received.metadata().correlationId()).isEqualTo(expectedMetadata.correlationId());
+        assertThat(received.metadata().traceId()).isEqualTo(expectedMetadata.traceId());
         assertThat(((TestSaleCompleted) received.payload()).saleId).isEqualTo(saleId);
     }
 
