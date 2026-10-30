@@ -27,8 +27,8 @@ class ResilientNotificationDeliveryProviderTest {
         var resilient = new ResilientNotificationDeliveryProvider(
                 delegate, clock, 2, Duration.ofSeconds(30), 100, Duration.ofMinutes(1));
 
-        assertTrue(resilient.deliver(REQUEST).retryable());
-        assertEquals("provider_circuit_open", resilient.deliver(REQUEST).safeErrorCode());
+        assertEquals("upstream_unavailable", resilient.deliver(REQUEST).safeErrorCode());
+        assertEquals("upstream_unavailable", resilient.deliver(REQUEST).safeErrorCode());
         assertEquals(2, calls.get());
         assertEquals("provider_circuit_open", resilient.deliver(REQUEST).safeErrorCode());
         assertEquals(2, calls.get());
