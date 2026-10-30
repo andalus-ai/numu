@@ -11,6 +11,8 @@ import java.util.UUID;
 public interface WorkspaceMentionDirectory {
     Optional<Member> findActiveByHandle(UUID tenantId, String normalizedHandle);
 
+    Optional<Member> findActiveByUserId(UUID tenantId, UUID userId);
+
     List<Member> searchActive(UUID tenantId, String normalizedQuery, int limit);
 
     record Member(UUID userId, String handle, String displayName) {
