@@ -111,6 +111,13 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/closes/{closeId}/trading")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public TradingDto closeTrading(@PathParam("id") String id, @PathParam("closeId") String closeId) {
+        return api.closeTrading(id, closeId);
+    }
+
+    @GET
     @Path("/audit")
     @RolesAllowed({APPROVER, AUDITOR})
     public AuditView audit() {

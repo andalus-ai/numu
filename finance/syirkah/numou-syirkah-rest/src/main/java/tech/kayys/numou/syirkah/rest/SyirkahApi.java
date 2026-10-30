@@ -4,6 +4,7 @@ import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.numouapplication.StaffContractService;
+import tech.kayys.numou.numouapplication.port.TradingRecordPort;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.command.Commands;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
@@ -32,6 +33,9 @@ public class SyirkahApi {
     private final SyirkahCatalogPort catalog;
     private final RequestContextHolder context;
     private final StaffContractService staff;
+    private final TradingRecordPort tradingRecords;
+    private final tech.kayys.numou.numouapplication.port.TransactionPort tx;
+    private final java.time.Clock clock = java.time.Clock.systemUTC();
 
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context) {
@@ -41,7 +45,23 @@ public class SyirkahApi {
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
                       StaffContractService staff) {
+        this(service, governed, auditor, catalog, context, staff, null);
+    }
+
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff, TradingRecordPort tradingRecords) {
+        this(service, governed, auditor, catalog, context, staff, tradingRecords, null);
+    }
+
+    /** @param tx when given, a close and its trading figures are written in one transaction */
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff, TradingRecordPort tradingRecords,
+                      tech.kayys.numou.numouapplication.port.TransactionPort tx) {
+        this.tx = tx;
         this.staff = staff;
+        this.tradingRecords = tradingRecords;
         this.service = Objects.requireNonNull(service);
         this.governed = Objects.requireNonNull(governed);
         this.auditor = Objects.requireNonNull(auditor);
@@ -229,10 +249,30 @@ public class SyirkahApi {
         }
         FinancialResult figures = r.trading() != null ? SyirkahDtos.trading(r.trading(), currency)
                 : SyirkahDtos.result(r.result(), currency);
-        return SyirkahDtos.close(service.closePeriod(new Commands.ClosePeriod(tenant(), sid(id),
-                cidOrNew(r.closeId(), "closeId"), r.periodStart(), r.periodEnd(),
+        CloseId closeId = cidOrNew(r.closeId(), "closeId");
+        Commands.ClosePeriod command = new Commands.ClosePeriod(tenant(), sid(id),
+                closeId, r.periodStart(), r.periodEnd(),
                 figures, SyirkahDtos.fault(r.fault(), currency),
-                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"))));
+                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"));
+        java.util.function.Supplier<CloseView> work = () -> {
+            CloseView view = SyirkahDtos.close(service.closePeriod(command));
+            if (r.trading() != null && tradingRecords != null) {
+                tradingRecords.record(tenant(), sid(id), closeId, SyirkahDtos.tradingInput(r.trading(), currency),
+                        clock.instant());
+            }
+            return view;
+        };
+        return tx == null ? work.get() : tx.inTransaction(work);
+    }
+
+    /** The trading figures a close was worked out from, if it was closed from trading figures. */
+    public TradingDto closeTrading(String id, String closeId) {
+        if (tradingRecords == null) {
+            throw new IllegalStateException("trading records are not configured");
+        }
+        return tradingRecords.find(tenant(), sid(id), cid(closeId, "closeId"))
+                .map(x -> SyirkahDtos.tradingView(x.input()))
+                .orElseThrow(() -> new SyirkahNotFoundException("no trading figures for close " + closeId));
     }
 
     public SyirkahView distribute(String id, PaymentRequest r) {
