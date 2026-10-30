@@ -179,6 +179,33 @@ function markDirty(){state.dirty=$("#editor-title").value!==state.savedTitle||JS
 $("#add-block-button").addEventListener("click",()=>addBlock($("#new-block-type").value));
 $("#save-button").addEventListener("click",async()=>{if(!state.page||!state.dirty)return;const button=$("#save-button");button.disabled=true;button.textContent="Saving…";const title=$("#editor-title").value.trim();if(!title){showToast("A page title is required.");button.disabled=false;button.textContent="Save changes";return;}const updated=await runAction(()=>api.updatePage(state.page.id,{expectedRevision:state.revision,title,blocks:serializeBlocks(state.blocks),changeSummary:"Updated in workspace web client"}));if(!updated){button.disabled=false;button.textContent="Save changes";return;}renderEditor(updated);showToast("Changes saved.");await refreshPages();});
 $("#history-button").addEventListener("click",async()=>{if(!state.page)return;const history=await runAction(()=>api.getPageHistory(state.page.id));if(!history)return;const panel=$("#history-panel");panel.replaceChildren();const heading=document.createElement("h3");heading.textContent="Page history";panel.append(heading);if(!history.length){const empty=document.createElement("p");empty.className="muted";empty.textContent="No previous revisions are available.";panel.append(empty);}for(const revision of history){const row=document.createElement("div");row.className="history-row";const details=document.createElement("div");const label=document.createElement("strong");const number=revision.revision??revision.revisionNumber;label.textContent=`Revision ${number??"—"}`;const summary=document.createElement("p");summary.textContent=safeText(revision.changeSummary,"Saved page version");details.append(label,summary);row.append(details);const restore=document.createElement("button");restore.type="button";restore.className="button button-quiet";restore.textContent="Restore";restore.addEventListener("click",async()=>{const sourceRevision=Number(number);if(!Number.isFinite(sourceRevision)||!window.confirm(`Restore revision ${sourceRevision} as a new revision?`))return;const restored=await runAction(()=>api.restorePageRevision(state.page.id,{sourceRevision,expectedCurrentRevision:state.revision}),"Revision restored as a new version.");if(restored){renderEditor(restored);panel.hidden=true;await refreshPages();}});row.append(restore);panel.append(row);}panel.hidden=false;});
+let mentionSuggestionSequence=0;
+$("#comment-body").addEventListener("input",async()=>{
+  const input=$("#comment-body"),panel=$("#mention-suggestions"),pageId=state.page?.id;
+  const sequence=++mentionSuggestionSequence, before=input.value.slice(0,input.selectionStart);
+  const match=before.match(/(?:^|\\s)@([A-Za-z0-9._-]{1,64})$/);
+  if(!pageId||!match){panel.hidden=true;panel.replaceChildren();return;}
+  const query=match[1];
+  const members=await api.suggestMentions(pageId,query,8).catch(()=>[]);
+  if(sequence!==mentionSuggestionSequence||state.page?.id!==pageId)return;
+  panel.replaceChildren();
+  if(!Array.isArray(members)||!members.length){panel.hidden=true;return;}
+  const tokenStart=input.selectionStart-match[0].length+match[0].lastIndexOf("@");
+  for(const member of members){
+    const option=document.createElement("button");option.type="button";option.className="mention-option";
+    const name=document.createElement("strong");name.textContent=safeText(member.displayName);
+    const handle=document.createElement("span");handle.textContent="@"+safeText(member.handle);
+    option.append(name,handle);
+    option.addEventListener("click",()=>{
+      const cursor=input.selectionStart, tail=input.value.slice(cursor);
+      input.value=input.value.slice(0,tokenStart)+"@"+member.handle+" "+tail;
+      const next=tokenStart+member.handle.length+2;input.focus();input.setSelectionRange(next,next);
+      panel.hidden=true;panel.replaceChildren();
+    });
+    panel.append(option);
+  }
+  panel.hidden=false;
+});
 $("#comment-form").addEventListener("submit",async(event)=>{
   event.preventDefault();const pageId=state.page?.id;if(!pageId)return;
   const body=$("#comment-body").value.trim();if(!body)return;
