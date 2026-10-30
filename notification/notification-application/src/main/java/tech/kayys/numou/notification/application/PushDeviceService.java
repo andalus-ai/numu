@@ -24,6 +24,11 @@ public final class PushDeviceService {
         this.clock = Objects.requireNonNull(clock, "clock is required");
     }
 
+    /**
+     * Internal token-bearing registration result. Management endpoints should
+     * use registerSummary so provider credentials cannot be serialized.
+     */
+    @Deprecated(forRemoval = false)
     public PushDevice register(
             UUID tenantId,
             UUID recipientId,
@@ -33,6 +38,19 @@ public final class PushDeviceService {
         requireScope(tenantId, recipientId);
         Instant now = Instant.now(clock);
         return repository.registerOrRefresh(
+                PushDevice.register(tenantId, recipientId, token, platform, appInstance, now));
+    }
+
+    /** Registers or refreshes a device and returns only safe metadata. */
+    public PushDeviceSummary registerSummary(
+            UUID tenantId,
+            UUID recipientId,
+            String token,
+            PushDevice.Platform platform,
+            String appInstance) {
+        requireScope(tenantId, recipientId);
+        Instant now = Instant.now(clock);
+        return repository.registerOrRefreshSummary(
                 PushDevice.register(tenantId, recipientId, token, platform, appInstance, now));
     }
 
