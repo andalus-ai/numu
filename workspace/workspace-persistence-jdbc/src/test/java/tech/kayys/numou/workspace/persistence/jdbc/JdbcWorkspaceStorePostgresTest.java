@@ -1064,33 +1064,45 @@ class JdbcWorkspaceStorePostgresTest {
         assertFalse(store.markDelivered(tenant, delivery.id(), UUID.randomUUID(), now.plusSeconds(2)),
                 "a stale or foreign lease token must not complete delivery");
 
-        PageCommentThread deadThread = PageCommentThread.open(tenant, page.id(), actor, "Dead letter test", now.plusSeconds(2));
+        PageComment reply = PageComment.reply(tenant, page.id(), thread.id(), root.id(), actor,
+                "Reply mentioning @member", now.plusSeconds(2));
+        var replyIntent = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(),
+                "workspace:comment-mention:" + reply.id() + ":" + recipient);
+        AuditEntry replyAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_REPLIED",
+                "PAGE_COMMENT", reply.id(), 0, page.title(), now.plusSeconds(2));
+        assertTrue(store.appendCommentWithMentions(tenant, page.id(), thread.id(), reply, replyAudit, List.of(replyIntent)));
+        var replyClaim = store.claimDue("integration-worker", now.plusSeconds(4), now.plusSeconds(34), 10)
+                .stream().filter(item -> item.commentId().equals(reply.id())).findFirst().orElseThrow();
+        assertTrue(store.markDelivered(tenant, replyClaim.id(), replyClaim.leaseToken(), now.plusSeconds(3)));
+
+        PageCommentThread deadThread = PageCommentThread.open(tenant, page.id(), actor, "Dead letter test", now.plusSeconds(4));
         PageComment deadRoot = deadThread.comments().get(0);
         var deadIntent = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
                 recipient, "member", "Actor", page.title(),
                 "workspace:comment-mention:" + deadRoot.id() + ":" + recipient);
         AuditEntry deadAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
-                "PAGE_COMMENT_THREAD", deadThread.id(), 1, page.title(), now.plusSeconds(2));
+                "PAGE_COMMENT_THREAD", deadThread.id(), 1, page.title(), now.plusSeconds(4));
         assertTrue(store.createThreadWithMentions(deadThread, deadAudit, List.of(deadIntent)));
         var deadClaim = store.claimDue("integration-worker", now.plusSeconds(2), now.plusSeconds(32), 10)
                 .stream().filter(item -> item.commentId().equals(deadRoot.id())).findFirst().orElseThrow();
-        assertTrue(store.markDead(tenant, deadClaim.id(), deadClaim.leaseToken(), "provider rejected", now.plusSeconds(3)));
+        assertTrue(store.markDead(tenant, deadClaim.id(), deadClaim.leaseToken(), "provider rejected", now.plusSeconds(5)));
         assertEquals(1, store.listDead(tenant, 10).size());
-        assertTrue(store.requeueDead(tenant, deadClaim.id(), actor, now.plusSeconds(4)));
+        assertTrue(store.requeueDead(tenant, deadClaim.id(), actor, now.plusSeconds(6)));
         assertTrue(store.listDead(tenant, 10).isEmpty());
 
-        PageCommentThread rejected = PageCommentThread.open(tenant, page.id(), actor, "Duplicate intent", now.plusSeconds(3));
+        PageCommentThread rejected = PageCommentThread.open(tenant, page.id(), actor, "Duplicate intent", now.plusSeconds(7));
         var duplicateA = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
                 recipient, "member", "Actor", page.title(), "workspace:comment-mention:duplicate");
         var duplicateB = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
                 UUID.randomUUID(), "other", "Actor", page.title(), "workspace:comment-mention:duplicate");
         AuditEntry rejectedAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
-                "PAGE_COMMENT_THREAD", rejected.id(), 1, page.title(), now.plusSeconds(3));
+                "PAGE_COMMENT_THREAD", rejected.id(), 1, page.title(), now.plusSeconds(7));
         assertFalse(store.createThreadWithMentions(rejected, rejectedAudit, List.of(duplicateA, duplicateB)),
                 "duplicate idempotency keys must roll back the entire comment transaction");
         assertTrue(store.findThread(tenant, page.id(), rejected.id()).isEmpty());
-        assertEquals(2, countRows("workspace_page_comments", tenant));
-        assertEquals(2, countRows("workspace_comment_mention_outbox", tenant));
+        assertEquals(3, countRows("workspace_page_comments", tenant));
+        assertEquals(3, countRows("workspace_comment_mention_outbox", tenant));
     }
 
     private long countRows(String table, UUID tenant) throws SQLException {
