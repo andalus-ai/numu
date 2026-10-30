@@ -32,6 +32,20 @@ public final class WorkspacePorts {
   boolean saveWithRevision(Page page,PageRevision revision,long expectedRevision);
   List<PageRevision> history(UUID tenantId,UUID pageId);
  }
+ /**
+  * Read-only comment queries. Implementations must scope every query by tenant and page.
+  * Comment entries are append-only; only the thread resolution state is mutable.
+  */
+ public interface PageCommentRepository {
+  Optional<PageCommentThread> findThread(UUID tenantId, UUID pageId, UUID threadId);
+  List<PageCommentThread> findThreads(UUID tenantId, UUID pageId);
+ }
+ /** Comment writes and their audit events must commit in the same database transaction. */
+ public interface AuditedPageCommentRepository extends PageCommentRepository {
+  boolean createThread(PageCommentThread thread, AuditEntry audit);
+  boolean appendComment(UUID tenantId, UUID pageId, UUID threadId, PageComment comment, AuditEntry audit);
+  boolean updateThreadResolution(PageCommentThread thread, long expectedRevision, AuditEntry audit);
+ }
  public interface PageLinkRepository {
   boolean save(PageLink link);
   Optional<PageLink> findLink(UUID tenantId,UUID linkId);

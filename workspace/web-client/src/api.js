@@ -109,5 +109,15 @@ export function createWorkspaceApi({
       request(`/pages/${encodeURIComponent(pageId)}/links`),
     getBacklinks: (pageId) =>
       request(`/pages/${encodeURIComponent(pageId)}/backlinks`),
+    listCommentThreads: (pageId) =>
+      request(`/pages/${encodeURIComponent(pageId)}/comment-threads`),
+    createCommentThread: (pageId, input) =>
+      json("POST", `/pages/${encodeURIComponent(pageId)}/comment-threads`, input),
+    replyToCommentThread: (pageId, threadId, input) =>
+      json("POST", `/pages/${encodeURIComponent(pageId)}/comment-threads/${encodeURIComponent(threadId)}/replies`, input),
+    resolveCommentThread: (pageId, threadId, input) =>
+      json("POST", `/pages/${encodeURIComponent(pageId)}/comment-threads/${encodeURIComponent(threadId)}/resolve`, input),
+    reopenCommentThread: (pageId, threadId, input) =>
+      json("POST", `/pages/${encodeURIComponent(pageId)}/comment-threads/${encodeURIComponent(threadId)}/reopen`, input),
   });
 }
