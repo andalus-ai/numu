@@ -8,7 +8,8 @@ An optional browser client for the workspace REST capability. It is separate fro
 - Restore the last selected workspace and space after a browser reload.
 - Create a workspace, a space, and a page through the real API.
 - Browse root pages in the selected space and open a page.
-- Edit page title and typed content blocks (headings, paragraphs, lists, to-dos, quotes, callouts, code, tables, toggles, and dividers) with an optimistic `expectedRevision` guard.\n- Add, remove, and reorder blocks while preserving stable block IDs and opaque file/domain-reference blocks.
+- Edit page title and typed content blocks (headings, paragraphs, lists, to-dos, quotes, callouts, code, tables, toggles, and dividers) with an optimistic `expectedRevision` guard.
+- Add, remove, and reorder blocks while preserving stable block IDs and opaque file/domain-reference blocks.
 - Inspect page history and restore a prior revision as a new revision.
 - Search pages and create pages from templates.
 - Show safe network, authorization/not-found, server, and revision-conflict errors.
