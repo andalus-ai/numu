@@ -639,9 +639,20 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         String sql="UPDATE workspace_comment_mention_outbox SET status='DEAD',lease_owner=NULL,lease_token=NULL,lease_until=NULL,last_error=?,updated_at=? WHERE tenant_id=? AND id=? AND status='LEASED' AND lease_token=?";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setString(1,safeOutboxError(error));p.setTimestamp(2,Timestamp.from(now));p.setObject(3,tenantId);p.setObject(4,id);p.setObject(5,token);return p.executeUpdate()==1;}catch(SQLException e){throw failure("dead-letter workspace mention",e);}
     }
-    @Override public boolean requeueDead(UUID tenantId,UUID id,Instant now) {
-        String sql="UPDATE workspace_comment_mention_outbox SET status='PENDING',attempts=0,available_at=?,last_error=NULL,updated_at=? WHERE tenant_id=? AND id=? AND status='DEAD'";
-        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setTimestamp(1,Timestamp.from(now));p.setTimestamp(2,Timestamp.from(now));p.setObject(3,tenantId);p.setObject(4,id);return p.executeUpdate()==1;}catch(SQLException e){throw failure("requeue dead workspace mention",e);}
+    @Override public boolean requeueDead(UUID tenantId,UUID id,UUID actorId,Instant now) {
+        Objects.requireNonNull(actorId, "actorId");
+        return atomicMutation("requeue dead workspace mention with audit", c -> {
+            String sql="UPDATE workspace_comment_mention_outbox SET status='PENDING',attempts=0,available_at=?,last_error=NULL,updated_at=? WHERE tenant_id=? AND id=? AND status='DEAD' RETURNING attempts";
+            try(PreparedStatement p=c.prepareStatement(sql)){
+                p.setTimestamp(1,Timestamp.from(now));p.setTimestamp(2,Timestamp.from(now));p.setObject(3,tenantId);p.setObject(4,id);
+                try(ResultSet r=p.executeQuery()){
+                    if(!r.next())return false;
+                    insertAudit(c,new AuditEntry(tenantId,actorId,"WORKSPACE_COMMENT_MENTION_REQUEUED",
+                            "COMMENT_MENTION_DELIVERY",id,r.getLong(1),"Dead-letter mention delivery requeued",now));
+                    return true;
+                }
+            }
+        });
     }
     private boolean updateMentionLease(String sql,UUID tenantId,UUID id,UUID token,Instant now,String unused) {
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setTimestamp(1,Timestamp.from(now));p.setObject(2,tenantId);p.setObject(3,id);p.setObject(4,token);return p.executeUpdate()==1;}catch(SQLException e){throw failure("complete workspace mention delivery",e);}
