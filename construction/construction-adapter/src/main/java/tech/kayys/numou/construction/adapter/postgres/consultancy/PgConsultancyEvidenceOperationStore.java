@@ -71,7 +71,7 @@ public class PgConsultancyEvidenceOperationStore implements ConsultancyEvidenceO
                AND operation.operation_id = claimable.operation_id
             RETURNING operation.tenant_id, operation.operation_id, operation.idempotency_key,
                       operation.deliverable_id, operation.document_id, operation.document_version_id,
-                      operation.relationship, operation.requested_by, operation.status,
+                      operation.relationship, operation.requested_by, operation.requesting_organization_id, operation.status,
                       operation.attempts, operation.last_failure, operation.created_at,
                       operation.updated_at, operation.worker_id, operation.lease_token,
                       operation.locked_until
