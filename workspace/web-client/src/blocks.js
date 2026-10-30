@@ -62,7 +62,7 @@ export function moveBlock(blocks, fromIndex, toIndex) {
 
 export function blocksFromPlainText(value, currentBlocks = []) {
   const existing = normalizeBlocks(currentBlocks);
-  return String(value ?? "").split(/\\n\\s*\\n/).map((text, index) => ({
+  return String(value ?? "").split(/\n\s*\n/).map((text, index) => ({
     ...(existing[index]?.id ? { id: existing[index].id } : {}),
     type: existing[index]?.type || "paragraph",
     text,
