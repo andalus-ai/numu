@@ -55,7 +55,7 @@ class ProviderStayInventoryServiceTest {
 
         assertThatThrownBy(() -> service.provision(command(5, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
@@ -68,7 +68,7 @@ class ProviderStayInventoryServiceTest {
 
         assertThatThrownBy(() -> service.provision(command(2, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
@@ -83,7 +83,7 @@ class ProviderStayInventoryServiceTest {
 
         assertThatThrownBy(() -> service.provision(command(2, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(ListingNotFoundException.class);
+                .isInstanceOf(ListingNotFoundException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
@@ -108,7 +108,7 @@ class ProviderStayInventoryServiceTest {
 
         assertThatThrownBy(() -> service.provision(command(2, CHECK_IN, CHECK_OUT))
                 .await().indefinitely())
-                .hasRootCauseInstanceOf(SecurityException.class);
+                .isInstanceOf(SecurityException.class);
         assertThat(inventory.calls).isEmpty();
     }
 
