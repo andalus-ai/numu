@@ -64,8 +64,12 @@ public final class WebPushNotificationDeliveryProvider implements NotificationDe
         } catch (RuntimeException invalid) {
             return DeliveryResult.permanentFailure("provider_subscription_invalid");
         }
-        if (!endpointPolicy.isAllowed(request.tenantId(), subscription.endpoint()))
+        try {
+            if (!endpointPolicy.isAllowed(request.tenantId(), subscription.endpoint()))
+                return DeliveryResult.permanentFailure("provider_endpoint_rejected");
+        } catch (RuntimeException policyFailure) {
             return DeliveryResult.permanentFailure("provider_endpoint_rejected");
+        }
 
         final WebPushVapidCredentialResolver.VapidCredentials tenantCredentials;
         try {
