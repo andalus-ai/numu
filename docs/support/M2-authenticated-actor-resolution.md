@@ -36,7 +36,5 @@ A deployment must include the Identity adapter and Security adapter. Portal work
 | `support.ticket.manage` | MANAGER |
 | `support.ticket.admin` | MANAGER |
 | `support.ticket.resolve` | AGENT |
-| `support.ticket.assign` | AGENT |
-| `support.ticket.reply` | AGENT |
 
 These are Identity permission codes, not JWT group names. They must be assigned using the tenant-scoped role/permission system.
