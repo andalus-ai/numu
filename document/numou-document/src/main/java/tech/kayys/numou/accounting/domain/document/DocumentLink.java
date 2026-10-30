@@ -57,7 +57,7 @@ public record DocumentLink(
             DocumentId docId, DocumentVersionId versionId, String aggType, String aggId, String rel) {
         return new DocumentLink(
                 DocumentLinkId.generate(), docId, Objects.requireNonNull(versionId),
-                aggType, aggId, rel, Instant.now());
+                aggType, aggId, rel, null, Instant.now());
     }
     /** Creates a version-pinned evidence link with durable actor attribution. */
     public static DocumentLink create(
