@@ -142,3 +142,18 @@ test("uses page-scoped comment endpoints and optimistic thread revisions", async
   assert.deepEqual(JSON.parse(calls[4].init.body), { expectedRevision: 2 });
   assert.ok(calls.every(({ init }) => init.credentials === "same-origin"));
 });
+
+test("suggests tenant-scoped page mention targets using query parameters", async () => {
+  const calls = [];
+  const api = createWorkspaceApi({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response(200, [{ userId: "u-1", handle: "amina", displayName: "Amina" }]);
+    },
+  });
+  const result = await api.suggestMentions("page / 1", "ami &", 6);
+  assert.equal(calls[0].url, "/api/v1/pages/page%20%2F%201/mention-suggestions?q=ami+%26&limit=6");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "same-origin");
+  assert.equal(result[0].handle, "amina");
+});
