@@ -62,6 +62,16 @@ class JdbcPartyIdentityAssociationRepositoryPostgresTest {
         assertEquals(revoked, repository.save(revoked).await().indefinitely());
         assertEquals(1, repository.findByTenantAndParty(tenant, party)
                 .await().indefinitely().size());
+
+        // Revocation releases the active-subject key; a new, separately authorized
+        // association can be created without erasing the prior link's audit history.
+        var replacement = PartyIdentityAssociation.link(UUID.randomUUID(), tenant, PartyId.generate(),
+                identity, linkedAt.plusSeconds(120));
+        assertEquals(replacement, repository.save(replacement).await().indefinitely());
+        assertEquals(replacement, repository.findActiveByTenantAndIdentity(tenant, identity)
+                .await().indefinitely().orElseThrow());
+        assertEquals(1, repository.findByTenantAndParty(tenant, party)
+                .await().indefinitely().size());
     }
 
     @Test
@@ -100,7 +110,7 @@ class JdbcPartyIdentityAssociationRepositoryPostgresTest {
 
         var crossTenant = PartyIdentityAssociation.link(original.id(), TenantId.generate(), original.partyId(),
                 original.identity(), linkedAt);
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(IllegalStateException.class,
                 () -> repository.save(crossTenant).await().indefinitely());
     }
 
