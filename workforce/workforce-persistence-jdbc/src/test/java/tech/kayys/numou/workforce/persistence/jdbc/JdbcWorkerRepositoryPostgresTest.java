@@ -69,7 +69,7 @@ class JdbcWorkerRepositoryPostgresTest {
         Worker worker = worker(owner, UUID.randomUUID());
         repository.save(worker).toCompletableFuture().join();
 
-        assertThat(repository.findById(owner, worker.id()).toCompletableFuture().join()).containsInstanceOf(Worker.class);
+        assertThat(repository.findById(owner, worker.id()).toCompletableFuture().join()).isPresent();
         assertThat(repository.findById(other, worker.id()).toCompletableFuture().join()).isEmpty();
         assertThat(repository.findByPersonRef(other, worker.person()).toCompletableFuture().join()).isEmpty();
     }
