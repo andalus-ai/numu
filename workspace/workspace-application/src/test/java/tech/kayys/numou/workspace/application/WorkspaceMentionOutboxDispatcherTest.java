@@ -65,6 +65,6 @@ class WorkspaceMentionOutboxDispatcherTest {
         public boolean markDelivered(UUID tenant,UUID id,UUID token,Instant now){completedToken=token;return true;}
         public boolean scheduleRetry(UUID tenant,UUID id,UUID token,Instant at,String error,Instant now){completedToken=token;retryAt=at;return true;}
         public boolean markDead(UUID tenant,UUID id,UUID token,String error,Instant now){completedToken=token;return true;}
-        public boolean requeueDead(UUID tenant,UUID id,Instant now){return true;}
+        public boolean requeueDead(UUID tenant,UUID id,UUID actor,Instant now){return true;}
     }
 }
