@@ -20,7 +20,7 @@ import java.util.UUID;
 })
 public class LeadEntity extends BaseEntity {
 
-    @Column(name = "tenant_id", nullable = false, columnDefinition = "UUID")
+    @Column(name = "tenant_id", columnDefinition = "UUID")
     public UUID tenantId;
 
     @Column(name = "first_name", nullable = false, length = 50)
