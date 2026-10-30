@@ -87,7 +87,7 @@ public final class WebPushNotificationDeliveryProvider implements NotificationDe
                     "title", request.title(), "body", request.body(),
                     "source_reference", request.sourceReference() == null ? "" : request.sourceReference()));
             byte[] encrypted = encryptor.encrypt(subscription, payload);
-            if (encrypted.length > MAX_RECORD_BYTES)
+            if (encrypted.length - 86 > MAX_RECORD_BYTES)
                 return DeliveryResult.permanentFailure("provider_payload_too_large");
             String jwt = vapidToken(subscription.audience(), tenantCredentials, now);
             HttpRequest httpRequest = HttpRequest.newBuilder(subscription.endpoint())
