@@ -1072,9 +1072,9 @@ class JdbcWorkspaceStorePostgresTest {
         AuditEntry replyAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_REPLIED",
                 "PAGE_COMMENT", reply.id(), 0, page.title(), now.plusSeconds(2));
         assertTrue(store.appendCommentWithMentions(tenant, page.id(), thread.id(), reply, replyAudit, List.of(replyIntent)));
-        var replyClaim = store.claimDue("integration-worker", now.plusSeconds(4), now.plusSeconds(34), 10)
+        var replyClaim = store.claimDue("integration-worker", now.plusSeconds(2), now.plusSeconds(32), 10)
                 .stream().filter(item -> item.commentId().equals(reply.id())).findFirst().orElseThrow();
-        assertTrue(store.markDelivered(tenant, replyClaim.id(), replyClaim.leaseToken(), now.plusSeconds(5)));
+        assertTrue(store.markDelivered(tenant, replyClaim.id(), replyClaim.leaseToken(), now.plusSeconds(3)));
 
         PageCommentThread deadThread = PageCommentThread.open(tenant, page.id(), actor, "Dead letter test", now.plusSeconds(4));
         PageComment deadRoot = deadThread.comments().get(0);
