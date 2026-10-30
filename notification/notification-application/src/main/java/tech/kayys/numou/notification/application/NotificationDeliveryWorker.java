@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -22,7 +23,7 @@ public final class NotificationDeliveryWorker {
     private final NotificationDeliveryJobRepository jobs;
     private final NotificationRepository notifications;
     private final PushDeviceRepository devices;
-    private final NotificationDeliveryProvider provider;
+    private final Map<String, NotificationDeliveryProvider> providers;
     private final NotificationDeliveryRetryPolicy retryPolicy;
     private final Clock clock;
     private final Duration leaseDuration;
@@ -31,16 +32,41 @@ public final class NotificationDeliveryWorker {
     public NotificationDeliveryWorker(NotificationDeliveryJobRepository jobs, NotificationRepository notifications,
             PushDeviceRepository devices, NotificationDeliveryProvider provider,
             NotificationDeliveryRetryPolicy retryPolicy, Clock clock, Duration leaseDuration, int batchSize) {
+        this(jobs, notifications, devices, Map.of(
+                Objects.requireNonNull(provider, "provider is required").providerCode(), provider),
+                retryPolicy, clock, leaseDuration, batchSize);
+    }
+
+    /**
+     * Creates a worker capable of processing jobs for multiple configured providers.
+     * Job.provider remains the dispatch key, so existing queued jobs retain their
+     * provider affinity during rolling deployments and provider migrations.
+     */
+    public NotificationDeliveryWorker(NotificationDeliveryJobRepository jobs, NotificationRepository notifications,
+            PushDeviceRepository devices, Map<String, NotificationDeliveryProvider> providers,
+            NotificationDeliveryRetryPolicy retryPolicy, Clock clock, Duration leaseDuration, int batchSize) {
         this.jobs = Objects.requireNonNull(jobs, "jobs is required");
         this.notifications = Objects.requireNonNull(notifications, "notifications is required");
         this.devices = Objects.requireNonNull(devices, "devices is required");
-        this.provider = Objects.requireNonNull(provider, "provider is required");
+        Objects.requireNonNull(providers, "providers is required");
+        if (providers.isEmpty()) throw new IllegalArgumentException("at least one provider is required");
+        Map<String, NotificationDeliveryProvider> configured = new java.util.HashMap<>();
+        providers.forEach((code, implementation) -> {
+            if (code == null || code.isBlank()) throw new IllegalArgumentException("provider key is required");
+            Objects.requireNonNull(implementation, "provider implementation is required");
+            if (!code.equals(implementation.providerCode())) {
+                throw new IllegalArgumentException("provider map key must match providerCode");
+            }
+            if (configured.putIfAbsent(code, implementation) != null) {
+                throw new IllegalArgumentException("duplicate providerCode: " + code);
+            }
+        });
+        this.providers = Map.copyOf(configured);
         this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy is required");
         this.clock = Objects.requireNonNull(clock, "clock is required");
         this.leaseDuration = Objects.requireNonNull(leaseDuration, "leaseDuration is required");
         if (leaseDuration.isNegative() || leaseDuration.isZero()) throw new IllegalArgumentException("leaseDuration must be positive");
         if (batchSize < 1 || batchSize > 500) throw new IllegalArgumentException("batchSize must be 1..500");
-        if (provider.providerCode() == null || provider.providerCode().isBlank()) throw new IllegalArgumentException("providerCode is required");
         this.batchSize = batchSize;
     }
 
@@ -61,7 +87,8 @@ public final class NotificationDeliveryWorker {
 
     private Outcome process(NotificationDeliveryJob job, UUID leaseToken) {
         Instant now = Instant.now(clock);
-        if (!job.provider().equals(provider.providerCode())) return dead(job, leaseToken, "provider_unavailable");
+        NotificationDeliveryProvider provider = providers.get(job.provider());
+        if (provider == null) return dead(job, leaseToken, "provider_unavailable");
         Notification notification = notifications.findById(job.tenantId(), job.recipientId(), job.notificationId()).orElse(null);
         if (notification == null) return dead(job, leaseToken, NOTIFICATION_UNAVAILABLE);
         PushDevice device = devices.findActiveByRecipient(job.tenantId(), job.recipientId()).stream()
