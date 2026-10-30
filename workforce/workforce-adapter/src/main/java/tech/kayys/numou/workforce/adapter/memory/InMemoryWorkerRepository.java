@@ -82,13 +82,24 @@ public final class InMemoryWorkerRepository implements WorkerRepository {
     @Override
     public synchronized CompletionStage<Void> delete(Worker worker) {
         Objects.requireNonNull(worker, "worker cannot be null");
-        return deleteStoredWorker(worker.id());
+        return deleteById(worker.tenantId(), worker.id());
     }
 
     @Override
     public synchronized CompletionStage<Void> deleteById(WorkerId id) {
         Objects.requireNonNull(id, "id cannot be null");
         return deleteStoredWorker(id);
+    }
+
+    @Override
+    public synchronized CompletionStage<Void> deleteById(TenantId tenantId, WorkerId workerId) {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        Objects.requireNonNull(workerId, "workerId cannot be null");
+        var worker = workersById.get(workerId);
+        if (worker != null && worker.tenantId().equals(tenantId)) {
+            return deleteStoredWorker(workerId);
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
     private CompletionStage<Void> deleteStoredWorker(WorkerId id) {
