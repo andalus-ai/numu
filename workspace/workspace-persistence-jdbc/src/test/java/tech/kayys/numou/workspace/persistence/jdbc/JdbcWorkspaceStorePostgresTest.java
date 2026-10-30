@@ -1034,6 +1034,61 @@ class JdbcWorkspaceStorePostgresTest {
                 "stale optimistic writes must not create audit rows");
     }
 
+    @Test
+    void commentAndMentionOutboxCommitAtomicallyAndLeaseIsFenced() throws SQLException {
+        Instant now = Instant.parse("2026-10-31T00:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), recipient = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Mention outbox", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Mention test", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        PageCommentThread thread = PageCommentThread.open(tenant, page.id(), actor, "Hello @member", now);
+        PageComment root = thread.comments().get(0);
+        var intent = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(),
+                "workspace:comment-mention:" + root.id() + ":" + recipient);
+        AuditEntry audit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", thread.id(), 1, page.title(), now);
+        assertTrue(store.createThreadWithMentions(thread, audit, List.of(intent)));
+
+        assertEquals(1, countRows("workspace_page_comments", tenant));
+        assertEquals(1, countRows("workspace_comment_mention_outbox", tenant));
+        var claimed = store.claimDue("integration-worker", now, now.plusSeconds(30), 10);
+        assertEquals(1, claimed.size());
+        var delivery = claimed.get(0);
+        assertEquals(recipient, delivery.recipientId());
+        assertTrue(store.markDelivered(tenant, delivery.id(), delivery.leaseToken(), now.plusSeconds(1)));
+        assertFalse(store.markDelivered(tenant, delivery.id(), UUID.randomUUID(), now.plusSeconds(2)),
+                "a stale or foreign lease token must not complete delivery");
+
+        PageCommentThread rejected = PageCommentThread.open(tenant, page.id(), actor, "Duplicate intent", now.plusSeconds(3));
+        PageComment duplicateRoot = rejected.comments().get(0);
+        var duplicateA = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(), "workspace:comment-mention:duplicate");
+        var duplicateB = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                UUID.randomUUID(), "other", "Actor", page.title(), "workspace:comment-mention:duplicate");
+        AuditEntry rejectedAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", rejected.id(), 1, page.title(), now.plusSeconds(3));
+        assertFalse(store.createThreadWithMentions(rejected, rejectedAudit, List.of(duplicateA, duplicateB)),
+                "duplicate idempotency keys must roll back the entire comment transaction");
+        assertTrue(store.findThread(tenant, page.id(), rejected.id()).isEmpty());
+        assertEquals(1, countRows("workspace_page_comments", tenant));
+        assertEquals(1, countRows("workspace_comment_mention_outbox", tenant));
+    }
+
+    private long countRows(String table, UUID tenant) throws SQLException {
+        if (!List.of("workspace_page_comments", "workspace_comment_mention_outbox").contains(table))
+            throw new IllegalArgumentException("unsupported test table");
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement("SELECT count(*) FROM " + table + " WHERE tenant_id=?")) {
+            p.setObject(1, tenant);
+            try (java.sql.ResultSet r = p.executeQuery()) { r.next(); return r.getLong(1); }
+        }
+    }
+
     private long countAuditEvents(UUID tenant) throws SQLException {
         try (Connection c = dataSource.getConnection();
              java.sql.PreparedStatement p = c.prepareStatement(
