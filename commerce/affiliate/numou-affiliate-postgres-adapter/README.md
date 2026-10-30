@@ -18,8 +18,9 @@ Audit and outbox tables are foundations only at this stage. The complete impleme
 
 ## Remaining before production
 
-- Transactional audit and outbox repositories integrated with business mutations.
-- Transactional audit and outbox repositories integrated with business mutations.
+- Audit and outbox records are now appended in the same JDBC transaction as payout lifecycle updates and settlement-batch creation/transitions. Batch creation uses its maker as actor; payout lifecycle updates use the explicit `SYSTEM` service actor because the current payout repository SPI has no authenticated actor context.
+- `PostgresAffiliateOutboxRepository` claims tenant-scoped events with `FOR UPDATE SKIP LOCKED`, reclaims expired leases, increments attempts, and uses owner/expiry compare-and-set checks for delivery and retry/dead-letter transitions.
+- Delivery remains at-least-once. A worker must make its downstream operation idempotent using `eventKey`; a successful external side effect followed by a crash can cause redelivery.
 - PostgreSQL integration tests for migrations, idempotent batch replay, tenant-scoped reads, rollback after a reservation conflict, and payout lifecycle regression. The Testcontainers suite skips when Docker is unavailable.
-- Concurrent multi-node reservation stress tests, transactional audit/outbox writes, lease claiming/recovery, and end-to-end dispatch remain outstanding.
+- Concurrent multi-node reservation stress tests, a full application-level authenticated actor propagation path, production dispatcher wiring/metrics, and end-to-end consumer delivery remain outstanding.
 - CI verification against the supported PostgreSQL version. Do not enable this adapter for production payout processing until these are complete.
