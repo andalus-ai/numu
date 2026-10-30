@@ -45,3 +45,20 @@ The application layer has a dedicated `ConsultancyEvidenceAuthorization` contrac
 `ConsultancyEvidenceOperationStore` is the persistence boundary. The PostgreSQL adapter creates operations idempotently, rejects reuse of a tenant-scoped key for a different immutable request, and claims due work with a single `FOR UPDATE SKIP LOCKED` update. A claim carries a fresh lease token; completion and failure transitions are conditional on that token and a live lease. Long-running work may renew the lease without changing its token. Stale workers receive `false`/an empty renewal result and cannot overwrite a newer attempt.
 
 The adapter is still only the persistence layer. It does not execute the saga, call Document, enforce runtime party/document authorization, or prove cross-capability atomicity. PostgreSQL integration tests for concurrent claims, expired-lease recovery, stale-token rejection, idempotency conflicts, and tenant isolation remain required before production use.
+
+
+## Evidence saga execution boundary
+
+The Construction application processor executes a claimed operation in this order:
+
+1. Re-check the actor's access to the persisted consultancy deliverable using the recorded requesting organization.
+2. Re-check the actor's access to the exact Document and immutable version.
+3. Ask Document's application repository to attach the version-pinned relationship, including actor attribution.
+4. Verify that the returned link matches tenant-scoped operation intent (deliverable, document, version, relationship, and actor).
+5. Mark the operation `LINKED` using the original lease token. If the lease expired during the Document call, the fenced update returns false; a later retry can safely repeat the idempotent Document attachment.
+
+Authorization denial is terminal and does not call Document. Other failures are retried with capped exponential backoff and become terminal after the configured attempt limit. The processor does not silently interpret a stale lease as success.
+
+The Document adapter persists nullable `linked_by` for historical compatibility and records the actor for new evidence relationships. Construction depends on the Document application port and does not query Document tables or store file bytes.
+
+This milestone provides a processor, not a scheduler or a full production worker deployment. A runtime must claim due operations with a lease, invoke the processor, monitor stale claims and terminal failures, and configure retry limits. PostgreSQL concurrency tests, Document adapter integration tests, and runtime authorization-adapter tests are still required before production use.
