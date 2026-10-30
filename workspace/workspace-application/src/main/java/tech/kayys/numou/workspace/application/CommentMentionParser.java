@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 /** Parses explicit @handle mentions without interpreting email addresses or code identifiers. */
 public final class CommentMentionParser {
     public static final int MAX_MENTIONS_PER_COMMENT = 20;
-    private static final Pattern HANDLE = Pattern.compile("(?<![\\p{L}\\p{N}._-])@([A-Za-z0-9][A-Za-z0-9._-]{0,63})");
+    private static final Pattern HANDLE = Pattern.compile("(?<![\\p{L}\\p{N}._@-])@([A-Za-z0-9][A-Za-z0-9._-]{0,63})");
 
     private CommentMentionParser() {}
 
