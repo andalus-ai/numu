@@ -58,6 +58,68 @@ public final class Ticket extends AbstractAggregateRoot<TicketId> {
         return new Ticket(id, tenantId, requester, type, priority, subject, description, occurredAt);
     }
 
+    /**
+     * Reconstitutes a previously persisted aggregate without raising creation or
+     * lifecycle events. Persistence adapters must supply the complete aggregate
+     * snapshot and its ordered comment history; this method validates structural
+     * invariants but deliberately does not replay business commands.
+     */
+    public static Ticket reconstitute(
+            TicketId id,
+            TenantId tenantId,
+            Requester requester,
+            TicketType type,
+            TicketPriority priority,
+            TicketStatus status,
+            WaitingReason waitingReason,
+            String subject,
+            String description,
+            UserId assignedAgentId,
+            Instant assignedAt,
+            Instant resolvedAt,
+            Instant closedAt,
+            Instant createdAt,
+            Instant updatedAt,
+            int version,
+            List<TicketComment> comments) {
+        Objects.requireNonNull(status, "status cannot be null");
+        Objects.requireNonNull(createdAt, "createdAt cannot be null");
+        Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
+        Objects.requireNonNull(comments, "comments cannot be null");
+        if (updatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("updatedAt cannot be before createdAt");
+        }
+        if (version < 0) {
+            throw new IllegalArgumentException("version cannot be negative");
+        }
+        if ((status == TicketStatus.WAITING) != (waitingReason != null)) {
+            throw new IllegalArgumentException("waitingReason must be present exactly when status is WAITING");
+        }
+        if (assignedAgentId == null && assignedAt != null) {
+            throw new IllegalArgumentException("assignedAt requires an assigned agent");
+        }
+        if (assignedAgentId != null && assignedAt == null) {
+            throw new IllegalArgumentException("assigned agent requires assignedAt");
+        }
+        if (comments.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("comments cannot contain null entries");
+        }
+
+        Ticket ticket = new Ticket(id, tenantId, requester, type, priority, subject, description, createdAt);
+        ticket.clearEvents();
+        ticket.status = status;
+        ticket.waitingReason = waitingReason;
+        ticket.assignedAgentId = assignedAgentId;
+        ticket.assignedAt = assignedAt;
+        ticket.resolvedAt = resolvedAt;
+        ticket.closedAt = closedAt;
+        ticket.createdAt = createdAt;
+        ticket.updatedAt = updatedAt;
+        ticket.version = version;
+        ticket.comments.addAll(comments);
+        return ticket;
+    }
+
     public TenantId tenantId() { return tenantId; }
     public Requester requester() { return requester; }
     public TicketType type() { return type; }
