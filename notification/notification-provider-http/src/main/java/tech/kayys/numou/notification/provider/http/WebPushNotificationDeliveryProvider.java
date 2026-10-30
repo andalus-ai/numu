@@ -3,9 +3,7 @@ package tech.kayys.numou.notification.provider.http;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import tech.kayys.numou.notification.application.port.NotificationDeliveryProvider;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -46,12 +44,16 @@ public final class WebPushNotificationDeliveryProvider implements NotificationDe
             throw new IllegalArgumentException("Web Push HTTP client must not follow redirects");
     }
 
-    public static WebPushNotificationDeliveryProvider production(WebPushVapidCredentialResolver credentials,
-            WebPushEndpointPolicy endpointPolicy, Duration timeout) {
-        HttpClient client = HttpClient.newBuilder().connectTimeout(timeout)
-                .followRedirects(HttpClient.Redirect.NEVER).build();
-        return new WebPushNotificationDeliveryProvider(client, new ObjectMapper(), credentials,
-                endpointPolicy, timeout, Clock.systemUTC());
+    /**
+     * Creates a production adapter around a host-configured egress client.
+     * The host client must route through its SSRF-safe egress proxy or equivalent
+     * connection-pinned policy and must not follow redirects.
+     */
+    public static WebPushNotificationDeliveryProvider production(HttpClient egressClient,
+            WebPushVapidCredentialResolver credentials, WebPushEndpointPolicy endpointPolicy,
+            Duration timeout, Clock clock) {
+        return new WebPushNotificationDeliveryProvider(egressClient, new ObjectMapper(), credentials,
+                endpointPolicy, timeout, clock);
     }
 
     @Override public String providerCode() { return PROVIDER_CODE; }
