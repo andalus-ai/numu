@@ -20,6 +20,9 @@ import java.util.UUID;
 })
 public class OpportunityEntity extends BaseEntity {
 
+    @Column(name = "tenant_id", columnDefinition = "UUID")
+    public UUID tenantId;
+
     @Column(name = "name", nullable = false, length = 255)
     public String name;
 
