@@ -113,3 +113,32 @@ test("lists tenant-authorized workspaces and spaces without sending identity", a
   assert.equal(calls[0].init.body, undefined);
   assert.equal(calls[1].init.body, undefined);
 });
+
+test("uses page-scoped comment endpoints and optimistic thread revisions", async () => {
+  const calls = [];
+  const api = createWorkspaceApi({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response(200, { id: "thread-1", revision: 2 });
+    },
+  });
+
+  await api.listCommentThreads("page / 1");
+  await api.createCommentThread("page / 1", { body: "Question" });
+  await api.replyToCommentThread("page / 1", "thread / 1", {
+    parentCommentId: "comment-1", body: "Reply",
+  });
+  await api.resolveCommentThread("page / 1", "thread / 1", { expectedRevision: 1 });
+  await api.reopenCommentThread("page / 1", "thread / 1", { expectedRevision: 2 });
+
+  assert.equal(calls[0].url, "/api/v1/pages/page%20%2F%201/comment-threads");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[1].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].init.body), { body: "Question" });
+  assert.equal(calls[2].url, "/api/v1/pages/page%20%2F%201/comment-threads/thread%20%2F%201/replies");
+  assert.equal(calls[3].url.endsWith("/resolve"), true);
+  assert.deepEqual(JSON.parse(calls[3].init.body), { expectedRevision: 1 });
+  assert.equal(calls[4].url.endsWith("/reopen"), true);
+  assert.deepEqual(JSON.parse(calls[4].init.body), { expectedRevision: 2 });
+  assert.ok(calls.every(({ init }) => init.credentials === "same-origin"));
+});

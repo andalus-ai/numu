@@ -1,0 +1,108 @@
+package tech.kayys.numou.workspace.application;
+
+import tech.kayys.numou.workspace.domain.PageComment;
+import tech.kayys.numou.workspace.domain.PageCommentThread;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+/** Transport-neutral comment API. Tenant and actor are derived only from trusted host identity. */
+public final class WorkspaceCommentApi {
+    private final WorkspaceApi.IdentityProvider identity;
+    private final PageCommentService service;
+
+    public WorkspaceCommentApi(WorkspaceApi.IdentityProvider identity, PageCommentService service) {
+        this.identity = Objects.requireNonNull(identity, "identity");
+        this.service = Objects.requireNonNull(service, "service");
+    }
+
+    public ThreadView createThread(UUID pageId, CreateThreadRequest request) {
+        Objects.requireNonNull(pageId, "pageId");
+        Objects.requireNonNull(request, "request");
+        var actor = currentActor();
+        return call(() -> ThreadView.from(service.createThread(
+                actor.tenantId(), actor.actorId(), pageId, request.body())));
+    }
+
+    public ThreadView reply(UUID pageId, UUID threadId, ReplyRequest request) {
+        Objects.requireNonNull(pageId, "pageId");
+        Objects.requireNonNull(threadId, "threadId");
+        Objects.requireNonNull(request, "request");
+        var actor = currentActor();
+        return call(() -> ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
+                pageId, threadId, request.parentCommentId(), request.body())));
+    }
+
+    public List<ThreadView> listThreads(UUID pageId) {
+        Objects.requireNonNull(pageId, "pageId");
+        var actor = currentActor();
+        return call(() -> service.listThreads(actor.tenantId(), actor.actorId(), pageId)
+                .stream().map(ThreadView::from).toList());
+    }
+
+    public ThreadView resolve(UUID pageId, UUID threadId, ResolutionRequest request) {
+        return resolution(pageId, threadId, request, true);
+    }
+
+    public ThreadView reopen(UUID pageId, UUID threadId, ResolutionRequest request) {
+        return resolution(pageId, threadId, request, false);
+    }
+
+    private ThreadView resolution(UUID pageId, UUID threadId, ResolutionRequest request, boolean resolve) {
+        Objects.requireNonNull(pageId, "pageId");
+        Objects.requireNonNull(threadId, "threadId");
+        Objects.requireNonNull(request, "request");
+        var actor = currentActor();
+        return call(() -> ThreadView.from(resolve
+                ? service.resolve(actor.tenantId(), actor.actorId(), pageId, threadId, request.expectedRevision())
+                : service.reopen(actor.tenantId(), actor.actorId(), pageId, threadId, request.expectedRevision())));
+    }
+
+    private WorkspaceApi.AuthenticatedActor currentActor() {
+        WorkspaceApi.AuthenticatedActor actor = identity.currentActor();
+        if (actor == null || actor.tenantId() == null || actor.actorId() == null) {
+            throw new WorkspaceApi.ApiException(401, "An authenticated tenant and actor are required");
+        }
+        return actor;
+    }
+
+    private static <T> T call(Operation<T> operation) {
+        try {
+            return operation.run();
+        } catch (WorkspaceService.RevisionConflictException conflict) {
+            throw new WorkspaceApi.ApiException(409, conflict.getMessage(), conflict);
+        } catch (SecurityException denied) {
+            throw new WorkspaceApi.ApiException(403, "Access denied", denied);
+        } catch (IllegalArgumentException invalid) {
+            throw new WorkspaceApi.ApiException(400, invalid.getMessage(), invalid);
+        }
+    }
+
+    @FunctionalInterface
+    private interface Operation<T> { T run(); }
+
+    public record CreateThreadRequest(String body) {}
+    public record ReplyRequest(UUID parentCommentId, String body) {}
+    public record ResolutionRequest(long expectedRevision) {}
+
+    public record CommentView(UUID id, UUID parentCommentId, UUID authorId,
+                              String body, Instant createdAt) {
+        static CommentView from(PageComment comment) {
+            return new CommentView(comment.id(), comment.parentCommentId(), comment.authorId(),
+                    comment.body(), comment.createdAt());
+        }
+    }
+
+    public record ThreadView(UUID id, UUID pageId, boolean resolved, long revision,
+                             UUID resolvedBy, Instant resolvedAt, Instant createdAt,
+                             Instant updatedAt, List<CommentView> comments) {
+        public ThreadView { comments = List.copyOf(comments); }
+        static ThreadView from(PageCommentThread thread) {
+            return new ThreadView(thread.id(), thread.pageId(), thread.resolved(), thread.revision(),
+                    thread.resolvedBy(), thread.resolvedAt(), thread.createdAt(), thread.updatedAt(),
+                    thread.comments().stream().map(CommentView::from).toList());
+        }
+    }
+}
