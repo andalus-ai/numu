@@ -3,6 +3,9 @@ package tech.kayys.numou.mobility.api;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
+import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.pgclient.PgPool;
+import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.mobility.driver.spi.DriverLocationIndex;
@@ -30,6 +33,9 @@ class DriverLocationPostgresIntegrationTest {
 
     @Inject
     PgDriverLocationIndex index;
+
+    @Inject
+    PgPool pool;
 
     @Test
     @RunOnVertxContext
@@ -106,6 +112,36 @@ class DriverLocationPostgresIntegrationTest {
         });
         asserter.assertThat(() -> index.nearby(tenantA, CENTER, 500.0, VehicleType.CAR, NOW, 10),
                 results -> assertTrue(results.isEmpty()));
+    }
+
+    @Test
+    @RunOnVertxContext
+    void rowLevelSecurityScopesRowsToTransactionTenantAndFailsClosedWithoutTenant(UniAsserter asserter) {
+        UUID tenantA = UUID.randomUUID();
+        UUID tenantB = UUID.randomUUID();
+        var fixA = fix("00000000-0000-0000-0000-000000000141", 0.0005, 0.0, VehicleType.CAR, true, NOW);
+        var fixB = fix("00000000-0000-0000-0000-000000000142", 0.0006, 0.0, VehicleType.CAR, true, NOW);
+
+        asserter.execute(() -> index.upsert(tenantA, fixA));
+        asserter.execute(() -> index.upsert(tenantB, fixB));
+        asserter.assertThat(() -> visibleLocationCount(null), count -> assertEquals(0L, count));
+        asserter.assertThat(() -> visibleLocationCount(tenantA), count -> assertEquals(1L, count));
+        asserter.assertThat(() -> visibleLocationCount(tenantB), count -> assertEquals(1L, count));
+        asserter.execute(() -> index.remove(tenantA, fixA.driverId()));
+        asserter.execute(() -> index.remove(tenantB, fixB.driverId()));
+    }
+
+    private Uni<Long> visibleLocationCount(UUID tenantId) {
+        return pool.withTransaction(connection -> {
+            Uni<Void> setTenant = tenantId == null
+                    ? Uni.createFrom().voidItem()
+                    : connection.preparedQuery("SELECT set_config('app.tenant_id', $1, true)")
+                            .execute(Tuple.of(tenantId.toString()))
+                            .replaceWithVoid();
+            return setTenant
+                    .flatMap(ignored -> connection.query("SELECT count(*) AS total FROM driver_location").execute())
+                    .map(rows -> rows.iterator().next().getLong("total"));
+        });
     }
 
     private static DriverLocationIndex.Fix fix(
