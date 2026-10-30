@@ -65,6 +65,13 @@ class DefaultSupportActorProviderTest {
     }
 
     @Test
+    void replyOnlyPermissionDoesNotGrantAgentCapabilities() {
+        Fixture fixture = new Fixture(Set.of("support.ticket.reply"), true,
+                false, null, null, null);
+        assertThrows(RuntimeException.class, () -> fixture.provider.currentActor().await().indefinitely());
+    }
+
+    @Test
     void inactiveMembershipIsDeniedBeforeAnySupportRoleIsResolved() {
         Fixture fixture = new Fixture(Set.of(DefaultSupportActorProvider.PERMISSION_ADMIN), false,
                 false, null, null, null);
