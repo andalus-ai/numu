@@ -7,6 +7,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.numouadapter.persistence.*;
 import tech.kayys.numou.numouapplication.FormationEnforcement;
+import tech.kayys.numou.numouapplication.StaffContractService;
 import tech.kayys.numou.numouapplication.SyirkahAccountMap;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
@@ -76,6 +77,18 @@ public class SyirkahProducers {
 
     @Produces
     @ApplicationScoped
+    JdbcStaffRecordPort staffRecords(JdbcUnitOfWork uow) {
+        return new JdbcStaffRecordPort(uow);
+    }
+
+    @Produces
+    @ApplicationScoped
+    StaffContractService staffService(JdbcSyirkahRepository repo, JdbcStaffRecordPort records, JdbcUnitOfWork uow) {
+        return new StaffContractService(repo, records, uow, Clock.system(ZoneOffset.UTC));
+    }
+
+    @Produces
+    @ApplicationScoped
     SyirkahApplicationService service(JdbcSyirkahRepository repo, JdbcOutboxEventPublisher events,
                                       JdbcUnitOfWork uow, JdbcAkadFormationPort formations,
                                       JdbcLifecycleRecordPort lifecycle) {
@@ -106,7 +119,7 @@ public class SyirkahProducers {
     @Produces
     @ApplicationScoped
     SyirkahApi api(SyirkahApplicationService service, GovernedSyirkahService governed,
-                   SyirkahIntegrityAuditor auditor, JdbcOperationsSupport ops) {
-        return new SyirkahApi(service, governed, auditor, ops, context);
+                   SyirkahIntegrityAuditor auditor, JdbcOperationsSupport ops, StaffContractService staff) {
+        return new SyirkahApi(service, governed, auditor, ops, context, staff);
     }
 }

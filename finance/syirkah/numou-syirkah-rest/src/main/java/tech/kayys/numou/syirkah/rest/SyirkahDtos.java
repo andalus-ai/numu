@@ -141,6 +141,44 @@ public final class SyirkahDtos {
                             String fingerprint, java.util.List<RuleView> rules) {
     }
 
+    public record StaffRequest(String employer, String employeePartner, String workType, String workPeriod,
+                               String effort, String wageBasis, BigDecimal wageAmount, String payPeriod,
+                               List<String> jaliClauses, boolean jaliReviewedLawful) {
+    }
+
+    public record StaffView(int sequence, int contractVersion, String employer, String employeePartner,
+                            String workType, String workPeriod, String effort, String wageBasis,
+                            BigDecimal wageAmount, String payPeriod, List<String> jaliClauses,
+                            boolean jaliReviewedLawful, Instant recordedAt) {
+    }
+
+    public record StatementLineDto(String group, String label, BigDecimal amount) {
+    }
+
+    public record BalanceSheetRequest(String name, LocalDate asOf, List<StatementLineDto> assets,
+                                      List<StatementLineDto> liabilities) {
+    }
+
+    public record StatementLineView(String group, String label, BigDecimal amount) {
+    }
+
+    public record CapitalLineView(String partner, String name, BigDecimal capital, BigDecimal profitPayable) {
+    }
+
+    public record BalanceSheetView(String name, LocalDate asOf, List<StatementLineView> assets,
+                                   BigDecimal partnerReceivable, BigDecimal totalAssets,
+                                   List<StatementLineView> liabilities, BigDecimal totalLiabilities,
+                                   List<CapitalLineView> capital, BigDecimal unallocatedDeficit,
+                                   BigDecimal totalCapital, BigDecimal totalLiabilitiesAndCapital,
+                                   BigDecimal difference, boolean balanced) {
+    }
+
+    public record IncomeStatementView(String name, LocalDate periodStart, LocalDate periodEnd, BigDecimal revenue,
+                                      BigDecimal costOfGoodsSold, BigDecimal grossProfit,
+                                      BigDecimal operatingCosts, BigDecimal otherCosts, BigDecimal netResult,
+                                      String result) {
+    }
+
     public record CloseView(String id, int sequence, LocalDate periodStart, LocalDate periodEnd, int contractVersion,
                             BigDecimal netResult, String disposition, String status, String supersedes,
                             Instant closedAt, String hash) {
@@ -378,6 +416,25 @@ public final class SyirkahDtos {
         return new IncomeStatementView(i.syirkahName(), i.periodStart(), i.periodEnd(), i.revenue().amount(),
                 i.costOfGoodsSold().amount(), i.grossProfit().amount(), i.operatingCosts().amount(),
                 i.otherCosts().amount(), i.netResult().amount(), i.result());
+    }
+
+    static StaffContract staff(StaffRequest r, Currency currency) {
+        StaffContract.Employer employer = enumOf(StaffContract.Employer.class, r.employer(), "employer");
+        PartnerId partner = r.employeePartner() == null || r.employeePartner().isBlank() ? null
+                : partner(r.employeePartner(), "employeePartner");
+        StaffContract.WageBasis basis = enumOf(StaffContract.WageBasis.class, r.wageBasis(), "wageBasis");
+        Money amount = r.wageAmount() == null ? null : money(r.wageAmount(), currency, "wageAmount");
+        return new StaffContract(employer, partner, r.workType(), r.workPeriod(), r.effort(),
+                new StaffContract.Wage(basis, amount, r.payPeriod()), r.jaliClauses(), r.jaliReviewedLawful());
+    }
+
+    static StaffView staffView(tech.kayys.numou.numouapplication.port.StaffRecordPort.Recorded r) {
+        StaffContract c = r.staff();
+        return new StaffView(r.sequence(), r.contractVersion(), c.employer().name(),
+                c.employeePartner() == null ? null : c.employeePartner().value().toString(), c.workType(),
+                c.workPeriod(), c.effort(), c.wage().basis().name(),
+                c.wage().fixedAmount() == null ? null : c.wage().fixedAmount().amount(), c.wage().payPeriod(),
+                c.jaliClauses(), c.jaliReviewedLawful(), r.recordedAt());
     }
 
     static BigDecimal amt(Money m) {

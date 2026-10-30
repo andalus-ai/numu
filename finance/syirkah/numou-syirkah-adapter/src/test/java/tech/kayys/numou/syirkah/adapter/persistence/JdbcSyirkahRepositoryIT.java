@@ -57,7 +57,7 @@ class JdbcSyirkahRepositoryIT {
             rs.next();
             if (!rs.getBoolean(1)) {
                 for (String script : List.of("V20261023_01__syirkah.sql", "V20261023_02__syirkah_governance_outbox.sql",
-                        "V20261028_01__syirkah_akad_formation.sql", "V20261029_01__syirkah_lifecycle.sql")) {
+                        "V20261028_01__syirkah_akad_formation.sql", "V20261029_01__syirkah_lifecycle.sql", "V20261030_01__syirkah_staff.sql")) {
                     try (InputStream in = JdbcSyirkahRepositoryIT.class.getResourceAsStream("/db/migration/" + script)) {
                         st.execute(new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8));
                     }
@@ -299,5 +299,27 @@ class JdbcSyirkahRepositoryIT {
         assertEquals(ch, got.get(0).change());
         assertTrue(store.list(TenantId.generate(), s.id()).isEmpty(), "another tenant must not see the record");
         assertThrows(RuntimeException.class, () -> store.record(t, s.id(), 2, ch, T0.plusSeconds(1)));
+    }
+
+    @Test
+    void staffContractsAreNumberedIsolatedByTenantAndNeverChanged() {
+        var store = new JdbcStaffRecordPort(uow);
+        TenantId t = TenantId.generate();
+        Syirkah s = open(t);
+        StaffContract st = new StaffContract(StaffContract.Employer.SYIRKAH, null, "Sales", "12 months", "8 hours",
+                new StaffContract.Wage(StaffContract.WageBasis.FIXED_AMOUNT,
+                        tech.kayys.numou.foundation.domain.valueobject.Money.of(new java.math.BigDecimal("3000000"),
+                                tech.kayys.numou.foundation.domain.valueobject.Currency.of("IDR")), "monthly"),
+                List.of("uniform"), true);
+        uow.inTransaction(() -> {
+            repo.save(s, -1);
+            assertEquals(1, store.add(t, s.id(), 1, st, T0));
+            assertEquals(2, store.add(t, s.id(), 1, st, T0.plusSeconds(1)));
+            return null;
+        });
+        var got = store.list(t, s.id());
+        assertEquals(2, got.size());
+        assertEquals(st, got.get(0).staff());
+        assertTrue(store.list(TenantId.generate(), s.id()).isEmpty(), "another tenant must not see the contracts");
     }
 }

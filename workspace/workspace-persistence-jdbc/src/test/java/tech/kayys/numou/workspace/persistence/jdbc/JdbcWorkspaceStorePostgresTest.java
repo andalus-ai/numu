@@ -105,6 +105,35 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
+    void workspaceAndSpaceNavigationQueriesAreTenantScopedAndOrdered() {
+        Instant first = Instant.parse("2026-10-23T00:00:00Z");
+        UUID tenant = UUID.randomUUID();
+        UUID otherTenant = UUID.randomUUID();
+        Workspace older = Workspace.create(tenant, "Older", "", first);
+        Workspace newer = Workspace.create(tenant, "Newer", "", first.plusSeconds(1));
+        Workspace foreign = Workspace.create(otherTenant, "Foreign", "", first);
+        assertTrue(store.save(newer));
+        assertTrue(store.save(foreign));
+        assertTrue(store.save(older));
+
+        assertEquals(List.of(older.id(), newer.id()),
+                store.findByTenant(tenant).stream().map(Workspace::id).toList());
+        assertEquals(List.of(foreign.id()),
+                store.findByTenant(otherTenant).stream().map(Workspace::id).toList());
+
+        Space firstSpace = Space.create(tenant, older.id(), "General", "general", first);
+        Space secondSpace = Space.create(tenant, older.id(), "Operations", "operations", first.plusSeconds(1));
+        Space foreignSpace = Space.create(otherTenant, foreign.id(), "Private", "private", first);
+        assertTrue(store.save(secondSpace));
+        assertTrue(store.save(foreignSpace));
+        assertTrue(store.save(firstSpace));
+
+        assertEquals(List.of(firstSpace.id(), secondSpace.id()),
+                store.findByWorkspace(tenant, older.id()).stream().map(Space::id).toList());
+        assertTrue(store.findByWorkspace(otherTenant, older.id()).isEmpty());
+    }
+
+    @Test
     void databaseRejectsTemplateNameNormalizationDrift() throws SQLException {
         Instant now = Instant.parse("2026-10-23T00:00:00Z");
         UUID tenant = UUID.randomUUID();

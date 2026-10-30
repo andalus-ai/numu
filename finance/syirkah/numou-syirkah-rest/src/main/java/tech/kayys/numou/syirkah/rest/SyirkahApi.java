@@ -3,6 +3,7 @@ package tech.kayys.numou.numourest;
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
+import tech.kayys.numou.numouapplication.StaffContractService;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.command.Commands;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
@@ -30,9 +31,17 @@ public class SyirkahApi {
     private final SyirkahIntegrityAuditor auditor;
     private final SyirkahCatalogPort catalog;
     private final RequestContextHolder context;
+    private final StaffContractService staff;
 
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context) {
+        this(service, governed, auditor, catalog, context, null);
+    }
+
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff) {
+        this.staff = staff;
         this.service = Objects.requireNonNull(service);
         this.governed = Objects.requireNonNull(governed);
         this.auditor = Objects.requireNonNull(auditor);
@@ -151,6 +160,27 @@ public class SyirkahApi {
 
     private static String statementName(String name, String id) {
         return name == null || name.isBlank() ? "Syirkah " + id : name;
+    }
+
+    public StaffView engageStaff(String id, StaffRequest r) {
+        if (staff == null) {
+            throw new IllegalStateException("staff contracts are not configured");
+        }
+        Syirkah s = load(id);
+        int seq = staff.engage(tenant(), sid(id), SyirkahDtos.staff(SyirkahDtos.required(r, "body"),
+                s.contract().currency()));
+        return staffView(id, seq);
+    }
+
+    public List<StaffView> staffContracts(String id) {
+        if (staff == null) {
+            throw new IllegalStateException("staff contracts are not configured");
+        }
+        return staff.list(tenant(), sid(id)).stream().map(SyirkahDtos::staffView).toList();
+    }
+
+    private StaffView staffView(String id, int seq) {
+        return staffContracts(id).stream().filter(v -> v.sequence() == seq).findFirst().orElseThrow();
     }
 
     public AuditView audit() {
