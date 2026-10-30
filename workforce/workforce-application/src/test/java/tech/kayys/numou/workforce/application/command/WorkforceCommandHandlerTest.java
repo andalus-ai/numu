@@ -115,7 +115,7 @@ class WorkforceCommandHandlerTest {
     @Test
     void shouldStartEmploymentForActiveWorker() {
         var personId = UUID.randomUUID();
-        var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(personId, WorkerType.EMPLOYEE, "admin"))
+        var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.EMPLOYEE, "admin"))
                 .await().indefinitely().orElseThrow();
 
         var orgId = UUID.randomUUID();
@@ -133,7 +133,7 @@ class WorkforceCommandHandlerTest {
     @Test
     void shouldAssignPositionWithPolicyValidation() {
         var personId = UUID.randomUUID();
-        var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(personId, WorkerType.EMPLOYEE, "admin"))
+        var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.EMPLOYEE, "admin"))
                 .await().indefinitely().orElseThrow();
 
         var orgId = UUID.randomUUID();
@@ -160,6 +160,9 @@ class WorkforceCommandHandlerTest {
         private final Map<WorkerId, Worker> map = new ConcurrentHashMap<>();
         @Override public CompletionStage<Worker> save(Worker w) { map.put(w.id(), w); return CompletableFuture.completedFuture(w); }
         @Override public CompletionStage<Optional<Worker>> findById(WorkerId id) { return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id))); }
+        @Override public CompletionStage<Optional<Worker>> findById(TenantId tenantId, WorkerId id) {
+            return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id)).filter(worker -> worker.tenantId().equals(tenantId)));
+        }
         @Override public CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef p) {
             return CompletableFuture.completedFuture(map.values().stream()
                     .filter(w -> w.tenantId().equals(tenantId) && w.person().equals(p)).findFirst());

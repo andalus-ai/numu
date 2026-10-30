@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,6 +67,8 @@ class PostgresSettlementBatchRepositoryTest {
         assertEquals(1, count("affiliate_settlement_batch", "tenant-a", saved.id()));
         assertEquals(1, countBatchItems("tenant-a", saved.id()));
         assertEquals(1, countReservations("tenant-a", payoutId));
+        assertEquals(1, countEventRows("affiliate_audit_event", "tenant-a", saved.id()));
+        assertEquals(1, countEventRows("affiliate_event_outbox", "tenant-a", saved.id()));
 
         Optional<SettlementBatch> sameTenant = repository.findById("tenant-a", saved.id())
                 .toCompletableFuture().join();
@@ -122,6 +125,51 @@ class PostgresSettlementBatchRepositoryTest {
         assertEquals(0, countBatchItems("tenant-a", conflicting.id()));
         assertEquals(0, countReservations("tenant-a", freshPayout));
         assertEquals(1, countReservations("tenant-a", reservedPayout));
+    }
+
+
+    @Test
+    void outboxClaimsAreTenantScopedAndExpiredLeasesCanBeReclaimed() throws Exception {
+        UUID payoutId = payout("tenant-a", "25.00");
+        SettlementBatch proposed = batch("tenant-a", "outbox-key",
+                List.of(item(payoutId, "25.00")), "25.00");
+        repository.saveOrGet(proposed).toCompletableFuture().join();
+
+        PostgresAffiliateOutboxRepository outbox = new PostgresAffiliateOutboxRepository(dataSource);
+        Instant now = Instant.parse("2026-03-01T00:00:00Z");
+        assertTrue(outbox.claimPending("tenant-b", "worker-b", now, Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join().isEmpty());
+
+        var first = outbox.claimPending("tenant-a", "worker-a", now, Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join();
+        assertEquals(1, first.size());
+        assertEquals("SettlementBatchCreated", first.get(0).eventType());
+
+        var blocked = outbox.claimPending("tenant-a", "worker-b", now.plusSeconds(10),
+                Duration.ofSeconds(30), 10).toCompletableFuture().join();
+        assertTrue(blocked.isEmpty());
+
+        var reclaimed = outbox.claimPending("tenant-a", "worker-b", now.plusSeconds(31),
+                Duration.ofSeconds(30), 10).toCompletableFuture().join();
+        assertEquals(1, reclaimed.size());
+        assertEquals(2, reclaimed.get(0).attempts());
+
+        assertThrows(RuntimeException.class, () -> outbox.markDelivered("tenant-a",
+                reclaimed.get(0).id(), "worker-a", now.plusSeconds(32)).toCompletableFuture().join());
+        outbox.markDelivered("tenant-a", reclaimed.get(0).id(), "worker-b", now.plusSeconds(32))
+                .toCompletableFuture().join();
+        assertTrue(outbox.claimPending("tenant-a", "worker-c", now.plusSeconds(40),
+                Duration.ofSeconds(30), 10).toCompletableFuture().join().isEmpty());
+    }
+
+    private int countEventRows(String table, String tenant, UUID aggregateId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ? AND aggregate_id = ?")) {
+            statement.setString(1, tenant);
+            statement.setObject(2, aggregateId);
+            try (ResultSet rs = statement.executeQuery()) { rs.next(); return rs.getInt(1); }
+        }
     }
 
     private UUID payout(String tenant, String amount) throws SQLException {
@@ -220,8 +268,11 @@ class PostgresSettlementBatchRepositoryTest {
             assertNotNull(input, "Missing migration: " + resource);
             sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
+        // SQL migrations contain explanatory comments; remove them before splitting statements.
+        // Otherwise a semicolon in prose can be sent to PostgreSQL as a bogus SQL fragment.
+        String executableSql = sql.replaceAll("(?m)^\\s*--.*(?:\\R|$)", "");
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            for (String part : sql.split(";")) {
+            for (String part : executableSql.split(";")) {
                 String trimmed = part.trim();
                 if (!trimmed.isEmpty()) statement.execute(trimmed);
             }
