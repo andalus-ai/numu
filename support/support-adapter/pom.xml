@@ -29,6 +29,11 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-identity-adapter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-ecosystem-persistence-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
