@@ -73,7 +73,7 @@ public class KafkaEventPublisherAdapter implements EventPublisherPort {
                     }
                     return serialized;
                 })
-                .chain(payload -> emitter.sendMessage(Message.of(payload).addMetadata(
+                .chain(payload -> sendMessage.apply(Message.of(payload).addMetadata(
                         kafkaMetadata(envelope))));
     }
 
