@@ -132,6 +132,11 @@ class JdbcPushDeviceRepositoryTest {
         JdbcPushDeviceRepository metadataRepository =
                 new JdbcPushDeviceRepository(dataSource(), noRevealProtector);
 
+        var registeredSummary = metadataRepository.registerOrRefreshSummary(
+                device(tenant, recipient, "secret-subscription-json", now.plusSeconds(5)));
+        assertEquals(stored.id(), registeredSummary.id());
+        assertTrue(registeredSummary.active());
+
         var summaries = metadataRepository.findActiveSummaries(tenant, recipient);
 
         assertEquals(1, summaries.size());
