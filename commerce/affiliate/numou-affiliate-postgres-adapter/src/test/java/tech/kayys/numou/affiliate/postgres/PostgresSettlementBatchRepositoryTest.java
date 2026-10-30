@@ -220,8 +220,11 @@ class PostgresSettlementBatchRepositoryTest {
             assertNotNull(input, "Missing migration: " + resource);
             sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
+        // SQL migrations contain explanatory comments; remove them before splitting statements.
+        // Otherwise a semicolon in prose can be sent to PostgreSQL as a bogus SQL fragment.
+        String executableSql = sql.replaceAll("(?m)^\\s*--.*(?:\\R|$)", "");
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            for (String part : sql.split(";")) {
+            for (String part : executableSql.split(";")) {
                 String trimmed = part.trim();
                 if (!trimmed.isEmpty()) statement.execute(trimmed);
             }
