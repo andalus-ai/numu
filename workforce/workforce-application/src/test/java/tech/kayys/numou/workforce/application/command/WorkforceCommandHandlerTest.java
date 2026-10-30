@@ -161,7 +161,7 @@ class WorkforceCommandHandlerTest {
         @Override public CompletionStage<Worker> save(Worker w) { map.put(w.id(), w); return CompletableFuture.completedFuture(w); }
         @Override public CompletionStage<Optional<Worker>> findById(WorkerId id) { return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id))); }
         @Override public CompletionStage<Optional<Worker>> findById(TenantId tenantId, WorkerId id) {
-            return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id)).filter(w -> w.tenantId().equals(tenantId)));
+            return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id)).filter(worker -> worker.tenantId().equals(tenantId)));
         }
         @Override public CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef p) {
             return CompletableFuture.completedFuture(map.values().stream()

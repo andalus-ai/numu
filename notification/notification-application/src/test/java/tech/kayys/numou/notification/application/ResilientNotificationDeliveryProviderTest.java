@@ -37,7 +37,7 @@ class ResilientNotificationDeliveryProviderTest {
         assertEquals("upstream_unavailable", resilient.deliver(REQUEST).safeErrorCode());
         assertEquals(3, calls.get());
         assertEquals("provider_circuit_open", resilient.deliver(REQUEST).safeErrorCode());
-        assertEquals(4, calls.get());
+        assertEquals(3, calls.get());
     }
 
     @Test void successfulHalfOpenProbeClosesCircuit() {
