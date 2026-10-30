@@ -38,9 +38,12 @@ public record PageCommentThread(
         }
     }
 
-    public static PageCommentThread open(UUID tenantId, UUID pageId, Instant now) {
-        return new PageCommentThread(UUID.randomUUID(), tenantId, pageId, false, 1,
-                null, null, now, now, List.of());
+    public static PageCommentThread open(UUID tenantId, UUID pageId, UUID authorId,
+                                          String body, Instant now) {
+        UUID threadId = UUID.randomUUID();
+        PageComment root = PageComment.root(tenantId, pageId, threadId, authorId, body, now);
+        return new PageCommentThread(threadId, tenantId, pageId, false, 1,
+                null, null, now, now, List.of(root));
     }
 
     public PageCommentThread withComments(List<PageComment> entries) {
