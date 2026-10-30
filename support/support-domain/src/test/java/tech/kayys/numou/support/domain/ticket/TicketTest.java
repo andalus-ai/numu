@@ -90,6 +90,47 @@ class TicketTest {
         assertEquals(originalEventCount, ticket.getDomainEvents().size());
     }
 
+    @Test
+    void reconstitutionRestoresSnapshotWithoutPublishingCreationEvent() {
+        TenantId tenant = TenantId.generate();
+        ParticipantId participant = ParticipantId.generate();
+        UserId agent = UserId.newId();
+        TicketComment publicReply = new TicketComment(
+                UUID.randomUUID(), agent, "Public response", false, NOW.plusSeconds(10));
+        TicketComment internalNote = new TicketComment(
+                UUID.randomUUID(), agent, "Internal handoff", true, NOW.plusSeconds(20));
+
+        Ticket restored = Ticket.reconstitute(
+                TicketId.generate(), tenant,
+                new Requester.Party(participant, RequesterRole.PARTNER),
+                TicketType.INCIDENT, TicketPriority.HIGH, TicketStatus.WAITING,
+                WaitingReason.VENDOR, "Service issue", "Details", agent,
+                NOW.plusSeconds(5), null, null, NOW, NOW.plusSeconds(20), 7,
+                java.util.List.of(publicReply, internalNote));
+
+        assertEquals(tenant, restored.tenantId());
+        assertEquals(RequesterRole.PARTNER, ((Requester.Party) restored.requester()).role());
+        assertEquals(TicketStatus.WAITING, restored.status());
+        assertEquals(WaitingReason.VENDOR, restored.waitingReason());
+        assertEquals(agent, restored.assignedAgentId());
+        assertEquals(7, restored.getVersion());
+        assertEquals(NOW, restored.getCreatedAt());
+        assertEquals(NOW.plusSeconds(20), restored.getUpdatedAt());
+        assertEquals(java.util.List.of(publicReply, internalNote), restored.comments());
+        assertEquals(java.util.List.of(publicReply), restored.customerVisibleComments());
+        assertEquals(java.util.List.of(), restored.pullDomainEvents());
+    }
+
+    @Test
+    void reconstitutionRejectsInconsistentPersistedState() {
+        assertThrows(IllegalArgumentException.class, () -> Ticket.reconstitute(
+                TicketId.generate(), TenantId.generate(),
+                new Requester.Anonymous("external:1"), TicketType.QUESTION,
+                TicketPriority.NORMAL, TicketStatus.WAITING, null,
+                "Question", "Details", null, null, null, null,
+                NOW, NOW, 0, java.util.List.of()));
+    }
+
     private Ticket newTicket() {
         return Ticket.create(TicketId.generate(), TenantId.generate(),
                 new Requester.Anonymous("email:customer@example.test"),
