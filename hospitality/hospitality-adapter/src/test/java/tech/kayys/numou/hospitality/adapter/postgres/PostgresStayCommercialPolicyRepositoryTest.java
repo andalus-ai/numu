@@ -71,9 +71,11 @@ class PostgresStayCommercialPolicyRepositoryTest {
         repository.saveRatePlan("tenant-a", plan).await().indefinitely();
 
         assertThat(repository.findRatePlan("tenant-a", listing, unit, plan.id()).await().indefinitely())
-                .contains(plan);
+                .get().satisfies(actual -> assertRatePlanEqualsIgnoringScale(actual, plan));
         assertThat(repository.findRatePlan("tenant-b", listing, unit, plan.id()).await().indefinitely()).isEmpty();
-        assertThat(repository.findRatePlans("tenant-a", listing, unit).await().indefinitely()).containsExactly(plan);
+        List<StayRatePlan> plans = repository.findRatePlans("tenant-a", listing, unit).await().indefinitely();
+        assertThat(plans).hasSize(1);
+        assertRatePlanEqualsIgnoringScale(plans.get(0), plan);
     }
 
     @Test
@@ -91,8 +93,12 @@ class PostgresStayCommercialPolicyRepositoryTest {
         repository.saveNightlyRateOverrides("tenant-a", listing, unit, planId, List.of(revised))
                 .await().indefinitely();
 
-        assertThat(repository.findNightlyRateOverrides("tenant-a", listing, unit, planId,
-                first, first.plusDays(1)).await().indefinitely()).containsExactly(revised);
+        List<NightlyRateOverride> persisted = repository.findNightlyRateOverrides("tenant-a", listing, unit, planId,
+                first, first.plusDays(1)).await().indefinitely();
+        assertThat(persisted).hasSize(1);
+        assertThat(persisted.get(0).ratePlanId()).isEqualTo(revised.ratePlanId());
+        assertThat(persisted.get(0).date()).isEqualTo(revised.date());
+        assertThat(persisted.get(0).amount()).isEqualByComparingTo(revised.amount());
         assertThat(repository.findNightlyRateOverrides("tenant-b", listing, unit, planId,
                 first, first.plusDays(2)).await().indefinitely()).isEmpty();
     }
@@ -175,7 +181,20 @@ class PostgresStayCommercialPolicyRepositoryTest {
 
         StayRatePlan conflicting = plan(planId, listing, unitB, "IDR", "BAR");
         assertThatThrownBy(() -> repository.saveRatePlan("tenant-a", conflicting).await().indefinitely())
-                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static void assertRatePlanEqualsIgnoringScale(StayRatePlan actual, StayRatePlan expected) {
+        assertThat(actual.id()).isEqualTo(expected.id());
+        assertThat(actual.listingId()).isEqualTo(expected.listingId());
+        assertThat(actual.unitId()).isEqualTo(expected.unitId());
+        assertThat(actual.code()).isEqualTo(expected.code());
+        assertThat(actual.name()).isEqualTo(expected.name());
+        assertThat(actual.currency()).isEqualTo(expected.currency());
+        assertThat(actual.baseNightlyRate()).isEqualByComparingTo(expected.baseNightlyRate());
+        assertThat(actual.validFrom()).isEqualTo(expected.validFrom());
+        assertThat(actual.validUntil()).isEqualTo(expected.validUntil());
+        assertThat(actual.enabled()).isEqualTo(expected.enabled());
     }
 
     private static StayRatePlan plan(UUID id, UUID listing, UUID unit, String currency, String code) {

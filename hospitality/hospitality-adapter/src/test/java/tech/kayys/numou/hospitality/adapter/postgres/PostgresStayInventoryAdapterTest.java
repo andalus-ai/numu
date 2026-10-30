@@ -109,7 +109,8 @@ class PostgresStayInventoryAdapterTest {
         StayBooking retry = adapter.createHoldAtomically(proposed, proposed.holdExpiresAt()).await().indefinitely();
 
         assertThat(retry.id()).isEqualTo(first.id());
-        assertThat(adapter.findById(tenant, first.id()).await().indefinitely()).contains(first);
+        assertThat(adapter.findById(tenant, first.id()).await().indefinitely())
+                .get().usingRecursiveComparison().isEqualTo(first);
     }
 
     @Test
@@ -159,7 +160,7 @@ class PostgresStayInventoryAdapterTest {
         adapter.createHoldAtomically(first, first.holdExpiresAt()).await().indefinitely();
 
         assertThatThrownBy(() -> adapter.createHoldAtomically(different, different.holdExpiresAt()).await().indefinitely())
-                .hasRootCauseInstanceOf(PostgresStayInventoryAdapter.IdempotencyConflictException.class);
+                .isInstanceOf(PostgresStayInventoryAdapter.IdempotencyConflictException.class);
     }
 
     @Test
