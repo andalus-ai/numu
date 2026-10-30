@@ -17,4 +17,5 @@ final class AffiliateEventWriter {
   try(PreparedStatement s=c.prepareStatement(o)){s.setObject(1,eventId);s.setString(2,tenant);s.setString(3,type);s.setObject(4,id);s.setString(5,event);s.setString(6,key);s.setString(7,payload);s.setTimestamp(8,Timestamp.from(at));s.executeUpdate();}
  }
  static String json(String status,long version){return "{\"status\":\""+status+"\",\"version\":"+version+"}";}
+ static String json(String status){return "{\"status\":\""+status+"\"}";}
 }
