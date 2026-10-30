@@ -52,7 +52,7 @@ class ApnsNotificationDeliveryProviderTest {
 
         assertTrue(result.accepted());
         assertEquals(tenant, resolvedTenant.get());
-        assertEquals("/3/device/device-token", path.get());
+        assertEquals("/3/device/" + "a".repeat(64), path.get());
         assertEquals("bearer short-lived-jwt", authorization.get());
         assertEquals("com.example.app", topic.get());
         assertEquals("alert", pushType.get());
