@@ -33,6 +33,7 @@ class JdbcPartyParticipantAssociationRepositoryPostgresTest {
         TenantId tenant = TenantId.generate();
         TenantId otherTenant = TenantId.generate();
         PartyId party = PartyId.generate();
+        insertParty(dataSource, party);
         ParticipantId participant = ParticipantId.generate();
         Instant start = Instant.parse("2026-10-30T00:00:00Z");
         var association = PartyParticipantAssociation.establish(UUID.randomUUID(), tenant, party,
@@ -64,6 +65,7 @@ class JdbcPartyParticipantAssociationRepositoryPostgresTest {
         var repository = new JdbcPartyParticipantAssociationRepository(dataSource);
         TenantId tenant = TenantId.generate();
         PartyId party = PartyId.generate();
+        insertParty(dataSource, party);
         ParticipantId participant = ParticipantId.generate();
         Instant start = Instant.parse("2026-10-30T00:00:00Z");
         var first = PartyParticipantAssociation.establish(UUID.randomUUID(), tenant, party,
@@ -80,6 +82,14 @@ class JdbcPartyParticipantAssociationRepositoryPostgresTest {
         source.setUser(POSTGRES.getUsername());
         source.setPassword(POSTGRES.getPassword());
         return source;
+    }
+
+    private void insertParty(DataSource dataSource, PartyId partyId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("INSERT INTO ecosystem_party (party_id, kind, status, created_at, updated_at) "
+                    + "VALUES ('" + partyId.value() + "', 'PERSON', 'ACTIVE', now(), now())");
+        }
     }
 
     private void migrate(DataSource dataSource) throws Exception {
