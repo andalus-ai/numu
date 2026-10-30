@@ -6,8 +6,11 @@ import tech.kayys.numou.crm.application.tenant.TenantScope;
 import tech.kayys.numou.crm.application.tenant.TenantScopeProvider;
 import tech.kayys.numou.crm.domain.referral.Referral;
 import tech.kayys.numou.crm.domain.referral.ReferralId;
+import tech.kayys.numou.crm.domain.referral.ReferralTarget;
 import tech.kayys.numou.crm.domain.repository.ReferralRepository;
 import tech.kayys.numou.crm.infrastructure.persistence.entity.AccountEntity;
+import tech.kayys.numou.crm.infrastructure.persistence.entity.LeadEntity;
+import tech.kayys.numou.crm.infrastructure.persistence.entity.OpportunityEntity;
 import tech.kayys.numou.crm.infrastructure.persistence.entity.ReferralEntity;
 import tech.kayys.numou.crm.infrastructure.persistence.mapper.ReferralMapper;
 
@@ -47,12 +50,7 @@ public class ReferralRepositoryImpl implements ReferralRepository {
         ReferralEntity mapped = mapper.toEntity(referral);
         mapped.tenantId = tenant;
 
-        return Panache.withTransaction(() -> AccountEntity.count(
-                        "id = ?1 and tenantId = ?2", mapped.referrerAccountId, tenant)
-                .flatMap(count -> count == 1
-                        ? Uni.createFrom().voidItem()
-                        : Uni.createFrom().failure(new SecurityException(
-                                "Referrer account does not belong to the verified tenant")))
+        return Panache.withTransaction(() -> validateReferences(mapped, tenant)
                 .flatMap(ignored -> ReferralEntity.<ReferralEntity>find(
                         "id = ?1 and tenantId = ?2", mapped.id, tenant).firstResult())
                 .flatMap(existing -> {
@@ -73,6 +71,45 @@ public class ReferralRepositoryImpl implements ReferralRepository {
                     return saved;
                 }))
                 .subscribe().asCompletionStage();
+    }
+
+    private Uni<Void> validateReferences(ReferralEntity referral, UUID tenant) {
+        return AccountEntity.count("id = ?1 and tenantId = ?2", referral.referrerAccountId, tenant)
+                .flatMap(accountCount -> {
+                    if (accountCount != 1) {
+                        return Uni.createFrom().failure(new SecurityException(
+                                "Referrer account does not belong to the verified tenant"));
+                    }
+                    if (referral.target == ReferralTarget.LEAD) {
+                        if (referral.targetOpportunityId != null) {
+                            return Uni.createFrom().failure(new IllegalArgumentException(
+                                    "A lead referral cannot reference an opportunity"));
+                        }
+                        return referral.targetLeadId == null
+                                ? Uni.createFrom().voidItem()
+                                : LeadEntity.count("id = ?1 and tenantId = ?2", referral.targetLeadId, tenant)
+                                    .flatMap(count -> count == 1
+                                            ? Uni.createFrom().voidItem()
+                                            : Uni.createFrom().failure(new SecurityException(
+                                                    "Target lead does not belong to the verified tenant")));
+                    }
+                    if (referral.target == ReferralTarget.OPPORTUNITY) {
+                        if (referral.targetLeadId != null) {
+                            return Uni.createFrom().failure(new IllegalArgumentException(
+                                    "An opportunity referral cannot reference a lead"));
+                        }
+                        return referral.targetOpportunityId == null
+                                ? Uni.createFrom().voidItem()
+                                : OpportunityEntity.count("id = ?1 and tenantId = ?2",
+                                        referral.targetOpportunityId, tenant)
+                                    .flatMap(count -> count == 1
+                                            ? Uni.createFrom().voidItem()
+                                            : Uni.createFrom().failure(new SecurityException(
+                                                    "Target opportunity does not belong to the verified tenant")));
+                    }
+                    return Uni.createFrom().failure(new IllegalArgumentException(
+                            "Unsupported referral target"));
+                });
     }
 
     private static void copyFields(ReferralEntity source, ReferralEntity target) {
