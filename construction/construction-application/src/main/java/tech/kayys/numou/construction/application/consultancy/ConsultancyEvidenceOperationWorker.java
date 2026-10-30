@@ -76,7 +76,8 @@ public class ConsultancyEvidenceOperationWorker {
         if (failure instanceof StaleConsultancyEvidenceLeaseException) {
             return Uni.createFrom().failure(failure);
         }
-        if (failure instanceof ConsultancyEvidenceAccessDeniedException) {
+        if (failure instanceof ConsultancyEvidenceAccessDeniedException
+                || failure instanceof ConsultancyEvidencePermanentFailureException) {
             return operations.markTerminalFailure(claim, safeMessage(failure), now)
                     .chain(updated -> Uni.createFrom().failure(updated ? failure
                             : new StaleConsultancyEvidenceLeaseException(
