@@ -36,6 +36,10 @@ public interface ConsultancyEvidenceOperationStore {
     Uni<List<ClaimedConsultancyEvidenceOperation>> claimDue(
             String tenantId, Instant now, Instant leaseUntil, int limit, String workerId);
 
+    /** Extends a live lease without changing its fencing token. */
+    Uni<Optional<ClaimedConsultancyEvidenceOperation>> renewLease(
+            ClaimedConsultancyEvidenceOperation claim, Instant now, Instant leaseUntil);
+
     /** Returns false when the claim is stale, expired, or belongs to another worker. */
     Uni<Boolean> markLinked(ClaimedConsultancyEvidenceOperation claim, Instant now);
 
