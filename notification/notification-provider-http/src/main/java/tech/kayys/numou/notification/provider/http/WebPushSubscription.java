@@ -15,8 +15,8 @@ public record WebPushSubscription(URI endpoint, byte[] p256dh, byte[] auth) {
         Objects.requireNonNull(auth, "auth is required");
         if (!"https".equalsIgnoreCase(endpoint.getScheme()) || endpoint.getHost() == null
                 || endpoint.getUserInfo() != null || endpoint.getFragment() != null
-                || endpoint.getRawQuery() != null) {
-            throw new IllegalArgumentException("Web Push endpoint must be an HTTPS origin URL without user info, query, or fragment");
+                ) {
+            throw new IllegalArgumentException("Web Push endpoint must be an HTTPS origin URL without user info or fragment");
         }
         if (p256dh.length != 65 || p256dh[0] != 0x04) {
             throw new IllegalArgumentException("p256dh must be an uncompressed P-256 public key");
