@@ -3,6 +3,7 @@ package tech.kayys.numou.workspace.domain;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /** Thread state plus its append-only comments, scoped to one tenant-owned page. */
