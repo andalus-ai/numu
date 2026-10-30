@@ -14,9 +14,14 @@ import java.util.UUID;
 @Entity
 @Table(name = "crm_territories", indexes = {
     @Index(name = "idx_territory_parent", columnList = "parent_territory_id"),
-    @Index(name = "idx_territory_active", columnList = "territory_active")
+    @Index(name = "idx_territory_active", columnList = "territory_active"),
+    @Index(name = "idx_territory_tenant", columnList = "tenant_id"),
+    @Index(name = "idx_territory_tenant_parent", columnList = "tenant_id, parent_territory_id")
 })
 public class TerritoryEntity extends BaseEntity {
+
+    @Column(name = "tenant_id")
+    public UUID tenantId;
 
     @Column(name = "name", nullable = false, length = 200)
     public String name;

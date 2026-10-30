@@ -68,11 +68,13 @@ jobs:
       - name: Build and install cache contracts
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts
-        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+        run: mvn -B -ntp -f core/framework/observability/pom.xml install
       - name: Build and install security capability
         run: mvn -B -ntp -f security/pom.xml install
-      - name: Build and install framework reactor
-        run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Build and install aggregate persistence contracts
+        run: mvn -B -ntp -f core/framework/aggregate/pom.xml install
+      - name: Build and install reliability capability
+        run: mvn -B -ntp -f core/framework/reliability/pom.xml install
       - name: Build and install shared wallet capability artifacts
         run: >-
           mvn -B -ntp -f finance/pom.xml

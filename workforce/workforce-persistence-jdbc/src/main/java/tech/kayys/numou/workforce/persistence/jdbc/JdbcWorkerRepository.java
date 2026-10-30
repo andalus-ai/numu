@@ -104,7 +104,22 @@ public final class JdbcWorkerRepository implements WorkerRepository {
     @Override
     public CompletionStage<Void> delete(Worker worker) {
         Objects.requireNonNull(worker, "worker");
-        return deleteById(worker.id());
+        return deleteById(worker.tenantId(), worker.id());
+    }
+
+    @Override
+    public CompletionStage<Void> deleteById(TenantId tenantId, WorkerId id) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(id, "id");
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement p = c.prepareStatement("DELETE FROM workforce_workers WHERE tenant_id=? AND id=?")) {
+            p.setObject(1, tenantId.value());
+            p.setObject(2, id.value());
+            p.executeUpdate();
+            return CompletableFuture.completedFuture(null);
+        } catch (SQLException e) {
+            throw failure("delete worker", e);
+        }
     }
 
     @Override
