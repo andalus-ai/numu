@@ -58,8 +58,8 @@ public final class PageCommentService {
         Instant now = clock.instant();
         PageComment reply = PageComment.reply(tenantId, pageId, threadId,
                 parentCommentId, actorId, body, now);
-        AuditEntry audit = audit(tenantId, actorId, "PAGE_COMMENT_REPLIED",
-                reply.id(), 0, page.title(), now);
+        AuditEntry audit = new AuditEntry(tenantId, actorId, "PAGE_COMMENT_REPLIED",
+                "PAGE_COMMENT", reply.id(), 0, page.title(), now);
         if (!comments.appendComment(tenantId, pageId, threadId, reply, audit)) {
             throw new IllegalStateException("Comment reply could not be appended");
         }
