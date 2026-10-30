@@ -65,9 +65,13 @@ and contract headers against a real Kafka broker.
 
 `KafkaEventSubscriberAdapterTest` verifies manual ack/nack behavior, sequential handler
 execution, malformed-record rejection, and safe handling of an ack failure with controlled
-message metadata. It simulates a second delivery to verify handler retryability; it does
-not prove connector-managed broker redelivery or dead-letter routing. Those require a
-Quarkus connector-level Testcontainers acceptance test.
+message metadata. It simulates a second delivery to verify handler retryability.
+
+`KafkaConsumerConnectorTest` runs the Quarkus incoming connector against a Testcontainers
+Kafka broker. It verifies real record consumption/handler dispatch and connector-managed
+dead-letter routing for malformed payloads. It does not claim exactly-once delivery or
+prove application-level retry policy; deployments must select bounded retry and DLQ settings
+that match their operational requirements.
 
 Run the module tests from `core/framework`:
 
