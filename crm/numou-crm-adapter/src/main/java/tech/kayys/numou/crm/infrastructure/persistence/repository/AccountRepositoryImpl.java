@@ -55,6 +55,10 @@ public class AccountRepositoryImpl implements AccountRepository {
                         // it is never loaded or overwritten by this operation.
                         return mapped.<AccountEntity>persist().map(saved -> account);
                     }
+                    if (!existing.participantId.equals(mapped.participantId)) {
+                        return Uni.createFrom().failure(new SecurityException(
+                                "An account cannot be reassigned to a different participant"));
+                    }
                     copyFields(mapped, existing);
                     return Uni.createFrom().item(account);
                 }))
@@ -73,7 +77,6 @@ public class AccountRepositoryImpl implements AccountRepository {
     }
 
     private static void copyFields(AccountEntity source, AccountEntity target) {
-        target.participantId = source.participantId;
         target.parentAccountId = source.parentAccountId;
         target.name = source.name;
         target.status = source.status;
