@@ -32,7 +32,7 @@ public final class WorkspaceCommentApi {
         var actor = currentActor();
         ThreadView created = call(() -> {
             if (mentions != null) CommentMentionParser.parse(request.body());
-            return ThreadView.from(service.createThread(actor.tenantId(), actor.actorId(), pageId, request.body()));
+            return ThreadView.from(service.createThread(actor.tenantId(), actor.actorId(), pageId, request.anchorBlockId(), request.body()));
         });
         if (mentions != null) {
             CommentView root = created.comments().get(0);
@@ -113,7 +113,9 @@ public final class WorkspaceCommentApi {
     @FunctionalInterface
     private interface Operation<T> { T run(); }
 
-    public record CreateThreadRequest(String body) {}
+    public record CreateThreadRequest(String body, UUID anchorBlockId) {
+        public CreateThreadRequest(String body) { this(body, null); }
+    }
     public record ReplyRequest(UUID parentCommentId, String body) {}
     public record ResolutionRequest(long expectedRevision) {}
 
@@ -125,12 +127,12 @@ public final class WorkspaceCommentApi {
         }
     }
 
-    public record ThreadView(UUID id, UUID pageId, boolean resolved, long revision,
+    public record ThreadView(UUID id, UUID pageId, UUID anchorBlockId, boolean resolved, long revision,
                              UUID resolvedBy, Instant resolvedAt, Instant createdAt,
                              Instant updatedAt, List<CommentView> comments) {
         public ThreadView { comments = List.copyOf(comments); }
         static ThreadView from(PageCommentThread thread) {
-            return new ThreadView(thread.id(), thread.pageId(), thread.resolved(), thread.revision(),
+            return new ThreadView(thread.id(), thread.pageId(), thread.anchorBlockId(), thread.resolved(), thread.revision(),
                     thread.resolvedBy(), thread.resolvedAt(), thread.createdAt(), thread.updatedAt(),
                     thread.comments().stream().map(CommentView::from).toList());
         }
