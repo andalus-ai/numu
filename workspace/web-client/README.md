@@ -11,6 +11,7 @@ An optional browser client for the workspace REST capability. It is separate fro
 - Edit page title and typed content blocks (headings, paragraphs, lists, to-dos, quotes, callouts, code, tables, toggles, and dividers) with an optimistic `expectedRevision` guard.
 - Add, remove, and reorder blocks while preserving stable block IDs and opaque file/domain-reference blocks.
 - Create page-level discussion threads, append replies, and resolve/reopen threads with optimistic revision guards.
+- Type `@handle` in a comment to find active tenant members and notify mentioned teammates through the shared Notification inbox.
 - Inspect page history and restore a prior revision as a new revision.
 - Search pages and create pages from templates.
 - Show safe network, authorization/not-found, server, and revision-conflict errors.
@@ -34,6 +35,7 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 - Serve files from the host origin or configure a reverse proxy so `/api/v1` reaches the REST adapter.
 - The host must establish trusted tenant/actor context and configure the workspace `IdentityProvider`. The client deliberately does not accept tenant/actor IDs and does not store bearer tokens.
 - The host enforces authentication and authorization for every request; hiding a button or possessing an ID is not authorization.
+- Mention suggestions require a host-provided tenant-scoped `WorkspaceMentionDirectory`; the Notification bridge writes recipient-scoped, idempotent in-app inbox records. Push-provider delivery remains owned by Notification.
 - For a separate API origin, add a `meta` tag named `numou-api-base` to `index.html` and configure credentialed CORS/session policy at the host. Never embed secrets in static assets.
 - Use HTTPS in deployments and a restrictive Content Security Policy.
 
@@ -41,4 +43,4 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 
 The client restores the last selected workspace and space from tenant-authorized server listings and provides explicit workspace/space selectors. It selects the first accessible workspace/space when the saved selection is no longer available.
 
-The editor supports the block types currently defined by the workspace domain. File attachments and domain-reference blocks remain visible and preserved as opaque records; uploading files or editing domain-owned references belongs to their respective capabilities. Nested block trees, block-anchored comments, mentions, notifications, collaborative cursors, and richer table-cell semantics remain follow-up work. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
+The editor supports the block types currently defined by the workspace domain. File attachments and domain-reference blocks remain visible and preserved as opaque records; uploading files or editing domain-owned references belongs to their respective capabilities. Nested block trees, block-anchored comments, durable cross-service notification outbox delivery, collaborative cursors, and richer table-cell semantics remain follow-up work. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
