@@ -119,19 +119,49 @@ class PostgresStayCommercialPolicyRepositoryTest {
     }
 
     @Test
-    void rejectsOverrideForUnknownRatePlanAndRollsBackWholeBatch() {
+    void rollsBackAllOverridesWhenOneRowInTheBatchFails() throws Exception {
         UUID listing = UUID.randomUUID();
         UUID unit = UUID.randomUUID();
         UUID planId = UUID.randomUUID();
         LocalDate first = LocalDate.of(2031, 3, 1);
+        repository.saveRatePlan("tenant-a", plan(planId, listing, unit, "IDR", "BAR"))
+                .await().indefinitely();
         NightlyRateOverride valid = new NightlyRateOverride(planId, first, new BigDecimal("500000"));
-        NightlyRateOverride invalid = new NightlyRateOverride(planId, first.plusDays(1), new BigDecimal("600000"));
+        NightlyRateOverride failing = new NightlyRateOverride(planId, first.plusDays(1), new BigDecimal("600000"));
 
-        assertThatThrownBy(() -> repository.saveNightlyRateOverrides("tenant-a", listing, unit,
-                planId, List.of(valid, invalid)).await().indefinitely())
-                .isInstanceOf(RuntimeException.class);
-        assertThat(repository.findNightlyRateOverrides("tenant-a", listing, unit, planId,
-                first, first.plusDays(2)).await().indefinitely()).isEmpty();
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE OR REPLACE FUNCTION hospitality_test_fail_rate_override()
+                    RETURNS trigger
+                    LANGUAGE plpgsql
+                    AS 'BEGIN
+                        IF NEW.stay_date = DATE ''2031-03-02'' THEN
+                            RAISE EXCEPTION ''injected rate override failure'';
+                        END IF;
+                        RETURN NEW;
+                    END;'
+                    """);
+            statement.execute("""
+                    CREATE TRIGGER hospitality_test_fail_rate_override
+                    BEFORE INSERT ON hospitality_nightly_rate_override
+                    FOR EACH ROW EXECUTE FUNCTION hospitality_test_fail_rate_override()
+                    """);
+        }
+
+        try {
+            assertThatThrownBy(() -> repository.saveNightlyRateOverrides("tenant-a", listing, unit,
+                    planId, List.of(valid, failing)).await().indefinitely())
+                    .isInstanceOf(RuntimeException.class);
+            assertThat(repository.findNightlyRateOverrides("tenant-a", listing, unit, planId,
+                    first, first.plusDays(2)).await().indefinitely()).isEmpty();
+        } finally {
+            try (Connection connection = dataSource.getConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.execute("DROP TRIGGER IF EXISTS hospitality_test_fail_rate_override ON hospitality_nightly_rate_override");
+                statement.execute("DROP FUNCTION IF EXISTS hospitality_test_fail_rate_override()");
+            }
+        }
     }
 
     @Test
