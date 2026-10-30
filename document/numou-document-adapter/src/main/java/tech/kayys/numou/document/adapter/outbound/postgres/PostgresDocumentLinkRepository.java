@@ -20,8 +20,8 @@ import java.util.UUID;
 public class PostgresDocumentLinkRepository implements DocumentLinkRepository {
     private static final String INSERT_LEGACY = """
             INSERT INTO document_links
-                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_at)
-            VALUES ($1, $2, $3, NULL, $4, $5, $6, $7)
+                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_by, linked_at)
+            VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8)
             ON CONFLICT (tenant_id, document_id, aggregate_type, aggregate_id, relationship)
                 WHERE document_version_id IS NULL
             DO NOTHING
@@ -29,8 +29,8 @@ public class PostgresDocumentLinkRepository implements DocumentLinkRepository {
 
     private static final String INSERT_VERSIONED = """
             INSERT INTO document_links
-                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_by, linked_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship)
                 WHERE document_version_id IS NOT NULL
             DO NOTHING
@@ -52,7 +52,7 @@ public class PostgresDocumentLinkRepository implements DocumentLinkRepository {
         if (link.documentVersionId() == null) {
             return client.preparedQuery(INSERT_LEGACY)
                     .execute(Tuple.of(linkUuid, tenantUuid, documentUuid,
-                            aggregateType, aggregateId, relationship, linkedAt))
+                            aggregateType, aggregateId, relationship, link.linkedBy(), linkedAt))
                     .replaceWithVoid();
         }
 
@@ -60,7 +60,7 @@ public class PostgresDocumentLinkRepository implements DocumentLinkRepository {
                 link.documentVersionId().value(), "documentVersionId");
         return client.preparedQuery(INSERT_VERSIONED)
                 .execute(Tuple.of(linkUuid, tenantUuid, documentUuid, versionUuid,
-                        aggregateType, aggregateId, relationship, linkedAt))
+                        aggregateType, aggregateId, relationship, link.linkedBy(), linkedAt))
                 .replaceWithVoid();
     }
 
@@ -85,6 +85,7 @@ public class PostgresDocumentLinkRepository implements DocumentLinkRepository {
                 entity.aggregateType,
                 entity.aggregateId,
                 entity.relationship,
+                entity.linkedBy,
                 entity.linkedAt);
     }
 

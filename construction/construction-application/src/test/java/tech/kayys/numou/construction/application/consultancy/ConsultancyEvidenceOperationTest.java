@@ -15,7 +15,7 @@ class ConsultancyEvidenceOperationTest {
         return ConsultancyEvidenceOperation.pending(
                 UUID.randomUUID(), " tenant-a ", "request-123",
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                "supporting-document", UUID.randomUUID(), NOW);
+                "supporting-document", UUID.randomUUID(), UUID.randomUUID(), NOW);
     }
 
     @Test
@@ -55,7 +55,7 @@ class ConsultancyEvidenceOperationTest {
     void rejectsBlankIdempotencyKeyAndBackwardsTime() {
         assertThatThrownBy(() -> ConsultancyEvidenceOperation.pending(
                 UUID.randomUUID(), "tenant-a", " ", UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), "evidence", UUID.randomUUID(), NOW))
+                UUID.randomUUID(), "evidence", UUID.randomUUID(), UUID.randomUUID(), NOW))
                 .isInstanceOf(IllegalArgumentException.class);
 
         assertThatThrownBy(() -> pending().retryableFailure("failed", NOW.minusSeconds(1)))
