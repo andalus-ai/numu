@@ -11,7 +11,7 @@ public interface WorkspaceMentionOutboxStore {
  boolean markDelivered(UUID tenantId, UUID deliveryId, UUID leaseToken, Instant now);
  boolean scheduleRetry(UUID tenantId, UUID deliveryId, UUID leaseToken, Instant availableAt, String error, Instant now);
  boolean markDead(UUID tenantId, UUID deliveryId, UUID leaseToken, String error, Instant now);
- boolean requeueDead(UUID tenantId, UUID deliveryId, Instant now);
+ boolean requeueDead(UUID tenantId, UUID deliveryId, UUID actorId, Instant now);
  record MentionIntent(UUID recipientId,String handle,String actorDisplayName,String pageTitle,String idempotencyKey) {
   public MentionIntent { java.util.Objects.requireNonNull(recipientId); if(handle==null||handle.isBlank())throw new IllegalArgumentException("handle required"); if(actorDisplayName==null||actorDisplayName.isBlank())throw new IllegalArgumentException("actorDisplayName required"); if(pageTitle==null)pageTitle=""; if(idempotencyKey==null||idempotencyKey.isBlank())throw new IllegalArgumentException("idempotencyKey required"); }
  }
