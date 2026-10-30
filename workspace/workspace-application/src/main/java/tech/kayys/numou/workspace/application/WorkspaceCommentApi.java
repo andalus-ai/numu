@@ -2,6 +2,7 @@ package tech.kayys.numou.workspace.application;
 
 import tech.kayys.numou.workspace.domain.PageComment;
 import tech.kayys.numou.workspace.domain.PageCommentThread;
+import tech.kayys.numou.workspace.application.port.WorkspaceMentionDirectory;
 
 import java.time.Instant;
 import java.util.List;
