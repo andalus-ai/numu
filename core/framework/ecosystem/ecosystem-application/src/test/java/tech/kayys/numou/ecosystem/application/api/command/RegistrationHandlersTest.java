@@ -9,6 +9,7 @@ import tech.kayys.numou.ecosystem.domain.organization.Organization;
 import tech.kayys.numou.ecosystem.domain.organization.OrganizationType;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.ecosystem.domain.party.PartyKind;
+import tech.kayys.numou.foundation.application.command.Command;
 import tech.kayys.numou.foundation.application.event.EventPublisher;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 
@@ -24,6 +25,8 @@ class RegistrationHandlersTest {
 
     @Test
     void registerPartyPersistsBeforePublishingItsEvent() {
+        Command command = new RegisterPartyCommand(PartyKind.ORGANIZATION);
+        assertInstanceOf(RegisterPartyCommand.class, command);
         List<String> order = new ArrayList<>();
         PartyRepository parties = new PartyRepository() {
             @Override
@@ -44,7 +47,7 @@ class RegistrationHandlersTest {
         };
         RegisterPartyHandler handler = new RegisterPartyHandler(parties, publisher, directUnitOfWork());
 
-        var result = handler.handle(new RegisterPartyCommand(PartyKind.ORGANIZATION))
+        var result = handler.handle((RegisterPartyCommand) command)
                 .await().indefinitely();
 
         assertTrue(result.isSuccess());
