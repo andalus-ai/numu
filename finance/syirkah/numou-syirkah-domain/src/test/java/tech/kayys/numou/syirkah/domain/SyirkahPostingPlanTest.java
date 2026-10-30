@@ -89,4 +89,15 @@ class SyirkahPostingPlanTest {
         assertEquals(zero.currency(), SyirkahPostingPlan.forMovement(movement(MovementType.CONTRIBUTION, 5)).get(0)
                 .debit().currency());
     }
+
+    @Test
+    void everyMovementTypeHasAReadableLabel() {
+        Set<String> seen = new HashSet<>();
+        for (MovementType t : MovementType.values()) {
+            String l = SyirkahPostingPlan.label(t);
+            assertFalse(l.isBlank());
+            assertFalse(l.contains("_"), "label must not be a raw enum name: " + l);
+            assertTrue(seen.add(l), "duplicate label " + l);
+        }
+    }
 }
