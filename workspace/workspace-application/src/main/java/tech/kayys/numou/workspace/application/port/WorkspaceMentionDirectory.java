@@ -18,7 +18,7 @@ public interface WorkspaceMentionDirectory {
     record Member(UUID userId, String handle, String displayName) {
         public Member {
             java.util.Objects.requireNonNull(userId, "userId is required");
-            if (handle == null || !handle.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}"))
+            if (handle == null || !handle.matches("[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?"))
                 throw new IllegalArgumentException("handle must be a valid mention handle");
             if (displayName == null || displayName.isBlank() || displayName.length() > 160)
                 throw new IllegalArgumentException("displayName must contain 1..160 characters");
