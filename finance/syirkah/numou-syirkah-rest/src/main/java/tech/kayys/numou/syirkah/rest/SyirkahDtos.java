@@ -350,15 +350,26 @@ public final class SyirkahDtos {
     }
 
     static FinancialResult trading(TradingDto d, Currency c) {
+        return TradingResultCalculator.calculate(tradingInput(d, c)).financialResult();
+    }
+
+    static TradingResultCalculator.Input tradingInput(TradingDto d, Currency c) {
         required(d, "trading");
         java.util.function.BiFunction<BigDecimal, String, Money> m =
                 (v, f) -> money(v == null ? BigDecimal.ZERO : v, c, "trading." + f);
-        return TradingResultCalculator.calculate(new TradingResultCalculator.Input(m.apply(d.sales(), "sales"),
+        return new TradingResultCalculator.Input(m.apply(d.sales(), "sales"),
                 m.apply(d.salesReturns(), "salesReturns"), m.apply(d.salesDiscounts(), "salesDiscounts"),
                 m.apply(d.openingStock(), "openingStock"), m.apply(d.purchases(), "purchases"),
                 m.apply(d.purchaseReturns(), "purchaseReturns"), m.apply(d.purchaseDiscounts(), "purchaseDiscounts"),
                 m.apply(d.closingStock(), "closingStock"), m.apply(d.operatingCosts(), "operatingCosts"),
-                m.apply(d.otherCosts(), "otherCosts"))).financialResult();
+                m.apply(d.otherCosts(), "otherCosts"));
+    }
+
+    static TradingDto tradingView(TradingResultCalculator.Input i) {
+        return new TradingDto(i.sales().amount(), i.salesReturns().amount(), i.salesDiscounts().amount(),
+                i.openingStock().amount(), i.purchases().amount(), i.purchaseReturns().amount(),
+                i.purchaseDiscounts().amount(), i.closingStock().amount(), i.operatingCosts().amount(),
+                i.otherCosts().amount());
     }
 
     static FinancialResult result(FinancialResultDto d, Currency currency) {
