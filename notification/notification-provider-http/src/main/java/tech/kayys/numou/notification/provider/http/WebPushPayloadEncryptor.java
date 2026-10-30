@@ -33,10 +33,10 @@ final class WebPushPayloadEncryptor {
         byte[] sharedSecret = agreement.generateSecret();
         byte[] keyPrk = extract(subscription.auth(), sharedSecret);
         ByteArrayOutputStream info = new ByteArrayOutputStream();
-        info.write(KEY_INFO);
+        info.writeBytes(KEY_INFO);
         info.write(0);
-        info.write(subscription.p256dh());
-        info.write(senderPublic);
+        info.writeBytes(subscription.p256dh());
+        info.writeBytes(senderPublic);
         byte[] ikm = expand(keyPrk, info.toByteArray(), 32);
 
         byte[] salt = new byte[16];
@@ -52,11 +52,11 @@ final class WebPushPayloadEncryptor {
         byte[] ciphertext = cipher.doFinal(record);
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        output.write(salt);
-        output.write(ByteBuffer.allocate(4).putInt(4096).array());
+        output.writeBytes(salt);
+        output.writeBytes(ByteBuffer.allocate(4).putInt(4096).array());
         output.write(senderPublic.length);
-        output.write(senderPublic);
-        output.write(ciphertext);
+        output.writeBytes(senderPublic);
+        output.writeBytes(ciphertext);
         return output.toByteArray();
     }
 
