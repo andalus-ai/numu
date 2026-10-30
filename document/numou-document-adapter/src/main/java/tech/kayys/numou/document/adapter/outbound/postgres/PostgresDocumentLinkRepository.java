@@ -29,7 +29,7 @@ public class PostgresDocumentLinkRepository implements DocumentLinkRepository {
 
     private static final String INSERT_VERSIONED = """
             INSERT INTO document_links
-                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_at)
+                (id, tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship, linked_by, linked_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (tenant_id, document_id, document_version_id, aggregate_type, aggregate_id, relationship)
                 WHERE document_version_id IS NOT NULL
