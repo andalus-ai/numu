@@ -33,6 +33,18 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         } catch(SQLException e){throw failure("find workspace",e);}
     }
 
+    @Override public List<Workspace> findByTenant(UUID tenantId) {
+        String sql = "SELECT id,tenant_id,name,description,created_at FROM workspace_workspaces WHERE tenant_id=? ORDER BY created_at,id";
+        try (Connection c=dataSource.getConnection(); PreparedStatement p=c.prepareStatement(sql)) {
+            p.setObject(1, tenantId);
+            List<Workspace> result = new ArrayList<>();
+            try (ResultSet r=p.executeQuery()) {
+                while (r.next()) result.add(new Workspace(uuid(r,1),uuid(r,2),r.getString(3),r.getString(4),instant(r,5)));
+            }
+            return List.copyOf(result);
+        } catch (SQLException e) { throw failure("list tenant workspaces", e); }
+    }
+
     @Override public boolean save(Space value) {
         String sql="INSERT INTO workspace_spaces(id,tenant_id,workspace_id,name,slug,created_at) VALUES(?,?,?,?,?,?)";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
@@ -46,6 +58,18 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             p.setObject(1,tenantId);p.setObject(2,workspaceId);p.setObject(3,spaceId);
             try(ResultSet r=p.executeQuery()){return r.next()?Optional.of(new Space(uuid(r,1),uuid(r,2),uuid(r,3),r.getString(4),r.getString(5),instant(r,6))):Optional.empty();}
         }catch(SQLException e){throw failure("find space",e);}
+    }
+
+    @Override public List<Space> findByWorkspace(UUID tenantId, UUID workspaceId) {
+        String sql = "SELECT id,tenant_id,workspace_id,name,slug,created_at FROM workspace_spaces WHERE tenant_id=? AND workspace_id=? ORDER BY created_at,id";
+        try (Connection c=dataSource.getConnection(); PreparedStatement p=c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, workspaceId);
+            List<Space> result = new ArrayList<>();
+            try (ResultSet r=p.executeQuery()) {
+                while (r.next()) result.add(new Space(uuid(r,1),uuid(r,2),uuid(r,3),r.getString(4),r.getString(5),instant(r,6)));
+            }
+            return List.copyOf(result);
+        } catch (SQLException e) { throw failure("list workspace spaces", e); }
     }
 
     @Override public boolean slugExists(UUID tenantId,UUID workspaceId,String slug) {
