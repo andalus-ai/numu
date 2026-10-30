@@ -19,8 +19,8 @@ public final class WorkspaceNotificationBridge implements WorkspaceMentionNotifi
     @Override
     public void notifyMention(MentionNotification mention) {
         Objects.requireNonNull(mention, "mention is required");
-        String title = mention.actorDisplayName() + " mentioned you";
-        String body = "You were mentioned in a comment on " + mention.pageTitle();
+        String title = "You were mentioned";
+        String body = "Someone mentioned you in a workspace page comment.";
         String source = "/workspace/pages/" + mention.pageId() + "?comment=" + mention.commentId();
         notifications.create(new NotificationService.CreateNotification(
                 mention.tenantId(),
