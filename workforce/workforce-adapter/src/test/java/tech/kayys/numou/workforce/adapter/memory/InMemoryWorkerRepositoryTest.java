@@ -48,6 +48,9 @@ class InMemoryWorkerRepositoryTest {
                 .isEmpty();
         assertThat(repository.findById(ownerTenant, WorkerId.generate()).toCompletableFuture().join())
                 .isEmpty();
+        assertThat(repository.existsById(ownerTenant, worker.id()).toCompletableFuture().join()).isTrue();
+        assertThat(repository.existsById(otherTenant, worker.id()).toCompletableFuture().join()).isFalse();
+        assertThat(repository.existsById(ownerTenant, WorkerId.generate()).toCompletableFuture().join()).isFalse();
     }
 
     @Test

@@ -72,6 +72,9 @@ class JdbcWorkerRepositoryPostgresTest {
         assertThat(repository.findById(owner, worker.id()).toCompletableFuture().join()).isPresent();
         assertThat(repository.findById(other, worker.id()).toCompletableFuture().join()).isEmpty();
         assertThat(repository.findByPersonRef(other, worker.person()).toCompletableFuture().join()).isEmpty();
+        assertThat(repository.existsById(owner, worker.id()).toCompletableFuture().join()).isTrue();
+        assertThat(repository.existsById(other, worker.id()).toCompletableFuture().join()).isFalse();
+        assertThat(repository.existsById(other, WorkerId.generate()).toCompletableFuture().join()).isFalse();
     }
 
     @Test
