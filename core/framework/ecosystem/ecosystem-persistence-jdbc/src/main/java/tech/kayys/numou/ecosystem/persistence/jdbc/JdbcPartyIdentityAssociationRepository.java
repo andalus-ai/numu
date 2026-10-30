@@ -15,7 +15,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -96,7 +95,7 @@ public final class JdbcPartyIdentityAssociationRepository implements PartyIdenti
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                Optional<PartyIdentityAssociation> current = findByIdForUpdate(connection, candidate.id());
+                Optional<PartyIdentityAssociation> current = findByIdForUpdate(connection, candidate.tenantId(), candidate.id());
                 if (current.isEmpty()) {
                     insert(connection, candidate);
                 } else {
@@ -121,11 +120,13 @@ public final class JdbcPartyIdentityAssociationRepository implements PartyIdenti
         }
     }
 
-    private Optional<PartyIdentityAssociation> findByIdForUpdate(Connection connection, UUID id)
+    private Optional<PartyIdentityAssociation> findByIdForUpdate(Connection connection, TenantId tenantId, UUID id)
             throws SQLException {
-        String sql = "SELECT " + COLUMNS + " FROM ecosystem_party_identity_associations WHERE id = ? FOR UPDATE";
+        String sql = "SELECT " + COLUMNS + " FROM ecosystem_party_identity_associations "
+                + "WHERE tenant_id = ? AND id = ? FOR UPDATE";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, id);
+            statement.setObject(1, tenantId.value());
+            statement.setObject(2, id);
             try (ResultSet result = statement.executeQuery()) {
                 return result.next() ? Optional.of(read(result)) : Optional.empty();
             }
