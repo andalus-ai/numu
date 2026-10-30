@@ -550,6 +550,12 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
                 try (ResultSet r = p.executeQuery()) { if (!r.next()) return false; }
             }
             insertPageComment(c, comment);
+            try (PreparedStatement update = c.prepareStatement(
+                    "UPDATE workspace_page_comment_threads SET updated_at=GREATEST(updated_at,?) WHERE tenant_id=? AND page_id=? AND id=?")) {
+                update.setTimestamp(1, Timestamp.from(comment.createdAt()));
+                update.setObject(2, tenantId); update.setObject(3, pageId); update.setObject(4, threadId);
+                if (update.executeUpdate() != 1) return false;
+            }
             insertAudit(c, audit);
             return true;
         });
