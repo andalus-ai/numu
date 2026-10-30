@@ -126,7 +126,7 @@ public class SyirkahProducers {
     @ApplicationScoped
     SyirkahApi api(SyirkahApplicationService service, GovernedSyirkahService governed,
                    SyirkahIntegrityAuditor auditor, JdbcOperationsSupport ops, StaffContractService staff,
-                   JdbcTradingRecordPort trading) {
-        return new SyirkahApi(service, governed, auditor, ops, context, staff, trading);
+                   JdbcTradingRecordPort trading, JdbcUnitOfWork uow) {
+        return new SyirkahApi(service, governed, auditor, ops, context, staff, trading, uow);
     }
 }
