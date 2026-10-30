@@ -38,6 +38,18 @@ public class WorkspaceResource {
         this.api = api;
     }
 
+    @GET
+    @Path("/workspaces")
+    public List<WorkspaceApi.WorkspaceView> listWorkspaces() {
+        return api.listWorkspaces();
+    }
+
+    @GET
+    @Path("/workspaces/{workspaceId}/spaces")
+    public List<WorkspaceApi.SpaceView> listSpaces(@PathParam("workspaceId") UUID workspaceId) {
+        return api.listSpaces(workspaceId);
+    }
+
     @POST
     @Path("/workspaces")
     public Response createWorkspace(@Valid CreateWorkspaceRequest request) {

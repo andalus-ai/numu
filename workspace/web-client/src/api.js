@@ -75,6 +75,8 @@ export function createWorkspaceApi({
     request(path, { ...options, method, body });
 
   return Object.freeze({
+    listWorkspaces: () => request("/workspaces"),
+    listSpaces: (workspaceId) => request("/workspaces/" + encodeURIComponent(workspaceId) + "/spaces"),
     createWorkspace: (input) => json("POST", "/workspaces", input),
     createSpace: (workspaceId, input) =>
       json("POST", `/workspaces/${encodeURIComponent(workspaceId)}/spaces`, input),
