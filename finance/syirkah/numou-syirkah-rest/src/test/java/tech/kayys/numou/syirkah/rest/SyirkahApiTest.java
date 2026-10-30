@@ -5,6 +5,7 @@ import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.exception.BusinessRuleViolation;
 import tech.kayys.numou.numouadapter.memory.*;
 import tech.kayys.numou.numouapplication.StaffContractService;
+import tech.kayys.numou.numouapplication.port.TradingRecordPort;
 import tech.kayys.numou.numouapplication.SyirkahAccountMap;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.governance.GovernedSyirkahService;
