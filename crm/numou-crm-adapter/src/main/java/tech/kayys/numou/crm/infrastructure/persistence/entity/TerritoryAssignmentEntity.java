@@ -20,9 +20,15 @@ import java.util.UUID;
 @Table(name = "crm_territory_assignments", indexes = {
     @Index(name = "idx_assignment_territory", columnList = "territory_id"),
     @Index(name = "idx_assignment_account", columnList = "account_id"),
-    @Index(name = "idx_assignment_status", columnList = "status")
+    @Index(name = "idx_assignment_status", columnList = "status"),
+    @Index(name = "idx_assignment_tenant", columnList = "tenant_id"),
+    @Index(name = "idx_assignment_tenant_territory", columnList = "tenant_id, territory_id"),
+    @Index(name = "idx_assignment_tenant_account", columnList = "tenant_id, account_id")
 })
 public class TerritoryAssignmentEntity extends BaseEntity {
+
+    @Column(name = "tenant_id")
+    public UUID tenantId;
 
     @Column(name = "territory_id", nullable = false)
     public UUID territoryId;
