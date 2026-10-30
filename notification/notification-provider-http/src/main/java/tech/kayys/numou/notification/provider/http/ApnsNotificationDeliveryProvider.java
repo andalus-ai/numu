@@ -68,7 +68,9 @@ public final class ApnsNotificationDeliveryProvider implements NotificationDeliv
         if (!tenantCredentials.expiresAt().isAfter(Instant.now(clock).plusSeconds(30))) {
             return DeliveryResult.retryable("provider_credentials_expired");
         }
-        if (request.deviceToken().length() > 512 || request.deviceToken().contains("/")) {
+        // APNs device tokens are 32-byte values represented as 64 hexadecimal characters.
+        // Strict validation also prevents path/query/fragment injection into the request URI.
+        if (!request.deviceToken().matches("(?i)[0-9a-f]{64}")) {
             return DeliveryResult.permanentFailure("provider_device_token_invalid");
         }
 
