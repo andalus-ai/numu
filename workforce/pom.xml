@@ -22,6 +22,7 @@
         <module>workforce-spi</module>
         <module>workforce-application</module>
         <module>workforce-adapter</module>
+        <module>workforce-persistence-jdbc</module>
         <module>hris</module>
     </modules>
 
