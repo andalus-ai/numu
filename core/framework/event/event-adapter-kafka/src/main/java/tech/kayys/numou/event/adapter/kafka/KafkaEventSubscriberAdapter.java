@@ -20,7 +20,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
 /**
@@ -56,7 +55,7 @@ public class KafkaEventSubscriberAdapter implements EventSubscriberPort {
         String normalizedType = requireEventType(eventType);
         Objects.requireNonNull(handler, "Event handler is required");
 
-        RegisteredHandler registered = new RegisteredHandler(UUID.randomUUID().toString(), handler);
+        RegisteredHandler registered = new RegisteredHandler(UUID.randomUUID().toString(), normalizedType, handler);
         handlers.computeIfAbsent(normalizedType, ignored -> new CopyOnWriteArrayList<>())
                 .add(registered);
         return registered;
@@ -147,8 +146,10 @@ public class KafkaEventSubscriberAdapter implements EventSubscriberPort {
 
         private RegisteredHandler(
                 String id,
+                String eventType,
                 Function<EventEnvelope<? extends BusinessEvent>, Uni<Void>> handler) {
             this.id = id;
+            this.eventType = eventType;
             this.handler = handler;
         }
 
