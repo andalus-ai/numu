@@ -49,6 +49,7 @@ public class QueuePostgresOutboxDeliveryAdapter implements QueueOutboxDeliveryPo
                    SET lease_owner = ?, lease_token = gen_random_uuid(),
                        lease_until = CURRENT_TIMESTAMP + make_interval(secs => ?),
                        attempt_count = o.attempt_count + 1,
+                       total_attempt_count = o.total_attempt_count + 1,
                        last_attempt_at = CURRENT_TIMESTAMP
                   FROM candidates c
                  WHERE o.tenant_id = ? AND o.event_id = c.event_id
