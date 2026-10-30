@@ -11,7 +11,7 @@ An optional browser client for the workspace REST capability. It is separate fro
 - Edit page title and typed content blocks (headings, paragraphs, lists, to-dos, quotes, callouts, code, tables, toggles, and dividers) with an optimistic `expectedRevision` guard.
 - Add, remove, and reorder blocks while preserving stable block IDs and opaque file/domain-reference blocks.
 - Create page-level discussion threads, append replies, and resolve/reopen threads with optimistic revision guards.
-- Type `@handle` in a comment to find active tenant members and notify mentioned teammates through the shared Notification inbox.
+- Type `@handle` in a comment to find active tenant members; the host's Notification integration receives idempotent mention commands.
 - Inspect page history and restore a prior revision as a new revision.
 - Search pages and create pages from templates.
 - Show safe network, authorization/not-found, server, and revision-conflict errors.
@@ -35,7 +35,7 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 - Serve files from the host origin or configure a reverse proxy so `/api/v1` reaches the REST adapter.
 - The host must establish trusted tenant/actor context and configure the workspace `IdentityProvider`. The client deliberately does not accept tenant/actor IDs and does not store bearer tokens.
 - The host enforces authentication and authorization for every request; hiding a button or possessing an ID is not authorization.
-- Mention suggestions require a host-provided tenant-scoped `WorkspaceMentionDirectory`; the Notification bridge writes recipient-scoped, idempotent in-app inbox records. Push-provider delivery remains owned by Notification.
+- Mention suggestions require a host-provided tenant-scoped `WorkspaceMentionDirectory` and `WorkspaceMentionService`. The host implements `WorkspaceMentionNotificationPort` using the shared Notification capability; Workspace does not depend on Notification or its push providers.
 - For a separate API origin, add a `meta` tag named `numou-api-base` to `index.html` and configure credentialed CORS/session policy at the host. Never embed secrets in static assets.
 - Use HTTPS in deployments and a restrictive Content Security Policy.
 
