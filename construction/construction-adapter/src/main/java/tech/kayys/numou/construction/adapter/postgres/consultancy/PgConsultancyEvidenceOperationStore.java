@@ -24,16 +24,16 @@ import java.util.UUID;
 public class PgConsultancyEvidenceOperationStore implements ConsultancyEvidenceOperationStore {
     private static final String COLUMNS = """
             tenant_id, operation_id, idempotency_key, deliverable_id, document_id,
-            document_version_id, relationship, requested_by, status, attempts,
+            document_version_id, relationship, requested_by, requesting_organization_id, status, attempts,
             last_failure, created_at, updated_at
             """;
 
     private static final String INSERT = """
             INSERT INTO construction_consultancy_evidence_operation
                 (tenant_id, operation_id, idempotency_key, deliverable_id, document_id,
-                 document_version_id, relationship, requested_by, status, attempts,
+                 document_version_id, relationship, requested_by, requesting_organization_id, status, attempts,
                  last_failure, available_at, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', 0, NULL, $9, $10, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING', 0, NULL, $10, $11, $11)
             ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
             RETURNING
             """ + COLUMNS;
@@ -118,8 +118,8 @@ public class PgConsultancyEvidenceOperationStore implements ConsultancyEvidenceO
         return pool.preparedQuery(INSERT).execute(Tuple.of(
                 operation.tenantId(), operation.operationId(), operation.idempotencyKey(),
                 operation.deliverableId(), operation.documentId(), operation.documentVersionId(),
-                operation.relationship(), operation.requestedBy(), toOffsetDateTime(operation.createdAt()),
-                toOffsetDateTime(operation.createdAt())))
+                operation.relationship(), operation.requestedBy(), operation.requestingOrganizationId(),
+                toOffsetDateTime(operation.createdAt()), toOffsetDateTime(operation.createdAt())))
                 .map(rows -> rows.iterator().hasNext() ? map(rows.iterator().next()) : null)
                 .chain(inserted -> {
                     if (inserted != null) return Uni.createFrom().item(inserted);
@@ -218,14 +218,15 @@ public class PgConsultancyEvidenceOperationStore implements ConsultancyEvidenceO
                 && existing.documentId().equals(requested.documentId())
                 && existing.documentVersionId().equals(requested.documentVersionId())
                 && existing.relationship().equals(requested.relationship())
-                && existing.requestedBy().equals(requested.requestedBy());
+                && existing.requestedBy().equals(requested.requestedBy())
+                && existing.requestingOrganizationId().equals(requested.requestingOrganizationId());
     }
 
     private static ConsultancyEvidenceOperation map(Row row) {
         return new ConsultancyEvidenceOperation(
                 row.getUUID("operation_id"), row.getString("tenant_id"), row.getString("idempotency_key"),
                 row.getUUID("deliverable_id"), row.getUUID("document_id"), row.getUUID("document_version_id"),
-                row.getString("relationship"), row.getUUID("requested_by"),
+                row.getString("relationship"), row.getUUID("requested_by"), row.getUUID("requesting_organization_id"),
                 ConsultancyEvidenceOperation.Status.valueOf(row.getString("status")),
                 row.getInteger("attempts"), row.getString("last_failure"),
                 row.getOffsetDateTime("created_at").toInstant(), row.getOffsetDateTime("updated_at").toInstant());
