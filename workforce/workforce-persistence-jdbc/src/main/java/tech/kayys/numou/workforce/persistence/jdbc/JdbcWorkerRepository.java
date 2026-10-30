@@ -102,6 +102,22 @@ public final class JdbcWorkerRepository implements WorkerRepository {
     }
 
     @Override
+    public CompletionStage<Boolean> existsById(TenantId tenantId, WorkerId workerId) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(workerId, "workerId");
+        String sql = "SELECT 1 FROM workforce_workers WHERE tenant_id=? AND id=?";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenantId.value());
+            p.setObject(2, workerId.value());
+            try (ResultSet r = p.executeQuery()) {
+                return CompletableFuture.completedFuture(r.next());
+            }
+        } catch (SQLException e) {
+            throw failure("check tenant-scoped worker existence", e);
+        }
+    }
+
+    @Override
     public CompletionStage<Void> delete(Worker worker) {
         Objects.requireNonNull(worker, "worker");
         return deleteById(worker.tenantId(), worker.id());
