@@ -14,7 +14,7 @@ This adapter translates workshop external-parts demand into Purchasing-owned req
 
 ## Durable retry and dead-letter lifecycle
 
-Production deployments inject `JdbcReceiptPostingLedger` and `ReceiptPostingRetryPolicy`. Apply migrations V1000, V1001, and V1002 using the deployment's normal migration runner.
+Production deployments inject `JdbcReceiptPostingLedger` and `ReceiptPostingRetryPolicy`. Apply migrations V1000–V1003 using the deployment's normal migration runner.
 
 States:
 - `PENDING`: eligible for posting or worker reconciliation.
@@ -25,8 +25,12 @@ The attempt counter records failed posting attempts. Creating or replaying a led
 
 A worker crash after Inventory commits but before the ledger records `POSTED` leaves a pending row. Lease expiry permits another worker to replay the same Inventory command key, which returns the already-committed movement. A dead-lettered row is never silently retried: an operator must use `RequeueReceiptPosting`, provide a reason, and pass the host application's tenant-scoped `ReceiptPostingRequeueAuthorizer`. Requeue atomically resets the retry budget and records actor, reason, and timestamp. It does not change the receipt fingerprint or Inventory command key.
 
+## Requeue audit history
+
+Migration V1003 adds an append-only requeue audit table. A PostgreSQL trigger writes an audit event in the same transaction as every successful `DEAD_LETTER → PENDING` transition, so the operational state change and its audit evidence cannot diverge. The database rejects updates and deletes to audit rows. `JdbcReceiptPostingRequeueAuditRepository` exposes tenant-and-receipt-scoped history for operator tooling; it is read-only and enforces a bounded result size.
+
 The host application owns worker scheduling, authentication/authorization implementation, operator endpoints, alerting, and operational retention. Do not expose the ledger adapter directly as an unauthenticated HTTP endpoint.
 
 ## Verification
 
-`PostgresGoodsReceiptInventoryPostingTest` uses Testcontainers PostgreSQL to verify durable Inventory idempotency, tenant isolation, stale claims, and lease recovery. Add deployment-level authorization and operator audit integration tests when wiring the host application.
+PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, and immutable audit history. Deployment-level authorization and operator audit integration tests belong in the host application.
