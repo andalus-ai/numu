@@ -133,7 +133,7 @@ class WorkforceCommandHandlerTest {
     @Test
     void shouldAssignPositionWithPolicyValidation() {
         var personId = UUID.randomUUID();
-        var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(personId, WorkerType.EMPLOYEE, "admin"))
+        var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.EMPLOYEE, "admin"))
                 .await().indefinitely().orElseThrow();
 
         var orgId = UUID.randomUUID();
