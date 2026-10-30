@@ -12,6 +12,7 @@ import tech.kayys.numou.support.application.api.SupportPartyContext;
 import tech.kayys.numou.support.application.port.SupportPartyParticipantResolver;
 import tech.kayys.numou.support.domain.ticket.RequesterRole;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -28,17 +29,24 @@ import java.util.Optional;
 @ApplicationScoped
 public class DefaultSupportPartyParticipantResolver implements SupportPartyParticipantResolver {
     private final PartyParticipantAssociationRepository associations;
+    private final Clock clock;
 
     @Inject
     public DefaultSupportPartyParticipantResolver(PartyParticipantAssociationRepository associations) {
+        this(associations, Clock.systemUTC());
+    }
+
+    public DefaultSupportPartyParticipantResolver(
+            PartyParticipantAssociationRepository associations, Clock clock) {
         this.associations = Objects.requireNonNull(associations, "associations");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     @Override
     public Uni<Optional<SupportPartyContext>> resolve(TenantId tenantId, PartyId partyId) {
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(partyId, "partyId");
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         return associations.findActiveByTenantAndParty(tenantId, partyId)
                 .map(records -> resolveSupported(records, now));
     }
