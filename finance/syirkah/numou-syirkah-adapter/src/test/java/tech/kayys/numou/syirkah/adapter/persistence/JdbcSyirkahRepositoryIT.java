@@ -57,7 +57,7 @@ class JdbcSyirkahRepositoryIT {
             rs.next();
             if (!rs.getBoolean(1)) {
                 for (String script : List.of("V20261023_01__syirkah.sql", "V20261023_02__syirkah_governance_outbox.sql",
-                        "V20261028_01__syirkah_akad_formation.sql", "V20261029_01__syirkah_lifecycle.sql", "V20261030_01__syirkah_staff.sql")) {
+                        "V20261028_01__syirkah_akad_formation.sql", "V20261029_01__syirkah_lifecycle.sql", "V20261030_01__syirkah_staff.sql", "V20261030_02__syirkah_trading.sql")) {
                     try (InputStream in = JdbcSyirkahRepositoryIT.class.getResourceAsStream("/db/migration/" + script)) {
                         st.execute(new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8));
                     }
@@ -321,5 +321,26 @@ class JdbcSyirkahRepositoryIT {
         assertEquals(2, got.size());
         assertEquals(st, got.get(0).staff());
         assertTrue(store.list(TenantId.generate(), s.id()).isEmpty(), "another tenant must not see the contracts");
+    }
+
+    @Test
+    void tradingFiguresAreStoredOncePerCloseAndIsolatedByTenant() {
+        var store = new JdbcTradingRecordPort(uow);
+        TenantId t = TenantId.generate();
+        Syirkah s = open(t);
+        var cur = tech.kayys.numou.foundation.domain.valueobject.Currency.of("IDR");
+        java.util.function.LongFunction<tech.kayys.numou.foundation.domain.valueobject.Money> m =
+                v -> tech.kayys.numou.foundation.domain.valueobject.Money.of(java.math.BigDecimal.valueOf(v), cur);
+        var in = new TradingResultCalculator.Input(m.apply(100), m.apply(5), m.apply(0), m.apply(20), m.apply(60),
+                m.apply(0), m.apply(0), m.apply(30), m.apply(10), m.apply(0));
+        CloseId close = CloseId.generate();
+        uow.inTransaction(() -> {
+            repo.save(s, -1);
+            store.record(t, s.id(), close, in, T0);
+            return null;
+        });
+        assertEquals(in, store.find(t, s.id(), close).orElseThrow().input());
+        assertTrue(store.list(TenantId.generate(), s.id()).isEmpty(), "another tenant must not see the figures");
+        assertThrows(RuntimeException.class, () -> store.record(t, s.id(), close, in, T0.plusSeconds(1)));
     }
 }

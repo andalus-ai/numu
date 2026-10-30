@@ -37,7 +37,7 @@ class ProviderCommercialPolicyServiceTest {
     void persistsRatePlanOnlyAfterAuthorizationAndOwnershipChecks() {
         RecordingPolicies policies = new RecordingPolicies();
         ProviderCommercialPolicyService service = service(listing(PROVIDER), unit(), policies,
-                ignored -> Uni.createFrom().voidItem());
+                (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
         StayRatePlan plan = plan();
 
         StayRatePlan saved = service.saveRatePlan(new ProviderCommercialPolicyService.SaveRatePlan(
@@ -51,7 +51,7 @@ class ProviderCommercialPolicyServiceTest {
     void doesNotPersistWhenProviderAuthorizationFails() {
         RecordingPolicies policies = new RecordingPolicies();
         ProviderCommercialPolicyService service = service(listing(PROVIDER), unit(), policies,
-                ignored -> Uni.createFrom().failure(new SecurityException("denied")));
+                (tenantId, actorId, providerId) -> Uni.createFrom().failure(new SecurityException("denied")));
 
         assertThatThrownBy(() -> service.saveRatePlan(new ProviderCommercialPolicyService.SaveRatePlan(
                 TENANT, ACTOR, PROVIDER, LISTING_ID, UNIT_ID, plan())).await().indefinitely())
@@ -63,7 +63,7 @@ class ProviderCommercialPolicyServiceTest {
     void hidesListingOwnedByAnotherProvider() {
         RecordingPolicies policies = new RecordingPolicies();
         ProviderCommercialPolicyService service = service(listing("provider-b"), unit(), policies,
-                ignored -> Uni.createFrom().voidItem());
+                (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
 
         assertThatThrownBy(() -> service.saveRatePlan(new ProviderCommercialPolicyService.SaveRatePlan(
                 TENANT, ACTOR, PROVIDER, LISTING_ID, UNIT_ID, plan())).await().indefinitely())
@@ -77,7 +77,7 @@ class ProviderCommercialPolicyServiceTest {
         StayRatePlan plan = plan();
         policies.plan = Optional.of(plan);
         ProviderCommercialPolicyService service = service(listing(PROVIDER), unit(), policies,
-                ignored -> Uni.createFrom().voidItem());
+                (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
         NightlyRateOverride outside = new NightlyRateOverride(plan.id(), UNTIL, new BigDecimal("600000"));
 
         assertThatThrownBy(() -> service.saveNightlyRateOverrides(
@@ -91,7 +91,7 @@ class ProviderCommercialPolicyServiceTest {
     void validatesRestrictionUnitScopeBeforePersistence() {
         RecordingPolicies policies = new RecordingPolicies();
         ProviderCommercialPolicyService service = service(listing(PROVIDER), unit(), policies,
-                ignored -> Uni.createFrom().voidItem());
+                (tenantId, actorId, providerId) -> Uni.createFrom().voidItem());
         StayDateRestriction foreign = new StayDateRestriction(LISTING_ID, UUID.randomUUID(),
                 FROM, 1, 0, false, false, true);
 
