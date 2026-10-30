@@ -96,12 +96,6 @@ class JdbcPartyParticipantAssociationRepositoryPostgresTest {
                         version INTEGER NOT NULL DEFAULT 0
                     )
                     """);
-            statement.execute("INSERT INTO ecosystem_party (party_id, kind, status, created_at, updated_at) "
-                    + "VALUES ('" + PartyId.generate().value() + "', 'PERSON', 'ACTIVE', now(), now())");
-            // The production migration has an FK to the canonical Party table.
-            // Insert a Party row matching each test's generated identifier below via a test trigger-free schema.
-            statement.execute("ALTER TABLE ecosystem_party_participant_associations "
-                    + "DROP CONSTRAINT IF EXISTS ecosystem_party_participant_associations_party_id_fkey");
         }
         String sql;
         try (var input = getClass().getClassLoader().getResourceAsStream(
@@ -109,8 +103,6 @@ class JdbcPartyParticipantAssociationRepositoryPostgresTest {
             assertNotNull(input);
             sql = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
-        // Test isolation intentionally omits the canonical Party FK because fixtures use random IDs;
-        // tenant scoping and role uniqueness are still exercised against PostgreSQL.
         sql = sql.replace("party_id UUID NOT NULL REFERENCES ecosystem_party(party_id)",
                 "party_id UUID NOT NULL");
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
