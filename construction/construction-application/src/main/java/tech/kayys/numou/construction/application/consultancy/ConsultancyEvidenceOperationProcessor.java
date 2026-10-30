@@ -9,7 +9,6 @@ import tech.kayys.numou.construction.spi.consultancy.ConsultancyEvidenceLinkStor
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Executes one claimed evidence saga operation.
@@ -23,24 +22,25 @@ public class ConsultancyEvidenceOperationProcessor {
     private static final Duration BASE_RETRY_DELAY = Duration.ofSeconds(15);
     private static final Duration MAX_RETRY_DELAY = Duration.ofMinutes(15);
 
-    @Inject
-    ConsultancyEvidenceOperationStore operations;
+    private final ConsultancyEvidenceOperationStore operations;
+    private final ConsultancyEvidenceAuthorization authorization;
+    private final ConsultancyEvidenceLinkStore evidenceLinks;
 
     @Inject
-    ConsultancyEvidenceAuthorization authorization;
-
-    @Inject
-    ConsultancyEvidenceLinkStore evidenceLinks;
+    public ConsultancyEvidenceOperationProcessor(ConsultancyEvidenceOperationStore operations,
+            ConsultancyEvidenceAuthorization authorization, ConsultancyEvidenceLinkStore evidenceLinks) {
+        this.operations = Objects.requireNonNull(operations);
+        this.authorization = Objects.requireNonNull(authorization);
+        this.evidenceLinks = Objects.requireNonNull(evidenceLinks);
+    }
 
     /**
      * Processes a single current claim. A false result means the lease was lost
      * before a state transition could be committed; the caller must not treat it
      * as a successful completion.
      */
-    public Uni<Boolean> process(
-            ClaimedConsultancyEvidenceOperation claim, Instant now, int maxAttempts) {
+    public Uni<Boolean> process(ClaimedConsultancyEvidenceOperation claim, int maxAttempts) {
         Objects.requireNonNull(claim, "claim");
-        Objects.requireNonNull(now, "now");
         if (maxAttempts < 1) throw new IllegalArgumentException("maxAttempts must be positive");
 
         ConsultancyEvidenceOperation operation = claim.operation();
