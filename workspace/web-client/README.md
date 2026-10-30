@@ -13,7 +13,7 @@ An optional browser client for the workspace REST capability. It is separate fro
 - Search pages and create pages from templates.
 - Show safe network, authorization/not-found, server, and revision-conflict errors.
 
-This is not full Notion parity. Rich block editing, collaboration, database UI, page-link navigation, uploads, and complete sign-in/session integration remain follow-up work.
+This is not full Notion parity. Collaboration, database UI, cross-page linking, uploads, and complete sign-in/session integration remain follow-up work.
 
 ## Run locally
 
@@ -37,6 +37,6 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 
 ## Known limits
 
-The client restores the last selected workspace and space from tenant-authorized server listings. It currently selects the first accessible workspace/space when the saved selection is no longer available; a full multi-workspace switcher remains follow-up work.
+The client restores the last selected workspace and space from tenant-authorized server listings and provides explicit workspace/space selectors. It selects the first accessible workspace/space when the saved selection is no longer available.
 
 The editor supports the block types currently defined by the workspace domain. File attachments and domain-reference blocks remain visible and preserved as opaque records; uploading files or editing domain-owned references belongs to their respective capabilities. Nested block trees, collaborative cursors, and richer table-cell semantics remain follow-up work. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
