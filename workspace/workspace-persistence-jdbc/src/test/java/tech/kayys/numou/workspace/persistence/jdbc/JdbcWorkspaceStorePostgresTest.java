@@ -1064,6 +1064,21 @@ class JdbcWorkspaceStorePostgresTest {
         assertFalse(store.markDelivered(tenant, delivery.id(), UUID.randomUUID(), now.plusSeconds(2)),
                 "a stale or foreign lease token must not complete delivery");
 
+        PageCommentThread deadThread = PageCommentThread.open(tenant, page.id(), actor, "Dead letter test", now.plusSeconds(2));
+        PageComment deadRoot = deadThread.comments().get(0);
+        var deadIntent = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(),
+                "workspace:comment-mention:" + deadRoot.id() + ":" + recipient);
+        AuditEntry deadAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", deadThread.id(), 1, page.title(), now.plusSeconds(2));
+        assertTrue(store.createThreadWithMentions(deadThread, deadAudit, List.of(deadIntent)));
+        var deadClaim = store.claimDue("integration-worker", now.plusSeconds(2), now.plusSeconds(32), 10)
+                .stream().filter(item -> item.commentId().equals(deadRoot.id())).findFirst().orElseThrow();
+        assertTrue(store.markDead(tenant, deadClaim.id(), deadClaim.leaseToken(), "provider rejected", now.plusSeconds(3)));
+        assertEquals(1, store.listDead(tenant, 10).size());
+        assertTrue(store.requeueDead(tenant, deadClaim.id(), actor, now.plusSeconds(4)));
+        assertTrue(store.listDead(tenant, 10).isEmpty());
+
         PageCommentThread rejected = PageCommentThread.open(tenant, page.id(), actor, "Duplicate intent", now.plusSeconds(3));
         PageComment duplicateRoot = rejected.comments().get(0);
         var duplicateA = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
