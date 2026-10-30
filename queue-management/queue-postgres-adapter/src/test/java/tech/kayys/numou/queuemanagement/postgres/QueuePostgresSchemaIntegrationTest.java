@@ -111,6 +111,121 @@ class QueuePostgresSchemaIntegrationTest {
         }
     }
 
+    @Test
+    void concurrentClaimSkipsTheEntryLockedByAnotherWorker() throws SQLException {
+        UUID first = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID second = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        insertQueueAsOwner(TENANT_A, QUEUE_A);
+        insertWaitingEntry(first, 10);
+        insertWaitingEntry(second, 5);
+
+        try (Connection workerOne = ownerConnection(); Connection workerTwo = ownerConnection()) {
+            workerOne.setAutoCommit(false);
+            workerTwo.setAutoCommit(false);
+            setTenant(workerOne, TENANT_A);
+            setTenant(workerTwo, TENANT_A);
+
+            try (PreparedStatement lock = workerOne.prepareStatement(
+                    "SELECT entry_id FROM queue_entry WHERE tenant_id = ? AND queue_id = ? AND entry_id = ? FOR UPDATE")) {
+                lock.setObject(1, TENANT_A);
+                lock.setObject(2, QUEUE_A);
+                lock.setObject(3, first);
+                try (ResultSet rs = lock.executeQuery()) {
+                    if (!rs.next()) throw new AssertionError("Expected first waiting entry to exist");
+                }
+            }
+
+            // This is the repository's claim CTE: a competing worker must skip the
+            // highest-priority row while its lock is held and claim the next eligible row.
+            UUID claimed = claimNextEntry(workerTwo);
+            assertEquals(second, claimed);
+            workerTwo.commit();
+            workerOne.rollback();
+        }
+    }
+
+    @Test
+    void idempotencyKeyRejectsAChangedRequestHash() throws SQLException {
+        try (Connection connection = ownerConnection()) {
+            connection.setAutoCommit(false);
+            setTenant(connection, TENANT_A);
+            try (PreparedStatement insert = connection.prepareStatement(
+                    "INSERT INTO queue_idempotency (tenant_id, operation_scope, idempotency_key, request_hash, state) "
+                            + "VALUES (?, 'queue.join', 'same-key', ?, 'IN_PROGRESS') ON CONFLICT "
+                            + "(tenant_id, operation_scope, idempotency_key) DO NOTHING")) {
+                insert.setObject(1, TENANT_A);
+                insert.setString(2, "hash-one");
+                assertEquals(1, insert.executeUpdate());
+            }
+            try (PreparedStatement insert = connection.prepareStatement(
+                    "INSERT INTO queue_idempotency (tenant_id, operation_scope, idempotency_key, request_hash, state) "
+                            + "VALUES (?, 'queue.join', 'same-key', ?, 'IN_PROGRESS') ON CONFLICT "
+                            + "(tenant_id, operation_scope, idempotency_key) DO NOTHING")) {
+                insert.setObject(1, TENANT_A);
+                insert.setString(2, "hash-two");
+                assertEquals(0, insert.executeUpdate());
+            }
+            try (PreparedStatement read = connection.prepareStatement(
+                    "SELECT request_hash FROM queue_idempotency WHERE tenant_id = ? "
+                            + "AND operation_scope = 'queue.join' AND idempotency_key = 'same-key' FOR UPDATE")) {
+                read.setObject(1, TENANT_A);
+                try (ResultSet rs = read.executeQuery()) {
+                    if (!rs.next()) throw new AssertionError("Expected idempotency reservation");
+                    assertEquals("hash-one", rs.getString(1));
+                }
+            }
+            connection.rollback();
+        }
+    }
+
+    private static UUID claimNextEntry(Connection connection) throws SQLException {
+        String sql = "WITH candidate AS (SELECT e.tenant_id, e.queue_id, e.entry_id, e.profile "
+                + "FROM queue_entry e JOIN queue_definition qd ON qd.tenant_id = e.tenant_id AND qd.queue_id = e.queue_id "
+                + "WHERE e.tenant_id = ? AND e.queue_id = ? AND e.status = 'WAITING' AND qd.status = 'ACTIVE' "
+                + "AND ((? = 'CALL_SERVICE_ENTRY' AND e.profile = 'WAITING_SERVICE') "
+                + "OR (? = 'OFFER_DISPATCH_ENTRY' AND e.profile = 'DISPATCH')) "
+                + "ORDER BY CASE WHEN qd.ordering_policy = 'PRIORITY_THEN_ARRIVAL' THEN e.priority END DESC, "
+                + "e.entered_at, e.entry_id LIMIT 1 FOR UPDATE OF e SKIP LOCKED) "
+                + "UPDATE queue_entry e SET status = CASE WHEN ? = 'CALL_SERVICE_ENTRY' THEN 'CALLED' ELSE 'OFFERED' END, "
+                + "called_at = CASE WHEN ? = 'CALL_SERVICE_ENTRY' THEN ? ELSE e.called_at END, "
+                + "call_count = CASE WHEN ? = 'CALL_SERVICE_ENTRY' THEN e.call_count + 1 ELSE e.call_count END, "
+                + "updated_at = ?, version = e.version + 1 FROM candidate c "
+                + "WHERE e.tenant_id = c.tenant_id AND e.queue_id = c.queue_id AND e.entry_id = c.entry_id "
+                + "RETURNING e.entry_id";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            int i = 1;
+            statement.setObject(i++, TENANT_A);
+            statement.setObject(i++, QUEUE_A);
+            statement.setString(i++, "CALL_SERVICE_ENTRY");
+            statement.setString(i++, "CALL_SERVICE_ENTRY");
+            statement.setString(i++, "CALL_SERVICE_ENTRY");
+            statement.setString(i++, "CALL_SERVICE_ENTRY");
+            statement.setTimestamp(i++, java.sql.Timestamp.from(java.time.Instant.now()));
+            statement.setString(i++, "CALL_SERVICE_ENTRY");
+            statement.setTimestamp(i, java.sql.Timestamp.from(java.time.Instant.now()));
+            try (ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) throw new AssertionError("Expected a claimable queue entry");
+                return rs.getObject(1, UUID.class);
+            }
+        }
+    }
+
+    private static void insertWaitingEntry(UUID entryId, int priority) throws SQLException {
+        try (Connection connection = ownerConnection();
+             PreparedStatement insert = connection.prepareStatement(
+                     "INSERT INTO queue_entry (tenant_id, queue_id, entry_id, profile, source_capability, "
+                             + "source_resource_type, source_resource_id, priority, status, entered_at, updated_at) "
+                             + "VALUES (?, ?, ?, 'WAITING_SERVICE', 'integration', 'ticket', ?, ?, 'WAITING', "
+                             + "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")) {
+            insert.setObject(1, TENANT_A);
+            insert.setObject(2, QUEUE_A);
+            insert.setObject(3, entryId);
+            insert.setString(4, entryId.toString());
+            insert.setInt(5, priority);
+            insert.executeUpdate();
+        }
+    }
+
     private static void insertQueueAsOwner(UUID tenant, UUID queue) throws SQLException {
         try (Connection connection = ownerConnection();
              PreparedStatement insert = connection.prepareStatement(
