@@ -33,6 +33,9 @@ public class DocumentLinkEntity extends PanacheEntityBase {
     @Column(name = "relationship", nullable = false)
     public String relationship;
 
+    @Column(name = "linked_by")
+    public UUID linkedBy;
+
     @Column(name = "linked_at", nullable = false)
     public Instant linkedAt;
 }

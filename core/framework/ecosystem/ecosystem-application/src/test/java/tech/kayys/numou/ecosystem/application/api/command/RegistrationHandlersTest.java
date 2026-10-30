@@ -8,6 +8,7 @@ import tech.kayys.numou.ecosystem.domain.organization.Organization;
 import tech.kayys.numou.ecosystem.domain.organization.OrganizationType;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.ecosystem.domain.party.PartyKind;
+import tech.kayys.numou.foundation.application.command.Command;
 import tech.kayys.numou.foundation.application.event.EventPublisher;
 
 import java.util.ArrayList;
@@ -21,12 +22,32 @@ import static org.junit.jupiter.api.Assertions.*;
 class RegistrationHandlersTest {
 
     @Test
-    void registerPartyPersistsBeforeAppendingItsEventInsideTransaction() {
+    void registerPartyPersistsBeforePublishingItsEvent() {
+        RegisterPartyCommand command = new RegisterPartyCommand(PartyKind.ORGANIZATION);
+        Command foundationCommand = command;
+        assertSame(command, foundationCommand);
         List<String> order = new ArrayList<>();
-        PartyRepository parties = partyRepository(order, Optional.empty());
-        EcosystemTransactionRunner runner = runner(parties, organizationRepository(order, Optional.empty()), order);
-        var result = new RegisterPartyHandler(runner)
-                .handle(new RegisterPartyCommand(PartyKind.ORGANIZATION)).await().indefinitely();
+        PartyRepository parties = new PartyRepository() {
+            @Override
+            public Uni<Party> save(Party party) {
+                order.add("save");
+                return Uni.createFrom().item(party);
+            }
+
+            @Override
+            public Uni<Optional<Party>> findById(PartyId id) {
+                return Uni.createFrom().item(Optional.empty());
+            }
+        };
+        EventPublisher publisher = events -> {
+            assertEquals(1, events.size());
+            order.add("publish");
+            return Uni.createFrom().voidItem();
+        };
+        RegisterPartyHandler handler = new RegisterPartyHandler(parties, publisher, directUnitOfWork());
+
+        var result = handler.handle(command)
+                .await().indefinitely();
 
         assertTrue(result.isSuccess());
         assertEquals(List.of("begin", "party-save", "outbox-append", "commit"), order);
