@@ -3,6 +3,7 @@ package tech.kayys.numou.accounting.domain.document;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,6 +29,18 @@ class DocumentLinkTest {
         assertEquals("ConsultancyDeliverable", link.aggregateType());
         assertEquals("deliverable-1", link.aggregateId());
         assertEquals("SIGNED_REPORT", link.relationship());
+    }
+
+    @Test
+    void createsVersionPinnedEvidenceLinkWithActorAttribution() {
+        var actor = UUID.randomUUID();
+        var link = DocumentLink.create(
+                DocumentId.of("10000000-0000-0000-0000-000000000001"),
+                DocumentVersionId.of("20000000-0000-0000-0000-000000000002"),
+                "ConsultancyDeliverable", "deliverable-1", "SIGNED_REPORT", actor);
+
+        assertEquals(actor, link.linkedBy());
+        assertNotNull(link.linkedAt());
     }
 
     @Test
