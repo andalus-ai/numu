@@ -100,6 +100,7 @@ class QueuePostgresCommandTransactionQuarkusTest {
             });
             assertTrue(secondCallerStarted.await(10, TimeUnit.SECONDS),
                     "second command should start while the first transaction is open");
+            awaitIdempotencyInsertToBlock();
             releaseFirstWork.countDown();
 
             QueueEntry firstResult = first.get(20, TimeUnit.SECONDS);
@@ -113,6 +114,30 @@ class QueuePostgresCommandTransactionQuarkusTest {
             releaseFirstWork.countDown();
             executor.shutdownNow();
         }
+    }
+
+    /**
+     * Do not release the first transaction merely because the second thread was
+     * scheduled. Observe PostgreSQL's unique-key conflict wait so the test proves
+     * the second reservation INSERT is actually blocked behind the first commit.
+     */
+    private void awaitIdempotencyInsertToBlock() throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        String sql = "SELECT EXISTS (SELECT 1 FROM pg_stat_activity "
+                + "WHERE pid <> pg_backend_pid() AND usename = current_user "
+                + "AND wait_event_type = 'Lock' "
+                + "AND query LIKE 'INSERT INTO queue_idempotency%')";
+        while (System.nanoTime() < deadline) {
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql);
+                 ResultSet rs = statement.executeQuery()) {
+                rs.next();
+                if (rs.getBoolean(1)) return;
+            }
+            Thread.sleep(25);
+        }
+        throw new AssertionError(
+                "second command never reached PostgreSQL's idempotency unique-key lock");
     }
 
     private static void await(CountDownLatch latch) {
