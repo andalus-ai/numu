@@ -51,6 +51,35 @@ public final class WorkspaceService {
   if(!saved) throw new IllegalStateException("Workspace could not be created"); return value;
  }
 
+ /**
+  * Lists only workspaces the authenticated actor is allowed to read. Tenant filtering is
+  * performed by the repository and resource authorization is applied before a row is returned.
+  */
+ public List<Workspace> listWorkspaces(UUID tenant, UUID actor) {
+  identity(tenant, actor);
+  List<Workspace> visible = new java.util.ArrayList<>();
+  for (Workspace workspace : workspaces.findByTenant(tenant)) {
+   try {
+    access.require(tenant, actor, Resource.WORKSPACE, workspace.id(), Action.READ);
+    visible.add(workspace);
+   } catch (SecurityException denied) {
+    // An inaccessible workspace must not leak through navigation discovery.
+   }
+  }
+  return visible.stream().sorted(Comparator.comparing(Workspace::createdAt)
+          .thenComparing(Workspace::id)).toList();
+ }
+
+ /** Lists spaces only after the actor has read access to their parent workspace. */
+ public List<Space> listSpaces(UUID tenant, UUID actor, UUID workspaceId) {
+  identity(tenant, actor);
+  workspaces.findWorkspace(tenant, workspaceId)
+          .orElseThrow(() -> new IllegalArgumentException("Workspace not found for tenant"));
+  access.require(tenant, actor, Resource.WORKSPACE, workspaceId, Action.READ);
+  return spaces.findByWorkspace(tenant, workspaceId).stream()
+          .sorted(Comparator.comparing(Space::createdAt).thenComparing(Space::id)).toList();
+ }
+
  public Space createSpace(UUID tenant, UUID actor, UUID workspaceId, String name, String slug) {
   identity(tenant,actor); workspaces.findWorkspace(tenant,workspaceId).orElseThrow(()->new IllegalArgumentException("Workspace not found for tenant"));
   access.require(tenant,actor,Resource.WORKSPACE,workspaceId,Action.UPDATE);

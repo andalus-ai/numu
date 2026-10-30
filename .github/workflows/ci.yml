@@ -420,9 +420,9 @@ jobs:
         run: mvn -B -ntp -f core/framework/pom.xml install
       - name: Verify workspace domain, application, persistence, and REST adapter
         env:
-          NUMOU_WORKSPACE_PG_URL: jdbc:postgresql://localhost:5432/numou_workspace
-          NUMOU_WORKSPACE_PG_USER: postgres
-          NUMOU_WORKSPACE_PG_PASSWORD: postgres
+          NUMOU_WORKSPACE_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/numou_workspace
+          NUMOU_WORKSPACE_TEST_DB_USER: postgres
+          NUMOU_WORKSPACE_TEST_DB_PASSWORD: postgres
         run: mvn -B -ntp -f workspace/pom.xml verify
       - name: Upload workspace Maven test reports
         if: always()
