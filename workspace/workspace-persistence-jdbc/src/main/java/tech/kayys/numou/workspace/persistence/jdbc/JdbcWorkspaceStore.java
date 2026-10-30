@@ -490,7 +490,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         Instant created = instant(r, 8), updated = instant(r, 9);
         List<PageComment> entries = new ArrayList<>();
         String commentsSql = "SELECT id,tenant_id,page_id,thread_id,parent_comment_id,author_id,body,created_at " +
-                "FROM workspace_page_comments WHERE tenant_id=? AND page_id=? AND thread_id=? ORDER BY created_at,id";
+                "FROM workspace_page_comments WHERE tenant_id=? AND page_id=? AND thread_id=? ORDER BY CASE WHEN parent_comment_id IS NULL THEN 0 ELSE 1 END,created_at,id";
         try (PreparedStatement p = c.prepareStatement(commentsSql)) {
             p.setObject(1, tenant); p.setObject(2, page); p.setObject(3, id);
             try (ResultSet rows = p.executeQuery()) {
