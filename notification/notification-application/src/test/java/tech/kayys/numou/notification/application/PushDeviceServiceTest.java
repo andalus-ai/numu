@@ -35,6 +35,21 @@ class PushDeviceServiceTest {
     }
 
     @Test
+    void registrationManagementUseCaseReturnsOnlySafeSummary() {
+        RecordingRepository repository = new RecordingRepository();
+        PushDeviceService service = new PushDeviceService(repository, Clock.fixed(now, ZoneOffset.UTC));
+
+        PushDeviceSummary summary = service.registerSummary(tenantId, recipientId,
+                "secret-token-value", PushDevice.Platform.WEB, "browser");
+
+        assertEquals(tenantId, summary.tenantId());
+        assertEquals(recipientId, summary.recipientId());
+        assertEquals(PushDevice.Platform.WEB, summary.platform());
+        assertFalse(summary.toString().contains("secret-token-value"));
+        assertEquals("secret-token-value", repository.registered.token());
+    }
+
+    @Test
     void activeDeviceListIsImmutableAndRequiresScope() {
         RecordingRepository repository = new RecordingRepository();
         repository.devices.add(PushDevice.register(tenantId, recipientId, "token",
