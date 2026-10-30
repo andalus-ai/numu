@@ -1,0 +1,97 @@
+name: Mobility driver-location PostgreSQL verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobility/**"
+      - "geo/**"
+      - "finance/wallet/**"
+      - "core/framework/**"
+      - "security/**"
+      - ".github/workflows/mobility-driver-location-postgres.yml"
+  pull_request:
+    paths:
+      - "mobility/**"
+      - "geo/**"
+      - "finance/wallet/**"
+      - "core/framework/**"
+      - "security/**"
+      - ".github/workflows/mobility-driver-location-postgres.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobility-driver-location-postgres-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  driver-location-postgres:
+    name: Driver location PostgreSQL and RLS contracts
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Create a non-superuser role and dedicated test database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE mobility_app LOGIN PASSWORD 'mobility_app' NOSUPERUSER NOBYPASSRLS;
+          CREATE DATABASE numou_mobility_test OWNER mobility_app;
+          SQL
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation capabilities
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Verify and install Geo capability
+        run: mvn -B -ntp -f geo/pom.xml install
+      - name: Build and install cache contracts
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
+      - name: Build and install observability contracts
+        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install security capability
+        run: mvn -B -ntp -f security/pom.xml install
+      - name: Build and install framework reactor
+        run: mvn -B -ntp -f core/framework/pom.xml install
+      - name: Build and install shared wallet capability artifacts
+        run: >-
+          mvn -B -ntp -f finance/pom.xml
+          -pl wallet/numou-wallet-domain,wallet/numou-wallet-spi,wallet/numou-wallet-application,wallet/numou-wallet-adapter,wallet/numou-wallet-postgres-adapter
+          -am install
+      - name: Verify Mobility with PostgreSQL integration profile
+        env:
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_NAME: numou_mobility_test
+          DB_USER: mobility_app
+          DB_PASSWORD: mobility_app
+          DB_SSLMODE: disable
+        run: mvn -B -ntp -f mobility/pom.xml -Ppg-integration verify
+      - name: Upload Mobility PostgreSQL test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobility-driver-location-postgres-reports
+          path: "mobility/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
