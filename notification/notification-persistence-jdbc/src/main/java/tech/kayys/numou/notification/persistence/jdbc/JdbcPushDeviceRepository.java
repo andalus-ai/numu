@@ -104,6 +104,56 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
     }
 
     @Override
+    public PushDeviceSummary registerOrRefreshSummary(PushDevice device) {
+        Objects.requireNonNull(device, "device is required");
+        String sql = """
+                INSERT INTO notification_push_device
+                    (id, tenant_id, recipient_id, provider_token, provider_token_ciphertext,
+                     provider_token_key_id, token_fingerprint, platform, app_instance,
+                     created_at, updated_at, disabled_at)
+                VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (token_fingerprint) DO UPDATE SET
+                    provider_token = NULL,
+                    provider_token_ciphertext = EXCLUDED.provider_token_ciphertext,
+                    provider_token_key_id = EXCLUDED.provider_token_key_id,
+                    platform = EXCLUDED.platform,
+                    app_instance = EXCLUDED.app_instance,
+                    updated_at = EXCLUDED.updated_at,
+                    disabled_at = NULL
+                WHERE notification_push_device.tenant_id = EXCLUDED.tenant_id
+                  AND notification_push_device.recipient_id = EXCLUDED.recipient_id
+                RETURNING id, tenant_id, recipient_id, platform, app_instance,
+                          created_at, updated_at, disabled_at
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            PushTokenProtector.EncryptedToken encrypted = tokenProtector.protect(
+                    device.tenantId(), device.recipientId(), device.token());
+            statement.setObject(1, device.id());
+            statement.setObject(2, device.tenantId());
+            statement.setObject(3, device.recipientId());
+            statement.setString(4, encrypted.ciphertext());
+            statement.setString(5, encrypted.keyId());
+            statement.setString(6, fingerprint(device.token()));
+            statement.setString(7, device.platform().name());
+            statement.setString(8, device.appInstance());
+            statement.setTimestamp(9, Timestamp.from(device.createdAt()));
+            statement.setTimestamp(10, Timestamp.from(device.updatedAt()));
+            if (device.disabledAt() == null) statement.setNull(11, Types.TIMESTAMP_WITH_TIMEZONE);
+            else statement.setTimestamp(11, Timestamp.from(device.disabledAt()));
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) {
+                    throw new IllegalStateException(
+                            "Push token is already registered to a different tenant or recipient");
+                }
+                return mapSummary(rows);
+            }
+        } catch (SQLException e) {
+            throw persistenceFailure("register push device", e);
+        }
+    }
+
+    @Override
     public List<PushDeviceSummary> findActiveSummaries(UUID tenantId, UUID recipientId) {
         requireScope(tenantId, recipientId);
         String sql = """
