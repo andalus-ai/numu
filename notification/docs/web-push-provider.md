@@ -40,8 +40,11 @@ endpoint/key columns.
   DNS rebinding by enforcing the resolved destination at connection time or
   routing through a trusted egress proxy. A string/hostname allowlist alone is
   insufficient for arbitrary subscription endpoints.
-- The HTTP client must disable redirects. Redirects are not followed, preventing
-  a push service from redirecting a request to an internal address.
+- The host must inject an HTTP client that disables redirects and routes through
+  an SSRF-safe egress proxy or equivalent connection-pinned network policy. The
+  provider rejects clients configured to follow redirects. Endpoint preflight
+  validation alone is not sufficient because the HTTP client's DNS lookup occurs
+  when it connects.
 - Subscription endpoints, query tokens, public keys, auth secrets, VAPID JWTs,
   and provider response bodies must never appear in logs or error codes.
 
