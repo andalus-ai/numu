@@ -35,7 +35,7 @@ class InMemoryWorkforceRepositoriesTest {
         assertThat(foundById).isPresent();
         assertThat(foundById.get().id()).isEqualTo(workerId);
 
-        var foundByPerson = repo.findByPersonRef(personRef).toCompletableFuture().join();
+        var foundByPerson = repo.findByPersonRef(tenantId, personRef).toCompletableFuture().join();
         assertThat(foundByPerson).isPresent();
         assertThat(foundByPerson.get().id()).isEqualTo(workerId);
 
