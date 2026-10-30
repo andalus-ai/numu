@@ -26,6 +26,7 @@ class WorkspaceCommentResourceContractTest {
     void endpointsArePageScopedAndExposeThreadLifecycle() throws Exception {
         assertEquals("/api/v1", WorkspaceCommentResource.class.getAnnotation(Path.class).value());
         assertEndpoint("listThreads", GET.class, "/pages/{pageId}/comment-threads");
+        assertEndpoint("suggestMentions", GET.class, "/pages/{pageId}/mention-suggestions");
         assertEndpoint("createThread", POST.class, "/pages/{pageId}/comment-threads");
         assertEndpoint("reply", POST.class, "/pages/{pageId}/comment-threads/{threadId}/replies");
         assertEndpoint("resolve", POST.class, "/pages/{pageId}/comment-threads/{threadId}/resolve");

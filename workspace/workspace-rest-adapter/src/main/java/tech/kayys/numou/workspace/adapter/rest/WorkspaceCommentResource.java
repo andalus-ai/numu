@@ -10,6 +10,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -29,6 +30,15 @@ public class WorkspaceCommentResource {
     @Inject
     public WorkspaceCommentResource(WorkspaceCommentApi comments) {
         this.comments = comments;
+    }
+
+    @GET
+    @Path("/pages/{pageId}/mention-suggestions")
+    public List<tech.kayys.numou.workspace.application.port.WorkspaceMentionDirectory.Member> suggestMentions(
+            @PathParam("pageId") UUID pageId,
+            @QueryParam("q") String query,
+            @QueryParam("limit") Integer limit) {
+        return comments.suggestMentions(pageId, query, limit == null ? 8 : limit);
     }
 
     @GET

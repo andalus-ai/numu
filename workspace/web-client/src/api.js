@@ -109,6 +109,10 @@ export function createWorkspaceApi({
       request(`/pages/${encodeURIComponent(pageId)}/links`),
     getBacklinks: (pageId) =>
       request(`/pages/${encodeURIComponent(pageId)}/backlinks`),
+    suggestMentions: (pageId, query, limit = 8) => {
+      const params = new URLSearchParams({ q: query, limit: String(limit) });
+      return request(`/pages/${encodeURIComponent(pageId)}/mention-suggestions?${params.toString()}`);
+    },
     listCommentThreads: (pageId) =>
       request(`/pages/${encodeURIComponent(pageId)}/comment-threads`),
     createCommentThread: (pageId, input) =>
