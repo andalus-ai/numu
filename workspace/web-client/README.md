@@ -8,12 +8,12 @@ An optional browser client for the workspace REST capability. It is separate fro
 - Restore the last selected workspace and space after a browser reload.
 - Create a workspace, a space, and a page through the real API.
 - Browse root pages in the selected space and open a page.
-- Edit page title and paragraph text with an optimistic `expectedRevision` guard.
+- Edit typed page blocks: paragraphs, two heading levels, bulleted/numbered items, quotes, code, callouts, and dividers.\n- Add, convert, reorder, and remove blocks while preserving existing block IDs and extension attributes.\n- Save the whole document with an optimistic `expectedRevision` guard; the server remains authoritative for revision history.
 - Inspect page history and restore a prior revision as a new revision.
 - Search pages and create pages from templates.
 - Show safe network, authorization/not-found, server, and revision-conflict errors.
 
-This is not full Notion parity. Rich block editing, collaboration, database UI, page-link navigation, uploads, and complete sign-in/session integration remain follow-up work.
+This is not full Notion parity. Nested blocks, rich inline formatting, drag-and-drop, collaboration, database UI, page-link navigation, uploads, and complete sign-in/session integration remain follow-up work.
 
 ## Run locally
 
@@ -39,4 +39,4 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 
 The client restores the last selected workspace and space from tenant-authorized server listings. It currently selects the first accessible workspace/space when the saved selection is no longer available; a full multi-workspace switcher remains follow-up work.
 
-Page editing currently presents paragraph blocks as plain text. It is not a full structured block editor. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
+The editor uses a typed, ordered block array and retains unknown block types and extension attributes when saving. It is not yet a full Notion-style editor: nested blocks, rich inline marks, embeds, drag-and-drop, and autosave are not included. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
