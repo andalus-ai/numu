@@ -15,6 +15,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore;
+import tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent;
 
 /** Authorized, tenant-scoped comment workflows. Comment bodies are immutable after creation. */
 public final class PageCommentService {
@@ -22,24 +25,42 @@ public final class PageCommentService {
     private final AuditedPageCommentRepository comments;
     private final AccessPolicy access;
     private final Clock clock;
+    private final WorkspaceMentionOutboxStore mentionOutbox;
 
     public PageCommentService(PageRepository pages, AuditedPageCommentRepository comments,
                               AccessPolicy access, Clock clock) {
+        this(pages, comments, access, clock, null);
+    }
+
+    public PageCommentService(PageRepository pages, AuditedPageCommentRepository comments,
+                              AccessPolicy access, Clock clock, WorkspaceMentionOutboxStore mentionOutbox) {
         this.pages = Objects.requireNonNull(pages, "pages");
         this.comments = Objects.requireNonNull(comments, "comments");
         this.access = Objects.requireNonNull(access, "access");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.mentionOutbox = mentionOutbox;
     }
 
     public PageCommentThread createThread(UUID tenantId, UUID actorId, UUID pageId, String body) {
+        return createThread(tenantId, actorId, pageId, body, ignored -> List.of());
+    }
+
+    public PageCommentThread createThread(UUID tenantId, UUID actorId, UUID pageId, String body,
+                                          Function<PageComment, List<MentionIntent>> mentionFactory) {
         identity(tenantId, actorId);
         Page page = requirePage(tenantId, pageId);
         access.require(tenantId, actorId, Resource.PAGE, pageId, Action.UPDATE);
         Instant now = clock.instant();
         PageCommentThread thread = PageCommentThread.open(tenantId, pageId, actorId, body, now);
+        List<MentionIntent> intents = List.copyOf(Objects.requireNonNull(mentionFactory.apply(thread.comments().get(0)), "mention intents"));
         AuditEntry audit = audit(tenantId, actorId, "PAGE_COMMENT_THREAD_CREATED",
                 thread.id(), thread.revision(), page.title(), now);
-        if (!comments.createThread(thread, audit)) {
+        boolean persisted;
+        if (!intents.isEmpty()) {
+            if (mentionOutbox == null) throw new IllegalStateException("Durable mention outbox is not configured");
+            persisted = mentionOutbox.createThreadWithMentions(thread, audit, intents);
+        } else persisted = comments.createThread(thread, audit);
+        if (!persisted) {
             throw new IllegalStateException("Comment thread could not be created");
         }
         return thread;
@@ -47,6 +68,12 @@ public final class PageCommentService {
 
     public PageCommentThread reply(UUID tenantId, UUID actorId, UUID pageId, UUID threadId,
                                    UUID parentCommentId, String body) {
+        return reply(tenantId, actorId, pageId, threadId, parentCommentId, body, ignored -> List.of());
+    }
+
+    public PageCommentThread reply(UUID tenantId, UUID actorId, UUID pageId, UUID threadId,
+                                   UUID parentCommentId, String body,
+                                   Function<PageComment, List<MentionIntent>> mentionFactory) {
         identity(tenantId, actorId);
         Page page = requirePage(tenantId, pageId);
         access.require(tenantId, actorId, Resource.PAGE, pageId, Action.UPDATE);
@@ -58,9 +85,15 @@ public final class PageCommentService {
         Instant now = clock.instant();
         PageComment reply = PageComment.reply(tenantId, pageId, threadId,
                 parentCommentId, actorId, body, now);
+        List<MentionIntent> intents = List.copyOf(Objects.requireNonNull(mentionFactory.apply(reply), "mention intents"));
         AuditEntry audit = new AuditEntry(tenantId, actorId, "PAGE_COMMENT_REPLIED",
                 "PAGE_COMMENT", reply.id(), 0, page.title(), now);
-        if (!comments.appendComment(tenantId, pageId, threadId, reply, audit)) {
+        boolean persisted;
+        if (!intents.isEmpty()) {
+            if (mentionOutbox == null) throw new IllegalStateException("Durable mention outbox is not configured");
+            persisted = mentionOutbox.appendCommentWithMentions(tenantId, pageId, threadId, reply, audit, intents);
+        } else persisted = comments.appendComment(tenantId, pageId, threadId, reply, audit);
+        if (!persisted) {
             PageCommentThread latest = requireThread(tenantId, pageId, threadId);
             if (latest.revision() != thread.revision()) {
                 throw new WorkspaceService.RevisionConflictException(threadId, thread.revision(), latest.revision());
