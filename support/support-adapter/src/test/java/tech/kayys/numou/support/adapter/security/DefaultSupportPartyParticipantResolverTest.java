@@ -10,7 +10,9 @@ import tech.kayys.numou.ecosystem.domain.party.PartyParticipantRole;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.support.domain.ticket.RequesterRole;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,7 +21,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DefaultSupportPartyParticipantResolverTest {
+    private static final Instant NOW = Instant.parse("2026-10-30T00:00:00Z");
     private static final Instant PAST = Instant.parse("2026-01-01T00:00:00Z");
+    private static final Clock FIXED_CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @Test
     void mapsOnlyCustomerAndPartnerRolesAndPreservesParticipantId() {
@@ -46,7 +50,7 @@ class DefaultSupportPartyParticipantResolverTest {
                 PartyParticipantRole.SUPPLIER, PAST))).resolve(tenant, party).await().indefinitely().isEmpty());
 
         assertTrue(resolver(List.of(association(tenant, party, ParticipantId.generate(),
-                PartyParticipantRole.CUSTOMER, Instant.now().plusSeconds(3600))))
+                PartyParticipantRole.CUSTOMER, NOW.plusSeconds(3600))))
                 .resolve(tenant, party).await().indefinitely().isEmpty());
     }
 
@@ -75,13 +79,14 @@ class DefaultSupportPartyParticipantResolverTest {
             }
         };
 
-        new DefaultSupportPartyParticipantResolver(repository).resolve(tenant, party).await().indefinitely();
+        new DefaultSupportPartyParticipantResolver(repository, FIXED_CLOCK)
+                .resolve(tenant, party).await().indefinitely();
         assertEquals(tenant, requestedTenant.get());
         assertEquals(party, requestedParty.get());
     }
 
     private static DefaultSupportPartyParticipantResolver resolver(List<PartyParticipantAssociation> rows) {
-        return new DefaultSupportPartyParticipantResolver(new StubRepository(rows));
+        return new DefaultSupportPartyParticipantResolver(new StubRepository(rows), FIXED_CLOCK);
     }
 
     private static PartyParticipantAssociation association(TenantId tenant, PartyId party,
