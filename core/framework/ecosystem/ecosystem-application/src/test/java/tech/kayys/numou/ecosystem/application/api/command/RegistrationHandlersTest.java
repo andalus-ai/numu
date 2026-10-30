@@ -25,8 +25,9 @@ class RegistrationHandlersTest {
 
     @Test
     void registerPartyPersistsBeforePublishingItsEvent() {
-        Command command = new RegisterPartyCommand(PartyKind.ORGANIZATION);
-        assertInstanceOf(RegisterPartyCommand.class, command);
+        RegisterPartyCommand command = new RegisterPartyCommand(PartyKind.ORGANIZATION);
+        Command foundationCommand = command;
+        assertSame(command, foundationCommand);
         List<String> order = new ArrayList<>();
         PartyRepository parties = new PartyRepository() {
             @Override
@@ -47,7 +48,7 @@ class RegistrationHandlersTest {
         };
         RegisterPartyHandler handler = new RegisterPartyHandler(parties, publisher, directUnitOfWork());
 
-        var result = handler.handle((RegisterPartyCommand) command)
+        var result = handler.handle(command)
                 .await().indefinitely();
 
         assertTrue(result.isSuccess());
