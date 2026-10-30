@@ -94,3 +94,8 @@ Do not enable POS distributed dispatch in production until the deployment
 provides a production serializer, registers all consumed event contracts,
 and verifies broker-backed acceptance tests for its broker and security
 configuration.
+
+
+## Broker-backed publisher verification
+
+`KafkaEventPublisherBrokerTest` starts a real Kafka broker through Testcontainers and verifies the adapter's resolved topic, routing key, serialized envelope, and event contract headers on a broker round-trip. Docker is required; the test is skipped when Docker is unavailable. Run from `core/framework` with `mvn -pl event/event-adapter-kafka -am -Dtest=KafkaEventPublisherBrokerIT -Dsurefire.failIfNoSpecifiedTests=false test`. This test exercises the publisher's Kafka record mapping and broker acceptance; it does not yet prove Quarkus CDI emitter wiring or consumer acknowledgement/redelivery semantics.

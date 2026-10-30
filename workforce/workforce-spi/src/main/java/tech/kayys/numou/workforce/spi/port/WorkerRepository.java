@@ -14,20 +14,15 @@ import java.util.concurrent.CompletionStage;
  */
 public interface WorkerRepository extends Repository<Worker, WorkerId> {
 
-    /**
-     * Looks up a worker by their cross-domain person reference.
-     */
+    /** Looks up a worker by their cross-domain person reference within a tenant. */
     CompletionStage<Optional<Worker>> findByPersonRef(TenantId tenantId, PersonRef personRef);
 
-    /**
-     * Finds a worker only when both its identifier and owning tenant match.
-     * Use this overload at tenant-scoped application boundaries instead of
-     * the generic repository's unscoped identifier lookup.
-     */
+    /** Finds a worker only when both its identifier and owning tenant match. */
     CompletionStage<Optional<Worker>> findById(TenantId tenantId, WorkerId workerId);
-    /**
-     * Deletes a worker only when both its identifier and owning tenant match.
-     * Tenant-scoped application services must use this overload.
-     */
+
+    /** Checks existence without disclosing whether an identifier belongs to another tenant. */
+    CompletionStage<Boolean> existsById(TenantId tenantId, WorkerId workerId);
+
+    /** Deletes a worker only when both its identifier and owning tenant match. */
     CompletionStage<Void> deleteById(TenantId tenantId, WorkerId workerId);
 }
