@@ -66,3 +66,8 @@ A pull request should explain:
 5. Remaining risks, follow-up work, or verification that is pending.
 
 Prefer a coherent milestone PR for related changes, with clear acceptance criteria and reviewable commits. Keep unrelated fixes separate. Never represent a draft or pending CI as verified.
+
+
+## Ecosystem alignment (2026)
+
+Read [Numou ecosystem vision and engineering guardrails](docs/ECOSYSTEM_VISION_AND_ENGINEERING_GUARDRAILS.md) before implementing cross-product integrations. Numou owns reusable capabilities and must remain application-neutral. Farabi and Toba may consume identity, tenant and other modules through stable contracts; do not add reverse dependencies or BI/lakehouse-specific rules to Numou's core. Prefer coherent, tested batches; do not create PRs without explicit user approval. Report CI evidence and unresolved limitations accurately.
