@@ -6,11 +6,13 @@ import tech.kayys.numou.event.adapter.distributed.DistributedKafkaEventPublisher
 import tech.kayys.numou.event.domain.BusinessEvent;
 import tech.kayys.numou.event.domain.EventEnvelope;
 import tech.kayys.numou.event.domain.valueobject.EventVersion;
+import tech.kayys.numou.event.domain.identifier.CorrelationId;
+import tech.kayys.numou.event.domain.valueobject.EventMetadata;
 import tech.kayys.numou.event.spi.port.EventPublisherPort;
 import tech.kayys.numou.event.spi.port.EventSubscriberPort;
 
 import java.time.Duration;
-import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -33,10 +35,13 @@ class DistributedTransportFailClosedTest {
         DistributedKafkaEventPublisherAdapter adapter =
                 new DistributedKafkaEventPublisherAdapter("broker:9092", "numou.events.");
 
-        EventEnvelope<TestEvent> envelope = EventEnvelope.of(
-                null,
-                new TestEvent()
+        EventMetadata metadata = EventMetadata.of(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "test-actor",
+                CorrelationId.generate()
         );
+        EventEnvelope<TestEvent> envelope = EventEnvelope.of(metadata, new TestEvent());
 
         assertThatThrownBy(() -> adapter.publish(envelope).await().atMost(Duration.ofSeconds(1)))
                 .isInstanceOf(UnsupportedOperationException.class);
