@@ -32,7 +32,11 @@ class FcmV1NotificationDeliveryProviderTest {
         startServer(200, "{\"name\":\"projects/demo/messages/123\"}", exchange -> {
             path.set(exchange.getRequestURI().getPath());
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            try {
+                body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            } catch (java.io.IOException failure) {
+                throw new java.io.UncheckedIOException(failure);
+            }
         });
         UUID tenant = UUID.randomUUID();
         var provider = provider(tenant, "project-a", "access-secret");
