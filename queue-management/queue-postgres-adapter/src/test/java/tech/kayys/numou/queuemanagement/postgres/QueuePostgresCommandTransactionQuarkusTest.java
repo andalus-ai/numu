@@ -24,10 +24,16 @@ import java.sql.ResultSet;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 @QuarkusTestResource(QueuePostgresQuarkusTestResource.class)
@@ -62,6 +68,62 @@ class QueuePostgresCommandTransactionQuarkusTest {
         assertEquals(1, count("queue_idempotency", "idempotency_key", key));
         assertEquals(1, count("queue_audit", "correlation_id", context.correlationId()));
         assertEquals(1, count("queue_outbox", "correlation_id", context.correlationId()));
+    }
+
+    @Test
+    void concurrentSameKeyCommandsExecuteBusinessWorkOnlyOnce() throws Exception {
+        String key = "concurrent-" + UUID.randomUUID();
+        QueueCommandContext context = context(key);
+        AtomicInteger executions = new AtomicInteger();
+        CountDownLatch firstWorkEntered = new CountDownLatch(1);
+        CountDownLatch releaseFirstWork = new CountDownLatch(1);
+        CountDownLatch secondCallerStarted = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<QueueEntry> first = executor.submit(() ->
+                    transactions.execute(context, "queue.join", "concurrent-hash", () -> {
+                        executions.incrementAndGet();
+                        firstWorkEntered.countDown();
+                        await(releaseFirstWork);
+                        return result(context, UUID.randomUUID(), "{}");
+                    }));
+            assertTrue(firstWorkEntered.await(10, TimeUnit.SECONDS),
+                    "first command should enter its transactional work");
+
+            Future<QueueEntry> second = executor.submit(() -> {
+                secondCallerStarted.countDown();
+                return transactions.execute(context, "queue.join", "concurrent-hash", () -> {
+                    executions.incrementAndGet();
+                    return result(context, UUID.randomUUID(), "{}");
+                });
+            });
+            assertTrue(secondCallerStarted.await(10, TimeUnit.SECONDS),
+                    "second command should start while the first transaction is open");
+            releaseFirstWork.countDown();
+
+            QueueEntry firstResult = first.get(20, TimeUnit.SECONDS);
+            QueueEntry secondResult = second.get(20, TimeUnit.SECONDS);
+            assertEquals(1, executions.get());
+            assertEquals(firstResult.id(), secondResult.id());
+            assertEquals(1, count("queue_idempotency", "idempotency_key", key));
+            assertEquals(1, count("queue_audit", "correlation_id", context.correlationId()));
+            assertEquals(1, count("queue_outbox", "correlation_id", context.correlationId()));
+        } finally {
+            releaseFirstWork.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Timed out waiting to release concurrent queue command");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while coordinating concurrent queue command", e);
+        }
     }
 
     @Test
