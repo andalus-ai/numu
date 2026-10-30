@@ -25,4 +25,9 @@ public interface WorkerRepository extends Repository<Worker, WorkerId> {
      * the generic repository's unscoped identifier lookup.
      */
     CompletionStage<Optional<Worker>> findById(TenantId tenantId, WorkerId workerId);
+    /**
+     * Deletes a worker only when both its identifier and owning tenant match.
+     * Tenant-scoped application services must use this overload.
+     */
+    CompletionStage<Void> deleteById(TenantId tenantId, WorkerId workerId);
 }
