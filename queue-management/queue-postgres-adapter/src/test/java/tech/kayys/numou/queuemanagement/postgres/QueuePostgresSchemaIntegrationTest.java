@@ -178,6 +178,80 @@ class QueuePostgresSchemaIntegrationTest {
         }
     }
 
+    @Test
+    void outboxLeaseCanBeReclaimedAndStaleWorkerCannotAcknowledge() throws SQLException {
+        UUID eventId = UUID.randomUUID();
+        try (Connection connection = ownerConnection();
+             PreparedStatement insert = connection.prepareStatement(
+                     "INSERT INTO queue_outbox (event_id, tenant_id, event_type, schema_version, aggregate_type, "
+                             + "aggregate_id, correlation_id, occurred_at, payload) "
+                             + "VALUES (?, ?, 'QueueEntryJoined', 1, 'QUEUE_ENTRY', 'entry-lease', 'corr-lease', "
+                             + "CURRENT_TIMESTAMP, '{}'::jsonb)")) {
+            insert.setObject(1, eventId);
+            insert.setObject(2, TENANT_A);
+            insert.executeUpdate();
+        }
+
+        UUID firstToken = UUID.randomUUID();
+        UUID secondToken = UUID.randomUUID();
+        try (Connection connection = ownerConnection()) {
+            connection.setAutoCommit(false);
+            setTenant(connection, TENANT_A);
+            assertEquals(eventId, claimOutboxEvent(connection, eventId, firstToken, "worker-one"));
+
+            try (PreparedStatement expire = connection.prepareStatement(
+                    "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
+                            + "WHERE tenant_id = ? AND event_id = ?")) {
+                expire.setObject(1, TENANT_A);
+                expire.setObject(2, eventId);
+                assertEquals(1, expire.executeUpdate());
+            }
+            assertEquals(eventId, claimOutboxEvent(connection, eventId, secondToken, "worker-two"));
+
+            try (PreparedStatement staleAck = connection.prepareStatement(
+                    "UPDATE queue_outbox SET published_at = CURRENT_TIMESTAMP, lease_owner = NULL, "
+                            + "lease_token = NULL, lease_until = NULL WHERE tenant_id = ? AND event_id = ? "
+                            + "AND lease_token = ? AND published_at IS NULL")) {
+                staleAck.setObject(1, TENANT_A);
+                staleAck.setObject(2, eventId);
+                staleAck.setObject(3, firstToken);
+                assertEquals(0, staleAck.executeUpdate(), "expired worker must not acknowledge a reclaimed event");
+            }
+            try (PreparedStatement ack = connection.prepareStatement(
+                    "UPDATE queue_outbox SET published_at = CURRENT_TIMESTAMP, lease_owner = NULL, "
+                            + "lease_token = NULL, lease_until = NULL WHERE tenant_id = ? AND event_id = ? "
+                            + "AND lease_token = ? AND published_at IS NULL")) {
+                ack.setObject(1, TENANT_A);
+                ack.setObject(2, eventId);
+                ack.setObject(3, secondToken);
+                assertEquals(1, ack.executeUpdate(), "current lease holder must be able to acknowledge");
+            }
+            connection.commit();
+        }
+    }
+
+    private static UUID claimOutboxEvent(Connection connection, UUID eventId, UUID leaseToken,
+                                         String workerId) throws SQLException {
+        String sql = "WITH candidate AS (SELECT event_id FROM queue_outbox WHERE tenant_id = ? "
+                + "AND event_id = ? AND published_at IS NULL AND dead_lettered_at IS NULL "
+                + "AND available_at <= CURRENT_TIMESTAMP "
+                + "AND (lease_until IS NULL OR lease_until <= CURRENT_TIMESTAMP) "
+                + "FOR UPDATE SKIP LOCKED) "
+                + "UPDATE queue_outbox o SET lease_owner = ?, lease_token = ?, "
+                + "lease_until = CURRENT_TIMESTAMP + INTERVAL '30 seconds', "
+                + "attempt_count = attempt_count + 1, last_attempt_at = CURRENT_TIMESTAMP "
+                + "FROM candidate c WHERE o.event_id = c.event_id RETURNING o.event_id";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, TENANT_A);
+            statement.setObject(2, eventId);
+            statement.setString(3, workerId);
+            statement.setObject(4, leaseToken);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next() ? rs.getObject(1, UUID.class) : null;
+            }
+        }
+    }
+
     private static UUID claimNextEntry(Connection connection) throws SQLException {
         String sql = "WITH candidate AS (SELECT e.tenant_id, e.queue_id, e.entry_id, e.profile "
                 + "FROM queue_entry e JOIN queue_definition qd ON qd.tenant_id = e.tenant_id AND qd.queue_id = e.queue_id "
