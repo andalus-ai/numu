@@ -43,3 +43,10 @@ The application layer has a dedicated `ConsultancyEvidenceAuthorization` contrac
 `ConsultancyEvidenceOperation` models the saga state machine: `PENDING`, `LINKED`, `RETRYABLE_FAILURE`, and `TERMINAL_FAILURE`. Retryable failures can return to pending; terminal failures cannot be silently retried. The tenant-scoped idempotency key identifies a logical request, while the document version remains explicit on the operation.
 
 `ConsultancyEvidenceOperationStore` is the persistence boundary. A production adapter must enforce uniqueness for `(tenant_id, idempotency_key)`, perform atomic worker claims (for example with a database lease or `FOR UPDATE SKIP LOCKED`), persist attempt/failure metadata, and support operational inspection. This PR establishes the application contract and state transitions only: it does not add a database migration, worker, Document adapter, or HTTP endpoint. Those are required before production use.
+
+
+## PostgreSQL operation storage schema
+
+The Construction adapter migration `V20261030_01__consultancy_evidence_operations.sql` adds tenant-scoped operation storage. It enforces the idempotency key uniqueness within a tenant, references a deliverable using the composite tenant key, requires a concrete document version, constrains the state values, and stores worker lease identity separately from business status. The claimable and expired-lease indexes support bounded polling and lease recovery.
+
+The schema is intentionally not a claim that the full repository port is implemented. Before a worker uses it, the adapter must implement atomic `FOR UPDATE SKIP LOCKED` claims and fence every state update with the current lease token. The claim API must return the lease token to the worker; an unfenced `save(operation)` must not be used by a worker because an expired worker could overwrite a newer attempt. The migration does not create cross-capability atomicity or call Document.
