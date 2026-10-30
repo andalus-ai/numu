@@ -170,6 +170,12 @@ public class PostgresSettlementBatchRepository implements SettlementBatchReposit
                         release.executeUpdate();
                     }
                 }
+                AffiliateEventWriter.append(connection, tenantId, "SETTLEMENT_BATCH", batchId,
+                        "SettlementBatch" + replacement.status().name(),
+                        replacement.approvedBy() == null ? replacement.createdBy() : replacement.approvedBy(),
+                        null, "settlement-batch:" + batchId + ":" + replacement.version(),
+                        AffiliateEventWriter.json(replacement.status().name(), replacement.version()),
+                        replacement.updatedAt());
                 connection.commit();
                 return CompletableFuture.completedFuture(replacement);
             } catch (RuntimeException | SQLException e) {
