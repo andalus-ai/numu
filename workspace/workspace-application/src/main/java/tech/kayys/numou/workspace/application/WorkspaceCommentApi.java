@@ -30,15 +30,13 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(pageId, "pageId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
-        return call(() -> {
-            ThreadView created = ThreadView.from(service.createThread(
-                    actor.tenantId(), actor.actorId(), pageId, request.body()));
-            if (mentions != null) {
-                CommentView root = created.comments().get(0);
-                mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, root.id(), root.body());
-            }
-            return created;
-        });
+        ThreadView created = call(() -> ThreadView.from(service.createThread(
+                actor.tenantId(), actor.actorId(), pageId, request.body())));
+        if (mentions != null) {
+            CommentView root = created.comments().get(0);
+            mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, root.id(), root.body());
+        }
+        return created;
     }
 
     public ThreadView reply(UUID pageId, UUID threadId, ReplyRequest request) {
@@ -46,15 +44,13 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(threadId, "threadId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
-        return call(() -> {
-            ThreadView updated = ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
-                    pageId, threadId, request.parentCommentId(), request.body()));
-            if (mentions != null) {
-                CommentView reply = updated.comments().get(updated.comments().size() - 1);
-                mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, reply.id(), reply.body());
-            }
-            return updated;
-        });
+        ThreadView updated = call(() -> ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
+                pageId, threadId, request.parentCommentId(), request.body())));
+        if (mentions != null) {
+            CommentView reply = updated.comments().get(updated.comments().size() - 1);
+            mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, reply.id(), reply.body());
+        }
+        return updated;
     }
 
     public List<WorkspaceMentionDirectory.Member> suggestMentions(UUID pageId, String query, int limit) {
