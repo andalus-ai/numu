@@ -639,6 +639,19 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         String sql="UPDATE workspace_comment_mention_outbox SET status='DEAD',lease_owner=NULL,lease_token=NULL,lease_until=NULL,last_error=?,updated_at=? WHERE tenant_id=? AND id=? AND status='LEASED' AND lease_token=?";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setString(1,safeOutboxError(error));p.setTimestamp(2,Timestamp.from(now));p.setObject(3,tenantId);p.setObject(4,id);p.setObject(5,token);return p.executeUpdate()==1;}catch(SQLException e){throw failure("dead-letter workspace mention",e);}
     }
+    @Override public List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.DeadMention>
+    listDead(UUID tenantId, int limit) {
+        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be 1..200");
+        String sql="SELECT id,page_id,comment_id,recipient_id,attempts,last_error,created_at,updated_at FROM workspace_comment_mention_outbox WHERE tenant_id=? AND status='DEAD' ORDER BY updated_at DESC,id LIMIT ?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setInt(2,limit);
+            List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.DeadMention> out=new ArrayList<>();
+            try(ResultSet r=p.executeQuery()){while(r.next())out.add(new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.DeadMention(
+                    uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),r.getInt(5),r.getString(6),instant(r,7),instant(r,8)));}
+            return List.copyOf(out);
+        }catch(SQLException e){throw failure("list dead workspace mention deliveries",e);}
+    }
+
     @Override public boolean requeueDead(UUID tenantId,UUID id,UUID actorId,Instant now) {
         Objects.requireNonNull(actorId, "actorId");
         return atomicMutation("requeue dead workspace mention with audit", c -> {
