@@ -67,7 +67,6 @@ public final class ProviderCommercialPolicyService {
         Objects.requireNonNull(command.ratePlanId(), "ratePlanId");
         List<NightlyRateOverride> overrides = List.copyOf(
                 Objects.requireNonNull(command.overrides(), "overrides"));
-        if (overrides.isEmpty()) return Uni.createFrom().voidItem();
         return authorizeAndResolveUnit(command.tenantId(), command.actorId(), command.providerId(),
                 command.listingId(), command.unitId())
                 .flatMap(ignored -> policies.findRatePlan(command.tenantId(), command.listingId(),
@@ -93,7 +92,6 @@ public final class ProviderCommercialPolicyService {
                 command.listingId(), command.unitId());
         List<StayDateRestriction> restrictions = List.copyOf(
                 Objects.requireNonNull(command.restrictions(), "restrictions"));
-        if (restrictions.isEmpty()) return Uni.createFrom().voidItem();
         for (StayDateRestriction restriction : restrictions) {
             if (!command.listingId().equals(restriction.listingId())
                     || !command.unitId().equals(restriction.unitId())) {
@@ -119,6 +117,8 @@ public final class ProviderCommercialPolicyService {
     public Uni<List<NightlyRateOverride>> listNightlyRateOverrides(UnitCommand command, UUID ratePlanId,
                                                                     LocalDate fromInclusive,
                                                                     LocalDate untilExclusive) {
+        Objects.requireNonNull(command, "command");
+        requireContext(command.tenantId(), command.actorId(), command.providerId(), command.listingId(), command.unitId());
         validateRange(fromInclusive, untilExclusive);
         Objects.requireNonNull(ratePlanId, "ratePlanId");
         return authorizeAndResolveUnit(command.tenantId(), command.actorId(), command.providerId(),
@@ -134,6 +134,8 @@ public final class ProviderCommercialPolicyService {
     public Uni<List<StayDateRestriction>> listStayDateRestrictions(UnitCommand command,
                                                                      LocalDate fromInclusive,
                                                                      LocalDate untilExclusive) {
+        Objects.requireNonNull(command, "command");
+        requireContext(command.tenantId(), command.actorId(), command.providerId(), command.listingId(), command.unitId());
         validateRange(fromInclusive, untilExclusive);
         return authorizeAndResolveUnit(command.tenantId(), command.actorId(), command.providerId(),
                 command.listingId(), command.unitId())
