@@ -61,6 +61,11 @@ public final class PageCommentService {
         AuditEntry audit = new AuditEntry(tenantId, actorId, "PAGE_COMMENT_REPLIED",
                 "PAGE_COMMENT", reply.id(), 0, page.title(), now);
         if (!comments.appendComment(tenantId, pageId, threadId, reply, audit)) {
+            PageCommentThread latest = requireThread(tenantId, pageId, threadId);
+            if (latest.revision() != thread.revision()) {
+                throw new WorkspaceService.RevisionConflictException(threadId, thread.revision(), latest.revision());
+            }
+            if (latest.resolved()) throw new IllegalArgumentException("Resolved threads cannot receive replies");
             throw new IllegalStateException("Comment reply could not be appended");
         }
         List<PageComment> entries = new java.util.ArrayList<>(thread.comments());
@@ -108,7 +113,11 @@ public final class PageCommentService {
         String action = resolve ? "PAGE_COMMENT_THREAD_RESOLVED" : "PAGE_COMMENT_THREAD_REOPENED";
         AuditEntry event = audit(tenantId, actorId, action, threadId, changed.revision(), page.title(), now);
         if (!comments.updateThreadResolution(changed, expectedRevision, event)) {
-            throw new WorkspaceService.RevisionConflictException(threadId, expectedRevision, current.revision());
+            PageCommentThread latest = requireThread(tenantId, pageId, threadId);
+            if (latest.revision() != expectedRevision) {
+                throw new WorkspaceService.RevisionConflictException(threadId, expectedRevision, latest.revision());
+            }
+            throw new IllegalStateException("Comment thread resolution could not be saved");
         }
         return changed;
     }
