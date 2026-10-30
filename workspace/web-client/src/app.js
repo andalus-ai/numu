@@ -135,9 +135,10 @@ function renderCommentThreads() {
     const status=createElement("span",thread.resolved?"comment-status resolved":"comment-status",thread.resolved?"Resolved":"Open discussion");
     const action=createElement("button","button button-quiet",thread.resolved?"Reopen":"Resolve");action.type="button";
     action.addEventListener("click",async()=>{
+      const pageId=state.page?.id;if(!pageId)return;action.disabled=true;
       const mutate=thread.resolved?api.reopenCommentThread:api.resolveCommentThread;
-      const updated=await runAction(()=>mutate(state.page.id,thread.id,{expectedRevision:thread.revision}));
-      if(updated)await refreshCommentThreads();else await refreshCommentThreads();
+      await runAction(()=>mutate(pageId,thread.id,{expectedRevision:thread.revision}));
+      await refreshCommentThreads();
     });
     header.append(status,action);card.append(header);
     for(const comment of thread.comments||[]){
@@ -162,9 +163,9 @@ function renderCommentThreads() {
   }
 }
 async function refreshCommentThreads() {
-  if(!state.page)return;
-  const threads=await runAction(()=>api.listCommentThreads(state.page.id));
-  if(threads===null)return;
+  const pageId=state.page?.id;if(!pageId)return;
+  const threads=await runAction(()=>api.listCommentThreads(pageId));
+  if(threads===null||state.page?.id!==pageId)return;
   state.commentThreads=Array.isArray(threads)?threads:[];
   renderCommentThreads();
 }
@@ -179,9 +180,11 @@ $("#add-block-button").addEventListener("click",()=>addBlock($("#new-block-type"
 $("#save-button").addEventListener("click",async()=>{if(!state.page||!state.dirty)return;const button=$("#save-button");button.disabled=true;button.textContent="Saving…";const title=$("#editor-title").value.trim();if(!title){showToast("A page title is required.");button.disabled=false;button.textContent="Save changes";return;}const updated=await runAction(()=>api.updatePage(state.page.id,{expectedRevision:state.revision,title,blocks:serializeBlocks(state.blocks),changeSummary:"Updated in workspace web client"}));if(!updated){button.disabled=false;button.textContent="Save changes";return;}renderEditor(updated);showToast("Changes saved.");await refreshPages();});
 $("#history-button").addEventListener("click",async()=>{if(!state.page)return;const history=await runAction(()=>api.getPageHistory(state.page.id));if(!history)return;const panel=$("#history-panel");panel.replaceChildren();const heading=document.createElement("h3");heading.textContent="Page history";panel.append(heading);if(!history.length){const empty=document.createElement("p");empty.className="muted";empty.textContent="No previous revisions are available.";panel.append(empty);}for(const revision of history){const row=document.createElement("div");row.className="history-row";const details=document.createElement("div");const label=document.createElement("strong");const number=revision.revision??revision.revisionNumber;label.textContent=`Revision ${number??"—"}`;const summary=document.createElement("p");summary.textContent=safeText(revision.changeSummary,"Saved page version");details.append(label,summary);row.append(details);const restore=document.createElement("button");restore.type="button";restore.className="button button-quiet";restore.textContent="Restore";restore.addEventListener("click",async()=>{const sourceRevision=Number(number);if(!Number.isFinite(sourceRevision)||!window.confirm(`Restore revision ${sourceRevision} as a new revision?`))return;const restored=await runAction(()=>api.restorePageRevision(state.page.id,{sourceRevision,expectedCurrentRevision:state.revision}),"Revision restored as a new version.");if(restored){renderEditor(restored);panel.hidden=true;await refreshPages();}});row.append(restore);panel.append(row);}panel.hidden=false;});
 $("#comment-form").addEventListener("submit",async(event)=>{
-  event.preventDefault();if(!state.page)return;
+  event.preventDefault();const pageId=state.page?.id;if(!pageId)return;
   const body=$("#comment-body").value.trim();if(!body)return;
-  const created=await runAction(()=>api.createCommentThread(state.page.id,{body}));
+  const submit=$("#comment-form").querySelector('button[type="submit"]');submit.disabled=true;
+  const created=await runAction(()=>api.createCommentThread(pageId,{body}));
+  submit.disabled=false;
   if(created){$("#comment-body").value="";await refreshCommentThreads();}
 });
 $("#search-form").addEventListener("submit",async(event)=>{event.preventDefault();if(!state.workspace){showToast("Create or connect a workspace before searching.");return;}const results=await runAction(()=>api.searchPages(state.workspace.id,$("#search-query").value.trim(),state.space?.id));if(results)renderResults($("#search-results"),results,"No matching pages were found.");});
