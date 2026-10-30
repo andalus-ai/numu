@@ -21,6 +21,11 @@ public interface PushDeviceRepository {
      */
     PushDevice registerOrRefresh(PushDevice device);
 
+    /** Secret-free registration result; JDBC implementations should not decrypt the token for this use case. */
+    default PushDeviceSummary registerOrRefreshSummary(PushDevice device) {
+        return PushDeviceSummary.from(registerOrRefresh(device));
+    }
+
     List<PushDevice> findActiveByRecipient(UUID tenantId, UUID recipientId);
 
     /**
