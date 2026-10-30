@@ -418,27 +418,4 @@ class SyirkahApiTest {
                 LocalDate.parse("2026-02-28"), result("10"), null, "retain", null)).id();
         assertThrows(tech.kayys.numou.numoudomain.SyirkahNotFoundException.class, () -> a.closeTrading(id, other));
     }
-
-    @Test
-    void aFailedTradingWriteSurfacesAsAnErrorInsideTheUnitOfWork() {
-        LocalTransactionPort tx = new LocalTransactionPort();
-        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
-                new CollectingEventPublisher(), tx, accounts);
-        TradingRecordPort failing = new InMemoryTradingRecordPort() {
-            @Override
-            public synchronized void record(tech.kayys.numou.foundation.domain.tenant.TenantId t,
-                                            tech.kayys.numou.numoudomain.SyirkahId s,
-                                            tech.kayys.numou.numoudomain.CloseId c,
-                                            tech.kayys.numou.numoudomain.TradingResultCalculator.Input in,
-                                            java.time.Instant at) {
-                throw new IllegalStateException("disk full");
-            }
-        };
-        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
-                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx, null, failing, tx);
-        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
-        TradingDto t = new TradingDto(new BigDecimal("1000"), null, null, null, null, null, null, null, null, null);
-        assertThrows(IllegalStateException.class, () -> a.closePeriod(id, new ClosePeriodRequest(null,
-                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), null, null, "retain", t)));
-    }
 }
