@@ -36,6 +36,13 @@ public record DocumentLink(
         relationship = relationship.trim();
     }
 
+    /** Backwards-compatible constructor for version-aware links without actor attribution. */
+    public DocumentLink(
+            DocumentLinkId id, DocumentId documentId, DocumentVersionId documentVersionId,
+            String aggregateType, String aggregateId, String relationship, Instant linkedAt) {
+        this(id, documentId, documentVersionId, aggregateType, aggregateId, relationship, null, linkedAt);
+    }
+
     /** Backwards-compatible constructor for legacy links without a pinned version. */
     public DocumentLink(
             DocumentLinkId id,
