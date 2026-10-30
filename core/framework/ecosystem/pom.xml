@@ -35,6 +35,7 @@
     <modules>
         <module>ecosystem-domain</module>
         <module>ecosystem-application</module>
+        <module>ecosystem-persistence-jdbc</module>
     </modules>
 
 </project>

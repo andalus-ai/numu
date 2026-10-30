@@ -17,5 +17,6 @@
         <module>support-domain</module>
         <module>support-application</module>
         <module>support-api</module>
+        <module>support-adapter</module>
     </modules>
 </project>
