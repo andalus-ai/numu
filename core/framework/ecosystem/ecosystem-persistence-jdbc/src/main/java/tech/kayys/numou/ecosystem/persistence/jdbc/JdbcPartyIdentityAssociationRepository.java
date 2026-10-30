@@ -2,6 +2,8 @@ package tech.kayys.numou.ecosystem.persistence.jdbc;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import tech.kayys.numou.ecosystem.application.port.PartyIdentityAssociationRepository;
 import tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
@@ -28,12 +30,14 @@ import java.util.UUID;
  * DataSource. Every lookup includes tenant_id, and the database's partial unique
  * index is the concurrency-safe authority for active subject ownership.
  */
-public final class JdbcPartyIdentityAssociationRepository implements PartyIdentityAssociationRepository {
+@ApplicationScoped
+public class JdbcPartyIdentityAssociationRepository implements PartyIdentityAssociationRepository {
     private static final String COLUMNS =
             "id, tenant_id, party_id, issuer, subject, status, linked_at, revoked_at";
 
     private final DataSource dataSource;
 
+    @Inject
     public JdbcPartyIdentityAssociationRepository(DataSource dataSource) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
     }

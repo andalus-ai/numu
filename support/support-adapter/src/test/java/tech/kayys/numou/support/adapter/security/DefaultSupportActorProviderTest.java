@@ -17,21 +17,19 @@ import tech.kayys.numou.identity.application.security.PrincipalType;
 import tech.kayys.numou.identity.domain.user.UserId;
 import tech.kayys.numou.security.adapter.CurrentSecurity;
 import tech.kayys.numou.security.application.context.SecurityContext;
-import tech.kayys.numou.security.domain.authorization.Principal as SecurityPrincipal;
 import tech.kayys.numou.security.domain.identifier.PrincipalId;
 import tech.kayys.numou.support.application.api.ActorType;
 import tech.kayys.numou.support.application.api.SupportPartyContext;
 import tech.kayys.numou.support.application.port.SupportPartyParticipantResolver;
 import tech.kayys.numou.support.domain.ticket.RequesterRole;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -41,7 +39,8 @@ class DefaultSupportActorProviderTest {
 
     @Test
     void activeTenantMemberWithSupportResolvePermissionBecomesAgent() {
-        Fixture fixture = new Fixture(Set.of(DefaultSupportActorProvider.PERMISSION_RESOLVE), true, Optional.empty(), null);
+        Fixture fixture = new Fixture(Set.of(DefaultSupportActorProvider.PERMISSION_RESOLVE), true,
+                false, null, null, null);
 
         var actor = fixture.provider.currentActor().await().indefinitely();
 
@@ -55,42 +54,41 @@ class DefaultSupportActorProviderTest {
     void portalActorRequiresActivePartyLinkAndTenantVerifiedParticipantMapping() {
         PartyId partyId = PartyId.generate();
         ParticipantId participantId = ParticipantId.generate();
-        var link = PartyIdentityAssociation.link(UUID.randomUUID(), TenantId.generate(), partyId,
-                new IdentitySubjectRef(ISSUER, SUBJECT), Instant.parse("2026-10-30T00:00:00Z"));
-        Fixture fixture = new Fixture(Set.of(), true, Optional.of(link),
-                (tenant, requestedParty) -> Uni.createFrom().item(
-                        tenant.equals(fixtureTenantHolder[0]) && requestedParty.equals(partyId)
-                                ? Optional.of(new SupportPartyContext(participantId, RequesterRole.CUSTOMER))
-                                : Optional.empty()));
+        Fixture fixture = new Fixture(Set.of(), true, true, partyId, participantId, RequesterRole.CUSTOMER);
 
-        // The test repository is tenant-filtered; use its actual tenant for the link.
-        PartyIdentityAssociation tenantLink = PartyIdentityAssociation.link(link.id(), fixture.tenant, partyId,
-                link.identity(), link.linkedAt());
-        fixture.activeLink = Optional.of(tenantLink);
         var actor = fixture.provider.currentActor().await().indefinitely();
 
         assertEquals(ActorType.CUSTOMER, actor.type());
+        assertEquals(fixture.tenant, actor.tenantId());
         assertEquals(participantId, actor.participantId());
         assertEquals(fixture.user, actor.userId());
     }
 
     @Test
+    void replyOnlyPermissionDoesNotGrantAgentCapabilities() {
+        Fixture fixture = new Fixture(Set.of("support.ticket.reply"), true,
+                false, null, null, null);
+        assertThrows(RuntimeException.class, () -> fixture.provider.currentActor().await().indefinitely());
+    }
+
+    @Test
     void inactiveMembershipIsDeniedBeforeAnySupportRoleIsResolved() {
-        Fixture fixture = new Fixture(Set.of(DefaultSupportActorProvider.PERMISSION_ADMIN), false, Optional.empty(), null);
+        Fixture fixture = new Fixture(Set.of(DefaultSupportActorProvider.PERMISSION_ADMIN), false,
+                false, null, null, null);
         assertThrows(RuntimeException.class, () -> fixture.provider.currentActor().await().indefinitely());
     }
 
     @Test
     void rolePermissionWithoutMatchingVerifiedUserContextIsDenied() throws Exception {
-        Fixture fixture = new Fixture(Set.of(DefaultSupportActorProvider.PERMISSION_ADMIN), true, Optional.empty(), null);
+        Fixture fixture = new Fixture(Set.of(DefaultSupportActorProvider.PERMISSION_ADMIN), true,
+                false, null, null, null);
         var wrongContext = new SecurityContext(
-                new SecurityPrincipal(PrincipalId.of(UUID.randomUUID()), "different-user", Set.of(fixture.tenant)),
+                new tech.kayys.numou.security.domain.authorization.Principal(
+                        PrincipalId.of(UUID.randomUUID()), "different-user", Set.of(fixture.tenant)),
                 fixture.tenant.value(), Set.of(), "");
         setCurrentSecurity(fixture.currentSecurity, wrongContext);
         assertThrows(RuntimeException.class, () -> fixture.provider.currentActor().await().indefinitely());
     }
-
-    private static final TenantId[] fixtureTenantHolder = new TenantId[1];
 
     private static void setCurrentSecurity(CurrentSecurity current, SecurityContext context) throws Exception {
         Field field = CurrentSecurity.class.getDeclaredField("context");
@@ -114,20 +112,16 @@ class DefaultSupportActorProviderTest {
     private static final class Fixture {
         final TenantId tenant = TenantId.generate();
         final UserId user = UserId.newId();
-        Optional<PartyIdentityAssociation> activeLink;
         final CurrentSecurity currentSecurity = new CurrentSecurity();
         final DefaultSupportActorProvider provider;
 
-        Fixture(Set<String> grants, boolean activeMembership,
-                Optional<PartyIdentityAssociation> activeLink,
-                SupportPartyParticipantResolver participantResolver) {
-            this.activeLink = activeLink;
-            fixtureTenantHolder[0] = tenant;
-            var securityPrincipal = new SecurityPrincipal(
+        Fixture(Set<String> grants, boolean activeMembership, boolean hasPartyLink,
+                PartyId partyId, ParticipantId participantId, RequesterRole requesterRole) {
+            var securityPrincipal = new tech.kayys.numou.security.domain.authorization.Principal(
                     PrincipalId.of(user.value()), "test-user", Set.of(tenant));
-            var context = new SecurityContext(securityPrincipal, tenant.value(), Set.of(), "");
             try {
-                setCurrentSecurity(currentSecurity, context);
+                setCurrentSecurity(currentSecurity,
+                        new SecurityContext(securityPrincipal, tenant.value(), Set.of(), ""));
             } catch (Exception e) {
                 throw new IllegalStateException(e);
             }
@@ -140,6 +134,10 @@ class DefaultSupportActorProviderTest {
                     Uni.createFrom().item(tenant.equals(requestedTenant) && user.equals(requestedUser)
                             ? grants : Set.of());
 
+            var activeLink = hasPartyLink
+                    ? PartyIdentityAssociation.link(UUID.randomUUID(), tenant, partyId,
+                        new IdentitySubjectRef(ISSUER, SUBJECT), Instant.parse("2026-10-30T00:00:00Z"))
+                    : null;
             PartyIdentityAssociationRepository associationRepository = new PartyIdentityAssociationRepository() {
                 @Override
                 public Uni<PartyIdentityAssociation> save(PartyIdentityAssociation association) {
@@ -147,19 +145,27 @@ class DefaultSupportActorProviderTest {
                 }
 
                 @Override
-                public Uni<Optional<PartyIdentityAssociation>> findActiveByTenantAndIdentity(
+                public Uni<java.util.Optional<PartyIdentityAssociation>> findActiveByTenantAndIdentity(
                         TenantId requestedTenant, IdentitySubjectRef identity) {
-                    if (!tenant.equals(requestedTenant)) return Uni.createFrom().item(Optional.empty());
-                    return Uni.createFrom().item(activeLink.filter(link -> link.isActive()
-                            && link.tenantId().equals(requestedTenant)
-                            && link.identity().equals(identity)));
+                    if (!tenant.equals(requestedTenant) || activeLink == null
+                            || !activeLink.identity().equals(identity)) {
+                        return Uni.createFrom().item(java.util.Optional.empty());
+                    }
+                    return Uni.createFrom().item(java.util.Optional.of(activeLink));
                 }
 
                 @Override
-                public Uni<List<PartyIdentityAssociation>> findByTenantAndParty(TenantId requestedTenant, PartyId party) {
+                public Uni<List<PartyIdentityAssociation>> findByTenantAndParty(TenantId requestedTenant, PartyId requestedParty) {
                     return Uni.createFrom().item(List.of());
                 }
             };
+
+            SupportPartyParticipantResolver participantResolver = hasPartyLink
+                    ? (requestedTenant, requestedParty) -> Uni.createFrom().item(
+                        tenant.equals(requestedTenant) && partyId.equals(requestedParty)
+                                ? java.util.Optional.of(new SupportPartyContext(participantId, requesterRole))
+                                : java.util.Optional.empty())
+                    : null;
 
             this.provider = new DefaultSupportActorProvider(principalPort, membershipPort, permissionPort,
                     associationRepository, currentSecurity, token(), participantResolver);

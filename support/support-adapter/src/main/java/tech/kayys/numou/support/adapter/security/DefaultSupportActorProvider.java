@@ -39,8 +39,6 @@ public class DefaultSupportActorProvider implements SupportActorProvider {
     public static final String PERMISSION_MANAGE = "support.ticket.manage";
     public static final String PERMISSION_ADMIN = "support.ticket.admin";
     public static final String PERMISSION_RESOLVE = "support.ticket.resolve";
-    public static final String PERMISSION_ASSIGN = "support.ticket.assign";
-    public static final String PERMISSION_REPLY = "support.ticket.reply";
 
     private final CurrentPrincipalPort principals;
     private final MembershipManagementPort memberships;
@@ -119,7 +117,7 @@ public class DefaultSupportActorProvider implements SupportActorProvider {
         if (hasAny(effective, PERMISSION_MANAGE, PERMISSION_ADMIN)) {
             return Uni.createFrom().item(new ActorContext(tenant, ActorType.MANAGER, principal.userId(), null));
         }
-        if (hasAny(effective, PERMISSION_RESOLVE, PERMISSION_ASSIGN, PERMISSION_REPLY)) {
+        if (hasAny(effective, PERMISSION_RESOLVE)) {
             return Uni.createFrom().item(new ActorContext(tenant, ActorType.AGENT, principal.userId(), null));
         }
 
