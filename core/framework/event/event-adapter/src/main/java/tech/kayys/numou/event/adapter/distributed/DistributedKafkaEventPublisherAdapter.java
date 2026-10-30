@@ -1,94 +1,76 @@
 package tech.kayys.numou.event.adapter.distributed;
 
 import io.smallrye.mutiny.Uni;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tech.kayys.numou.event.domain.BusinessEvent;
 import tech.kayys.numou.event.domain.EventEnvelope;
 import tech.kayys.numou.event.spi.port.EventPublisherPort;
 import tech.kayys.numou.event.spi.port.EventSubscriberPort;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * Distributed event adapter targeting Kafka / cloud broker streams.
- * Used for Microservices and SaaS cloud deployments.
+ * Compatibility placeholder for the former Kafka adapter.
+ *
+ * <p>This class deliberately fails closed. The previous implementation only
+ * logged publication attempts and invoked process-local callbacks; it did not
+ * connect to Kafka. Returning success caused durable outbox dispatchers to
+ * acknowledge events that had never reached a broker.
+ *
+ * <p>Use a real, explicitly configured {@link EventPublisherPort} until the
+ * dedicated Kafka adapter is available. This class remains temporarily to
+ * avoid a source-incompatible removal while callers migrate.
+ *
+ * @deprecated This is not a transport implementation and must not be used.
  */
-public class DistributedKafkaEventPublisherAdapter implements EventPublisherPort, EventSubscriberPort {
+@Deprecated(forRemoval = true)
+public final class DistributedKafkaEventPublisherAdapter
+        implements EventPublisherPort, EventSubscriberPort {
 
-    private static final Logger log = LoggerFactory.getLogger(DistributedKafkaEventPublisherAdapter.class);
-
-    private final String bootstrapServers;
-    private final String defaultTopicPrefix;
-    private final Map<String, List<Function<EventEnvelope<? extends BusinessEvent>, Uni<Void>>>> localSubscribers = new ConcurrentHashMap<>();
+    private static final String UNSUPPORTED =
+            "Kafka transport is not implemented; refusing to acknowledge or subscribe to distributed events";
 
     public DistributedKafkaEventPublisherAdapter() {
         this("localhost:9092", "numou.events.");
     }
 
     public DistributedKafkaEventPublisherAdapter(String bootstrapServers, String defaultTopicPrefix) {
-        this.bootstrapServers = bootstrapServers;
-        this.defaultTopicPrefix = defaultTopicPrefix;
+        Objects.requireNonNull(bootstrapServers, "bootstrapServers must not be null");
+        Objects.requireNonNull(defaultTopicPrefix, "defaultTopicPrefix must not be null");
+        if (bootstrapServers.isBlank() || defaultTopicPrefix.isBlank()) {
+            throw new IllegalArgumentException("Kafka bootstrap servers and topic prefix must not be blank");
+        }
     }
 
     @Override
     public Uni<Void> publish(EventEnvelope<? extends BusinessEvent> envelope) {
         if (envelope == null || envelope.payload() == null) {
-            return Uni.createFrom().voidItem();
+            return Uni.createFrom().failure(new IllegalArgumentException("event envelope and payload are required"));
         }
-
-        String topic = defaultTopicPrefix + envelope.eventType();
-        String partitionKey = envelope.metadata().tenantId() != null
-                ? envelope.metadata().tenantId().toString()
-                : "default";
-
-        log.info("Dispatching event to Kafka topic [{}], partitionKey [{}] - correlation: {}",
-                topic, partitionKey, envelope.metadata().correlationId());
-
-        // Also trigger any local subscribers registered for this consumer group
-        List<Function<EventEnvelope<? extends BusinessEvent>, Uni<Void>>> subs = localSubscribers.get(envelope.eventType());
-        if (subs != null && !subs.isEmpty()) {
-            List<Uni<Void>> invocations = new ArrayList<>();
-            for (var sub : subs) {
-                invocations.add(sub.apply(envelope));
-            }
-            return Uni.combine().all().unis(invocations).discardItems();
-        }
-
-        return Uni.createFrom().voidItem();
+        return Uni.createFrom().failure(new UnsupportedOperationException(UNSUPPORTED));
     }
 
     @Override
     public Uni<Void> publishAll(List<EventEnvelope<? extends BusinessEvent>> envelopes) {
-        if (envelopes == null || envelopes.isEmpty()) {
+        if (envelopes == null) {
+            return Uni.createFrom().failure(new IllegalArgumentException("event envelopes must not be null"));
+        }
+        if (envelopes.isEmpty()) {
             return Uni.createFrom().voidItem();
         }
-
-        List<Uni<Void>> list = new ArrayList<>();
-        for (EventEnvelope<? extends BusinessEvent> env : envelopes) {
-            list.add(publish(env));
-        }
-
-        return Uni.combine().all().unis(list).discardItems();
+        return Uni.createFrom().failure(new UnsupportedOperationException(UNSUPPORTED));
     }
 
     @Override
-    public SubscriptionHandle subscribe(String eventType, Function<EventEnvelope<? extends BusinessEvent>, Uni<Void>> handler) {
-        Objects.requireNonNull(eventType, "eventType must not be null");
-        Objects.requireNonNull(handler, "handler must not be null");
-
-        String subId = UUID.randomUUID().toString();
-        localSubscribers.computeIfAbsent(eventType, k -> new ArrayList<>()).add(handler);
-        log.info("Subscribed Kafka consumer to topic [{}], handle: {}", defaultTopicPrefix + eventType, subId);
-
-        return () -> subId;
+    public SubscriptionHandle subscribe(
+            String eventType,
+            Function<EventEnvelope<? extends BusinessEvent>, Uni<Void>> handler) {
+        throw new UnsupportedOperationException(UNSUPPORTED);
     }
 
     @Override
     public void unsubscribe(SubscriptionHandle handle) {
-        if (handle == null) return;
-        log.info("Unsubscribed Kafka consumer: {}", handle.id());
+        throw new UnsupportedOperationException(UNSUPPORTED);
     }
 }
