@@ -1,6 +1,7 @@
 package tech.kayys.numou.notification.application.port;
 
 import tech.kayys.numou.notification.domain.PushDevice;
+import tech.kayys.numou.notification.application.PushDeviceSummary;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,6 +23,24 @@ public interface PushDeviceRepository {
 
     List<PushDevice> findActiveByRecipient(UUID tenantId, UUID recipientId);
 
+    /**
+     * Secret-free management projection. JDBC implementations should override
+     * this method with a query that never selects or decrypts provider tokens.
+     */
+    default List<PushDeviceSummary> findActiveSummaries(UUID tenantId, UUID recipientId) {
+        return findActiveByRecipient(tenantId, recipientId).stream()
+                .map(PushDeviceSummary::from).toList();
+    }
+
     /** Disables only a device owned by this tenant and recipient. */
     Optional<PushDevice> disable(UUID tenantId, UUID recipientId, UUID deviceId, Instant disabledAt);
+
+    /**
+     * Secret-free unregister result. JDBC implementations should override
+     * this method to avoid selecting encrypted token columns at all.
+     */
+    default Optional<PushDeviceSummary> disableSummary(
+            UUID tenantId, UUID recipientId, UUID deviceId, Instant disabledAt) {
+        return disable(tenantId, recipientId, deviceId, disabledAt).map(PushDeviceSummary::from);
+    }
 }
