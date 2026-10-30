@@ -20,7 +20,7 @@ The provider fails closed when any required identity, tenant, membership, associ
 The initial Support permission codes are:
 
 - `support.ticket.manage` or `support.ticket.admin` -> `MANAGER`
-- `support.ticket.resolve`, `support.ticket.assign`, or `support.ticket.reply` -> `AGENT`
+- `support.ticket.resolve` -> `AGENT`
 
 All other authenticated users must resolve through the Party identity association and tenant-specific participant mapping. Only `CUSTOMER` and `PARTNER` requester roles are mapped to portal actors. Other requester roles are denied until an explicit Support policy is added.
 
