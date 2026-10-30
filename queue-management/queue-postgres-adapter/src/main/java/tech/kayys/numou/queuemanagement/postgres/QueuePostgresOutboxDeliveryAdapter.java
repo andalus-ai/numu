@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import tech.kayys.numou.queuemanagement.spi.QueueOutboxDeliveryPort;
+import tech.kayys.numou.queuemanagement.spi.QueueDeadLetterMessage;
 import tech.kayys.numou.queuemanagement.spi.QueueOutboxMessage;
 
 import java.sql.Connection;
@@ -147,6 +148,90 @@ public class QueuePostgresOutboxDeliveryAdapter implements QueueOutboxDeliveryPo
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to reschedule queue outbox event", e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public List<QueueDeadLetterMessage> listDeadLetters(UUID tenantId, int limit) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
+        String sql = """
+                SELECT event_id, tenant_id, event_type, schema_version, aggregate_type, aggregate_id,
+                       correlation_id, occurred_at, payload::text AS payload, attempt_count,
+                       dead_lettered_at, last_error, replay_count
+                  FROM queue_outbox
+                 WHERE tenant_id = ? AND dead_lettered_at IS NOT NULL AND published_at IS NULL
+                 ORDER BY dead_lettered_at DESC, event_id DESC
+                 LIMIT ?
+                """;
+        try (Connection connection = dataSource.getConnection()) {
+            setTenant(connection, tenantId);
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setObject(1, tenantId);
+                statement.setInt(2, limit);
+                try (ResultSet rs = statement.executeQuery()) {
+                    List<QueueDeadLetterMessage> result = new ArrayList<>();
+                    while (rs.next()) result.add(new QueueDeadLetterMessage(
+                            rs.getObject("event_id", UUID.class), rs.getObject("tenant_id", UUID.class),
+                            rs.getString("event_type"), rs.getInt("schema_version"),
+                            rs.getString("aggregate_type"), rs.getString("aggregate_id"),
+                            rs.getString("correlation_id"), rs.getTimestamp("occurred_at").toInstant(),
+                            rs.getString("payload"), rs.getInt("attempt_count"),
+                            rs.getTimestamp("dead_lettered_at").toInstant(), rs.getString("last_error"),
+                            rs.getInt("replay_count")));
+                    return List.copyOf(result);
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to list queue dead-letter events", e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public boolean replayDeadLetter(UUID tenantId, UUID eventId, String actorId,
+                                    String correlationId, String reason) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(eventId, "eventId");
+        requireText(actorId, "actorId");
+        requireText(correlationId, "correlationId");
+        requireText(reason, "reason");
+        String update = """
+                UPDATE queue_outbox
+                   SET dead_lettered_at = NULL, attempt_count = 0, replay_count = replay_count + 1,
+                       available_at = CURRENT_TIMESTAMP, last_error = NULL
+                 WHERE tenant_id = ? AND event_id = ? AND dead_lettered_at IS NOT NULL
+                   AND published_at IS NULL AND lease_token IS NULL
+                """;
+        String audit = """
+                INSERT INTO queue_audit
+                    (audit_id, tenant_id, actor_id, action, resource_type, resource_id,
+                     correlation_id, occurred_at, details)
+                VALUES (?, ?, ?, 'OUTBOX_DEAD_LETTER_REPLAYED', 'queue-outbox-event', ?,
+                        ?, CURRENT_TIMESTAMP, jsonb_build_object('reason', ?))
+                """;
+        try (Connection connection = dataSource.getConnection()) {
+            setTenant(connection, tenantId);
+            boolean updated;
+            try (PreparedStatement statement = connection.prepareStatement(update)) {
+                statement.setObject(1, tenantId);
+                statement.setObject(2, eventId);
+                updated = statement.executeUpdate() == 1;
+            }
+            if (!updated) return false;
+            try (PreparedStatement statement = connection.prepareStatement(audit)) {
+                statement.setObject(1, UUID.randomUUID());
+                statement.setObject(2, tenantId);
+                statement.setString(3, actorId.trim());
+                statement.setString(4, eventId.toString());
+                statement.setString(5, correlationId.trim());
+                statement.setString(6, reason.trim().substring(0, Math.min(reason.trim().length(), 1000)));
+                statement.executeUpdate();
+            }
+            return true;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to replay queue dead-letter event", e);
         }
     }
 
