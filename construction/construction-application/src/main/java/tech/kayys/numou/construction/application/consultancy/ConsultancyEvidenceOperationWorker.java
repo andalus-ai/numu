@@ -1,8 +1,6 @@
 package tech.kayys.numou.construction.application.consultancy;
 
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import tech.kayys.numou.construction.application.consultancy.ConsultancyEvidenceOperationStore.ClaimedConsultancyEvidenceOperation;
 import tech.kayys.numou.construction.spi.consultancy.ConsultancyEvidenceLink;
 import tech.kayys.numou.construction.spi.consultancy.ConsultancyEvidenceLinkStore;
@@ -20,13 +18,11 @@ import java.util.Objects;
  * persisted link followed by a successful fenced transition is reported as
  * linked.</p>
  */
-@ApplicationScoped
 public class ConsultancyEvidenceOperationWorker {
     private final ConsultancyEvidenceOperationStore operations;
     private final ConsultancyEvidenceAuthorization authorization;
     private final ConsultancyEvidenceLinkStore evidenceLinks;
 
-    @Inject
     public ConsultancyEvidenceOperationWorker(
             ConsultancyEvidenceOperationStore operations,
             ConsultancyEvidenceAuthorization authorization,
