@@ -1,6 +1,7 @@
 package tech.kayys.numou.crm.infrastructure.persistence.repository;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
+import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.crm.application.tenant.TenantScopeProvider;
 import tech.kayys.numou.crm.domain.identifier.LeadId;
 import tech.kayys.numou.crm.domain.model.Lead;
@@ -11,6 +12,7 @@ import tech.kayys.numou.crm.infrastructure.persistence.mapper.LeadMapper;
 import tech.kayys.numou.identity.domain.user.UserId;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +32,7 @@ public class LeadRepositoryImpl implements LeadRepository {
     private final LeadMapper mapper;
     private final TenantScopeProvider tenantScopeProvider;
 
+    @Inject
     public LeadRepositoryImpl(LeadMapper mapper, TenantScopeProvider tenantScopeProvider) {
         this.mapper = mapper;
         this.tenantScopeProvider = tenantScopeProvider;
@@ -48,12 +51,43 @@ public class LeadRepositoryImpl implements LeadRepository {
             entity.id = UUID.randomUUID();
         }
 
-        return Panache.withTransaction(() -> entity.<LeadEntity>persist()
-            .map(saved -> {
-                lead.clearEvents();
-                return lead;
-            })
-        ).subscribe().asCompletionStage();
+        return Panache.withTransaction(() -> {
+            if (entity.id == null) {
+                entity.id = UUID.randomUUID();
+            }
+            return LeadEntity.<LeadEntity>find("id = ?1 and tenantId = ?2", entity.id, tenantId)
+                .firstResult()
+                .flatMap(existing -> {
+                    if (existing == null) {
+                        // A foreign tenant's ID can never be updated; a global PK collision fails closed.
+                        return entity.<LeadEntity>persist().map(saved -> {
+                            lead.clearEvents();
+                            return lead;
+                        });
+                    }
+                    copyLeadFields(entity, existing);
+                    lead.clearEvents();
+                    return Uni.createFrom().item(lead);
+                });
+        }).subscribe().asCompletionStage();
+    }
+
+    private static void copyLeadFields(LeadEntity source, LeadEntity target) {
+        target.firstName = source.firstName;
+        target.lastName = source.lastName;
+        target.email = source.email;
+        target.phone = source.phone;
+        target.company = source.company;
+        target.jobTitle = source.jobTitle;
+        target.industry = source.industry;
+        target.source = source.source;
+        target.status = source.status;
+        target.assignedTo = source.assignedTo;
+        target.notes = source.notes;
+        target.score = source.score;
+        target.activities = source.activities;
+        target.active = source.active;
+        target.updatedAt = source.updatedAt;
     }
 
     @Override
