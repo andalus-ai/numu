@@ -49,7 +49,15 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V12__workspace_revision_blocks_immutable.sql",
             "/db/migration/V13__workspace_audit_action_semantics.sql",
             "/db/migration/V14__workspace_audit_resource_actor_integrity.sql",
-            "/db/migration/V15__workspace_audit_history_append_only.sql");
+            "/db/migration/V15__workspace_audit_history_append_only.sql",
+            "/db/migration/V16__workspace_structured_databases.sql",
+            "/db/migration/V17__workspace_database_views.sql",
+            "/db/migration/V18__workspace_board_view_grouping.sql",
+            "/db/migration/V19__workspace_saved_view_revision.sql",
+            "/db/migration/V20__workspace_staged_schema_migrations.sql",
+            "/db/migration/V21__workspace_schema_migration_worker_leases.sql",
+            "/db/migration/V22__workspace_staged_migration_scope_integrity.sql",
+            "/db/migration/V23__workspace_page_comment_threads.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -84,6 +92,54 @@ class JdbcWorkspaceStorePostgresTest {
         String password = System.getenv("NUMOU_WORKSPACE_TEST_DB_PASSWORD");
         try (Connection c = connect(jdbcUrl, user, password); Statement s = c.createStatement()) {
             s.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+        }
+    }
+
+    @Test
+    void pageCommentThreadWritesAndAuditAreAtomicAndTenantScoped() {
+        Instant now = Instant.parse("2026-10-30T00:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Comments", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Discussion", List.of(), now);
+        PageRevision revision = PageRevision.snapshot(page, actor, now, "Created");
+        assertTrue(store.saveWithRevision(page, revision, 0));
+
+        PageCommentThread thread = PageCommentThread.open(tenant, page.id(), actor, "Please review.", now);
+        AuditEntry createdAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", thread.id(), 1, page.title(), now);
+        assertTrue(store.createThread(thread, createdAudit));
+        assertEquals(1, store.findThread(tenant, page.id(), thread.id()).orElseThrow().comments().size());
+
+        PageComment reply = PageComment.reply(tenant, page.id(), thread.id(),
+                thread.comments().get(0).id(), actor, "Reviewed.", now.plusSeconds(1));
+        AuditEntry replyAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_REPLIED",
+                "PAGE_COMMENT", reply.id(), 0, page.title(), now.plusSeconds(1));
+        assertTrue(store.appendComment(tenant, page.id(), thread.id(), reply, replyAudit));
+        assertEquals(2, store.findThreads(tenant, page.id()).get(0).comments().size());
+        assertTrue(store.findThread(UUID.randomUUID(), page.id(), thread.id()).isEmpty());
+
+        PageCommentThread resolved = thread.withComments(List.of(thread.comments().get(0), reply))
+                .resolve(actor, now.plusSeconds(2));
+        AuditEntry resolvedAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_RESOLVED",
+                "PAGE_COMMENT_THREAD", thread.id(), 2, page.title(), now.plusSeconds(2));
+        assertTrue(store.updateThreadResolution(resolved, 1, resolvedAudit));
+        assertTrue(store.findThread(tenant, page.id(), thread.id()).orElseThrow().resolved());
+        assertFalse(store.updateThreadResolution(resolved, 1, resolvedAudit),
+                "stale resolution updates must fail their revision compare-and-set");
+
+        try (Connection connection = dataSource.getConnection();
+             var query = connection.prepareStatement(
+                     "SELECT count(*) FROM workspace_audit_events WHERE tenant_id=? AND resource_type IN ('PAGE_COMMENT','PAGE_COMMENT_THREAD')")) {
+            query.setObject(1, tenant);
+            try (var result = query.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(3, result.getLong(1));
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("could not verify comment audit rows", e);
         }
     }
 
