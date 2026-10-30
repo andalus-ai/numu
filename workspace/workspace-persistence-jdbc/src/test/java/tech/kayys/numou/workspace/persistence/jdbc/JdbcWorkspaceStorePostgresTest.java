@@ -115,6 +115,17 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.createThread(thread, createdAudit));
         assertEquals(1, store.findThread(tenant, page.id(), thread.id()).orElseThrow().comments().size());
         assertEquals(anchorBlock.id(), store.findThread(tenant, page.id(), thread.id()).orElseThrow().anchorBlockId());
+        try (Connection connection = dataSource.getConnection();
+             var deleteBlock = connection.prepareStatement(
+                     "DELETE FROM workspace_page_blocks WHERE tenant_id=? AND page_id=? AND block_id=?")) {
+            deleteBlock.setObject(1, tenant); deleteBlock.setObject(2, page.id());
+            deleteBlock.setObject(3, anchorBlock.id());
+            assertEquals(1, deleteBlock.executeUpdate());
+        } catch (SQLException e) {
+            throw new IllegalStateException("could not remove test anchor block", e);
+        }
+        assertEquals(anchorBlock.id(), store.findThread(tenant, page.id(), thread.id()).orElseThrow().anchorBlockId(),
+                "comment history must survive deletion of its anchored block");
 
         PageComment reply = PageComment.reply(tenant, page.id(), thread.id(),
                 thread.comments().get(0).id(), actor, "Reviewed.", now.plusSeconds(1));
