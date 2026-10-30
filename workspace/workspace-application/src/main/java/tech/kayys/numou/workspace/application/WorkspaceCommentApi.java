@@ -59,8 +59,8 @@ public final class WorkspaceCommentApi {
 
     public List<WorkspaceMentionDirectory.Member> suggestMentions(UUID pageId, String query, int limit) {
         Objects.requireNonNull(pageId, "pageId");
-        if (mentions == null) return List.of();
         var actor = currentActor();
+        if (mentions == null) return List.of();
         return call(() -> mentions.suggest(actor.tenantId(), actor.actorId(), pageId, query, limit));
     }
 
