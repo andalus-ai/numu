@@ -172,6 +172,10 @@ public class SyirkahApi {
         return name == null || name.isBlank() ? "Syirkah " + id : name;
     }
 
+    public List<LifecycleRecordView> lifecycleRecords(String id) {
+        return service.lifecycleRecords(tenant(), sid(id)).stream().map(SyirkahDtos::lifecycleRecord).toList();
+    }
+
     public StaffView engageStaff(String id, StaffRequest r) {
         if (staff == null) {
             throw new IllegalStateException("staff contracts are not configured");

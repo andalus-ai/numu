@@ -207,6 +207,12 @@ public class SyirkahApplicationService {
         return mutate(c.tenant(), c.id(), s -> s.liquidate(c.input(), c.fault(), now()));
     }
 
+    /** The records behind each lifecycle change of a syirkah, oldest akad version first. */
+    public java.util.List<LifecycleRecordPort.Recorded> lifecycleRecords(TenantId tenant, SyirkahId id) {
+        load(tenant, id);
+        return lifecycle == null ? java.util.List.of() : lifecycle.list(tenant, id);
+    }
+
     public Syirkah get(TenantId tenant, SyirkahId id) {
         return load(tenant, id);
     }
