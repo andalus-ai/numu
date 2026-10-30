@@ -38,6 +38,7 @@
         <module>event-application</module>
         <module>event-spi</module>
         <module>event-adapter</module>
+        <module>event-adapter-kafka</module>
     </modules>
 
 </project>
