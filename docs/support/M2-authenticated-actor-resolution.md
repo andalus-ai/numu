@@ -27,7 +27,7 @@ Support consumes the shared Identity, Security, and Ecosystem capabilities. It d
 
 ## Runtime composition requirement
 
-The `support-adapter` module composes the Identity adapter, Security adapter, and Ecosystem JDBC persistence adapter. The host application must apply the Ecosystem migration before using identity associations. Portal workflows additionally require a concrete `SupportPartyParticipantResolver` that reads the authoritative tenant-to-Party-to-Participant relationship. If it is not installed, portal actor resolution fails closed; staff actor resolution remains available.
+The `support-adapter` module composes the Identity adapter, Security adapter, and Ecosystem JDBC persistence adapter. The host application must apply Ecosystem migrations V1–V3 before using identity and Party–Participant associations. `DefaultSupportPartyParticipantResolver` reads active Party–Participant associations using both the verified tenant and linked Party. It maps CUSTOMER and PARTNER only; unsupported roles, future-effective relationships, missing records, and multiple supported relationships fail closed. If the resolver bean is not installed, portal actor resolution fails closed; staff actor resolution remains available.
 
 ## Initial permission codes
 
