@@ -77,6 +77,14 @@ public class PgConsultancyEvidenceOperationStore implements ConsultancyEvidenceO
                       operation.locked_until
             """;
 
+    private static final String RENEW_LEASE = """
+            UPDATE construction_consultancy_evidence_operation
+               SET locked_until = $4, updated_at = $3
+             WHERE tenant_id = $1 AND operation_id = $2 AND lease_token = $5
+               AND locked_until > $3 AND status IN ('PENDING', 'RETRYABLE_FAILURE')
+            RETURNING worker_id, lease_token, locked_until
+            """;
+
     private static final String MARK_LINKED = """
             UPDATE construction_consultancy_evidence_operation
                SET status = 'LINKED', last_failure = NULL,
