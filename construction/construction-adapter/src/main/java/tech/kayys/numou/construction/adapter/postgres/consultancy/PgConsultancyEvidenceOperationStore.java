@@ -120,18 +120,20 @@ public class PgConsultancyEvidenceOperationStore implements ConsultancyEvidenceO
                 operation.deliverableId(), operation.documentId(), operation.documentVersionId(),
                 operation.relationship(), operation.requestedBy(), toOffsetDateTime(operation.createdAt()),
                 toOffsetDateTime(operation.createdAt())))
-                .map(rows -> rows.iterator().hasNext() ? Optional.of(map(rows.iterator().next())) : Optional.<ConsultancyEvidenceOperation>empty())
-                .chain(inserted -> inserted.<Uni<ConsultancyEvidenceOperation>>map(Uni.createFrom()::item)
-                        .orElseGet(() -> findByIdempotencyKey(operation.tenantId(), operation.idempotencyKey())
-                                .map(existing -> existing.orElseThrow(() ->
-                                        new IllegalStateException("Idempotent evidence operation disappeared after conflict")))
-                                .map(existing -> {
-                                    if (!sameRequest(existing, operation)) {
-                                        throw new EvidenceIdempotencyConflictException(
-                                                "Idempotency key is already used for a different evidence attachment request");
-                                    }
-                                    return existing;
-                                })));
+                .map(rows -> rows.iterator().hasNext() ? map(rows.iterator().next()) : null)
+                .chain(inserted -> {
+                    if (inserted != null) return Uni.createFrom().item(inserted);
+                    return findByIdempotencyKey(operation.tenantId(), operation.idempotencyKey())
+                            .map(existing -> existing.orElseThrow(() ->
+                                    new IllegalStateException("Idempotent evidence operation disappeared after conflict")))
+                            .map(existing -> {
+                                if (!sameRequest(existing, operation)) {
+                                    throw new EvidenceIdempotencyConflictException(
+                                            "Idempotency key is already used for a different evidence attachment request");
+                                }
+                                return existing;
+                            });
+                });
     }
 
     @Override
