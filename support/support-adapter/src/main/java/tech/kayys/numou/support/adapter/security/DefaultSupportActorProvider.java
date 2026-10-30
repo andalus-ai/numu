@@ -133,34 +133,26 @@ public class DefaultSupportActorProvider implements SupportActorProvider {
                     if (link == null || link.isEmpty() || partyParticipants == null) {
                         return denied();
                     }
-                    return partyParticipants.resolve(tenant, link.get().partyId()).chain(this::portalActor);
+                    return partyParticipants.resolve(tenant, link.get().partyId())
+                            .chain(resolved -> portalActor(tenant, principal, resolved));
                 });
     }
 
-    private Uni<ActorContext> portalActor(Optional<SupportPartyContext> resolved) {
+    private Uni<ActorContext> portalActor(
+            TenantId tenant, Principal principal, Optional<SupportPartyContext> resolved) {
         if (resolved == null || resolved.isEmpty()) {
             return denied();
         }
         SupportPartyContext party = resolved.get();
         if (party.requesterRole() == RequesterRole.CUSTOMER) {
             return Uni.createFrom().item(new ActorContext(
-                    currentTenant(), ActorType.CUSTOMER, currentUser(), party.participantId()));
+                    tenant, ActorType.CUSTOMER, principal.userId(), party.participantId()));
         }
         if (party.requesterRole() == RequesterRole.PARTNER) {
             return Uni.createFrom().item(new ActorContext(
-                    currentTenant(), ActorType.PARTNER, currentUser(), party.participantId()));
+                    tenant, ActorType.PARTNER, principal.userId(), party.participantId()));
         }
         return denied();
-    }
-
-    private TenantId currentTenant() {
-        return TenantId.of(currentSecurity.require().tenantId());
-    }
-
-    private tech.kayys.numou.identity.domain.user.UserId currentUser() {
-        // currentActor() only reaches portalActor after the current principal and membership
-        // have been verified. Re-read the principal from the same request-scoped port.
-        throw new IllegalStateException("unreachable");
     }
 
     private static boolean hasAny(Set<String> grants, String... required) {
