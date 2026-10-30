@@ -83,6 +83,10 @@ public class PostgresSettlementBatchRepository implements SettlementBatchReposit
                     validateAndLockPayout(connection, proposed, item);
                 }
                 insertItemsAndReservations(connection, proposed, orderedItems);
+                AffiliateEventWriter.append(connection, proposed.tenantId(), "SETTLEMENT_BATCH", proposed.id(),
+                        "SettlementBatchCreated", proposed.createdBy(), null,
+                        "settlement-batch:" + proposed.id() + ":created",
+                        AffiliateEventWriter.json(proposed.status().name(), proposed.version()), proposed.createdAt());
                 connection.commit();
                 return CompletableFuture.completedFuture(proposed);
             } catch (RuntimeException | SQLException e) {
