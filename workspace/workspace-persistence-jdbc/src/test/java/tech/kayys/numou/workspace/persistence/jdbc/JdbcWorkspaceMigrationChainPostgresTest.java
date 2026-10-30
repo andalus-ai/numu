@@ -47,7 +47,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             "V19__workspace_saved_view_revision.sql",
             "V20__workspace_staged_schema_migrations.sql",
             "V21__workspace_schema_migration_worker_leases.sql",
-            "V22__workspace_staged_migration_scope_integrity.sql"
+            "V22__workspace_staged_migration_scope_integrity.sql",
+            "V23__workspace_page_comment_threads.sql"
     );
 
     @Test
@@ -82,6 +83,11 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             assertTrue(constraintExists(connection, "fk_workspace_schema_migration_record_job_scope"));
             assertTrue(constraintExists(connection, "fk_workspace_schema_migration_record_source_scope"));
             assertTrue(indexExists(connection, "ix_workspace_schema_migration_records_table"));
+            assertTrue(tableExists(connection, "workspace_page_comment_threads"));
+            assertTrue(tableExists(connection, "workspace_page_comments"));
+            assertTrue(indexExists(connection, "uq_workspace_page_comment_root"));
+            assertTrue(indexExists(connection, "ix_workspace_page_comments_thread"));
+            assertTrue(constraintExists(connection, "trg_workspace_page_comments_append_only"));
             assertTrue(columnExists(connection, "workspace_database_views", "group_by_property"));
             assertTrue(columnExists(connection, "workspace_database_views", "revision"));
             assertTrue(constraintExists(connection, "ck_workspace_database_view_revision_positive"));
@@ -91,6 +97,74 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             assertTrue(indexExists(connection, "ix_workspace_database_records_data"));
             assertTrue(constraintExists(connection, "fk_workspace_database_record_table"));
             assertTrue(constraintExists(connection, "trg_workspace_audit_resource_integrity"));
+        }
+    }
+
+    @Test
+    void commentEntriesAreAppendOnlyWhileThreadResolutionRemainsMutable() throws SQLException, IOException {
+        DataSource dataSource = dataSource();
+        try (Connection connection = dataSource.getConnection()) {
+            for (String migration : MIGRATIONS) {
+                String sql = readMigration(migration);
+                for (String statementSql : JdbcWorkspaceStorePostgresTest.splitSqlStatements(sql)) {
+                    try (Statement statement = connection.createStatement()) {
+                        statement.execute(statementSql);
+                    }
+                }
+            }
+        }
+
+        UUID tenant = java.util.UUID.randomUUID();
+        UUID workspace = java.util.UUID.randomUUID();
+        UUID space = java.util.UUID.randomUUID();
+        UUID page = java.util.UUID.randomUUID();
+        UUID thread = java.util.UUID.randomUUID();
+        UUID comment = java.util.UUID.randomUUID();
+        UUID actor = java.util.UUID.randomUUID();
+        Instant now = Instant.parse("2026-10-30T00:00:00Z");
+        try (Connection connection = dataSource.getConnection()) {
+            try (var insert = connection.prepareStatement(
+                    "INSERT INTO workspace_workspaces(id,tenant_id,name,description,created_at) VALUES(?,?,?,?,?)")) {
+                insert.setObject(1, workspace); insert.setObject(2, tenant); insert.setString(3, "Comments");
+                insert.setString(4, ""); insert.setTimestamp(5, java.sql.Timestamp.from(now)); insert.executeUpdate();
+            }
+            try (var insert = connection.prepareStatement(
+                    "INSERT INTO workspace_spaces(id,tenant_id,workspace_id,name,slug,created_at) VALUES(?,?,?,?,?,?)")) {
+                insert.setObject(1, space); insert.setObject(2, tenant); insert.setObject(3, workspace);
+                insert.setString(4, "General"); insert.setString(5, "general");
+                insert.setTimestamp(6, java.sql.Timestamp.from(now)); insert.executeUpdate();
+            }
+            try (var insert = connection.prepareStatement(
+                    "INSERT INTO workspace_pages(id,tenant_id,workspace_id,space_id,title,revision,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)")) {
+                insert.setObject(1, page); insert.setObject(2, tenant); insert.setObject(3, workspace);
+                insert.setObject(4, space); insert.setString(5, "Page");
+                insert.setTimestamp(6, java.sql.Timestamp.from(now)); insert.setTimestamp(7, java.sql.Timestamp.from(now));
+                insert.executeUpdate();
+            }
+            try (var insert = connection.prepareStatement(
+                    "INSERT INTO workspace_page_comment_threads(id,tenant_id,page_id,created_at,updated_at) VALUES(?,?,?,?,?)")) {
+                insert.setObject(1, thread); insert.setObject(2, tenant); insert.setObject(3, page);
+                insert.setTimestamp(4, java.sql.Timestamp.from(now)); insert.setTimestamp(5, java.sql.Timestamp.from(now));
+                insert.executeUpdate();
+            }
+            try (var insert = connection.prepareStatement(
+                    "INSERT INTO workspace_page_comments(id,tenant_id,page_id,thread_id,author_id,body,created_at) VALUES(?,?,?,?,?,?,?)")) {
+                insert.setObject(1, comment); insert.setObject(2, tenant); insert.setObject(3, page);
+                insert.setObject(4, thread); insert.setObject(5, actor); insert.setString(6, "Review this");
+                insert.setTimestamp(7, java.sql.Timestamp.from(now)); insert.executeUpdate();
+            }
+            try (var update = connection.prepareStatement(
+                    "UPDATE workspace_page_comments SET body='rewritten' WHERE tenant_id=? AND id=?")) {
+                update.setObject(1, tenant); update.setObject(2, comment);
+                assertThrows(SQLException.class, update::executeUpdate);
+            }
+            try (var update = connection.prepareStatement(
+                    "UPDATE workspace_page_comment_threads SET resolved=true,revision=2,resolved_by=?,resolved_at=?,updated_at=? WHERE tenant_id=? AND page_id=? AND id=? AND revision=1")) {
+                update.setObject(1, actor); update.setTimestamp(2, java.sql.Timestamp.from(now));
+                update.setTimestamp(3, java.sql.Timestamp.from(now)); update.setObject(4, tenant);
+                update.setObject(5, page); update.setObject(6, thread);
+                assertEquals(1, update.executeUpdate());
+            }
         }
     }
 
