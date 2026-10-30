@@ -8,7 +8,7 @@ An optional browser client for the workspace REST capability. It is separate fro
 - Restore the last selected workspace and space after a browser reload.
 - Create a workspace, a space, and a page through the real API.
 - Browse root pages in the selected space and open a page.
-- Edit page title and paragraph text with an optimistic `expectedRevision` guard.
+- Edit page title and typed content blocks (headings, paragraphs, lists, to-dos, quotes, callouts, code, tables, toggles, and dividers) with an optimistic `expectedRevision` guard.\n- Add, remove, and reorder blocks while preserving stable block IDs and opaque file/domain-reference blocks.
 - Inspect page history and restore a prior revision as a new revision.
 - Search pages and create pages from templates.
 - Show safe network, authorization/not-found, server, and revision-conflict errors.
@@ -39,4 +39,4 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 
 The client restores the last selected workspace and space from tenant-authorized server listings. It currently selects the first accessible workspace/space when the saved selection is no longer available; a full multi-workspace switcher remains follow-up work.
 
-Page editing currently presents paragraph blocks as plain text. It is not a full structured block editor. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
+The editor supports the block types currently defined by the workspace domain. File attachments and domain-reference blocks remain visible and preserved as opaque records; uploading files or editing domain-owned references belongs to their respective capabilities. Nested block trees, collaborative cursors, and richer table-cell semantics remain follow-up work. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
