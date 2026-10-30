@@ -32,9 +32,18 @@ public record PageCommentThread(
         if (comments.isEmpty()) throw new IllegalArgumentException("thread must contain its root comment");
         long roots = comments.stream().filter(comment -> comment.parentCommentId() == null).count();
         if (roots != 1) throw new IllegalArgumentException("thread must contain exactly one root comment");
-        if (comments.stream().anyMatch(comment -> !tenantId.equals(comment.tenantId())
-                || !pageId.equals(comment.pageId()) || !id.equals(comment.threadId()))) {
-            throw new IllegalArgumentException("thread comments must share tenant, page, and thread scope");
+        Set<UUID> commentIds = new java.util.HashSet<>();
+        for (PageComment comment : comments) {
+            if (!tenantId.equals(comment.tenantId()) || !pageId.equals(comment.pageId())
+                    || !id.equals(comment.threadId())) {
+                throw new IllegalArgumentException("thread comments must share tenant, page, and thread scope");
+            }
+            if (!commentIds.add(comment.id())) throw new IllegalArgumentException("duplicate comment id");
+        }
+        for (PageComment comment : comments) {
+            if (comment.parentCommentId() != null && !commentIds.contains(comment.parentCommentId())) {
+                throw new IllegalArgumentException("reply parent must belong to the same thread");
+            }
         }
     }
 
