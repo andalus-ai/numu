@@ -67,3 +67,29 @@ Supply a `PushTokenProtector` whose key provider is backed by the deployment's m
 - Repeat batches until `BatchResult.complete()` is true. Then independently query for legacy or malformed token-storage rows and verify the count is zero before enabling external delivery.
 - The migrator does not provision keys, verify KMS recovery, or enable provider delivery. Those remain host deployment responsibilities. Back up the database securely and test key recovery before migration; loss of the encryption key makes migrated tokens unusable.
 - If migration repeatedly fails, stop and investigate using batch IDs and sanitized diagnostics in a separately authorized maintenance procedure. Do not add plaintext fallback behavior to the repository or worker.
+
+
+## N7 — provider resilience and operational boundaries
+
+Hosts may wrap a concrete `NotificationDeliveryProvider` with `ResilientNotificationDeliveryProvider` before composing the delivery worker. The decorator adds:
+
+- A consecutive retryable-failure circuit breaker with configurable threshold and open duration.
+- A single half-open recovery probe; concurrent calls while the probe is in flight are rejected with a bounded retryable code.
+- A bounded fixed-window request limiter to prevent a single process from flooding an unhealthy or quota-limited provider.
+- Sanitized error handling: thrown provider exceptions become `provider_error`; exception messages and provider response bodies are never propagated or persisted.
+- Stable provider identity: the decorator preserves the wrapped provider's `providerCode()`.
+
+This limiter and circuit breaker are intentionally **process-local**. They protect each application instance but do not coordinate quotas across replicas, regions, or multiple tenants sharing one provider account. A production host must also enforce provider-account limits at a shared gateway or provider adapter, and should scope independent decorators by provider account/credential where quotas differ. Configure provider HTTP connect/read/request timeouts below the delivery-job lease duration, leaving enough time for the worker to persist its result. The worker's retry policy remains the durable retry authority.
+
+The existing `PushTokenKeyProvider` is the key-management SPI for push-token encryption. Production composition must supply a KMS/secret-manager-backed implementation with active-key selection, historical-key lookup, rotation, access control, and recovery procedures. The notification capability does not contain a cloud-vendor SDK or provision keys itself. Provider account credentials must likewise be resolved from the host's secret manager at send time; never place credentials in notification rows, job payloads, logs, or source-controlled configuration.
+
+The legacy `notification/draft` FCM, WebSocket, registration, and resource code remains a migration reference, not a second runtime. Provider-specific functionality should be ported behind the current provider-neutral application port and covered by adapter contract tests before any draft endpoint or service is enabled.
+
+### N7 acceptance gates
+
+1. Circuit breaker opens only after configured retryable provider failures and permits one half-open probe after the cooldown.
+2. Local rate limiting is bounded and reports a safe retryable code without invoking the provider.
+3. Exceptions are normalized; credentials, tokens, message content, and raw provider responses are not surfaced.
+4. Multi-replica/provider-account quotas are enforced by host-level shared infrastructure, not assumed from this in-process decorator.
+5. Concrete FCM/APNs/Web Push adapters use bounded timeouts, host-managed credentials, provider response classification, and contract tests.
+6. Key rotation and recovery are verified in the deployment environment before external push delivery is enabled.
