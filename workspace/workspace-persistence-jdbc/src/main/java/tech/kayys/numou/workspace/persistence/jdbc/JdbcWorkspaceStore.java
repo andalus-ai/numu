@@ -12,7 +12,7 @@ import java.util.*;
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
  * Configure a pooled DataSource in the host application. All resource reads are tenant-scoped.
  */
-public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink, AuditedMutationRepository {
+public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink, AuditedMutationRepository, AuditedPageCommentRepository {
     private final DataSource dataSource;
 
     public JdbcWorkspaceStore(DataSource dataSource) { this.dataSource = Objects.requireNonNull(dataSource, "dataSource"); }
@@ -452,6 +452,146 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
                 if (p.executeUpdate() != 1) return false;
             }
             insertAudit(c, audit); return true;
+        });
+    }
+
+
+    @Override public Optional<PageCommentThread> findThread(UUID tenantId, UUID pageId, UUID threadId) {
+        String sql = "SELECT id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
+                "FROM workspace_page_comment_threads WHERE tenant_id=? AND page_id=? AND id=?";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, pageId); p.setObject(3, threadId);
+            try (ResultSet r = p.executeQuery()) {
+                return r.next() ? Optional.of(readCommentThread(c, r)) : Optional.empty();
+            }
+        } catch (SQLException e) { throw failure("find page comment thread", e); }
+    }
+
+    @Override public List<PageCommentThread> findThreads(UUID tenantId, UUID pageId) {
+        String sql = "SELECT id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
+                "FROM workspace_page_comment_threads WHERE tenant_id=? AND page_id=? ORDER BY created_at DESC,id";
+        try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, pageId);
+            List<PageCommentThread> result = new ArrayList<>();
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) result.add(readCommentThread(c, r));
+            }
+            return List.copyOf(result);
+        } catch (SQLException e) { throw failure("list page comment threads", e); }
+    }
+
+    private PageCommentThread readCommentThread(Connection c, ResultSet r) throws SQLException {
+        UUID id = uuid(r, 1), tenant = uuid(r, 2), page = uuid(r, 3);
+        boolean resolved = r.getBoolean(4);
+        long revision = r.getLong(5);
+        Object resolverValue = r.getObject(6);
+        UUID resolver = resolverValue == null ? null : uuid(r, 6);
+        Instant resolvedAt = r.getTimestamp(7) == null ? null : instant(r, 7);
+        Instant created = instant(r, 8), updated = instant(r, 9);
+        List<PageComment> entries = new ArrayList<>();
+        String commentsSql = "SELECT id,tenant_id,page_id,thread_id,parent_comment_id,author_id,body,created_at " +
+                "FROM workspace_page_comments WHERE tenant_id=? AND page_id=? AND thread_id=? ORDER BY CASE WHEN parent_comment_id IS NULL THEN 0 ELSE 1 END,created_at,id";
+        try (PreparedStatement p = c.prepareStatement(commentsSql)) {
+            p.setObject(1, tenant); p.setObject(2, page); p.setObject(3, id);
+            try (ResultSet rows = p.executeQuery()) {
+                while (rows.next()) {
+                    Object parentValue = rows.getObject(5);
+                    entries.add(new PageComment(uuid(rows, 1), uuid(rows, 2), uuid(rows, 3), uuid(rows, 4),
+                            parentValue == null ? null : uuid(rows, 5), uuid(rows, 6),
+                            rows.getString(7), instant(rows, 8)));
+                }
+            }
+        }
+        return new PageCommentThread(id, tenant, page, resolved, revision, resolver,
+                resolvedAt, created, updated, entries);
+    }
+
+    @Override public boolean createThread(PageCommentThread thread, AuditEntry audit) {
+        PageComment root = thread.comments().stream().filter(comment -> comment.parentCommentId() == null)
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("thread root comment is required"));
+        validateAudit(audit, thread.tenantId(), thread.id(), "PAGE_COMMENT_THREAD",
+                "PAGE_COMMENT_THREAD_CREATED", thread.revision(), root.authorId());
+        if (thread.resolved() || thread.revision() != 1 || !root.threadId().equals(thread.id())
+                || !root.pageId().equals(thread.pageId()) || !root.tenantId().equals(thread.tenantId())) {
+            throw new IllegalArgumentException("invalid initial comment thread");
+        }
+        return atomicMutation("create page comment thread with audit", c -> {
+            String insertThread = "INSERT INTO workspace_page_comment_threads(id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at) VALUES(?,?,?,false,1,NULL,NULL,?,?)";
+            try (PreparedStatement p = c.prepareStatement(insertThread)) {
+                p.setObject(1, thread.id()); p.setObject(2, thread.tenantId()); p.setObject(3, thread.pageId());
+                p.setTimestamp(4, Timestamp.from(thread.createdAt())); p.setTimestamp(5, Timestamp.from(thread.updatedAt()));
+                p.executeUpdate();
+            }
+            insertPageComment(c, root);
+            insertAudit(c, audit);
+            return true;
+        });
+    }
+
+    @Override public boolean appendComment(UUID tenantId, UUID pageId, UUID threadId,
+                                           PageComment comment, AuditEntry audit) {
+        validateAudit(audit, tenantId, comment.id(), "PAGE_COMMENT", "PAGE_COMMENT_REPLIED", 0, comment.authorId());
+        if (!tenantId.equals(comment.tenantId()) || !pageId.equals(comment.pageId())
+                || !threadId.equals(comment.threadId()) || comment.parentCommentId() == null) {
+            throw new IllegalArgumentException("reply scope or parent is invalid");
+        }
+        return atomicMutation("append page comment with audit", c -> {
+            String lock = "SELECT resolved FROM workspace_page_comment_threads WHERE tenant_id=? AND page_id=? AND id=? FOR UPDATE";
+            try (PreparedStatement p = c.prepareStatement(lock)) {
+                p.setObject(1, tenantId); p.setObject(2, pageId); p.setObject(3, threadId);
+                try (ResultSet r = p.executeQuery()) {
+                    if (!r.next() || r.getBoolean(1)) return false;
+                }
+            }
+            String parent = "SELECT 1 FROM workspace_page_comments WHERE tenant_id=? AND page_id=? AND thread_id=? AND id=?";
+            try (PreparedStatement p = c.prepareStatement(parent)) {
+                p.setObject(1, tenantId); p.setObject(2, pageId); p.setObject(3, threadId);
+                p.setObject(4, comment.parentCommentId());
+                try (ResultSet r = p.executeQuery()) { if (!r.next()) return false; }
+            }
+            insertPageComment(c, comment);
+            try (PreparedStatement update = c.prepareStatement(
+                    "UPDATE workspace_page_comment_threads SET updated_at=GREATEST(updated_at,?) WHERE tenant_id=? AND page_id=? AND id=?")) {
+                update.setTimestamp(1, Timestamp.from(comment.createdAt()));
+                update.setObject(2, tenantId); update.setObject(3, pageId); update.setObject(4, threadId);
+                if (update.executeUpdate() != 1) return false;
+            }
+            insertAudit(c, audit);
+            return true;
+        });
+    }
+
+    private void insertPageComment(Connection c, PageComment comment) throws SQLException {
+        String sql = "INSERT INTO workspace_page_comments(id,tenant_id,page_id,thread_id,parent_comment_id,author_id,body,created_at) VALUES(?,?,?,?,?,?,?,?)";
+        try (PreparedStatement p = c.prepareStatement(sql)) {
+            p.setObject(1, comment.id()); p.setObject(2, comment.tenantId()); p.setObject(3, comment.pageId());
+            p.setObject(4, comment.threadId()); p.setObject(5, comment.parentCommentId());
+            p.setObject(6, comment.authorId()); p.setString(7, comment.body());
+            p.setTimestamp(8, Timestamp.from(comment.createdAt())); p.executeUpdate();
+        }
+    }
+
+    @Override public boolean updateThreadResolution(PageCommentThread thread, long expectedRevision, AuditEntry audit) {
+        String action = thread.resolved() ? "PAGE_COMMENT_THREAD_RESOLVED" : "PAGE_COMMENT_THREAD_REOPENED";
+        validateAudit(audit, thread.tenantId(), thread.id(), "PAGE_COMMENT_THREAD",
+                action, thread.revision(), audit.actorId());
+        if (expectedRevision < 1 || thread.revision() != expectedRevision + 1) {
+            throw new IllegalArgumentException("comment thread revision must advance exactly once");
+        }
+        return atomicMutation("update page comment thread resolution with audit", c -> {
+            String sql = "UPDATE workspace_page_comment_threads SET resolved=?,revision=?,resolved_by=?,resolved_at=?,updated_at=? " +
+                    "WHERE tenant_id=? AND page_id=? AND id=? AND revision=?";
+            try (PreparedStatement p = c.prepareStatement(sql)) {
+                p.setBoolean(1, thread.resolved()); p.setLong(2, thread.revision());
+                p.setObject(3, thread.resolvedBy());
+                if (thread.resolvedAt() == null) p.setNull(4, Types.TIMESTAMP_WITH_TIMEZONE);
+                else p.setTimestamp(4, Timestamp.from(thread.resolvedAt()));
+                p.setTimestamp(5, Timestamp.from(thread.updatedAt())); p.setObject(6, thread.tenantId());
+                p.setObject(7, thread.pageId()); p.setObject(8, thread.id()); p.setLong(9, expectedRevision);
+                if (p.executeUpdate() != 1) return false;
+            }
+            insertAudit(c, audit);
+            return true;
         });
     }
 

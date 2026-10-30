@@ -3,7 +3,7 @@ import { BLOCK_LABELS, EDITABLE_BLOCK_TYPES, createBlock, normalizeBlocks, seria
 const apiBase = document.querySelector('meta[name="numou-api-base"]')?.content || "/api/v1";
 const api = createWorkspaceApi({ baseUrl: apiBase });
 const $ = (selector) => document.querySelector(selector);
-const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
+const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], commentThreads:[], savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
 const ACTIVE_WORKSPACE_KEY = "numou.workspace.activeWorkspaceId";
 const ACTIVE_SPACE_KEY = "numou.workspace.activeSpaceId";
 function readSelection(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -122,7 +122,52 @@ function renderEditor(page) {
   state.savedBlocks=JSON.stringify(serializeBlocks(state.blocks));state.dirty=false;
   $("#editor-title").value=state.savedTitle;renderBlockEditor();
   $("#editor-meta").textContent=`Revision ${state.revision} · Changes are saved when confirmed by the server.`;
-  $("#history-panel").hidden=true;$("#save-button").disabled=true;$("#save-button").textContent="Save changes";showView("editor");
+  $("#history-panel").hidden=true;$("#save-button").disabled=true;$("#save-button").textContent="Save changes";showView("editor");void refreshCommentThreads();
+}
+function renderCommentThreads() {
+  const container=$("#comment-threads");container.replaceChildren();
+  const threads=state.commentThreads;
+  $("#comments-count").textContent=`${threads.length} thread${threads.length===1?"":"s"}`;
+  if(!threads.length){container.append(createElement("p","muted","No comments yet. Start a discussion on this page."));return;}
+  for(const thread of threads){
+    const card=createElement("article","comment-thread");card.dataset.threadId=thread.id;
+    const header=createElement("div","comment-thread-header");
+    const status=createElement("span",thread.resolved?"comment-status resolved":"comment-status",thread.resolved?"Resolved":"Open discussion");
+    const action=createElement("button","button button-quiet",thread.resolved?"Reopen":"Resolve");action.type="button";
+    action.addEventListener("click",async()=>{
+      const pageId=state.page?.id;if(!pageId)return;action.disabled=true;
+      const mutate=thread.resolved?api.reopenCommentThread:api.resolveCommentThread;
+      await runAction(()=>mutate(pageId,thread.id,{expectedRevision:thread.revision}));
+      await refreshCommentThreads();
+    });
+    header.append(status,action);card.append(header);
+    for(const comment of thread.comments||[]){
+      const entry=createElement("article",comment.parentCommentId?"comment-entry comment-reply":"comment-entry");
+      const meta=createElement("div","comment-meta",(comment.parentCommentId?"Reply · ":"Comment · ")+safeText(comment.authorId).slice(0,8));
+      const body=createElement("p","comment-body",safeText(comment.body));
+      const timestamp=createElement("time","comment-time",comment.createdAt?new Date(comment.createdAt).toLocaleString():"");
+      entry.append(meta,body,timestamp);card.append(entry);
+    }
+    const replyForm=createElement("form","comment-reply-form");
+    const replyInput=createElement("textarea","","");replyInput.rows=2;replyInput.maxLength=10000;replyInput.required=true;
+    replyInput.placeholder=thread.resolved?"Reopen this thread to reply…":"Write a reply…";replyInput.disabled=thread.resolved;
+    const replyButton=createElement("button","button button-quiet","Reply");replyButton.type="submit";replyButton.disabled=thread.resolved;
+    replyForm.append(replyInput,replyButton);
+    replyForm.addEventListener("submit",async(event)=>{
+      event.preventDefault();const parent=thread.comments?.[thread.comments.length-1];if(!parent)return;
+      replyButton.disabled=true;
+      const updated=await runAction(()=>api.replyToCommentThread(state.page.id,thread.id,{parentCommentId:parent.id,body:replyInput.value}));
+      if(updated)await refreshCommentThreads();else replyButton.disabled=false;
+    });
+    card.append(replyForm);container.append(card);
+  }
+}
+async function refreshCommentThreads() {
+  const pageId=state.page?.id;if(!pageId)return;
+  const threads=await runAction(()=>api.listCommentThreads(pageId));
+  if(threads===null||state.page?.id!==pageId)return;
+  state.commentThreads=Array.isArray(threads)?threads:[];
+  renderCommentThreads();
 }
 async function refreshPages() { if(!state.space)return; const pages=await runAction(()=>api.listPages(state.space.id)); if(pages)renderPageNavigation(pages); }
 async function openPage(pageId,discardDraft=false) { if(!pageId){showToast("The API response did not include a page ID.");return;} if(state.dirty&&!discardDraft&&!window.confirm("You have unsaved edits. Open another page and discard them?"))return; const page=await runAction(()=>api.getPage(pageId)); if(page)renderEditor(page); }
@@ -134,6 +179,14 @@ function markDirty(){state.dirty=$("#editor-title").value!==state.savedTitle||JS
 $("#add-block-button").addEventListener("click",()=>addBlock($("#new-block-type").value));
 $("#save-button").addEventListener("click",async()=>{if(!state.page||!state.dirty)return;const button=$("#save-button");button.disabled=true;button.textContent="Saving…";const title=$("#editor-title").value.trim();if(!title){showToast("A page title is required.");button.disabled=false;button.textContent="Save changes";return;}const updated=await runAction(()=>api.updatePage(state.page.id,{expectedRevision:state.revision,title,blocks:serializeBlocks(state.blocks),changeSummary:"Updated in workspace web client"}));if(!updated){button.disabled=false;button.textContent="Save changes";return;}renderEditor(updated);showToast("Changes saved.");await refreshPages();});
 $("#history-button").addEventListener("click",async()=>{if(!state.page)return;const history=await runAction(()=>api.getPageHistory(state.page.id));if(!history)return;const panel=$("#history-panel");panel.replaceChildren();const heading=document.createElement("h3");heading.textContent="Page history";panel.append(heading);if(!history.length){const empty=document.createElement("p");empty.className="muted";empty.textContent="No previous revisions are available.";panel.append(empty);}for(const revision of history){const row=document.createElement("div");row.className="history-row";const details=document.createElement("div");const label=document.createElement("strong");const number=revision.revision??revision.revisionNumber;label.textContent=`Revision ${number??"—"}`;const summary=document.createElement("p");summary.textContent=safeText(revision.changeSummary,"Saved page version");details.append(label,summary);row.append(details);const restore=document.createElement("button");restore.type="button";restore.className="button button-quiet";restore.textContent="Restore";restore.addEventListener("click",async()=>{const sourceRevision=Number(number);if(!Number.isFinite(sourceRevision)||!window.confirm(`Restore revision ${sourceRevision} as a new revision?`))return;const restored=await runAction(()=>api.restorePageRevision(state.page.id,{sourceRevision,expectedCurrentRevision:state.revision}),"Revision restored as a new version.");if(restored){renderEditor(restored);panel.hidden=true;await refreshPages();}});row.append(restore);panel.append(row);}panel.hidden=false;});
+$("#comment-form").addEventListener("submit",async(event)=>{
+  event.preventDefault();const pageId=state.page?.id;if(!pageId)return;
+  const body=$("#comment-body").value.trim();if(!body)return;
+  const submit=$("#comment-form").querySelector('button[type="submit"]');submit.disabled=true;
+  const created=await runAction(()=>api.createCommentThread(pageId,{body}));
+  submit.disabled=false;
+  if(created){$("#comment-body").value="";await refreshCommentThreads();}
+});
 $("#search-form").addEventListener("submit",async(event)=>{event.preventDefault();if(!state.workspace){showToast("Create or connect a workspace before searching.");return;}const results=await runAction(()=>api.searchPages(state.workspace.id,$("#search-query").value.trim(),state.space?.id));if(results)renderResults($("#search-results"),results,"No matching pages were found.");});
 function renderResults(container,items,emptyMessage){container.replaceChildren();if(!Array.isArray(items)||items.length===0){const empty=document.createElement("p");empty.className="muted";empty.textContent=emptyMessage;container.append(empty);return;}for(const item of items){const card=document.createElement("article");card.className="result-card";const title=document.createElement("h3");title.textContent=safeText(item.title,"Untitled");const description=document.createElement("p");description.textContent=safeText(item.excerpt||item.description,"Open this page to view its content.");const open=document.createElement("button");open.type="button";open.textContent="Open page →";open.addEventListener("click",()=>openPage(item.id||item.pageId));card.append(title,description,open);container.append(card);}}
 $("#workspace-switcher").addEventListener("change",event=>void switchWorkspace(event.target.value));$("#space-switcher").addEventListener("change",event=>switchSpace(event.target.value));
