@@ -57,8 +57,11 @@ public record PageCommentThread(
     }
 
     public PageCommentThread withComments(List<PageComment> entries) {
+        Instant latestActivity = entries == null ? updatedAt : entries.stream()
+                .map(PageComment::createdAt).max(Instant::compareTo).orElse(updatedAt);
+        Instant activityAt = latestActivity.isAfter(updatedAt) ? latestActivity : updatedAt;
         return new PageCommentThread(id, tenantId, pageId, resolved, revision,
-                resolvedBy, resolvedAt, createdAt, updatedAt, entries);
+                resolvedBy, resolvedAt, createdAt, activityAt, entries);
     }
 
     public PageCommentThread resolve(UUID actorId, Instant now) {
