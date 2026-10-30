@@ -194,6 +194,8 @@ class QueuePostgresCommandTransactionQuarkusTest {
                 new QueueSourceReference("queue-test", "test-command", context.idempotencyKey()), 0, now);
 
         try (Connection connection = dataSource.getConnection();
+             PreparedStatement tenantSetting = connection.prepareStatement(
+                     "SELECT set_config('numou.tenant_id', ?, true)");
              PreparedStatement queueInsert = connection.prepareStatement(
                      "INSERT INTO queue_definition (tenant_id, queue_id, code, display_name, profile, ordering_policy, status) "
                              + "VALUES (?, ?, 'main', 'Main Queue', 'WAITING_SERVICE', 'FIFO', 'ACTIVE') "
@@ -202,6 +204,8 @@ class QueuePostgresCommandTransactionQuarkusTest {
                      "INSERT INTO queue_entry (tenant_id, queue_id, entry_id, profile, source_capability, "
                              + "source_resource_type, source_resource_id, priority, status, entered_at, updated_at) "
                              + "VALUES (?, ?, ?, 'WAITING_SERVICE', 'queue-test', 'test-command', ?, 0, 'WAITING', ?, ?)")) {
+            tenantSetting.setString(1, TENANT.value().toString());
+            tenantSetting.execute();
             queueInsert.setObject(1, TENANT.value());
             queueInsert.setObject(2, QUEUE.value());
             queueInsert.executeUpdate();
