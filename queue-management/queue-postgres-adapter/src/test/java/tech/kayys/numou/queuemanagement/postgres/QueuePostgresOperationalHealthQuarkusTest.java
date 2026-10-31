@@ -111,7 +111,7 @@ class QueuePostgresOperationalHealthQuarkusTest {
 
     private static void setTenant(Connection connection, UUID tenantId) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT set_config('numou.tenant_id', ?, true)")) {
+                "SELECT set_config('numou.tenant_id', ?, false)")) {
             statement.setString(1, tenantId.toString());
             statement.execute();
         }
