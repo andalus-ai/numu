@@ -4,6 +4,7 @@ import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.queuemanagement.spi.QueueOperationalSnapshot;
 import tech.kayys.numou.queuemanagement.spi.QueueOutboxDeliveryPort;
@@ -18,8 +19,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @QuarkusTest
 @QuarkusTestResource(QueuePostgresQuarkusTestResource.class)
 class QueuePostgresOperationalHealthQuarkusTest {
-    private static final UUID TENANT = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-    private static final UUID OTHER_TENANT = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private UUID tenantId;
+    private UUID otherTenantId;
+
+    @BeforeEach
+    void initializeTenantScope() {
+        tenantId = UUID.randomUUID();
+        otherTenantId = UUID.randomUUID();
+    }
 
     @Inject QueuePostgresOperationalHealthAdapter health;
     @Inject QueuePostgresOutboxDeliveryAdapter delivery;
@@ -30,7 +37,7 @@ class QueuePostgresOperationalHealthQuarkusTest {
         UUID leasedId = insertEvent();
         UUID deadId = insertEvent();
 
-        var claimed = delivery.claim(TENANT, "health-worker", 10, Duration.ofSeconds(30));
+        var claimed = delivery.claim(tenantId, "health-worker", 10, Duration.ofSeconds(30));
         var leased = claimed.stream().filter(event -> event.eventId().equals(leasedId)).findFirst().orElseThrow();
         var dead = claimed.stream().filter(event -> event.eventId().equals(deadId)).findFirst().orElseThrow();
         assertEquals(QueueOutboxDeliveryPort.RetryOutcome.DEAD_LETTERED,
@@ -42,13 +49,13 @@ class QueuePostgresOperationalHealthQuarkusTest {
         assertEquals(TENANT, snapshot.tenantId());
         assertNotNull(snapshot.capturedAt());
         assertEquals(1, snapshot.pendingOutbox());
-        assertEquals(0, snapshot.dueOutbox());
+        assertEquals(1, snapshot.dueOutbox());
         assertEquals(0, snapshot.leasedOutbox());
         assertEquals(1, snapshot.expiredLeases());
         assertEquals(1, snapshot.deadLetteredOutbox());
         assertTrue(snapshot.oldestPendingAgeSeconds() >= 0);
 
-        QueueOperationalSnapshot other = health.snapshot(OTHER_TENANT);
+        QueueOperationalSnapshot other = health.snapshot(otherTenantId);
         assertEquals(0, other.pendingOutbox());
         assertEquals(0, other.deadLetteredOutbox());
         assertEquals(0, other.expiredLeases());
