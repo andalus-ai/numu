@@ -127,6 +127,13 @@ public class SyirkahResource {
     }
 
     @POST
+    @Path("/{id}/revisions/preview")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public RevisionPreview previewRevision(@PathParam("id") String id, ReviseRequest request) {
+        return api.previewRevision(id, request);
+    }
+
+    @POST
     @Path("/{id}/closes/preview")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
     public ClosePreview previewClose(@PathParam("id") String id, ClosePeriodRequest request) {
