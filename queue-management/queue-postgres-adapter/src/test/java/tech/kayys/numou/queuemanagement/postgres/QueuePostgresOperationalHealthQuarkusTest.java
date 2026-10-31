@@ -41,12 +41,12 @@ class QueuePostgresOperationalHealthQuarkusTest {
         var leased = claimed.stream().filter(event -> event.eventId().equals(leasedId)).findFirst().orElseThrow();
         var dead = claimed.stream().filter(event -> event.eventId().equals(deadId)).findFirst().orElseThrow();
         assertEquals(QueueOutboxDeliveryPort.RetryOutcome.DEAD_LETTERED,
-                delivery.retry(TENANT, deadId, dead.leaseToken(), Duration.ZERO, 1, "terminal"));
+                delivery.retry(tenantId, deadId, dead.leaseToken(), Duration.ZERO, 1, "terminal"));
 
         expireLease(leasedId);
-        QueueOperationalSnapshot snapshot = health.snapshot(TENANT);
+        QueueOperationalSnapshot snapshot = health.snapshot(tenantId);
 
-        assertEquals(TENANT, snapshot.tenantId());
+        assertEquals(tenantId, snapshot.tenantId());
         assertNotNull(snapshot.capturedAt());
         assertEquals(1, snapshot.pendingOutbox());
         assertEquals(1, snapshot.dueOutbox());
@@ -63,7 +63,7 @@ class QueuePostgresOperationalHealthQuarkusTest {
 
     @Test
     void emptyTenantSnapshotReturnsZeroCounters() {
-        QueueOperationalSnapshot snapshot = health.snapshot(OTHER_TENANT);
+        QueueOperationalSnapshot snapshot = health.snapshot(OTHER_tenantId);
         assertEquals(0, snapshot.waitingEntries());
         assertEquals(0, snapshot.activeEntries());
         assertEquals(0, snapshot.pendingOutbox());
@@ -77,13 +77,13 @@ class QueuePostgresOperationalHealthQuarkusTest {
     private UUID insertEvent() throws Exception {
         UUID id = UUID.randomUUID();
         try (Connection connection = dataSource.getConnection()) {
-            setTenant(connection, TENANT);
+            setTenant(connection, tenantId);
             try (PreparedStatement insert = connection.prepareStatement(
                     "INSERT INTO queue_outbox (event_id, tenant_id, event_type, schema_version, aggregate_type, "
                             + "aggregate_id, correlation_id, occurred_at, payload) "
                             + "VALUES (?, ?, 'QueueHealthTestEvent', 1, 'QUEUE_ENTRY', ?, ?, CURRENT_TIMESTAMP, '{}'::jsonb)")) {
                 insert.setObject(1, id);
-                insert.setObject(2, TENANT);
+                insert.setObject(2, tenantId);
                 insert.setString(3, "entry-" + id);
                 insert.setString(4, "corr-" + id);
                 insert.executeUpdate();
@@ -94,11 +94,11 @@ class QueuePostgresOperationalHealthQuarkusTest {
 
     private void expireLease(UUID eventId) throws Exception {
         try (Connection connection = dataSource.getConnection()) {
-            setTenant(connection, TENANT);
+            setTenant(connection, tenantId);
             try (PreparedStatement update = connection.prepareStatement(
                     "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
                             + "WHERE tenant_id = ? AND event_id = ?")) {
-                update.setObject(1, TENANT);
+                update.setObject(1, tenantId);
                 update.setObject(2, eventId);
                 assertEquals(1, update.executeUpdate());
             }
