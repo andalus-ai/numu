@@ -132,7 +132,7 @@ public class ReservationOutboxRuntime {
                     count(*) FILTER (WHERE status = 'PROCESSING') AS processing_count,
                     count(*) FILTER (WHERE status = 'DEAD') AS dead_count,
                     COALESCE(EXTRACT(EPOCH FROM
-                        (clock_timestamp() - min(occurred_at) FILTER (WHERE status = 'PENDING'))), 0)::bigint
+                        (clock_timestamp() - (min(occurred_at) FILTER (WHERE status = 'PENDING')))), 0)::bigint
                         AS oldest_pending_age_seconds
                   FROM reservation_outbox_event
                 """).execute()
