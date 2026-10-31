@@ -157,3 +157,46 @@ test("suggests tenant-scoped page mention targets using query parameters", async
   assert.equal(calls[0].init.credentials, "same-origin");
   assert.equal(result[0].handle, "amina");
 });
+
+test("uses page-scoped presence heartbeat, listing, and leave endpoints", async () => {
+  const calls = [];
+  const api = createWorkspaceApi({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response(init.method === "DELETE" ? 204 : 200, { pageId: "page-1", users: [] });
+    },
+  });
+
+  await api.listPresence("page / 1");
+  await api.heartbeatPresence("page / 1", "session / 1");
+  await api.leavePresence("page / 1", "session / 1");
+
+  assert.equal(calls[0].url, "/api/v1/pages/page%20%2F%201/presence");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[1].url, "/api/v1/pages/page%20%2F%201/presence/session%20%2F%201/heartbeat");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[2].url, "/api/v1/pages/page%20%2F%201/presence/session%20%2F%201");
+  assert.equal(calls[2].init.method, "DELETE");
+  assert.ok(calls.every(({ init }) => init.credentials === "same-origin"));
+});
+
+test("uses page-scoped presence heartbeat, listing, and leave endpoints", async () => {
+  const calls = [];
+  const api = createWorkspaceApi({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response(init.method === "DELETE" ? 204 : 200, { pageId: "page-1", users: [] });
+    },
+  });
+  await api.listPresence("page / 1");
+  await api.heartbeatPresence("page / 1", "session / 1");
+  await api.leavePresence("page / 1", "session / 1");
+  assert.equal(calls[0].url, "/api/v1/pages/page%20%2F%201/presence");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[1].url, "/api/v1/pages/page%20%2F%201/presence/session%20%2F%201/heartbeat");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].init.body, undefined);
+  assert.equal(calls[2].url, "/api/v1/pages/page%20%2F%201/presence/session%20%2F%201");
+  assert.equal(calls[2].init.method, "DELETE");
+  assert.ok(calls.every(({ init }) => init.credentials === "same-origin"));
+});
