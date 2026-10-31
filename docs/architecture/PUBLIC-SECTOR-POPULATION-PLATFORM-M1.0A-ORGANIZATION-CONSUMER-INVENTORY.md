@@ -1,6 +1,6 @@
 # Public-Sector Platform — M1.0a Organization Convergence Inventory
 
-**Status:** Source-level inventory baseline; not yet complete  
+**Status:** Repository path inventory and core Organization/Party/Tenant contracts inspected; external consumer and production-data evidence remains open  
 **Branch:** `feat/public-sector-platform-m1-0a-inventory`  
 **Scope:** Identify existing Organization/Party identity contracts and the remaining evidence required before changing application code, persistence, APIs, events, or data.
 
@@ -118,6 +118,52 @@ Still establish:
 - tenant creation/ownership/participation flows and tenant query predicates;
 - production data owners, external integrations and authoritative mapping sources;
 - whether any existing OrganizationId values are backed by Party records, based on evidence other than UUID equality.
+
+
+## 5.5 Additional verified repository-tree and adapter evidence
+
+A recursive Git tree read of `feat/public-sector-platform-m1-0a-inventory` returned 13,247 paths with `truncated=false`. This gives a complete path inventory for that branch revision, but not a complete content-level consumer scan.
+
+The following additional files were then fetched and inspected:
+
+| Area | Source | Verified finding |
+|---|---|---|
+| Organization adapter | `organization/organization-adapter/src/main/java/tech/kayys/numou/organization/adapter/memory/InMemoryOrganizationRepository.java` | The concrete Organization repository implementation found in the module is in-memory and uses a ConcurrentHashMap keyed by OrganizationId. |
+| Membership adapter | `organization/organization-adapter/src/main/java/tech/kayys/numou/organization/adapter/memory/InMemoryOrganizationMembershipRepository.java` | In-memory membership storage is keyed by OrganizationMembershipId; duplicate detection is OrganizationId + UserId. |
+| Organization adapter module | `organization/organization-adapter/pom.xml` | Describes in-memory and other secondary adapters; inspected source tree currently contains only in-memory Organization, membership and unit adapters, plus tests. No Organization SQL migration directory or JDBC Organization adapter appears under `organization/` in this branch tree. |
+| Organization creation | `organization/organization-application/src/main/java/tech/kayys/numou/organization/application/command/CreateOrganizationHandler.java` | Generates OrganizationId and creates the aggregate using command TenantId; no Party association is made. |
+| Organization member invitation | `organization/organization-application/src/main/java/tech/kayys/numou/organization/application/command/InviteOrganizationMemberHandler.java` | Validates Organization exists and tenant matches, checks identity UserId exists, then creates OrganizationMembership by OrganizationId + UserId. |
+| Ecosystem Organization repository port | `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/port/OrganizationRepository.java` | Separate port persists Ecosystem Organization profile and looks it up by PartyId. |
+| Ecosystem Organization registration | `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/api/command/RegisterOrganizationHandler.java` | Within EcosystemTransactionRunner, validates Party exists, kind is ORGANIZATION and status is active; rejects an existing profile; saves profile and publishes its domain events. |
+| Ecosystem transaction contract | `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/port/EcosystemTransactionRunner.java` | Requires transaction-scoped context and commit on successful completion / rollback on failure; validation failures represented as successful Result outcomes must not write state. |
+| Canonical Party schema | `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V2__canonical_parties.sql` | Canonical Party table has global PartyId primary key, kind and status; migration comment separates cross-tenant Party identity from tenant membership and external authentication links. |
+| Party identity schema | `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V1__party_identity_associations.sql` | External issuer/subject mapping is tenant-scoped, retains revoked history, and has active-subject uniqueness within tenant. |
+| Party-participant schema | `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V3__party_participant_associations.sql` | Business association is tenant-scoped and links Party to Participant with a role; it is not OrganizationId mapping or tenant membership. |
+| Tenant aggregate | `tenancy/tenancy-domain/src/main/java/tech/kayys/numou/tenancy/domain/tenant/Tenant.java` | Tenant is a separate aggregate with optional OrganizationRef; its comment defines Tenant as the multi-tenancy boundary and keeps membership/settings/provisioning separate. |
+| Tenant membership | `tenancy/tenancy-domain/src/main/java/tech/kayys/numou/tenancy/domain/membership/TenantMembership.java` | Membership is TenantId + UserRef, explicitly separate from authorization and workforce employment; one user may belong to multiple tenants. |
+| Tenant authorization port | `security/security-spi/src/main/java/tech/kayys/numou/security/spi/port/TenantMembershipResolver.java` | Security asks whether a Principal is an active member of a Tenant; it does not establish Organization affiliation. |
+
+### 5.6 What the tree scan establishes — and does not establish
+
+- The top-level Organization module currently exposes repository ports and application handlers, with in-memory adapters in the inspected module tree. This is not evidence of a production Organization database implementation.
+- The Ecosystem Organization profile has an application repository port and transactional registration handler. The inspected Ecosystem persistence tree has JDBC Party repositories and migrations V1–V3, but no JDBC Organization-profile repository implementation or Organization-profile table migration was present in the returned path inventory.
+- The two models are not presently joined by an observed mapping contract in the inspected source tree.
+- The recursive tree confirms relevant paths and missing path patterns for this branch snapshot; it does not prove absence of external consumers, generated clients, deployed schemas, or production records outside this repository.
+- The repository's GitHub code-search endpoint is indexed against the default branch, not this feature branch. Empty search responses therefore remain non-evidence for the branch's complete content.
+
+### 5.7 Updated source-level checklist
+
+- [x] Inspect all files under the top-level `organization/` source tree using the recursive tree inventory.
+- [x] Confirm concrete Organization and membership adapters found in that tree are in-memory.
+- [x] Confirm no Organization migration/JDBC adapter path appears under `organization/` in this branch tree.
+- [x] Inspect Ecosystem Organization repository port and registration handler.
+- [x] Inspect Ecosystem Party migrations V1–V3 and canonical Party table migration.
+- [x] Inspect Tenant aggregate, TenantMembership aggregate and security membership resolver port.
+- [ ] Complete content-level cross-repository call-site and serialized consumer search; GitHub code search is default-branch indexed and cannot close this for the feature branch.
+- [ ] Inspect all Ecosystem persistence Java source and runtime wiring to confirm whether Organization profile persistence is implemented outside the path patterns reviewed.
+- [ ] Inspect REST/API, schema registry, event transport and deployment configuration beyond the Organization/Ecosystem module trees.
+- [ ] Obtain production data and external integration evidence.
+
 
 ## 6. M1.0a closure checklist
 
