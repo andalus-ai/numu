@@ -50,7 +50,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             "V20__workspace_staged_schema_migrations.sql",
             "V21__workspace_schema_migration_worker_leases.sql",
             "V22__workspace_staged_migration_scope_integrity.sql",
-            "V23__workspace_page_comment_threads.sql"
+            "V23__workspace_page_comment_threads.sql",
+            "V24__workspace_comment_block_anchors.sql"
     );
 
     @Test
@@ -87,6 +88,8 @@ class JdbcWorkspaceMigrationChainPostgresTest {
             assertTrue(indexExists(connection, "ix_workspace_schema_migration_records_table"));
             assertTrue(tableExists(connection, "workspace_page_comment_threads"));
             assertTrue(tableExists(connection, "workspace_page_comments"));
+            assertTrue(columnExists(connection, "workspace_page_comment_threads", "anchor_block_id"));
+            assertTrue(indexExists(connection, "ix_workspace_comment_threads_block_anchor"));
             assertTrue(indexExists(connection, "uq_workspace_page_comment_root"));
             assertTrue(indexExists(connection, "ix_workspace_page_comments_thread"));
             assertTrue(constraintExists(connection, "trg_workspace_page_comments_append_only"));

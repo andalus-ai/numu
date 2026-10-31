@@ -3,7 +3,7 @@ import { BLOCK_LABELS, EDITABLE_BLOCK_TYPES, createBlock, normalizeBlocks, seria
 const apiBase = document.querySelector('meta[name="numou-api-base"]')?.content || "/api/v1";
 const api = createWorkspaceApi({ baseUrl: apiBase });
 const $ = (selector) => document.querySelector(selector);
-const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], commentThreads:[], savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
+const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], commentThreads:[], presenceSessionId:null, presencePageId:null, presenceTimer:null, pendingAnchorBlockId:null, savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
 const ACTIVE_WORKSPACE_KEY = "numou.workspace.activeWorkspaceId";
 const ACTIVE_SPACE_KEY = "numou.workspace.activeSpaceId";
 function readSelection(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -42,7 +42,7 @@ function switchSpace(spaceId) {
   const selected=state.spaces.find(item=>item.id===spaceId);if(!selected)return;
   state.space=selected;state.page=null;state.dirty=false;writeSelection(ACTIVE_SPACE_KEY,selected.id);renderWorkspace();renderPageNavigation([]);showView("home");void refreshPages();
 }
-function showView(view) { if(state.dirty&&state.view==="editor"&&view!=="editor"&&!window.confirm("You have unsaved edits. Leave this page without saving?")) return; state.view=view; $("#home-view").hidden=view!=="home"; $("#editor-view").hidden=view!=="editor"; $("#search-view").hidden=view!=="search"; $("#templates-view").hidden=view!=="templates"; for(const [id,target] of [["nav-home","home"],["nav-search","search"],["nav-templates","templates"]]) $("#"+id).classList.toggle("active",view===target); const crumbs=$("#breadcrumbs"); crumbs.replaceChildren(); const first=document.createElement("span"); first.textContent=state.workspace?.name||"Workspace"; const sep=document.createElement("span"); sep.className="crumb-separator"; sep.textContent="/"; const last=document.createElement("strong"); last.textContent=view==="editor"?(state.page?.title||"Untitled"):view==="search"?"Search":view==="templates"?"Templates":"Home"; crumbs.append(first,sep,last); }
+function showView(view) { if(state.dirty&&state.view==="editor"&&view!=="editor"&&!window.confirm("You have unsaved edits. Leave this page without saving?")) return; state.view=view;if(view!=="editor")stopPresence(); $("#home-view").hidden=view!=="home"; $("#editor-view").hidden=view!=="editor"; $("#search-view").hidden=view!=="search"; $("#templates-view").hidden=view!=="templates"; for(const [id,target] of [["nav-home","home"],["nav-search","search"],["nav-templates","templates"]]) $("#"+id).classList.toggle("active",view===target); const crumbs=$("#breadcrumbs"); crumbs.replaceChildren(); const first=document.createElement("span"); first.textContent=state.workspace?.name||"Workspace"; const sep=document.createElement("span"); sep.className="crumb-separator"; sep.textContent="/"; const last=document.createElement("strong"); last.textContent=view==="editor"?(state.page?.title||"Untitled"):view==="search"?"Search":view==="templates"?"Templates":"Home"; crumbs.append(first,sep,last); }
 function renderPageNavigation(pages) { const nav=$("#page-navigation"); nav.replaceChildren(); for(const page of Array.isArray(pages)?pages:[]) { const button=document.createElement("button"); button.type="button"; button.className="page-link"; button.textContent=safeText(page.title,"Untitled page"); button.addEventListener("click",()=>openPage(page.id)); nav.append(button); } }
 function textToBlocks(text) {
   return String(text).split(/\n\s*\n/).filter((paragraph,index,array)=>paragraph.length||index<array.length-1)
@@ -62,13 +62,19 @@ function renderBlockEditor() {
     const typeLabel=createElement("span","block-type-label",BLOCK_LABELS[block.type]||block.type.replaceAll("_"," "));
     toolbar.append(typeLabel);
     const actions=createElement("div","block-actions");
+    const discuss=createElement("button","icon-button","Comment");discuss.type="button";discuss.title="Start a discussion anchored to this block";discuss.setAttribute("aria-label","Comment on this block");
+    discuss.addEventListener("click",()=>{
+      state.pendingAnchorBlockId=block.id;
+      const context=$("#comment-anchor-context");context.textContent=`New discussion anchored to ${BLOCK_LABELS[block.type]||block.type.replaceAll("_"," ")}.`;context.hidden=false;
+      $("#comment-body").focus();$("#comment-body").scrollIntoView({behavior:"smooth",block:"center"});
+    });
     const up=createElement("button","icon-button","↑");up.type="button";up.title="Move block up";up.setAttribute("aria-label","Move block up");up.disabled=index===0;
     up.addEventListener("click",()=>moveBlock(index,-1));
     const down=createElement("button","icon-button","↓");down.type="button";down.title="Move block down";down.setAttribute("aria-label","Move block down");down.disabled=index===state.blocks.length-1;
     down.addEventListener("click",()=>moveBlock(index,1));
     const remove=createElement("button","icon-button block-remove","×");remove.type="button";remove.title="Remove block";remove.setAttribute("aria-label","Remove block");
     remove.addEventListener("click",()=>{state.blocks.splice(index,1);renderBlockEditor();markDirty();});
-    actions.append(up,down,remove);toolbar.append(actions);card.append(toolbar);
+    actions.append(discuss,up,down,remove);toolbar.append(actions);card.append(toolbar);
     if(!EDITABLE_BLOCK_TYPES.includes(block.type)){
       const note=createElement("p","block-readonly",block.type==="FILE"?"File attachment block is preserved; file management is not available in this editor.":"Domain reference is preserved as an opaque domain-owned block.");
       card.append(note);
@@ -118,11 +124,11 @@ function addBlock(type) {
 }
 function renderEditor(page) {
   state.page=page;state.revision=Number(page.revision??page.currentRevision??0);
-  state.savedTitle=safeText(page.title);state.blocks=normalizeBlocks(page.blocks);
+  state.savedTitle=safeText(page.title);state.blocks=normalizeBlocks(page.blocks);state.pendingAnchorBlockId=null;const anchorContext=$("#comment-anchor-context");if(anchorContext){anchorContext.hidden=true;anchorContext.textContent="";}
   state.savedBlocks=JSON.stringify(serializeBlocks(state.blocks));state.dirty=false;
   $("#editor-title").value=state.savedTitle;renderBlockEditor();
   $("#editor-meta").textContent=`Revision ${state.revision} · Changes are saved when confirmed by the server.`;
-  $("#history-panel").hidden=true;$("#save-button").disabled=true;$("#save-button").textContent="Save changes";showView("editor");void refreshCommentThreads();
+  $("#history-panel").hidden=true;$("#save-button").disabled=true;$("#save-button").textContent="Save changes";showView("editor");void refreshCommentThreads();void startPresence(page.id);
 }
 function renderCommentThreads() {
   const container=$("#comment-threads");container.replaceChildren();
@@ -141,6 +147,20 @@ function renderCommentThreads() {
       await refreshCommentThreads();
     });
     header.append(status,action);card.append(header);
+    if(thread.anchorBlockId){
+      const anchoredBlock=state.blocks.find(block=>block.id===thread.anchorBlockId);
+      const anchorRow=createElement("div","comment-anchor-reference");
+      if(anchoredBlock){
+        anchorRow.append(createElement("span","",`On ${BLOCK_LABELS[anchoredBlock.type]||anchoredBlock.type.replaceAll("_"," ")} block`));
+        const jump=createElement("button","button button-quiet","Jump to block");jump.type="button";
+        jump.addEventListener("click",()=>{
+          const target=Array.from($("#block-editor").children).find(element=>element.dataset.blockId===thread.anchorBlockId);
+          if(target){target.scrollIntoView({behavior:"smooth",block:"center"});target.querySelector(".block-content")?.focus();}
+        });
+        anchorRow.append(jump);
+      }else anchorRow.append(createElement("span","comment-anchor-orphan","Original block was removed; discussion history is retained."));
+      card.append(anchorRow);
+    }
     for(const comment of thread.comments||[]){
       const entry=createElement("article",comment.parentCommentId?"comment-entry comment-reply":"comment-entry");
       const meta=createElement("div","comment-meta",(comment.parentCommentId?"Reply · ":"Comment · ")+safeText(comment.authorId).slice(0,8));
@@ -169,6 +189,50 @@ async function refreshCommentThreads() {
   state.commentThreads=Array.isArray(threads)?threads:[];
   renderCommentThreads();
 }
+function renderPresence(snapshot) {
+  const indicator=$("#presence-count");
+  if(!indicator)return;
+  const users=Array.isArray(snapshot?.users)?snapshot.users:[];
+  const sessions=users.reduce((sum,user)=>sum+(Number(user.activeSessions)||0),0);
+  indicator.textContent=users.length===0?"No active members":users.length===1?"1 active member":users.length+" active members";
+  indicator.title=users.length+" active collaborators across "+sessions+" browser sessions";
+  indicator.classList.toggle("presence-active",users.length>0);
+}
+async function refreshPresence(pageId,sessionId) {
+  try {
+    const snapshot=await api.heartbeatPresence(pageId,sessionId);
+    if(state.presencePageId!==pageId||state.presenceSessionId!==sessionId)return;
+    renderPresence(snapshot);
+  } catch {
+    if(state.presencePageId===pageId&&state.presenceSessionId===sessionId) {
+      const indicator=$("#presence-count");
+      if(indicator){indicator.textContent="Presence unavailable";indicator.title="Presence could not be refreshed.";}
+    }
+  }
+}
+async function startPresence(pageId) {
+  stopPresence();
+  if(!pageId||document.visibilityState==="prerender")return;
+  const sessionId=crypto.randomUUID();
+  state.presencePageId=pageId;state.presenceSessionId=sessionId;
+  await refreshPresence(pageId,sessionId);
+  if(state.presencePageId!==pageId||state.presenceSessionId!==sessionId)return;
+  state.presenceTimer=setInterval(()=>{
+    if(document.visibilityState==="visible")void refreshPresence(pageId,sessionId);
+  },20000);
+}
+function stopPresence() {
+  if(state.presenceTimer!==null){clearInterval(state.presenceTimer);state.presenceTimer=null;}
+  const pageId=state.presencePageId,sessionId=state.presenceSessionId;
+  state.presencePageId=null;state.presenceSessionId=null;
+  const indicator=$("#presence-count");
+  if(indicator){indicator.textContent="Presence inactive";indicator.title="Open a page to share presence." ;indicator.classList.remove("presence-active");}
+  if(pageId&&sessionId)void api.leavePresence(pageId,sessionId).catch(()=>{});
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&state.presencePageId&&state.presenceSessionId)
+    void refreshPresence(state.presencePageId,state.presenceSessionId);
+});
 async function refreshPages() { if(!state.space)return; const pages=await runAction(()=>api.listPages(state.space.id)); if(pages)renderPageNavigation(pages); }
 async function openPage(pageId,discardDraft=false) { if(!pageId){showToast("The API response did not include a page ID.");return;} if(state.dirty&&!discardDraft&&!window.confirm("You have unsaved edits. Open another page and discard them?"))return; const page=await runAction(()=>api.getPage(pageId)); if(page)renderEditor(page); }
 forms.workspace.addEventListener("submit",async(event)=>{event.preventDefault();const button=submitButton(forms.workspace);button.disabled=true;const created=await runAction(()=>api.createWorkspace({name:field(forms.workspace,"name").value.trim(),description:field(forms.workspace,"description").value.trim()||null}),"Workspace created.");button.disabled=false;if(!created)return;state.workspace=created;state.space=null;state.workspaces=[...state.workspaces,created];state.spaces=[];writeSelection(ACTIVE_WORKSPACE_KEY,created.id);writeSelection(ACTIVE_SPACE_KEY,null);renderWorkspace();field(forms.space,"name").focus();});
@@ -210,9 +274,9 @@ $("#comment-form").addEventListener("submit",async(event)=>{
   event.preventDefault();const pageId=state.page?.id;if(!pageId)return;
   const body=$("#comment-body").value.trim();if(!body)return;
   const submit=$("#comment-form").querySelector('button[type="submit"]');submit.disabled=true;
-  const created=await runAction(()=>api.createCommentThread(pageId,{body}));
+  const created=await runAction(()=>api.createCommentThread(pageId,{body,anchorBlockId:state.pendingAnchorBlockId}));
   submit.disabled=false;
-  if(created){$("#comment-body").value="";await refreshCommentThreads();}
+  if(created){$("#comment-body").value="";state.pendingAnchorBlockId=null;const context=$("#comment-anchor-context");context.hidden=true;context.textContent="";await refreshCommentThreads();}
 });
 $("#search-form").addEventListener("submit",async(event)=>{event.preventDefault();if(!state.workspace){showToast("Create or connect a workspace before searching.");return;}const results=await runAction(()=>api.searchPages(state.workspace.id,$("#search-query").value.trim(),state.space?.id));if(results)renderResults($("#search-results"),results,"No matching pages were found.");});
 function renderResults(container,items,emptyMessage){container.replaceChildren();if(!Array.isArray(items)||items.length===0){const empty=document.createElement("p");empty.className="muted";empty.textContent=emptyMessage;container.append(empty);return;}for(const item of items){const card=document.createElement("article");card.className="result-card";const title=document.createElement("h3");title.textContent=safeText(item.title,"Untitled");const description=document.createElement("p");description.textContent=safeText(item.excerpt||item.description,"Open this page to view its content.");const open=document.createElement("button");open.type="button";open.textContent="Open page →";open.addEventListener("click",()=>openPage(item.id||item.pageId));card.append(title,description,open);container.append(card);}}

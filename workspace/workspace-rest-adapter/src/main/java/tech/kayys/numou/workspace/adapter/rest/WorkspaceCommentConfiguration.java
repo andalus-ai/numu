@@ -11,6 +11,7 @@ import tech.kayys.numou.workspace.application.WorkspaceMentionService;
 import tech.kayys.numou.workspace.application.WorkspacePorts.AccessPolicy;
 import tech.kayys.numou.workspace.application.WorkspacePorts.AuditedPageCommentRepository;
 import tech.kayys.numou.workspace.application.WorkspacePorts.PageRepository;
+import tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore;
 
 import java.time.Clock;
 
@@ -22,8 +23,10 @@ public class WorkspaceCommentConfiguration {
     @Dependent
     PageCommentService pageCommentService(PageRepository pages,
                                           AuditedPageCommentRepository comments,
-                                          AccessPolicy access) {
-        return new PageCommentService(pages, comments, access, Clock.systemUTC());
+                                          AccessPolicy access,
+                                          Instance<WorkspaceMentionOutboxStore> mentionOutbox) {
+        return new PageCommentService(pages, comments, access, Clock.systemUTC(),
+                mentionOutbox.isResolvable() ? mentionOutbox.get() : null);
     }
 
     @Produces

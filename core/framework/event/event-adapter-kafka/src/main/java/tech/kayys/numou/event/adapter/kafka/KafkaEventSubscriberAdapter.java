@@ -1,7 +1,7 @@
 package tech.kayys.numou.event.adapter.kafka;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.reactive.messaging.kafka.IncomingKafkaRecordMetadata;
+import io.smallrye.reactive.messaging.kafka.api.IncomingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.kafka.common.header.Header;
@@ -73,16 +73,11 @@ public class KafkaEventSubscriberAdapter implements EventSubscriberPort {
                 });
     }
 
-    /**
-     * Incoming channel for all event topics matching the configured topic
-     * pattern. Manual acknowledgement ensures a handler failure is not
-     * acknowledged as successful consumption.
-     */
     @Incoming(CHANNEL)
     @Acknowledgment(Acknowledgment.Strategy.MANUAL)
     public Uni<Void> consume(Message<String> message) {
         Objects.requireNonNull(message, "Kafka message is required");
-        return Uni.createFrom().item(() -> {
+        Uni<Void> processing = Uni.createFrom().item(() -> {
                     String eventType = eventTypeHeader(message);
                     String payload = message.getPayload();
                     if (payload == null || payload.isBlank()) {
@@ -90,27 +85,30 @@ public class KafkaEventSubscriberAdapter implements EventSubscriberPort {
                     }
                     return serializer.deserialize(payload, eventType);
                 })
-                .chain(this::dispatch)
-                .chain(() -> Uni.createFrom().completionStage(message::ack))
+                .chain(this::dispatch);
+
+        // A processing failure nacks the record. An acknowledgement failure
+        // is different: the record has already reached its terminal action,
+        // so do not attempt a second nack on the same message.
+        return processing
                 .onFailure().recoverWithUni(failure ->
                         Uni.createFrom().completionStage(() -> message.nack(failure))
-                                .chain(() -> Uni.createFrom().failure(failure)));
+                                .chain(() -> Uni.createFrom().failure(failure)))
+                .chain(() -> Uni.createFrom().completionStage(message::ack));
     }
 
     private Uni<Void> dispatch(EventEnvelope<? extends BusinessEvent> envelope) {
-        List<RegisteredHandler> matching = handlers.get(envelope.eventType()) == null
-                ? List.of()
-                : List.copyOf(handlers.get(envelope.eventType()));
-
+        List<RegisteredHandler> registered = handlers.get(envelope.eventType());
+        List<RegisteredHandler> matching = registered == null ? List.of() : List.copyOf(registered);
         if (matching.isEmpty()) {
             return Uni.createFrom().failure(new IllegalStateException(
                     "No event handler is registered for " + envelope.eventType()));
         }
 
         Uni<Void> result = Uni.createFrom().voidItem();
-        for (RegisteredHandler registered : matching) {
+        for (RegisteredHandler registeredHandler : matching) {
             result = result.chain(() -> {
-                Uni<Void> handled = registered.handler.apply(envelope);
+                Uni<Void> handled = registeredHandler.handler.apply(envelope);
                 return handled == null
                         ? Uni.createFrom().failure(new IllegalStateException(
                                 "Event handler returned null for " + envelope.eventType()))
@@ -141,8 +139,8 @@ public class KafkaEventSubscriberAdapter implements EventSubscriberPort {
 
     private static final class RegisteredHandler implements SubscriptionHandle {
         private final String id;
+        private final String eventType;
         private final Function<EventEnvelope<? extends BusinessEvent>, Uni<Void>> handler;
-        private String eventType;
 
         private RegisteredHandler(
                 String id,
