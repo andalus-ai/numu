@@ -39,7 +39,7 @@ public final class ActivateOrganizationPartyAssociationHandler {
       "Party must exist, be active, and have kind ORGANIZATION");
      try {
       OrganizationPartyAssociation activated=association.activate(c.activatedAt(),c.actorId());
-      return associations.save(activated).thenApply(Result::success);
+      return associations.save(activated, c.tenantId()).thenApply(Result::success);
      } catch(IllegalStateException | IllegalArgumentException invalid) {
       return failure("ORGANIZATION_PARTY_ASSOCIATION_INVALID_STATE",invalid.getMessage());
      }
