@@ -1354,7 +1354,7 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61), 501).isEmpty(),
                 "expired sessions must be invisible even before cleanup");
         assertEquals(1, store.purgeExpired(now.plusSeconds(61), 10));
-        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61)).isEmpty());
+        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61), 501).isEmpty());
     }
 
 
