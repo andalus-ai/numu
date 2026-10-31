@@ -83,3 +83,49 @@ class KafkaIndependentGroupProbe {
         throw new AssertionError("Timed out waiting for independent consumer group event containing " + marker);
     }
 }
+
+
+@ApplicationScoped
+class KafkaRetryPolicyProbe {
+
+    private final java.util.concurrent.ConcurrentMap<String, java.util.concurrent.atomic.AtomicInteger> attempts =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Inject
+    KafkaEventSubscriberAdapter subscriber;
+
+    @PostConstruct
+    void register() {
+        subscriber.subscribe("pos.sale.completed", envelope -> {
+            String saleId = ((KafkaConsumerConnectorTest.TestSaleCompleted) envelope.payload()).saleId;
+            if (!saleId.startsWith("retry-success-") && !saleId.startsWith("retry-terminal-")) {
+                return Uni.createFrom().voidItem();
+            }
+            java.util.concurrent.atomic.AtomicInteger count =
+                    attempts.computeIfAbsent(saleId, ignored -> new java.util.concurrent.atomic.AtomicInteger());
+            boolean terminal = saleId.startsWith("retry-terminal-");
+            return Uni.createFrom().deferred(() -> {
+                int attempt = count.incrementAndGet();
+                if (terminal || attempt < 3) {
+                    return Uni.createFrom().failure(new IllegalStateException("simulated transient handler failure"));
+                }
+                return Uni.createFrom().voidItem();
+            }).onFailure().retry().atMost(2);
+        });
+    }
+
+    int attempts(String saleId) {
+        java.util.concurrent.atomic.AtomicInteger count = attempts.get(saleId);
+        return count == null ? 0 : count.get();
+    }
+
+    void awaitAttempts(String saleId, int expected, Duration timeout) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadline) {
+            if (attempts(saleId) >= expected) return;
+            Thread.sleep(25);
+        }
+        throw new AssertionError("Timed out waiting for " + expected + " handler attempts for " + saleId
+                + "; observed " + attempts(saleId));
+    }
+}

@@ -4,6 +4,7 @@ import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.valueobject.Currency;
 import tech.kayys.numou.numouapplication.StaffContractService;
+import tech.kayys.numou.numouapplication.port.BusinessAssetsPort;
 import tech.kayys.numou.numouapplication.port.TradingRecordPort;
 import tech.kayys.numou.numouapplication.SyirkahApplicationService;
 import tech.kayys.numou.numouapplication.command.Commands;
@@ -34,6 +35,8 @@ public class SyirkahApi {
     private final RequestContextHolder context;
     private final StaffContractService staff;
     private final TradingRecordPort tradingRecords;
+    private final tech.kayys.numou.numouapplication.port.TransactionPort tx;
+    private final BusinessAssetsPort assetsPort;
     private final java.time.Clock clock = java.time.Clock.systemUTC();
 
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
@@ -50,6 +53,24 @@ public class SyirkahApi {
     public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
                       SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
                       StaffContractService staff, TradingRecordPort tradingRecords) {
+        this(service, governed, auditor, catalog, context, staff, tradingRecords, null);
+    }
+
+    /** @param tx when given, a close and its trading figures are written in one transaction */
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff, TradingRecordPort tradingRecords,
+                      tech.kayys.numou.numouapplication.port.TransactionPort tx) {
+        this(service, governed, auditor, catalog, context, staff, tradingRecords, tx, null);
+    }
+
+    /** @param assetsPort when given, a balance sheet requested without assets and debts reads them from it */
+    public SyirkahApi(SyirkahApplicationService service, GovernedSyirkahService governed,
+                      SyirkahIntegrityAuditor auditor, SyirkahCatalogPort catalog, RequestContextHolder context,
+                      StaffContractService staff, TradingRecordPort tradingRecords,
+                      tech.kayys.numou.numouapplication.port.TransactionPort tx, BusinessAssetsPort assetsPort) {
+        this.assetsPort = assetsPort;
+        this.tx = tx;
         this.staff = staff;
         this.tradingRecords = tradingRecords;
         this.service = Objects.requireNonNull(service);
@@ -144,16 +165,37 @@ public class SyirkahApi {
         return CsvExport.closeReport(load(id).closeReport(cid(closeId, "closeId")));
     }
 
+    /** Statement of changes in capital (Bab XIX) for whole days from..to, both inclusive, in UTC. */
+    public CapitalChangesView capitalChanges(String id, java.time.LocalDate from, java.time.LocalDate to) {
+        SyirkahDtos.required(from, "from");
+        SyirkahDtos.required(to, "to");
+        if (to.isBefore(from)) {
+            throw new IllegalArgumentException("to must not be before from");
+        }
+        java.time.Instant start = from.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusNanos(1000);
+        java.time.Instant end = to.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusNanos(1000);
+        return SyirkahDtos.capitalChanges(from, to, load(id).capitalRollForward(start, end));
+    }
+
     public BalanceSheetView balanceSheet(String id, BalanceSheetRequest r) {
         Syirkah s = load(id);
         Currency cur = s.contract().currency();
         List<BookStatements.AssetLine> assets = new ArrayList<>();
+        List<BookStatements.LiabilityLine> liabilities = new ArrayList<>();
+        if (r.assets() == null && r.liabilities() == null) {
+            if (assetsPort == null) {
+                throw new IllegalArgumentException("assets and liabilities are required");
+            }
+            var snap = assetsPort.forSyirkah(tenant(), sid(id)).orElseThrow(() -> new IllegalArgumentException(
+                    "this syirkah has no books to read; send assets and liabilities"));
+            assets.addAll(snap.assets());
+            liabilities.addAll(snap.liabilities());
+        }
         for (StatementLineDto l : r.assets() == null ? List.<StatementLineDto>of() : r.assets()) {
             assets.add(new BookStatements.AssetLine(SyirkahDtos.enumOf(BookStatements.AssetGroup.class, l.group(),
                     "assets.group"), SyirkahDtos.required(l.label(), "assets.label"),
                     SyirkahDtos.money(l.amount(), cur, "assets.amount")));
         }
-        List<BookStatements.LiabilityLine> liabilities = new ArrayList<>();
         for (StatementLineDto l : r.liabilities() == null ? List.<StatementLineDto>of() : r.liabilities()) {
             liabilities.add(new BookStatements.LiabilityLine(SyirkahDtos.enumOf(BookStatements.LiabilityGroup.class,
                     l.group(), "liabilities.group"), SyirkahDtos.required(l.label(), "liabilities.label"),
@@ -244,16 +286,40 @@ public class SyirkahApi {
         FinancialResult figures = r.trading() != null ? SyirkahDtos.trading(r.trading(), currency)
                 : SyirkahDtos.result(r.result(), currency);
         CloseId closeId = cidOrNew(r.closeId(), "closeId");
-        CloseView view = SyirkahDtos.close(service.closePeriod(new Commands.ClosePeriod(tenant(), sid(id),
+        Commands.ClosePeriod command = new Commands.ClosePeriod(tenant(), sid(id),
                 closeId, r.periodStart(), r.periodEnd(),
                 figures, SyirkahDtos.fault(r.fault(), currency),
-                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"))));
-        if (r.trading() != null && tradingRecords != null) {
-            // written right after the close; a failure here leaves the close in place without its working
-            tradingRecords.record(tenant(), sid(id), closeId, SyirkahDtos.tradingInput(r.trading(), currency),
-                    clock.instant());
+                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"));
+        java.util.function.Supplier<CloseView> work = () -> {
+            CloseView view = SyirkahDtos.close(service.closePeriod(command));
+            if (r.trading() != null && tradingRecords != null) {
+                tradingRecords.record(tenant(), sid(id), closeId, SyirkahDtos.tradingInput(r.trading(), currency),
+                        clock.instant());
+            }
+            return view;
+        };
+        return tx == null ? work.get() : tx.inTransaction(work);
+    }
+
+    /**
+     * Works out what closing the period would do, on a copy of the syirkah: the same checks and the same allocation
+     * as {@link #closePeriod}, but nothing is stored, posted or published.
+     */
+    public ClosePreview previewClose(String id, ClosePeriodRequest r) {
+        if (r == null) {
+            throw new IllegalArgumentException("request body is required");
         }
-        return view;
+        Syirkah copy = Syirkah.restore(load(id).snapshot());
+        Currency currency = copy.contract().currency();
+        if (r.trading() != null && r.result() != null) {
+            throw new IllegalArgumentException("give either result or trading, not both");
+        }
+        FinancialResult figures = r.trading() != null ? SyirkahDtos.trading(r.trading(), currency)
+                : SyirkahDtos.result(r.result(), currency);
+        CloseSnapshot c = copy.closePeriod(CloseId.generate(), SyirkahDtos.required(r.periodStart(), "periodStart"),
+                SyirkahDtos.required(r.periodEnd(), "periodEnd"), figures, SyirkahDtos.fault(r.fault(), currency),
+                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"), clock.instant());
+        return SyirkahDtos.preview(copy, c);
     }
 
     /** The trading figures a close was worked out from, if it was closed from trading figures. */
