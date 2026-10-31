@@ -101,7 +101,7 @@ public final class WorkspaceCommentApi {
     @FunctionalInterface
     private interface Operation<T> { T run(); }
 
-    public record CreateThreadRequest(String body) {}
+    public record CreateThreadRequest(String body, UUID anchorBlockId) { public CreateThreadRequest(String body) { this(body, null); } }
     public record ReplyRequest(UUID parentCommentId, String body) {}
     public record ResolutionRequest(long expectedRevision) {}
 
