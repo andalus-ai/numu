@@ -58,7 +58,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V21__workspace_schema_migration_worker_leases.sql",
             "/db/migration/V22__workspace_staged_migration_scope_integrity.sql",
             "/db/migration/V23__workspace_page_comment_threads.sql",
-            "/db/migration/V24__workspace_comment_mention_outbox.sql");
+            "/db/migration/V24__workspace_comment_block_anchors.sql",
+            "/db/migration/V25__workspace_comment_mention_outbox.sql");
 
     private String jdbcUrl;
     private String schema;
