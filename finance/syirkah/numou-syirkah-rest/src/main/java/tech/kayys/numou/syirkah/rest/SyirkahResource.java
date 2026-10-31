@@ -89,6 +89,15 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/statements/capital-changes")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public CapitalChangesView capitalChanges(@PathParam("id") String id,
+                                             @QueryParam("from") java.time.LocalDate from,
+                                             @QueryParam("to") java.time.LocalDate to) {
+        return api.capitalChanges(id, from, to);
+    }
+
+    @GET
     @Path("/{id}/closes/{closeId}/income-statement")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
     public IncomeStatementView incomeStatement(@PathParam("id") String id, @PathParam("closeId") String closeId,

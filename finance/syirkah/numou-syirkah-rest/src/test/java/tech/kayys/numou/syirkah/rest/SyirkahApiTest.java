@@ -443,6 +443,21 @@ class SyirkahApiTest {
     }
 
     @Test
+    void capitalChangesRollForwardForTheRequestedDays() {
+        String id = open();
+        close(id, "2026-01-01", "2026-01-31", "10000000");
+        CapitalChangesView v = api.capitalChanges(id, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"));
+        assertEquals(2, v.rows().size());
+        for (CapitalChangeRow r : v.rows()) {
+            BigDecimal sum = r.opening().add(r.contributions()).subtract(r.returns()).add(r.retainedProfit())
+                    .add(r.capitalRestored()).subtract(r.lossesAllocated()).add(r.deficitReclassified());
+            assertEquals(0, sum.compareTo(r.closing()), "roll-forward must add up for " + r.name());
+        }
+        assertThrows(IllegalArgumentException.class, () -> api.capitalChanges(id, LocalDate.parse("2026-02-01"),
+                LocalDate.parse("2026-01-01")));
+    }
+
+    @Test
     void aFailedTradingWriteSurfacesAsAnErrorInsideTheUnitOfWork() {
         LocalTransactionPort tx = new LocalTransactionPort();
         SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),

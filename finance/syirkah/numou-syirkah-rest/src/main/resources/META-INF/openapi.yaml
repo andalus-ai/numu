@@ -149,6 +149,17 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/BalanceSheetView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/statements/capital-changes:
+    parameters:
+      - {$ref: "#/components/parameters/Id"}
+      - {name: from, in: query, required: true, schema: {type: string, format: date}}
+      - {name: to, in: query, required: true, schema: {type: string, format: date}}
+    get:
+      tags: [Syirkah]
+      summary: Statement of changes in capital for whole days from..to (UTC, inclusive)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/CapitalChangesView"}}}}
+        default: {$ref: "#/components/responses/Error"}
   /{id}/closes/{closeId}/income-statement:
     parameters:
       - {$ref: "#/components/parameters/Id"}
@@ -594,6 +605,26 @@ components:
         totalLiabilitiesAndCapital: {type: number}
         difference: {type: number}
         balanced: {type: boolean}
+    CapitalChangesView:
+      type: object
+      properties:
+        from: {type: string, format: date}
+        to: {type: string, format: date}
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              partner: {type: string, format: uuid}
+              name: {type: string}
+              opening: {type: number}
+              contributions: {type: number}
+              returns: {type: number}
+              retainedProfit: {type: number}
+              capitalRestored: {type: number}
+              lossesAllocated: {type: number}
+              deficitReclassified: {type: number}
+              closing: {type: number}
     IncomeStatementView:
       type: object
       properties:
