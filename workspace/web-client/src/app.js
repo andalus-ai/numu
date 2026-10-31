@@ -3,7 +3,7 @@ import { BLOCK_LABELS, EDITABLE_BLOCK_TYPES, createBlock, normalizeBlocks, seria
 const apiBase = document.querySelector('meta[name="numou-api-base"]')?.content || "/api/v1";
 const api = createWorkspaceApi({ baseUrl: apiBase });
 const $ = (selector) => document.querySelector(selector);
-const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], commentThreads:[], savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
+const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], commentThreads:[], pendingAnchorBlockId:null, savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
 const ACTIVE_WORKSPACE_KEY = "numou.workspace.activeWorkspaceId";
 const ACTIVE_SPACE_KEY = "numou.workspace.activeSpaceId";
 function readSelection(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -62,13 +62,19 @@ function renderBlockEditor() {
     const typeLabel=createElement("span","block-type-label",BLOCK_LABELS[block.type]||block.type.replaceAll("_"," "));
     toolbar.append(typeLabel);
     const actions=createElement("div","block-actions");
+    const discuss=createElement("button","icon-button","Comment");discuss.type="button";discuss.title="Start a discussion anchored to this block";discuss.setAttribute("aria-label","Comment on this block");
+    discuss.addEventListener("click",()=>{
+      state.pendingAnchorBlockId=block.id;
+      const context=$("#comment-anchor-context");context.textContent=`New discussion anchored to ${BLOCK_LABELS[block.type]||block.type.replaceAll("_"," ")}.`;context.hidden=false;
+      $("#comment-body").focus();$("#comment-body").scrollIntoView({behavior:"smooth",block:"center"});
+    });
     const up=createElement("button","icon-button","↑");up.type="button";up.title="Move block up";up.setAttribute("aria-label","Move block up");up.disabled=index===0;
     up.addEventListener("click",()=>moveBlock(index,-1));
     const down=createElement("button","icon-button","↓");down.type="button";down.title="Move block down";down.setAttribute("aria-label","Move block down");down.disabled=index===state.blocks.length-1;
     down.addEventListener("click",()=>moveBlock(index,1));
     const remove=createElement("button","icon-button block-remove","×");remove.type="button";remove.title="Remove block";remove.setAttribute("aria-label","Remove block");
     remove.addEventListener("click",()=>{state.blocks.splice(index,1);renderBlockEditor();markDirty();});
-    actions.append(up,down,remove);toolbar.append(actions);card.append(toolbar);
+    actions.append(discuss,up,down,remove);toolbar.append(actions);card.append(toolbar);
     if(!EDITABLE_BLOCK_TYPES.includes(block.type)){
       const note=createElement("p","block-readonly",block.type==="FILE"?"File attachment block is preserved; file management is not available in this editor.":"Domain reference is preserved as an opaque domain-owned block.");
       card.append(note);
@@ -118,7 +124,7 @@ function addBlock(type) {
 }
 function renderEditor(page) {
   state.page=page;state.revision=Number(page.revision??page.currentRevision??0);
-  state.savedTitle=safeText(page.title);state.blocks=normalizeBlocks(page.blocks);
+  state.savedTitle=safeText(page.title);state.blocks=normalizeBlocks(page.blocks);state.pendingAnchorBlockId=null;const anchorContext=$("#comment-anchor-context");if(anchorContext){anchorContext.hidden=true;anchorContext.textContent="";}
   state.savedBlocks=JSON.stringify(serializeBlocks(state.blocks));state.dirty=false;
   $("#editor-title").value=state.savedTitle;renderBlockEditor();
   $("#editor-meta").textContent=`Revision ${state.revision} · Changes are saved when confirmed by the server.`;
@@ -141,6 +147,20 @@ function renderCommentThreads() {
       await refreshCommentThreads();
     });
     header.append(status,action);card.append(header);
+    if(thread.anchorBlockId){
+      const anchoredBlock=state.blocks.find(block=>block.id===thread.anchorBlockId);
+      const anchorRow=createElement("div","comment-anchor-reference");
+      if(anchoredBlock){
+        anchorRow.append(createElement("span","",`On ${BLOCK_LABELS[anchoredBlock.type]||anchoredBlock.type.replaceAll("_"," ")} block`));
+        const jump=createElement("button","button button-quiet","Jump to block");jump.type="button";
+        jump.addEventListener("click",()=>{
+          const target=Array.from($("#block-editor").children).find(element=>element.dataset.blockId===thread.anchorBlockId);
+          if(target){target.scrollIntoView({behavior:"smooth",block:"center"});target.querySelector(".block-content")?.focus();}
+        });
+        anchorRow.append(jump);
+      }else anchorRow.append(createElement("span","comment-anchor-orphan","Original block was removed; discussion history is retained."));
+      card.append(anchorRow);
+    }
     for(const comment of thread.comments||[]){
       const entry=createElement("article",comment.parentCommentId?"comment-entry comment-reply":"comment-entry");
       const meta=createElement("div","comment-meta",(comment.parentCommentId?"Reply · ":"Comment · ")+safeText(comment.authorId).slice(0,8));
@@ -210,9 +230,9 @@ $("#comment-form").addEventListener("submit",async(event)=>{
   event.preventDefault();const pageId=state.page?.id;if(!pageId)return;
   const body=$("#comment-body").value.trim();if(!body)return;
   const submit=$("#comment-form").querySelector('button[type="submit"]');submit.disabled=true;
-  const created=await runAction(()=>api.createCommentThread(pageId,{body}));
+  const created=await runAction(()=>api.createCommentThread(pageId,{body,anchorBlockId:state.pendingAnchorBlockId}));
   submit.disabled=false;
-  if(created){$("#comment-body").value="";await refreshCommentThreads();}
+  if(created){$("#comment-body").value="";state.pendingAnchorBlockId=null;const context=$("#comment-anchor-context");context.hidden=true;context.textContent="";await refreshCommentThreads();}
 });
 $("#search-form").addEventListener("submit",async(event)=>{event.preventDefault();if(!state.workspace){showToast("Create or connect a workspace before searching.");return;}const results=await runAction(()=>api.searchPages(state.workspace.id,$("#search-query").value.trim(),state.space?.id));if(results)renderResults($("#search-results"),results,"No matching pages were found.");});
 function renderResults(container,items,emptyMessage){container.replaceChildren();if(!Array.isArray(items)||items.length===0){const empty=document.createElement("p");empty.className="muted";empty.textContent=emptyMessage;container.append(empty);return;}for(const item of items){const card=document.createElement("article");card.className="result-card";const title=document.createElement("h3");title.textContent=safeText(item.title,"Untitled");const description=document.createElement("p");description.textContent=safeText(item.excerpt||item.description,"Open this page to view its content.");const open=document.createElement("button");open.type="button";open.textContent="Open page →";open.addEventListener("click",()=>openPage(item.id||item.pageId));card.append(title,description,open);container.append(card);}}
