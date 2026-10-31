@@ -91,8 +91,9 @@ class PostgresSettlementBatchRepositoryTest {
         PartnerPayout original = payouts.findById("tenant-a", payoutId).toCompletableFuture().join().orElseThrow();
 
         PartnerPayout submitted = original.submitted("provider-ref-1", original.updatedAt().plusSeconds(1));
-        PartnerPayout stored = payouts.update("tenant-a", payoutId, submitted).toCompletableFuture().join();
+        PartnerPayout stored = payouts.update("tenant-a", payoutId, submitted, "operator-42").toCompletableFuture().join();
         assertEquals(PartnerPayoutStatus.SUBMITTED, stored.status());
+        assertEquals("operator-42", auditActor("tenant-a", payoutId));
 
         PartnerPayout illegalRegression = new PartnerPayout(original.id(), original.tenantId(),
                 original.partnerId(), original.commissionEntryId(), original.destinationId(), original.currency(),
@@ -160,6 +161,19 @@ class PostgresSettlementBatchRepositoryTest {
                 .toCompletableFuture().join();
         assertTrue(outbox.claimPending("tenant-a", "worker-c", now.plusSeconds(40),
                 Duration.ofSeconds(30), 10).toCompletableFuture().join().isEmpty());
+    }
+
+    private String auditActor(String tenant, UUID payoutId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT actor_id FROM affiliate_audit_event WHERE tenant_id = ? AND aggregate_id = ?")) {
+            statement.setString(1, tenant);
+            statement.setObject(2, payoutId);
+            try (ResultSet rs = statement.executeQuery()) {
+                assertTrue(rs.next(), "payout audit event should exist");
+                return rs.getString(1);
+            }
+        }
     }
 
     private int countEventRows(String table, String tenant, UUID aggregateId) throws SQLException {
