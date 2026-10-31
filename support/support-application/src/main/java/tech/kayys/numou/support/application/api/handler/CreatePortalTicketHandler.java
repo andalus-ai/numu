@@ -29,13 +29,18 @@ public final class CreatePortalTicketHandler
     public Uni<TicketId> handle(CreatePortalTicketCommand command) {
         Objects.requireNonNull(command, "command cannot be null");
         return actorProvider.currentActor().flatMap(actor -> {
-            if (actor.type() != ActorType.CUSTOMER || actor.participantId() == null) {
+            RequesterRole requesterRole = switch (actor.type()) {
+                case CUSTOMER -> RequesterRole.CUSTOMER;
+                case PARTNER -> RequesterRole.PARTNER;
+                case AGENT, MANAGER, SYSTEM -> null;
+            };
+            if (requesterRole == null || actor.participantId() == null) {
                 return Uni.createFrom().failure(
-                        new BusinessRuleViolation("Portal ticket requires an authenticated customer party"));
+                        new BusinessRuleViolation("Portal ticket requires an authenticated customer or partner"));
             }
             var create = new CreateTicketCommand(
                     actor.tenantId(),
-                    new Requester.Party(actor.participantId(), RequesterRole.CUSTOMER),
+                    new Requester.Party(actor.participantId(), requesterRole),
                     command.type(),
                     command.priority(),
                     command.subject(),
