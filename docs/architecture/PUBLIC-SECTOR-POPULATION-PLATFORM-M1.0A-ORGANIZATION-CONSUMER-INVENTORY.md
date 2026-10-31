@@ -23,7 +23,7 @@ The following files were fetched from `feat/public-sector-platform-m0-audit` and
 
 | Area | Source | Verified finding |
 |---|---|---|
-| Organization domain | `organization/organization-domain/src/main/java/tech/kayys.numou/organization/domain/Organization.java` | Aggregate identity is `OrganizationId`; mandatory immutable `TenantId`; owns name, legal name, registration number and lifecycle; emits Organization lifecycle events. No Party reference is present. |
+| Organization domain | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/Organization.java` | Aggregate identity is `OrganizationId`; mandatory immutable `TenantId`; owns name, legal name, registration number and lifecycle; emits Organization lifecycle events. No Party reference is present. |
 | Organization identifier | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationId.java` | Strongly typed UUID wrapper implementing `DomainId<UUID>`. |
 | Organization unit | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationUnit.java` | Unit is separately identified and attached to `OrganizationId`; optional parent unit supports hierarchy. |
 | Account membership | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationMembership.java` | Membership is keyed by its own ID and references `OrganizationId + UserId`; lifecycle is pending/active/suspended/revoked. It is not a real-world Party affiliation. |
