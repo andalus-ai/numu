@@ -32,7 +32,7 @@ public class PostgresAffiliateOutboxRepository implements AffiliateEventOutboxSt
   return update("UPDATE affiliate_event_outbox SET delivery_status=CASE WHEN attempts>=? THEN 'DEAD_LETTER' ELSE 'PENDING' END,available_at=?,lease_owner=NULL,lease_until=NULL,last_error=?,version=version+1 WHERE tenant_id=? AND outbox_id=? AND delivery_status='IN_FLIGHT' AND lease_owner=? AND lease_until>?",
    s->{s.setInt(1,maxAttempts);s.setTimestamp(2,Timestamp.from(retryAt));s.setString(3,reason);s.setString(4,tenant);s.setObject(5,id);s.setString(6,worker);s.setTimestamp(7,Timestamp.from(now));});
  }
- @Override public CompletionStage<Boolean> redriveDeadLetter(String tenant,String eventIdActorUnused,UUID id,String actor,String reason,String idempotencyKey,String correlationId,Instant now){
+ @Override public CompletionStage<Boolean> redriveDeadLetter(String tenant,UUID id,String actor,String reason,String idempotencyKey,String correlationId,Instant now){
   if(tenant==null||tenant.isBlank()||actor==null||actor.isBlank()||reason==null||reason.isBlank()||reason.length()>1000||idempotencyKey==null||idempotencyKey.isBlank()||correlationId==null||correlationId.isBlank())
    return CompletableFuture.failedFuture(new IllegalArgumentException("invalid dead-letter redrive context"));
   String updateSql="UPDATE affiliate_event_outbox SET delivery_status='PENDING',available_at=?,attempts=0,lease_owner=NULL,lease_until=NULL,last_error=NULL,version=version+1 WHERE tenant_id=? AND outbox_id=? AND delivery_status='DEAD_LETTER'";
