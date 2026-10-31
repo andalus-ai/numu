@@ -112,7 +112,7 @@ public final class DefaultPartnerPayoutService implements PartnerPayoutApplicati
             }
             return payoutPort.submit(payout).thenCompose(receipt -> applyReceipt(context, payout, receipt))
                     .exceptionallyCompose(error -> payouts.update(context.tenantId(), payout.id(),
-                            payout.reconciliationRequired(safeMessage(error), Instant.now())));
+                            payout.reconciliationRequired(safeMessage(error), Instant.now()), context.actorId()));
         });
     }
 
@@ -142,7 +142,7 @@ public final class DefaultPartnerPayoutService implements PartnerPayoutApplicati
                 || payout.amount().compareTo(receipt.amount()) != 0) {
             return payouts.update(context.tenantId(), payout.id(),
                     payout.reconciliationRequired("Payout receipt did not match tenant, key, currency, or amount",
-                            Instant.now()));
+                            Instant.now()), context.actorId());
         }
         Instant at = receipt.occurredAt();
         PartnerPayout updated = switch (receipt.outcome()) {
@@ -154,7 +154,7 @@ public final class DefaultPartnerPayoutService implements PartnerPayoutApplicati
             case PENDING_RECONCILIATION -> payout.reconciliationRequired(
                     "Provider outcome remains ambiguous", at);
         };
-        return payouts.update(context.tenantId(), payout.id(), updated);
+        return payouts.update(context.tenantId(), payout.id(), updated, context.actorId());
     }
 
     private CompletionStage<PartnerPayout> findPayout(AffiliateCommandContext context, UUID payoutId) {
