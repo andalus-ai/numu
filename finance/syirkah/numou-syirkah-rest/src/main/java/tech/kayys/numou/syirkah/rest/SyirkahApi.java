@@ -144,6 +144,18 @@ public class SyirkahApi {
         return CsvExport.closeReport(load(id).closeReport(cid(closeId, "closeId")));
     }
 
+    /** Statement of changes in capital (Bab XIX) for whole days from..to, both inclusive, in UTC. */
+    public CapitalChangesView capitalChanges(String id, LocalDate from, LocalDate to) {
+        SyirkahDtos.required(from, "from");
+        SyirkahDtos.required(to, "to");
+        if (to.isBefore(from)) {
+            throw new IllegalArgumentException("to must not be before from");
+        }
+        java.time.Instant start = from.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusNanos(1000);
+        java.time.Instant end = to.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusNanos(1000);
+        return SyirkahDtos.capitalChanges(from, to, load(id).capitalRollForward(start, end));
+    }
+
     public BalanceSheetView balanceSheet(String id, BalanceSheetRequest r) {
         Syirkah s = load(id);
         Currency cur = s.contract().currency();
