@@ -57,7 +57,10 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V20__workspace_staged_schema_migrations.sql",
             "/db/migration/V21__workspace_schema_migration_worker_leases.sql",
             "/db/migration/V22__workspace_staged_migration_scope_integrity.sql",
-            "/db/migration/V23__workspace_page_comment_threads.sql");
+            "/db/migration/V23__workspace_page_comment_threads.sql",
+            "/db/migration/V24__workspace_comment_block_anchors.sql",
+            "/db/migration/V25__workspace_comment_mention_outbox.sql",
+            "/db/migration/V26__workspace_page_presence_leases.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -1033,6 +1036,119 @@ class JdbcWorkspaceStorePostgresTest {
                 "stale optimistic writes must not create audit rows");
     }
 
+    @Test
+    void commentAndMentionOutboxCommitAtomicallyAndLeaseIsFenced() throws SQLException {
+        Instant now = Instant.parse("2026-10-31T00:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), recipient = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Mention outbox", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Mention test", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        PageCommentThread thread = PageCommentThread.open(tenant, page.id(), actor, "Hello @member", now);
+        PageComment root = thread.comments().get(0);
+        var intent = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(),
+                "workspace:comment-mention:" + root.id() + ":" + recipient);
+        AuditEntry audit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", thread.id(), 1, page.title(), now);
+        assertTrue(store.createThreadWithMentions(thread, audit, List.of(intent)));
+
+        assertEquals(1, countRows("workspace_page_comments", tenant));
+        assertEquals(1, countRows("workspace_comment_mention_outbox", tenant));
+        var claimed = store.claimDue("integration-worker", now, now.plusSeconds(30), 10);
+        assertEquals(1, claimed.size());
+        var delivery = claimed.get(0);
+        assertEquals(recipient, delivery.recipientId());
+        assertTrue(store.markDelivered(tenant, delivery.id(), delivery.leaseToken(), now.plusSeconds(1)));
+        assertFalse(store.markDelivered(tenant, delivery.id(), UUID.randomUUID(), now.plusSeconds(2)),
+                "a stale or foreign lease token must not complete delivery");
+
+        PageComment reply = PageComment.reply(tenant, page.id(), thread.id(), root.id(), actor,
+                "Reply mentioning @member", now.plusSeconds(2));
+        var replyIntent = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(),
+                "workspace:comment-mention:" + reply.id() + ":" + recipient);
+        AuditEntry replyAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_REPLIED",
+                "PAGE_COMMENT", reply.id(), 0, page.title(), now.plusSeconds(2));
+        assertTrue(store.appendCommentWithMentions(tenant, page.id(), thread.id(), reply, replyAudit, List.of(replyIntent)));
+        var replyClaim = store.claimDue("integration-worker", now.plusSeconds(2), now.plusSeconds(32), 10)
+                .stream().filter(item -> item.commentId().equals(reply.id())).findFirst().orElseThrow();
+        assertTrue(store.markDelivered(tenant, replyClaim.id(), replyClaim.leaseToken(), now.plusSeconds(3)));
+
+        PageCommentThread deadThread = PageCommentThread.open(tenant, page.id(), actor, "Dead letter test", now.plusSeconds(4));
+        PageComment deadRoot = deadThread.comments().get(0);
+        var deadIntent = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(),
+                "workspace:comment-mention:" + deadRoot.id() + ":" + recipient);
+        AuditEntry deadAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", deadThread.id(), 1, page.title(), now.plusSeconds(4));
+        assertTrue(store.createThreadWithMentions(deadThread, deadAudit, List.of(deadIntent)));
+        var deadClaim = store.claimDue("integration-worker", now.plusSeconds(4), now.plusSeconds(34), 10)
+                .stream().filter(item -> item.commentId().equals(deadRoot.id())).findFirst().orElseThrow();
+        assertTrue(store.markDead(tenant, deadClaim.id(), deadClaim.leaseToken(), "provider rejected", now.plusSeconds(5)));
+        assertEquals(1, store.listDead(tenant, 10).size());
+        assertTrue(store.requeueDead(tenant, deadClaim.id(), actor, now.plusSeconds(6)));
+        assertTrue(store.listDead(tenant, 10).isEmpty());
+
+        PageCommentThread rejected = PageCommentThread.open(tenant, page.id(), actor, "Duplicate intent", now.plusSeconds(7));
+        var duplicateA = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                recipient, "member", "Actor", page.title(), "workspace:comment-mention:duplicate");
+        var duplicateB = new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                UUID.randomUUID(), "other", "Actor", page.title(), "workspace:comment-mention:duplicate");
+        AuditEntry rejectedAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", rejected.id(), 1, page.title(), now.plusSeconds(7));
+        assertFalse(store.createThreadWithMentions(rejected, rejectedAudit, List.of(duplicateA, duplicateB)),
+                "duplicate idempotency keys must roll back the entire comment transaction");
+        assertTrue(store.findThread(tenant, page.id(), rejected.id()).isEmpty());
+        assertEquals(3, countRows("workspace_page_comments", tenant));
+        assertEquals(3, countRows("workspace_comment_mention_outbox", tenant));
+    }
+
+    @Test
+    void blockAnchorRoundTripsAndRemainsAsHistoricalReferenceWhenBlockIsRemoved() {
+        Instant now = Instant.parse("2026-10-31T02:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Anchored comments", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        PageBlock anchored = PageBlock.text(BlockType.PARAGRAPH, "Original paragraph", 0);
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Anchor page", List.of(anchored), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        PageCommentThread thread = PageCommentThread.open(tenant, page.id(), anchored.id(),
+                actor, "Please clarify this paragraph", now);
+        AuditEntry audit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", thread.id(), 1, page.title(), now);
+        assertTrue(store.createThread(thread, audit));
+
+        var found = store.findThread(tenant, page.id(), thread.id()).orElseThrow();
+        assertEquals(anchored.id(), found.anchorBlockId());
+        assertEquals(anchored.id(), store.findThreads(tenant, page.id()).get(0).anchorBlockId());
+
+        Page revised = page.revise(page.title(), List.of(), now.plusSeconds(10));
+        assertTrue(store.saveWithRevision(revised,
+                PageRevision.snapshot(revised, actor, now.plusSeconds(10), "Removed referenced paragraph"), 1));
+
+        var historical = store.findThread(tenant, page.id(), thread.id()).orElseThrow();
+        assertEquals(anchored.id(), historical.anchorBlockId(),
+                "the anchor must not silently retarget when the original block is removed");
+        assertTrue(store.findPage(tenant, page.id()).orElseThrow().blocks().isEmpty());
+    }
+
+    private long countRows(String table, UUID tenant) throws SQLException {
+        if (!List.of("workspace_page_comments", "workspace_comment_mention_outbox").contains(table))
+            throw new IllegalArgumentException("unsupported test table");
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement p = c.prepareStatement("SELECT count(*) FROM " + table + " WHERE tenant_id=?")) {
+            p.setObject(1, tenant);
+            try (java.sql.ResultSet r = p.executeQuery()) { r.next(); return r.getLong(1); }
+        }
+    }
+
     private long countAuditEvents(UUID tenant) throws SQLException {
         try (Connection c = dataSource.getConnection();
              java.sql.PreparedStatement p = c.prepareStatement(
@@ -1214,5 +1330,32 @@ class JdbcWorkspaceStorePostgresTest {
             }
         }
     }
+
+    @Test
+    void pagePresenceLeasesAreTenantScopedActorBoundAndExpire() {
+        Instant now = Instant.parse("2026-10-31T00:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), otherActor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Presence", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Presence page", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "Created"), 0));
+        UUID session = UUID.randomUUID();
+        assertTrue(store.heartbeat(tenant, page.id(), actor, session, now, now.plusSeconds(60)));
+        assertFalse(store.heartbeat(tenant, page.id(), otherActor, session, now.plusSeconds(1), now.plusSeconds(61)),
+                "another actor must not take over a browser session ID");
+        assertEquals(1, store.findActive(tenant, page.id(), now.plusSeconds(30), 501).size());
+        assertTrue(store.findActive(UUID.randomUUID(), page.id(), now, 501).isEmpty());
+        assertFalse(store.leave(tenant, page.id(), otherActor, session));
+        assertTrue(store.leave(tenant, page.id(), actor, session));
+        UUID expiredSession = UUID.randomUUID();
+        assertTrue(store.heartbeat(tenant, page.id(), actor, expiredSession, now, now.plusSeconds(60)));
+        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61), 501).isEmpty(),
+                "expired sessions must be invisible even before cleanup");
+        assertEquals(1, store.purgeExpired(now.plusSeconds(61), 10));
+        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61), 501).isEmpty());
+    }
+
 
 }

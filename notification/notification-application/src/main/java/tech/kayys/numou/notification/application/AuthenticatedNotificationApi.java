@@ -15,7 +15,8 @@ import java.util.UUID;
  *
  * <p>Unlike the lower-level services, these methods do not accept tenant or
  * recipient identifiers from callers. Every operation obtains its scope from
- * the host-provided verified request context.
+ * the host-provided verified request context. Device-management responses are
+ * metadata-only projections and never contain provider credentials.
  */
 public final class AuthenticatedNotificationApi {
     private final NotificationService notifications;
@@ -45,25 +46,26 @@ public final class AuthenticatedNotificationApi {
     public DeviceView registerDevice(RegisterDeviceRequest request) {
         Objects.requireNonNull(request, "request is required");
         var actor = requireActor();
-        return DeviceView.from(devices.register(actor.tenantId(), actor.recipientId(),
+        return DeviceView.from(devices.registerSummary(actor.tenantId(), actor.recipientId(),
                 request.token(), request.platform(), request.appInstance()));
     }
 
     public List<DeviceView> activeDevices() {
         var actor = requireActor();
-        return devices.activeDevices(actor.tenantId(), actor.recipientId()).stream()
+        return devices.activeDeviceSummaries(actor.tenantId(), actor.recipientId()).stream()
                 .map(DeviceView::from).toList();
     }
 
     public Optional<DeviceView> unregisterDevice(UUID deviceId) {
         Objects.requireNonNull(deviceId, "deviceId is required");
         var actor = requireActor();
-        return devices.unregister(actor.tenantId(), actor.recipientId(), deviceId).map(DeviceView::from);
+        return devices.unregisterSummary(actor.tenantId(), actor.recipientId(), deviceId)
+                .map(DeviceView::from);
     }
 
     private NotificationRequestContext.Actor requireActor() {
         return requestContext.currentActor()
-                .orElseThrow(() -> new UnauthenticatedNotificationRequestException());
+                .orElseThrow(UnauthenticatedNotificationRequestException::new);
     }
 
     /** Registration input deliberately contains no tenant or recipient fields. */
@@ -77,18 +79,21 @@ public final class AuthenticatedNotificationApi {
         }
     }
 
-    /**
-     * Safe device response; provider credentials are never exposed to clients.
-     */
+    /** Safe device response; provider credentials and internal tenant scope are never exposed. */
     public record DeviceView(
             UUID id,
             PushDevice.Platform platform,
             String appInstance,
             Instant createdAt,
-            Instant updatedAt) {
-        static DeviceView from(PushDevice device) {
-            return new DeviceView(device.id(), device.platform(), device.appInstance(),
-                    device.createdAt(), device.updatedAt());
+            Instant updatedAt,
+            Instant disabledAt) {
+        static DeviceView from(PushDeviceSummary summary) {
+            return new DeviceView(summary.id(), summary.platform(), summary.appInstance(),
+                    summary.createdAt(), summary.updatedAt(), summary.disabledAt());
+        }
+
+        public boolean active() {
+            return disabledAt == null;
         }
     }
 
