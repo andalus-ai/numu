@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Quarkus composition root for the PostgreSQL outbox relay.
@@ -55,6 +56,11 @@ public class ReservationOutboxRuntime {
     private Counter publishedCounter;
     private Counter failureCounter;
     private Counter shutdownDrainTimeoutCounter;
+    private Counter backlogRefreshFailureCounter;
+    private final AtomicLong pendingEvents = new AtomicLong();
+    private final AtomicLong processingEvents = new AtomicLong();
+    private final AtomicLong deadEvents = new AtomicLong();
+    private final AtomicLong oldestPendingAgeSeconds = new AtomicLong();
 
     // Guarded by this: prevents a scheduled poll from starting after shutdown begins.
     private boolean stopping;
@@ -68,6 +74,11 @@ public class ReservationOutboxRuntime {
         publishedCounter = meterRegistry.counter("numou.reservation.outbox.events.published");
         failureCounter = meterRegistry.counter("numou.reservation.outbox.poll.failures");
         shutdownDrainTimeoutCounter = meterRegistry.counter("numou.reservation.outbox.shutdown.drain.timeouts");
+        backlogRefreshFailureCounter = meterRegistry.counter("numou.reservation.outbox.backlog.refresh.failures");
+        meterRegistry.gauge("numou.reservation.outbox.events.pending", pendingEvents);
+        meterRegistry.gauge("numou.reservation.outbox.events.processing", processingEvents);
+        meterRegistry.gauge("numou.reservation.outbox.events.dead", deadEvents);
+        meterRegistry.gauge("numou.reservation.outbox.oldest.pending.age.seconds", oldestPendingAgeSeconds);
     }
 
     /**
@@ -105,6 +116,39 @@ public class ReservationOutboxRuntime {
                     }
                     completed.complete(null);
                 });
+    }
+
+
+    /**
+     * Refresh low-cardinality operational gauges. Counts are intentionally global to this
+     * outbox table; tenant IDs are not metric labels because they create unbounded cardinality
+     * and may expose tenant activity through the metrics endpoint.
+     */
+    @Scheduled(every = "{numou.reservation.outbox.metrics-refresh-interval}")
+    Uni<Void> refreshBacklogMetrics() {
+        return pool.query("""
+                SELECT
+                    count(*) FILTER (WHERE status = 'PENDING') AS pending_count,
+                    count(*) FILTER (WHERE status = 'PROCESSING') AS processing_count,
+                    count(*) FILTER (WHERE status = 'DEAD') AS dead_count,
+                    COALESCE(EXTRACT(EPOCH FROM
+                        (clock_timestamp() - min(occurred_at) FILTER (WHERE status = 'PENDING'))), 0)::bigint
+                        AS oldest_pending_age_seconds
+                  FROM reservation_outbox_event
+                """).execute()
+                .invoke(rows -> {
+                    var row = rows.iterator().next();
+                    pendingEvents.set(row.getLong("pending_count"));
+                    processingEvents.set(row.getLong("processing_count"));
+                    deadEvents.set(row.getLong("dead_count"));
+                    oldestPendingAgeSeconds.set(row.getLong("oldest_pending_age_seconds"));
+                })
+                .replaceWithVoid()
+                .onFailure().invoke(failure -> {
+                    backlogRefreshFailureCounter.increment();
+                    LOG.error("Unable to refresh reservation outbox backlog metrics", failure);
+                })
+                .onFailure().recoverWithItem((Void) null);
     }
 
     /**
