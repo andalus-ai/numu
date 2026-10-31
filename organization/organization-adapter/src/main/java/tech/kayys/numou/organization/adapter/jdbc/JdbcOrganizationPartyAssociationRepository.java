@@ -48,7 +48,14 @@ public final class JdbcOrganizationPartyAssociationRepository
     @Override
     public CompletionStage<OrganizationPartyAssociation> save(OrganizationPartyAssociation association) {
         Objects.requireNonNull(association, "association");
-        return CompletableFuture.supplyAsync(() -> saveBlocking(association), jdbcExecutor);
+        return CompletableFuture.supplyAsync(() -> saveBlocking(association, null), jdbcExecutor);
+    }
+
+    @Override
+    public CompletionStage<OrganizationPartyAssociation> save(OrganizationPartyAssociation association, UUID tenantId) {
+        Objects.requireNonNull(association, "association");
+        Objects.requireNonNull(tenantId, "tenantId");
+        return CompletableFuture.supplyAsync(() -> saveBlocking(association, tenantId), jdbcExecutor);
     }
 
     @Override
@@ -116,7 +123,7 @@ public final class JdbcOrganizationPartyAssociationRepository
         }, jdbcExecutor);
     }
 
-    private OrganizationPartyAssociation saveBlocking(OrganizationPartyAssociation candidate) {
+    private OrganizationPartyAssociation saveBlocking(OrganizationPartyAssociation candidate, UUID tenantId) {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -129,8 +136,9 @@ public final class JdbcOrganizationPartyAssociationRepository
                                 "A new association must start as PENDING_VERIFICATION at version zero");
                     }
                     insert(connection, candidate);
-                    appendHistory(connection, candidate.id(), "PROPOSED", null,
+                    UUID eventId = appendHistory(connection, candidate.id(), "PROPOSED", null,
                             candidate.status(), candidate.updatedAt(), candidate.updatedBy(), candidate.reason());
+                    if (tenantId != null) appendOutbox(connection, candidate, tenantId, eventId, "PROPOSED");
                 } else {
                     OrganizationPartyAssociation previous = current.get();
                     if (!previous.organizationId().equals(candidate.organizationId())
@@ -153,10 +161,11 @@ public final class JdbcOrganizationPartyAssociationRepository
                                 + previous.status() + " -> " + candidate.status());
                     }
                     update(connection, candidate, previous.version());
-                    appendHistory(connection, candidate.id(),
-                            previous.status().name() + "_TO_" + candidate.status().name(),
+                    String transition = previous.status().name() + "_TO_" + candidate.status().name();
+                    UUID eventId = appendHistory(connection, candidate.id(), transition,
                             previous.status(), candidate.status(), candidate.updatedAt(),
                             candidate.updatedBy(), candidate.reason());
+                    if (tenantId != null) appendOutbox(connection, candidate, tenantId, eventId, transition);
                 }
                 connection.commit();
                 return candidate;
@@ -222,17 +231,18 @@ public final class JdbcOrganizationPartyAssociationRepository
         }
     }
 
-    private void appendHistory(Connection connection, UUID associationId, String eventType,
+    private UUID appendHistory(Connection connection, UUID associationId, String eventType,
                                OrganizationPartyAssociationStatus fromStatus,
                                OrganizationPartyAssociationStatus toStatus, Instant occurredAt,
                                String actorId, String reason) throws SQLException {
+        UUID eventId = UUID.randomUUID();
         String sql = """
                 INSERT INTO organization_party_association_history
                 (event_id, association_id, event_type, from_status, to_status, occurred_at, actor_id, reason)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, UUID.randomUUID());
+            statement.setObject(1, eventId);
             statement.setObject(2, associationId);
             statement.setString(3, eventType);
             statement.setString(4, fromStatus == null ? null : fromStatus.name());
@@ -240,6 +250,50 @@ public final class JdbcOrganizationPartyAssociationRepository
             statement.setTimestamp(6, Timestamp.from(occurredAt));
             statement.setString(7, actorId);
             statement.setString(8, reason);
+            statement.executeUpdate();
+        }
+        return eventId;
+    }
+
+    /** Insert the standard platform envelope using the association transaction's JDBC connection. */
+    private void appendOutbox(Connection connection, OrganizationPartyAssociation a, UUID tenantId,
+                              UUID eventId, String transition) throws SQLException {
+        String sql = """
+                INSERT INTO platform_outbox
+                    (entry_id, event_id, tenant_id, event_type, payload, created_at, available_at)
+                VALUES (?, ?, ?, ?, jsonb_build_object(
+                    'specVersion', '1', 'eventId', ?::text, 'eventType', ?, 'eventVersion', '1.0',
+                    'correlationId', NULL, 'causationId', NULL, 'tenantId', ?::text,
+                    'participantId', NULL, 'actorId', ?, 'occurredAt', ?, 'traceId', NULL,
+                    'payload', jsonb_build_object('eventId', ?::text, 'occurredAtIso', ?,
+                        'eventType', ?, 'data', jsonb_build_object(
+                            'associationId', ?::text, 'organizationId', ?::text,
+                            'partyId', ?::text, 'status', ?, 'version', ?,
+                            'transition', ?, 'reason', ?)))), ?, ?)
+                ON CONFLICT (event_id) DO NOTHING
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, UUID.randomUUID());
+            statement.setObject(2, eventId);
+            statement.setObject(3, tenantId);
+            statement.setString(4, "organization.party-association.changed");
+            statement.setObject(5, eventId);
+            statement.setString(6, "organization.party-association.changed");
+            statement.setObject(7, tenantId);
+            statement.setString(8, a.updatedBy());
+            statement.setString(9, a.updatedAt().toString());
+            statement.setObject(10, eventId);
+            statement.setString(11, a.updatedAt().toString());
+            statement.setString(12, "organization.party-association.changed");
+            statement.setObject(13, a.id());
+            statement.setObject(14, a.organizationId().value());
+            statement.setObject(15, a.partyId().value());
+            statement.setString(16, a.status().name());
+            statement.setLong(17, a.version());
+            statement.setString(18, transition);
+            statement.setString(19, a.reason());
+            statement.setTimestamp(20, Timestamp.from(a.updatedAt()));
+            statement.setTimestamp(21, Timestamp.from(a.updatedAt()));
             statement.executeUpdate();
         }
     }
