@@ -31,22 +31,16 @@ Migration V1003 adds an append-only requeue audit table. A PostgreSQL trigger wr
 
 ## Operator operations API
 
-`ReceiptPostingOperations` is the transport-neutral blocking facade for a host REST, GraphQL, or RPC adapter. For reactive hosts, use `ReactiveReceiptPostingOperations` instead:
+`ReceiptPostingOperations` is the transport-neutral synchronous facade for non-reactive hosts. Reactive Quarkus hosts should use `IdentityReceiptPostingOperations`:
+- Effective permissions are loaded through Identity's `EffectivePermissionPort` in the verified tenant scope.
+- Required permission codes are `automotive-parts.receipt-posting.inspect` and `automotive-parts.receipt-posting.requeue`.
+- JDBC queries and ledger mutations are scheduled on Mutiny's worker pool; the event-loop thread is never blocked.
+- The current tenant must come from `RequestContextHolder` after verified tenant selection. The actor is taken from Quarkus `SecurityIdentity` and must be a UUID user subject. Neither is accepted from request parameters or payloads.
+- Permission lookup failures deny access. The facade does not treat an Identity outage as an authorization bypass.
+- The V1003 audit trigger persists requeue evidence in the same transaction as the ledger state transition.
 
-- `ReceiptPostingOperationsAuthorizationPort` returns Mutiny `Uni<Boolean>` decisions, allowing reactive Identity lookups without blocking the event loop.
-- `ReactiveReceiptPostingOperations` captures the trusted request-scoped operator context before asynchronous work begins.
-- All JDBC reads and state changes are dispatched to the explicitly supplied blocking `Executor`; the host owns its worker-pool sizing and lifecycle.
-- No operation accepts tenant or actor identifiers from the API caller. The facade obtains them from `CurrentReceiptPostingOperatorPort`.
-- Inspection and requeue remain separate permissions. A denied or failed authorization never reaches the JDBC operation.
-
-The host authorization adapter should resolve the following permission codes using Numou Identity's effective-permission / verified-membership checks:
-- `automotive-parts.receipt-posting.inspect`
-- `automotive-parts.receipt-posting.requeue`
-
-Do not trust tenant IDs, actor IDs, or permission claims supplied in request bodies or query parameters. Do not expose JDBC repositories directly as HTTP resources. Return 404 for receipts outside the current tenant and 403 for denied operations.
-
-The host application owns the concrete authenticated HTTP adapter, identity wiring, worker scheduling, alerting, and operational retention. The Identity adapter must map the verified principal's stable user ID—not its display handle—to Identity's `UserId` when querying `EffectivePermissionPort`.
+`RequestContextReceiptPostingOperator` is the trusted context adapter for the reactive facade. The host still owns the authenticated REST resource, route-level authentication, HTTP error mapping, and runtime CDI composition. Do not expose JDBC repositories directly as HTTP resources. Return 404 for receipts outside the current tenant and 403 for denied operations.
 
 ## Verification
 
-PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, immutable audit history, operator pagination, summary counts, authorization denial, and reactive worker-executor dispatch. Deployment-level HTTP authentication and authorization integration tests belong in the host application.
+PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, immutable audit history, operator pagination, summary counts, synchronous authorization denial, and reactive Identity authorization/recovery. Deployment-level HTTP authentication and authorization integration tests belong in the host application.

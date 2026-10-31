@@ -84,6 +84,8 @@ class AffiliateOutboxDispatcherTest {
             return CompletableFuture.completedFuture(events);
         }
 
+        @Override public java.util.concurrent.CompletionStage<Boolean> redriveDeadLetter(String tenantId, UUID eventId, String actorId, String reason, String idempotencyKey, String correlationId, Instant now) { return CompletableFuture.completedFuture(false); }
+
         @Override public java.util.concurrent.CompletionStage<Void> markDelivered(
                 String tenantId, UUID eventId, String workerId, Instant now) {
             delivered.add(events.stream().filter(e -> e.id().equals(eventId)).findFirst().orElseThrow());

@@ -14,6 +14,9 @@ public interface AffiliateEventOutboxStore {
     CompletionStage<Void> reschedule(String tenantId, UUID eventId, String workerId,
             String reason, Instant retryAt, Instant now, int maxAttempts);
 
+    CompletionStage<Boolean> redriveDeadLetter(String tenantId, UUID eventId, String actorId,
+            String reason, String idempotencyKey, String correlationId, Instant now);
+
     record ClaimedEvent(String tenantId, UUID id, String aggregateType, UUID aggregateId,
             String eventType, String eventKey, String payload, int attempts,
             String leaseOwner, Instant leaseUntil) {}
