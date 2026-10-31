@@ -15,6 +15,7 @@ import tech.kayys.numou.numouapplication.query.SyirkahSummary;
 import tech.kayys.numou.numoudomain.*;
 import tech.kayys.numou.numourest.SyirkahDtos.*;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 /**
