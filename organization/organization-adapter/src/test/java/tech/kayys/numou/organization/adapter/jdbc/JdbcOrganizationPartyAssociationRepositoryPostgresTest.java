@@ -15,6 +15,7 @@ import javax.sql.DataSource;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
@@ -48,6 +49,29 @@ class JdbcOrganizationPartyAssociationRepositoryPostgresTest {
         assertEquals(2, history.size());
         assertEquals("PROPOSED", history.get(0).eventType());
         assertEquals("PENDING_VERIFICATION_TO_ACTIVE", history.get(1).eventType());
+    }
+
+    @Test
+    void associationHistoryRejectsUpdateDeleteAndTruncate() throws Exception {
+        var repository = repository();
+        var proposed = OrganizationPartyAssociation.propose(
+                UUID.randomUUID(), OrganizationId.generate(), PartyId.generate(),
+                T0, "operator-1", null);
+        repository.save(proposed).toCompletableFuture().join();
+
+        try (Connection connection = dataSource().getConnection();
+             Statement statement = connection.createStatement()) {
+            assertThrows(SQLException.class, () -> statement.executeUpdate(
+                    "UPDATE organization_party_association_history SET reason = 'tampered' "
+                            + "WHERE association_id = '" + proposed.id() + "'"));
+            assertThrows(SQLException.class, () -> statement.executeUpdate(
+                    "DELETE FROM organization_party_association_history "
+                            + "WHERE association_id = '" + proposed.id() + "'"));
+            assertThrows(SQLException.class,
+                    () -> statement.execute("TRUNCATE organization_party_association_history"));
+        }
+
+        assertEquals(1, repository.findHistory(proposed.id()).toCompletableFuture().join().size());
     }
 
     @Test
@@ -102,11 +126,15 @@ class JdbcOrganizationPartyAssociationRepositoryPostgresTest {
              Statement statement = connection.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS organization_party_association_history CASCADE");
             statement.execute("DROP TABLE IF EXISTS organization_party_associations CASCADE");
-            String resource = "db/migration/V1__organization_party_associations.sql";
-            try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {
-                assertNotNull(input, "Missing migration resource " + resource);
-                statement.execute(new String(input.readAllBytes(), StandardCharsets.UTF_8));
-            }
+            executeMigration(statement, "db/migration/V1__organization_party_associations.sql");
+            executeMigration(statement, "db/migration/V2__organization_party_association_history_immutability.sql");
+        }
+    }
+
+    private void executeMigration(Statement statement, String resource) throws Exception {
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {
+            assertNotNull(input, "Missing migration resource " + resource);
+            statement.execute(new String(input.readAllBytes(), StandardCharsets.UTF_8));
         }
     }
 }
