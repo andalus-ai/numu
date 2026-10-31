@@ -59,11 +59,6 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-document-application</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-foundation-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>

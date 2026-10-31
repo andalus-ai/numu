@@ -126,6 +126,13 @@ public class SyirkahResource {
         return Response.status(Response.Status.CREATED).entity(api.engageStaff(id, request)).build();
     }
 
+    @POST
+    @Path("/{id}/closes/preview")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public ClosePreview previewClose(@PathParam("id") String id, ClosePeriodRequest request) {
+        return api.previewClose(id, request);
+    }
+
     @GET
     @Path("/{id}/closes/{closeId}/trading")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
