@@ -4,6 +4,8 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -26,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -84,6 +87,65 @@ class KafkaConsumerConnectorTest {
         ConsumerRecord<String, String> deadLetter = pollDeadLetter(bootstrapServers, Duration.ofSeconds(25));
         assertThat(deadLetter).isNotNull();
         assertThat(deadLetter.value()).isEqualTo("{malformed-json");
+    }
+
+
+    @Test
+    void uncommittedRecordIsRedeliveredAfterRestartAndCommittedOffsetIsRespected() throws Exception {
+        String topic = "numou.events.recovery." + UUID.randomUUID().toString().replace("-", "");
+        String groupId = "numou-event-recovery-" + UUID.randomUUID();
+        String payload = "restart-recovery-" + UUID.randomUUID();
+        send(topic, payload, EVENT_TYPE);
+
+        ConsumerRecord<String, String> firstDelivery;
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(
+                recoveryConsumerProperties(bootstrapServers, groupId))) {
+            consumer.subscribe(List.of(topic));
+            firstDelivery = pollRecord(consumer, Duration.ofSeconds(20));
+            assertThat(firstDelivery).isNotNull();
+            assertThat(firstDelivery.value()).isEqualTo(payload);
+            // Simulate process termination before the offset is committed.
+        }
+
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(
+                recoveryConsumerProperties(bootstrapServers, groupId))) {
+            consumer.subscribe(List.of(topic));
+            ConsumerRecord<String, String> redelivery = pollRecord(consumer, Duration.ofSeconds(20));
+            assertThat(redelivery).isNotNull();
+            assertThat(redelivery.value()).isEqualTo(payload);
+            assertThat(redelivery.topic()).isEqualTo(firstDelivery.topic());
+            assertThat(redelivery.partition()).isEqualTo(firstDelivery.partition());
+            assertThat(redelivery.offset()).isEqualTo(firstDelivery.offset());
+            TopicPartition partition = new TopicPartition(redelivery.topic(), redelivery.partition());
+            consumer.commitSync(Map.of(partition, new OffsetAndMetadata(redelivery.offset() + 1)));
+        }
+
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(
+                recoveryConsumerProperties(bootstrapServers, groupId))) {
+            consumer.subscribe(List.of(topic));
+            ConsumerRecord<String, String> unexpected = pollRecord(consumer, Duration.ofSeconds(3));
+            assertThat(unexpected)
+                    .as("a committed offset must not be replayed when the same group restarts")
+                    .isNull();
+        }
+    }
+
+    private static ConsumerRecord<String, String> pollRecord(
+            Consumer<String, String> consumer, Duration timeout) {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadline) {
+            var records = consumer.poll(Duration.ofMillis(250));
+            if (!records.isEmpty()) return records.iterator().next();
+        }
+        return null;
+    }
+
+    private static Properties recoveryConsumerProperties(String bootstrapServers, String groupId) {
+        Properties properties = consumerProperties(bootstrapServers);
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        return properties;
     }
 
     private void send(String topic, String payload, String eventType) throws Exception {
