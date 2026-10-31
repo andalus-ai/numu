@@ -13,6 +13,11 @@ import java.util.concurrent.CompletionStage;
 /** Persistence contract owned by the Organization capability. */
 public interface OrganizationPartyAssociationRepository {
     CompletionStage<OrganizationPartyAssociation> save(OrganizationPartyAssociation association);
+
+    /** Persist the association and publish its tenant-scoped lifecycle event atomically where supported. */
+    default CompletionStage<OrganizationPartyAssociation> save(OrganizationPartyAssociation association, UUID tenantId) {
+        return save(association);
+    }
     CompletionStage<Optional<OrganizationPartyAssociation>> findById(UUID associationId);
     CompletionStage<Optional<OrganizationPartyAssociation>> findCurrentByOrganizationId(OrganizationId organizationId);
     CompletionStage<Optional<OrganizationPartyAssociation>> findCurrentByPartyId(PartyId partyId);
