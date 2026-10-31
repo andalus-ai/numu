@@ -1,0 +1,51 @@
+name: CRM PostgreSQL tenant integrity
+
+on:
+  pull_request:
+    paths:
+      - "crm/**"
+      - ".github/workflows/crm-postgres.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crm/**"
+      - ".github/workflows/crm-postgres.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  crm-tenant-relationship-integrity:
+    name: CRM migrations and tenant relationship constraints
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: numou_crm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d numou_crm_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply CRM schema migrations in version order
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          for migration in crm/numou-crm-adapter/src/main/resources/db/migration/V*.sql; do
+            echo "Applying ${migration}"
+            psql -h localhost -U postgres -d numou_crm_test -v ON_ERROR_STOP=1 -f "${migration}"
+          done
+      - name: Verify tenant-local relationship constraints
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d numou_crm_test -v ON_ERROR_STOP=1 \
+            -f crm/numou-crm-adapter/src/test/resources/db/tenant-relationship-integrity.sql
