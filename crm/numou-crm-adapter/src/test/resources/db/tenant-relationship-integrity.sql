@@ -22,7 +22,8 @@ values
 
 insert into crm_opportunities (id, tenant_id, name, customer_id, stage, active, created_at)
 values
- ('50000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Tenant A opportunity', '30000000-0000-0000-0000-000000000001', 'QUALIFICATION', true, now());
+ ('50000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Tenant A opportunity', '30000000-0000-0000-0000-000000000001', 'QUALIFICATION', true, now()),
+ ('50000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tenant B opportunity', '30000000-0000-0000-0000-000000000002', 'QUALIFICATION', true, now());
 
 insert into crm_territories (id, tenant_id, name, territory_active, active, created_at)
 values
@@ -85,7 +86,7 @@ select pg_temp.assert_fk_rejected($q$
 $q$);
 
 select pg_temp.assert_fk_rejected($q$
- update crm_referrals set target_opportunity_id = '50000000-0000-0000-0000-000000000001'
+ update crm_referrals set target_opportunity_id = '50000000-0000-0000-0000-000000000002'
  where id = '90000000-0000-0000-0000-000000000002'
 $q$);
 
