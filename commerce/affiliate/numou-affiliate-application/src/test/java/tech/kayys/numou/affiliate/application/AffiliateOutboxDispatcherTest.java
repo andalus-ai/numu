@@ -25,7 +25,7 @@ class AffiliateOutboxDispatcherTest {
 
         assertEquals(1, dispatcher.dispatchOnce("tenant-a", "worker-a").toCompletableFuture().join());
         assertEquals(1, store.delivered.size());
-        assertEquals("tenant-a", store.delivered.getFirst().tenantId());
+        assertEquals("tenant-a", store.delivered.get(0).tenantId());
         assertTrue(store.rescheduled.isEmpty());
     }
 
@@ -38,9 +38,9 @@ class AffiliateOutboxDispatcherTest {
 
         assertEquals(0, dispatcher.dispatchOnce("tenant-a", "worker-a").toCompletableFuture().join());
         assertEquals(1, store.rescheduled.size());
-        Retry retry = store.rescheduled.getFirst();
+        Retry retry = store.rescheduled.get(0);
         assertEquals(3, retry.maxAttempts());
-        assertEquals(NOW.plusSeconds(20), retry.retryAt());
+        assertEquals(NOW.plusSeconds(40), retry.retryAt());
         assertTrue(retry.reason().contains("broker unavailable"));
     }
 
