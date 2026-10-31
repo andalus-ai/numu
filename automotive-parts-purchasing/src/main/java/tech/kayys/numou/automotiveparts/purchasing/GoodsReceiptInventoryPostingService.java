@@ -10,86 +10,84 @@ import tech.kayys.numou.purchasing.domain.procurement.GoodsReceipt;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-/**
- * Explicit anti-corruption boundary from Purchasing goods receipts to Inventory stock.
- *
- * <p>Purchasing remains authoritative for receipt identity and accepted quantity;
- * Inventory remains authoritative for stock movements and balances. The mapping policy
- * is responsible for resolving the PO line to a tenant-owned stock item, receiving
- * warehouse, unit conversion, and valuation. A stable receipt-derived command key makes
- * retries safe only when the Inventory adapter implements durable idempotency.</p>
- */
+/** Explicit anti-corruption boundary from accepted Purchasing receipts to Inventory stock. */
 public final class GoodsReceiptInventoryPostingService {
     private final InventoryService inventory;
     private final ReceiptInventoryMapping mapping;
     private final ReceiptPostingLedger postingLedger;
+    private final ReceiptPostingRetryPolicy retryPolicy;
 
-    /** Compatibility constructor for tests and single-process use. Production deployments should inject a durable ledger. */
+    /** Compatibility constructor for tests and single-process use. */
     public GoodsReceiptInventoryPostingService(InventoryService inventory, ReceiptInventoryMapping mapping) {
-        this(inventory, mapping, null);
+        this(inventory, mapping, null, ReceiptPostingRetryPolicy.defaults());
     }
 
     public GoodsReceiptInventoryPostingService(InventoryService inventory, ReceiptInventoryMapping mapping,
                                                ReceiptPostingLedger postingLedger) {
+        this(inventory, mapping, postingLedger, ReceiptPostingRetryPolicy.defaults());
+    }
+
+    public GoodsReceiptInventoryPostingService(InventoryService inventory, ReceiptInventoryMapping mapping,
+                                               ReceiptPostingLedger postingLedger,
+                                               ReceiptPostingRetryPolicy retryPolicy) {
         this.inventory = Objects.requireNonNull(inventory, "inventory is required");
         this.mapping = Objects.requireNonNull(mapping, "mapping is required");
         this.postingLedger = postingLedger;
+        this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy is required");
     }
 
-    /**
-     * Posts the receipt's accepted quantity into Inventory. Mapping must be tenant scoped
-     * and deterministic for the lifetime of a receipt; changed mapping/payload for a
-     * previously posted receipt is rejected by Inventory's idempotency contract.
-     */
     public InventoryMovement post(GoodsReceipt receipt) {
         Objects.requireNonNull(receipt, "receipt is required");
-        require(receipt.tenantId(), "tenantId");
-        require(receipt.receiptId(), "receiptId");
-        require(receipt.poId(), "poId");
-        require(receipt.poLineId(), "poLineId");
-
+        require(receipt.tenantId(), "tenantId"); require(receipt.receiptId(), "receiptId");
+        require(receipt.poId(), "poId"); require(receipt.poLineId(), "poLineId");
         ReceiptInventoryTarget target = Objects.requireNonNull(
                 mapping.resolve(receipt.tenantId(), receipt.poId(), receipt.poLineId()),
                 "No inventory mapping exists for this purchase-order line");
         BigDecimal inventoryQuantity = receipt.quantityReceived().multiply(target.inventoryUnitsPerReceiptUnit());
-        if (inventoryQuantity.signum() <= 0) {
-            throw new IllegalArgumentException("Converted inventory quantity must be positive");
-        }
+        if (inventoryQuantity.signum() <= 0) throw new IllegalArgumentException("Converted inventory quantity must be positive");
 
         InventoryCommandKey key = new InventoryCommandKey(
                 "purchasing.goods-receipt:" + receipt.tenantId(), receipt.receiptId());
+        String reference = "goods-receipt:" + receipt.receiptId();
         if (postingLedger == null) {
             return inventory.receive(key, target.itemId(), target.warehouseId(), inventoryQuantity,
-                    target.unitCost(), target.currency(), "goods-receipt:" + receipt.receiptId());
+                    target.unitCost(), target.currency(), reference);
         }
 
         String fingerprint = fingerprint(receipt, target, inventoryQuantity);
-        postingLedger.begin(receipt.tenantId(), receipt.receiptId(), fingerprint);
-        // Even POSTED records are replayed through Inventory's durable command receipt so
-        // the canonical movement can be returned without storing a second copy here.
+        ReceiptPostingLedger.PostingRecord record = postingLedger.begin(
+                receipt.tenantId(), receipt.receiptId(), fingerprint, retryPolicy.maxAttempts());
+        if (record.status() == ReceiptPostingLedger.Status.DEAD_LETTER) {
+            throw new IllegalStateException("Goods receipt posting is dead-lettered and requires authorized operator requeue");
+        }
+
+        // Replay POSTED and PENDING through the stable Inventory receipt. The durable command
+        // receipt is authoritative after a crash between Inventory commit and ledger update.
         try {
             InventoryMovement movement = inventory.receive(key, target.itemId(), target.warehouseId(),
-                    inventoryQuantity, target.unitCost(), target.currency(),
-                    "goods-receipt:" + receipt.receiptId());
+                    inventoryQuantity, target.unitCost(), target.currency(), reference);
             postingLedger.markPosted(receipt.tenantId(), receipt.receiptId(), fingerprint, movement.id().toString());
             return movement;
         } catch (RuntimeException failure) {
-            postingLedger.markRetryable(receipt.tenantId(), receipt.receiptId(), fingerprint,
-                    failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            try {
+                postingLedger.markRetryable(receipt.tenantId(), receipt.receiptId(), fingerprint,
+                        failure.getClass().getSimpleName() + ": " + failure.getMessage(), retryPolicy.maxAttempts());
+            } catch (RuntimeException ledgerFailure) {
+                failure.addSuppressed(ledgerFailure);
+            }
             throw failure;
         }
     }
 
-    private static String fingerprint(GoodsReceipt receipt, ReceiptInventoryTarget target,
-                                      BigDecimal inventoryQuantity) {
+    private static String fingerprint(GoodsReceipt receipt, ReceiptInventoryTarget target, BigDecimal quantity) {
         try {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            String canonical = String.join("\\n", receipt.tenantId(), receipt.receiptId(),
-                    receipt.poId(), receipt.poLineId(), receipt.quantityReceived().stripTrailingZeros().toPlainString(),
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            String canonical = String.join("\n", receipt.tenantId(), receipt.receiptId(), receipt.poId(),
+                    receipt.poLineId(), receipt.quantityReceived().stripTrailingZeros().toPlainString(),
                     target.itemId().toString(), target.warehouseId().toString(),
                     target.inventoryUnitsPerReceiptUnit().stripTrailingZeros().toPlainString(),
-                    inventoryQuantity.stripTrailingZeros().toPlainString(),
-                    target.unitCost().stripTrailingZeros().toPlainString(), target.currency());
+                    quantity.stripTrailingZeros().toPlainString(), target.unitCost().stripTrailingZeros().toPlainString(),
+                    target.currency());
             return java.util.HexFormat.of().formatHex(digest.digest(
                     canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         } catch (java.security.NoSuchAlgorithmException impossible) {
@@ -102,31 +100,22 @@ public final class GoodsReceiptInventoryPostingService {
         ReceiptInventoryTarget resolve(String tenantId, String purchaseOrderId, String purchaseOrderLineId);
     }
 
-    /**
-     * Versioned business mapping result. Conversion factor means inventory base units per
-     * receipt unit (e.g. 12 EA per BOX); unit cost is expressed per inventory base unit.
-     */
-    public record ReceiptInventoryTarget(
-            ItemId itemId,
-            WarehouseId warehouseId,
-            BigDecimal inventoryUnitsPerReceiptUnit,
-            BigDecimal unitCost,
-            String currency) {
+    /** Conversion factor is inventory base units per receipt unit; unit cost is per base unit. */
+    public record ReceiptInventoryTarget(ItemId itemId, WarehouseId warehouseId,
+            BigDecimal inventoryUnitsPerReceiptUnit, BigDecimal unitCost, String currency) {
         public ReceiptInventoryTarget {
             Objects.requireNonNull(itemId, "itemId is required");
             Objects.requireNonNull(warehouseId, "warehouseId is required");
             Objects.requireNonNull(inventoryUnitsPerReceiptUnit, "unit conversion is required");
             Objects.requireNonNull(unitCost, "unitCost is required");
             require(currency, "currency");
-            if (inventoryUnitsPerReceiptUnit.signum() <= 0) {
-                throw new IllegalArgumentException("Unit conversion must be positive");
-            }
+            if (inventoryUnitsPerReceiptUnit.signum() <= 0) throw new IllegalArgumentException("Unit conversion must be positive");
             if (unitCost.signum() < 0) throw new IllegalArgumentException("Unit cost must not be negative");
             currency = currency.trim();
         }
     }
 
-    private static void require(String value, String name) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required");
+    private static void require(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
     }
 }

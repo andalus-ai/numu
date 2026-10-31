@@ -39,12 +39,26 @@ public class DocumentConsultancyEvidenceLinkStore implements ConsultancyEvidence
                 DocumentVersionId.of(documentVersionId.toString()),
                 AGGREGATE_TYPE, deliverableId.toString(), relationship, actorId);
         return documentLinks.save(tenantId.trim(), requested)
-                .chain(() -> findByDeliverable(tenantId, deliverableId))
-                .map(links -> links.stream()
-                        .filter(link -> link.documentId().equals(documentId)
-                                && link.documentVersionId().equals(documentVersionId)
+                .chain(() -> documentLinks.findByAggregate(
+                        tenantId.trim(), AGGREGATE_TYPE, deliverableId.toString()))
+                .map(rows -> rows.stream()
+                        .filter(link -> link.documentId().value().equals(documentId.toString())
+                                && link.documentVersionId() != null
+                                && link.documentVersionId().value().equals(documentVersionId.toString())
                                 && link.relationship().equals(relationship))
                         .findFirst()
+                        .map(link -> {
+                            if (link.linkedBy() == null) {
+                                throw new tech.kayys.numou.construction.application.consultancy
+                                        .ConsultancyEvidencePermanentFailureException(
+                                        "An existing evidence relationship has no recorded actor attribution");
+                            }
+                            return new ConsultancyEvidenceLink(
+                                    UUID.fromString(link.id().value()), deliverableId,
+                                    UUID.fromString(link.documentId().value()),
+                                    UUID.fromString(link.documentVersionId().value()),
+                                    link.relationship(), link.linkedBy(), link.linkedAt());
+                        })
                         .orElseThrow(() -> new IllegalStateException(
                                 "Document repository did not return the persisted evidence relationship")));
     }

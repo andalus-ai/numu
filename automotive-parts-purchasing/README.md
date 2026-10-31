@@ -1,32 +1,36 @@
 # Automotive Parts → Purchasing integration
 
-This adapter translates explicit workshop external-parts demand into a Purchasing-owned requisition. It does not own supplier catalogs, purchase orders, goods receipts, inventory, or stock movements.
-
-- The caller supplies a stable demand ID, tenant and purchasing context, work-order references, canonical part reference, fitment snapshot reference, quantity/UOM, and estimated unit price.
-- The demand ID is reused as the tenant-scoped requisition ID. A retry with the same payload recovers the same requisition without appending a duplicate line.
-- Reusing a demand ID with different header or line data is rejected.
-- New requisitions are submitted for the normal Purchasing approval workflow; this adapter does not approve them or select a supplier.
-- UOM and work-order/fitment provenance are carried in the line description because the current RequisitionLine contract does not model typed UOM or source references. This is a documented limitation, not a substitute for a future versioned line contract.
+This adapter translates workshop external-parts demand into Purchasing-owned requisitions. It does not own supplier catalogs, purchase orders, goods receipts, Inventory, or stock movements.
 
 ## Goods receipt → Inventory posting
 
-`GoodsReceiptInventoryPostingService` is the explicit anti-corruption boundary for accepted purchasing receipts. It resolves the purchase-order line through a tenant-scoped mapping policy, applies an explicit receipt-unit-to-inventory-unit conversion, and posts a receipt movement through `InventoryService` using a stable command key scoped by tenant and receipt ID.
+`GoodsReceiptInventoryPostingService` resolves an accepted Purchasing receipt through a tenant-scoped mapping policy and posts the accepted quantity to Inventory. Purchasing remains authoritative for receipt identity and accepted quantity; Inventory remains authoritative for stock movements and balances.
 
-- Purchasing remains authoritative for the receipt and accepted quantity; Inventory remains authoritative for movements and stock balances.
-- The mapping policy must deterministically resolve the same tenant/PO-line to stock item, warehouse, conversion factor, unit cost, and currency for a receipt's lifetime.
-- The conversion factor is inventory base units per receipt unit; unit cost is expressed per inventory base unit.
-- Replaying the same receipt uses the same idempotency key. Reusing that key with a changed quantity is rejected by the Inventory adapter contract.
-- The mapping must be validated against the tenant's catalog and receiving authorization before posting.
+- The mapping must deterministically resolve tenant/PO-line to stock item, warehouse, conversion factor, unit cost, and currency.
+- The conversion factor is inventory base units per receipt unit; unit cost is per inventory base unit.
+- The Inventory command key remains `purchasing.goods-receipt:<tenantId>` plus the receipt ID. Do not rotate it on retry or requeue.
+- The PostgreSQL Inventory adapter commits the movement and command receipt atomically. Replaying the same key and payload returns the original movement; a changed payload is rejected.
+- Purchasing and Inventory are separate transactions. This is an idempotent recovery boundary, not a distributed transaction.
 
-**Production boundary:** use the PostgreSQL Inventory adapter (which commits movement and command receipt atomically) together with `JdbcReceiptPostingLedger` for durable multi-instance retries. Apply the integration migration `db/migration/V1000__receipt_posting_ledger.sql` with the deployment's normal migration runner. The ledger stores a tenant-scoped payload fingerprint, PENDING/POSTED state, attempt count, movement ID, and last failure. A crash after Inventory commits but before the ledger is marked POSTED is recovered by retrying the same receipt command key; Inventory returns the original movement rather than posting stock twice.
+## Durable retry and dead-letter lifecycle
 
-The ledger and Inventory are still separate transactions, not a distributed transaction. The pending-row index supports reconciliation workers. Migration `V1001__receipt_posting_worker_leases.sql` adds worker lease fields. Reconciliation claims stale rows atomically using PostgreSQL row locks and `SKIP LOCKED`, so multiple workers do not intentionally claim the same unexpired row. Claiming does not refresh the row's stale-age timestamp; therefore, once a lease expires, a later pass can reclaim it immediately instead of waiting through another full stale-age window. If a worker crashes, Inventory's durable command receipt remains the duplicate-movement safeguard. Lease duration should exceed typical posting latency; Inventory command idempotency remains the final duplicate-movement safeguard.
+Production deployments inject `JdbcReceiptPostingLedger` and `ReceiptPostingRetryPolicy`. Apply migrations V1000–V1003 using the deployment's normal migration runner.
 
-The host application still owns scheduling, dead-letter policy, alerting, and operator-facing reconciliation endpoints. The two-argument service constructor remains for tests/single-process use; production wiring should inject the JDBC ledger and durable Inventory adapter.
+States:
+- `PENDING`: eligible for posting or worker reconciliation.
+- `POSTED`: Inventory returned the canonical movement and the ledger recorded its ID.
+- `DEAD_LETTER`: configured failure budget exhausted; automatic workers do not claim it.
 
+The attempt counter records failed posting attempts. Creating or replaying a ledger record does not increment it. A retryable failure increments it atomically; the same transaction moves the row to `DEAD_LETTER` when the configured maximum is reached and records the terminal reason/time. The maximum is 1–100 and is fixed on first creation for that receipt identity.
 
-## Durable adapter verification
+A worker crash after Inventory commits but before the ledger records `POSTED` leaves a pending row. Lease expiry permits another worker to replay the same Inventory command key, which returns the already-committed movement. A dead-lettered row is never silently retried: an operator must use `RequeueReceiptPosting`, provide a reason, and pass the host application's tenant-scoped `ReceiptPostingRequeueAuthorizer`. Requeue atomically resets the retry budget and records actor, reason, and timestamp. It does not change the receipt fingerprint or Inventory command key.
 
-`PostgresGoodsReceiptInventoryPostingTest` exercises receipt replay against the PostgreSQL Inventory adapter. It recreates the application service/repository between deliveries to verify the database command receipt—not an in-memory cache—prevents duplicate movements, and checks that a changed receipt payload is rejected. The test uses Testcontainers and is skipped when Docker is unavailable.
+## Requeue audit history
 
-This verifies Inventory-side durable idempotency for this integration path. It does not yet make the Purchasing receipt update and Inventory movement one distributed transaction; operational recovery still depends on retrying the same stable receipt identity and reconciling the durable Inventory command receipt.
+Migration V1003 adds an append-only requeue audit table. A PostgreSQL trigger writes an audit event in the same transaction as every successful `DEAD_LETTER → PENDING` transition, so the operational state change and its audit evidence cannot diverge. The database rejects updates and deletes to audit rows. `JdbcReceiptPostingRequeueAuditRepository` exposes tenant-and-receipt-scoped history for operator tooling; it is read-only and enforces a bounded result size.
+
+The host application owns worker scheduling, authentication/authorization implementation, operator endpoints, alerting, and operational retention. Do not expose the ledger adapter directly as an unauthenticated HTTP endpoint.
+
+## Verification
+
+PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, and immutable audit history. Deployment-level authorization and operator audit integration tests belong in the host application.

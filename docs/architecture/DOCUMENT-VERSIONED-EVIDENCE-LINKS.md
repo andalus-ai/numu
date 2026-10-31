@@ -19,3 +19,8 @@ Domain capabilities reference reports, drawings, approvals and other evidence wi
 ## Compatibility and scope
 
 Migration V3 adds a nullable version reference to the existing `document_links` table and leaves existing rows intact. Migration V4 enforces append-only link behavior, and V5 adds uniqueness after a duplicate preflight. The shared repository contract still does not provide a consultancy-specific evidence workflow or prove that a document is digitally signed, legally valid, or Sharia-compliant. Those claims require their own verification and qualified review.
+
+
+## Actor attribution
+
+Document links support nullable `linked_by` attribution. New version-pinned evidence links created through an actor-aware factory persist the initiating actor; legacy links and historical rows may remain null because their creator cannot be inferred. The nullable field preserves existing data while allowing cross-capability workflows to return an auditable actor on newly created links.
