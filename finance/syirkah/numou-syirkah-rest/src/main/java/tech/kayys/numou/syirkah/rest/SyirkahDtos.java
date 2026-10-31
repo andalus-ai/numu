@@ -182,6 +182,25 @@ public final class SyirkahDtos {
                                       String result) {
     }
 
+    public record PreviewLine(String partnerId, String name, BigDecimal capitalRestored, BigDecimal profitShare,
+                              BigDecimal lossBorne, BigDecimal managerLiability, BigDecimal retained,
+                              BigDecimal payable) {
+    }
+
+    /** What a close would do, worked out on a copy; nothing is stored. */
+    public record ClosePreview(LocalDate periodStart, LocalDate periodEnd, BigDecimal netResult, String result,
+                               BigDecimal unallocatedLoss, List<PreviewLine> lines,
+                               List<PositionView> positionsAfter) {
+    }
+
+    public record CapitalChangeRow(String partner, String name, BigDecimal opening, BigDecimal contributions,
+                                   BigDecimal returns, BigDecimal retainedProfit, BigDecimal capitalRestored,
+                                   BigDecimal lossesAllocated, BigDecimal deficitReclassified, BigDecimal closing) {
+    }
+
+    public record CapitalChangesView(LocalDate from, LocalDate to, List<CapitalChangeRow> rows) {
+    }
+
     public record CloseView(String id, int sequence, LocalDate periodStart, LocalDate periodEnd, int contractVersion,
                             BigDecimal netResult, String disposition, String status, String supersedes,
                             Instant closedAt, String hash) {
@@ -465,6 +484,13 @@ public final class SyirkahDtos {
                 r.recordedAt());
     }
 
+    static CapitalChangesView capitalChanges(LocalDate from, LocalDate to, CapitalRollForward r) {
+        return new CapitalChangesView(from, to, r.rows().stream().map(x -> new CapitalChangeRow(
+                x.partner().value().toString(), x.name(), x.opening().amount(), x.contributions().amount(),
+                x.returns().amount(), x.retainedProfit().amount(), x.capitalRestored().amount(),
+                x.lossesAllocated().amount(), x.deficitReclass().amount(), x.closing().amount())).toList());
+    }
+
     static BigDecimal amt(Money m) {
         return m.amount();
     }
@@ -498,6 +524,18 @@ public final class SyirkahDtos {
                     amt(pos.balance()), amt(pos.payable()), amt(pos.liability())));
         }
         return new SyirkahView(summary(SyirkahSummary.of(s)), contractView(s.contract()), positions);
+    }
+
+    static ClosePreview preview(Syirkah after, CloseSnapshot c) {
+        List<PreviewLine> lines = new ArrayList<>();
+        for (AllocationLine l : c.lines()) {
+            lines.add(new PreviewLine(l.partner().value().toString(), after.partnerName(l.partner()),
+                    amt(l.capitalRestored()), amt(l.profitShare()), amt(l.lossBorne()), amt(l.managerLiability()),
+                    amt(l.retained()), amt(l.payable())));
+        }
+        return new ClosePreview(c.periodStart(), c.periodEnd(), amt(c.netResult()),
+                c.netResult().isPositive() ? "PROFIT" : c.netResult().isZero() ? "BREAK-EVEN" : "LOSS",
+                amt(c.unallocatedLoss()), lines, syirkah(after).positions());
     }
 
     static CloseView close(CloseSnapshot c) {

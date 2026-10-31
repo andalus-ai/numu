@@ -164,7 +164,7 @@ public class LeadRepositoryImpl implements LeadRepository {
     public CompletionStage<Long> countByStatus(LeadStatus status) {
         UUID tenantId = tenantId();
         return Panache.withSession(() -> LeadEntity.count(
-                "tenantId = ?1 and status = ?2", tenantId, status)
+                "tenantId = ?1 and status = ?2", tenantId, status))
             .subscribe().asCompletionStage();
     }
 

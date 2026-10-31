@@ -12,7 +12,7 @@ import java.util.*;
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
  * Configure a pooled DataSource in the host application. All resource reads are tenant-scoped.
  */
-public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink, AuditedMutationRepository, AuditedPageCommentRepository {
+public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink, AuditedMutationRepository, AuditedPageCommentRepository, tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore, tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository {
     private final DataSource dataSource;
 
     public JdbcWorkspaceStore(DataSource dataSource) { this.dataSource = Objects.requireNonNull(dataSource, "dataSource"); }
@@ -457,7 +457,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
 
 
     @Override public Optional<PageCommentThread> findThread(UUID tenantId, UUID pageId, UUID threadId) {
-        String sql = "SELECT id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
+        String sql = "SELECT id,tenant_id,page_id,anchor_block_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
                 "FROM workspace_page_comment_threads WHERE tenant_id=? AND page_id=? AND id=?";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setObject(1, tenantId); p.setObject(2, pageId); p.setObject(3, threadId);
@@ -468,7 +468,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public List<PageCommentThread> findThreads(UUID tenantId, UUID pageId) {
-        String sql = "SELECT id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
+        String sql = "SELECT id,tenant_id,page_id,anchor_block_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at " +
                 "FROM workspace_page_comment_threads WHERE tenant_id=? AND page_id=? ORDER BY created_at DESC,id";
         try (Connection c = dataSource.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
             p.setObject(1, tenantId); p.setObject(2, pageId);
@@ -482,12 +482,14 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
 
     private PageCommentThread readCommentThread(Connection c, ResultSet r) throws SQLException {
         UUID id = uuid(r, 1), tenant = uuid(r, 2), page = uuid(r, 3);
-        boolean resolved = r.getBoolean(4);
-        long revision = r.getLong(5);
-        Object resolverValue = r.getObject(6);
-        UUID resolver = resolverValue == null ? null : uuid(r, 6);
-        Instant resolvedAt = r.getTimestamp(7) == null ? null : instant(r, 7);
-        Instant created = instant(r, 8), updated = instant(r, 9);
+        Object anchorValue = r.getObject(4);
+        UUID anchorBlockId = anchorValue == null ? null : uuid(r, 4);
+        boolean resolved = r.getBoolean(5);
+        long revision = r.getLong(6);
+        Object resolverValue = r.getObject(7);
+        UUID resolver = resolverValue == null ? null : uuid(r, 7);
+        Instant resolvedAt = r.getTimestamp(8) == null ? null : instant(r, 8);
+        Instant created = instant(r, 9), updated = instant(r, 10);
         List<PageComment> entries = new ArrayList<>();
         String commentsSql = "SELECT id,tenant_id,page_id,thread_id,parent_comment_id,author_id,body,created_at " +
                 "FROM workspace_page_comments WHERE tenant_id=? AND page_id=? AND thread_id=? ORDER BY CASE WHEN parent_comment_id IS NULL THEN 0 ELSE 1 END,created_at,id";
@@ -502,11 +504,16 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
                 }
             }
         }
-        return new PageCommentThread(id, tenant, page, resolved, revision, resolver,
+        return new PageCommentThread(id, tenant, page, anchorBlockId, resolved, revision, resolver,
                 resolvedAt, created, updated, entries);
     }
 
     @Override public boolean createThread(PageCommentThread thread, AuditEntry audit) {
+        return createThreadWithMentions(thread, audit, List.of());
+    }
+
+    @Override public boolean createThreadWithMentions(PageCommentThread thread, AuditEntry audit,
+            List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent> mentions) {
         PageComment root = thread.comments().stream().filter(comment -> comment.parentCommentId() == null)
                 .findFirst().orElseThrow(() -> new IllegalArgumentException("thread root comment is required"));
         validateAudit(audit, thread.tenantId(), thread.id(), "PAGE_COMMENT_THREAD",
@@ -516,13 +523,15 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             throw new IllegalArgumentException("invalid initial comment thread");
         }
         return atomicMutation("create page comment thread with audit", c -> {
-            String insertThread = "INSERT INTO workspace_page_comment_threads(id,tenant_id,page_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at) VALUES(?,?,?,false,1,NULL,NULL,?,?)";
+            String insertThread = "INSERT INTO workspace_page_comment_threads(id,tenant_id,page_id,anchor_block_id,resolved,revision,resolved_by,resolved_at,created_at,updated_at) VALUES(?,?,?, ?,false,1,NULL,NULL,?,?)";
             try (PreparedStatement p = c.prepareStatement(insertThread)) {
                 p.setObject(1, thread.id()); p.setObject(2, thread.tenantId()); p.setObject(3, thread.pageId());
-                p.setTimestamp(4, Timestamp.from(thread.createdAt())); p.setTimestamp(5, Timestamp.from(thread.updatedAt()));
+                p.setObject(4, thread.anchorBlockId());
+                p.setTimestamp(5, Timestamp.from(thread.createdAt())); p.setTimestamp(6, Timestamp.from(thread.updatedAt()));
                 p.executeUpdate();
             }
             insertPageComment(c, root);
+            insertMentionOutboxRows(c, thread.tenantId(), thread.pageId(), thread.id(), root, mentions);
             insertAudit(c, audit);
             return true;
         });
@@ -530,6 +539,12 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
 
     @Override public boolean appendComment(UUID tenantId, UUID pageId, UUID threadId,
                                            PageComment comment, AuditEntry audit) {
+        return appendCommentWithMentions(tenantId, pageId, threadId, comment, audit, List.of());
+    }
+
+    @Override public boolean appendCommentWithMentions(UUID tenantId, UUID pageId, UUID threadId,
+            PageComment comment, AuditEntry audit,
+            List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent> mentions) {
         validateAudit(audit, tenantId, comment.id(), "PAGE_COMMENT", "PAGE_COMMENT_REPLIED", 0, comment.authorId());
         if (!tenantId.equals(comment.tenantId()) || !pageId.equals(comment.pageId())
                 || !threadId.equals(comment.threadId()) || comment.parentCommentId() == null) {
@@ -550,6 +565,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
                 try (ResultSet r = p.executeQuery()) { if (!r.next()) return false; }
             }
             insertPageComment(c, comment);
+            insertMentionOutboxRows(c, tenantId, pageId, threadId, comment, mentions);
             try (PreparedStatement update = c.prepareStatement(
                     "UPDATE workspace_page_comment_threads SET updated_at=GREATEST(updated_at,?) WHERE tenant_id=? AND page_id=? AND id=?")) {
                 update.setTimestamp(1, Timestamp.from(comment.createdAt()));
@@ -561,6 +577,28 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         });
     }
 
+    private void insertMentionOutboxRows(Connection c, UUID tenantId, UUID pageId, UUID threadId,
+            PageComment comment,
+            List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent> mentions)
+            throws SQLException {
+        if (mentions == null || mentions.isEmpty()) return;
+        String sql = "INSERT INTO workspace_comment_mention_outbox(id,tenant_id,page_id,thread_id,comment_id,recipient_id,actor_id,handle,actor_display_name,page_title,idempotency_key,status,attempts,available_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'PENDING',0,?,?,?)";
+        try (PreparedStatement p = c.prepareStatement(sql)) {
+            for (var mention : mentions) {
+                p.setObject(1, UUID.randomUUID());
+                p.setObject(2, tenantId); p.setObject(3, pageId); p.setObject(4, threadId);
+                p.setObject(5, comment.id()); p.setObject(6, mention.recipientId()); p.setObject(7, comment.authorId());
+                p.setString(8, mention.handle()); p.setString(9, mention.actorDisplayName());
+                p.setString(10, mention.pageTitle()); p.setString(11, mention.idempotencyKey());
+                p.setTimestamp(12, Timestamp.from(comment.createdAt()));
+                p.setTimestamp(13, Timestamp.from(comment.createdAt()));
+                p.setTimestamp(14, Timestamp.from(comment.createdAt()));
+                p.addBatch();
+            }
+            p.executeBatch();
+        }
+    }
+
     private void insertPageComment(Connection c, PageComment comment) throws SQLException {
         String sql = "INSERT INTO workspace_page_comments(id,tenant_id,page_id,thread_id,parent_comment_id,author_id,body,created_at) VALUES(?,?,?,?,?,?,?,?)";
         try (PreparedStatement p = c.prepareStatement(sql)) {
@@ -569,6 +607,115 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
             p.setObject(6, comment.authorId()); p.setString(7, comment.body());
             p.setTimestamp(8, Timestamp.from(comment.createdAt())); p.executeUpdate();
         }
+    }
+
+
+    @Override public List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.ClaimedMention>
+    claimDue(String workerId, Instant now, Instant leaseUntil, int limit) {
+        if (workerId == null || workerId.isBlank() || workerId.length() > 160) throw new IllegalArgumentException("workerId must contain 1..160 characters");
+        if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be 1..500");
+        if (leaseUntil == null || !leaseUntil.isAfter(now)) throw new IllegalArgumentException("leaseUntil must be after now");
+        String sql = "WITH due AS (SELECT id FROM workspace_comment_mention_outbox WHERE (status='PENDING' AND available_at<=?) OR (status='LEASED' AND lease_until<=?) ORDER BY available_at,created_at,id FOR UPDATE SKIP LOCKED LIMIT ?) " +
+                "UPDATE workspace_comment_mention_outbox o SET status='LEASED',lease_owner=?,lease_token=gen_random_uuid(),lease_until=?,attempts=o.attempts+1,updated_at=? FROM due WHERE o.id=due.id " +
+                "RETURNING o.id,o.tenant_id,o.page_id,o.thread_id,o.comment_id,o.recipient_id,o.actor_id,o.handle,o.actor_display_name,o.page_title,o.idempotency_key,o.attempts,o.lease_token,o.lease_until";
+        try (Connection c=dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try (PreparedStatement p=c.prepareStatement(sql)) {
+                p.setTimestamp(1,Timestamp.from(now));p.setTimestamp(2,Timestamp.from(now));p.setInt(3,limit);
+                p.setString(4,workerId);p.setTimestamp(5,Timestamp.from(leaseUntil));p.setTimestamp(6,Timestamp.from(now));
+                List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.ClaimedMention> out=new ArrayList<>();
+                try(ResultSet r=p.executeQuery()){while(r.next())out.add(new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.ClaimedMention(
+                    uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),uuid(r,5),uuid(r,6),uuid(r,7),r.getString(8),r.getString(9),r.getString(10),r.getString(11),r.getInt(12),uuid(r,13),instant(r,14)));}
+                c.commit();return List.copyOf(out);
+            } catch(SQLException|RuntimeException e){rollback(c,e);throw e;}
+        } catch(SQLException e){throw failure("claim workspace comment mention outbox rows",e);}
+    }
+
+    @Override public boolean markDelivered(UUID tenantId,UUID id,UUID token,Instant now) {
+        return updateMentionLease("UPDATE workspace_comment_mention_outbox SET status='DELIVERED',lease_owner=NULL,lease_token=NULL,lease_until=NULL,last_error=NULL,updated_at=? WHERE tenant_id=? AND id=? AND status='LEASED' AND lease_token=?",tenantId,id,token,now,null);
+    }
+    @Override public boolean scheduleRetry(UUID tenantId,UUID id,UUID token,Instant availableAt,String error,Instant now) {
+        String sql="UPDATE workspace_comment_mention_outbox SET status='PENDING',available_at=?,lease_owner=NULL,lease_token=NULL,lease_until=NULL,last_error=?,updated_at=? WHERE tenant_id=? AND id=? AND status='LEASED' AND lease_token=?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setTimestamp(1,Timestamp.from(availableAt));p.setString(2,safeOutboxError(error));p.setTimestamp(3,Timestamp.from(now));p.setObject(4,tenantId);p.setObject(5,id);p.setObject(6,token);return p.executeUpdate()==1;}catch(SQLException e){throw failure("schedule workspace mention retry",e);}
+    }
+    @Override public boolean markDead(UUID tenantId,UUID id,UUID token,String error,Instant now) {
+        String sql="UPDATE workspace_comment_mention_outbox SET status='DEAD',lease_owner=NULL,lease_token=NULL,lease_until=NULL,last_error=?,updated_at=? WHERE tenant_id=? AND id=? AND status='LEASED' AND lease_token=?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setString(1,safeOutboxError(error));p.setTimestamp(2,Timestamp.from(now));p.setObject(3,tenantId);p.setObject(4,id);p.setObject(5,token);return p.executeUpdate()==1;}catch(SQLException e){throw failure("dead-letter workspace mention",e);}
+    }
+    @Override public List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.DeadMention>
+    listDead(UUID tenantId, int limit) {
+        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be 1..200");
+        String sql="SELECT id,page_id,comment_id,recipient_id,attempts,last_error,created_at,updated_at FROM workspace_comment_mention_outbox WHERE tenant_id=? AND status='DEAD' ORDER BY updated_at DESC,id LIMIT ?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setInt(2,limit);
+            List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.DeadMention> out=new ArrayList<>();
+            try(ResultSet r=p.executeQuery()){while(r.next())out.add(new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.DeadMention(
+                    uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),r.getInt(5),r.getString(6),instant(r,7),instant(r,8)));}
+            return List.copyOf(out);
+        }catch(SQLException e){throw failure("list dead workspace mention deliveries",e);}
+    }
+
+    @Override public boolean requeueDead(UUID tenantId,UUID id,UUID actorId,Instant now) {
+        Objects.requireNonNull(actorId, "actorId");
+        return atomicMutation("requeue dead workspace mention with audit", c -> {
+            String sql="UPDATE workspace_comment_mention_outbox SET status='PENDING',attempts=0,available_at=?,last_error=NULL,updated_at=? WHERE tenant_id=? AND id=? AND status='DEAD' RETURNING attempts";
+            try(PreparedStatement p=c.prepareStatement(sql)){
+                p.setTimestamp(1,Timestamp.from(now));p.setTimestamp(2,Timestamp.from(now));p.setObject(3,tenantId);p.setObject(4,id);
+                try(ResultSet r=p.executeQuery()){
+                    if(!r.next())return false;
+                    insertAudit(c,new AuditEntry(tenantId,actorId,"WORKSPACE_COMMENT_MENTION_REQUEUED",
+                            "COMMENT_MENTION_DELIVERY",id,r.getLong(1),"Dead-letter mention delivery requeued",now));
+                    return true;
+                }
+            }
+        });
+    }
+    private boolean updateMentionLease(String sql,UUID tenantId,UUID id,UUID token,Instant now,String unused) {
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setTimestamp(1,Timestamp.from(now));p.setObject(2,tenantId);p.setObject(3,id);p.setObject(4,token);return p.executeUpdate()==1;}catch(SQLException e){throw failure("complete workspace mention delivery",e);}
+    }
+    private static String safeOutboxError(String error){if(error==null||error.isBlank())return "Delivery failed";return error.length()>2000?error.substring(0,2000):error;}
+
+    @Override public boolean heartbeat(UUID tenantId, UUID pageId, UUID actorId, UUID sessionId,
+                                        Instant lastSeenAt, Instant expiresAt) {
+        if (expiresAt == null || lastSeenAt == null || !expiresAt.isAfter(lastSeenAt))
+            throw new IllegalArgumentException("presence expiry must be after last seen");
+        String sql = "INSERT INTO workspace_page_presence_sessions(tenant_id,page_id,session_id,actor_id,last_seen_at,expires_at) VALUES(?,?,?,?,?,?) " +
+                "ON CONFLICT(tenant_id,page_id,session_id) DO UPDATE SET " +
+                "last_seen_at=GREATEST(workspace_page_presence_sessions.last_seen_at,EXCLUDED.last_seen_at), " +
+                "expires_at=GREATEST(workspace_page_presence_sessions.expires_at,EXCLUDED.expires_at) " +
+                "WHERE workspace_page_presence_sessions.actor_id=EXCLUDED.actor_id";
+        try (Connection c=dataSource.getConnection(); PreparedStatement p=c.prepareStatement(sql)) {
+            p.setObject(1,tenantId);p.setObject(2,pageId);p.setObject(3,sessionId);p.setObject(4,actorId);
+            p.setTimestamp(5,Timestamp.from(lastSeenAt));p.setTimestamp(6,Timestamp.from(expiresAt));
+            return p.executeUpdate()==1;
+        } catch(SQLException e) { if(isConstraintViolation(e)) return false; throw failure("renew workspace page presence",e); }
+    }
+
+    @Override public List<tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession>
+    findActive(UUID tenantId, UUID pageId, Instant now, int limit) {
+        if(limit<1||limit>501)throw new IllegalArgumentException("presence query limit must be 1..501");
+        String sql="SELECT actor_id,last_seen_at FROM workspace_page_presence_sessions WHERE tenant_id=? AND page_id=? AND expires_at>? ORDER BY actor_id,last_seen_at DESC,session_id LIMIT ?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setObject(2,pageId);p.setTimestamp(3,Timestamp.from(now));p.setInt(4,limit);
+            List<tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession> out=new ArrayList<>();
+            try(ResultSet r=p.executeQuery()){while(r.next())out.add(new tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession(uuid(r,1),instant(r,2)));}
+            return List.copyOf(out);
+        }catch(SQLException e){throw failure("list active workspace page presence",e);}
+    }
+
+    @Override public boolean leave(UUID tenantId,UUID pageId,UUID actorId,UUID sessionId) {
+        String sql="DELETE FROM workspace_page_presence_sessions WHERE tenant_id=? AND page_id=? AND actor_id=? AND session_id=?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setObject(2,pageId);p.setObject(3,actorId);p.setObject(4,sessionId);return p.executeUpdate()==1;
+        }catch(SQLException e){throw failure("leave workspace page presence",e);}
+    }
+
+    @Override public int purgeExpired(Instant now,int limit) {
+        if(limit<1||limit>5000)throw new IllegalArgumentException("purge limit must be 1..5000");
+        String sql="WITH expired AS (SELECT ctid FROM workspace_page_presence_sessions WHERE expires_at<=? ORDER BY expires_at,tenant_id,page_id,session_id FOR UPDATE SKIP LOCKED LIMIT ?) DELETE FROM workspace_page_presence_sessions p USING expired e WHERE p.ctid=e.ctid";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setTimestamp(1,Timestamp.from(now));p.setInt(2,limit);return p.executeUpdate();
+        }catch(SQLException e){throw failure("purge expired workspace page presence",e);}
     }
 
     @Override public boolean updateThreadResolution(PageCommentThread thread, long expectedRevision, AuditEntry audit) {
