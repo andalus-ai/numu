@@ -4,6 +4,8 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -26,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -45,32 +48,145 @@ class KafkaConsumerConnectorTest {
     @Inject
     KafkaConsumerProbe probe;
 
+    @Inject
+    KafkaIndependentGroupProbe independentGroupProbe;
+
+    @Inject
+    KafkaRetryPolicyProbe retryPolicyProbe;
+
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServers;
 
     @Test
     void connectorConsumesAndDispatchesARealBrokerRecord() throws Exception {
         String saleId = UUID.randomUUID().toString();
+        EventMetadata expectedMetadata = new EventMetadata(
+                EventId.generate(), CorrelationId.generate(), null,
+                UUID.randomUUID(), UUID.randomUUID(), "connector-test",
+                Instant.now().toString(), "trace-" + UUID.randomUUID());
         EventEnvelope<TestSaleCompleted> envelope = EventEnvelope.of(
-                new EventMetadata(EventId.generate(), CorrelationId.generate(), null,
-                        UUID.randomUUID(), UUID.randomUUID(), "connector-test",
-                        Instant.now().toString(), null),
-                new TestSaleCompleted(saleId));
+                expectedMetadata, new TestSaleCompleted(saleId));
 
         send(SOURCE_TOPIC, serializer.serialize(envelope), EVENT_TYPE);
 
         EventEnvelope<?> received = probe.await(Duration.ofSeconds(20));
         assertThat(received.eventType()).isEqualTo(EVENT_TYPE);
+        assertThat(received.metadata()).isEqualTo(expectedMetadata);
+        assertThat(received.metadata().tenantId()).isEqualTo(expectedMetadata.tenantId());
+        assertThat(received.metadata().participantId()).isEqualTo(expectedMetadata.participantId());
+        assertThat(received.metadata().actorId()).isEqualTo(expectedMetadata.actorId());
+        assertThat(received.metadata().correlationId()).isEqualTo(expectedMetadata.correlationId());
+        assertThat(received.metadata().traceId()).isEqualTo(expectedMetadata.traceId());
         assertThat(((TestSaleCompleted) received.payload()).saleId).isEqualTo(saleId);
+
+        String independentlyConsumed = independentGroupProbe.awaitContaining(saleId, Duration.ofSeconds(20));
+        assertThat(independentlyConsumed).contains(saleId);
     }
 
     @Test
     void connectorRoutesMalformedRecordToConfiguredDeadLetterTopic() throws Exception {
         send(SOURCE_TOPIC, "{malformed-json", EVENT_TYPE);
 
-        ConsumerRecord<String, String> deadLetter = pollDeadLetter(bootstrapServers, Duration.ofSeconds(25));
+        ConsumerRecord<String, String> deadLetter = pollDeadLetterContaining(bootstrapServers, "{malformed-json", Duration.ofSeconds(25));
         assertThat(deadLetter).isNotNull();
         assertThat(deadLetter.value()).isEqualTo("{malformed-json");
+        assertThat(headerValue(deadLetter, "dead-letter-topic")).isEqualTo(SOURCE_TOPIC);
+        assertThat(headerValue(deadLetter, "dead-letter-partition")).isNotBlank();
+        assertThat(headerValue(deadLetter, "dead-letter-offset")).isNotBlank();
+        assertThat(headerValue(deadLetter, "dead-letter-reason")).isNotBlank();
+        assertThat(headerValue(deadLetter, "dead-letter-cause")).isNotBlank();
+        assertThat(headerValue(deadLetter, "numou-event-type")).isEqualTo(EVENT_TYPE);
+    }
+
+
+    @Test
+    void transientHandlerFailureRetriesWithinBoundAndThenAcknowledges() throws Exception {
+        String saleId = "retry-success-" + UUID.randomUUID();
+        send(SOURCE_TOPIC, serializer.serialize(retryEnvelope(saleId)), EVENT_TYPE);
+
+        retryPolicyProbe.awaitAttempts(saleId, 3, Duration.ofSeconds(20));
+        assertThat(pollDeadLetterContaining(bootstrapServers, saleId, Duration.ofSeconds(2))).isNull();
+    }
+
+    @Test
+    void exhaustedHandlerRetriesAreDeadLetteredWithOriginalEventIdentity() throws Exception {
+        String saleId = "retry-terminal-" + UUID.randomUUID();
+        String payload = serializer.serialize(retryEnvelope(saleId));
+        send(SOURCE_TOPIC, payload, EVENT_TYPE);
+
+        retryPolicyProbe.awaitAttempts(saleId, 3, Duration.ofSeconds(20));
+        ConsumerRecord<String, String> deadLetter =
+                pollDeadLetterContaining(bootstrapServers, saleId, Duration.ofSeconds(25));
+        assertThat(deadLetter).isNotNull();
+        assertThat(deadLetter.value()).isEqualTo(payload);
+        assertThat(headerValue(deadLetter, "dead-letter-topic")).isEqualTo(SOURCE_TOPIC);
+        assertThat(headerValue(deadLetter, "numou-event-type")).isEqualTo(EVENT_TYPE);
+    }
+
+    private EventEnvelope<TestSaleCompleted> retryEnvelope(String saleId) {
+        EventMetadata metadata = new EventMetadata(
+                EventId.generate(), CorrelationId.generate(), null,
+                UUID.randomUUID(), UUID.randomUUID(), "retry-acceptance-test",
+                Instant.now().toString(), "trace-" + UUID.randomUUID());
+        return EventEnvelope.of(metadata, new TestSaleCompleted(saleId));
+    }
+
+    @Test
+    void uncommittedRecordIsRedeliveredAfterRestartAndCommittedOffsetIsRespected() throws Exception {
+        String topic = "numou.events.recovery." + UUID.randomUUID().toString().replace("-", "");
+        String groupId = "numou-event-recovery-" + UUID.randomUUID();
+        String payload = "restart-recovery-" + UUID.randomUUID();
+        send(topic, payload, EVENT_TYPE);
+
+        ConsumerRecord<String, String> firstDelivery;
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(
+                recoveryConsumerProperties(bootstrapServers, groupId))) {
+            consumer.subscribe(List.of(topic));
+            firstDelivery = pollRecord(consumer, Duration.ofSeconds(20));
+            assertThat(firstDelivery).isNotNull();
+            assertThat(firstDelivery.value()).isEqualTo(payload);
+            // Simulate process termination before the offset is committed.
+        }
+
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(
+                recoveryConsumerProperties(bootstrapServers, groupId))) {
+            consumer.subscribe(List.of(topic));
+            ConsumerRecord<String, String> redelivery = pollRecord(consumer, Duration.ofSeconds(20));
+            assertThat(redelivery).isNotNull();
+            assertThat(redelivery.value()).isEqualTo(payload);
+            assertThat(redelivery.topic()).isEqualTo(firstDelivery.topic());
+            assertThat(redelivery.partition()).isEqualTo(firstDelivery.partition());
+            assertThat(redelivery.offset()).isEqualTo(firstDelivery.offset());
+            TopicPartition partition = new TopicPartition(redelivery.topic(), redelivery.partition());
+            consumer.commitSync(Map.of(partition, new OffsetAndMetadata(redelivery.offset() + 1)));
+        }
+
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(
+                recoveryConsumerProperties(bootstrapServers, groupId))) {
+            consumer.subscribe(List.of(topic));
+            ConsumerRecord<String, String> unexpected = pollRecord(consumer, Duration.ofSeconds(3));
+            assertThat(unexpected)
+                    .as("a committed offset must not be replayed when the same group restarts")
+                    .isNull();
+        }
+    }
+
+    private static ConsumerRecord<String, String> pollRecord(
+            Consumer<String, String> consumer, Duration timeout) {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadline) {
+            var records = consumer.poll(Duration.ofMillis(250));
+            if (!records.isEmpty()) return records.iterator().next();
+        }
+        return null;
+    }
+
+    private static Properties recoveryConsumerProperties(String bootstrapServers, String groupId) {
+        Properties properties = consumerProperties(bootstrapServers);
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        return properties;
     }
 
     private void send(String topic, String payload, String eventType) throws Exception {
@@ -82,18 +198,26 @@ class KafkaConsumerConnectorTest {
         }
     }
 
-    private static ConsumerRecord<String, String> pollDeadLetter(String bootstrapServers, Duration timeout) {
-        try (Consumer<String, String> consumer = new KafkaConsumer<>(consumerProperties(bootstrapServers))) {
+    private static ConsumerRecord<String, String> pollDeadLetterContaining(
+            String bootstrapServers, String marker, Duration timeout) {
+        Properties properties = consumerProperties(bootstrapServers);
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "numou-event-dead-letter-" + UUID.randomUUID());
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(properties)) {
             consumer.subscribe(List.of(DEAD_LETTER_TOPIC));
             long deadline = System.nanoTime() + timeout.toNanos();
             while (System.nanoTime() < deadline) {
                 var records = consumer.poll(Duration.ofMillis(250));
-                if (!records.isEmpty()) {
-                    return records.iterator().next();
+                for (ConsumerRecord<String, String> record : records) {
+                    if (record.value() != null && record.value().contains(marker)) return record;
                 }
             }
             return null;
         }
+    }
+
+    private static String headerValue(ConsumerRecord<String, String> record, String name) {
+        var header = record.headers().lastHeader(name);
+        return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
     }
 
     private static Properties producerProperties(String bootstrapServers) {

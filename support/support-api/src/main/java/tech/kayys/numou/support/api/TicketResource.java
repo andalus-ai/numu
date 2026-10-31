@@ -2,6 +2,9 @@ package tech.kayys.numou.support.api;
 
 import tech.kayys.numou.support.application.api.command.CreatePortalTicketCommand;
 import tech.kayys.numou.support.application.api.handler.CreatePortalTicketHandler;
+import tech.kayys.numou.support.application.api.handler.GetPortalTicketHandler;
+import tech.kayys.numou.support.application.api.query.GetPortalTicketQuery;
+import tech.kayys.numou.support.application.api.TicketResponse;
 import tech.kayys.numou.support.domain.ticket.TicketId;
 
 import jakarta.inject.Inject;
@@ -9,6 +12,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
+import java.util.UUID;
 
 import io.smallrye.mutiny.Uni;
 
@@ -18,18 +22,19 @@ import io.smallrye.mutiny.Uni;
 public class TicketResource {
 
     private final CreatePortalTicketHandler createPortalTicketHandler;
+    private final GetPortalTicketHandler getPortalTicketHandler;
 
     @Inject
-    public TicketResource(CreatePortalTicketHandler createPortalTicketHandler) {
+    public TicketResource(CreatePortalTicketHandler createPortalTicketHandler,
+                          GetPortalTicketHandler getPortalTicketHandler) {
         this.createPortalTicketHandler = createPortalTicketHandler;
+        this.getPortalTicketHandler = getPortalTicketHandler;
     }
 
     /**
-     * Creates a ticket for the authenticated portal customer.
-     *
-     * Tenant and requester identity are derived from the authenticated actor context,
-     * never accepted from the request body. Agent/system ticket creation must use a
-     * separately authorized application entry point.
+     * Creates a ticket for an authenticated customer or partner portal actor.
+     * Tenant and requester identity are derived from the verified actor context,
+     * never accepted from the request body.
      */
     @POST
     public Uni<Response> createTicket(CreatePortalTicketCommand command) {
@@ -38,6 +43,23 @@ public class TicketResource {
                         .created(URI.create("/api/v1/support/tickets/" + ticketId.value()))
                         .entity(new CreateTicketResponse(ticketId))
                         .build());
+    }
+
+    /**
+     * Returns a DTO-only portal view. The handler applies actor and requester
+     * authorization and deliberately uses the same not-found result for
+     * inaccessible and missing tickets.
+     */
+    @GET
+    @Path("/{ticketId}")
+    public Uni<TicketResponse> getPortalTicket(@PathParam("ticketId") String ticketId) {
+        final TicketId id;
+        try {
+            id = TicketId.of(UUID.fromString(ticketId));
+        } catch (IllegalArgumentException invalidId) {
+            throw new NotFoundException("Ticket not found");
+        }
+        return getPortalTicketHandler.handle(new GetPortalTicketQuery(id));
     }
 
     public record CreateTicketResponse(String ticketId) {

@@ -239,13 +239,20 @@ public class SyirkahApplicationService {
             List<JournalPostingPort.Line> lines = new ArrayList<>();
             for (SyirkahPostingPlan.Line l : plan) {
                 lines.add(new JournalPostingPort.Line(accounts.codeOf(l.account()), l.debit(), l.credit(),
-                        m.type() + " " + m.partner().value()));
+                        SyirkahPostingPlan.label(m.type()) + " - " + who(s, m.partner())));
             }
             journal.post(new JournalPostingPort.Request(tenant, SyirkahPostingPlan.sourceKey(s.id(), m),
                     m.occurredAt().atZone(ZoneOffset.UTC).toLocalDate(),
-                    "Syirkah " + m.type() + " (" + m.reference() + ")", lines));
+                    SyirkahPostingPlan.label(m.type()) + " - " + who(s, m.partner())
+                            + (m.reference() == null || m.reference().isBlank() ? "" : " (" + m.reference() + ")"),
+                    lines));
         }
         events.publish(tenant, s.pullDomainEvents());
+    }
+
+    private static String who(Syirkah s, PartnerId p) {
+        String name = s.partnerName(p);
+        return name == null || name.isBlank() ? p.value().toString() : name;
     }
 
     private Syirkah load(TenantId tenant, SyirkahId id) {

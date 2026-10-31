@@ -30,7 +30,7 @@ class RegistrationHandlersTest {
         PartyRepository parties = new PartyRepository() {
             @Override
             public Uni<Party> save(Party party) {
-                order.add("save");
+                order.add("party-save");
                 return Uni.createFrom().item(party);
             }
 
@@ -41,10 +41,12 @@ class RegistrationHandlersTest {
         };
         EventPublisher publisher = events -> {
             assertEquals(1, events.size());
-            order.add("publish");
+            order.add("outbox-append");
             return Uni.createFrom().voidItem();
         };
-        RegisterPartyHandler handler = new RegisterPartyHandler(parties, publisher, directUnitOfWork());
+        EcosystemTransactionRunner transactions = runner(parties,
+                organizationRepository(order, Optional.empty()), order, publisher);
+        RegisterPartyHandler handler = new RegisterPartyHandler(transactions);
 
         var result = handler.handle(command)
                 .await().indefinitely();
@@ -67,7 +69,7 @@ class RegistrationHandlersTest {
 
         assertTrue(result.isFailure());
         assertEquals("ECOSYSTEM_PARTY_KIND_MISMATCH", result.failureError().orElseThrow().code());
-        assertEquals(List.of("begin", "commit"), order);
+        assertEquals(List.of("begin", "party-read", "commit"), order);
     }
 
     @Test
