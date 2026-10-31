@@ -123,5 +123,11 @@ export function createWorkspaceApi({
       json("POST", `/pages/${encodeURIComponent(pageId)}/comment-threads/${encodeURIComponent(threadId)}/resolve`, input),
     reopenCommentThread: (pageId, threadId, input) =>
       json("POST", `/pages/${encodeURIComponent(pageId)}/comment-threads/${encodeURIComponent(threadId)}/reopen`, input),
+    listPresence: (pageId, options) =>
+      request(`/pages/${encodeURIComponent(pageId)}/presence`, options),
+    heartbeatPresence: (pageId, sessionId) =>
+      json("POST", `/pages/${encodeURIComponent(pageId)}/presence/${encodeURIComponent(sessionId)}/heartbeat`, {}),
+    leavePresence: (pageId, sessionId) =>
+      request(`/pages/${encodeURIComponent(pageId)}/presence/${encodeURIComponent(sessionId)}`, { method: "DELETE" }),
   });
 }
