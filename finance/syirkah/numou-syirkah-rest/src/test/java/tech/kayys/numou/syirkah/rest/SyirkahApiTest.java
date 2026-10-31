@@ -456,4 +456,52 @@ class SyirkahApiTest {
         assertThrows(IllegalArgumentException.class, () -> api.capitalChanges(id, LocalDate.parse("2026-02-01"),
                 LocalDate.parse("2026-01-01")));
     }
+
+    @Test
+    void aFailedTradingWriteSurfacesAsAnErrorInsideTheUnitOfWork() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts);
+        TradingRecordPort failing = new InMemoryTradingRecordPort() {
+            @Override
+            public synchronized void record(tech.kayys.numou.foundation.domain.tenant.TenantId t,
+                                            tech.kayys.numou.numoudomain.SyirkahId s,
+                                            tech.kayys.numou.numoudomain.CloseId c,
+                                            tech.kayys.numou.numoudomain.TradingResultCalculator.Input in,
+                                            java.time.Instant at) {
+                throw new IllegalStateException("disk full");
+            }
+        };
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx, null, failing, tx);
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        TradingDto t = new TradingDto(new BigDecimal("1000"), null, null, null, null, null, null, null, null, null);
+        assertThrows(IllegalStateException.class, () -> a.closePeriod(id, new ClosePeriodRequest(null,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), null, null, "retain", t)));
+    }
+
+    @Test
+    void balanceSheetReadsAssetsFromTheBooksWhenNoneAreSent() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts);
+        tech.kayys.numou.numouapplication.port.BusinessAssetsPort books = (t, sid) -> java.util.Optional.of(
+                new tech.kayys.numou.numouapplication.port.BusinessAssetsPort.Snapshot(
+                        List.of(new tech.kayys.numou.numoudomain.BookStatements.AssetLine(
+                                tech.kayys.numou.numoudomain.BookStatements.AssetGroup.CURRENT, "1100 Cash",
+                                tech.kayys.numou.foundation.domain.valueobject.Money.of(new BigDecimal("100000000"),
+                                        tech.kayys.numou.foundation.domain.valueobject.Currency.of("IDR")))),
+                        List.of()));
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx, null, null, tx,
+                books);
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        BalanceSheetView bs = a.balanceSheet(id, new BalanceSheetRequest("Toko", LocalDate.parse("2026-01-31"), null,
+                null));
+        assertEquals(1, bs.assets().size());
+        assertTrue(bs.balanced());
+        // without a source of books the caller must send the figures
+        assertThrows(IllegalArgumentException.class, () -> api.balanceSheet(id, new BalanceSheetRequest(null,
+                LocalDate.parse("2026-01-31"), null, null)));
+    }
 }
