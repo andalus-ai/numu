@@ -87,6 +87,14 @@ class KafkaConsumerConnectorTest {
         ConsumerRecord<String, String> deadLetter = pollDeadLetterContaining(bootstrapServers, "{malformed-json", Duration.ofSeconds(25));
         assertThat(deadLetter).isNotNull();
         assertThat(deadLetter.value()).isEqualTo("{malformed-json");
+
+        // Preserve source identity and failure context for safe operational recovery.
+        assertThat(headerValue(deadLetter, "dead-letter-topic")).isEqualTo(SOURCE_TOPIC);
+        assertThat(headerValue(deadLetter, "dead-letter-partition")).isNotBlank();
+        assertThat(headerValue(deadLetter, "dead-letter-offset")).isNotBlank();
+        assertThat(headerValue(deadLetter, "dead-letter-reason")).isNotBlank();
+        assertThat(headerValue(deadLetter, "dead-letter-cause")).isNotBlank();
+        assertThat(headerValue(deadLetter, "numou-event-type")).isEqualTo(EVENT_TYPE);
     }
 
 
@@ -157,18 +165,26 @@ class KafkaConsumerConnectorTest {
         }
     }
 
-    private static ConsumerRecord<String, String> pollDeadLetter(String bootstrapServers, Duration timeout) {
-        try (Consumer<String, String> consumer = new KafkaConsumer<>(consumerProperties(bootstrapServers))) {
+    private static ConsumerRecord<String, String> pollDeadLetterContaining(
+            String bootstrapServers, String marker, Duration timeout) {
+        Properties properties = consumerProperties(bootstrapServers);
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "numou-event-dead-letter-" + UUID.randomUUID());
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(properties)) {
             consumer.subscribe(List.of(DEAD_LETTER_TOPIC));
             long deadline = System.nanoTime() + timeout.toNanos();
             while (System.nanoTime() < deadline) {
                 var records = consumer.poll(Duration.ofMillis(250));
-                if (!records.isEmpty()) {
-                    return records.iterator().next();
+                for (ConsumerRecord<String, String> record : records) {
+                    if (record.value() != null && record.value().contains(marker)) return record;
                 }
             }
             return null;
         }
+    }
+
+    private static String headerValue(ConsumerRecord<String, String> record, String name) {
+        var header = record.headers().lastHeader(name);
+        return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
     }
 
     private static Properties producerProperties(String bootstrapServers) {
