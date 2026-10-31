@@ -61,7 +61,7 @@ class WorkspacePresenceServiceTest {
    Row old=rows.get(session);if(old!=null&&!old.actor().equals(actor))return false;
    rows.put(session,new Row(tenant,page,actor,seen,expires));return true;
   }
-  public List<PresenceSession> findActive(UUID tenant,UUID page,Instant now){return rows.values().stream().filter(r->r.tenant().equals(tenant)&&r.page().equals(page)&&r.expiresAt().isAfter(now)).map(r->new PresenceSession(r.actor(),r.lastSeen())).toList();}
+  public List<PresenceSession> findActive(UUID tenant,UUID page,Instant now,int limit){return rows.values().stream().filter(r->r.tenant().equals(tenant)&&r.page().equals(page)&&r.expiresAt().isAfter(now)).map(r->new PresenceSession(r.actor(),r.lastSeen())).limit(limit).toList();}
   public boolean leave(UUID tenant,UUID page,UUID actor,UUID session){Row r=rows.get(session);if(r==null||!r.tenant().equals(tenant)||!r.page().equals(page)||!r.actor().equals(actor))return false;rows.remove(session);return true;}
   public int purgeExpired(Instant now,int limit){List<UUID> ids=rows.entrySet().stream().filter(e->!e.getValue().expiresAt().isAfter(now)).limit(limit).map(Map.Entry::getKey).toList();ids.forEach(rows::remove);return ids.size();}
   record Row(UUID tenant,UUID page,UUID actor,Instant lastSeen,Instant expiresAt){}
