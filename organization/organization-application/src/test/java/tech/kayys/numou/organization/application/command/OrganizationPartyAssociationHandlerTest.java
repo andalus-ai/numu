@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.application.result.Result;
 import tech.kayys.numou.organization.application.port.PartyOrganizationEligibilityPort;
 import tech.kayys.numou.organization.domain.*;
 import tech.kayys.numou.organization.spi.OrganizationPartyAssociationRepository;
