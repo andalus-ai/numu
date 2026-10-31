@@ -113,6 +113,17 @@ class WorkforceCommandHandlerTest {
     }
 
     @Test
+    void workerExistenceCheckIsTenantScoped() {
+        var tenantId = TenantId.generate();
+        var workerId = registerWorkerHandler.handle(
+                new RegisterWorkerCommand(tenantId, UUID.randomUUID(), WorkerType.EMPLOYEE, "admin")
+        ).await().indefinitely().orElseThrow();
+
+        assertThat(workerRepository.existsById(tenantId, workerId).toCompletableFuture().join()).isTrue();
+        assertThat(workerRepository.existsById(TenantId.generate(), workerId).toCompletableFuture().join()).isFalse();
+    }
+
+    @Test
     void shouldStartEmploymentForActiveWorker() {
         var personId = UUID.randomUUID();
         var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.EMPLOYEE, "admin"))
