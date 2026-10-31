@@ -46,6 +46,17 @@
             <artifactId>numou-construction-application</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Construction integrates with Document through its application port only. -->
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-document</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-document-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-document-application</artifactId>
