@@ -194,7 +194,7 @@ function renderPresence(snapshot) {
   if(!indicator)return;
   const users=Array.isArray(snapshot?.users)?snapshot.users:[];
   const sessions=users.reduce((sum,user)=>sum+(Number(user.activeSessions)||0),0);
-  indicator.textContent=users.length===0?"Only you here":users.length===1?"1 collaborator here":users.length+" collaborators here";
+  indicator.textContent=users.length===0?"No active members":users.length===1?"1 active member":users.length+" active members";
   indicator.title=users.length+" active collaborators across "+sessions+" browser sessions";
   indicator.classList.toggle("presence-active",users.length>0);
 }
