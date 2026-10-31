@@ -166,7 +166,7 @@ public class SyirkahApi {
     }
 
     /** Statement of changes in capital (Bab XIX) for whole days from..to, both inclusive, in UTC. */
-    public CapitalChangesView capitalChanges(String id, LocalDate from, LocalDate to) {
+    public CapitalChangesView capitalChanges(String id, java.time.LocalDate from, java.time.LocalDate to) {
         SyirkahDtos.required(from, "from");
         SyirkahDtos.required(to, "to");
         if (to.isBefore(from)) {
