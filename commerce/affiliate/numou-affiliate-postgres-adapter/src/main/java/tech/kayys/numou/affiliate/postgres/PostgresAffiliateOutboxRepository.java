@@ -6,6 +6,7 @@ import javax.sql.DataSource;
 import java.sql.*;
 import java.time.Duration;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 /** Tenant-scoped leased dispatcher queue. Delivery is at-least-once; consumers must be idempotent. */
@@ -45,14 +46,13 @@ public class PostgresAffiliateOutboxRepository implements AffiliateEventOutboxSt
     try(PreparedStatement a=c.prepareStatement(auditSql)){
      a.setObject(1,UUID.randomUUID());a.setString(2,tenant);a.setString(3,"AFFILIATE_OUTBOX");a.setObject(4,id);
      a.setString(5,"AffiliateOutboxDeadLetterRedriven");a.setString(6,actor);a.setString(7,correlationId);
-     a.setString(8,idempotencyKey);a.setString(9,"{\\"reason\\":\\""+jsonEscape(reason)+"\\"}");a.setTimestamp(10,Timestamp.from(now));a.executeUpdate();
+     a.setString(8,idempotencyKey);a.setString(9,"{\\\"reasonBase64\\\":\\\""+Base64.getEncoder().encodeToString(reason.getBytes(StandardCharsets.UTF_8))+"\\\"}");a.setTimestamp(10,Timestamp.from(now));a.executeUpdate();
     }
     c.commit();return CompletableFuture.completedFuture(true);
    }catch(SQLException|RuntimeException e){try{c.rollback();}catch(SQLException x){e.addSuppressed(x);}throw e;}
    finally{try{c.setAutoCommit(true);}catch(SQLException ignored){}}
   }catch(SQLException e){return CompletableFuture.failedFuture(failure(e));}
  }
- private static String jsonEscape(String value){return value.replace("\\\\","\\\\\\\\").replace("\\\"","\\\\\\\"").replace("\\n","\\\\n").replace("\\r","\\\\r").replace("\\t","\\\\t");}
  private CompletionStage<Void> update(String sql,Binder binder){try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(sql)){binder.bind(s);if(s.executeUpdate()!=1)throw new IllegalStateException("Outbox lease is stale, expired, or owned by another worker");return CompletableFuture.completedFuture(null);}catch(SQLException e){return CompletableFuture.failedFuture(failure(e));}catch(RuntimeException e){return CompletableFuture.failedFuture(e);}}
  private static IllegalStateException failure(SQLException e){return new IllegalStateException("Affiliate outbox persistence failed",e);}
  @FunctionalInterface private interface Binder{void bind(PreparedStatement s)throws SQLException;}
