@@ -77,6 +77,7 @@ class QueuePostgresOperationalHealthQuarkusTest {
     private UUID insertEvent() throws Exception {
         UUID id = UUID.randomUUID();
         try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
             setTenant(connection, tenantId);
             try (PreparedStatement insert = connection.prepareStatement(
                     "INSERT INTO queue_outbox (event_id, tenant_id, event_type, schema_version, aggregate_type, "
@@ -88,12 +89,14 @@ class QueuePostgresOperationalHealthQuarkusTest {
                 insert.setString(4, "corr-" + id);
                 insert.executeUpdate();
             }
+            connection.commit();
         }
         return id;
     }
 
     private void expireLease(UUID eventId) throws Exception {
         try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
             setTenant(connection, tenantId);
             try (PreparedStatement update = connection.prepareStatement(
                     "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
@@ -102,12 +105,13 @@ class QueuePostgresOperationalHealthQuarkusTest {
                 update.setObject(2, eventId);
                 assertEquals(1, update.executeUpdate());
             }
+            connection.commit();
         }
     }
 
     private static void setTenant(Connection connection, UUID tenantId) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT set_config('numou.tenant_id', ?, true)")) {
+                "SELECT set_config('numou.tenant_id', ?, false)")) {
             statement.setString(1, tenantId.toString());
             statement.execute();
         }

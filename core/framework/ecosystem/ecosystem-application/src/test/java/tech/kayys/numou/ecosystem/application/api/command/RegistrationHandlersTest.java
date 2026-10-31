@@ -69,7 +69,7 @@ class RegistrationHandlersTest {
 
         assertTrue(result.isFailure());
         assertEquals("ECOSYSTEM_PARTY_KIND_MISMATCH", result.failureError().orElseThrow().code());
-        assertEquals(List.of("begin", "commit"), order);
+        assertEquals(List.of("begin", "party-read", "commit"), order);
     }
 
     @Test

@@ -171,6 +171,15 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IncomeStatementView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/closes/preview:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Syirkah]
+      summary: Preview a close on a copy - same checks and allocation as a real close, nothing stored or posted
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ClosePeriodRequest"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/ClosePreview"}}}}
+        default: {$ref: "#/components/responses/Error"}
   /{id}/closes/{closeId}/trading:
     parameters:
       - {$ref: "#/components/parameters/Id"}
