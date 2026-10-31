@@ -84,7 +84,7 @@ class KafkaConsumerConnectorTest {
     void connectorRoutesMalformedRecordToConfiguredDeadLetterTopic() throws Exception {
         send(SOURCE_TOPIC, "{malformed-json", EVENT_TYPE);
 
-        ConsumerRecord<String, String> deadLetter = pollDeadLetter(bootstrapServers, Duration.ofSeconds(25));
+        ConsumerRecord<String, String> deadLetter = pollDeadLetterContaining(bootstrapServers, "{malformed-json", Duration.ofSeconds(25));
         assertThat(deadLetter).isNotNull();
         assertThat(deadLetter.value()).isEqualTo("{malformed-json");
     }

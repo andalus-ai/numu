@@ -70,7 +70,7 @@ message metadata. It simulates a second delivery to verify handler retryability.
 `KafkaConsumerConnectorTest` runs the Quarkus incoming connector against a Testcontainers
 Kafka broker. It verifies real record consumption/handler dispatch, full event-envelope metadata
 preservation (tenant, participant, actor, correlation and trace context), delivery to two
-independent consumer groups, and connector-managed dead-letter routing for malformed payloads.
+independent consumer groups, connector-managed dead-letter routing for malformed payloads, bounded application-handler retry success, and dead-letter routing after retry exhaustion.
 Its offset-recovery case uses Kafka consumers with a stable group ID against the same real broker:
 it simulates a process stop before commit, verifies redelivery after restart, commits the offset,
 and verifies a subsequent restart does not replay the committed record. This isolates broker
