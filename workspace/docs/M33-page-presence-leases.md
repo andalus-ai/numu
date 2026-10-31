@@ -8,7 +8,7 @@ M33 adds advisory page-presence sessions for active collaborators.
 - A client supplies only an opaque per-tab session UUID; it cannot choose tenant or actor.
 - Presence requires page READ permission. It never grants write permission, locks a page, or reserves a block.
 - Heartbeats renew a fixed 60-second lease. Stale sessions disappear from reads as soon as the lease expires.
-- A user with multiple tabs appears once with an active-session count.
+- A user with multiple tabs appears once with an active-session count.\n- Presence reads are bounded to 501 sessions; responses include a truncated flag when more than 500 are active.
 - Session IDs are bound to the authenticated actor. A different actor cannot take over an existing session ID.
 - Leaving removes only the caller's own session.
 - Presence rows are ephemeral and may be purged in bounded batches; page deletion cascades them.
