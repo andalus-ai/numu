@@ -30,15 +30,9 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(pageId, "pageId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
-        ThreadView created = call(() -> {
-            if (mentions != null) CommentMentionParser.parse(request.body());
-            return ThreadView.from(service.createThread(actor.tenantId(), actor.actorId(), pageId, request.anchorBlockId(), request.body()));
-        });
-        if (mentions != null) {
-            CommentView root = created.comments().get(0);
-            mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, root.id(), root.body());
-        }
-        return created;
+        return call(() -> ThreadView.from(service.createThread(actor.tenantId(), actor.actorId(),
+                pageId, request.anchorBlockId(), request.body(), comment -> mentions == null ? List.of()
+                        : mentions.prepareCommentMentions(actor.tenantId(), actor.actorId(), pageId, comment))));
     }
 
     public ThreadView reply(UUID pageId, UUID threadId, ReplyRequest request) {
@@ -46,16 +40,10 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(threadId, "threadId");
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
-        ThreadView updated = call(() -> {
-            if (mentions != null) CommentMentionParser.parse(request.body());
-            return ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
-                    pageId, threadId, request.parentCommentId(), request.body()));
-        });
-        if (mentions != null) {
-            CommentView reply = updated.comments().get(updated.comments().size() - 1);
-            mentions.notifyCommentMentions(actor.tenantId(), actor.actorId(), pageId, reply.id(), reply.body());
-        }
-        return updated;
+        return call(() -> ThreadView.from(service.reply(actor.tenantId(), actor.actorId(),
+                pageId, threadId, request.parentCommentId(), request.body(),
+                comment -> mentions == null ? List.of()
+                        : mentions.prepareCommentMentions(actor.tenantId(), actor.actorId(), pageId, comment))));
     }
 
     public List<WorkspaceMentionDirectory.Member> suggestMentions(UUID pageId, String query, int limit) {
@@ -113,9 +101,7 @@ public final class WorkspaceCommentApi {
     @FunctionalInterface
     private interface Operation<T> { T run(); }
 
-    public record CreateThreadRequest(String body, UUID anchorBlockId) {
-        public CreateThreadRequest(String body) { this(body, null); }
-    }
+    public record CreateThreadRequest(String body, UUID anchorBlockId) { public CreateThreadRequest(String body) { this(body, null); } }
     public record ReplyRequest(UUID parentCommentId, String body) {}
     public record ResolutionRequest(long expectedRevision) {}
 
