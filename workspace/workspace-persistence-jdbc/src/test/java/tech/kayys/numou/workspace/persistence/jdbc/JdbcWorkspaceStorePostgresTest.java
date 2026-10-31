@@ -1345,13 +1345,13 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.heartbeat(tenant, page.id(), actor, session, now, now.plusSeconds(60)));
         assertFalse(store.heartbeat(tenant, page.id(), otherActor, session, now.plusSeconds(1), now.plusSeconds(61)),
                 "another actor must not take over a browser session ID");
-        assertEquals(1, store.findActive(tenant, page.id(), now.plusSeconds(30)).size());
-        assertTrue(store.findActive(UUID.randomUUID(), page.id(), now).isEmpty());
+        assertEquals(1, store.findActive(tenant, page.id(), now.plusSeconds(30), 501).size());
+        assertTrue(store.findActive(UUID.randomUUID(), page.id(), now, 501).isEmpty());
         assertFalse(store.leave(tenant, page.id(), otherActor, session));
         assertTrue(store.leave(tenant, page.id(), actor, session));
         UUID expiredSession = UUID.randomUUID();
         assertTrue(store.heartbeat(tenant, page.id(), actor, expiredSession, now, now.plusSeconds(60)));
-        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61)).isEmpty(),
+        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61), 501).isEmpty(),
                 "expired sessions must be invisible even before cleanup");
         assertEquals(1, store.purgeExpired(now.plusSeconds(61), 10));
         assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61)).isEmpty());
