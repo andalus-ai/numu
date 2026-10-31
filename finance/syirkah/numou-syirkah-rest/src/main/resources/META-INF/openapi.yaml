@@ -171,6 +171,16 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IncomeStatementView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/partners/{partnerId}/statement:
+    parameters:
+      - {$ref: "#/components/parameters/Id"}
+      - {name: partnerId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Syirkah]
+      summary: A partner's movements with running balances and closing position (same data as statement.csv)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/PartnerStatementView"}}}}
+        default: {$ref: "#/components/responses/Error"}
   /{id}/closes/preview:
     parameters: [{$ref: "#/components/parameters/Id"}]
     post:
