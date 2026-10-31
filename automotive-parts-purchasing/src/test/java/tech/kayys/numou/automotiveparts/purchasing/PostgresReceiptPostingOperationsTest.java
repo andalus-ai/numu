@@ -1,5 +1,6 @@
 package tech.kayys.numou.automotiveparts.purchasing;
 
+import io.smallrye.mutiny.Uni;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,10 +8,14 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.application.port.EffectivePermissionPort;
+import tech.kayys.numou.identity.domain.user.UserId;
 
 import javax.sql.DataSource;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -109,6 +114,60 @@ class PostgresReceiptPostingOperationsTest {
         var operations = operations("tenant-a", "operator-a", true, true);
         assertTrue(operations.getDeadLetter("secret-receipt", 10).isEmpty());
         assertTrue(operations.listDeadLetters(null, 10).items().isEmpty());
+    }
+
+    @Test
+    void reactiveIdentityFacadeChecksTenantPermissionAndRequeuesOnWorkerBoundary() {
+        String tenant = UUID.randomUUID().toString();
+        String actor = UUID.randomUUID().toString();
+        deadLetter(tenant, "receipt-reactive");
+
+        EffectivePermissionPort permissions = (tenantId, userId) -> {
+            assertEquals(TenantId.of(tenant), tenantId);
+            assertEquals(UserId.of(UUID.fromString(actor)), userId);
+            return Uni.createFrom().item(Set.of(
+                    IdentityReceiptPostingOperations.INSPECT_PERMISSION,
+                    IdentityReceiptPostingOperations.REQUEUE_PERMISSION));
+        };
+        IdentityReceiptPostingOperations operations = new IdentityReceiptPostingOperations(
+                () -> new ReceiptPostingOperatorContext(tenant, actor),
+                permissions, postings, audit, ledger);
+
+        assertEquals(1, operations.summary().await().indefinitely().deadLetter());
+        assertEquals("receipt-reactive", operations.getDeadLetter("receipt-reactive", 10)
+                .await().indefinitely().orElseThrow().posting().receiptId());
+
+        operations.requeue("receipt-reactive", "supplier data corrected").await().indefinitely();
+        assertEquals(1, operations.summary().await().indefinitely().pending());
+        var history = audit.findByReceipt(tenant, "receipt-reactive", 10);
+        assertEquals(1, history.size());
+        assertEquals(actor, history.get(0).actorId());
+    }
+
+    @Test
+    void reactiveIdentityFacadeFailsClosedWhenPermissionIsMissingOrIdentityServiceFails() {
+        String tenant = UUID.randomUUID().toString();
+        String actor = UUID.randomUUID().toString();
+        deadLetter(tenant, "receipt-reactive-denied");
+
+        EffectivePermissionPort denied = (tenantId, userId) ->
+                Uni.createFrom().item(Set.of(IdentityReceiptPostingOperations.INSPECT_PERMISSION));
+        IdentityReceiptPostingOperations inspectOnly = new IdentityReceiptPostingOperations(
+                () -> new ReceiptPostingOperatorContext(tenant, actor),
+                denied, postings, audit, ledger);
+
+        assertThrows(SecurityException.class,
+                () -> inspectOnly.requeue("receipt-reactive-denied", "unauthorized attempt").await().indefinitely());
+
+        EffectivePermissionPort unavailable = (tenantId, userId) ->
+                Uni.createFrom().failure(new IllegalStateException("identity unavailable"));
+        IdentityReceiptPostingOperations identityUnavailable = new IdentityReceiptPostingOperations(
+                () -> new ReceiptPostingOperatorContext(tenant, actor),
+                unavailable, postings, audit, ledger);
+        assertThrows(SecurityException.class,
+                () -> identityUnavailable.summary().await().indefinitely());
+        assertEquals(ReceiptPostingLedger.Status.DEAD_LETTER,
+                ledger.begin(tenant, "receipt-reactive-denied", "fingerprint-receipt-reactive-denied").status());
     }
 
     private void deadLetter(String tenant, String receiptId) {

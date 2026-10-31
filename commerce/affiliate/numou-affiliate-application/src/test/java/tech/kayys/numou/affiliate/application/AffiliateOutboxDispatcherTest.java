@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -48,8 +49,13 @@ class AffiliateOutboxDispatcherTest {
     void requiresTenantAndWorkerIdentity() {
         AffiliateOutboxDispatcher dispatcher = dispatcher(new FakeStore(List.of()),
                 ignored -> CompletableFuture.completedFuture(null));
-        assertThrows(IllegalArgumentException.class,
+        CompletionException failure = assertThrows(CompletionException.class,
                 () -> dispatcher.dispatchOnce(" ", "worker").toCompletableFuture().join());
+        assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+
+        CompletionException missingWorker = assertThrows(CompletionException.class,
+                () -> dispatcher.dispatchOnce("tenant-a", " ").toCompletableFuture().join());
+        assertInstanceOf(IllegalArgumentException.class, missingWorker.getCause());
     }
 
     private static AffiliateOutboxDispatcher dispatcher(FakeStore store, AffiliateEventPublisher publisher) {
@@ -77,6 +83,8 @@ class AffiliateOutboxDispatcherTest {
             assertTrue(limit > 0);
             return CompletableFuture.completedFuture(events);
         }
+
+        @Override public java.util.concurrent.CompletionStage<Boolean> redriveDeadLetter(String tenantId, UUID eventId, String actorId, String reason, String idempotencyKey, String correlationId, Instant now) { return CompletableFuture.completedFuture(false); }
 
         @Override public java.util.concurrent.CompletionStage<Void> markDelivered(
                 String tenantId, UUID eventId, String workerId, Instant now) {

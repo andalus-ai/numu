@@ -113,6 +113,17 @@ class WorkforceCommandHandlerTest {
     }
 
     @Test
+    void workerExistenceCheckIsTenantScoped() {
+        var tenantId = TenantId.generate();
+        var workerId = registerWorkerHandler.handle(
+                new RegisterWorkerCommand(tenantId, UUID.randomUUID(), WorkerType.EMPLOYEE, "admin")
+        ).await().indefinitely().orElseThrow();
+
+        assertThat(workerRepository.existsById(tenantId, workerId).toCompletableFuture().join()).isTrue();
+        assertThat(workerRepository.existsById(TenantId.generate(), workerId).toCompletableFuture().join()).isFalse();
+    }
+
+    @Test
     void shouldStartEmploymentForActiveWorker() {
         var personId = UUID.randomUUID();
         var workerId = registerWorkerHandler.handle(new RegisterWorkerCommand(TenantId.generate(), personId, WorkerType.EMPLOYEE, "admin"))
@@ -168,6 +179,10 @@ class WorkforceCommandHandlerTest {
                     .filter(w -> w.tenantId().equals(tenantId) && w.person().equals(p)).findFirst());
         }
         @Override public CompletionStage<Boolean> existsById(WorkerId id) { return CompletableFuture.completedFuture(map.containsKey(id)); }
+        @Override public CompletionStage<Boolean> existsById(TenantId tenantId, WorkerId id) {
+            return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id))
+                    .filter(worker -> worker.tenantId().equals(tenantId)).isPresent());
+        }
         @Override public CompletionStage<Void> delete(Worker w) { map.remove(w.id()); return CompletableFuture.completedFuture(null); }
         @Override public CompletionStage<Void> deleteById(WorkerId id) { map.remove(id); return CompletableFuture.completedFuture(null); }
         @Override public CompletionStage<Void> deleteById(TenantId tenantId, WorkerId id) {
