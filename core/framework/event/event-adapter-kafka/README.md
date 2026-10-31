@@ -1,13 +1,14 @@
-# Numou Kafka event publisher adapter
+# Numou Kafka event adapter
 
-This is an optional infrastructure adapter for the shared `EventPublisherPort`.
-It is deliberately a separate Maven module so in-memory and non-Kafka deployments
-do not acquire a Kafka runtime dependency.
+This is an optional infrastructure adapter for the shared event publisher and subscriber ports.
+It is deliberately a separate Maven module so in-memory and non-Kafka deployments do not
+acquire a Kafka runtime dependency.
 
 ## Runtime configuration
 
-Add `numou-event-adapter-kafka` to the application that selects distributed
-Kafka delivery, then configure the Quarkus outgoing channel:
+Add `numou-event-adapter-kafka` to the application that selects distributed Kafka delivery.
+
+Outgoing channel:
 
 ```properties
 mp.messaging.outgoing.numou-events.connector=smallrye-kafka
@@ -17,41 +18,11 @@ mp.messaging.outgoing.numou-events.acks=all
 mp.messaging.outgoing.numou-events.enable.idempotence=true
 mp.messaging.outgoing.numou-events.max.in.flight.requests.per.connection=5
 mp.messaging.outgoing.numou-events.delivery.timeout.ms=120000
-
 kafka.bootstrap.servers=${KAFKA_BOOTSTRAP_SERVERS}
 numou.events.kafka.topic-prefix=numou.events.
 ```
 
-The application must also provide exactly one CDI implementation of
-`EventSerializerPort`. The adapter does not invent a payload schema or infer
-payload classes during deserialization. A serializer must use an explicit,
-versioned event-type registry and preserve the complete `EventEnvelope`.
-
-## Delivery semantics
-
-- A record is sent to `<topic-prefix><eventType>`.
-- Tenant-scoped events use tenant ID as the Kafka record key, preserving
-  per-tenant partition affinity. Platform events use participant ID, then
-  event ID as a stable fallback.
-- Event ID, event type, envelope version, tenant, participant, actor,
-  occurrence time, correlation, causation and trace metadata are emitted
-  as Kafka headers when present.
-- `publish` completes only after the reactive messaging connector acknowledges
-  the record; connector nacks propagate as a failed `Uni`.
-- `publishAll` sends sequentially to preserve the ordering contract and stops
-  at the first failed send. The outbox remains responsible for retrying.
-- The connector's queue admission is not treated as successful delivery.
-
-The selected Kafka channel must use broker acknowledgements and producer
-idempotence as shown above. This does not make delivery exactly-once: the POS
-outbox remains at-least-once and consumers must use the shared inbox/idempotency
-capability.
-
-## Runtime configuration — inbound consumer
-
-The same optional module provides `EventSubscriberPort` through
-`KafkaEventSubscriberAdapter`. It consumes the publisher's event topics using
-a Kafka topic regular expression:
+Incoming channel:
 
 ```properties
 mp.messaging.incoming.numou-events-in.connector=smallrye-kafka
@@ -64,38 +35,73 @@ mp.messaging.incoming.numou-events-in.enable.auto.commit=false
 mp.messaging.incoming.numou-events-in.auto.offset.reset=earliest
 ```
 
-Use a stable, application-specific consumer group. The topic expression must
-match the configured publisher prefix and event-type suffixes. SmallRye Kafka's
-`pattern=true` treats `topic` as a regular expression; do not set `topics`
-at the same time.
+Use a stable, application-specific consumer group. The topic expression must match the
+publisher prefix and event-type suffixes. With `pattern=true`, `topic` is interpreted as
+a regular expression; do not also configure `topics`.
 
-The adapter reads the `numou-event-type` Kafka header and passes it as the
-expected type to the versioned `EventSerializerPort`. The application-owned
-`EventTypeRegistry` remains the only source of payload classes. Missing
-headers, unknown contracts, malformed payloads, and events without a
-registered handler fail closed.
+The application must provide exactly one CDI `EventSerializerPort` implementation using
+an explicit, versioned event-type registry. The adapter does not infer payload classes.
 
-Handlers registered for an event type run sequentially. The record is acked
-only after all handlers complete. A handler failure nacks the record and the
-connector's configured failure strategy governs redelivery or dead-letter
-routing. Configure retry limits and a dead-letter topic appropriate to the
-deployment; avoid infinite redelivery for poison messages.
+## Delivery semantics
 
-The adapter does not provide exactly-once business effects. Each application
-must make handlers idempotent and use its own inbox/idempotency boundary where
-needed. Inbox markers and business writes must share the same transaction.
-The shared transport does not depend on POS persistence or POS inbox tables.
+- Events are routed to `<topic-prefix><eventType>`.
+- Tenant-scoped events use tenant ID as the Kafka record key; platform events use
+  participant ID and then event ID as a stable fallback.
+- Event ID, event type, envelope version and available tenant/participant/actor/time/
+  correlation/causation/trace metadata are emitted as Kafka headers.
+- Publisher completion waits for connector acknowledgement. Batch publishing is sequential.
+- Consumer handlers for one event type run sequentially. The record is acked only after
+  every matching handler succeeds; malformed or unhandled records fail closed.
+- Handler failures nack the record. Configure finite retry limits and dead-letter routing
+  in the consuming application; this transport adapter does not invent a retry policy.
+- Delivery is at-least-once. Consumers must be idempotent and use the shared inbox or an
+  equivalent business idempotency boundary. Inbox markers and business writes should
+  share one transaction.
 
-## Deliberate scope boundary
+## Verification boundaries
 
-Schema registry integration, broker-backed Testcontainers acceptance tests,
-TLS/SASL deployment examples and operational dashboards remain follow-up work.
-Do not enable POS distributed dispatch in production until the deployment
-provides a production serializer, registers all consumed event contracts,
-and verifies broker-backed acceptance tests for its broker and security
-configuration.
+`KafkaEventPublisherBrokerTest` uses Testcontainers to verify publisher topic, key, payload,
+and contract headers against a real Kafka broker.
+
+`KafkaEventSubscriberAdapterTest` verifies manual ack/nack behavior, sequential handler
+execution, malformed-record rejection, and safe handling of an ack failure with controlled
+message metadata. It simulates a second delivery to verify handler retryability.
+
+`KafkaConsumerConnectorTest` runs the Quarkus incoming connector against a Testcontainers
+Kafka broker. It verifies real record consumption/handler dispatch, full event-envelope metadata
+preservation (tenant, participant, actor, correlation and trace context), delivery to two
+independent consumer groups, connector-managed dead-letter routing for malformed payloads, bounded application-handler retry success, and dead-letter routing after retry exhaustion.
+Its offset-recovery case uses Kafka consumers with a stable group ID against the same real broker:
+it simulates a process stop before commit, verifies redelivery after restart, commits the offset,
+and verifies a subsequent restart does not replay the committed record. This isolates broker
+consumer-group offset semantics; it does not claim that a Quarkus process restart itself was
+orchestrated or that handler side effects and Kafka offsets are one atomic transaction. It does not
+claim exactly-once delivery or prove application-level retry policy; deployments must select
+bounded retry and DLQ settings that match their operational requirements.
+
+Run the module tests from `core/framework`:
+
+```bash
+mvn -pl event/event-adapter-kafka -am test
+```
+
+Do not enable POS distributed dispatch in production until a deployment supplies its
+production serializer, registers all event contracts, and verifies its broker, security,
+retry, and dead-letter configuration end to end.
 
 
-## Broker-backed publisher verification
+## Dead-letter operations and recovery boundary
 
-`KafkaEventPublisherBrokerTest` starts a real Kafka broker through Testcontainers and verifies the adapter's resolved topic, routing key, serialized envelope, and event contract headers on a broker round-trip. Docker is required; the test is skipped when Docker is unavailable. Run from `core/framework` with `mvn -pl event/event-adapter-kafka -am -Dtest=KafkaEventPublisherBrokerIT -Dsurefire.failIfNoSpecifiedTests=false test`. This test exercises the publisher's Kafka record mapping and broker acceptance; it does not yet prove Quarkus CDI emitter wiring or consumer acknowledgement/redelivery semantics.
+The broker acceptance test checks that a malformed record routed to the configured
+DLQ retains its original source topic, partition, offset, failure reason/cause, and
+Numou event-type header. This provides diagnostic context and a stable source-record
+reference for operational triage.
+
+A production replay command must be implemented by the consuming application behind
+its tenant-scoped authorization and audit boundary. It must validate the event
+contract, preserve the original event ID and envelope metadata, record actor/reason,
+prevent concurrent duplicate replay, and rely on the application's inbox/idempotency
+boundary for at-least-once redelivery. Do not publish arbitrary DLQ payloads through
+an unauthenticated endpoint or treat a Kafka source offset as a business idempotency
+key. The shared transport adapter intentionally does not expose an administrative
+replay API.

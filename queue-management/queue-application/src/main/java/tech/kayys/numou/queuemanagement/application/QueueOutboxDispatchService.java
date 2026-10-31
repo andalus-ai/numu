@@ -1,7 +1,5 @@
 package tech.kayys.numou.queuemanagement.application;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import tech.kayys.numou.queuemanagement.spi.QueueEventPublisher;
 import tech.kayys.numou.queuemanagement.spi.QueueOutboxDeliveryPort;
 import tech.kayys.numou.queuemanagement.spi.QueueOutboxMessage;
@@ -11,12 +9,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 /** Coordinates bounded outbox batches without holding a database transaction during transport I/O. */
-@ApplicationScoped
 public class QueueOutboxDispatchService {
     private final QueueOutboxDeliveryPort delivery;
     private final QueueEventPublisher publisher;
 
-    @Inject
     public QueueOutboxDispatchService(QueueOutboxDeliveryPort delivery, QueueEventPublisher publisher) {
         this.delivery = Objects.requireNonNull(delivery, "delivery must not be null");
         this.publisher = Objects.requireNonNull(publisher, "publisher must not be null");
