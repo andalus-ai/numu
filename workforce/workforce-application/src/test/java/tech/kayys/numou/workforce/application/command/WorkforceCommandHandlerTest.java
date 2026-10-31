@@ -168,6 +168,10 @@ class WorkforceCommandHandlerTest {
                     .filter(w -> w.tenantId().equals(tenantId) && w.person().equals(p)).findFirst());
         }
         @Override public CompletionStage<Boolean> existsById(WorkerId id) { return CompletableFuture.completedFuture(map.containsKey(id)); }
+        @Override public CompletionStage<Boolean> existsById(TenantId tenantId, WorkerId id) {
+            return CompletableFuture.completedFuture(Optional.ofNullable(map.get(id))
+                    .filter(worker -> worker.tenantId().equals(tenantId)).isPresent());
+        }
         @Override public CompletionStage<Void> delete(Worker w) { map.remove(w.id()); return CompletableFuture.completedFuture(null); }
         @Override public CompletionStage<Void> deleteById(WorkerId id) { map.remove(id); return CompletableFuture.completedFuture(null); }
         @Override public CompletionStage<Void> deleteById(TenantId tenantId, WorkerId id) {
