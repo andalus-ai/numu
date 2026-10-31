@@ -1,7 +1,7 @@
 package tech.kayys.numou.event.adapter.kafka;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.reactive.messaging.kafka.IncomingKafkaRecordMetadata;
+import io.smallrye.reactive.messaging.kafka.api.IncomingKafkaRecordMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.kafka.common.header.Header;

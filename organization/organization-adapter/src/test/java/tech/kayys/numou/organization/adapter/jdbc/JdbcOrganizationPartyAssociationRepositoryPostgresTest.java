@@ -107,6 +107,30 @@ class JdbcOrganizationPartyAssociationRepositoryPostgresTest {
         assertThrows(RuntimeException.class, () -> repository.save(stale).toCompletableFuture().join());
     }
 
+    @Test
+    void writesTenantScopedLifecycleEventToPlatformOutbox() throws Exception {
+        var repository = repository();
+        UUID tenantId = UUID.randomUUID();
+        var proposed = OrganizationPartyAssociation.propose(
+                UUID.randomUUID(), OrganizationId.generate(), PartyId.generate(),
+                T0, "operator-1", null);
+        repository.save(proposed, tenantId).toCompletableFuture().join();
+        repository.save(proposed, tenantId).toCompletableFuture().join();
+        try (Connection connection = dataSource().getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT tenant_id, event_type, payload->>'eventId' AS event_id "
+                             + "FROM platform_outbox WHERE event_type = ?")) {
+            statement.setString(1, "organization.party-association.changed");
+            try (var rows = statement.executeQuery()) {
+                assertTrue(rows.next());
+                assertEquals(tenantId, rows.getObject("tenant_id", UUID.class));
+                assertEquals("organization.party-association.changed", rows.getString("event_type"));
+                assertEquals(1, rows.getRow());
+                assertFalse(rows.next(), "exact replay must not append another outbox event");
+            }
+        }
+    }
+
     private OrganizationPartyAssociationRepository repository() throws Exception {
         DataSource dataSource = dataSource();
         migrate(dataSource);
@@ -124,10 +148,18 @@ class JdbcOrganizationPartyAssociationRepositoryPostgresTest {
     private void migrate(DataSource dataSource) throws Exception {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS platform_outbox CASCADE");
             statement.execute("DROP TABLE IF EXISTS organization_party_association_history CASCADE");
             statement.execute("DROP TABLE IF EXISTS organization_party_associations CASCADE");
             executeMigration(statement, "db/migration/V1__organization_party_associations.sql");
             executeMigration(statement, "db/migration/V2__organization_party_association_history_immutability.sql");
+            statement.execute("""
+                    CREATE TABLE platform_outbox (
+                        entry_id uuid PRIMARY KEY, event_id uuid NOT NULL UNIQUE, tenant_id uuid,
+                        event_type text NOT NULL, payload jsonb NOT NULL, created_at timestamptz NOT NULL,
+                        available_at timestamptz NOT NULL, attempts integer NOT NULL DEFAULT 0,
+                        locked_until timestamptz, published_at timestamptz, last_error text)
+                    """);
         }
     }
 
