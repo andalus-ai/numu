@@ -692,10 +692,11 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     }
 
     @Override public List<tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession>
-    findActive(UUID tenantId, UUID pageId, Instant now) {
-        String sql="SELECT actor_id,last_seen_at FROM workspace_page_presence_sessions WHERE tenant_id=? AND page_id=? AND expires_at>? ORDER BY actor_id,last_seen_at DESC,session_id";
+    findActive(UUID tenantId, UUID pageId, Instant now, int limit) {
+        if(limit<1||limit>501)throw new IllegalArgumentException("presence query limit must be 1..501");
+        String sql="SELECT actor_id,last_seen_at FROM workspace_page_presence_sessions WHERE tenant_id=? AND page_id=? AND expires_at>? ORDER BY actor_id,last_seen_at DESC,session_id LIMIT ?";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
-            p.setObject(1,tenantId);p.setObject(2,pageId);p.setTimestamp(3,Timestamp.from(now));
+            p.setObject(1,tenantId);p.setObject(2,pageId);p.setTimestamp(3,Timestamp.from(now));p.setInt(4,limit);
             List<tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession> out=new ArrayList<>();
             try(ResultSet r=p.executeQuery()){while(r.next())out.add(new tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession(uuid(r,1),instant(r,2)));}
             return List.copyOf(out);
