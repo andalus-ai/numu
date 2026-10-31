@@ -59,7 +59,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V22__workspace_staged_migration_scope_integrity.sql",
             "/db/migration/V23__workspace_page_comment_threads.sql",
             "/db/migration/V24__workspace_comment_block_anchors.sql",
-            "/db/migration/V25__workspace_comment_mention_outbox.sql");
+            "/db/migration/V25__workspace_comment_mention_outbox.sql",
+            "/db/migration/V26__workspace_page_presence_leases.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -1329,5 +1330,32 @@ class JdbcWorkspaceStorePostgresTest {
             }
         }
     }
+
+    @Test
+    void pagePresenceLeasesAreTenantScopedActorBoundAndExpire() {
+        Instant now = Instant.parse("2026-10-31T00:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), otherActor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Presence", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Presence page", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "Created"), 0));
+        UUID session = UUID.randomUUID();
+        assertTrue(store.heartbeat(tenant, page.id(), actor, session, now, now.plusSeconds(60)));
+        assertFalse(store.heartbeat(tenant, page.id(), otherActor, session, now.plusSeconds(1), now.plusSeconds(61)),
+                "another actor must not take over a browser session ID");
+        assertEquals(1, store.findActive(tenant, page.id(), now.plusSeconds(30)).size());
+        assertTrue(store.findActive(UUID.randomUUID(), page.id(), now).isEmpty());
+        assertFalse(store.leave(tenant, page.id(), otherActor, session));
+        assertTrue(store.leave(tenant, page.id(), actor, session));
+        UUID expiredSession = UUID.randomUUID();
+        assertTrue(store.heartbeat(tenant, page.id(), actor, expiredSession, now, now.plusSeconds(60)));
+        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61)).isEmpty(),
+                "expired sessions must be invisible even before cleanup");
+        assertEquals(1, store.purgeExpired(now.plusSeconds(61), 10));
+        assertTrue(store.findActive(tenant, page.id(), now.plusSeconds(61)).isEmpty());
+    }
+
 
 }
