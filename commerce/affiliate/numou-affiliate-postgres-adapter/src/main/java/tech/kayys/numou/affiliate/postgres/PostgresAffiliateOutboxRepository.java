@@ -32,6 +32,27 @@ public class PostgresAffiliateOutboxRepository implements AffiliateEventOutboxSt
   return update("UPDATE affiliate_event_outbox SET delivery_status=CASE WHEN attempts>=? THEN 'DEAD_LETTER' ELSE 'PENDING' END,available_at=?,lease_owner=NULL,lease_until=NULL,last_error=?,version=version+1 WHERE tenant_id=? AND outbox_id=? AND delivery_status='IN_FLIGHT' AND lease_owner=? AND lease_until>?",
    s->{s.setInt(1,maxAttempts);s.setTimestamp(2,Timestamp.from(retryAt));s.setString(3,reason);s.setString(4,tenant);s.setObject(5,id);s.setString(6,worker);s.setTimestamp(7,Timestamp.from(now));});
  }
+ @Override public CompletionStage<Boolean> redriveDeadLetter(String tenant,String eventIdActorUnused,UUID id,String actor,String reason,String idempotencyKey,String correlationId,Instant now){
+  if(tenant==null||tenant.isBlank()||actor==null||actor.isBlank()||reason==null||reason.isBlank()||reason.length()>1000||idempotencyKey==null||idempotencyKey.isBlank()||correlationId==null||correlationId.isBlank())
+   return CompletableFuture.failedFuture(new IllegalArgumentException("invalid dead-letter redrive context"));
+  String updateSql="UPDATE affiliate_event_outbox SET delivery_status='PENDING',available_at=?,attempts=0,lease_owner=NULL,lease_until=NULL,last_error=NULL,version=version+1 WHERE tenant_id=? AND outbox_id=? AND delivery_status='DEAD_LETTER'";
+  String auditSql="INSERT INTO affiliate_audit_event(event_id,tenant_id,aggregate_type,aggregate_id,event_type,actor_id,correlation_id,idempotency_key,payload,occurred_at) VALUES (?,?,?,?,?,?,?,?,?::jsonb,?)";
+  try(Connection c=dataSource.getConnection()){
+   c.setAutoCommit(false);
+   try(PreparedStatement u=c.prepareStatement(updateSql)){
+    u.setTimestamp(1,Timestamp.from(now));u.setString(2,tenant);u.setObject(3,id);
+    if(u.executeUpdate()!=1){c.rollback();return CompletableFuture.completedFuture(false);}
+    try(PreparedStatement a=c.prepareStatement(auditSql)){
+     a.setObject(1,UUID.randomUUID());a.setString(2,tenant);a.setString(3,"AFFILIATE_OUTBOX");a.setObject(4,id);
+     a.setString(5,"AffiliateOutboxDeadLetterRedriven");a.setString(6,actor);a.setString(7,correlationId);
+     a.setString(8,idempotencyKey);a.setString(9,"{\\"reason\\":\\""+jsonEscape(reason)+"\\"}");a.setTimestamp(10,Timestamp.from(now));a.executeUpdate();
+    }
+    c.commit();return CompletableFuture.completedFuture(true);
+   }catch(SQLException|RuntimeException e){try{c.rollback();}catch(SQLException x){e.addSuppressed(x);}throw e;}
+   finally{try{c.setAutoCommit(true);}catch(SQLException ignored){}}
+  }catch(SQLException e){return CompletableFuture.failedFuture(failure(e));}
+ }
+ private static String jsonEscape(String value){return value.replace("\\\\","\\\\\\\\").replace("\\\"","\\\\\\\"").replace("\\n","\\\\n").replace("\\r","\\\\r").replace("\\t","\\\\t");}
  private CompletionStage<Void> update(String sql,Binder binder){try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(sql)){binder.bind(s);if(s.executeUpdate()!=1)throw new IllegalStateException("Outbox lease is stale, expired, or owned by another worker");return CompletableFuture.completedFuture(null);}catch(SQLException e){return CompletableFuture.failedFuture(failure(e));}catch(RuntimeException e){return CompletableFuture.failedFuture(e);}}
  private static IllegalStateException failure(SQLException e){return new IllegalStateException("Affiliate outbox persistence failed",e);}
  @FunctionalInterface private interface Binder{void bind(PreparedStatement s)throws SQLException;}
