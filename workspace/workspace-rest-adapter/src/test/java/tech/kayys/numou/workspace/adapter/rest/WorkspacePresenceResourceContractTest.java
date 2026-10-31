@@ -16,10 +16,13 @@ class WorkspacePresenceResourceContractTest {
   endpoint("heartbeat",POST.class,"/{sessionId}/heartbeat");
   endpoint("leave",DELETE.class,"/{sessionId}");
  }
- @Test void presencePayloadDoesNotAcceptTenantOrActorIdentity() {
+ @Test void presenceResponseUsesTenantContextOnlyOnTheServerAndReturnsActiveActorSummaries() {
   var components=Arrays.stream(tech.kayys.numou.workspace.application.WorkspacePresenceService.PresenceSnapshot.class.getRecordComponents()).map(RecordComponent::getName).toList();
   assertEquals(java.util.List.of("pageId","observedAt","users","truncated"),components);
-  assertFalse(components.contains("tenantId"));assertFalse(components.contains("actorId"));
+  assertFalse(components.contains("tenantId"));
+  assertFalse(components.contains("actorId"));
+  var userComponents=Arrays.stream(tech.kayys.numou.workspace.application.WorkspacePresenceService.UserPresence.class.getRecordComponents()).map(RecordComponent::getName).toList();
+  assertEquals(java.util.List.of("actorId","activeSessions","lastSeenAt"),userComponents);
  }
  private static void endpoint(String name,Class<?> verb,String path)throws Exception {
   var method=Arrays.stream(WorkspacePresenceResource.class.getDeclaredMethods()).filter(m->m.getName().equals(name)).findFirst().orElseThrow();
