@@ -50,7 +50,7 @@ public final class ProposeOrganizationPartyAssociationHandler {
         "Party already has a current Organization association");
        OrganizationPartyAssociation proposal=OrganizationPartyAssociation.propose(c.associationId(),
         c.organizationId(),c.partyId(),c.proposedAt(),c.actorId(),c.evidenceReference());
-       return associations.save(proposal).thenApply(Result::success);
+       return associations.save(proposal, c.tenantId()).thenApply(Result::success);
       });
      });
     });
