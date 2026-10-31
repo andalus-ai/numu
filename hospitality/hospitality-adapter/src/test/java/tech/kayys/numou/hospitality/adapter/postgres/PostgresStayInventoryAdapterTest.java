@@ -109,6 +109,10 @@ class PostgresStayInventoryAdapterTest {
         StayBooking retry = adapter.createHoldAtomically(proposed, proposed.holdExpiresAt()).await().indefinitely();
 
         assertThat(retry.id()).isEqualTo(first.id());
+        assertThat(first.createdAt()).isEqualTo(proposed.createdAt().truncatedTo(ChronoUnit.MICROS));
+        assertThat(first.holdExpiresAt()).isEqualTo(proposed.holdExpiresAt().truncatedTo(ChronoUnit.MICROS));
+        assertThat(retry.createdAt()).isEqualTo(first.createdAt());
+        assertThat(retry.holdExpiresAt()).isEqualTo(first.holdExpiresAt());
         StayBooking persisted = adapter.findById(tenant, first.id()).await().indefinitely().orElseThrow();
         assertThat(persisted)
                 .usingRecursiveComparison()
