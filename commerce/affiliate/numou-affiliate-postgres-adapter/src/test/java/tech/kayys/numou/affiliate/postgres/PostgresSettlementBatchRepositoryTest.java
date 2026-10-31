@@ -137,7 +137,7 @@ class PostgresSettlementBatchRepositoryTest {
         repository.saveOrGet(proposed).toCompletableFuture().join();
 
         PostgresAffiliateOutboxRepository outbox = new PostgresAffiliateOutboxRepository(dataSource);
-        Instant now = Instant.parse("2026-03-01T00:00:00Z");
+        Instant now = Instant.now().plusSeconds(1);
         assertTrue(outbox.claimPending("tenant-b", "worker-b", now, Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join().isEmpty());
 
