@@ -269,7 +269,7 @@ public final class JdbcOrganizationPartyAssociationRepository
                         'eventType', ?, 'data', jsonb_build_object(
                             'associationId', ?::text, 'organizationId', ?::text,
                             'partyId', ?::text, 'status', ?, 'version', ?,
-                            'transition', ?, 'reason', ?)))), ?, ?)
+                            'transition', ?, 'reason', ?))), ?, ?)
                 ON CONFLICT (event_id) DO NOTHING
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
