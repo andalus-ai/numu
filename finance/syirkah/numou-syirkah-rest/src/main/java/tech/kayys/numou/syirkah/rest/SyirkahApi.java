@@ -289,6 +289,27 @@ public class SyirkahApi {
         return tx == null ? work.get() : tx.inTransaction(work);
     }
 
+    /**
+     * Works out what closing the period would do, on a copy of the syirkah: the same checks and the same allocation
+     * as {@link #closePeriod}, but nothing is stored, posted or published.
+     */
+    public ClosePreview previewClose(String id, ClosePeriodRequest r) {
+        if (r == null) {
+            throw new IllegalArgumentException("request body is required");
+        }
+        Syirkah copy = Syirkah.restore(load(id).snapshot());
+        Currency currency = copy.contract().currency();
+        if (r.trading() != null && r.result() != null) {
+            throw new IllegalArgumentException("give either result or trading, not both");
+        }
+        FinancialResult figures = r.trading() != null ? SyirkahDtos.trading(r.trading(), currency)
+                : SyirkahDtos.result(r.result(), currency);
+        CloseSnapshot c = copy.closePeriod(CloseId.generate(), SyirkahDtos.required(r.periodStart(), "periodStart"),
+                SyirkahDtos.required(r.periodEnd(), "periodEnd"), figures, SyirkahDtos.fault(r.fault(), currency),
+                SyirkahDtos.enumOf(ProfitDisposition.class, r.disposition(), "disposition"), clock.instant());
+        return SyirkahDtos.preview(copy, c);
+    }
+
     /** The trading figures a close was worked out from, if it was closed from trading figures. */
     public TradingDto closeTrading(String id, String closeId) {
         if (tradingRecords == null) {

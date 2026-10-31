@@ -489,4 +489,24 @@ class SyirkahApiTest {
         assertThrows(IllegalArgumentException.class, () -> api.balanceSheet(id, new BalanceSheetRequest(null,
                 LocalDate.parse("2026-01-31"), null, null)));
     }
+
+    @Test
+    void previewShowsTheAllocationButStoresNothing() {
+        String id = open();
+        ClosePreview p = api.previewClose(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-31"), result("10000000"), null, "distribute", null));
+        assertEquals("PROFIT", p.result());
+        assertEquals(2, p.lines().size());
+        BigDecimal shares = p.lines().stream().map(PreviewLine::profitShare).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, new BigDecimal("10000000").compareTo(shares));
+        // nothing happened
+        assertEquals(0, api.get(id).summary().closeCount());
+        assertTrue(api.closes(id).isEmpty());
+        // the real close gives the same shares
+        CloseView real = close(id, "2026-01-01", "2026-01-31", "10000000");
+        assertEquals(0, p.netResult().compareTo(real.netResult()));
+        // a bad period is refused by the preview exactly as by the close
+        assertThrows(RuntimeException.class, () -> api.previewClose(id, new ClosePeriodRequest(null,
+                LocalDate.parse("2026-01-15"), LocalDate.parse("2026-01-20"), result("1"), null, "retain", null)));
+    }
 }
