@@ -108,7 +108,7 @@ $q$);
 
 select pg_temp.assert_fk_rejected($q$
  insert into crm_territories (id, tenant_id, name, parent_territory_id, territory_active, active, created_at)
- values ('60000000-0000-0000-0000-000000000003',
+ values ('60000000-0000-0000-0000-000000000004',
          'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Cross-tenant territory',
          '60000000-0000-0000-0000-000000000002', true, true, now())
 $q$);
