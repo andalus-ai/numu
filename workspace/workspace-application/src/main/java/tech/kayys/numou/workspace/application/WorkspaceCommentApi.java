@@ -113,12 +113,17 @@ public final class WorkspaceCommentApi {
         }
     }
 
-    public record ThreadView(UUID id, UUID pageId, boolean resolved, long revision,
+    public record ThreadView(UUID id, UUID pageId, UUID anchorBlockId, boolean resolved, long revision,
                              UUID resolvedBy, Instant resolvedAt, Instant createdAt,
                              Instant updatedAt, List<CommentView> comments) {
+        public ThreadView(UUID id, UUID pageId, boolean resolved, long revision,
+                          UUID resolvedBy, Instant resolvedAt, Instant createdAt,
+                          Instant updatedAt, List<CommentView> comments) {
+            this(id, pageId, null, resolved, revision, resolvedBy, resolvedAt, createdAt, updatedAt, comments);
+        }
         public ThreadView { comments = List.copyOf(comments); }
         static ThreadView from(PageCommentThread thread) {
-            return new ThreadView(thread.id(), thread.pageId(), thread.resolved(), thread.revision(),
+            return new ThreadView(thread.id(), thread.pageId(), thread.anchorBlockId(), thread.resolved(), thread.revision(),
                     thread.resolvedBy(), thread.resolvedAt(), thread.createdAt(), thread.updatedAt(),
                     thread.comments().stream().map(CommentView::from).toList());
         }
