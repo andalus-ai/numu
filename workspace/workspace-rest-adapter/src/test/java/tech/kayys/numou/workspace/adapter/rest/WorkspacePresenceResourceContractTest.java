@@ -18,7 +18,7 @@ class WorkspacePresenceResourceContractTest {
  }
  @Test void presencePayloadDoesNotAcceptTenantOrActorIdentity() {
   var components=Arrays.stream(tech.kayys.numou.workspace.application.WorkspacePresenceService.PresenceSnapshot.class.getRecordComponents()).map(RecordComponent::getName).toList();
-  assertEquals(java.util.List.of("pageId","observedAt","users"),components);
+  assertEquals(java.util.List.of("pageId","observedAt","users","truncated"),components);
   assertFalse(components.contains("tenantId"));assertFalse(components.contains("actorId"));
  }
  private static void endpoint(String name,Class<?> verb,String path)throws Exception {
