@@ -27,10 +27,24 @@ A worker crash after Inventory commits but before the ledger records `POSTED` le
 
 ## Requeue audit history
 
-Migration V1003 adds an append-only requeue audit table. A PostgreSQL trigger writes an audit event in the same transaction as every successful `DEAD_LETTER → PENDING` transition, so the operational state change and its audit evidence cannot diverge. The database rejects updates and deletes to audit rows. `JdbcReceiptPostingRequeueAuditRepository` exposes tenant-and-receipt-scoped history for operator tooling; it is read-only and enforces a bounded result size.
+Migration V1003 adds an append-only requeue audit table. A PostgreSQL trigger writes an audit event in the same transaction as every successful `DEAD_LETTER → PENDING` transition, so the operational state change and its audit evidence cannot diverge. The database rejects updates and deletes to audit rows. `JdbcReceiptPostingRequeueAuditRepository` exposes tenant-and-receipt-scoped history for operator tooling.
 
-The host application owns worker scheduling, authentication/authorization implementation, operator endpoints, alerting, and operational retention. Do not expose the ledger adapter directly as an unauthenticated HTTP endpoint.
+## Operator operations API
+
+`ReceiptPostingOperations` is the transport-neutral application facade for a host REST, GraphQL, or RPC adapter. It exposes:
+- Tenant-scoped summary counts for pending, posted, and dead-letter receipts, including the oldest dead-letter timestamp.
+- Keyset-paginated dead-letter inspection (bounded page size; opaque continuation cursor).
+- Per-receipt failure details and immutable requeue history.
+- Explicit requeue with a mandatory operator reason.
+
+The facade accepts no tenant or actor arguments from the caller. It obtains both from `CurrentReceiptPostingOperatorPort`, which the host must implement from its authenticated request identity and verified tenant selection. `ReceiptPostingOperationsAuthorizer` is deny-by-default and must delegate to Numou Identity's effective-permission / verified-membership checks. The intended permission names are:
+- `automotive-parts.receipt-posting.inspect`
+- `automotive-parts.receipt-posting.requeue`
+
+Map those permissions to Identity's `AuthorizationRequirement.permission("automotive-parts.receipt-posting", "inspect")` and `...("automotive-parts.receipt-posting", "requeue")` through the host adapter. Do not trust tenant IDs, actor IDs, or permission claims supplied in request bodies or query parameters. Do not expose JDBC repositories directly as HTTP resources. Return 404 for receipts outside the current tenant and 403 for denied operations.
+
+The host application owns the concrete authenticated HTTP adapter, identity wiring, worker scheduling, alerting, and operational retention.
 
 ## Verification
 
-PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, and immutable audit history. Deployment-level authorization and operator audit integration tests belong in the host application.
+PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, immutable audit history, operator pagination, summary counts, and authorization denial. Deployment-level HTTP authentication and authorization integration tests belong in the host application.

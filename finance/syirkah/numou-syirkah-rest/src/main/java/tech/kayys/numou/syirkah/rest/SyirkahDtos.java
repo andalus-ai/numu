@@ -182,6 +182,14 @@ public final class SyirkahDtos {
                                       String result) {
     }
 
+    public record CapitalChangeRow(String partner, String name, BigDecimal opening, BigDecimal contributions,
+                                   BigDecimal returns, BigDecimal retainedProfit, BigDecimal capitalRestored,
+                                   BigDecimal lossesAllocated, BigDecimal deficitReclassified, BigDecimal closing) {
+    }
+
+    public record CapitalChangesView(LocalDate from, LocalDate to, List<CapitalChangeRow> rows) {
+    }
+
     public record CloseView(String id, int sequence, LocalDate periodStart, LocalDate periodEnd, int contractVersion,
                             BigDecimal netResult, String disposition, String status, String supersedes,
                             Instant closedAt, String hash) {
@@ -463,6 +471,13 @@ public final class SyirkahDtos {
                 c.successions().stream().map(x -> new SuccessionDto(x.deceased().value().toString(),
                         x.heir().value().toString(), x.continues(), x.decidedOn(), x.evidence())).toList()),
                 r.recordedAt());
+    }
+
+    static CapitalChangesView capitalChanges(LocalDate from, LocalDate to, CapitalRollForward r) {
+        return new CapitalChangesView(from, to, r.rows().stream().map(x -> new CapitalChangeRow(
+                x.partner().value().toString(), x.name(), x.opening().amount(), x.contributions().amount(),
+                x.returns().amount(), x.retainedProfit().amount(), x.capitalRestored().amount(),
+                x.lossesAllocated().amount(), x.deficitReclass().amount(), x.closing().amount())).toList());
     }
 
     static BigDecimal amt(Money m) {

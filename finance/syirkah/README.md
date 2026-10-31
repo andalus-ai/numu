@@ -126,7 +126,11 @@ Base path `/api/v1/syirkah`. Tenant and actor are taken **only** from the verifi
 | `GET /`, `GET /{id}` | any | cursor-paged list (`status`, `cursor`, `limit` ≤ 200); detail with positions |
 | `POST /{id}/closes`, `GET /{id}/closes` | operator / any | close a period; list closes |
 | `POST /{id}/distributions`, `/settlements` | operator | pay out profit; settle a partner liability |
-| `POST /{id}/statements/balance-sheet`, `GET /{id}/closes/{closeId}/income-statement` | any | neraca (caller supplies assets and outside debts) and laba rugi in the book's layout |
+| `POST /{id}/statements/balance-sheet`, `GET /{id}/closes/{closeId}/income-statement` | any | neraca (assets and outside debts are read from the syirkah's own ledger when configured and none are sent; otherwise the caller supplies them) and laba rugi in the book's layout |
+| `GET /{id}/statements/capital-changes?from=&to=` | any | statement of changes in capital per partner for whole days (UTC) |
+| `GET /{id}/closes/{closeId}/trading` | any | the trading figures a close was worked out from (kept when closing from trading figures) |
+| `GET /{id}/lifecycle` | any | the records behind each lifecycle change, oldest akad version first |
+| `POST /{id}/staff`, `GET /{id}/staff` | operator / any | engage staff (stored only if the Bab XVII check passes: fixed wage, employer is the syirkah) and list them |
 | `GET /rules`, `/rules.md` | any | the Sharia rule catalog as JSON or Markdown |
 | `GET /{id}/reconciliation`, `/integrity`, `GET /audit` | any / approver+auditor | equity identity, hash chain, tenant-wide audit |
 | `GET /{id}/partners/{p}/statement.csv`, `/closes/{c}/report.csv` | any | CSV exports |
