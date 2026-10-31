@@ -31,7 +31,7 @@ public final class WorkspaceCommentApi {
         Objects.requireNonNull(request, "request");
         var actor = currentActor();
         return call(() -> ThreadView.from(service.createThread(actor.tenantId(), actor.actorId(),
-                pageId, request.body(), comment -> mentions == null ? List.of()
+                pageId, request.anchorBlockId(), request.body(), comment -> mentions == null ? List.of()
                         : mentions.prepareCommentMentions(actor.tenantId(), actor.actorId(), pageId, comment))));
     }
 
