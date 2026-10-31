@@ -26,12 +26,12 @@ Harden the existing Support capability before adding more channels, automation, 
 - [x] Comment writes check actor identity, comment permission, internal-note role, and ticket tenant.
 - [ ] Add application-level tests for allowed public comments, rejected cross-tenant writes, author spoofing, and customer attempts to create internal notes.
 - [x] `TicketResponse` only includes internal comments for agent/manager/system actors; customer and partner response projections expose public comments only.
-- [ ] Audit every customer-facing ticket read endpoint and ensure access policy, requester ownership, and DTO mapping are enforced. See [the runtime wiring audit](M1-support-runtime-wiring-audit.md) for the current composition blockers.
+- [x] Expose the portal ticket read route through `GetPortalTicketHandler`, preserving access-policy checks, tenant equality, and DTO-only response mapping. Production CDI composition and persistence remain open; see [the runtime wiring audit](M1-support-runtime-wiring-audit.md).
 - [x] Provide a repository-backed default ticket access policy that checks tenant, requester participant, requester role, staff-only resolution, and closed-ticket comment restrictions.
 - [x] Add handler-level regression tests proving portal reads stop when policy denies access, reject cross-tenant tickets even when policy allows them, and return a DTO only after both checks pass.
 - [x] Status, priority, and assignment handlers require authenticated support staff and enforce tenant ownership; resolving/closing additionally checks `TicketAccessPolicy.canResolve`.
 - [ ] Add application-level authorization tests for status, priority, and assignment denial cases; verify production actor-provider and access-policy wiring.
-- [ ] Resolve Support runtime composition blockers: concrete authenticated actor provider, tenant-safe persistence adapter/migrations, explicit handler CDI wiring, and portal read route. See [the runtime wiring audit](M1-support-runtime-wiring-audit.md).
+- [ ] Resolve remaining Support runtime composition blockers: tenant-safe ticket persistence/migrations, explicit handler CDI wiring, production policy binding, and CDI/endpoint verification. See [the runtime wiring audit](M1-support-runtime-wiring-audit.md).
 - [ ] Public replies and internal notes have separate notification / outbound-delivery rules.
 - [ ] Ticket lifecycle transitions, resolution and reopening behavior have regression coverage.
 - [ ] Queue assignment, SLA policy and business-calendar semantics are agreed before implementing timers.
