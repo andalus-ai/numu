@@ -68,7 +68,7 @@ $q$);
 
 select pg_temp.assert_fk_rejected($q$
  insert into crm_opportunities (id, tenant_id, name, customer_id, stage, active, created_at)
- values ('50000000-0000-0000-0000-000000000002',
+ values ('50000000-0000-0000-0000-000000000003',
          'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Cross-tenant opportunity',
          '30000000-0000-0000-0000-000000000002', 'QUALIFICATION', true, now())
 $q$);
