@@ -16,12 +16,12 @@
         <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-foundation</artifactId>
-            <version>\${project.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-ecosystem-domain</artifactId>
-            <version>\${project.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

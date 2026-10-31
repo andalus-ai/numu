@@ -16,12 +16,12 @@
         <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-organization-domain</artifactId>
-            <version>\${project.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-organization-spi</artifactId>
-            <version>\${project.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>

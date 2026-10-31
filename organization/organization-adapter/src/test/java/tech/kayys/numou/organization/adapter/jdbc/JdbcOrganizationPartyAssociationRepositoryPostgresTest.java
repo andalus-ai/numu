@@ -9,6 +9,7 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.organization.domain.OrganizationId;
 import tech.kayys.numou.organization.domain.OrganizationPartyAssociation;
 import tech.kayys.numou.organization.domain.OrganizationPartyAssociationStatus;
+import tech.kayys.numou.organization.spi.OrganizationPartyAssociationRepository;
 
 import javax.sql.DataSource;
 import java.io.InputStream;
