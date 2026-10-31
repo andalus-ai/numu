@@ -3,7 +3,7 @@ import { BLOCK_LABELS, EDITABLE_BLOCK_TYPES, createBlock, normalizeBlocks, seria
 const apiBase = document.querySelector('meta[name="numou-api-base"]')?.content || "/api/v1";
 const api = createWorkspaceApi({ baseUrl: apiBase });
 const $ = (selector) => document.querySelector(selector);
-const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], commentThreads:[], pendingAnchorBlockId:null, savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
+const state = { workspace:null, space:null, workspaces:[], spaces:[], page:null, revision:null, blocks:[], commentThreads:[], presenceSessionId:null, presencePageId:null, presenceTimer:null, pendingAnchorBlockId:null, savedTitle:"", savedBlocks:"[]", dirty:false, view:"home", toastTimer:null };
 const ACTIVE_WORKSPACE_KEY = "numou.workspace.activeWorkspaceId";
 const ACTIVE_SPACE_KEY = "numou.workspace.activeSpaceId";
 function readSelection(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -42,7 +42,7 @@ function switchSpace(spaceId) {
   const selected=state.spaces.find(item=>item.id===spaceId);if(!selected)return;
   state.space=selected;state.page=null;state.dirty=false;writeSelection(ACTIVE_SPACE_KEY,selected.id);renderWorkspace();renderPageNavigation([]);showView("home");void refreshPages();
 }
-function showView(view) { if(state.dirty&&state.view==="editor"&&view!=="editor"&&!window.confirm("You have unsaved edits. Leave this page without saving?")) return; state.view=view; $("#home-view").hidden=view!=="home"; $("#editor-view").hidden=view!=="editor"; $("#search-view").hidden=view!=="search"; $("#templates-view").hidden=view!=="templates"; for(const [id,target] of [["nav-home","home"],["nav-search","search"],["nav-templates","templates"]]) $("#"+id).classList.toggle("active",view===target); const crumbs=$("#breadcrumbs"); crumbs.replaceChildren(); const first=document.createElement("span"); first.textContent=state.workspace?.name||"Workspace"; const sep=document.createElement("span"); sep.className="crumb-separator"; sep.textContent="/"; const last=document.createElement("strong"); last.textContent=view==="editor"?(state.page?.title||"Untitled"):view==="search"?"Search":view==="templates"?"Templates":"Home"; crumbs.append(first,sep,last); }
+function showView(view) { if(state.dirty&&state.view==="editor"&&view!=="editor"&&!window.confirm("You have unsaved edits. Leave this page without saving?")) return; state.view=view;if(view!=="editor")stopPresence(); $("#home-view").hidden=view!=="home"; $("#editor-view").hidden=view!=="editor"; $("#search-view").hidden=view!=="search"; $("#templates-view").hidden=view!=="templates"; for(const [id,target] of [["nav-home","home"],["nav-search","search"],["nav-templates","templates"]]) $("#"+id).classList.toggle("active",view===target); const crumbs=$("#breadcrumbs"); crumbs.replaceChildren(); const first=document.createElement("span"); first.textContent=state.workspace?.name||"Workspace"; const sep=document.createElement("span"); sep.className="crumb-separator"; sep.textContent="/"; const last=document.createElement("strong"); last.textContent=view==="editor"?(state.page?.title||"Untitled"):view==="search"?"Search":view==="templates"?"Templates":"Home"; crumbs.append(first,sep,last); }
 function renderPageNavigation(pages) { const nav=$("#page-navigation"); nav.replaceChildren(); for(const page of Array.isArray(pages)?pages:[]) { const button=document.createElement("button"); button.type="button"; button.className="page-link"; button.textContent=safeText(page.title,"Untitled page"); button.addEventListener("click",()=>openPage(page.id)); nav.append(button); } }
 function textToBlocks(text) {
   return String(text).split(/\n\s*\n/).filter((paragraph,index,array)=>paragraph.length||index<array.length-1)
@@ -128,7 +128,7 @@ function renderEditor(page) {
   state.savedBlocks=JSON.stringify(serializeBlocks(state.blocks));state.dirty=false;
   $("#editor-title").value=state.savedTitle;renderBlockEditor();
   $("#editor-meta").textContent=`Revision ${state.revision} · Changes are saved when confirmed by the server.`;
-  $("#history-panel").hidden=true;$("#save-button").disabled=true;$("#save-button").textContent="Save changes";showView("editor");void refreshCommentThreads();
+  $("#history-panel").hidden=true;$("#save-button").disabled=true;$("#save-button").textContent="Save changes";showView("editor");void refreshCommentThreads();void startPresence(page.id);
 }
 function renderCommentThreads() {
   const container=$("#comment-threads");container.replaceChildren();
@@ -189,6 +189,50 @@ async function refreshCommentThreads() {
   state.commentThreads=Array.isArray(threads)?threads:[];
   renderCommentThreads();
 }
+function renderPresence(snapshot) {
+  const indicator=$("#presence-count");
+  if(!indicator)return;
+  const users=Array.isArray(snapshot?.users)?snapshot.users:[];
+  const sessions=users.reduce((sum,user)=>sum+(Number(user.activeSessions)||0),0);
+  indicator.textContent=users.length===0?"Only you here":users.length===1?"1 collaborator here":users.length+" collaborators here";
+  indicator.title=users.length+" active collaborators across "+sessions+" browser sessions";
+  indicator.classList.toggle("presence-active",users.length>0);
+}
+async function refreshPresence(pageId,sessionId) {
+  try {
+    const snapshot=await api.heartbeatPresence(pageId,sessionId);
+    if(state.presencePageId!==pageId||state.presenceSessionId!==sessionId)return;
+    renderPresence(snapshot);
+  } catch {
+    if(state.presencePageId===pageId&&state.presenceSessionId===sessionId) {
+      const indicator=$("#presence-count");
+      if(indicator){indicator.textContent="Presence unavailable";indicator.title="Presence could not be refreshed.";}
+    }
+  }
+}
+async function startPresence(pageId) {
+  stopPresence();
+  if(!pageId||document.visibilityState==="prerender")return;
+  const sessionId=crypto.randomUUID();
+  state.presencePageId=pageId;state.presenceSessionId=sessionId;
+  await refreshPresence(pageId,sessionId);
+  if(state.presencePageId!==pageId||state.presenceSessionId!==sessionId)return;
+  state.presenceTimer=setInterval(()=>{
+    if(document.visibilityState==="visible")void refreshPresence(pageId,sessionId);
+  },20000);
+}
+function stopPresence() {
+  if(state.presenceTimer!==null){clearInterval(state.presenceTimer);state.presenceTimer=null;}
+  const pageId=state.presencePageId,sessionId=state.presenceSessionId;
+  state.presencePageId=null;state.presenceSessionId=null;
+  const indicator=$("#presence-count");
+  if(indicator){indicator.textContent="Presence inactive";indicator.title="Open a page to share presence." ;indicator.classList.remove("presence-active");}
+  if(pageId&&sessionId)void api.leavePresence(pageId,sessionId).catch(()=>{});
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&state.presencePageId&&state.presenceSessionId)
+    void refreshPresence(state.presencePageId,state.presenceSessionId);
+});
 async function refreshPages() { if(!state.space)return; const pages=await runAction(()=>api.listPages(state.space.id)); if(pages)renderPageNavigation(pages); }
 async function openPage(pageId,discardDraft=false) { if(!pageId){showToast("The API response did not include a page ID.");return;} if(state.dirty&&!discardDraft&&!window.confirm("You have unsaved edits. Open another page and discard them?"))return; const page=await runAction(()=>api.getPage(pageId)); if(page)renderEditor(page); }
 forms.workspace.addEventListener("submit",async(event)=>{event.preventDefault();const button=submitButton(forms.workspace);button.disabled=true;const created=await runAction(()=>api.createWorkspace({name:field(forms.workspace,"name").value.trim(),description:field(forms.workspace,"description").value.trim()||null}),"Workspace created.");button.disabled=false;if(!created)return;state.workspace=created;state.space=null;state.workspaces=[...state.workspaces,created];state.spaces=[];writeSelection(ACTIVE_WORKSPACE_KEY,created.id);writeSelection(ACTIVE_SPACE_KEY,null);renderWorkspace();field(forms.space,"name").focus();});
