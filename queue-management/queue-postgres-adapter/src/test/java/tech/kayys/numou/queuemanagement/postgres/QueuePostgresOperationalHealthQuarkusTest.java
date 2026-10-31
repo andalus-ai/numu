@@ -63,7 +63,7 @@ class QueuePostgresOperationalHealthQuarkusTest {
 
     @Test
     void emptyTenantSnapshotReturnsZeroCounters() {
-        QueueOperationalSnapshot snapshot = health.snapshot(OTHER_tenantId);
+        QueueOperationalSnapshot snapshot = health.snapshot(otherTenantId);
         assertEquals(0, snapshot.waitingEntries());
         assertEquals(0, snapshot.activeEntries());
         assertEquals(0, snapshot.pendingOutbox());
