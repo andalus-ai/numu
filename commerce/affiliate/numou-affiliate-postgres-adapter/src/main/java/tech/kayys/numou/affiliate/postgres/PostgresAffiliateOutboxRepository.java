@@ -46,7 +46,7 @@ public class PostgresAffiliateOutboxRepository implements AffiliateEventOutboxSt
     try(PreparedStatement a=c.prepareStatement(auditSql)){
      a.setObject(1,UUID.randomUUID());a.setString(2,tenant);a.setString(3,"AFFILIATE_OUTBOX");a.setObject(4,id);
      a.setString(5,"AffiliateOutboxDeadLetterRedriven");a.setString(6,actor);a.setString(7,correlationId);
-     a.setString(8,idempotencyKey);a.setString(9,"{\\\"reasonBase64\\\":\\\""+Base64.getEncoder().encodeToString(reason.getBytes(StandardCharsets.UTF_8))+"\\\"}");a.setTimestamp(10,Timestamp.from(now));a.executeUpdate();
+     a.setString(8,idempotencyKey);a.setString(9,"{\"reasonBase64\":\""+Base64.getEncoder().encodeToString(reason.getBytes(StandardCharsets.UTF_8))+"\"}");a.setTimestamp(10,Timestamp.from(now));a.executeUpdate();
     }
     c.commit();return CompletableFuture.completedFuture(true);
    }catch(SQLException|RuntimeException e){try{c.rollback();}catch(SQLException x){e.addSuppressed(x);}throw e;}
