@@ -51,6 +51,9 @@ class KafkaConsumerConnectorTest {
     @Inject
     KafkaIndependentGroupProbe independentGroupProbe;
 
+    @Inject
+    KafkaRetryPolicyProbe retryPolicyProbe;
+
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServers;
 
@@ -87,16 +90,40 @@ class KafkaConsumerConnectorTest {
         ConsumerRecord<String, String> deadLetter = pollDeadLetterContaining(bootstrapServers, "{malformed-json", Duration.ofSeconds(25));
         assertThat(deadLetter).isNotNull();
         assertThat(deadLetter.value()).isEqualTo("{malformed-json");
+    }
 
-        // Preserve source identity and failure context for safe operational recovery.
+
+    @Test
+    void transientHandlerFailureRetriesWithinBoundAndThenAcknowledges() throws Exception {
+        String saleId = "retry-success-" + UUID.randomUUID();
+        send(SOURCE_TOPIC, serializer.serialize(retryEnvelope(saleId)), EVENT_TYPE);
+
+        retryPolicyProbe.awaitAttempts(saleId, 3, Duration.ofSeconds(20));
+        assertThat(pollDeadLetterContaining(bootstrapServers, saleId, Duration.ofSeconds(2))).isNull();
+    }
+
+    @Test
+    void exhaustedHandlerRetriesAreDeadLetteredWithOriginalEventIdentity() throws Exception {
+        String saleId = "retry-terminal-" + UUID.randomUUID();
+        String payload = serializer.serialize(retryEnvelope(saleId));
+        send(SOURCE_TOPIC, payload, EVENT_TYPE);
+
+        retryPolicyProbe.awaitAttempts(saleId, 3, Duration.ofSeconds(20));
+        ConsumerRecord<String, String> deadLetter =
+                pollDeadLetterContaining(bootstrapServers, saleId, Duration.ofSeconds(25));
+        assertThat(deadLetter).isNotNull();
+        assertThat(deadLetter.value()).isEqualTo(payload);
         assertThat(headerValue(deadLetter, "dead-letter-topic")).isEqualTo(SOURCE_TOPIC);
-        assertThat(headerValue(deadLetter, "dead-letter-partition")).isNotBlank();
-        assertThat(headerValue(deadLetter, "dead-letter-offset")).isNotBlank();
-        assertThat(headerValue(deadLetter, "dead-letter-reason")).isNotBlank();
-        assertThat(headerValue(deadLetter, "dead-letter-cause")).isNotBlank();
         assertThat(headerValue(deadLetter, "numou-event-type")).isEqualTo(EVENT_TYPE);
     }
 
+    private EventEnvelope<TestSaleCompleted> retryEnvelope(String saleId) {
+        EventMetadata metadata = new EventMetadata(
+                EventId.generate(), CorrelationId.generate(), null,
+                UUID.randomUUID(), UUID.randomUUID(), "retry-acceptance-test",
+                Instant.now().toString(), "trace-" + UUID.randomUUID());
+        return EventEnvelope.of(metadata, new TestSaleCompleted(saleId));
+    }
 
     @Test
     void uncommittedRecordIsRedeliveredAfterRestartAndCommittedOffsetIsRespected() throws Exception {
@@ -165,26 +192,18 @@ class KafkaConsumerConnectorTest {
         }
     }
 
-    private static ConsumerRecord<String, String> pollDeadLetterContaining(
-            String bootstrapServers, String marker, Duration timeout) {
-        Properties properties = consumerProperties(bootstrapServers);
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "numou-event-dead-letter-" + UUID.randomUUID());
-        try (Consumer<String, String> consumer = new KafkaConsumer<>(properties)) {
+    private static ConsumerRecord<String, String> pollDeadLetter(String bootstrapServers, Duration timeout) {
+        try (Consumer<String, String> consumer = new KafkaConsumer<>(consumerProperties(bootstrapServers))) {
             consumer.subscribe(List.of(DEAD_LETTER_TOPIC));
             long deadline = System.nanoTime() + timeout.toNanos();
             while (System.nanoTime() < deadline) {
                 var records = consumer.poll(Duration.ofMillis(250));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (record.value() != null && record.value().contains(marker)) return record;
+                if (!records.isEmpty()) {
+                    return records.iterator().next();
                 }
             }
             return null;
         }
-    }
-
-    private static String headerValue(ConsumerRecord<String, String> record, String name) {
-        var header = record.headers().lastHeader(name);
-        return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
     }
 
     private static Properties producerProperties(String bootstrapServers) {

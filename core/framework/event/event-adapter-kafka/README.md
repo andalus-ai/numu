@@ -70,7 +70,7 @@ message metadata. It simulates a second delivery to verify handler retryability.
 `KafkaConsumerConnectorTest` runs the Quarkus incoming connector against a Testcontainers
 Kafka broker. It verifies real record consumption/handler dispatch, full event-envelope metadata
 preservation (tenant, participant, actor, correlation and trace context), delivery to two
-independent consumer groups, connector-managed dead-letter routing for malformed payloads, preservation of source topic/partition/offset and failure diagnostic headers, and retention of the original event-type header.
+independent consumer groups, connector-managed dead-letter routing for malformed payloads, bounded application-handler retry success, and dead-letter routing after retry exhaustion.
 Its offset-recovery case uses Kafka consumers with a stable group ID against the same real broker:
 it simulates a process stop before commit, verifies redelivery after restart, commits the offset,
 and verifies a subsequent restart does not replay the committed record. This isolates broker
@@ -88,21 +88,3 @@ mvn -pl event/event-adapter-kafka -am test
 Do not enable POS distributed dispatch in production until a deployment supplies its
 production serializer, registers all event contracts, and verifies its broker, security,
 retry, and dead-letter configuration end to end.
-
-
-## Dead-letter operations and recovery boundary
-
-The connector-managed dead-letter record is an operational artifact, not an
-authorization to replay it. The broker acceptance test verifies that a malformed
-record routed to the configured DLQ retains the original source topic, partition,
-offset, failure reason/cause, and Numou event-type header. Operators can use this
-identity and diagnostic context to correlate a DLQ record with the source stream.
-
-A production replay command must be implemented by the consuming application
-behind its own tenant-scoped authorization and audit boundary. It must validate
-the original event contract, preserve the original event ID and envelope metadata,
-record actor/reason, prevent concurrent duplicate replay, and rely on the
-application's inbox/idempotency boundary for at-least-once redelivery. Do not
-publish arbitrary DLQ payloads directly from an unauthenticated HTTP endpoint,
-and do not treat Kafka's source offset as a business idempotency key. The shared
-transport adapter intentionally does not expose an administrative replay API.
