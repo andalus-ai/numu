@@ -80,9 +80,21 @@ class NotificationHttpTestStore implements NotificationRepository, PushDeviceRep
     }
 
     @Override
-    public PushDevice registerOrRefresh(PushDevice candidate) {
-        return devices.compute(candidate.id(), (id, current) -> current == null ? candidate
-                : current.refresh(candidate.token(), candidate.platform(), candidate.appInstance(), candidate.updatedAt()));
+    public synchronized PushDevice registerOrRefresh(PushDevice candidate) {
+        PushDevice existing = devices.values().stream()
+                .filter(device -> device.tenantId().equals(candidate.tenantId())
+                        && device.recipientId().equals(candidate.recipientId())
+                        && device.token().equals(candidate.token()))
+                .findFirst()
+                .orElse(null);
+        if (existing == null) {
+            devices.put(candidate.id(), candidate);
+            return candidate;
+        }
+        PushDevice refreshed = existing.refresh(candidate.token(), candidate.platform(),
+                candidate.appInstance(), candidate.updatedAt());
+        devices.put(existing.id(), refreshed);
+        return refreshed;
     }
 
     @Override
