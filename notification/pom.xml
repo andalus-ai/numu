@@ -18,5 +18,6 @@
     <module>notification-application</module>
     <module>notification-persistence-jdbc</module>
     <module>notification-provider-http</module>
+    <module>notification-adapter-quarkus</module>
   </modules>
 </project>

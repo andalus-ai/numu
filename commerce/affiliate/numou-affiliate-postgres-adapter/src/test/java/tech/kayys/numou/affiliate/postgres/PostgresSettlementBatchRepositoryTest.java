@@ -137,7 +137,10 @@ class PostgresSettlementBatchRepositoryTest {
         repository.saveOrGet(proposed).toCompletableFuture().join();
 
         PostgresAffiliateOutboxRepository outbox = new PostgresAffiliateOutboxRepository(dataSource);
-        Instant now = Instant.now().plusSeconds(1);
+        // Use PostgreSQL's persisted availability timestamp as the clock baseline. The
+        // outbox default is CURRENT_TIMESTAMP, and container/database clocks need not
+        // be perfectly synchronized with the JVM clock running this test.
+        Instant now = outboxAvailableAt("tenant-a", proposed.id()).plusSeconds(1);
         assertTrue(outbox.claimPending("tenant-b", "worker-b", now, Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join().isEmpty());
 
@@ -161,6 +164,20 @@ class PostgresSettlementBatchRepositoryTest {
                 .toCompletableFuture().join();
         assertTrue(outbox.claimPending("tenant-a", "worker-c", now.plusSeconds(40),
                 Duration.ofSeconds(30), 10).toCompletableFuture().join().isEmpty());
+    }
+
+
+    private Instant outboxAvailableAt(String tenant, UUID aggregateId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT available_at FROM affiliate_event_outbox WHERE tenant_id = ? AND aggregate_id = ?")) {
+            statement.setString(1, tenant);
+            statement.setObject(2, aggregateId);
+            try (ResultSet rs = statement.executeQuery()) {
+                assertTrue(rs.next(), "settlement outbox event should exist");
+                return rs.getTimestamp(1).toInstant();
+            }
+        }
     }
 
     private String auditActor(String tenant, UUID payoutId) throws SQLException {
