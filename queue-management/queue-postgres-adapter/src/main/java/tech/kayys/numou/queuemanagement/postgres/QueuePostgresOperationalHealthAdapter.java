@@ -64,6 +64,7 @@ public class QueuePostgresOperationalHealthAdapter implements QueueOperationalHe
                 FROM queue_outbox
                 CROSS JOIN clock
                 WHERE tenant_id = ?
+                GROUP BY clock.captured_at
             )
             SELECT clock.captured_at, entry_stats.waiting_entries, entry_stats.active_entries,
                    outbox_stats.pending_outbox, outbox_stats.due_outbox,
