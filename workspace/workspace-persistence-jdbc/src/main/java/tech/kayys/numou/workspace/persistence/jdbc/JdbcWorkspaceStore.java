@@ -12,7 +12,7 @@ import java.util.*;
  * PostgreSQL/JDBC adapter for workspace, space, page, revision and audit ports.
  * Configure a pooled DataSource in the host application. All resource reads are tenant-scoped.
  */
-public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink, AuditedMutationRepository, AuditedPageCommentRepository, tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore {
+public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepository, PageRepository, PageLinkRepository, PageTemplateRepository, PageSearchRepository, AuditSink, AuditedMutationRepository, AuditedPageCommentRepository, tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore, tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository {
     private final DataSource dataSource;
 
     public JdbcWorkspaceStore(DataSource dataSource) { this.dataSource = Objects.requireNonNull(dataSource, "dataSource"); }
@@ -674,6 +674,48 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setTimestamp(1,Timestamp.from(now));p.setObject(2,tenantId);p.setObject(3,id);p.setObject(4,token);return p.executeUpdate()==1;}catch(SQLException e){throw failure("complete workspace mention delivery",e);}
     }
     private static String safeOutboxError(String error){if(error==null||error.isBlank())return "Delivery failed";return error.length()>2000?error.substring(0,2000):error;}
+
+    @Override public boolean heartbeat(UUID tenantId, UUID pageId, UUID actorId, UUID sessionId,
+                                        Instant lastSeenAt, Instant expiresAt) {
+        if (expiresAt == null || lastSeenAt == null || !expiresAt.isAfter(lastSeenAt))
+            throw new IllegalArgumentException("presence expiry must be after last seen");
+        String sql = "INSERT INTO workspace_page_presence_sessions(tenant_id,page_id,session_id,actor_id,last_seen_at,expires_at) VALUES(?,?,?,?,?,?) " +
+                "ON CONFLICT(tenant_id,page_id,session_id) DO UPDATE SET " +
+                "last_seen_at=GREATEST(workspace_page_presence_sessions.last_seen_at,EXCLUDED.last_seen_at), " +
+                "expires_at=GREATEST(workspace_page_presence_sessions.expires_at,EXCLUDED.expires_at) " +
+                "WHERE workspace_page_presence_sessions.actor_id=EXCLUDED.actor_id";
+        try (Connection c=dataSource.getConnection(); PreparedStatement p=c.prepareStatement(sql)) {
+            p.setObject(1,tenantId);p.setObject(2,pageId);p.setObject(3,sessionId);p.setObject(4,actorId);
+            p.setTimestamp(5,Timestamp.from(lastSeenAt));p.setTimestamp(6,Timestamp.from(expiresAt));
+            return p.executeUpdate()==1;
+        } catch(SQLException e) { if(isConstraintViolation(e)) return false; throw failure("renew workspace page presence",e); }
+    }
+
+    @Override public List<tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession>
+    findActive(UUID tenantId, UUID pageId, Instant now) {
+        String sql="SELECT actor_id,last_seen_at FROM workspace_page_presence_sessions WHERE tenant_id=? AND page_id=? AND expires_at>? ORDER BY actor_id,last_seen_at DESC,session_id";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setObject(2,pageId);p.setTimestamp(3,Timestamp.from(now));
+            List<tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession> out=new ArrayList<>();
+            try(ResultSet r=p.executeQuery()){while(r.next())out.add(new tech.kayys.numou.workspace.application.port.WorkspacePresenceRepository.PresenceSession(uuid(r,1),instant(r,2)));}
+            return List.copyOf(out);
+        }catch(SQLException e){throw failure("list active workspace page presence",e);}
+    }
+
+    @Override public boolean leave(UUID tenantId,UUID pageId,UUID actorId,UUID sessionId) {
+        String sql="DELETE FROM workspace_page_presence_sessions WHERE tenant_id=? AND page_id=? AND actor_id=? AND session_id=?";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setObject(1,tenantId);p.setObject(2,pageId);p.setObject(3,actorId);p.setObject(4,sessionId);return p.executeUpdate()==1;
+        }catch(SQLException e){throw failure("leave workspace page presence",e);}
+    }
+
+    @Override public int purgeExpired(Instant now,int limit) {
+        if(limit<1||limit>5000)throw new IllegalArgumentException("purge limit must be 1..5000");
+        String sql="WITH expired AS (SELECT ctid FROM workspace_page_presence_sessions WHERE expires_at<=? ORDER BY expires_at,tenant_id,page_id,session_id FOR UPDATE SKIP LOCKED LIMIT ?) DELETE FROM workspace_page_presence_sessions p USING expired e WHERE p.ctid=e.ctid";
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
+            p.setTimestamp(1,Timestamp.from(now));p.setInt(2,limit);return p.executeUpdate();
+        }catch(SQLException e){throw failure("purge expired workspace page presence",e);}
+    }
 
     @Override public boolean updateThreadResolution(PageCommentThread thread, long expectedRevision, AuditEntry audit) {
         String action = thread.resolved() ? "PAGE_COMMENT_THREAD_RESOLVED" : "PAGE_COMMENT_THREAD_REOPENED";
