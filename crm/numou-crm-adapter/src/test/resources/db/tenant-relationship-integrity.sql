@@ -28,7 +28,8 @@ values
 insert into crm_territories (id, tenant_id, name, territory_active, active, created_at)
 values
  ('60000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Tenant A territory', true, true, now()),
- ('60000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tenant B territory', true, true, now());
+ ('60000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tenant B territory', true, true, now()),
+ ('60000000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Tenant A child territory', true, true, now());
 
 insert into crm_territory_assignments
  (id, tenant_id, territory_id, account_id, origin, status, assigned_by_user_id, assigned_at, active, created_at)
@@ -36,6 +37,12 @@ values
  ('70000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   '60000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',
   'MANUAL', 'ACTIVE', '80000000-0000-0000-0000-000000000001', now(), true, now());
+
+-- Positive cases: same-tenant parent and conversion references are accepted.
+update crm_accounts set parent_account_id = '10000000-0000-0000-0000-000000000001'
+where id = '10000000-0000-0000-0000-000000000003';
+update crm_territories set parent_territory_id = '60000000-0000-0000-0000-000000000001'
+where id = '60000000-0000-0000-0000-000000000003';
 
 -- The helper succeeds only when the supplied statement is rejected by a
 -- PostgreSQL foreign-key violation. Unexpected success fails the test.
@@ -79,6 +86,15 @@ values ('90000000-0000-0000-0000-000000000002',
         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
         '10000000-0000-0000-0000-000000000001',
         'LEAD', 'CUSTOMER', 'PENDING', 'REF-A-2', true, now());
+
+update crm_referrals set target_lead_id = '40000000-0000-0000-0000-000000000001'
+where id = '90000000-0000-0000-0000-000000000002';
+update crm_referrals set target_lead_id = null
+where id = '90000000-0000-0000-0000-000000000002';
+update crm_referrals set target_opportunity_id = '50000000-0000-0000-0000-000000000001'
+where id = '90000000-0000-0000-0000-000000000002';
+update crm_referrals set target_opportunity_id = null
+where id = '90000000-0000-0000-0000-000000000002';
 
 select pg_temp.assert_fk_rejected($q$
  update crm_referrals set target_lead_id = '40000000-0000-0000-0000-000000000002'
