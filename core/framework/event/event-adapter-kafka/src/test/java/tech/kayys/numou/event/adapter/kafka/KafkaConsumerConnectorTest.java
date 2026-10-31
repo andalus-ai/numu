@@ -45,6 +45,9 @@ class KafkaConsumerConnectorTest {
     @Inject
     KafkaConsumerProbe probe;
 
+    @Inject
+    KafkaIndependentGroupProbe independentGroupProbe;
+
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServers;
 
@@ -69,6 +72,9 @@ class KafkaConsumerConnectorTest {
         assertThat(received.metadata().correlationId()).isEqualTo(expectedMetadata.correlationId());
         assertThat(received.metadata().traceId()).isEqualTo(expectedMetadata.traceId());
         assertThat(((TestSaleCompleted) received.payload()).saleId).isEqualTo(saleId);
+
+        String independentlyConsumed = independentGroupProbe.awaitContaining(saleId, Duration.ofSeconds(20));
+        assertThat(independentlyConsumed).contains(saleId);
     }
 
     @Test

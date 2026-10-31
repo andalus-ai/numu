@@ -5,6 +5,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.reactive.messaging.Incoming;
 import tech.kayys.numou.event.domain.BusinessEvent;
 import tech.kayys.numou.event.domain.EventEnvelope;
 import tech.kayys.numou.event.domain.valueobject.EventVersion;
@@ -52,5 +53,33 @@ class KafkaConsumerProbe {
             throw new AssertionError("Timed out waiting for Kafka event consumption");
         }
         return envelope;
+    }
+}
+
+
+@ApplicationScoped
+class KafkaIndependentGroupProbe {
+
+    private final BlockingQueue<String> received = new ArrayBlockingQueue<>(16);
+
+    @Incoming("numou-events-observer")
+    void observe(String payload) {
+        received.offer(payload);
+    }
+
+    String awaitContaining(String marker, Duration timeout) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadline) {
+            long remaining = deadline - System.nanoTime();
+            String payload = received.poll(Math.max(1, TimeUnit.NANOSECONDS.toMillis(remaining)),
+                    TimeUnit.MILLISECONDS);
+            if (payload == null) {
+                break;
+            }
+            if (payload.contains(marker)) {
+                return payload;
+            }
+        }
+        throw new AssertionError("Timed out waiting for independent consumer group event containing " + marker);
     }
 }
