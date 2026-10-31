@@ -42,16 +42,24 @@ public final class PageCommentService {
     }
 
     public PageCommentThread createThread(UUID tenantId, UUID actorId, UUID pageId, String body) {
-        return createThread(tenantId, actorId, pageId, body, ignored -> List.of());
+        return createThread(tenantId, actorId, pageId, null, body, ignored -> List.of());
     }
 
     public PageCommentThread createThread(UUID tenantId, UUID actorId, UUID pageId, String body,
                                           Function<PageComment, List<MentionIntent>> mentionFactory) {
+        return createThread(tenantId, actorId, pageId, null, body, mentionFactory);
+    }
+
+    public PageCommentThread createThread(UUID tenantId, UUID actorId, UUID pageId, UUID anchorBlockId,
+                                          String body, Function<PageComment, List<MentionIntent>> mentionFactory) {
         identity(tenantId, actorId);
         Page page = requirePage(tenantId, pageId);
         access.require(tenantId, actorId, Resource.PAGE, pageId, Action.UPDATE);
+        if (anchorBlockId != null && page.blocks().stream().noneMatch(block -> block.id().equals(anchorBlockId))) {
+            throw new IllegalArgumentException("Comment anchor block does not belong to the page");
+        }
         Instant now = clock.instant();
-        PageCommentThread thread = PageCommentThread.open(tenantId, pageId, actorId, body, now);
+        PageCommentThread thread = PageCommentThread.open(tenantId, pageId, anchorBlockId, actorId, body, now);
         List<MentionIntent> intents = List.copyOf(Objects.requireNonNull(mentionFactory.apply(thread.comments().get(0)), "mention intents"));
         AuditEntry audit = audit(tenantId, actorId, "PAGE_COMMENT_THREAD_CREATED",
                 thread.id(), thread.revision(), page.title(), now);

@@ -1106,6 +1106,38 @@ class JdbcWorkspaceStorePostgresTest {
         assertEquals(3, countRows("workspace_comment_mention_outbox", tenant));
     }
 
+    @Test
+    void blockAnchorRoundTripsAndRemainsAsHistoricalReferenceWhenBlockIsRemoved() {
+        Instant now = Instant.parse("2026-10-31T02:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Anchored comments", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        PageBlock anchored = PageBlock.text(BlockType.PARAGRAPH, "Original paragraph", 0);
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Anchor page", List.of(anchored), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "initial"), 0));
+
+        PageCommentThread thread = PageCommentThread.open(tenant, page.id(), anchored.id(),
+                actor, "Please clarify this paragraph", now);
+        AuditEntry audit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", thread.id(), 1, page.title(), now);
+        assertTrue(store.createThread(thread, audit));
+
+        var found = store.findThread(tenant, page.id(), thread.id()).orElseThrow();
+        assertEquals(anchored.id(), found.anchorBlockId());
+        assertEquals(anchored.id(), store.findThreads(tenant, page.id()).get(0).anchorBlockId());
+
+        Page revised = page.revise(page.title(), List.of(), now.plusSeconds(10));
+        assertTrue(store.saveWithRevision(revised,
+                PageRevision.snapshot(revised, actor, now.plusSeconds(10), "Removed referenced paragraph"), 1));
+
+        var historical = store.findThread(tenant, page.id(), thread.id()).orElseThrow();
+        assertEquals(anchored.id(), historical.anchorBlockId(),
+                "the anchor must not silently retarget when the original block is removed");
+        assertTrue(store.findPage(tenant, page.id()).orElseThrow().blocks().isEmpty());
+    }
+
     private long countRows(String table, UUID tenant) throws SQLException {
         if (!List.of("workspace_page_comments", "workspace_comment_mention_outbox").contains(table))
             throw new IllegalArgumentException("unsupported test table");

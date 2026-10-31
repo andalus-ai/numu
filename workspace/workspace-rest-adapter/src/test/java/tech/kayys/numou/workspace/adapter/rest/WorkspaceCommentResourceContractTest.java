@@ -18,6 +18,7 @@ class WorkspaceCommentResourceContractTest {
     @Test
     void commentRequestsDoNotAcceptTenantOrActorIdentity() {
         assertNoIdentityFields(WorkspaceCommentResource.CreateThreadRequest.class);
+        assertEquals(List.of("body", "anchorBlockId"), Arrays.stream(WorkspaceCommentResource.CreateThreadRequest.class.getRecordComponents()).map(RecordComponent::getName).toList());
         assertNoIdentityFields(WorkspaceCommentResource.ReplyRequest.class);
         assertNoIdentityFields(WorkspaceCommentResource.ResolutionRequest.class);
     }
