@@ -124,7 +124,7 @@ test("uses page-scoped comment endpoints and optimistic thread revisions", async
   });
 
   await api.listCommentThreads("page / 1");
-  await api.createCommentThread("page / 1", { body: "Question" });
+  await api.createCommentThread("page / 1", { body: "Question", anchorBlockId: "block-7" });
   await api.replyToCommentThread("page / 1", "thread / 1", {
     parentCommentId: "comment-1", body: "Reply",
   });
@@ -134,7 +134,7 @@ test("uses page-scoped comment endpoints and optimistic thread revisions", async
   assert.equal(calls[0].url, "/api/v1/pages/page%20%2F%201/comment-threads");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[1].init.method, "POST");
-  assert.deepEqual(JSON.parse(calls[1].init.body), { body: "Question" });
+  assert.deepEqual(JSON.parse(calls[1].init.body), { body: "Question", anchorBlockId: "block-7" });
   assert.equal(calls[2].url, "/api/v1/pages/page%20%2F%201/comment-threads/thread%20%2F%201/replies");
   assert.equal(calls[3].url.endsWith("/resolve"), true);
   assert.deepEqual(JSON.parse(calls[3].init.body), { expectedRevision: 1 });

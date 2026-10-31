@@ -18,7 +18,6 @@ class WorkspaceCommentResourceContractTest {
     @Test
     void commentRequestsDoNotAcceptTenantOrActorIdentity() {
         assertNoIdentityFields(WorkspaceCommentResource.CreateThreadRequest.class);
-        assertEquals(List.of("body", "anchorBlockId"), Arrays.stream(WorkspaceCommentResource.CreateThreadRequest.class.getRecordComponents()).map(RecordComponent::getName).toList());
         assertNoIdentityFields(WorkspaceCommentResource.ReplyRequest.class);
         assertNoIdentityFields(WorkspaceCommentResource.ResolutionRequest.class);
     }
@@ -32,6 +31,22 @@ class WorkspaceCommentResourceContractTest {
         assertEndpoint("reply", POST.class, "/pages/{pageId}/comment-threads/{threadId}/replies");
         assertEndpoint("resolve", POST.class, "/pages/{pageId}/comment-threads/{threadId}/resolve");
         assertEndpoint("reopen", POST.class, "/pages/{pageId}/comment-threads/{threadId}/reopen");
+    }
+
+    @Test
+    void createCommentRequestAcceptsOnlyOptionalBlockAnchorInAdditionToBody() {
+        var components = Arrays.stream(WorkspaceCommentResource.CreateThreadRequest.class.getRecordComponents())
+                .map(RecordComponent::getName).toList();
+        assertEquals(List.of("body", "anchorBlockId"), components);
+        assertNotNull(WorkspaceCommentResource.CreateThreadRequest.class.getRecordComponents()[0]
+                .getAnnotation(NotBlank.class));
+    }
+
+    @Test
+    void threadResponsesExposeTheStableBlockAnchor() {
+        var components = Arrays.stream(tech.kayys.numou.workspace.application.WorkspaceCommentApi.ThreadView.class
+                .getRecordComponents()).map(RecordComponent::getName).toList();
+        assertTrue(components.contains("anchorBlockId"));
     }
 
     @Test

@@ -82,7 +82,7 @@ public class WorkspaceCommentResource {
                 new WorkspaceCommentApi.ResolutionRequest(request.expectedRevision()));
     }
 
-    public record CreateThreadRequest(@NotBlank String body, UUID anchorBlockId) {}
+    public record CreateThreadRequest(@NotBlank String body, UUID anchorBlockId) { public CreateThreadRequest(String body) { this(body, null); } }
     public record ReplyRequest(@NotNull UUID parentCommentId, @NotBlank String body) {}
     public record ResolutionRequest(@Positive long expectedRevision) {}
 }
