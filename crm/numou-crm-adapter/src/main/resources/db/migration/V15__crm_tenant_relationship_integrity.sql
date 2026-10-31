@@ -12,27 +12,34 @@
 
 create unique index if not exists uq_crm_customers_tenant_id_id
     on crm_customers (tenant_id, id);
+
 create unique index if not exists uq_crm_leads_tenant_id_id
     on crm_leads (tenant_id, id);
+
 create unique index if not exists uq_crm_opportunities_tenant_id_id
     on crm_opportunities (tenant_id, id);
+
 create unique index if not exists uq_crm_accounts_tenant_id_id
     on crm_accounts (tenant_id, id);
+
 create unique index if not exists uq_crm_territories_tenant_id_id
     on crm_territories (tenant_id, id);
 
+-- Account hierarchy must not cross tenant boundaries.
 alter table crm_accounts
     add constraint fk_crm_accounts_parent_same_tenant
     foreign key (tenant_id, parent_account_id)
     references crm_accounts (tenant_id, id)
     not valid;
 
+-- An opportunity may only reference a customer owned by the same tenant.
 alter table crm_opportunities
     add constraint fk_crm_opportunities_customer_same_tenant
     foreign key (tenant_id, customer_id)
     references crm_customers (tenant_id, id)
     not valid;
 
+-- Referral ownership and all optional conversion targets must agree.
 alter table crm_referrals
     add constraint fk_crm_referrals_referrer_same_tenant
     foreign key (tenant_id, referrer_account_id)
@@ -51,6 +58,7 @@ alter table crm_referrals
     references crm_opportunities (tenant_id, id)
     not valid;
 
+-- Territory hierarchy and assignments are tenant-local as well.
 alter table crm_territories
     add constraint fk_crm_territories_parent_same_tenant
     foreign key (tenant_id, parent_territory_id)
