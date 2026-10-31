@@ -6,6 +6,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.queuemanagement.spi.QueueOperationalSnapshot;
+import tech.kayys.numou.queuemanagement.spi.QueueOutboxDeliveryPort;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -29,12 +30,11 @@ class QueuePostgresOperationalHealthQuarkusTest {
         UUID leasedId = insertEvent();
         UUID deadId = insertEvent();
 
-        var leased = delivery.claim(TENANT, "health-worker", 10, Duration.ofSeconds(30)).stream()
-                .filter(event -> event.eventId().equals(leasedId)).findFirst().orElseThrow();
-        var dead = delivery.claim(TENANT, "health-worker", 10, Duration.ofSeconds(30)).stream()
-                .filter(event -> event.eventId().equals(deadId)).findFirst().orElseThrow();
-        assertEquals(1, delivery.retry(TENANT, deadId, dead.leaseToken(), Duration.ZERO, 1, "terminal"),
-                "retry outcome is validated below through dead-letter count");
+        var claimed = delivery.claim(TENANT, "health-worker", 10, Duration.ofSeconds(30));
+        var leased = claimed.stream().filter(event -> event.eventId().equals(leasedId)).findFirst().orElseThrow();
+        var dead = claimed.stream().filter(event -> event.eventId().equals(deadId)).findFirst().orElseThrow();
+        assertEquals(QueueOutboxDeliveryPort.RetryOutcome.DEAD_LETTERED,
+                delivery.retry(TENANT, deadId, dead.leaseToken(), Duration.ZERO, 1, "terminal"));
 
         expireLease(leasedId);
         QueueOperationalSnapshot snapshot = health.snapshot(TENANT);
