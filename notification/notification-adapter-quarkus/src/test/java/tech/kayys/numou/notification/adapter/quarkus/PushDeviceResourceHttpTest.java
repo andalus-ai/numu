@@ -49,6 +49,22 @@ class PushDeviceResourceHttpTest {
                 .body("platform", equalTo("WEB"))
                 .extract().path("id");
 
+        String refreshedId = given()
+                .contentType("application/json")
+                .body("""
+                        {
+                          "token": "private-browser-subscription-token",
+                          "platform": "WEB",
+                          "appInstance": "browser-integration-test"
+                        }
+                        """)
+                .when().post("/api/v1/notifications/devices")
+                .then()
+                .statusCode(200)
+                .extract().path("id");
+        org.junit.jupiter.api.Assertions.assertEquals(deviceId, refreshedId,
+                "refreshing the same recipient token must preserve the device identity");
+
         String listing = given()
                 .when().get("/api/v1/notifications/devices")
                 .then()
