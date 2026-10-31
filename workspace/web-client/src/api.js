@@ -126,7 +126,7 @@ export function createWorkspaceApi({
     listPresence: (pageId, options) =>
       request(`/pages/${encodeURIComponent(pageId)}/presence`, options),
     heartbeatPresence: (pageId, sessionId) =>
-      json("POST", `/pages/${encodeURIComponent(pageId)}/presence/${encodeURIComponent(sessionId)}/heartbeat`, {}),
+      request(`/pages/${encodeURIComponent(pageId)}/presence/${encodeURIComponent(sessionId)}/heartbeat`, { method: "POST" }),
     leavePresence: (pageId, sessionId) =>
       request(`/pages/${encodeURIComponent(pageId)}/presence/${encodeURIComponent(sessionId)}`, { method: "DELETE" }),
   });
