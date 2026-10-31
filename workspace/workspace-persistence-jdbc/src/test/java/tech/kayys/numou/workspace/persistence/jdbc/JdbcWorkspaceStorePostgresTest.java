@@ -57,7 +57,8 @@ class JdbcWorkspaceStorePostgresTest {
             "/db/migration/V20__workspace_staged_schema_migrations.sql",
             "/db/migration/V21__workspace_schema_migration_worker_leases.sql",
             "/db/migration/V22__workspace_staged_migration_scope_integrity.sql",
-            "/db/migration/V23__workspace_page_comment_threads.sql");
+            "/db/migration/V23__workspace_page_comment_threads.sql",
+            "/db/migration/V24__workspace_comment_block_anchors.sql");
 
     private String jdbcUrl;
     private String schema;
@@ -103,15 +104,35 @@ class JdbcWorkspaceStorePostgresTest {
         assertTrue(store.save(workspace));
         Space space = Space.create(tenant, workspace.id(), "General", "general", now);
         assertTrue(store.save(space));
-        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Discussion", List.of(), now);
+        PageBlock anchorBlock = new PageBlock(UUID.randomUUID(), BlockType.PARAGRAPH, "Review this", 0, Map.of());
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Discussion", List.of(anchorBlock), now);
         PageRevision revision = PageRevision.snapshot(page, actor, now, "Created");
         assertTrue(store.saveWithRevision(page, revision, 0));
 
-        PageCommentThread thread = PageCommentThread.open(tenant, page.id(), actor, "Please review.", now);
+        PageCommentThread thread = PageCommentThread.open(tenant, page.id(), anchorBlock.id(), actor, "Please review.", now);
         AuditEntry createdAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
                 "PAGE_COMMENT_THREAD", thread.id(), 1, page.title(), now);
         assertTrue(store.createThread(thread, createdAudit));
         assertEquals(1, store.findThread(tenant, page.id(), thread.id()).orElseThrow().comments().size());
+        assertEquals(anchorBlock.id(), store.findThread(tenant, page.id(), thread.id()).orElseThrow().anchorBlockId());
+
+        PageCommentThread invalidAnchor = PageCommentThread.open(tenant, page.id(), UUID.randomUUID(), actor, "Invalid anchor", now);
+        AuditEntry invalidAnchorAudit = new AuditEntry(tenant, actor, "PAGE_COMMENT_THREAD_CREATED",
+                "PAGE_COMMENT_THREAD", invalidAnchor.id(), 1, page.title(), now);
+        assertFalse(store.createThread(invalidAnchor, invalidAnchorAudit),
+                "the persistence boundary must reject anchors not present in the page");
+        assertTrue(store.findThread(tenant, page.id(), invalidAnchor.id()).isEmpty());
+        try (Connection connection = dataSource.getConnection();
+             var deleteBlock = connection.prepareStatement(
+                     "DELETE FROM workspace_page_blocks WHERE tenant_id=? AND page_id=? AND block_id=?")) {
+            deleteBlock.setObject(1, tenant); deleteBlock.setObject(2, page.id());
+            deleteBlock.setObject(3, anchorBlock.id());
+            assertEquals(1, deleteBlock.executeUpdate());
+        } catch (SQLException e) {
+            throw new IllegalStateException("could not remove test anchor block", e);
+        }
+        assertEquals(anchorBlock.id(), store.findThread(tenant, page.id(), thread.id()).orElseThrow().anchorBlockId(),
+                "comment history must survive deletion of its anchored block");
 
         PageComment reply = PageComment.reply(tenant, page.id(), thread.id(),
                 thread.comments().get(0).id(), actor, "Reviewed.", now.plusSeconds(1));
