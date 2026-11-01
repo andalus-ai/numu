@@ -441,4 +441,114 @@ class SyirkahApiTest {
         assertEquals(1, recs.get(0).lifecycle().successions().size());
         assertEquals(2, recs.get(0).lifecycle().consents().size());
     }
+
+    @Test
+    void capitalChangesRollForwardForTheRequestedDays() {
+        String id = open();
+        close(id, "2026-01-01", "2026-01-31", "10000000");
+        CapitalChangesView v = api.capitalChanges(id, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"));
+        assertEquals(2, v.rows().size());
+        for (CapitalChangeRow r : v.rows()) {
+            BigDecimal sum = r.opening().add(r.contributions()).subtract(r.returns()).add(r.retainedProfit())
+                    .add(r.capitalRestored()).subtract(r.lossesAllocated()).add(r.deficitReclassified());
+            assertEquals(0, sum.compareTo(r.closing()), "roll-forward must add up for " + r.name());
+        }
+        assertThrows(IllegalArgumentException.class, () -> api.capitalChanges(id, LocalDate.parse("2026-02-01"),
+                LocalDate.parse("2026-01-01")));
+    }
+
+    @Test
+    void aFailedTradingWriteSurfacesAsAnErrorInsideTheUnitOfWork() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts);
+        TradingRecordPort failing = new InMemoryTradingRecordPort() {
+            @Override
+            public synchronized void record(tech.kayys.numou.foundation.domain.tenant.TenantId t,
+                                            tech.kayys.numou.numoudomain.SyirkahId s,
+                                            tech.kayys.numou.numoudomain.CloseId c,
+                                            tech.kayys.numou.numoudomain.TradingResultCalculator.Input in,
+                                            java.time.Instant at) {
+                throw new IllegalStateException("disk full");
+            }
+        };
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx, null, failing, tx);
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        TradingDto t = new TradingDto(new BigDecimal("1000"), null, null, null, null, null, null, null, null, null);
+        assertThrows(IllegalStateException.class, () -> a.closePeriod(id, new ClosePeriodRequest(null,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), null, null, "retain", t)));
+    }
+
+    @Test
+    void balanceSheetReadsAssetsFromTheBooksWhenNoneAreSent() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts);
+        tech.kayys.numou.numouapplication.port.BusinessAssetsPort books = (t, sid) -> java.util.Optional.of(
+                new tech.kayys.numou.numouapplication.port.BusinessAssetsPort.Snapshot(
+                        List.of(new tech.kayys.numou.numoudomain.BookStatements.AssetLine(
+                                tech.kayys.numou.numoudomain.BookStatements.AssetGroup.CURRENT, "1100 Cash",
+                                tech.kayys.numou.foundation.domain.valueobject.Money.of(new BigDecimal("100000000"),
+                                        tech.kayys.numou.foundation.domain.valueobject.Currency.of("IDR")))),
+                        List.of()));
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx,
+                Clock.system(ZoneOffset.UTC)), new SyirkahIntegrityAuditor(repo, repo), repo, ctx, null, null, tx,
+                books);
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        BalanceSheetView bs = a.balanceSheet(id, new BalanceSheetRequest("Toko", LocalDate.parse("2026-01-31"), null,
+                null));
+        assertEquals(1, bs.assets().size());
+        assertTrue(bs.balanced());
+        // without a source of books the caller must send the figures
+        assertThrows(IllegalArgumentException.class, () -> api.balanceSheet(id, new BalanceSheetRequest(null,
+                LocalDate.parse("2026-01-31"), null, null)));
+    }
+
+    @Test
+    void previewShowsTheAllocationButStoresNothing() {
+        String id = open();
+        ClosePreview p = api.previewClose(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-31"), result("10000000"), null, "distribute", null));
+        assertEquals("PROFIT", p.result());
+        assertEquals(2, p.lines().size());
+        BigDecimal shares = p.lines().stream().map(PreviewLine::profitShare).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, new BigDecimal("10000000").compareTo(shares));
+        // nothing happened
+        assertEquals(0, api.get(id).summary().closeCount());
+        assertTrue(api.closes(id).isEmpty());
+        // the real close gives the same shares
+        CloseView real = close(id, "2026-01-01", "2026-01-31", "10000000");
+        assertEquals(0, p.netResult().compareTo(real.netResult()));
+        // a bad period is refused by the preview exactly as by the close
+        assertThrows(RuntimeException.class, () -> api.previewClose(id, new ClosePeriodRequest(null,
+                LocalDate.parse("2026-01-15"), LocalDate.parse("2026-01-20"), result("1"), null, "retain", null)));
+    }
+
+    @Test
+    void revisionPreviewListsEveryProblemAndTheChangeWithoutStoringAnything() {
+        String id = open();
+        api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain", null));
+        // the heir contract with no lifecycle decision and no approvals
+        RevisionPreview bad = api.previewRevision(id, new ReviseRequest(heirContract(), List.of(A), death(false)));
+        assertFalse(bad.ok());
+        assertTrue(bad.problems().size() >= 1);
+        RevisionPreview good = api.previewRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        assertTrue(good.ok(), good.problems().toString());
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("REMOVED")));
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("ADDED")));
+        assertEquals(1, api.get(id).summary().contractVersion());
+        assertTrue(api.pending().isEmpty());
+    void partnerStatementJsonMatchesTheLedger() {
+        String id = open();
+        close(id, "2026-01-01", "2026-01-31", "10000000");
+        PartnerStatementView v = api.statement(id, A);
+        assertEquals(A, v.partnerId());
+        assertFalse(v.lines().isEmpty());
+        MovementLineView last = v.lines().get(v.lines().size() - 1);
+        assertEquals(0, last.capitalBalance().compareTo(v.closing().capitalBalance()));
+        assertEquals(0, last.profitPayable().compareTo(v.closing().profitPayable()));
+        assertThrows(IllegalArgumentException.class, () -> api.statement(id, "not-a-uuid"));
+    }
 }

@@ -60,6 +60,13 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/partners/{partnerId}/statement")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public PartnerStatementView statementJson(@PathParam("id") String id, @PathParam("partnerId") String partnerId) {
+        return api.statement(id, partnerId);
+    }
+
+    @GET
     @Path("/{id}/partners/{partnerId}/statement.csv")
     @Produces("text/csv")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
@@ -89,6 +96,15 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/statements/capital-changes")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public CapitalChangesView capitalChanges(@PathParam("id") String id,
+                                             @QueryParam("from") java.time.LocalDate from,
+                                             @QueryParam("to") java.time.LocalDate to) {
+        return api.capitalChanges(id, from, to);
+    }
+
+    @GET
     @Path("/{id}/closes/{closeId}/income-statement")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
     public IncomeStatementView incomeStatement(@PathParam("id") String id, @PathParam("closeId") String closeId,
@@ -115,6 +131,20 @@ public class SyirkahResource {
     @RolesAllowed(OPERATOR)
     public Response engageStaff(@PathParam("id") String id, StaffRequest request) {
         return Response.status(Response.Status.CREATED).entity(api.engageStaff(id, request)).build();
+    }
+
+    @POST
+    @Path("/{id}/revisions/preview")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public RevisionPreview previewRevision(@PathParam("id") String id, ReviseRequest request) {
+        return api.previewRevision(id, request);
+    }
+
+    @POST
+    @Path("/{id}/closes/preview")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public ClosePreview previewClose(@PathParam("id") String id, ClosePeriodRequest request) {
+        return api.previewClose(id, request);
     }
 
     @GET

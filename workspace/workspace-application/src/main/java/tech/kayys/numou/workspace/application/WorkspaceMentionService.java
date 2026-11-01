@@ -48,6 +48,29 @@ public final class WorkspaceMentionService {
                 .toList();
     }
 
+    /** Resolves mentions before persistence so the resulting intents can be committed with the comment. */
+    public List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent>
+    prepareCommentMentions(UUID tenantId, UUID actorId, UUID pageId, tech.kayys.numou.workspace.domain.PageComment comment) {
+        identity(tenantId, actorId);
+        Page page = requirePage(tenantId, pageId);
+        access.require(tenantId, actorId, Resource.PAGE, page.id(), Action.UPDATE);
+        if (!comment.authorId().equals(actorId) || !comment.pageId().equals(pageId) || !comment.tenantId().equals(tenantId))
+            throw new IllegalArgumentException("comment identity does not match mention request");
+        LinkedHashMap<UUID, Member> recipients = new LinkedHashMap<>();
+        for (String handle : CommentMentionParser.parse(comment.body())) {
+            directory.findActiveByHandle(tenantId, handle.toLowerCase(Locale.ROOT))
+                    .filter(member -> !member.userId().equals(actorId))
+                    .ifPresent(member -> recipients.putIfAbsent(member.userId(), member));
+        }
+        String actorName = directory.findActiveByUserId(tenantId, actorId)
+                .map(Member::displayName).orElse("A teammate");
+        return recipients.values().stream().map(member ->
+                new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.MentionIntent(
+                        member.userId(), member.handle(), actorName, page.title(),
+                        "workspace:comment-mention:" + comment.id() + ":" + member.userId()))
+                .toList();
+    }
+
     /** Called only after the comment has been persisted. Notification adapters must be idempotent. */
     public List<UUID> notifyCommentMentions(UUID tenantId, UUID actorId, UUID pageId,
                                             UUID commentId, String body) {

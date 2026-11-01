@@ -57,3 +57,9 @@ The client should not claim full collaborative editing until presence, concurren
 5. Add collaboration and file UX only after the corresponding server contracts and access policy are ready.
 
 This document defines the integration boundary and acceptance criteria; it does not claim that a browser UI, host runtime, or end-to-end browser tests already exist.
+
+## Page comment anchors
+
+Page comment threads may optionally include an `anchorBlockId` when created. The ID must identify a block in the target page at creation time; tenant and page scope are validated by the application and JDBC adapter. The anchor is a stable block UUID, not a block position, so reordering does not move the discussion to another block.
+
+The database deliberately does not add a foreign key to the current block table: removing a block must not delete or make its discussion history unreadable. Clients should render a thread whose anchor no longer exists in an orphaned/removed-block discussion area while retaining its original anchor ID. Omitting `anchorBlockId` continues to create a page-level thread.

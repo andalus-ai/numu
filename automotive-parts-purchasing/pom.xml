@@ -10,6 +10,13 @@
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-application</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-purchasing-spi</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-inventory-application</artifactId><version>${project.version}</version></dependency>
+
+    <!-- Host-side authenticated operator and Identity permission integration. -->
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-foundation-adapter</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-identity-application</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-security</artifactId></dependency>
+    <dependency><groupId>io.smallrye.reactive</groupId><artifactId>mutiny</artifactId></dependency>
+
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-inventory-adapter</artifactId><version>${project.version}</version><scope>test</scope></dependency>
     <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId><scope>test</scope></dependency>
