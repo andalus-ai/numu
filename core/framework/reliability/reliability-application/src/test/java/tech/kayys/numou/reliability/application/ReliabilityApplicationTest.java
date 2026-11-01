@@ -175,6 +175,47 @@ class ReliabilityApplicationTest {
     }
 
     @Test
+    void resultPersistenceFailureRetainsClaimAndPreventsBusinessWorkFromRunningAgain() {
+        final var delegate = new MemIdempotency();
+        final IdempotencyStorePort failingResultStore = new IdempotencyStorePort() {
+            @Override
+            public Uni<IdempotencyOutcome> claim(String key, String scope) {
+                return delegate.claim(key, scope);
+            }
+
+            @Override
+            public Uni<Void> recordResult(String key, String scope, String ref) {
+                return Uni.createFrom().failure(new IllegalStateException("idempotency store unavailable"));
+            }
+
+            @Override
+            public Uni<Void> release(String key, String scope) {
+                return delegate.release(key, scope);
+            }
+        };
+        final var exec = new IdempotentExecutor(failingResultStore);
+        final var runs = new AtomicInteger();
+
+        assertThatThrownBy(() -> exec.execute("k-result-failure", "reservation.create",
+                () -> {
+                    runs.incrementAndGet();
+                    return Uni.createFrom().item("reservation-42");
+                }, r -> r, r -> r).await().indefinitely())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("idempotency store unavailable");
+
+        // Business work succeeded, so the claim must not be released when result persistence fails.
+        assertThat(delegate.results).containsKey("reservation.create|k-result-failure");
+        assertThatThrownBy(() -> exec.execute("k-result-failure", "reservation.create",
+                () -> {
+                    runs.incrementAndGet();
+                    return Uni.createFrom().item("reservation-99");
+                }, r -> r, r -> r).await().indefinitely())
+                .isInstanceOf(DuplicateRequestException.class);
+        assertThat(runs).hasValue(1);
+    }
+
+    @Test
     void duplicateWhileFirstIsStillRunningIsRejectedNotReExecuted() {
         final var store = new MemIdempotency();
         store.claim("k3", "s").await().indefinitely(); // first attempt claimed, no result yet
