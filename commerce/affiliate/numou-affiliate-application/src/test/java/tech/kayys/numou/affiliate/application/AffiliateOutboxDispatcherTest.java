@@ -84,7 +84,20 @@ class AffiliateOutboxDispatcherTest {
             return CompletableFuture.completedFuture(events);
         }
 
-        @Override public java.util.concurrent.CompletionStage<Boolean> redriveDeadLetter(String tenantId, UUID eventId, String actorId, String reason, String idempotencyKey, String correlationId, Instant now) { return CompletableFuture.completedFuture(false); }
+        @Override public java.util.concurrent.CompletionStage<Boolean> redriveDeadLetter(
+                String tenantId, UUID eventId, String actorId, String reason,
+                String idempotencyKey, String correlationId, Instant now) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        @Override public java.util.concurrent.CompletionStage<DeadLetterPage> findDeadLetters(
+                String tenantId, DeadLetterCursor before, int limit) {
+            return CompletableFuture.completedFuture(new DeadLetterPage(List.of(), null));
+        }
+
+        @Override public java.util.concurrent.CompletionStage<OutboxHealthSnapshot> healthSnapshot() {
+            return CompletableFuture.completedFuture(new OutboxHealthSnapshot(0, 0, 0, 0, 0, 0));
+        }
 
         @Override public java.util.concurrent.CompletionStage<Void> markDelivered(
                 String tenantId, UUID eventId, String workerId, Instant now) {
