@@ -65,25 +65,19 @@ public class PgConsultancyEvidenceOperationsAdminStore implements ConsultancyEvi
                     ConsultancyEvidenceOperation current = map(rows.iterator().next());
                     if (current.status() != ConsultancyEvidenceOperation.Status.TERMINAL_FAILURE) {
                         return findPriorRecovery(connection, request)
-                                .chain(prior -> prior.<Uni<ConsultancyEvidenceOperation>>map(existing -> {
-                                    if (!existing.operationId().equals(request.operationId())) {
-                                        return Uni.createFrom().failure(new EvidenceRecoveryIdempotencyConflictException());
-                                    }
-                                    return Uni.createFrom().item(current);
-                                }).orElseGet(() -> Uni.createFrom().failure(
-                                        new EvidenceOperationNotRecoverableException(current.status()))));
+                                .chain(prior -> prior
+                                        ? Uni.createFrom().item(current)
+                                        : Uni.createFrom().failure(
+                                                new EvidenceOperationNotRecoverableException(current.status())));
                     }
                     return appendAudit(connection, request)
                             .chain(inserted -> {
                                 if (!inserted) {
                                     return findPriorRecovery(connection, request)
-                                            .chain(prior -> prior.<Uni<ConsultancyEvidenceOperation>>map(existing -> {
-                                                if (!existing.operationId().equals(request.operationId())) {
-                                                    return Uni.createFrom().failure(new EvidenceRecoveryIdempotencyConflictException());
-                                                }
-                                                return Uni.createFrom().item(current);
-                                            }).orElseGet(() -> Uni.createFrom().failure(
-                                                    new EvidenceRecoveryIdempotencyConflictException())));
+                                            .chain(prior -> prior
+                                                    ? Uni.createFrom().item(current)
+                                                    : Uni.createFrom().failure(
+                                                            new EvidenceRecoveryIdempotencyConflictException()));
                                 }
                                 String update = """
                                     UPDATE construction_consultancy_evidence_operation
@@ -120,27 +114,23 @@ public class PgConsultancyEvidenceOperationsAdminStore implements ConsultancyEvi
                 utc(request.occurredAt()))).map(rows -> rows.iterator().hasNext());
     }
 
-    private Uni<Optional<ConsultancyEvidenceOperation>> findPriorRecovery(
-            SqlConnection connection, RecoveryRequest request) {
+    private Uni<Boolean> findPriorRecovery(SqlConnection connection, RecoveryRequest request) {
         String sql = """
-            SELECT operation_id FROM construction_consultancy_evidence_operation_recovery_audit
-             WHERE tenant_id = $1 AND idempotency_key = $2 AND actor_id = $3 AND reason = $4
+            SELECT operation_id, actor_id, reason
+              FROM construction_consultancy_evidence_operation_recovery_audit
+             WHERE tenant_id = $1 AND idempotency_key = $2
             """;
-        return connection.preparedQuery(sql).execute(Tuple.of(
-                request.tenantId(), request.idempotencyKey(), request.actorId(), request.reason()))
-                .map(rows -> rows.iterator().hasNext()
-                        ? Optional.ofNullable(findOperationFromRow(rows.iterator().next(), request))
-                        : Optional.empty());
-    }
-
-    // The audit row is authoritative for idempotency; operation was already locked/read in this transaction.
-    private Optional<ConsultancyEvidenceOperation> findOperationFromRow(Row row, RecoveryRequest request) {
-        UUID id = row.getUUID("operation_id");
-        if (!id.equals(request.operationId())) return Optional.empty();
-        return Optional.of(new ConsultancyEvidenceOperation(
-                id, request.tenantId(), "", UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                "audit-placeholder", request.actorId(), UUID.randomUUID(),
-                ConsultancyEvidenceOperation.Status.PENDING, 0, null, request.occurredAt(), request.occurredAt()));
+        return connection.preparedQuery(sql).execute(Tuple.of(request.tenantId(), request.idempotencyKey()))
+                .map(rows -> {
+                    if (!rows.iterator().hasNext()) return false;
+                    Row row = rows.iterator().next();
+                    if (!row.getUUID("operation_id").equals(request.operationId())
+                            || !row.getUUID("actor_id").equals(request.actorId())
+                            || !row.getString("reason").equals(request.reason())) {
+                        throw new EvidenceRecoveryIdempotencyConflictException();
+                    }
+                    return true;
+                });
     }
 
     private static ConsultancyEvidenceOperation map(Row row) {
