@@ -32,20 +32,17 @@ public class NotificationHttpTestBeans {
     private final InMemoryDevices devices = new InMemoryDevices();
 
     @Produces
-    @ApplicationScoped
     VerifiedNotificationPrincipalProvider principalProvider() {
         return () -> Optional.of(new VerifiedNotificationPrincipalProvider.VerifiedPrincipal(TENANT, PRINCIPAL));
     }
 
     @Produces
-    @ApplicationScoped
     NotificationRecipientResolver recipientResolver() {
         return (tenantId, principalId) -> TENANT.equals(tenantId) && PRINCIPAL.equals(principalId)
                 ? Optional.of(RECIPIENT) : Optional.empty();
     }
 
     @Produces
-    @ApplicationScoped
     AuthenticatedNotificationApi authenticatedNotificationApi(NotificationRequestContext context) {
         return new AuthenticatedNotificationApi(
                 new NotificationService(new NoopNotifications(), CLOCK),
