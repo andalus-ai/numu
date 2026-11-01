@@ -11,6 +11,7 @@ import tech.kayys.numou.affiliate.domain.PartnerPayoutStatus;
 import tech.kayys.numou.affiliate.domain.SettlementBatch;
 import tech.kayys.numou.affiliate.domain.SettlementBatchItem;
 import tech.kayys.numou.affiliate.domain.SettlementBatchStatus;
+import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -128,7 +129,6 @@ class PostgresSettlementBatchRepositoryTest {
         assertEquals(1, countReservations("tenant-a", reservedPayout));
     }
 
-
     @Test
     void outboxClaimsAreTenantScopedAndExpiredLeasesCanBeReclaimed() throws Exception {
         UUID payoutId = payout("tenant-a", "25.00");
@@ -137,9 +137,6 @@ class PostgresSettlementBatchRepositoryTest {
         repository.saveOrGet(proposed).toCompletableFuture().join();
 
         PostgresAffiliateOutboxRepository outbox = new PostgresAffiliateOutboxRepository(dataSource);
-        // Use PostgreSQL's persisted availability timestamp as the clock baseline. The
-        // outbox default is CURRENT_TIMESTAMP, and container/database clocks need not
-        // be perfectly synchronized with the JVM clock running this test.
         Instant now = outboxAvailableAt("tenant-a", proposed.id()).plusSeconds(1);
         assertTrue(outbox.claimPending("tenant-b", "worker-b", now, Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join().isEmpty());
@@ -166,6 +163,99 @@ class PostgresSettlementBatchRepositoryTest {
                 Duration.ofSeconds(30), 10).toCompletableFuture().join().isEmpty());
     }
 
+    @Test
+    void deadLetterInspectionIsTenantScopedBoundedAndUsesStableKeysetPagination() throws Exception {
+        PostgresAffiliateOutboxRepository outbox = new PostgresAffiliateOutboxRepository(dataSource);
+        Instant base = Instant.parse("2026-10-31T10:00:00Z");
+        UUID older = insertOutbox("tenant-a", "affiliate.payout.failed", "DEAD_LETTER",
+                base, base, null, 5);
+        UUID newer = insertOutbox("tenant-a", "affiliate.payout.rejected", "DEAD_LETTER",
+                base.plusSeconds(60), base.plusSeconds(60), null, 6);
+        UUID otherTenant = insertOutbox("tenant-b", "affiliate.payout.failed", "DEAD_LETTER",
+                base.plusSeconds(120), base.plusSeconds(120), null, 7);
+
+        var first = outbox.findDeadLetters("tenant-a", null, 1).toCompletableFuture().join();
+        assertEquals(1, first.items().size());
+        assertEquals(newer, first.items().get(0).eventId());
+        assertNotNull(first.nextCursor());
+        assertEquals("affiliate.payout.rejected", first.items().get(0).eventType());
+
+        var second = outbox.findDeadLetters("tenant-a", first.nextCursor(), 1).toCompletableFuture().join();
+        assertEquals(1, second.items().size());
+        assertEquals(older, second.items().get(0).eventId());
+        assertNull(second.nextCursor());
+
+        var tenantB = outbox.findDeadLetters("tenant-b", null, 10).toCompletableFuture().join();
+        assertEquals(List.of(otherTenant), tenantB.items().stream().map(AffiliateEventOutboxStore.DeadLetterSummary::eventId).toList());
+        assertThrows(RuntimeException.class,
+                () -> outbox.findDeadLetters("tenant-a", null, 101).toCompletableFuture().join());
+    }
+
+    @Test
+    void healthSnapshotAggregatesAcrossTenantsWithoutExposingTenantIdentifiers() throws Exception {
+        PostgresAffiliateOutboxRepository outbox = new PostgresAffiliateOutboxRepository(dataSource);
+        Instant dbNow = databaseNow();
+        insertOutbox("tenant-a", "affiliate.pending.due", "PENDING",
+                dbNow.minusSeconds(120), dbNow.minusSeconds(120), null, 0);
+        insertOutbox("tenant-b", "affiliate.pending.scheduled", "PENDING",
+                dbNow, dbNow.plusSeconds(60), null, 0);
+        insertOutbox("tenant-c", "affiliate.delivery.active", "IN_FLIGHT",
+                dbNow.minusSeconds(30), dbNow.minusSeconds(30), dbNow.plusSeconds(30), 1);
+        insertOutbox("tenant-d", "affiliate.delivery.expired", "IN_FLIGHT",
+                dbNow.minusSeconds(60), dbNow.minusSeconds(60), dbNow.minusSeconds(1), 2);
+        insertOutbox("tenant-e", "affiliate.delivery.dead", "DEAD_LETTER",
+                dbNow.minusSeconds(300), dbNow.minusSeconds(300), null, 3);
+
+        AffiliateEventOutboxStore.OutboxHealthSnapshot snapshot =
+                outbox.healthSnapshot().toCompletableFuture().join();
+        assertEquals(2, snapshot.pending());
+        assertEquals(1, snapshot.pendingDue());
+        assertEquals(2, snapshot.inFlight());
+        assertEquals(1, snapshot.expiredLeases());
+        assertEquals(1, snapshot.deadLetter());
+        assertTrue(snapshot.oldestDueAgeSeconds() >= 60);
+    }
+
+    private UUID insertOutbox(String tenant, String eventType, String status,
+            Instant occurredAt, Instant availableAt, Instant leaseUntil, int attempts) throws SQLException {
+        UUID id = UUID.randomUUID();
+        String sql = "INSERT INTO affiliate_event_outbox "
+                + "(outbox_id,tenant_id,aggregate_type,aggregate_id,event_type,event_key,payload,occurred_at,"
+                + "delivery_status,attempts,available_at,lease_owner,lease_until,version) "
+                + "VALUES (?,?,?,?,?,?,'{}'::jsonb,?,?,?,?,?,?,?)";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, id);
+            statement.setString(2, tenant);
+            statement.setString(3, "PartnerPayout");
+            statement.setObject(4, UUID.randomUUID());
+            statement.setString(5, eventType);
+            statement.setString(6, "test-event-" + id);
+            statement.setTimestamp(7, java.sql.Timestamp.from(occurredAt));
+            statement.setString(8, status);
+            statement.setInt(9, attempts);
+            statement.setTimestamp(10, java.sql.Timestamp.from(availableAt));
+            if ("IN_FLIGHT".equals(status)) {
+                statement.setString(11, "test-worker");
+                statement.setTimestamp(12, java.sql.Timestamp.from(leaseUntil));
+            } else {
+                statement.setNull(11, java.sql.Types.VARCHAR);
+                statement.setNull(12, java.sql.Types.TIMESTAMP_WITH_TIMEZONE);
+            }
+            statement.setLong(13, attempts);
+            statement.executeUpdate();
+        }
+        return id;
+    }
+
+    private Instant databaseNow() throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT clock_timestamp()");
+             ResultSet rs = statement.executeQuery()) {
+            assertTrue(rs.next());
+            return rs.getTimestamp(1).toInstant();
+        }
+    }
 
     private Instant outboxAvailableAt(String tenant, UUID aggregateId) throws SQLException {
         try (Connection connection = dataSource.getConnection();
@@ -299,13 +389,10 @@ class PostgresSettlementBatchRepositoryTest {
             assertNotNull(input, "Missing migration: " + resource);
             sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
-        // SQL migrations contain explanatory comments; remove them before splitting statements.
-        // Otherwise a semicolon in prose can be sent to PostgreSQL as a bogus SQL fragment.
         String executableSql = sql.replaceAll("(?m)^\\s*--.*(?:\\R|$)", "");
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            for (String part : executableSql.split(";")) {
-                String trimmed = part.trim();
-                if (!trimmed.isEmpty()) statement.execute(trimmed);
+            for (String fragment : executableSql.split(";")) {
+                if (!fragment.isBlank()) statement.execute(fragment);
             }
         }
     }
