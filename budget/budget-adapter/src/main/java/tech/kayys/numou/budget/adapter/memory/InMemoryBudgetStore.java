@@ -11,12 +11,13 @@ public final class InMemoryBudgetStore implements BudgetStorePort {
     private final ConcurrentHashMap<String, Budget> budgets = new ConcurrentHashMap<>();
 
     @Override
-    public Optional<Budget> find(String budgetId) {
-        return Optional.ofNullable(budgets.get(budgetId));
+    public Optional<Budget> find(String tenantId, String budgetId) {
+        return Optional.ofNullable(budgets.get(key(tenantId, budgetId)));
     }
 
     @Override
     public void save(Budget budget) {
-        budgets.put(budget.budgetId(), budget);
+        budgets.put(key(budget.tenantId(), budget.budgetId()), budget);
     }
+    private String key(String tenantId, String budgetId) { return tenantId + "|" + budgetId; }
 }
