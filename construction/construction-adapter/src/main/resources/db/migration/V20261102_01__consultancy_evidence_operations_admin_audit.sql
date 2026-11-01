@@ -20,3 +20,15 @@ CREATE TABLE construction_consultancy_evidence_operation_recovery_audit (
 CREATE INDEX idx_construction_evidence_recovery_history
     ON construction_consultancy_evidence_operation_recovery_audit
        (tenant_id, operation_id, occurred_at, audit_id);
+
+-- Enforce append-only audit semantics at the database boundary as well.
+CREATE OR REPLACE FUNCTION reject_construction_evidence_recovery_audit_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'consultancy evidence recovery audit is append-only';
+END;
+$$;
+
+CREATE TRIGGER trg_construction_evidence_recovery_audit_immutable
+    BEFORE UPDATE OR DELETE ON construction_consultancy_evidence_operation_recovery_audit
+    FOR EACH ROW EXECUTE FUNCTION reject_construction_evidence_recovery_audit_mutation();
