@@ -11,6 +11,7 @@ import tech.kayys.numou.event.domain.valueobject.EventVersion;
 import tech.kayys.numou.event.spi.port.EventSerializerPort;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +23,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class KafkaEventPublisherAdapterTest {
 
     private record TestEvent(String reference) implements BusinessEvent {
+        @Override
+        public UUID eventId() {
+            return UUID.nameUUIDFromBytes(reference.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public Instant occurredAt() {
+            return Instant.EPOCH;
+        }
+
         @Override
         public String eventType() {
             return "pos.sale.completed";
@@ -91,6 +102,16 @@ class KafkaEventPublisherAdapterTest {
     @Test
     void rejectsInvalidEventTopicSuffix() {
         BusinessEvent invalid = new BusinessEvent() {
+            @Override
+            public UUID eventId() {
+                return UUID.nameUUIDFromBytes("invalid-event".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+
+            @Override
+            public Instant occurredAt() {
+                return Instant.EPOCH;
+            }
+
             @Override
             public String eventType() {
                 return "pos/sale";
