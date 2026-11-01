@@ -524,4 +524,63 @@ class SyirkahApiTest {
         assertThrows(RuntimeException.class, () -> api.previewClose(id, new ClosePeriodRequest(null,
                 LocalDate.parse("2026-01-15"), LocalDate.parse("2026-01-20"), result("1"), null, "retain", null)));
     }
+
+    @Test
+    void aWholeSyirkahThroughTheApiWithEveryStoreWired() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        Clock clock = Clock.system(ZoneOffset.UTC);
+        InMemoryStaffRecordPort staffStore = new InMemoryStaffRecordPort();
+        InMemoryTradingRecordPort tradingStore = new InMemoryTradingRecordPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts, clock, FormationEnforcement.OFF, null,
+                new InMemoryLifecycleRecordPort());
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx, clock),
+                new SyirkahIntegrityAuditor(repo, repo), repo, ctx, new StaffContractService(repo, staffStore, tx,
+                clock), tradingStore, tx, null);
+
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        a.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain", null));
+
+        // partner B dies, C continues in B's place: approved by a second person
+        ApprovalView rev = a.proposeRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        ctx.actor("checker");
+        assertEquals("APPROVED", a.approve(rev.id()).status());
+        ctx.actor("maker");
+        assertEquals(2, a.get(id).summary().contractVersion());
+
+        // staff on a fixed wage, then a trading close with its figures
+        assertEquals(1, a.engageStaff(id, new StaffRequest("SYIRKAH", null, "Cashier", "12 months", "8 hours a day",
+                "FIXED_AMOUNT", new BigDecimal("3000000"), "monthly", List.of(), false)).sequence());
+        TradingDto t = new TradingDto(new BigDecimal("1000"), null, null, new BigDecimal("200"),
+                new BigDecimal("600"), null, null, new BigDecimal("300"), new BigDecimal("50"), null);
+        CloseView feb = a.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-02-01"),
+                LocalDate.parse("2026-02-28"), null, null, "retain", t));
+        assertEquals(0, new BigDecimal("450").compareTo(feb.netResult()));
+
+        // liquidation by sale, both steps approved
+        ApprovalView start = a.proposeStartLiquidation(id);
+        ctx.actor("checker");
+        a.approve(start.id());
+        ctx.actor("maker");
+        ApprovalView liq = a.proposeLiquidation(id, new LiquidateRequest(
+                List.of(new AssetSaleDto("stock", new BigDecimal("100000000"), "outsider", null, true)), null, false,
+                BigDecimal.ZERO, LocalDate.parse("2026-03-01"), null));
+        ctx.actor("checker");
+        a.approve(liq.id());
+        ctx.actor("maker");
+
+        // everything reads back
+        assertEquals("TERMINATED", a.get(id).summary().status());
+        assertEquals(2, a.closes(id).size());
+        assertTrue(a.reconciliation(id).balanced());
+        assertTrue(a.integrity(id).ok());
+        assertEquals(1, a.lifecycleRecords(id).size());
+        assertEquals(1, a.staffContracts(id).size());
+        assertEquals(0, new BigDecimal("1000").compareTo(a.closeTrading(id, feb.id()).sales()));
+        assertFalse(a.capitalChanges(id, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-03-01")).rows()
+                .isEmpty());
+        assertTrue(a.audit().ok());
+        assertTrue(a.pending().isEmpty());
+    }
 }
