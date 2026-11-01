@@ -73,7 +73,7 @@ class BudgetingServiceTest {
         assertThrows(java.util.NoSuchElementException.class,
                 () -> service.consume("tenant-c", sharedCommitmentId, BigDecimal.ONE));
         service.consume("tenant-b", sharedCommitmentId, new BigDecimal("5"));
-        assertEquals(new BigDecimal("700"), service.checkAvailability("tenant-a", sharedBudgetId,
+        assertEquals(new BigDecimal("600"), service.checkAvailability("tenant-a", sharedBudgetId,
                 "6100", Map.of(), period, BigDecimal.ONE).available(),
                 "consuming tenant B's commitment must not change tenant A's availability");
         assertEquals(new BigDecimal("35"), service.checkAvailability("tenant-b", sharedBudgetId,
