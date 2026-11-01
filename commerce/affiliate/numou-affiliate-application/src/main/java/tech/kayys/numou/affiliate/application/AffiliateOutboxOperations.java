@@ -36,10 +36,11 @@ public final class AffiliateOutboxOperations {
     }
 
     /**
-     * Returns global aggregate health for an authenticated internal operations surface.
-     * Hosts must not expose this method through tenant-facing APIs.
+     * Returns global aggregate health. The host must construct a platform operations
+     * context only after authorizing cross-tenant operational access.
      */
-    public CompletionStage<OutboxHealthSnapshot> healthSnapshot() {
+    public CompletionStage<OutboxHealthSnapshot> healthSnapshot(AffiliatePlatformOperationsContext context) {
+        Objects.requireNonNull(context, "context");
         return store.healthSnapshot();
     }
 
