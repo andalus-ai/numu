@@ -1,10 +1,11 @@
-# Workspace comment mentions
+# Workspace comment mentions and durable delivery
 
 ## Contract
 
-Workspace comments support explicit `@handle` mentions. The application parses at most 20 unique handles per comment, case-insensitively, and resolves them only through a host-provided `WorkspaceMentionDirectory`.
+Workspace comments support explicit `@handle` mentions. The application parses at most 20 unique handles per comment, case-insensitively, and resolves them only through the host-provided `WorkspaceMentionDirectory`.
 
 The directory adapter must:
+
 - Scope every lookup to the supplied tenant.
 - Return active tenant members only.
 - Use a stable member/user ID as the notification recipient.
@@ -15,17 +16,34 @@ Email addresses are not treated as mentions. Unknown, inactive, and cross-tenant
 
 ## Authorization
 
-Mention suggestions are page-scoped and require page READ access. Mention notifications are issued only after a comment create/reply workflow has already passed page UPDATE authorization. Tenant and actor IDs are always derived from the trusted Workspace identity provider; they are never accepted in request bodies.
+Mention suggestions are page-scoped and require page READ access. Mention recipient resolution occurs only inside comment create/reply workflows that have passed page UPDATE authorization. Tenant and actor IDs are always derived from the trusted Workspace identity provider; they are never accepted in request bodies.
 
-## Notification integration
+## Durable notification delivery (M31)
 
-Workspace defines `WorkspaceMentionNotificationPort` as an application-owned outbound port. The host composes it with the shared Notification capability. Each notification command carries a stable idempotency key:
+The Workspace persistence adapter implements `WorkspaceMentionOutboxStore`. For a comment containing mentions, the comment row, its audit row, and recipient-specific outbox rows are committed in the same JDBC transaction. A rollback therefore removes all of them; a process crash after commit cannot lose the delivery intent.
+
+Each recipient intent uses the stable idempotency key:
 
 `workspace:comment-mention:{commentId}:{recipientId}`
 
-The Notification adapter should persist recipient-scoped idempotently and own inbox state, delivery retries, push providers, and transport policy. Workspace does not import Notification classes or depend on provider implementations.
+The dispatcher claims due rows using PostgreSQL `FOR UPDATE SKIP LOCKED`, assigns a fresh lease token, and fences delivery acknowledgement, retry, and dead-letter transitions with that token. Expired leases can be reclaimed. Retry attempts use bounded exponential backoff and eventually move to a terminal dead-letter state.
 
-The current bridge is synchronous after the comment has been committed. A host that requires crash-safe at-least-once dispatch should implement the port through its durable integration/outbox mechanism; the current Workspace milestone does not claim a cross-service transactional outbox.
+Delivery is **at least once**, not exactly once. If a worker crashes after the downstream Notification provider accepts a command but before Workspace records it as delivered, the command may be sent again. The host Notification adapter must honor the stable idempotency key.
+
+## Host composition
+
+The host provides:
+
+- `WorkspaceMentionDirectory`, backed by its trusted Identity/membership integration.
+- `WorkspaceMentionDeliveryPort`, backed by the shared Notification capability.
+- A scheduled worker lifecycle that invokes `WorkspaceMentionOutboxDispatcher` with bounded batches and a stable worker identifier.
+- `WorkspaceMentionOutboxAdminPolicy`, which authorizes trusted operators to inspect and requeue dead-letter deliveries.
+
+The JDBC persistence module supplies the outbox store when `JdbcWorkspaceStore` is registered. The REST adapter composes `WorkspaceMentionService` when a directory is available; a direct Notification port is optional and retained only for compatibility. New comment workflows prepare recipient intents before persistence and do not synchronously call Notification after commit.
+
+Dead-letter inspection and requeue are exposed through `WorkspaceMentionOutboxOperationsService`. Hosts should expose that application boundary through their chosen authenticated operations transport. The service checks the host-owned admin policy before every read or mutation, scopes store calls by tenant, and uses the trusted actor ID for the transactional requeue audit record. A false requeue result intentionally does not distinguish a missing row from a foreign-tenant or non-dead row.
+
+Workspace does not depend on Notification classes, provider implementations, or a particular scheduler/runtime.
 
 ## Web client
 
