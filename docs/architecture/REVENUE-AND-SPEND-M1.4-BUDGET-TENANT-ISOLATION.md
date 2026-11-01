@@ -1,6 +1,6 @@
 # Revenue and Spend Management — M1.4 Budget Tenant Isolation
 
-- Status: tenant scope added to Budget domain/application/SPI and in-memory adapters; verification pending.
+- Status: tenant scope added to Budget domain/application/SPI and in-memory adapters; unit and adapter tests added; execution pending.
 - Date: 2026-11-01.
 - Branch: `finance/revenue-spend-m1-followup`.
 
@@ -80,7 +80,8 @@ The tenant-scoped method and constructor changes are source-breaking for direct 
 - [x] Scope Budget, Commitment and Actual repository read/write contracts.
 - [x] Scope application services and compatibility facade.
 - [x] Update in-memory adapters with composite tenant keys.
-- [x] Add tenant-isolation tests for matching IDs and cross-tenant balance independence.
+- [x] Add application tests for matching IDs and cross-tenant balance independence.
+- [x] Add direct tests for the in-memory adapter tenant keys and query filters.
 - [ ] Run `mvn -f budget/pom.xml test`.
 - [ ] Compile downstream Maven reactors and update any direct callers.
 - [ ] Design PostgreSQL persistence, tenant-safe uniqueness/foreign keys and migration/backfill.
