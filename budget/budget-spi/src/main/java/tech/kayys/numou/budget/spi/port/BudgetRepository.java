@@ -7,5 +7,5 @@ import java.util.Optional;
 
 public interface BudgetRepository {
     PlanningBudget save(PlanningBudget budget);
-    Optional<PlanningBudget> find(BudgetId id);
+    Optional<PlanningBudget> find(String tenantId, BudgetId id);
 }
