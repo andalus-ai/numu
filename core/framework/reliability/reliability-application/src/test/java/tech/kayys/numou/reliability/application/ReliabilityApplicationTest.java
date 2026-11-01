@@ -271,7 +271,7 @@ class ReliabilityApplicationTest {
             claims.computeIfPresent(id, (key, current) -> current.token().equals(token) ? null : current);
             return Uni.createFrom().voidItem();
         }
-        public Uni<Void> markHandled(String id, UUID token) {
+        public Uni<Boolean> markHandled(String id, UUID token) {
             final var completed = new java.util.concurrent.atomic.AtomicBoolean();
             claims.computeIfPresent(id, (key, current) -> {
                 if (current.token().equals(token)) {
@@ -281,7 +281,7 @@ class ReliabilityApplicationTest {
                 return current;
             });
             if (completed.get()) rows.computeIfPresent(id, (key, entry) -> entry.markHandled());
-            return Uni.createFrom().voidItem();
+            return Uni.createFrom().item(completed.get());
         }
         public Uni<InboxEntry> findById(UUID id) {
             return Uni.createFrom().item(rows.values().stream().filter(x -> x.entryId().equals(id)).findFirst().orElse(null));
@@ -350,7 +350,7 @@ class ReliabilityApplicationTest {
             public Uni<Boolean> alreadyHandled(String id) { return delegate.alreadyHandled(id); }
             public Uni<Boolean> claim(String id, UUID token, Instant now, Instant until) { return delegate.claim(id, token, now, until); }
             public Uni<Void> releaseClaim(String id, UUID token) { return delegate.releaseClaim(id, token); }
-            public Uni<Void> markHandled(String id, UUID token) { return Uni.createFrom().failure(new IllegalStateException("store unavailable")); }
+            public Uni<Boolean> markHandled(String id, UUID token) { return Uni.createFrom().failure(new IllegalStateException("store unavailable")); }
             public Uni<InboxEntry> findById(UUID id) { return delegate.findById(id); }
         };
         final var processor = new InboxProcessor(failingStore);
@@ -365,5 +365,4 @@ class ReliabilityApplicationTest {
         }).await().indefinitely()).isFalse();
         assertThat(runs).hasValue(1);
     }
-}
 }

@@ -67,8 +67,8 @@ public class PgInboxStore implements InboxStorePort {
     }
 
     @Override
-    public Uni<Void> markHandled(String eventId, UUID token) {
-        return pool.preparedQuery(MARK).execute(Tuple.of(eventId, token)).replaceWithVoid();
+    public Uni<Boolean> markHandled(String eventId, UUID token) {
+        return pool.preparedQuery(MARK).execute(Tuple.of(eventId, token)).map(rows -> rows.rowCount() > 0);
     }
 
     @Override

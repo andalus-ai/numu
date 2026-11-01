@@ -12,6 +12,6 @@ public interface InboxStorePort {
     Uni<Boolean> alreadyHandled(String eventId);
     Uni<Boolean> claim(String eventId, UUID claimToken, Instant now, Instant leaseUntil);
     Uni<Void> releaseClaim(String eventId, UUID claimToken);
-    Uni<Void> markHandled(String eventId, UUID claimToken);
+    Uni<Boolean> markHandled(String eventId, UUID claimToken);
     Uni<InboxEntry> findById(UUID entryId);
 }

@@ -50,7 +50,9 @@ public final class InboxProcessor {
                                         .onFailure().recoverWithItem((Void) null)
                                         .flatMap(ignored -> Uni.<Void>createFrom().failure(failure)))
                         .flatMap(ignored -> inbox.markHandled(eventId, token))
-                        .replaceWith(true);
+                        .flatMap(completed -> completed
+                                ? Uni.createFrom().item(true)
+                                : Uni.createFrom().failure(new IllegalStateException("Inbox claim expired or was superseded before completion")));
             });
         });
     }
