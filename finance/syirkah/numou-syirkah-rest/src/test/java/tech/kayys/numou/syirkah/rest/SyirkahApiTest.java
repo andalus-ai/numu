@@ -540,5 +540,15 @@ class SyirkahApiTest {
         assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("ADDED")));
         assertEquals(1, api.get(id).summary().contractVersion());
         assertTrue(api.pending().isEmpty());
+    void partnerStatementJsonMatchesTheLedger() {
+        String id = open();
+        close(id, "2026-01-01", "2026-01-31", "10000000");
+        PartnerStatementView v = api.statement(id, A);
+        assertEquals(A, v.partnerId());
+        assertFalse(v.lines().isEmpty());
+        MovementLineView last = v.lines().get(v.lines().size() - 1);
+        assertEquals(0, last.capitalBalance().compareTo(v.closing().capitalBalance()));
+        assertEquals(0, last.profitPayable().compareTo(v.closing().profitPayable()));
+        assertThrows(IllegalArgumentException.class, () -> api.statement(id, "not-a-uuid"));
     }
 }

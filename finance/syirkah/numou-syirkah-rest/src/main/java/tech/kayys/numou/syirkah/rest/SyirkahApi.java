@@ -162,6 +162,10 @@ public class SyirkahApi {
         return CsvExport.statement(s.statement(SyirkahDtos.partner(partnerId, "partnerId")));
     }
 
+    public PartnerStatementView statement(String id, String partnerId) {
+        return SyirkahDtos.partnerStatement(load(id).statement(SyirkahDtos.partner(partnerId, "partnerId")));
+    }
+
     public String closeReportCsv(String id, String closeId) {
         return CsvExport.closeReport(load(id).closeReport(cid(closeId, "closeId")));
     }

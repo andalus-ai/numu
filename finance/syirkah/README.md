@@ -125,7 +125,7 @@ Base path `/api/v1/syirkah`. Tenant and actor are taken **only** from the verifi
 | `POST /` | operator | open a syirkah (optional client `syirkahId` makes a retry fail loudly instead of duplicating) |
 | `GET /`, `GET /{id}` | any | cursor-paged list (`status`, `cursor`, `limit` ≤ 200); detail with positions |
 | `POST /{id}/closes`, `GET /{id}/closes` | operator / any | close a period; list closes |
-| `POST /{id}/revisions/preview` | any | dry run of a contract revision: every problem listed, per-partner capital and share before and after; nothing stored |
+| `GET /{id}/partners/{partnerId}/statement` | any | a partner's movements with running balances (JSON; `.csv` for the spreadsheet form) |
 | `POST /{id}/closes/preview` | any | preview a close on a copy: same checks and allocation, nothing stored or posted |
 | `POST /{id}/distributions`, `/settlements` | operator | pay out profit; settle a partner liability |
 | `POST /{id}/statements/balance-sheet`, `GET /{id}/closes/{closeId}/income-statement` | any | neraca (assets and outside debts are read from the syirkah's own ledger when configured and none are sent; otherwise the caller supplies them) and laba rugi in the book's layout |

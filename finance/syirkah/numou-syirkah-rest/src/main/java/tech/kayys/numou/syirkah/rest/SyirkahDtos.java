@@ -207,6 +207,12 @@ public final class SyirkahDtos {
 
     /** What a proposed contract revision would do; problems is empty when it could be proposed and approved. */
     public record RevisionPreview(boolean ok, List<String> problems, List<PartnerChange> partners) {
+    public record MovementLineView(long sequence, Instant at, String type, String reference, BigDecimal amount,
+                                    BigDecimal capitalBalance, BigDecimal profitPayable, BigDecimal liability) {
+    }
+
+    public record PartnerStatementView(String partnerId, String name, List<MovementLineView> lines,
+                                       PositionView closing) {
     }
 
     public record CloseView(String id, int sequence, LocalDate periodStart, LocalDate periodEnd, int contractVersion,
@@ -544,6 +550,16 @@ public final class SyirkahDtos {
         return new ClosePreview(c.periodStart(), c.periodEnd(), amt(c.netResult()),
                 c.netResult().isPositive() ? "PROFIT" : c.netResult().isZero() ? "BREAK-EVEN" : "LOSS",
                 amt(c.unallocatedLoss()), lines, syirkah(after).positions());
+    }
+
+    static PartnerStatementView partnerStatement(PartnerStatement st) {
+        PartnerPosition c = st.closing();
+        return new PartnerStatementView(st.partner().value().toString(), st.name(),
+                st.lines().stream().map(l -> new MovementLineView(l.sequence(), l.at(), l.type().name(),
+                        l.reference(), amt(l.amount()), amt(l.capitalBalance()), amt(l.profitPayable()),
+                        amt(l.liability()))).toList(),
+                new PositionView(st.partner().value().toString(), st.name(), amt(c.basis()), amt(c.balance()),
+                        amt(c.payable()), amt(c.liability())));
     }
 
     static CloseView close(CloseSnapshot c) {

@@ -60,6 +60,13 @@ public class SyirkahResource {
     }
 
     @GET
+    @Path("/{id}/partners/{partnerId}/statement")
+    @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
+    public PartnerStatementView statementJson(@PathParam("id") String id, @PathParam("partnerId") String partnerId) {
+        return api.statement(id, partnerId);
+    }
+
+    @GET
     @Path("/{id}/partners/{partnerId}/statement.csv")
     @Produces("text/csv")
     @RolesAllowed({OPERATOR, APPROVER, AUDITOR})
