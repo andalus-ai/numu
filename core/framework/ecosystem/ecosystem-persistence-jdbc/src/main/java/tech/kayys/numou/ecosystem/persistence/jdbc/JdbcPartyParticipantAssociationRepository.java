@@ -182,7 +182,7 @@ public class JdbcPartyParticipantAssociationRepository implements PartyParticipa
                  PreparedStatement statement = connection.prepareStatement(sql)) {
                 binder.bind(statement);
                 try (ResultSet row = statement.executeQuery()) {
-                    return row.next() ? Optional.of(read(row)) : Optional.empty();
+                    return row.next() ? Optional.of(read(row)) : Optional.<PartyParticipantAssociation>empty();
                 }
             } catch (SQLException e) {
                 throw persistenceFailure("query Party-to-Participant association", e);
