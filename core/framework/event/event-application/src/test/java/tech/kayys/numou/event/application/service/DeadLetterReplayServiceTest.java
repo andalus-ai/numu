@@ -11,6 +11,8 @@ import tech.kayys.numou.event.domain.valueobject.EventMetadata;
 import tech.kayys.numou.event.domain.valueobject.EventVersion;
 import tech.kayys.numou.event.spi.port.*;
 
+import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -121,6 +123,8 @@ class DeadLetterReplayServiceTest {
     }
 
     private record TestEvent(String id) implements BusinessEvent {
+        public UUID eventId() { return UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8)); }
+        public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
         public String eventType() { return "pos.sale.completed"; }
         public EventVersion eventVersion() { return EventVersion.V1; }
     }
