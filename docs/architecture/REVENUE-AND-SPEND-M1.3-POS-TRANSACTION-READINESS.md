@@ -1,6 +1,6 @@
 # Revenue and Spend Management — M1.3 POS Transaction and Source Readiness
 
-- Status: source and adapter-integration review; no production code changed.
+- Status: source and adapter-integration review; one PostgreSQL integration test added; no production behavior changed.
 - Date: 2026-11-01.
 - Branch: `finance/revenue-spend-m1-contract-architecture`.
 
