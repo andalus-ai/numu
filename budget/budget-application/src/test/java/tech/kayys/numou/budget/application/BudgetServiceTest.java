@@ -41,6 +41,23 @@ class BudgetServiceTest {
         assertEquals(BudgetControlOutcome.BLOCK, r3.outcome());
     }
 
+
+    @Test
+    void operational_budget_lookup_is_tenant_scoped_even_when_ids_match() {
+        var service = new BudgetService(new TestBudgetStore());
+        service.register(new Budget("SHARED", "tenant-a", "LEDGER", "2026", "CC-A", "6100",
+                Money.of(new BigDecimal("100"), "IDR")));
+        service.register(new Budget("SHARED", "tenant-b", "LEDGER", "2026", "CC-B", "6100",
+                Money.of(new BigDecimal("900"), "IDR")));
+
+        assertEquals(new BigDecimal("100"), service.find("tenant-a", "SHARED").orElseThrow()
+                .allocatedAmount().amount());
+        assertEquals(new BigDecimal("900"), service.find("tenant-b", "SHARED").orElseThrow()
+                .allocatedAmount().amount());
+        assertTrue(service.find("tenant-c", "SHARED").isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> service.find(" ", "SHARED"));
+    }
+
     @Test
     void variance_percentage_calculation() {
         var service = new BudgetService(new TestBudgetStore());
