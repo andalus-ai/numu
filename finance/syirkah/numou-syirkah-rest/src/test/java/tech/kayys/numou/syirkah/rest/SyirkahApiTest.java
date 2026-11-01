@@ -540,6 +540,9 @@ class SyirkahApiTest {
         assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("ADDED")));
         assertEquals(1, api.get(id).summary().contractVersion());
         assertTrue(api.pending().isEmpty());
+    }
+
+    @Test
     void partnerStatementJsonMatchesTheLedger() {
         String id = open();
         close(id, "2026-01-01", "2026-01-31", "10000000");
