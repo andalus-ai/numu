@@ -33,7 +33,7 @@ public class PgInboxStore implements InboxStorePort {
     static final String MARK = """
             UPDATE platform_inbox
                SET handled = true, processing_token = NULL, locked_until = NULL
-             WHERE event_id = $1 AND processing_token = $2 AND handled = false""";
+             WHERE event_id = $1 AND processing_token = $2 AND handled = false AND locked_until > now()""";
 
     @Inject PgPool pool;
 

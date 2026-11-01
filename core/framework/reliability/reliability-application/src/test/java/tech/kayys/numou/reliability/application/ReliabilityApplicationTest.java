@@ -244,8 +244,8 @@ class ReliabilityApplicationTest {
 
     static final class MemInbox implements InboxStorePort {
         final Map<String, InboxEntry> rows = new ConcurrentHashMap<>();
-        final Map<String, UUID> claims = new ConcurrentHashMap<>();
-        final Map<String, Instant> leases = new ConcurrentHashMap<>();
+        record Claim(UUID token, Instant leaseUntil) {}
+        final Map<String, Claim> claims = new ConcurrentHashMap<>();
         public Uni<InboxArrival> recordArrival(String id, String type) {
             final var fresh = InboxEntry.firstArrival(id, type);
             final var existing = rows.putIfAbsent(id, fresh);
@@ -259,25 +259,28 @@ class ReliabilityApplicationTest {
             if (entry == null || entry.handled()) return Uni.createFrom().item(false);
             final var acquired = new java.util.concurrent.atomic.AtomicBoolean();
             claims.compute(id, (key, current) -> {
-                final var expiry = leases.get(key);
-                if (current == null || (expiry != null && !expiry.isAfter(now))) {
-                    leases.put(key, until);
+                if (current == null || !current.leaseUntil().isAfter(now)) {
                     acquired.set(true);
-                    return token;
+                    return new Claim(token, until);
                 }
                 return current;
             });
             return Uni.createFrom().item(acquired.get());
         }
         public Uni<Void> releaseClaim(String id, UUID token) {
-            if (claims.remove(id, token)) leases.remove(id);
+            claims.computeIfPresent(id, (key, current) -> current.token().equals(token) ? null : current);
             return Uni.createFrom().voidItem();
         }
         public Uni<Void> markHandled(String id, UUID token) {
-            if (claims.remove(id, token)) {
-                leases.remove(id);
-                rows.computeIfPresent(id, (key, entry) -> entry.markHandled());
-            }
+            final var completed = new java.util.concurrent.atomic.AtomicBoolean();
+            claims.computeIfPresent(id, (key, current) -> {
+                if (current.token().equals(token)) {
+                    completed.set(true);
+                    return null;
+                }
+                return current;
+            });
+            if (completed.get()) rows.computeIfPresent(id, (key, entry) -> entry.markHandled());
             return Uni.createFrom().voidItem();
         }
         public Uni<InboxEntry> findById(UUID id) {
