@@ -23,9 +23,9 @@ public class PgInboxStore implements InboxStorePort {
     static final String BY_ID = "SELECT entry_id, event_id, event_type, received_at, handled FROM platform_inbox WHERE entry_id = $1";
     static final String CLAIM = """
             UPDATE platform_inbox
-               SET processing_token = $2, locked_until = $4
+               SET processing_token = $2, locked_until = clock_timestamp() + ($4 - $3)
              WHERE event_id = $1 AND handled = false
-               AND (locked_until IS NULL OR locked_until <= $3)
+               AND (locked_until IS NULL OR locked_until <= clock_timestamp())
             RETURNING entry_id""";
     static final String RELEASE = """
             UPDATE platform_inbox SET processing_token = NULL, locked_until = NULL
@@ -33,7 +33,7 @@ public class PgInboxStore implements InboxStorePort {
     static final String MARK = """
             UPDATE platform_inbox
                SET handled = true, processing_token = NULL, locked_until = NULL
-             WHERE event_id = $1 AND processing_token = $2 AND handled = false AND locked_until > now()""";
+             WHERE event_id = $1 AND processing_token = $2 AND handled = false AND locked_until > clock_timestamp()""";
 
     @Inject PgPool pool;
 
