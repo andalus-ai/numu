@@ -18,19 +18,19 @@ class BudgetingServiceTest {
     void lifecycle_versioning_and_commitment_control() {
         var service = newService();
         var id = new BudgetId("B-2026");
-        var budget = service.create(id, "Operating plan", 2026);
+        var budget = service.create("tenant-a", id, "Operating plan", 2026);
         budget.setLine("6100", Map.of("costCenter", "IT"), new BudgetPeriod(2026, 1), new BigDecimal("1000"));
         budget.submitForReview();
         budget.approve();
         budget.activate();
         assertEquals(PlanningBudgetStatus.ACTIVE, budget.status());
         assertEquals(2, budget.createVersion());
-        var commitment = service.commit(new CommitmentId("C-1"), id, "6100",
+        var commitment = service.commit("tenant-a", new CommitmentId("C-1"), id, "6100",
                 Map.of("costCenter", "IT"), new BudgetPeriod(2026, 1),
                 new BigDecimal("500"), "PO-1");
         assertEquals(CommitmentStatus.OPEN, commitment.status());
         assertEquals(BudgetControlOutcome.ALLOW,
-                service.checkAvailability(id, "6100", Map.of("costCenter", "IT"), new BudgetPeriod(2026, 1),
+                service.checkAvailability("tenant-a", id, "6100", Map.of("costCenter", "IT"), new BudgetPeriod(2026, 1),
                         new BigDecimal("100")).outcome());
     }
 
@@ -51,61 +51,63 @@ class BudgetingServiceTest {
     }
 
     private static final class TestBudgetRepository implements BudgetRepository {
-        private final Map<BudgetId, PlanningBudget> budgets = new HashMap<>();
+        private final Map<String, PlanningBudget> budgets = new HashMap<>();
 
         @Override
         public PlanningBudget save(PlanningBudget budget) {
-            budgets.put(budget.id(), budget);
+            budgets.put(key(budget.tenantId(), budget.id()), budget);
             return budget;
         }
 
         @Override
-        public Optional<PlanningBudget> find(BudgetId id) {
-            return Optional.ofNullable(budgets.get(id));
+        public Optional<PlanningBudget> find(String tenantId, BudgetId id) {
+            return Optional.ofNullable(budgets.get(key(tenantId, id)));
         }
+        private String key(String tenantId, BudgetId id) { return tenantId + "|" + id.value(); }
     }
 
     private static final class TestCommitmentRepository implements CommitmentRepository {
-        private final Map<CommitmentId, BudgetCommitment> commitments = new HashMap<>();
+        private final Map<String, BudgetCommitment> commitments = new HashMap<>();
 
         @Override
         public BudgetCommitment save(BudgetCommitment commitment) {
-            commitments.put(commitment.id(), commitment);
+            commitments.put(key(commitment.tenantId(), commitment.id()), commitment);
             return commitment;
         }
 
         @Override
-        public Optional<BudgetCommitment> find(CommitmentId id) {
-            return Optional.ofNullable(commitments.get(id));
+        public Optional<BudgetCommitment> find(String tenantId, CommitmentId id) {
+            return Optional.ofNullable(commitments.get(key(tenantId, id)));
         }
 
         @Override
-        public List<BudgetCommitment> openFor(BudgetId budgetId, String accountCode, BudgetPeriod period) {
+        public List<BudgetCommitment> openFor(String tenantId, BudgetId budgetId, String accountCode, BudgetPeriod period) {
             return commitments.values().stream()
-                    .filter(commitment -> commitment.budgetId().equals(budgetId)
+                    .filter(commitment -> commitment.tenantId().equals(tenantId) && commitment.budgetId().equals(budgetId)
                             && commitment.accountCode().equals(accountCode)
                             && commitment.period().equals(period)
                             && commitment.status() != CommitmentStatus.RELEASED
                             && commitment.status() != CommitmentStatus.CONSUMED)
                     .toList();
         }
+        private String key(String tenantId, CommitmentId id) { return tenantId + "|" + id.value(); }
     }
 
     private static final class TestActualRepository implements ActualRepository {
         private final Map<String, BigDecimal> actuals = new HashMap<>();
 
         @Override
-        public void add(BudgetId budgetId, String accountCode, BudgetPeriod period, BigDecimal amount) {
-            actuals.merge(key(budgetId, accountCode, period), amount, BigDecimal::add);
+        public void add(String tenantId, BudgetId budgetId, String accountCode, BudgetPeriod period, BigDecimal amount) {
+            actuals.merge(key(tenantId, budgetId, accountCode, period), amount, BigDecimal::add);
         }
 
         @Override
-        public BigDecimal totalFor(BudgetId budgetId, String accountCode, BudgetPeriod period) {
-            return actuals.getOrDefault(key(budgetId, accountCode, period), BigDecimal.ZERO);
+        public BigDecimal totalFor(String tenantId, BudgetId budgetId, String accountCode, BudgetPeriod period) {
+            return actuals.getOrDefault(key(tenantId, budgetId, accountCode, period), BigDecimal.ZERO);
         }
 
-        private String key(BudgetId budgetId, String accountCode, BudgetPeriod period) {
-            return budgetId + "|" + accountCode + "|" + period;
+        private String key(String tenantId, BudgetId budgetId, String accountCode, BudgetPeriod period) {
+            return tenantId + "|" + budgetId + "|" + accountCode + "|" + period;
         }
     }
 }
