@@ -33,7 +33,7 @@ class BudgetServiceTest {
         assertEquals(BudgetControlOutcome.ALLOW, r1.outcome());
 
         // Check 9000 (>80% of 10000) -> WARN
-        var r2 = service.checkAvailability("B-2026-IT", Money.of(new BigDecimal("9000"), "USD"));
+        var r2 = service.checkAvailability("t1", "B-2026-IT", Money.of(new BigDecimal("9000"), "USD"));
         assertEquals(BudgetControlOutcome.WARN, r2.outcome());
 
         // Check 12000 -> BLOCK
