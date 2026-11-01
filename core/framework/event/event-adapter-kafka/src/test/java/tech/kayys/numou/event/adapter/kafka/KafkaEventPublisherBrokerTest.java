@@ -26,7 +26,10 @@ import tech.kayys.numou.event.spi.port.EventSerializerPort;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -56,8 +59,13 @@ class KafkaEventPublisherBrokerTest {
                 ProducerRecord<String, String> record = new ProducerRecord<>(
                         metadata.getTopic(), metadata.getKey(), message.getPayload());
                 metadata.getHeaders().forEach(header -> record.headers().add(header));
-                return Uni.createFrom().completionStage(
-                        producer.send(record).thenApply(ignored -> null));
+                return Uni.createFrom().completionStage(() -> CompletableFuture.runAsync(() -> {
+                    try {
+                        producer.send(record).get();
+                    } catch (Exception failure) {
+                        throw new CompletionException(failure);
+                    }
+                }));
             }, serializer(payload), "numou.events.");
 
             EventEnvelope<TestEvent> envelope = EventEnvelope.of(
@@ -125,6 +133,8 @@ class KafkaEventPublisherBrokerTest {
     }
 
     private static final class TestEvent implements BusinessEvent {
+        @Override public UUID eventId() { return UUID.nameUUIDFromBytes("broker-test".getBytes(StandardCharsets.UTF_8)); }
+        @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
         @Override public String eventType() { return "pos.sale.completed"; }
         @Override public EventVersion eventVersion() { return EventVersion.V1; }
     }
