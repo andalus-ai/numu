@@ -343,6 +343,21 @@ class ReliabilityApplicationTest {
     }
 
     @Test
+    void expiredClaimCanBeReacquiredAndStaleTokenCannotCompleteIt() {
+        final var store = new MemInbox();
+        store.recordArrival("EVT-LEASE", "t").await().indefinitely();
+        final var firstToken = UUID.randomUUID();
+        final var secondToken = UUID.randomUUID();
+        final var now = Instant.now();
+
+        assertThat(store.claim("EVT-LEASE", firstToken, now, now.plusSeconds(10)).await().indefinitely()).isTrue();
+        assertThat(store.claim("EVT-LEASE", secondToken, now.plusSeconds(11), now.plusSeconds(21)).await().indefinitely()).isTrue();
+        assertThat(store.markHandled("EVT-LEASE", firstToken).await().indefinitely()).isFalse();
+        assertThat(store.markHandled("EVT-LEASE", secondToken).await().indefinitely()).isTrue();
+        assertThat(store.alreadyHandled("EVT-LEASE").await().indefinitely()).isTrue();
+    }
+
+    @Test
     void completionPersistenceFailureRetainsClaimForLeaseWindow() {
         final var delegate = new MemInbox();
         final InboxStorePort failingStore = new InboxStorePort() {

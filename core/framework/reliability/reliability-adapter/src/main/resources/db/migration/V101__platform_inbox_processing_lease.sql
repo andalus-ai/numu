@@ -3,7 +3,3 @@
 ALTER TABLE platform_inbox
     ADD COLUMN IF NOT EXISTS processing_token uuid,
     ADD COLUMN IF NOT EXISTS locked_until timestamptz;
-
-CREATE INDEX IF NOT EXISTS platform_inbox_claimable_idx
-    ON platform_inbox (locked_until)
-    WHERE handled = false;
