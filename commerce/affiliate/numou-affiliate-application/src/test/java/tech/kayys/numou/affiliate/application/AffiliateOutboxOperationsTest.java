@@ -68,13 +68,15 @@ class AffiliateOutboxOperationsTest {
     }
 
     @Test
-    void exposesOnlyAggregateOutboxHealthValues() {
+    void exposesAggregateHealthOnlyWithPlatformOperationsContext() {
         RecordingStore store = new RecordingStore();
         AffiliateOutboxOperations operations = new AffiliateOutboxOperations(store, Clock.systemUTC());
         OutboxHealthSnapshot expected = new OutboxHealthSnapshot(12, 9, 3, 1, 2, 45);
         store.health = expected;
 
-        assertEquals(expected, operations.healthSnapshot().toCompletableFuture().join());
+        assertEquals(expected, operations.healthSnapshot(new AffiliatePlatformOperationsContext("platform-operator"))
+                .toCompletableFuture().join());
+        assertThrows(NullPointerException.class, () -> operations.healthSnapshot(null));
     }
 
     @Test
