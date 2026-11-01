@@ -57,7 +57,7 @@ class KafkaEventPublisherBrokerTest {
                         io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata.class)
                         .orElseThrow();
                 ProducerRecord<String, String> record = new ProducerRecord<>(
-                        metadata.getTopic(), metadata.getKey(), message.getPayload());
+                        metadata.getTopic(), (String) metadata.getKey(), message.getPayload());
                 metadata.getHeaders().forEach(header -> record.headers().add(header));
                 return Uni.createFrom().completionStage(() -> CompletableFuture.runAsync(() -> {
                     try {
