@@ -17,7 +17,9 @@ The earlier M1.2 report left POS JTA enlistment as an open question. The followi
 
 **Conclusion:** the POS PostgreSQL adapters have integration-test evidence that sale, outbox and idempotency writes enlist in one JTA transaction when executed inside the idempotency adapter's transactional boundary. This is stronger than the port comments alone.
 
-**Remaining limitation:** the integration test composes the adapters directly inside the idempotency supplier. It does not invoke the complete production HTTP/CDI command composition through `SaleCommandService`. Add a service-level integration test before treating the entire deployed request path as verified. The application service itself does not start a transaction; callers must enter through the transactional idempotency adapter.
+**Follow-up test added:** `PosPostgresPersistenceTest.saleCommandServiceCompletionRollsBackSaleOutboxAndIdempotencyWhenAppendFails` now constructs the actual `SaleCommandService` with the PostgreSQL sale/idempotency adapters and a writer that appends through the real PostgreSQL outbox adapter before deliberately failing. It asserts the completed-sale mutation, completed event and idempotency row all roll back, while the previously committed open sale and line remain. This test has been committed but has not yet been executed.
+
+**Remaining limitation:** this integration test invokes the application service directly with production persistence adapters; it does not exercise the complete production HTTP/CDI request composition. The application service itself does not start a transaction; callers must enter through the transactional idempotency adapter.
 
 ## 2. Event contract — still not a financial fact
 
@@ -68,8 +70,9 @@ Completed-sale refund/return/reversal also needs a source-owned compensating lif
 - [x] Inspect POS sale and outbox PostgreSQL adapters.
 - [x] Inspect PostgreSQL integration tests for rollback across sale, outbox and idempotency writes.
 - [x] Confirm current completed event is operational, not financially complete.
-- [ ] Run the POS adapter Maven test reactor in this environment.
-- [ ] Add production-composition service-level rollback integration test.
+- [ ] Run the POS adapter Maven test reactor and confirm the new rollback test passes.
+- [x] Add service-level PostgreSQL rollback integration test using the actual SaleCommandService and production persistence adapters (execution pending).
+- [ ] Exercise the complete production HTTP/CDI request composition.
 - [ ] Establish authoritative source-owned financial snapshot contract.
 - [ ] Define completed-sale refund/reversal facts.
 - [ ] Begin Revenue projection only after the above gates pass.
