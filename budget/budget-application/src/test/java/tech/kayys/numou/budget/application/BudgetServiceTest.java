@@ -29,7 +29,7 @@ class BudgetServiceTest {
         service.register(budget);
 
         // Check 5000 -> ALLOW
-        var r1 = service.checkAvailability("B-2026-IT", Money.of(new BigDecimal("5000"), "USD"));
+        var r1 = service.checkAvailability("t1", "B-2026-IT", Money.of(new BigDecimal("5000"), "USD"));
         assertEquals(BudgetControlOutcome.ALLOW, r1.outcome());
 
         // Check 9000 (>80% of 10000) -> WARN
@@ -57,7 +57,7 @@ class BudgetServiceTest {
         service.register(budget);
 
         // 8000 - 10000 = -2000 / 10000 = -20.00%
-        var variance = service.calculateVariancePercentage("B-2026-OPS");
+        var variance = service.calculateVariancePercentage("t1", "B-2026-OPS");
         assertEquals(new BigDecimal("-20.0000"), variance);
     }
 
@@ -65,13 +65,13 @@ class BudgetServiceTest {
         private final Map<String, Budget> budgets = new HashMap<>();
 
         @Override
-        public Optional<Budget> find(String budgetId) {
-            return Optional.ofNullable(budgets.get(budgetId));
+        public Optional<Budget> find(String tenantId, String budgetId) {
+            return Optional.ofNullable(budgets.get(tenantId + "|" + budgetId));
         }
 
         @Override
         public void save(Budget budget) {
-            budgets.put(budget.budgetId(), budget);
+            budgets.put(budget.tenantId() + "|" + budget.budgetId(), budget);
         }
     }
 }
