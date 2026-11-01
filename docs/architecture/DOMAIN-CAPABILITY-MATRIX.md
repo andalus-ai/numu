@@ -87,3 +87,26 @@ A capability is not considered generalized merely because its package was rename
 5. Do not migrate the Mobility aggregate until durable replay protection, concurrent mutation, tenant isolation, migration compatibility and domain-specific shortfall behavior are tested.
 6. Validate reuse with at least two real consumers whose shared invariants are demonstrated; do not generalize solely from similar class or field names.
 7. This section records target ownership only. It does not claim that `finance/wallet` or its production adapters have already been implemented.
+
+## Revenue and spend management ownership
+
+| Capability | Shared responsibility | Domain-specific responsibility | Boundary / non-goal |
+|---|---|---|---|
+| Revenue Management (proposed coordination capability) | Stable revenue-source references/classification, earning-evidence references where not source-owned, orchestration to Billing/Receivables/Accounting, operational read models and reconciliation | POS sale, hospitality booking, subscription, shipment, fare, construction milestone, donation, government fee and contractual earning facts remain source-owned | Do not duplicate Billing invoices/schedules/pricing/dunning, AR balances/collections, Subscription lifecycle, Accounting recognition/journals, Payment execution or Wallet movements. A new Revenue aggregate/module requires proof of shared invariants across at least two real consumers and reconciliation with Billing's existing RevenueRecognition model |
+| Spend Management (proposed capability) | Internal spend request and expense-claim lifecycle, approval decisions/evidence, spend classification, and orchestration references to Budget/Purchasing/AP/Payment | Domain-specific procurement, employee reimbursement, project expenditure and statutory expense rules remain in their owning extensions/policies | Does not own Budget balances/commitments, Purchasing requisitions/POs/receipts, AP supplier invoices/payment scheduling, Payment execution, Wallet movements or Accounting journals/recognition |
+| Billing | Existing billing agreements, schedules, pricing/dunning integration, invoices and current revenue-recognition model | Industry billing extensions and source-specific charge calculation | Invoice status is not revenue recognition, cash receipt or ledger posting |
+| Receivables / Payables | Customer and supplier obligations, invoice posting, payment allocation and settlement scheduling within existing AP/AR boundaries | Tax, withholding, retention and jurisdiction-specific policy adapters | Do not treat invoices as payment execution or write Accounting journals outside the posting contract |
+| Budget | Budget versions, lines, commitments, controls, forecasts and allocations | Industry-specific cost codes, funds and approval policies | Approval is not commitment; commitment is not invoice, expense recognition or payment |
+| Purchasing | Requisitions, purchase orders, goods receipts and procurement lifecycle | Sourcing and category-specific procurement policies | Spend request is not a requisition/PO; purchasing does not own AP or payment execution |
+
+### Revenue and spend dependency rules
+
+1. Revenue and Spend orchestration may call public application contracts but must not depend on another capability's mutable aggregate, persistence entity, private implementation or database table.
+2. The receiving capability remains authoritative for its own state. A spend approval does not mean Budget accepted a commitment; a billing request does not mean an invoice was issued; a settlement request does not mean payment succeeded.
+3. Side-effecting commands carry tenant, actor, correlation/causation and idempotency context. The receiving application boundary performs authorization and deduplication.
+4. Use the existing shared Money value object where its semantics fit; do not introduce a second Money or a universal financial Transaction aggregate.
+5. Revenue recognition, tax, government accounting, nonprofit funds, cooperative rules and Sharia contract semantics are policy/domain extensions. The neutral capability records policy identity/version and does not hardcode a single treatment.
+6. This section records target ownership and M1 design only. It does not claim that standalone Revenue Management or Spend Management modules, APIs, persistence adapters or production workflows already exist.
+
+See [Revenue and Spend Management — M1 Capability Contracts](REVENUE-AND-SPEND-M1-CAPABILITY-CONTRACTS.md) for command vocabulary, lifecycle boundaries, reliability requirements and M2 acceptance gates.
+
