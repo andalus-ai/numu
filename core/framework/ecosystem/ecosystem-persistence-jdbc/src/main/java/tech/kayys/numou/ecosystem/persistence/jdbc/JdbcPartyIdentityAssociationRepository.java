@@ -63,7 +63,7 @@ public class JdbcPartyIdentityAssociationRepository implements PartyIdentityAsso
                 statement.setString(2, identity.issuer());
                 statement.setString(3, identity.subject());
                 try (ResultSet result = statement.executeQuery()) {
-                    return result.next() ? Optional.of(read(result)) : Optional.empty();
+                    return result.next() ? Optional.of(read(result)) : Optional.<PartyIdentityAssociation>empty();
                 }
             } catch (SQLException e) {
                 throw persistenceFailure("find active Party identity association", e);
