@@ -56,16 +56,16 @@ class KafkaEventPublisherBrokerTest {
                 var metadata = message.getMetadata(
                         io.smallrye.reactive.messaging.kafka.api.OutgoingKafkaRecordMetadata.class)
                         .orElseThrow();
+                String key = (String) metadata.getKey();
                 ProducerRecord<String, String> record = new ProducerRecord<>(
-                        metadata.getTopic(), (String) metadata.getKey(), message.getPayload());
+                        metadata.getTopic(), key, message.getPayload());
                 metadata.getHeaders().forEach(header -> record.headers().add(header));
-                return Uni.createFrom().completionStage(() -> CompletableFuture.runAsync(() -> {
-                    try {
-                        producer.send(record).get();
-                    } catch (Exception failure) {
-                        throw new CompletionException(failure);
-                    }
-                }));
+                try {
+                    producer.send(record).get();
+                    return Uni.createFrom().voidItem();
+                } catch (Exception failure) {
+                    return Uni.createFrom().failure(failure);
+                }
             }, serializer(payload), "numou.events.");
 
             EventEnvelope<TestEvent> envelope = EventEnvelope.of(
@@ -133,8 +133,8 @@ class KafkaEventPublisherBrokerTest {
     }
 
     private static final class TestEvent implements BusinessEvent {
-        @Override public UUID eventId() { return UUID.nameUUIDFromBytes("broker-test".getBytes(StandardCharsets.UTF_8)); }
-        @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
+        @Override public UUID eventId() { return UUID.randomUUID(); }
+        @Override public Instant occurredAt() { return Instant.now(); }
         @Override public String eventType() { return "pos.sale.completed"; }
         @Override public EventVersion eventVersion() { return EventVersion.V1; }
     }

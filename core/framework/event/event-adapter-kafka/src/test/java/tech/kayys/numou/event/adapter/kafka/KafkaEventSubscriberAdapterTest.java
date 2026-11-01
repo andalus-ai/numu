@@ -167,8 +167,10 @@ class KafkaEventSubscriberAdapterTest {
     }
 
     private static final class TestEvent implements BusinessEvent {
-        @Override public UUID eventId() { return UUID.nameUUIDFromBytes(EVENT_TYPE.getBytes(StandardCharsets.UTF_8)); }
-        @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
+        private final UUID eventId = UUID.randomUUID();
+        private final Instant occurredAt = Instant.parse("2026-01-01T00:00:00Z");
+        @Override public UUID eventId() { return eventId; }
+        @Override public Instant occurredAt() { return occurredAt; }
         @Override public String eventType() { return EVENT_TYPE; }
         @Override public EventVersion eventVersion() { return EventVersion.V1; }
     }

@@ -27,6 +27,16 @@ class KafkaEventPublisherAdapterTest {
         @Override public UUID eventId() { return UUID.nameUUIDFromBytes(reference.getBytes(StandardCharsets.UTF_8)); }
         @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
         @Override
+        public UUID eventId() {
+            return UUID.nameUUIDFromBytes(reference.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public Instant occurredAt() {
+            return Instant.EPOCH;
+        }
+
+        @Override
         public String eventType() {
             return "pos.sale.completed";
         }
@@ -97,6 +107,16 @@ class KafkaEventPublisherAdapterTest {
         BusinessEvent invalid = new BusinessEvent() {
             @Override public UUID eventId() { return UUID.nameUUIDFromBytes("invalid".getBytes(StandardCharsets.UTF_8)); }
             @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
+            @Override
+            public UUID eventId() {
+                return UUID.nameUUIDFromBytes("invalid-event".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+
+            @Override
+            public Instant occurredAt() {
+                return Instant.EPOCH;
+            }
+
             @Override
             public String eventType() {
                 return "pos/sale";
