@@ -34,6 +34,48 @@ class BudgetingServiceTest {
                         new BigDecimal("100")).outcome());
     }
 
+
+    @Test
+    void tenant_scope_is_enforced_for_budgets_commitments_and_actuals() {
+        var service = newService();
+        var sharedBudgetId = new BudgetId("SHARED-BUDGET");
+        var period = new BudgetPeriod(2026, 1);
+
+        var tenantA = service.create("tenant-a", sharedBudgetId, "Tenant A plan", 2026);
+        tenantA.setLine("6100", Map.of(), period, new BigDecimal("1000"));
+        tenantA.submitForReview();
+        tenantA.approve();
+        tenantA.activate();
+
+        var tenantB = service.create("tenant-b", sharedBudgetId, "Tenant B plan", 2026);
+        tenantB.setLine("6100", Map.of(), period, new BigDecimal("50"));
+        tenantB.submitForReview();
+        tenantB.approve();
+        tenantB.activate();
+
+        var sharedCommitmentId = new CommitmentId("SHARED-COMMITMENT");
+        service.commit("tenant-a", sharedCommitmentId, sharedBudgetId, "6100",
+                period, new BigDecimal("300"), "REQ-A");
+        service.commit("tenant-b", sharedCommitmentId, sharedBudgetId, "6100",
+                period, new BigDecimal("20"), "REQ-B");
+
+        assertEquals("Tenant A plan", service.require("tenant-a", sharedBudgetId).code());
+        assertEquals("Tenant B plan", service.require("tenant-b", sharedBudgetId).code());
+        assertEquals(new BigDecimal("700"), service.checkAvailability("tenant-a", sharedBudgetId,
+                "6100", Map.of(), period, new BigDecimal("1")).available());
+        assertEquals(new BigDecimal("30"), service.checkAvailability("tenant-b", sharedBudgetId,
+                "6100", Map.of(), period, new BigDecimal("1")).available());
+
+        service.recordActual("tenant-a", sharedBudgetId, "6100", period, new BigDecimal("100"));
+        assertEquals(new BigDecimal("30"), service.checkAvailability("tenant-b", sharedBudgetId,
+                "6100", Map.of(), period, new BigDecimal("1")).available());
+
+        assertThrows(java.util.NoSuchElementException.class,
+                () -> service.consume("tenant-c", sharedCommitmentId, BigDecimal.ONE));
+        assertEquals(new BigDecimal("300"), service.require("tenant-a", sharedBudgetId)
+                .currentVersion().totalFor("6100", Map.of(), period).subtract(new BigDecimal("700")));
+    }
+
     @Test
     void forecast_and_allocation_are_deterministic() {
         var service = newService();
