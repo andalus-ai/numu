@@ -65,4 +65,42 @@ class WorkspaceMentionServiceTest {
         assertEquals(List.of(other),service.suggest(tenant,actor,pageId,"@sa",8));
         assertEquals(List.of(Action.READ),actions);
     }
+
+    @Test
+    void preparesDurableMentionIntentsWithoutASynchronousNotificationAdapter() {
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), pageId = UUID.randomUUID();
+        UUID threadId = UUID.randomUUID();
+        Page page = new Page(pageId, tenant, UUID.randomUUID(), UUID.randomUUID(), null,
+                "Roadmap", List.of(), 1, Instant.EPOCH, Instant.EPOCH);
+        Member recipient = new Member(UUID.randomUUID(), "reviewer", "Reviewer");
+        WorkspaceMentionDirectory directory = new WorkspaceMentionDirectory() {
+            public Optional<Member> findActiveByHandle(UUID t, String handle) {
+                return tenant.equals(t) && "reviewer".equals(handle) ? Optional.of(recipient) : Optional.empty();
+            }
+            public Optional<Member> findActiveByUserId(UUID t, UUID id) { return Optional.empty(); }
+            public List<Member> searchActive(UUID t, String query, int limit) { return List.of(); }
+        };
+        PageRepository pages = new PageRepository() {
+            public Optional<Page> findPage(UUID t, UUID id) {
+                return tenant.equals(t) && pageId.equals(id) ? Optional.of(page) : Optional.empty();
+            }
+            public List<Page> findChildren(UUID t, UUID s, UUID p) { return List.of(); }
+            public boolean saveWithRevision(Page p, PageRevision r, long expected) { return false; }
+            public List<PageRevision> history(UUID t, UUID p) { return List.of(); }
+        };
+        WorkspaceMentionService service = new WorkspaceMentionService(
+                pages, (t, a, r, id, action) -> {}, directory);
+        PageComment comment = PageComment.root(tenant, pageId, threadId, actor,
+                "Please review this, @reviewer", Instant.EPOCH);
+
+        List<WorkspaceMentionOutboxStore.MentionIntent> intents =
+                service.prepareCommentMentions(tenant, actor, pageId, comment);
+
+        assertEquals(1, intents.size());
+        assertEquals(recipient.userId(), intents.get(0).recipientId());
+        assertEquals("workspace:comment-mention:" + comment.id() + ":" + recipient.userId(),
+                intents.get(0).idempotencyKey());
+        assertThrows(IllegalStateException.class,
+                () -> service.notifyCommentMentions(tenant, actor, pageId, comment.id(), comment.body()));
+    }
 }
