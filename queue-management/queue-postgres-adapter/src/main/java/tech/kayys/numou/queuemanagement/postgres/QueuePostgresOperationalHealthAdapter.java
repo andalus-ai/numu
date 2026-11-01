@@ -39,34 +39,32 @@ public class QueuePostgresOperationalHealthAdapter implements QueueOperationalHe
                     ) AS pending_outbox,
                     COUNT(*) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
-                          AND available_at <= clock.captured_at
-                          AND (lease_until IS NULL OR lease_until <= clock.captured_at)
+                          AND available_at <= (SELECT captured_at FROM clock)
+                          AND (lease_until IS NULL OR lease_until <= (SELECT captured_at FROM clock))
                     ) AS due_outbox,
                     COUNT(*) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
-                          AND lease_until > clock.captured_at
+                          AND lease_until > (SELECT captured_at FROM clock)
                     ) AS leased_outbox,
                     COUNT(*) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
-                          AND lease_token IS NOT NULL AND lease_until <= clock.captured_at
+                          AND lease_token IS NOT NULL AND lease_until <= (SELECT captured_at FROM clock)
                     ) AS expired_leases,
                     COUNT(*) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NOT NULL
                     ) AS dead_lettered_outbox,
                     COALESCE(
                         FLOOR(EXTRACT(EPOCH FROM (
-                            clock.captured_at - MIN(created_at) FILTER (
+                            (SELECT captured_at FROM clock) - MIN(created_at) FILTER (
                                 WHERE published_at IS NULL AND dead_lettered_at IS NULL
                             )
                         ))),
                         0
                     )::bigint AS oldest_pending_age_seconds
                 FROM queue_outbox
-                CROSS JOIN clock
                 WHERE tenant_id = ?
-                GROUP BY clock.captured_at
             )
-            SELECT clock.captured_at, entry_stats.waiting_entries, entry_stats.active_entries,
+            SELECT (SELECT captured_at FROM clock), entry_stats.waiting_entries, entry_stats.active_entries,
                    outbox_stats.pending_outbox, outbox_stats.due_outbox,
                    outbox_stats.leased_outbox, outbox_stats.expired_leases,
                    outbox_stats.dead_lettered_outbox, outbox_stats.oldest_pending_age_seconds
