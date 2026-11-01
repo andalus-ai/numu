@@ -25,6 +25,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -241,16 +243,46 @@ class ReliabilityApplicationTest {
     // ---- inbox ----
 
     static final class MemInbox implements InboxStorePort {
-        final Map<String, InboxEntry> rows = new HashMap<>();
+        final Map<String, InboxEntry> rows = new ConcurrentHashMap<>();
+        final Map<String, UUID> claims = new ConcurrentHashMap<>();
+        final Map<String, Instant> leases = new ConcurrentHashMap<>();
         public Uni<InboxArrival> recordArrival(String id, String type) {
-            final var existing = rows.get(id);
-            if (existing != null) return Uni.createFrom().item(new InboxArrival(existing, false));
-            final var e = InboxEntry.firstArrival(id, type); rows.put(id, e);
-            return Uni.createFrom().item(new InboxArrival(e, true));
+            final var fresh = InboxEntry.firstArrival(id, type);
+            final var existing = rows.putIfAbsent(id, fresh);
+            return Uni.createFrom().item(new InboxArrival(existing == null ? fresh : existing, existing == null));
         }
-        public Uni<Boolean> alreadyHandled(String id) { return Uni.createFrom().item(rows.get(id) != null && rows.get(id).handled()); }
-        public Uni<Void> markHandled(InboxEntry e) { rows.put(e.eventId(), e.markHandled()); return Uni.createFrom().voidItem(); }
-        public Uni<InboxEntry> findById(UUID id) { return Uni.createFrom().item(rows.values().stream().filter(x -> x.entryId().equals(id)).findFirst().orElse(null)); }
+        public Uni<Boolean> alreadyHandled(String id) {
+            return Uni.createFrom().item(rows.get(id) != null && rows.get(id).handled());
+        }
+        public Uni<Boolean> claim(String id, UUID token, Instant now, Instant until) {
+            final var entry = rows.get(id);
+            if (entry == null || entry.handled()) return Uni.createFrom().item(false);
+            final var acquired = new java.util.concurrent.atomic.AtomicBoolean();
+            claims.compute(id, (key, current) -> {
+                final var expiry = leases.get(key);
+                if (current == null || (expiry != null && !expiry.isAfter(now))) {
+                    leases.put(key, until);
+                    acquired.set(true);
+                    return token;
+                }
+                return current;
+            });
+            return Uni.createFrom().item(acquired.get());
+        }
+        public Uni<Void> releaseClaim(String id, UUID token) {
+            if (claims.remove(id, token)) leases.remove(id);
+            return Uni.createFrom().voidItem();
+        }
+        public Uni<Void> markHandled(String id, UUID token) {
+            if (claims.remove(id, token)) {
+                leases.remove(id);
+                rows.computeIfPresent(id, (key, entry) -> entry.markHandled());
+            }
+            return Uni.createFrom().voidItem();
+        }
+        public Uni<InboxEntry> findById(UUID id) {
+            return Uni.createFrom().item(rows.values().stream().filter(x -> x.entryId().equals(id)).findFirst().orElse(null));
+        }
     }
 
     @Test
@@ -262,11 +294,73 @@ class ReliabilityApplicationTest {
     }
 
     @Test
-    void eventWhoseHandlerFailedIsReprocessedOnRedelivery() {
+    void eventWhoseHandlerFailedCanBeClaimedAgain() {
         final var p = new InboxProcessor(new MemInbox()); final var runs = new AtomicInteger();
         assertThatThrownBy(() -> p.process("EVT-2", "t", () -> { runs.incrementAndGet(); return Uni.createFrom().failure(new IllegalStateException("x")); })
                 .await().indefinitely()).isInstanceOf(IllegalStateException.class);
         assertThat(p.process("EVT-2", "t", () -> { runs.incrementAndGet(); return Uni.createFrom().voidItem(); }).await().indefinitely()).isTrue();
         assertThat(runs).hasValue(2);
     }
+
+    @Test
+    void concurrentDeliveryAcquiresOnlyOneInboxClaim() throws Exception {
+        final var processor = new InboxProcessor(new MemInbox());
+        final var handlerStarted = new CountDownLatch(1);
+        final var releaseHandler = new CountDownLatch(1);
+        final var runs = new AtomicInteger();
+        final var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            final var first = pool.submit(() -> processor.process("EVT-CONCURRENT", "t", () -> {
+                runs.incrementAndGet();
+                handlerStarted.countDown();
+                return Uni.createFrom().voidItem().invoke(() -> {
+                    try {
+                        if (!releaseHandler.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test timed out");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(e);
+                    }
+                });
+            }).await().indefinitely());
+
+            assertThat(handlerStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            final var second = processor.process("EVT-CONCURRENT", "t", () -> {
+                runs.incrementAndGet();
+                return Uni.createFrom().voidItem();
+            }).await().indefinitely();
+            releaseHandler.countDown();
+
+            assertThat(first.get(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(second).isFalse();
+            assertThat(runs).hasValue(1);
+        } finally {
+            releaseHandler.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void completionPersistenceFailureRetainsClaimForLeaseWindow() {
+        final var delegate = new MemInbox();
+        final InboxStorePort failingStore = new InboxStorePort() {
+            public Uni<InboxArrival> recordArrival(String id, String type) { return delegate.recordArrival(id, type); }
+            public Uni<Boolean> alreadyHandled(String id) { return delegate.alreadyHandled(id); }
+            public Uni<Boolean> claim(String id, UUID token, Instant now, Instant until) { return delegate.claim(id, token, now, until); }
+            public Uni<Void> releaseClaim(String id, UUID token) { return delegate.releaseClaim(id, token); }
+            public Uni<Void> markHandled(String id, UUID token) { return Uni.createFrom().failure(new IllegalStateException("store unavailable")); }
+            public Uni<InboxEntry> findById(UUID id) { return delegate.findById(id); }
+        };
+        final var processor = new InboxProcessor(failingStore);
+        final var runs = new AtomicInteger();
+        assertThatThrownBy(() -> processor.process("EVT-MARK-FAIL", "t", () -> {
+            runs.incrementAndGet();
+            return Uni.createFrom().voidItem();
+        }).await().indefinitely()).isInstanceOf(IllegalStateException.class);
+        assertThat(processor.process("EVT-MARK-FAIL", "t", () -> {
+            runs.incrementAndGet();
+            return Uni.createFrom().voidItem();
+        }).await().indefinitely()).isFalse();
+        assertThat(runs).hasValue(1);
+    }
+}
 }
