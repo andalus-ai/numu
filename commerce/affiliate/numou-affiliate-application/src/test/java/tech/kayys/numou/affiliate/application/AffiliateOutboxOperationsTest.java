@@ -2,10 +2,15 @@ package tech.kayys.numou.affiliate.application;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore;
+import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore.DeadLetterCursor;
+import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore.DeadLetterPage;
+import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore.DeadLetterSummary;
+import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore.OutboxHealthSnapshot;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -33,6 +38,46 @@ class AffiliateOutboxOperationsTest {
     }
 
     @Test
+    void listsDeadLettersOnlyWithinTheAuthorizedTenantAndUsesKeysetCursor() {
+        RecordingStore store = new RecordingStore();
+        AffiliateOutboxOperations operations = new AffiliateOutboxOperations(store, Clock.systemUTC());
+        AffiliateCommandContext context = new AffiliateCommandContext("tenant-7", "operator-42", "req", "corr");
+        Instant occurredAt = Instant.parse("2026-10-31T09:00:00Z");
+        DeadLetterCursor cursor = new DeadLetterCursor(occurredAt, UUID.fromString("00000000-0000-0000-0000-000000000007"));
+        DeadLetterSummary summary = new DeadLetterSummary(UUID.randomUUID(), "PartnerPayout",
+                UUID.randomUUID(), "affiliate.payout.submitted", 5, occurredAt, 9L);
+        store.deadLetterPage = new DeadLetterPage(List.of(summary), null);
+
+        assertEquals(store.deadLetterPage, operations.listDeadLetters(context, cursor, 25)
+                .toCompletableFuture().join());
+        assertEquals("tenant-7", store.tenant);
+        assertEquals(cursor, store.cursor);
+        assertEquals(25, store.limit);
+    }
+
+    @Test
+    void rejectsUnboundedOrEmptyDeadLetterPages() {
+        AffiliateOutboxOperations operations = new AffiliateOutboxOperations(
+                new RecordingStore(), Clock.systemUTC());
+        AffiliateCommandContext context = new AffiliateCommandContext("tenant-7", "operator-42", "req", "corr");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> operations.listDeadLetters(context, null, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> operations.listDeadLetters(context, null, 101));
+    }
+
+    @Test
+    void exposesOnlyAggregateOutboxHealthValues() {
+        RecordingStore store = new RecordingStore();
+        AffiliateOutboxOperations operations = new AffiliateOutboxOperations(store, Clock.systemUTC());
+        OutboxHealthSnapshot expected = new OutboxHealthSnapshot(12, 9, 3, 1, 2, 45);
+        store.health = expected;
+
+        assertEquals(expected, operations.healthSnapshot().toCompletableFuture().join());
+    }
+
+    @Test
     void rejectsMissingOrOversizedOperatorReason() {
         AffiliateOutboxOperations operations = new AffiliateOutboxOperations(new RecordingStore(), Clock.systemUTC());
         AffiliateCommandContext context = new AffiliateCommandContext("tenant-7", "operator-42", "req", "corr");
@@ -46,6 +91,11 @@ class AffiliateOutboxOperationsTest {
         String tenant, actor, reason, idempotencyKey, correlationId;
         UUID eventId;
         Instant now;
+        DeadLetterCursor cursor;
+        int limit;
+        DeadLetterPage deadLetterPage = new DeadLetterPage(List.of(), null);
+        OutboxHealthSnapshot health = new OutboxHealthSnapshot(0, 0, 0, 0, 0, 0);
+
         @Override public java.util.concurrent.CompletionStage<java.util.List<ClaimedEvent>> claimPending(
                 String tenantId, String workerId, Instant now, java.time.Duration lease, int limit) {
             return CompletableFuture.completedFuture(java.util.List.of());
@@ -65,6 +115,14 @@ class AffiliateOutboxOperationsTest {
             this.tenant=tenantId; this.eventId=eventId; this.actor=actorId; this.reason=reason;
             this.idempotencyKey=idempotencyKey; this.correlationId=correlationId; this.now=now;
             return CompletableFuture.completedFuture(true);
+        }
+        @Override public java.util.concurrent.CompletionStage<DeadLetterPage> findDeadLetters(
+                String tenantId, DeadLetterCursor before, int limit) {
+            this.tenant = tenantId; this.cursor = before; this.limit = limit;
+            return CompletableFuture.completedFuture(deadLetterPage);
+        }
+        @Override public java.util.concurrent.CompletionStage<OutboxHealthSnapshot> healthSnapshot() {
+            return CompletableFuture.completedFuture(health);
         }
     }
 }
