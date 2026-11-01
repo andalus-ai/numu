@@ -1,7 +1,7 @@
 package tech.kayys.numou.event.adapter.kafka;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.reactive.messaging.kafka.IncomingKafkaRecordMetadata;
+import io.smallrye.reactive.messaging.kafka.api.IncomingKafkaRecordMetadata;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.eclipse.microprofile.reactive.messaging.Message;
 import org.junit.jupiter.api.Test;
@@ -14,6 +14,7 @@ import tech.kayys.numou.event.domain.valueobject.EventVersion;
 import tech.kayys.numou.event.spi.port.EventSerializerPort;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -166,6 +167,8 @@ class KafkaEventSubscriberAdapterTest {
     }
 
     private static final class TestEvent implements BusinessEvent {
+        @Override public UUID eventId() { return UUID.nameUUIDFromBytes(EVENT_TYPE.getBytes(StandardCharsets.UTF_8)); }
+        @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
         @Override public String eventType() { return EVENT_TYPE; }
         @Override public EventVersion eventVersion() { return EventVersion.V1; }
     }
