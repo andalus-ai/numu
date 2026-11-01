@@ -526,6 +526,20 @@ class SyirkahApiTest {
     }
 
     @Test
+    void revisionPreviewListsEveryProblemAndTheChangeWithoutStoringAnything() {
+        String id = open();
+        api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain", null));
+        // the heir contract with no lifecycle decision and no approvals
+        RevisionPreview bad = api.previewRevision(id, new ReviseRequest(heirContract(), List.of(A), death(false)));
+        assertFalse(bad.ok());
+        assertTrue(bad.problems().size() >= 1);
+        RevisionPreview good = api.previewRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        assertTrue(good.ok(), good.problems().toString());
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("REMOVED")));
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("ADDED")));
+        assertEquals(1, api.get(id).summary().contractVersion());
+        assertTrue(api.pending().isEmpty());
     void partnerStatementJsonMatchesTheLedger() {
         String id = open();
         close(id, "2026-01-01", "2026-01-31", "10000000");

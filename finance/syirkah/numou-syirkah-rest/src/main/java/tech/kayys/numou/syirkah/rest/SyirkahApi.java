@@ -15,6 +15,7 @@ import tech.kayys.numou.numouapplication.query.SyirkahSummary;
 import tech.kayys.numou.numoudomain.*;
 import tech.kayys.numou.numourest.SyirkahDtos.*;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 /**
@@ -361,6 +362,65 @@ public class SyirkahApi {
     }
 
     // ------------------------------------------------------------ governed commands (maker side)
+
+    /**
+     * Dry run of a revision: the same contract, lifecycle and approval rules a real revision meets, applied to a copy,
+     * with every problem listed instead of the first one thrown. Stores nothing and creates no approval.
+     */
+    public RevisionPreview previewRevision(String id, ReviseRequest r) {
+        if (r == null) {
+            throw new IllegalArgumentException("request body is required");
+        }
+        Syirkah copy = Syirkah.restore(load(id).snapshot());
+        SyirkahContract cur = copy.contract();
+        SyirkahContract next = SyirkahDtos.contract(r.next());
+        LifecycleChange change = r.lifecycle() == null ? null : SyirkahDtos.lifecycle(r.lifecycle());
+        List<String> problems = new ArrayList<>();
+        for (ContractViolation v : next.validate()) {
+            problems.add(v.code() + ": " + v.message());
+        }
+        Set<PartnerId> approvals = new TreeSet<>();
+        if (change != null) {
+            for (LifecycleFinding f : LifecycleChecker.check(copy, next, change)) {
+                problems.add(f.code() + ": " + f.message());
+            }
+            approvals.addAll(change.approvals());
+            if (change.kind() == LifecycleKind.PARTNER_DEATH) {
+                approvals.addAll(change.affected());
+            }
+        } else {
+            for (String p : r.approvals() == null ? List.<String>of() : r.approvals()) {
+                approvals.add(SyirkahDtos.partner(p, "approvals"));
+            }
+        }
+        if (problems.isEmpty()) {
+            try {
+                copy.reviseContract(next, approvals, clock.instant());
+            } catch (RuntimeException e) {
+                problems.add(e.getMessage());
+            }
+        }
+        Map<PartnerId, String> names = new LinkedHashMap<>();
+        cur.partners().forEach(p -> names.put(p.id(), p.name()));
+        next.partners().forEach(p -> names.put(p.id(), p.name()));
+        Set<PartnerId> before = new HashSet<>();
+        cur.partners().forEach(p -> before.add(p.id()));
+        Set<PartnerId> after = new HashSet<>();
+        next.partners().forEach(p -> after.add(p.id()));
+        List<PartnerChange> partners = new ArrayList<>();
+        for (Map.Entry<PartnerId, String> e : names.entrySet()) {
+            PartnerId pid = e.getKey();
+            boolean was = before.contains(pid);
+            boolean will = after.contains(pid);
+            partners.add(new PartnerChange(pid.value().toString(), e.getValue(),
+                    was && will ? "KEPT" : will ? "ADDED" : "REMOVED",
+                    was ? cur.capitalOf(pid).amount() : BigDecimal.ZERO,
+                    will ? next.capitalOf(pid).amount() : BigDecimal.ZERO,
+                    was && cur.nisbah().includes(pid) ? cur.nisbah().shareOf(pid) : BigDecimal.ZERO,
+                    will && next.nisbah().includes(pid) ? next.nisbah().shareOf(pid) : BigDecimal.ZERO));
+        }
+        return new RevisionPreview(problems.isEmpty(), problems, partners);
+    }
 
     public ApprovalView proposeRevision(String id, ReviseRequest r) {
         if (r == null) {

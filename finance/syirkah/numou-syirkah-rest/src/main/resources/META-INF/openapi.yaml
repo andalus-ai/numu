@@ -171,6 +171,14 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IncomeStatementView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/revisions/preview:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Syirkah]
+      summary: Dry run of a contract revision - all problems listed, per-partner capital and share before and after; nothing stored
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ReviseRequest"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/RevisionPreview"}}}}
   /{id}/partners/{partnerId}/statement:
     parameters:
       - {$ref: "#/components/parameters/Id"}

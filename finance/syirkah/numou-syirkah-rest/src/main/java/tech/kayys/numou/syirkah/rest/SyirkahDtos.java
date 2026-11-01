@@ -201,6 +201,12 @@ public final class SyirkahDtos {
     public record CapitalChangesView(LocalDate from, LocalDate to, List<CapitalChangeRow> rows) {
     }
 
+    public record PartnerChange(String partnerId, String name, String change, BigDecimal capitalBefore,
+                                BigDecimal capitalAfter, BigDecimal shareBefore, BigDecimal shareAfter) {
+    }
+
+    /** What a proposed contract revision would do; problems is empty when it could be proposed and approved. */
+    public record RevisionPreview(boolean ok, List<String> problems, List<PartnerChange> partners) {
     public record MovementLineView(long sequence, Instant at, String type, String reference, BigDecimal amount,
                                     BigDecimal capitalBalance, BigDecimal profitPayable, BigDecimal liability) {
     }
