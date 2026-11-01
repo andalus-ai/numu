@@ -16,14 +16,15 @@ public final class BudgetControlEngine {
         this.commitments = Objects.requireNonNull(commitments);
         this.actuals = Objects.requireNonNull(actuals);
     }
-    public Availability check(BudgetId id, String account, Map<String, String> dimensions,
+    public Availability check(String tenantId, BudgetId id, String account, Map<String, String> dimensions,
                               BudgetPeriod period, BigDecimal requested) {
+        requireTenant(tenantId);
         if (requested == null || requested.signum() <= 0) throw new IllegalArgumentException("requested amount must be positive");
-        var budget = budgets.find(id).orElseThrow(() -> new java.util.NoSuchElementException("unknown budget: " + id));
+        var budget = budgets.find(tenantId, id).orElseThrow(() -> new java.util.NoSuchElementException("unknown budget: " + id));
         BigDecimal allocated = budget.activeVersion().totalFor(account, dimensions, period);
-        BigDecimal reserved = commitments.openFor(id, account, period).stream()
+        BigDecimal reserved = commitments.openFor(tenantId, id, account, period).stream()
                 .map(BudgetCommitment::remaining).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal spent = actuals.totalFor(id, account, period);
+        BigDecimal spent = actuals.totalFor(tenantId, id, account, period);
         BigDecimal available = allocated.subtract(reserved).subtract(spent);
         if (available.compareTo(requested) < 0)
             return new Availability(BudgetControlOutcome.BLOCK, allocated, reserved, spent, available,
@@ -34,5 +35,8 @@ public final class BudgetControlEngine {
                 ? BudgetControlOutcome.WARN : BudgetControlOutcome.ALLOW;
         return new Availability(outcome, allocated, reserved, spent, available,
                 outcome == BudgetControlOutcome.WARN ? "budget utilization exceeds 80%" : "budget available");
+    }
+    private void requireTenant(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId must not be blank");
     }
 }
