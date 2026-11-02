@@ -207,6 +207,8 @@ public final class SyirkahDtos {
 
     /** What a proposed contract revision would do; problems is empty when it could be proposed and approved. */
     public record RevisionPreview(boolean ok, List<String> problems, List<PartnerChange> partners) {
+    }
+
     public record MovementLineView(long sequence, Instant at, String type, String reference, BigDecimal amount,
                                     BigDecimal capitalBalance, BigDecimal profitPayable, BigDecimal liability) {
     }
