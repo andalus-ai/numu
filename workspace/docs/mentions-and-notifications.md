@@ -48,3 +48,14 @@ Workspace does not depend on Notification classes, provider implementations, or 
 ## Web client
 
 The optional browser client calls `GET /api/v1/pages/{pageId}/mention-suggestions?q={prefix}&limit={n}` while a user types an `@handle` token. Selecting a suggestion inserts the canonical handle into the comment body. The REST endpoint returns only the directory's active, tenant-scoped member projection.
+
+
+## Shared Notification integration (M34)
+
+The optional `workspace-notification-adapter` module implements the Workspace `WorkspaceMentionDeliveryPort` using the shared Notification application service. It converts a claimed mention into an in-app inbox notification with type `workspace.comment.mention`, a stable Workspace comment source reference, and the exact outbox idempotency key. The adapter intentionally does not introduce a second notification table, queue, or retry policy.
+
+The delivery contract is at-least-once. A dispatcher may retry after a crash that occurs after inbox persistence but before the Workspace outbox row is marked delivered. The Notification persistence adapter must therefore enforce its documented unique key on `(tenantId, recipientId, idempotencyKey)`; repeated calls return the canonical existing notification. The stable key is generated when the comment and mention intent are committed, not by the delivery worker.
+
+The adapter emits a concise inbox message and does not copy comment content into notification bodies. Hosts may render a link from the stable source reference after applying Workspace page/comment authorization. The recipient ID comes from the already-resolved mention intent; the display handle is not used as an authorization or delivery address.
+
+The integration is opt-in and host-composed. Applications that do not include the adapter retain the same Workspace module graph and may provide another implementation of `WorkspaceMentionDeliveryPort`. Push/email delivery remains a separate Notification concern: the adapter creates the durable in-app inbox item and does not assume a push provider is configured.
