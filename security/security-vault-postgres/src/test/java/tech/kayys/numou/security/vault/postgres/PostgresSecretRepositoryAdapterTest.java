@@ -38,6 +38,7 @@ class PostgresSecretRepositoryAdapterTest {
         dataSource = source;
         repository = new PostgresSecretRepositoryAdapter(dataSource);
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS vault_secret_lifecycle");
             statement.execute("DROP TABLE IF EXISTS vault_audit_outbox");
             statement.execute("DROP TABLE IF EXISTS vault_secret_version");
             try (InputStream migration = getClass().getResourceAsStream(
@@ -78,6 +79,32 @@ class PostgresSecretRepositoryAdapterTest {
              ResultSet result = statement.executeQuery("SELECT encode(ciphertext, 'hex') FROM vault_secret_version")) {
             assertTrue(result.next());
             assertEquals("09080706", result.getString(1));
+        }
+    }
+
+
+    @Test
+    void revocationAndAuditAreAtomicAndRevocationIsIdempotent() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        VaultId vault = VaultId.generate();
+        SecretId secret = SecretId.generate();
+        repository.appendVersion(tenant, vault, secret, 0, 1, "AES-256-GCM-ENVELOPE", 1,
+                "kms/key/v1", new byte[]{4, 5}, null,
+                new VaultAuditEntry("operator", "VAULT_SECRET_CREATED", "version=1", Instant.now()))
+                .await().indefinitely();
+
+        PostgresSecretLifecycleAdapter lifecycle = new PostgresSecretLifecycleAdapter(dataSource);
+        VaultAuditEntry revoked = new VaultAuditEntry("operator", "VAULT_SECRET_REVOKED", "revoked=true", Instant.now());
+        lifecycle.revoke(tenant, vault, secret, revoked).await().indefinitely();
+        lifecycle.revoke(tenant, vault, secret, revoked).await().indefinitely();
+
+        assertEquals(tech.kayys.numou.security.vault.domain.SecretStatus.REVOKED,
+                lifecycle.status(tenant, vault, secret).await().indefinitely().orElseThrow());
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT count(*) FROM vault_audit_outbox WHERE event_type = 'VAULT_SECRET_REVOKED'")) {
+            assertTrue(result.next());
+            assertEquals(1, result.getInt(1), "repeated revocation must not duplicate audit facts");
         }
     }
 
