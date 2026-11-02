@@ -54,13 +54,15 @@ public final class AesGcmEnvelopeEncryptionAdapter implements SecretEncryptionPo
         byte[] nonce = new byte[NONCE_BYTES];
         byte[] clearBytes = null;
         byte[] wrappedKey = null;
+        byte[] wrappingInput = null;
         byte[] encrypted = null;
         try {
             random.nextBytes(dataKey);
             random.nextBytes(nonce);
             String keyId = requireKeyId(keys.activeKeyId(scope.tenantId()));
             clearBytes = encode(plaintext);
-            wrappedKey = keys.wrap(scope.tenantId(), keyId, dataKey.clone());
+            wrappingInput = dataKey.clone();
+            wrappedKey = keys.wrap(scope.tenantId(), keyId, wrappingInput);
             if (wrappedKey == null || wrappedKey.length == 0 || wrappedKey.length > MAX_WRAPPED_KEY_BYTES)
                 throw new IllegalStateException("KMS returned an invalid wrapped data key");
 
@@ -74,7 +76,7 @@ public final class AesGcmEnvelopeEncryptionAdapter implements SecretEncryptionPo
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("vault encryption failed", e);
         } finally {
-            wipe(dataKey, nonce, clearBytes, wrappedKey, encrypted);
+            wipe(dataKey, nonce, clearBytes, wrappedKey, wrappingInput, encrypted);
         }
     }
 
@@ -93,12 +95,14 @@ public final class AesGcmEnvelopeEncryptionAdapter implements SecretEncryptionPo
         byte[] wrappedKey = null;
         byte[] encrypted = null;
         byte[] clearBytes = null;
+        byte[] unwrapInput = null;
         try {
             Envelope envelope = parse(ciphertext);
             nonce = envelope.nonce();
             wrappedKey = envelope.wrappedKey();
             encrypted = envelope.ciphertext();
-            dataKey = keys.unwrap(scope.tenantId(), keyId, wrappedKey.clone());
+            unwrapInput = wrappedKey.clone();
+            dataKey = keys.unwrap(scope.tenantId(), keyId, unwrapInput);
             if (dataKey == null || dataKey.length != DEK_BYTES)
                 throw new GeneralSecurityException("KMS returned an invalid data key");
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -110,7 +114,7 @@ public final class AesGcmEnvelopeEncryptionAdapter implements SecretEncryptionPo
         } catch (GeneralSecurityException | IOException e) {
             throw new SecurityException("vault authentication or decryption failed", e);
         } finally {
-            wipe(dataKey, nonce, wrappedKey, encrypted, clearBytes);
+            wipe(dataKey, nonce, wrappedKey, encrypted, clearBytes, unwrapInput);
         }
     }
 
