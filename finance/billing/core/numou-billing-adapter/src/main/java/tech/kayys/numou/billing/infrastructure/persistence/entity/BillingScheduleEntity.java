@@ -93,6 +93,7 @@ public class BillingScheduleEntity extends BaseEntity {
         schedule.setSendEmailNotifications(sendEmailNotifications);
         schedule.setSendSmsNotifications(sendSmsNotifications);
         schedule.setActive(active);
+        schedule.restoreProgress(nextBillingDate, lastBillingDate, currentCycle, failedPaymentCount);
         return schedule;
     }
 
