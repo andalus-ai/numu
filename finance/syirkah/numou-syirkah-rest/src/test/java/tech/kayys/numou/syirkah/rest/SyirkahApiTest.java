@@ -526,6 +526,33 @@ class SyirkahApiTest {
     }
 
     @Test
+    void revisionPreviewListsEveryProblemAndTheChangeWithoutStoringAnything() {
+        String id = open();
+        api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain", null));
+        // the heir contract with no lifecycle decision and no approvals
+        RevisionPreview bad = api.previewRevision(id, new ReviseRequest(heirContract(), List.of(A), death(false)));
+        assertFalse(bad.ok());
+        assertTrue(bad.problems().size() >= 1);
+        RevisionPreview good = api.previewRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        assertTrue(good.ok(), good.problems().toString());
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("REMOVED")));
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("ADDED")));
+        assertEquals(1, api.get(id).summary().contractVersion());
+        assertTrue(api.pending().isEmpty());
+    }
+
+    @Test
+    void partnerStatementJsonMatchesTheLedger() {
+        String id = open();
+        close(id, "2026-01-01", "2026-01-31", "10000000");
+        PartnerStatementView v = api.statement(id, A);
+        assertEquals(A, v.partnerId());
+        assertFalse(v.lines().isEmpty());
+        MovementLineView last = v.lines().get(v.lines().size() - 1);
+        assertEquals(0, last.capitalBalance().compareTo(v.closing().capitalBalance()));
+        assertEquals(0, last.profitPayable().compareTo(v.closing().profitPayable()));
+        assertThrows(IllegalArgumentException.class, () -> api.statement(id, "not-a-uuid"));
     void aWholeSyirkahThroughTheApiWithEveryStoreWired() {
         LocalTransactionPort tx = new LocalTransactionPort();
         Clock clock = Clock.system(ZoneOffset.UTC);
