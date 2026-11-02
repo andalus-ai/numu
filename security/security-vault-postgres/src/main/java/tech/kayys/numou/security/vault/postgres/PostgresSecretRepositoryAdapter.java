@@ -46,14 +46,16 @@ public final class PostgresSecretRepositoryAdapter implements SecretRepositoryPo
             int expectedPreviousVersion, int newVersion, String algorithm, int formatVersion,
             String keyId, byte[] ciphertext, Instant expiresAt, VaultAuditEntry auditEntry) {
         Instant createdAt = Instant.now();
-        if (expiresAt != null && !expiresAt.isAfter(createdAt))
-            throw new IllegalArgumentException("expiresAt must be after createdAt");
         try (Connection connection = dataSource.getConnection()) {
+            if (expiresAt != null && !expiresAt.isAfter(createdAt))
+                throw new IllegalArgumentException("expiresAt must be after createdAt");
             connection.setAutoCommit(false);
             try {
                 int actual = lockAndReadLatestVersion(connection, tenantId, vaultId, secretId);
                 if (actual != expectedPreviousVersion)
                     throw new SecretVersionConflictException(expectedPreviousVersion, actual);
+                if (expectedPreviousVersion > 0 && isRevoked(connection, tenantId, vaultId, secretId))
+                    throw new IllegalStateException("revoked secret cannot be rotated");
 
                 String insertSecret = """
                         INSERT INTO vault_secret_version
@@ -112,6 +114,20 @@ public final class PostgresSecretRepositoryAdapter implements SecretRepositoryPo
         }
     }
 
+
+    private boolean isRevoked(Connection connection, UUID tenantId,
+                               VaultId vaultId, SecretId secretId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT 1 FROM vault_secret_lifecycle
+                WHERE tenant_id = ? AND vault_id = ? AND secret_id = ? AND status = 'REVOKED'
+                """)) {
+            bindScope(statement, tenantId, vaultId, secretId);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
     private int lockAndReadLatestVersion(Connection connection, UUID tenantId,
                                          VaultId vaultId, SecretId secretId) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -126,6 +142,49 @@ public final class PostgresSecretRepositoryAdapter implements SecretRepositoryPo
                 return result.next() ? result.getInt(1) : 0;
             }
         }
+    }
+
+
+    @Override
+    public Uni<Void> appendAuditEvent(UUID tenantId, VaultId vaultId, SecretId secretId,
+                                      int version, VaultAuditEntry auditEntry) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(vaultId, "vaultId");
+        Objects.requireNonNull(secretId, "secretId");
+        Objects.requireNonNull(auditEntry, "auditEntry");
+        if (version < 1) return Uni.createFrom().failure(new IllegalArgumentException("version must be positive"));
+        return Uni.createFrom().item(() -> {
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement("""
+                    INSERT INTO vault_audit_outbox
+                        (event_id, tenant_id, vault_id, secret_id, secret_version,
+                         actor, event_type, details, occurred_at)
+                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    WHERE EXISTS (
+                        SELECT 1 FROM vault_secret_version
+                        WHERE tenant_id = ? AND vault_id = ? AND secret_id = ? AND secret_version = ?
+                    )
+                    """)) {
+                statement.setObject(1, UUID.randomUUID());
+                statement.setObject(2, tenantId);
+                statement.setObject(3, vaultId.value());
+                statement.setObject(4, secretId.value());
+                statement.setInt(5, version);
+                statement.setString(6, auditEntry.actor());
+                statement.setString(7, auditEntry.eventType());
+                statement.setString(8, auditEntry.details());
+                statement.setTimestamp(9, Timestamp.from(auditEntry.occurredAt()));
+                statement.setObject(10, tenantId);
+                statement.setObject(11, vaultId.value());
+                statement.setObject(12, secretId.value());
+                statement.setInt(13, version);
+                if (statement.executeUpdate() != 1)
+                    throw new IllegalStateException("secret version does not exist");
+                return (Void) null;
+            } catch (SQLException failure) {
+                throw new VaultPersistenceException("Unable to append secret audit event", failure);
+            }
+        }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     @Override
