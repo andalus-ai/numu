@@ -99,9 +99,8 @@ public final class VaultSecretService {
 
     public Uni<Void> revoke(SecurityContext context, VaultId vaultId, SecretId secretId) {
         return authorization.require(context, ActionType.DELETE, RESOURCE, secretId.toString())
-                .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId))
-                .flatMap(ignored -> authorization.auditPerformed(context, "VAULT_SECRET_REVOKED",
-                        RESOURCE, secretId.toString(), "revoked=true"));
+                .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId,
+                        new VaultAuditEntry(context.actor(), "VAULT_SECRET_REVOKED", "revoked=true", clock.instant())));
     }
 
     private Uni<EncryptedSecret> encryptAndAppend(SecurityContext context, VaultId vaultId, SecretId secretId,
