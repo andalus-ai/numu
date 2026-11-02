@@ -16,6 +16,7 @@ Base path: `/api/v1`
 | GET | `/pages/{pageId}` | Read a page |
 | PUT | `/pages/{pageId}` | Update a page using `expectedRevision` |
 | GET | `/pages/{pageId}/history` | Read immutable revision history |
+| GET | `/pages/{pageId}/changes?afterRevision={cursor}&limit={n}` | Replay bounded immutable page revisions after a resumable per-page cursor (1–100, default 50) |
 | POST | `/pages/{pageId}/history/restore` | Restore a historical snapshot as a new revision, guarded by `expectedCurrentRevision` |
 | GET | `/spaces/{spaceId}/pages?parentPageId={id}` | List direct children; omit `parentPageId` to list root pages |
 | POST | `/workspaces/{workspaceId}/templates` | Create a reusable page template |
