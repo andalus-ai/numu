@@ -48,3 +48,14 @@ Workspace does not depend on Notification classes, provider implementations, or 
 ## Web client
 
 The optional browser client calls `GET /api/v1/pages/{pageId}/mention-suggestions?q={prefix}&limit={n}` while a user types an `@handle` token. Selecting a suggestion inserts the canonical handle into the comment body. The REST endpoint returns only the directory's active, tenant-scoped member projection.
+
+
+## Worker lifecycle and operational health (M33)
+
+The application module exposes `WorkspaceMentionOutboxWorker` as a scheduler-neutral entry point. The host owns the scheduler, cadence, startup/shutdown hooks, stable worker ID, and delivery adapter. Each invocation processes one bounded batch (1..500); overlapping invocations on the same worker instance are skipped rather than competing for the same local worker slot. PostgreSQL lease claims remain the cross-process coordination mechanism, so multiple application instances may run workers safely.
+
+The host should stop scheduling new invocations before application shutdown and allow an in-flight batch to finish within the configured lease/shutdown budget. The worker does not create threads, own a timer, or introduce a runtime dependency.
+
+Operational health is exposed through `WorkspaceMentionOutboxHealthService` and the aggregate-only `WorkspaceMentionOutboxHealthStore` port. The JDBC adapter reports tenant-scoped pending, due, leased, expired-lease, and dead-letter counts plus the oldest pending creation time. It does not select handles, recipient IDs, comment bodies, or notification payloads. The application service authorizes the operator before the store is queried and returns the age of the oldest pending item at a single captured timestamp.
+
+Hosts may publish these values through their existing metrics/health system. Avoid tenant IDs, handles, recipient IDs, comment IDs, or idempotency keys as metric labels; prefer aggregate counters and bounded-cardinality status labels. A rising expired-lease count indicates stalled workers or lease sizing problems; a rising dead-letter count requires the authorized recovery workflow above.
