@@ -55,7 +55,7 @@ class WorkspaceMentionOutboxDispatcherTest {
             UUID comment=UUID.randomUUID(), recipient=UUID.randomUUID(), actor=UUID.randomUUID();
             UUID id=UUID.randomUUID(), token=UUID.randomUUID();
             claimed=new ClaimedMention(id,tenant,page,thread,comment,recipient,actor,"member","Member",
-                    "Page","workspace:comment-mention:"+comment+":"+recipient,attempts,token,NOW.plusSeconds(30));
+                    "Page","workspace:comment-mention:"+comment+":"+recipient,attempts,attempts,token,NOW.plusSeconds(30));
         }
         public boolean createThreadWithMentions(tech.kayys.numou.workspace.domain.PageCommentThread t,
                 tech.kayys.numou.workspace.application.WorkspacePorts.AuditEntry a,List<MentionIntent> m){throw new UnsupportedOperationException();}

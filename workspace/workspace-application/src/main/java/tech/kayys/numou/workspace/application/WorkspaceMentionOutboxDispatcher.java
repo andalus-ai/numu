@@ -14,7 +14,7 @@ public final class WorkspaceMentionOutboxDispatcher {
  public DispatchResult dispatch(int limit){
   if(limit<1||limit>500)throw new IllegalArgumentException("limit must be 1..500");Instant now=clock.instant();List<ClaimedMention> batch=store.claimDue(workerId,now,now.plus(leaseDuration),limit);int delivered=0,retried=0,dead=0;
   for(ClaimedMention item:batch)try{delivery.deliver(item);if(store.markDelivered(item.tenantId(),item.id(),item.leaseToken(),clock.instant()))delivered++;}
-  catch(Exception failure){int next=item.attempts();String error=safeError(failure);if(next>=maxAttempts){if(store.markDead(item.tenantId(),item.id(),item.leaseToken(),error,clock.instant()))dead++;}else if(store.scheduleRetry(item.tenantId(),item.id(),item.leaseToken(),clock.instant().plus(backoff(next)),error,clock.instant()))retried++;}
+  catch(Exception failure){int next=item.attempts();String error=safeError(failure);if(item.retryAttempts()>=maxAttempts){if(store.markDead(item.tenantId(),item.id(),item.leaseToken(),error,clock.instant()))dead++;}else if(store.scheduleRetry(item.tenantId(),item.id(),item.leaseToken(),clock.instant().plus(backoff(next)),error,clock.instant()))retried++;}
   return new DispatchResult(batch.size(),delivered,retried,dead);
  }
  private static Duration backoff(int attempt){return Duration.ofSeconds(Math.min(3600,5L<<Math.min(10,Math.max(0,attempt-1))));}
