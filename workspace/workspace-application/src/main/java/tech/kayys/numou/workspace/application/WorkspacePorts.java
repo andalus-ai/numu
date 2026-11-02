@@ -31,6 +31,10 @@ public final class WorkspacePorts {
   /** Atomically persists page and immutable revision; expectedRevision=0 means create-only. */
   boolean saveWithRevision(Page page,PageRevision revision,long expectedRevision);
   List<PageRevision> history(UUID tenantId,UUID pageId);
+  /** Bounded ascending revision replay through an observed page revision. */
+  default List<PageRevision> historyAfter(UUID tenantId, UUID pageId, long afterRevision, long throughRevision, int limit) {
+   return history(tenantId, pageId).stream().filter(r -> r.revision() > afterRevision && r.revision() <= throughRevision).limit(limit).toList();
+  }
  }
  /**
   * Read-only comment queries. Implementations must scope every query by tenant and page.
