@@ -49,6 +49,14 @@ class PostgresSecretRepositoryAdapterTest {
                     if (!command.isBlank()) statement.execute(command);
                 }
             }
+            try (InputStream migration = getClass().getResourceAsStream(
+                    "/db/migration/V2__vault_audit_outbox_leases.sql")) {
+                assertNotNull(migration);
+                String[] commands = new String(migration.readAllBytes(), StandardCharsets.UTF_8).split(";");
+                for (String command : commands) {
+                    if (!command.isBlank()) statement.execute(command);
+                }
+            }
         }
     }
 
@@ -110,6 +118,59 @@ class PostgresSecretRepositoryAdapterTest {
             assertTrue(result.next());
             assertEquals(1, result.getInt(1), "repeated revocation must not duplicate audit facts");
         }
+    }
+
+
+    @Test
+    void repeatedRevealAuditsAreStoredAndOutboxClaimsAreLeased() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        VaultId vault = VaultId.generate();
+        SecretId secret = SecretId.generate();
+        repository.appendVersion(tenant, vault, secret, 0, 1, "AES-256-GCM-ENVELOPE", 1,
+                "kms/key/v1", new byte[]{1, 2}, null,
+                new VaultAuditEntry("operator", "VAULT_SECRET_CREATED", "version=1", Instant.now()))
+                .await().indefinitely();
+
+        VaultAuditEntry reveal = new VaultAuditEntry("operator", "VAULT_SECRET_REVEALED", "version=1", Instant.now());
+        repository.appendAuditEvent(tenant, vault, secret, 1, reveal).await().indefinitely();
+        repository.appendAuditEvent(tenant, vault, secret, 1, reveal).await().indefinitely();
+
+        PostgresVaultAuditOutboxAdapter outbox = new PostgresVaultAuditOutboxAdapter(dataSource);
+        Instant now = Instant.now().plusSeconds(1);
+        var firstClaim = outbox.claimDue("worker-a", now, now.plusSeconds(30), 10).await().indefinitely();
+        assertEquals(3, firstClaim.size());
+        assertEquals(2, firstClaim.stream().filter(e -> e.eventType().equals("VAULT_SECRET_REVEALED")).count());
+
+        assertTrue(outbox.claimDue("worker-b", now, now.plusSeconds(30), 10)
+                .await().indefinitely().isEmpty());
+        var first = firstClaim.get(0);
+        outbox.markPublished(first.eventId(), "worker-a", now).await().indefinitely();
+        assertThrows(RuntimeException.class, () -> outbox.markPublished(first.eventId(), "worker-b", now)
+                .await().indefinitely());
+
+        var reclaimed = outbox.claimDue("worker-b", now.plusSeconds(31),
+                now.plusSeconds(61), 10).await().indefinitely();
+        assertEquals(2, reclaimed.size());
+        assertTrue(reclaimed.stream().allMatch(e -> e.attempts() == 2));
+    }
+
+    @Test
+    void outboxRetryCanBeDeadLetteredAndReleasesLease() {
+        UUID tenant = UUID.randomUUID();
+        VaultId vault = VaultId.generate();
+        SecretId secret = SecretId.generate();
+        repository.appendVersion(tenant, vault, secret, 0, 1, "AES-256-GCM-ENVELOPE", 1,
+                "kms/key/v1", new byte[]{1, 2}, null,
+                new VaultAuditEntry("operator", "VAULT_SECRET_CREATED", "version=1", Instant.now()))
+                .await().indefinitely();
+        PostgresVaultAuditOutboxAdapter outbox = new PostgresVaultAuditOutboxAdapter(dataSource);
+        Instant now = Instant.now().plusSeconds(1);
+        var claimed = outbox.claimDue("worker-a", now, now.plusSeconds(30), 1).await().indefinitely();
+        var event = claimed.get(0);
+        outbox.reschedule(event.eventId(), "worker-a", now.plusSeconds(60),
+                "PublishFailure", true).await().indefinitely();
+        assertTrue(outbox.claimDue("worker-b", now.plusSeconds(120),
+                now.plusSeconds(150), 10).await().indefinitely().isEmpty());
     }
 
     @Test

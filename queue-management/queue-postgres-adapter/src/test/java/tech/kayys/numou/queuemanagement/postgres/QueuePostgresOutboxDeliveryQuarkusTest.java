@@ -115,41 +115,37 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                 .stream().filter(item -> item.eventId().equals(eventId)).findFirst().orElseThrow();
         assertEquals(eventId, replayed.eventId());
         assertEquals(1, replayed.attemptCount());
+
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement query = connection.prepareStatement(
-                     "SELECT replay_count, total_attempt_count FROM queue_outbox WHERE tenant_id = ? AND event_id = ?")) {
-            query.setObject(1, TENANT);
-            query.setObject(2, eventId);
-            try (var rs = query.executeQuery()) {
-                assertTrue(rs.next());
-                assertEquals(1, rs.getInt("replay_count"));
+                    "SELECT replay_count, total_attempt_count FROM queue_outbox WHERE tenant_id = ? AND event_id = ?")) {
+                query.setObject(1, TENANT);
+                query.setObject(2, eventId);
+                try (var rs = query.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(1, rs.getInt("replay_count"));
                     assertEquals(2, rs.getInt("total_attempt_count"));
                 }
             }
             connection.commit();
         }
+
         try (Connection connection = dataSource.getConnection()) {
-            connection.setAutoCommit(false);
-            setTenant(connection);
-            try (PreparedStatement query = connection.prepareStatement(
-                     "SELECT count(*) FROM queue_audit WHERE tenant_id = ? AND resource_id = ? "
-                             + "AND action = 'OUTBOX_DEAD_LETTER_REPLAYED'")) {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement query = connection.prepareStatement(
                     "SELECT count(*) FROM queue_audit WHERE tenant_id = ? AND resource_id = ? "
                             + "AND action = 'OUTBOX_DEAD_LETTER_REPLAYED'")) {
-            query.setObject(1, TENANT);
-            query.setString(2, eventId.toString());
-            try (var rs = query.executeQuery()) {
-                assertTrue(rs.next());
+                query.setObject(1, TENANT);
+                query.setString(2, eventId.toString());
+                try (var rs = query.executeQuery()) {
+                    assertTrue(rs.next());
                     assertEquals(1, rs.getInt(1));
                 }
             }
             connection.commit();
-            }
         }
     }
 
