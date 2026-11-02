@@ -94,7 +94,7 @@ public final class VaultSecretService {
                     return authorization.auditPerformed(context, "VAULT_SECRET_REVEALED", RESOURCE,
                                     secretId.toString(), "version=" + version)
                             .replaceWith(plaintext)
-                            .onFailure().invoke(failure -> Arrays.fill(plaintext, '\\0'));
+                            .onFailure().invoke(failure -> Arrays.fill(plaintext, (char) 0));
                 });
     }
 
@@ -113,7 +113,7 @@ public final class VaultSecretService {
             payload = encryption.encrypt(new SecretEncryptionPort.EncryptionScope(
                     context.tenantId(), vaultId, secretId, version), copy);
         } finally {
-            Arrays.fill(copy, '\\0');
+            Arrays.fill(copy, (char) 0);
         }
         return secrets.appendVersion(context.tenantId(), vaultId, secretId, previous, version,
                 payload.algorithm(), payload.formatVersion(), payload.keyId(), payload.ciphertext(), expiresAt);
