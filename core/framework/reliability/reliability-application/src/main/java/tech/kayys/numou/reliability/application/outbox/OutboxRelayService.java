@@ -72,6 +72,12 @@ public final class OutboxRelayService implements OutboxRelayPort {
                     .onFailure().recoverWithUni(failure -> recordFailure(claim, failure).replaceWith(0))
                     .flatMap(delta -> relayNext(processed + 1, relayed + delta));
         });
+    private Uni<Integer> relayAll(List<OutboxClaim> due, int index, int relayed) {
+        if (index >= due.size()) return Uni.createFrom().item(relayed);
+        final OutboxClaim claim = due.get(index);
+        return relay(claim).map(ok -> 1)
+                .onFailure().recoverWithUni(failure -> recordFailure(claim, failure).replaceWith(0))
+                .flatMap(delta -> relayAll(due, index + 1, relayed + delta));
     }
 
     private Uni<Void> recordFailure(OutboxClaim claim, Throwable failure) {
