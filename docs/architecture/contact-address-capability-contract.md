@@ -2,7 +2,7 @@
 
 - **Status:** Proposed implementation contract; repository audit is partial and runtime behavior remains to be verified
 - **Scope:** Reusable identity, communication endpoint, address, and extensibility contracts for Numou
-- **Related:** [ADR-003 — Reusable capability modules](ADR-003-reusable-capability-modules.md), [Capability Packaging and Composition Contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md), [Customer Capability Contract](customer-capability-contract.md)
+- **Related:** [ADR-003 — Reusable capability modules](ADR-003-reusable-capability-modules.md), [Capability Packaging and Composition Contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md), [Customer Capability Contract](customer-capability-contract.md), [Locale and Internationalization Capability Contract](locale-internationalization-capability-contract.md)
 
 ## 1. Decision
 
@@ -178,12 +178,17 @@ Choose persistence based on concrete requirements. Do not default to JSON blobs 
 
 - Confirm public Party/ContactPoint/Address and association semantics.
 - Decide which address fields are core versus localization/reference-data extensions.
+- Adopt the locale ownership contract: BCP 47 language tags, explicit locale resolution/fallback, and strict separation of locale, time zone, and currency.
+- Define international address formatting and administrative hierarchy as country-specific, versioned metadata; preserve Indonesian administrative detail without imposing it on other countries.
 - Specify custom attribute definitions, scopes, type validation, namespace, sensitivity, and lifecycle.
 - Add or update architecture tests for dependency direction and tenant-safe access boundaries where supported by the existing test architecture.
 
-### M2 — Persistence and compatibility
+### M2 — Domain primitives, persistence, and compatibility
 
+- Audit existing shared locale/language/time-zone primitives before introducing new types; do not create duplicate framework-wide value objects.
+- Add domain primitives and profile preference contracts only after ownership and existing type compatibility are verified.
 - Verify existing persistence and migrations before adding tables or columns.
+
 - Add additive, forward-recoverable schema changes only where justified.
 - Implement compatibility mapping and idempotent backfill with reconciliation evidence.
 - Preserve transaction snapshots and audit history.
