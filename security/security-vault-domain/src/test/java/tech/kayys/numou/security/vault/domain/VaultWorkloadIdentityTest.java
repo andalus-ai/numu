@@ -30,6 +30,28 @@ class VaultWorkloadIdentityTest {
     }
 
     @Test
+    void permitsOnlyTrustedIssuerAudienceTenantAndOperationScope() {
+        UUID tenant = UUID.randomUUID();
+        Instant now = Instant.parse("2026-11-03T00:00:00Z");
+        VaultWorkloadIdentity identity = new VaultWorkloadIdentity(tenant, "spiffe://prod.example",
+                "spiffe://prod.example/ns/payments/sa/worker",
+                Set.of("numou-vault", "payments-api"), Set.of("secret:read"), now.plusSeconds(60));
+
+        assertTrue(identity.permits(tenant, "spiffe://prod.example", "numou-vault",
+                VaultOperation.READ, now));
+        assertFalse(identity.permits(tenant, "spiffe://untrusted.example", "numou-vault",
+                VaultOperation.READ, now));
+        assertFalse(identity.permits(tenant, "spiffe://prod.example", "other-service",
+                VaultOperation.READ, now));
+        assertFalse(identity.permits(UUID.randomUUID(), "spiffe://prod.example", "numou-vault",
+                VaultOperation.READ, now));
+        assertFalse(identity.permits(tenant, "spiffe://prod.example", "numou-vault",
+                VaultOperation.ROTATE, now));
+        assertFalse(identity.permits(tenant, "spiffe://prod.example", "numou-vault",
+                VaultOperation.READ, now.plusSeconds(60)));
+    }
+
+    @Test
     void rejectsUnboundedOrEmptyClaims() {
         UUID tenant = UUID.randomUUID();
         Instant expiry = Instant.parse("2026-11-02T10:00:00Z");
