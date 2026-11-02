@@ -22,7 +22,24 @@ public record VaultWorkloadIdentity(UUID tenantId, String issuer, String subject
     }
 
     public boolean isValidFor(UUID tenant, Instant now) {
+        Objects.requireNonNull(now, "now is required");
         return tenantId.equals(tenant) && expiresAt.isAfter(now);
+    }
+
+    /**
+     * Evaluates the security-relevant claims against host policy. The issuer
+     * must already have been authenticated by the host identity adapter;
+     * this method does not validate signatures or establish trust.
+     */
+    public boolean permits(UUID tenant, String trustedIssuer, String requiredAudience,
+                           VaultOperation operation, Instant now) {
+        Objects.requireNonNull(operation, "operation is required");
+        if (trustedIssuer == null || trustedIssuer.isBlank()
+                || requiredAudience == null || requiredAudience.isBlank()) return false;
+        return isValidFor(tenant, now)
+                && issuer.equals(trustedIssuer)
+                && audiences.contains(requiredAudience)
+                && scopes.contains(operation.requiredScope());
     }
 
     private static Set<String> boundedSet(Set<String> values, String field) {
