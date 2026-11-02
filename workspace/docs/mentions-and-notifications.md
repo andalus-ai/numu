@@ -48,3 +48,23 @@ Workspace does not depend on Notification classes, provider implementations, or 
 ## Web client
 
 The optional browser client calls `GET /api/v1/pages/{pageId}/mention-suggestions?q={prefix}&limit={n}` while a user types an `@handle` token. Selecting a suggestion inserts the canonical handle into the comment body. The REST endpoint returns only the directory's active, tenant-scoped member projection.
+
+
+## Shared Notification integration (M34)
+
+The optional `workspace-notification-adapter` module implements the Workspace `WorkspaceMentionDeliveryPort` using the shared Notification application service. It converts a claimed mention into an in-app inbox notification with type `workspace.comment.mention`, a stable Workspace comment source reference, and the exact outbox idempotency key. The adapter intentionally does not introduce a second notification table, queue, or retry policy.
+
+The delivery contract is at-least-once. A dispatcher may retry after a crash that occurs after inbox persistence but before the Workspace outbox row is marked delivered. The Notification persistence adapter must therefore enforce its documented unique key on `(tenantId, recipientId, idempotencyKey)`; repeated calls return the canonical existing notification. The stable key is generated when the comment and mention intent are committed, not by the delivery worker.
+
+The adapter emits a concise inbox message and does not copy comment content into notification bodies. Hosts may render a link from the stable source reference after applying Workspace page/comment authorization. The recipient ID comes from the already-resolved mention intent; the display handle is not used as an authorization or delivery address.
+
+The integration is opt-in and host-composed. Applications that do not include the adapter retain the same Workspace module graph and may provide another implementation of `WorkspaceMentionDeliveryPort`. Push/email delivery remains a separate Notification concern: the adapter creates the durable in-app inbox item and does not assume a push provider is configured.
+## Worker lifecycle and operational health (M33)
+
+The application module exposes `WorkspaceMentionOutboxWorker` as a scheduler-neutral entry point. The host owns the scheduler, cadence, startup/shutdown hooks, stable worker ID, and delivery adapter. Each invocation processes one bounded batch (1..500); overlapping invocations on the same worker instance are skipped rather than competing for the same local worker slot. PostgreSQL lease claims remain the cross-process coordination mechanism, so multiple application instances may run workers safely.
+
+The host should stop scheduling new invocations before application shutdown and allow an in-flight batch to finish within the configured lease/shutdown budget. The worker does not create threads, own a timer, or introduce a runtime dependency.
+
+Operational health is exposed through `WorkspaceMentionOutboxHealthService` and the aggregate-only `WorkspaceMentionOutboxHealthStore` port. The JDBC adapter reports tenant-scoped pending, due, leased, expired-lease, and dead-letter counts plus the oldest pending creation time. It does not select handles, recipient IDs, comment bodies, or notification payloads. The application service authorizes the operator before the store is queried and returns the age of the oldest pending item at a single captured timestamp.
+
+Hosts may publish these values through their existing metrics/health system. Avoid tenant IDs, handles, recipient IDs, comment IDs, or idempotency keys as metric labels; prefer aggregate counters and bounded-cardinality status labels. A rising expired-lease count indicates stalled workers or lease sizing problems; a rising dead-letter count requires the authorized recovery workflow above.

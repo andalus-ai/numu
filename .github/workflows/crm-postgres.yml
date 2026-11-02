@@ -57,3 +57,9 @@ jobs:
             -c "BEGIN READ ONLY" \
             -f crm/docs/operations/legacy-tenant-ownership-inventory.sql \
             -c "ROLLBACK"
+      - name: Verify evidence-backed ownership proposal lifecycle
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d numou_crm_test -v ON_ERROR_STOP=1 \
+            -f crm/numou-crm-adapter/src/test/resources/db/tenant-ownership-proposals.sql

@@ -53,5 +53,9 @@ public interface AffiliateEventOutboxStore {
 
     record ClaimedEvent(String tenantId, UUID id, String aggregateType, UUID aggregateId,
             String eventType, String eventKey, String payload, int attempts,
-            String leaseOwner, Instant leaseUntil) {}
+            String leaseOwner, Instant leaseUntil, Instant occurredAt) {
+        public ClaimedEvent {
+            Objects.requireNonNull(occurredAt, "occurredAt");
+        }
+    }
 }

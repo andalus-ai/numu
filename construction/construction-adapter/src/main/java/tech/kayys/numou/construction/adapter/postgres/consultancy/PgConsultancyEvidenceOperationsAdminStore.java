@@ -9,6 +9,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.construction.application.consultancy.ConsultancyEvidenceOperation;
 import tech.kayys.numou.construction.application.consultancy.ConsultancyEvidenceOperationsAdminStore;
+import tech.kayys.numou.construction.application.consultancy.ConsultancyEvidenceOperationsSnapshot;
+import tech.kayys.numou.construction.application.consultancy.ConsultancyEvidenceRecoveryAuditEntry;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -17,7 +19,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** PostgreSQL implementation; recovery and its audit record commit atomically. */
 @ApplicationScoped
 public class PgConsultancyEvidenceOperationsAdminStore implements ConsultancyEvidenceOperationsAdminStore {
     private static final String COLUMNS = """
@@ -46,6 +47,57 @@ public class PgConsultancyEvidenceOperationsAdminStore implements ConsultancyEvi
     }
 
     @Override
+    public Uni<ConsultancyEvidenceOperationsSnapshot> snapshot(String tenantId) {
+        String sql = """
+            SELECT
+              count(*) FILTER (WHERE status = 'PENDING') AS pending_count,
+              count(*) FILTER (WHERE status = 'RETRYABLE_FAILURE') AS retryable_count,
+              count(*) FILTER (WHERE status = 'TERMINAL_FAILURE') AS terminal_count,
+              count(*) FILTER (WHERE status = 'LINKED') AS linked_count,
+              min(updated_at) FILTER (WHERE status = 'PENDING') AS oldest_pending,
+              min(updated_at) FILTER (WHERE status = 'RETRYABLE_FAILURE') AS oldest_retryable,
+              min(updated_at) FILTER (WHERE status = 'TERMINAL_FAILURE') AS oldest_terminal
+            FROM construction_consultancy_evidence_operation
+            WHERE tenant_id = $1
+            """;
+        return pool.preparedQuery(sql).execute(Tuple.of(tenantId)).map(rows -> {
+            Row row = rows.iterator().next();
+            return new ConsultancyEvidenceOperationsSnapshot(
+                    row.getLong("pending_count"), row.getLong("retryable_count"),
+                    row.getLong("terminal_count"), row.getLong("linked_count"),
+                    instant(row.getOffsetDateTime("oldest_pending")),
+                    instant(row.getOffsetDateTime("oldest_retryable")),
+                    instant(row.getOffsetDateTime("oldest_terminal")));
+        });
+    }
+
+    @Override
+    public Uni<List<ConsultancyEvidenceRecoveryAuditEntry>> recoveryHistory(
+            String tenantId, UUID operationId, int limit, int offset) {
+        String sql = """
+            SELECT audit_id, operation_id, actor_id, reason, idempotency_key,
+                   previous_status, resulting_status, occurred_at
+              FROM construction_consultancy_evidence_operation_recovery_audit
+             WHERE tenant_id = $1 AND operation_id = $2
+             ORDER BY occurred_at DESC, audit_id DESC
+             LIMIT $3 OFFSET $4
+            """;
+        return pool.preparedQuery(sql).execute(Tuple.of(tenantId, operationId, limit, offset))
+                .map(rows -> {
+                    List<ConsultancyEvidenceRecoveryAuditEntry> result = new ArrayList<>();
+                    for (Row row : rows) {
+                        result.add(new ConsultancyEvidenceRecoveryAuditEntry(
+                                row.getUUID("audit_id"), row.getUUID("operation_id"), row.getUUID("actor_id"),
+                                row.getString("reason"), row.getString("idempotency_key"),
+                                ConsultancyEvidenceOperation.Status.valueOf(row.getString("previous_status")),
+                                ConsultancyEvidenceOperation.Status.valueOf(row.getString("resulting_status")),
+                                row.getOffsetDateTime("occurred_at").toInstant()));
+                    }
+                    return List.copyOf(result);
+                });
+    }
+
+    @Override
     public Uni<ConsultancyEvidenceOperation> recoverTerminalFailure(RecoveryRequest request) {
         return pool.withTransaction(connection -> recover(connection, request));
     }
@@ -59,44 +111,33 @@ public class PgConsultancyEvidenceOperationsAdminStore implements ConsultancyEvi
         return connection.preparedQuery(find)
                 .execute(Tuple.of(request.tenantId(), request.operationId()))
                 .chain(rows -> {
-                    if (!rows.iterator().hasNext()) {
-                        return Uni.createFrom().failure(new EvidenceOperationNotFoundException());
-                    }
+                    if (!rows.iterator().hasNext()) return Uni.createFrom().failure(new EvidenceOperationNotFoundException());
                     ConsultancyEvidenceOperation current = map(rows.iterator().next());
                     if (current.status() != ConsultancyEvidenceOperation.Status.TERMINAL_FAILURE) {
-                        return findPriorRecovery(connection, request)
-                                .chain(prior -> prior
-                                        ? Uni.createFrom().item(current)
-                                        : Uni.createFrom().failure(
-                                                new EvidenceOperationNotRecoverableException(current.status())));
+                        return findPriorRecovery(connection, request).chain(prior -> prior
+                                ? Uni.createFrom().item(current)
+                                : Uni.createFrom().failure(new EvidenceOperationNotRecoverableException(current.status())));
                     }
-                    return appendAudit(connection, request)
-                            .chain(inserted -> {
-                                if (!inserted) {
-                                    return findPriorRecovery(connection, request)
-                                            .chain(prior -> prior
-                                                    ? Uni.createFrom().item(current)
-                                                    : Uni.createFrom().failure(
-                                                            new EvidenceRecoveryIdempotencyConflictException()));
-                                }
-                                String update = """
-                                    UPDATE construction_consultancy_evidence_operation
-                                       SET status = 'PENDING', available_at = $3,
-                                           worker_id = NULL, lease_token = NULL, locked_until = NULL,
-                                           updated_at = $3
-                                     WHERE tenant_id = $1 AND operation_id = $2
-                                       AND status = 'TERMINAL_FAILURE'
-                                    RETURNING
-                                    """ + COLUMNS;
-                                return connection.preparedQuery(update)
-                                        .execute(Tuple.of(request.tenantId(), request.operationId(), utc(request.occurredAt())))
-                                        .map(updated -> {
-                                            if (!updated.iterator().hasNext()) {
-                                                throw new IllegalStateException("Evidence operation changed during locked recovery");
-                                            }
-                                            return map(updated.iterator().next());
-                                        });
-                            });
+                    return appendAudit(connection, request).chain(inserted -> {
+                        if (!inserted) return findPriorRecovery(connection, request).chain(prior -> prior
+                                ? Uni.createFrom().item(current)
+                                : Uni.createFrom().failure(new EvidenceRecoveryIdempotencyConflictException()));
+                        String update = """
+                            UPDATE construction_consultancy_evidence_operation
+                               SET status = 'PENDING', available_at = $3,
+                                   worker_id = NULL, lease_token = NULL, locked_until = NULL,
+                                   updated_at = $3
+                             WHERE tenant_id = $1 AND operation_id = $2
+                               AND status = 'TERMINAL_FAILURE'
+                            RETURNING
+                            """ + COLUMNS;
+                        return connection.preparedQuery(update)
+                                .execute(Tuple.of(request.tenantId(), request.operationId(), utc(request.occurredAt())))
+                                .map(updated -> {
+                                    if (!updated.iterator().hasNext()) throw new IllegalStateException("Evidence operation changed during locked recovery");
+                                    return map(updated.iterator().next());
+                                });
+                    });
                 });
     }
 
@@ -141,6 +182,8 @@ public class PgConsultancyEvidenceOperationsAdminStore implements ConsultancyEvi
                 row.getInteger("attempts"), row.getString("last_failure"),
                 row.getOffsetDateTime("created_at").toInstant(), row.getOffsetDateTime("updated_at").toInstant());
     }
+
+    private static Instant instant(OffsetDateTime value) { return value == null ? null : value.toInstant(); }
     private static OffsetDateTime utc(Instant instant) { return instant.atOffset(ZoneOffset.UTC); }
 
     public static final class EvidenceOperationNotFoundException extends RuntimeException {}
