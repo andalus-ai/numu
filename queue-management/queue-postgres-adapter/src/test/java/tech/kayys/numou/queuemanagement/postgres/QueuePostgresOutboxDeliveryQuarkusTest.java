@@ -62,7 +62,10 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
         UUID eventId = insertEvent();
         QueueOutboxMessage first = delivery.claim(TENANT, "dispatcher-old", 10, Duration.ofSeconds(1))
                 .stream().filter(item -> item.eventId().equals(eventId)).findFirst().orElseThrow();
-        try (Connection connection = dataSource.getConnection()) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement expire = connection.prepareStatement(
+                     "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
+                             + "WHERE tenant_id = ? AND event_id = ?")) {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement expire = connection.prepareStatement(
@@ -70,8 +73,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                             + "WHERE tenant_id = ? AND event_id = ?")) {
             expire.setObject(1, TENANT);
             expire.setObject(2, eventId);
-                assertEquals(1, expire.executeUpdate());
-            }
+            assertEquals(1, expire.executeUpdate());
             connection.commit();
         }
 
@@ -122,7 +124,10 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
             }
             connection.commit();
         }
-        try (Connection connection = dataSource.getConnection()) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement query = connection.prepareStatement(
+                     "SELECT count(*) FROM queue_audit WHERE tenant_id = ? AND resource_id = ? "
+                             + "AND action = 'OUTBOX_DEAD_LETTER_REPLAYED'")) {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement query = connection.prepareStatement(
