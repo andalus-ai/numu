@@ -25,13 +25,23 @@ public final class WorkspaceMentionService {
     private final WorkspaceMentionDirectory directory;
     private final WorkspaceMentionNotificationPort notifications;
 
+    /** Durable-outbox composition: direct post-commit Notification dispatch is not required. */
+    public WorkspaceMentionService(PageRepository pages, AccessPolicy access,
+                                   WorkspaceMentionDirectory directory) {
+        this(pages, access, directory, null);
+    }
+
+    /**
+     * Compatibility constructor for hosts that still explicitly use the legacy synchronous
+     * notification method. New comment workflows should persist prepared intents via the outbox.
+     */
     public WorkspaceMentionService(PageRepository pages, AccessPolicy access,
                                    WorkspaceMentionDirectory directory,
                                    WorkspaceMentionNotificationPort notifications) {
         this.pages = Objects.requireNonNull(pages, "pages");
         this.access = Objects.requireNonNull(access, "access");
         this.directory = Objects.requireNonNull(directory, "directory");
-        this.notifications = Objects.requireNonNull(notifications, "notifications");
+        this.notifications = notifications;
     }
 
     public List<Member> suggest(UUID tenantId, UUID actorId, UUID pageId, String query, int requestedLimit) {
@@ -71,9 +81,13 @@ public final class WorkspaceMentionService {
                 .toList();
     }
 
-    /** Called only after the comment has been persisted. Notification adapters must be idempotent. */
+    /** Legacy direct-delivery path. Durable comment workflows must use prepareCommentMentions instead. */
+    @Deprecated(forRemoval = false)
     public List<UUID> notifyCommentMentions(UUID tenantId, UUID actorId, UUID pageId,
                                             UUID commentId, String body) {
+        if (notifications == null) {
+            throw new IllegalStateException("Synchronous mention notifications are not configured; use the durable outbox");
+        }
         identity(tenantId, actorId);
         Page page = requirePage(tenantId, pageId);
         access.require(tenantId, actorId, Resource.PAGE, page.id(), Action.UPDATE);
