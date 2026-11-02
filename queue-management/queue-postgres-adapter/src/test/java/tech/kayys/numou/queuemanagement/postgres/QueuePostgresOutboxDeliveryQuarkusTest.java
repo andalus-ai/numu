@@ -66,11 +66,19 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement expire = connection.prepareStatement(
+                     "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
+                             + "WHERE tenant_id = ? AND event_id = ?")) {
+            connection.setAutoCommit(false);
+            setTenant(connection);
+            try (PreparedStatement expire = connection.prepareStatement(
                     "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
                             + "WHERE tenant_id = ? AND event_id = ?")) {
             expire.setObject(1, TENANT);
             expire.setObject(2, eventId);
-                assertEquals(1, expire.executeUpdate());
+            assertEquals(1, expire.executeUpdate());
+            expire.setObject(1, TENANT);
+            expire.setObject(2, eventId);
+            assertEquals(1, expire.executeUpdate());
             }
             connection.commit();
         }
@@ -111,7 +119,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement query = connection.prepareStatement(
-                    "SELECT replay_count, total_attempt_count FROM queue_outbox WHERE tenant_id = ? AND event_id = ?")) {
+                     "SELECT replay_count, total_attempt_count FROM queue_outbox WHERE tenant_id = ? AND event_id = ?")) {
             query.setObject(1, TENANT);
             query.setObject(2, eventId);
             try (var rs = query.executeQuery()) {
@@ -126,6 +134,11 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement query = connection.prepareStatement(
+                     "SELECT count(*) FROM queue_audit WHERE tenant_id = ? AND resource_id = ? "
+                             + "AND action = 'OUTBOX_DEAD_LETTER_REPLAYED'")) {
+            connection.setAutoCommit(false);
+            setTenant(connection);
+            try (PreparedStatement query = connection.prepareStatement(
                     "SELECT count(*) FROM queue_audit WHERE tenant_id = ? AND resource_id = ? "
                             + "AND action = 'OUTBOX_DEAD_LETTER_REPLAYED'")) {
             query.setObject(1, TENANT);
@@ -136,6 +149,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                 }
             }
             connection.commit();
+            }
         }
     }
 
