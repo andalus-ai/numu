@@ -116,6 +116,41 @@ class JdbcPushDeviceRepositoryTest {
 
 
     @Test
+    void managementSummariesDoNotSelectOrDecryptProviderTokens() {
+        UUID tenant = UUID.randomUUID();
+        UUID recipient = UUID.randomUUID();
+        PushDevice stored = repository.registerOrRefresh(device(tenant, recipient, "secret-subscription-json", now));
+
+        PushTokenProtector noRevealProtector = new PushTokenProtector() {
+            @Override public EncryptedToken protect(UUID tenantId, UUID recipientId, String plaintextToken) {
+                return protector().protect(tenantId, recipientId, plaintextToken);
+            }
+            @Override public String reveal(UUID tenantId, UUID recipientId, String keyId, String ciphertext) {
+                throw new AssertionError("management projection must never decrypt provider tokens");
+            }
+        };
+        JdbcPushDeviceRepository metadataRepository =
+                new JdbcPushDeviceRepository(dataSource(), noRevealProtector);
+
+        var registeredSummary = metadataRepository.registerOrRefreshSummary(
+                device(tenant, recipient, "secret-subscription-json", now.plusSeconds(5)));
+        assertEquals(stored.id(), registeredSummary.id());
+        assertTrue(registeredSummary.active());
+
+        var summaries = metadataRepository.findActiveSummaries(tenant, recipient);
+
+        assertEquals(1, summaries.size());
+        assertEquals(stored.id(), summaries.getFirst().id());
+        assertEquals(PushDevice.Platform.ANDROID, summaries.getFirst().platform());
+        assertTrue(summaries.getFirst().active());
+        assertFalse(summaries.getFirst().toString().contains("secret-subscription-json"));
+
+        var disabled = metadataRepository.disableSummary(
+                tenant, recipient, stored.id(), now.plusSeconds(10)).orElseThrow();
+        assertFalse(disabled.active());
+    }
+
+    @Test
     void legacyTokenMigrationIsBoundedResumableAndRemovesPlaintext() throws Exception {
         UUID tenant = UUID.randomUUID();
         UUID recipient = UUID.randomUUID();
@@ -166,6 +201,14 @@ class JdbcPushDeviceRepositoryTest {
                     tenant, recipient, rows.getString("provider_token_key_id"),
                     rows.getString("provider_token_ciphertext")));
         }
+    }
+
+    private PGSimpleDataSource dataSource() {
+        PGSimpleDataSource dataSource = new PGSimpleDataSource();
+        dataSource.setURL(POSTGRES.getJdbcUrl());
+        dataSource.setUser(POSTGRES.getUsername());
+        dataSource.setPassword(POSTGRES.getPassword());
+        return dataSource;
     }
 
     private PushDevice device(UUID tenant, UUID recipient, String token, Instant time) {

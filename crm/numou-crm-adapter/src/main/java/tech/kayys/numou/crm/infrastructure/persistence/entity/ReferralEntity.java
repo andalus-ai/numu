@@ -15,15 +15,20 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Referral entity for persistence.
+ * Referral entity for persistence. Tenant ownership is nullable only to allow
+ * controlled reconciliation of legacy rows; application queries fail closed.
  */
 @Entity
 @Table(name = "crm_referrals", indexes = {
-    @Index(name = "idx_referral_referrer", columnList = "referrer_account_id"),
-    @Index(name = "idx_referral_status", columnList = "status"),
-    @Index(name = "idx_referral_code", columnList = "code")
+    @Index(name = "idx_referral_tenant", columnList = "tenant_id"),
+    @Index(name = "idx_referral_tenant_referrer", columnList = "tenant_id, referrer_account_id"),
+    @Index(name = "idx_referral_tenant_status", columnList = "tenant_id, status"),
+    @Index(name = "idx_referral_tenant_code", columnList = "tenant_id, code")
 })
 public class ReferralEntity extends BaseEntity {
+
+    @Column(name = "tenant_id")
+    public UUID tenantId;
 
     @Column(name = "referrer_account_id", nullable = false)
     public UUID referrerAccountId;

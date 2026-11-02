@@ -46,6 +46,25 @@ class PageCommentServiceTest {
     }
 
     @Test
+    void anchorsNewThreadsToStableBlocksOwnedByThePage() {
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
+        PageBlock block = PageBlock.text(BlockType.PARAGRAPH, "Review this paragraph", 0);
+        Page page = new Page(UUID.randomUUID(), tenant, UUID.randomUUID(), UUID.randomUUID(),
+                null, "Anchored page", List.of(block), 1, Instant.EPOCH, Instant.EPOCH);
+        Store store = new Store(page);
+        PageCommentService service = new PageCommentService(store, store,
+                (t, a, resource, id, action) -> {}, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
+
+        PageCommentThread thread = service.createThread(tenant, actor, page.id(), block.id(),
+                "Please clarify", ignored -> List.of());
+        assertEquals(block.id(), thread.anchorBlockId());
+        assertEquals(block.id(), store.findThread(tenant, page.id(), thread.id()).orElseThrow().anchorBlockId());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createThread(tenant, actor, page.id(), UUID.randomUUID(),
+                        "Foreign anchor", ignored -> List.of()));
+    }
+
+    @Test
     void tenantAndPageScopeAreEnforcedBeforeCommentReadsAndWrites() {
         UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
         Page page = page(tenant);

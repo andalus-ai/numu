@@ -103,5 +103,16 @@ class QueueOutboxDispatchServiceTest {
             error.set(failure);
             return event.attemptCount() >= maxAttempts ? RetryOutcome.DEAD_LETTERED : RetryOutcome.RESCHEDULED;
         }
+
+        @Override
+        public List<tech.kayys.numou.queuemanagement.spi.QueueDeadLetterMessage> listDeadLetters(UUID tenantId, int limit) {
+            return List.of();
+        }
+
+        @Override
+        public boolean replayDeadLetter(UUID tenantId, UUID eventId, String actorId,
+                                        String correlationId, String reason) {
+            return false;
+        }
     }
 }

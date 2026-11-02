@@ -8,6 +8,7 @@ import tech.kayys.numou.event.domain.identifier.CorrelationId;
 import tech.kayys.numou.event.domain.valueobject.EventMetadata;
 import tech.kayys.numou.event.domain.valueobject.EventVersion;
 import tech.kayys.numou.reliability.adapter.json.EventTypeRegistry;
+import tech.kayys.numou.reliability.adapter.json.JsonDomainEvent;
 import tech.kayys.numou.reliability.adapter.json.JsonEventSerializer;
 
 import java.util.UUID;
@@ -77,6 +78,42 @@ class JsonEventSerializerTest {
         final var meta = EventMetadata.of(null, null, "system", CorrelationId.of("c"));
         final var env = EventEnvelope.of(meta, new TableSeated(UUID.randomUUID(), "2026-10-07T12:00:00Z", UUID.randomUUID(), 2));
         assertThat(serializer.deserialize(serializer.serialize(env), null).metadata().tenantId()).isNull();
+    }
+
+
+    @Test
+    void organizationAssociationLifecycleEventUsesThePlatformGenericFallback() throws Exception {
+        final UUID tenantId = UUID.randomUUID();
+        final UUID eventId = UUID.randomUUID();
+        final UUID associationId = UUID.randomUUID();
+        final String eventType = "organization.party-association.changed";
+
+        final var platformRegistry = new ReliabilityProducer().registry();
+        assertThat(platformRegistry.classFor(eventType)).isEqualTo(JsonDomainEvent.class);
+
+        final var data = mapper.createObjectNode();
+        data.put("associationId", associationId.toString());
+        data.put("organizationId", UUID.randomUUID().toString());
+        data.put("partyId", UUID.randomUUID().toString());
+        data.put("status", "ACTIVE");
+        data.put("version", 1);
+        data.put("transition", "PENDING_VERIFICATION_TO_ACTIVE");
+
+        final var payload = new JsonDomainEvent(eventId, "2026-11-02T00:00:00Z", eventType, data);
+        final var metadata = EventMetadata.of(tenantId, null, "verifier-1", CorrelationId.of("org-association-correlation"));
+        final var envelope = EventEnvelope.of(metadata, payload);
+        final var platformSerializer = new JsonEventSerializer(mapper, platformRegistry);
+
+        final var restored = platformSerializer.deserialize(
+                platformSerializer.serialize(envelope), eventType);
+        assertThat(restored.metadata().tenantId()).isEqualTo(tenantId);
+        assertThat(restored.metadata().actorId()).isEqualTo("verifier-1");
+        assertThat(restored.payload()).isInstanceOf(JsonDomainEvent.class);
+        final var restoredPayload = (JsonDomainEvent) restored.payload();
+        assertThat(restoredPayload.eventId()).isEqualTo(eventId);
+        assertThat(restoredPayload.data().path("associationId").asText()).isEqualTo(associationId.toString());
+        assertThat(restoredPayload.data().path("transition").asText())
+                .isEqualTo("PENDING_VERIFICATION_TO_ACTIVE");
     }
 
     @Test
