@@ -62,7 +62,16 @@ select pg_temp.assert_sqlstate($q$
     )
 $q$, '23505');
 
--- Approval requires a different reviewer and records an audit event.
+-- Approval requires a different reviewer and a review rationale.
+select pg_temp.assert_sqlstate($q$
+    update crm_tenant_ownership_proposals
+       set status = 'APPROVED',
+           reviewed_by = 'operator:alice',
+           reviewed_at = now(),
+           review_note = 'Self-approval must fail.'
+     where proposal_id = 'a1600000-0000-0000-0000-000000000010'
+$q$, '23514');
+
 update crm_tenant_ownership_proposals
    set status = 'APPROVED',
        reviewed_by = 'reviewer:bob',
@@ -79,6 +88,17 @@ $q$, 'P0001');
 select pg_temp.assert_sqlstate($q$
     update crm_tenant_ownership_proposals
        set status = 'PENDING'
+     where proposal_id = 'a1600000-0000-0000-0000-000000000010'
+$q$, 'P0001');
+
+-- Approval metadata cannot be replaced while marking execution complete.
+select pg_temp.assert_sqlstate($q$
+    update crm_tenant_ownership_proposals
+       set status = 'APPLIED',
+           reviewed_by = 'reviewer:mallory',
+           applied_by = 'operator:carol',
+           applied_at = now(),
+           execution_reference = 'change-ticket:tampered'
      where proposal_id = 'a1600000-0000-0000-0000-000000000010'
 $q$, 'P0001');
 
