@@ -42,6 +42,7 @@ create table crm_tenant_ownership_proposals (
         (status in ('APPROVED', 'REJECTED')
             and reviewed_by is not null and length(btrim(reviewed_by)) > 0
             and reviewed_at is not null
+            and review_note is not null and length(btrim(review_note)) > 0
             and applied_by is null and applied_at is null
             and execution_reference is null)
         or
@@ -115,6 +116,11 @@ begin
             event_name := 'REJECTED';
             actor_name := new.reviewed_by;
         elsif old.status = 'APPROVED' and new.status = 'APPLIED' then
+            if new.reviewed_by is distinct from old.reviewed_by
+               or new.reviewed_at is distinct from old.reviewed_at
+               or new.review_note is distinct from old.review_note then
+                raise exception 'Approval metadata is immutable after review';
+            end if;
             event_name := 'APPLIED';
             actor_name := new.applied_by;
         else
