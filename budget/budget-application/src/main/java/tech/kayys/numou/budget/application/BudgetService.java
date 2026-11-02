@@ -24,8 +24,9 @@ public final class BudgetService {
         budgets.save(budget);
     }
 
-    public BudgetControlResult checkAvailability(String budgetId, Money requested) {
-        Budget budget = budgets.find(budgetId).orElse(null);
+    public BudgetControlResult checkAvailability(String tenantId, String budgetId, Money requested) {
+        requireTenant(tenantId);
+        Budget budget = budgets.find(tenantId, budgetId).orElse(null);
         if (budget == null) {
             return BudgetControlResult.block(requested, Money.zero(requested.currency().code()));
         }
@@ -47,8 +48,9 @@ public final class BudgetService {
      * Computes variance = actualSpent - allocated.
      * Negative variance means under budget (favorable); positive means over budget.
      */
-    public BigDecimal calculateVariancePercentage(String budgetId) {
-        Budget budget = budgets.find(budgetId)
+    public BigDecimal calculateVariancePercentage(String tenantId, String budgetId) {
+        requireTenant(tenantId);
+        Budget budget = budgets.find(tenantId, budgetId)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found: " + budgetId));
 
         BigDecimal allocated = budget.allocatedAmount().amount();
@@ -60,5 +62,12 @@ public final class BudgetService {
                 .multiply(new BigDecimal("100"));
     }
 
-    public Optional<Budget> find(String budgetId) { return budgets.find(budgetId); }
+    public Optional<Budget> find(String tenantId, String budgetId) {
+        requireTenant(tenantId);
+        return budgets.find(tenantId, budgetId);
+    }
+
+    private void requireTenant(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId must not be blank");
+    }
 }
