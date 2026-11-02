@@ -57,17 +57,37 @@ class CheckoutOrchestrationServiceTest {
         assertEquals(1, f.releaseCalls);
     }
 
+
+    @Test void recoveryWorkerProcessesOnlyTenantScopedBoundedCandidates() {
+        Fixture f = new Fixture(CheckoutPaymentPort.Status.SUCCEEDED);
+        f.service.start(TENANT, CHECKOUT, SALE, f.total);
+        CheckoutRecoveryService worker = new CheckoutRecoveryService(f.repository, f.service);
+        CheckoutRecoveryService.RecoveryReport report = worker.recoverTenant(TENANT, 10);
+        assertEquals(1, report.attempted());
+        assertEquals(1, report.completed());
+        assertEquals(0, report.errors());
+    }
+
     private final class Fixture {
         final Map<UUID, CheckoutSession> sessions = new HashMap<>();
+        final CheckoutRepository repository;
         int reserveCalls, commitCalls, releaseCalls, createPaymentCalls;
         CheckoutPaymentPort.Status paymentStatus;
         final CheckoutOrchestrationService service;
 
         Fixture(CheckoutPaymentPort.Status status) {
             paymentStatus = status;
-            CheckoutRepository repository = new CheckoutRepository() {
+            repository = new CheckoutRepository() {
                 public Optional<CheckoutSession> find(String tenant, UUID id) {
                     return Optional.ofNullable(sessions.get(id)).filter(s -> s.tenantId().equals(tenant));
+                }
+                public List<CheckoutSession> findRecoverable(String tenant, int limit) {
+                    return sessions.values().stream().filter(s -> s.tenantId().equals(tenant))
+                            .filter(s -> s.status() == CheckoutSession.Status.PAYMENT_PENDING
+                                    || s.status() == CheckoutSession.Status.PAYMENT_UNKNOWN
+                                    || s.status() == CheckoutSession.Status.PAID
+                                    || s.status() == CheckoutSession.Status.COMPENSATION_REQUIRED)
+                            .limit(limit).toList();
                 }
                 public CheckoutSession create(CheckoutSession s) {
                     if (sessions.putIfAbsent(s.id(), s) != null) throw new IllegalStateException("duplicate");
