@@ -95,6 +95,8 @@ public class PgOutboxStore implements OutboxStorePort {
 
     @Override
     public Uni<List<OutboxClaim>> nextDue(int limit) {
+        if (limit < 1) throw new IllegalArgumentException("limit must be >= 1");
+        if (lease.isZero() || lease.isNegative()) throw new IllegalStateException("numou.outbox.lease must be positive");
         return pool.preparedQuery(CLAIM).execute(Tuple.of(limit, lease.toMillis()))
                 .map(rows -> StreamSupport.stream(rows.spliterator(), false)
                         .map(this::toClaim)
