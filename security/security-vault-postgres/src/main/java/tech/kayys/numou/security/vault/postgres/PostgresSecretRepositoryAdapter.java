@@ -174,7 +174,9 @@ public final class PostgresSecretRepositoryAdapter implements SecretRepositoryPo
                 statement.setString(7, auditEntry.eventType());
                 statement.setString(8, auditEntry.details());
                 statement.setTimestamp(9, Timestamp.from(auditEntry.occurredAt()));
-                bindScope(statement, 10, tenantId, vaultId, secretId);
+                statement.setObject(10, tenantId);
+                statement.setObject(11, vaultId.value());
+                statement.setObject(12, secretId.value());
                 statement.setInt(13, version);
                 if (statement.executeUpdate() != 1)
                     throw new IllegalStateException("secret version does not exist");
