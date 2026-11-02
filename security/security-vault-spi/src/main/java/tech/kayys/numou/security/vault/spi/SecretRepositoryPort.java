@@ -10,7 +10,13 @@ import java.util.UUID;
 
 /** Persistence boundary. Implementations must enforce tenant-scoped uniqueness and append-only versions. */
 public interface SecretRepositoryPort {
-    /** Atomically allocates and appends the next version; concurrent writers must not overwrite each other. */
+    /**
+     * Atomically appends a version only when the persisted latest version equals
+     * expectedPreviousVersion and newVersion equals expectedPreviousVersion + 1.
+     * A mismatch must fail with a concurrency/conflict error, never overwrite.
+     * Implementations must scope every lookup and uniqueness constraint by tenant.
+     * The adapter must defensively copy ciphertext before retaining it.
+     */
     Uni<EncryptedSecret> appendVersion(UUID tenantId, VaultId vaultId, SecretId secretId,
                                       int expectedPreviousVersion, int newVersion,
                                       String algorithm, int formatVersion, String keyId,
