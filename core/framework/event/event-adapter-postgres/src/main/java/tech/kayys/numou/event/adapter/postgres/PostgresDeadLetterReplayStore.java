@@ -2,6 +2,8 @@ package tech.kayys.numou.event.adapter.postgres;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import tech.kayys.numou.event.spi.port.DeadLetterReplayStorePort;
 
 import javax.sql.DataSource;
@@ -19,11 +21,13 @@ import java.util.UUID;
  * PostgreSQL lease and audit implementation. JDBC work is dispatched to
  * Mutiny's worker pool so blocking database calls never run on an event loop.
  */
+@ApplicationScoped
 public final class PostgresDeadLetterReplayStore implements DeadLetterReplayStorePort {
     private static final Duration DEFAULT_LEASE = Duration.ofMinutes(2);
     private final DataSource dataSource;
     private final Duration leaseDuration;
 
+    @Inject
     public PostgresDeadLetterReplayStore(DataSource dataSource) {
         this(dataSource, DEFAULT_LEASE);
     }
