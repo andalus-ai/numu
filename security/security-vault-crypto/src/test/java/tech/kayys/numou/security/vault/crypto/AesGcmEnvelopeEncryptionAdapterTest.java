@@ -9,6 +9,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Arrays;
 import java.util.UUID;
+import java.security.SecureRandom;
+import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -71,20 +73,24 @@ class AesGcmEnvelopeEncryptionAdapterTest {
     private static final class InMemoryKek implements KeyEncryptionPort {
         private final byte[] kek = new byte[32];
         private int wraps;
+        private final SecureRandom random = new SecureRandom();
         private InMemoryKek() { Arrays.fill(kek, (byte) 7); }
         public String activeKeyId(UUID tenantId) { return "test-kek-v1"; }
         public byte[] wrap(UUID tenantId, String keyId, byte[] dataKey) {
             wraps++;
-            return crypt(Cipher.ENCRYPT_MODE, dataKey);
+            byte[] nonce = new byte[12];
+            random.nextBytes(nonce);
+            byte[] encrypted = crypt(Cipher.ENCRYPT_MODE, dataKey, nonce);
+            return ByteBuffer.allocate(nonce.length + encrypted.length).put(nonce).put(encrypted).array();
         }
         public byte[] unwrap(UUID tenantId, String keyId, byte[] wrappedDataKey) {
-            return crypt(Cipher.DECRYPT_MODE, wrappedDataKey);
+            byte[] nonce = Arrays.copyOfRange(wrappedDataKey, 0, 12);
+            byte[] encrypted = Arrays.copyOfRange(wrappedDataKey, 12, wrappedDataKey.length);
+            return crypt(Cipher.DECRYPT_MODE, encrypted, nonce);
         }
-        private byte[] crypt(int mode, byte[] input) {
+        private byte[] crypt(int mode, byte[] input, byte[] nonce) {
             try {
                 Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-                byte[] nonce = new byte[12];
-                Arrays.fill(nonce, (byte) 3);
                 cipher.init(mode, new SecretKeySpec(kek, "AES"), new GCMParameterSpec(128, nonce));
                 return cipher.doFinal(input);
             } catch (Exception e) { throw new IllegalStateException(e); }
