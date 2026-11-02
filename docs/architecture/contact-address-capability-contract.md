@@ -68,6 +68,38 @@ Requirements:
 - Treat geocoding and administrative-boundary datasets as optional adapters/reference data, not mandatory domain dependencies.
 - Preserve transaction-time address snapshots in orders, invoices, bookings, shipments, and other records that require historical evidence. Editing a current Party address must not silently rewrite past transactions.
 
+## 5.1 International address representation
+
+Internationalization is a first-class contract requirement, not a country-specific set of columns.
+
+- Preserve the submitted address text and script. Apply Unicode NFC normalization only where safe; never transliterate or translate canonical address values as a side effect.
+- Keep country identity as ISO 3166-1 alpha-2. Country-specific formatting, required components, postal-code rules, and administrative hierarchy belong to versioned country metadata/reference data, not a universal fixed schema.
+- Represent components that require validation or integration as typed values or stable references. A country's hierarchy may have different levels and names; do not assume every country has province/state, city, district, and postal code in the same order.
+- Indonesia must be representable with province, kabupaten/kota, kecamatan, desa/kelurahan, RT/RW, postal code, street/building/number, building/floor/unit, and landmark/delivery instruction where relevant. These are a country profile over the neutral address contract, not mandatory fields for every country.
+- Keep administrative-boundary identifiers and geocoding coordinates/provider responses in Geo/reference-data contracts. An address remains usable when no geocoder or reference-data provider is configured.
+- Distinguish a postal address from a geospatial point, service area, or route destination. Do not infer coordinates from free text inside the domain model.
+- Country-specific address rendering must be driven by versioned format metadata and locale, and must not rewrite the stored components.
+
+## 5.2 Locale and language ownership
+
+Locale, language, time zone, and currency are related but distinct concepts.
+
+- Use BCP 47 language tags for language/locale identifiers (for example, `id-ID`, `en-ID`, `zh-Hant-TW`). Validate and canonicalize tags at the boundary; reject malformed tags rather than silently converting them to an unrelated default.
+- A user's preferred language/locale belongs to the relevant Person/Profile preference contract. A tenant's default locale belongs to tenant configuration. A request-scoped locale override belongs to request context. Do not make a global Party locale authoritative for every tenant or application.
+- Support an ordered language preference list where product behavior requires fallback (for example, `id-ID`, then `en`). Keep explicit user preference distinct from the locale selected by fallback.
+- Keep time zone as an IANA time-zone identifier and currency as an ISO 4217 code. Neither may be derived implicitly from locale or country.
+- Keep locale-aware formatting (dates, numbers, currencies, phone display, address rendering) in presentation/application adapters using maintained locale data such as ICU/CLDR. Domain values remain typed and culture-neutral.
+- Localized labels and descriptions for governed attribute definitions may carry BCP 47 language tags. Attribute keys, stored values, identifiers, and business rules must not vary by display language.
+- Translation catalogs, message negotiation, plural rules, and UI resource bundles are platform/application concerns; Contact, Profile, and Address must not become a translation service.
+- Preserve original user-entered names and address scripts. Optional transliterations are additional derived/display values with provenance, not replacements.
+
+## 5.3 Profile and internationalization boundary
+
+- A generic Person Profile may expose preferred locale/language preferences as profile preferences, but must not own tenant defaults, translation catalogs, authentication locale policy, or legal identity attributes owned elsewhere.
+- Organization Profile may expose declared operating languages and a preferred communication language where useful; these do not replace tenant or per-contact preferences.
+- ContactPoint values remain endpoint identifiers. Communication language and channel consent are separate association/policy concerns and must be resolved by the owning communication/privacy capability.
+- Localized profile display names or descriptions, where required, must preserve the source language and use explicit language tags. Do not silently overwrite a canonical legal name with a translated label.
+
 ## 6. Custom and additional attributes
 
 Custom attributes are required, but must be governed metadata—not an untyped map that bypasses domain rules.
