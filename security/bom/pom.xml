@@ -60,6 +60,21 @@
                 <artifactId>numou-security-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-vault-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-vault-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-vault-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- Extracted bounded contexts -->
             <dependency>

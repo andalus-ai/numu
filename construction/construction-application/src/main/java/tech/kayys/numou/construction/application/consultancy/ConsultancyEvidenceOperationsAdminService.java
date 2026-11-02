@@ -9,9 +9,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Authorized application use cases for evidence-operation operations. */
 @ApplicationScoped
 public class ConsultancyEvidenceOperationsAdminService {
+    private static final int MAX_PAGE_SIZE = 200;
     private final ConsultancyEvidenceOperationsAdminStore store;
     private final ConsultancyEvidenceOperationsAdminAuthorization authorization;
     private final Clock clock;
@@ -37,11 +37,29 @@ public class ConsultancyEvidenceOperationsAdminService {
         String tenant = requireTenant(tenantId);
         Objects.requireNonNull(actorId, "actorId");
         Objects.requireNonNull(status, "status");
-        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
-        if (offset < 0) throw new IllegalArgumentException("offset cannot be negative");
+        validatePage(limit, offset);
         return authorization.requireOperationsAccess(tenant, actorId,
                         ConsultancyEvidenceOperationsAdminAuthorization.Action.VIEW)
                 .chain(() -> store.list(tenant, status, limit, offset));
+    }
+
+    public Uni<ConsultancyEvidenceOperationsSnapshot> snapshot(String tenantId, UUID actorId) {
+        String tenant = requireTenant(tenantId);
+        Objects.requireNonNull(actorId, "actorId");
+        return authorization.requireOperationsAccess(tenant, actorId,
+                        ConsultancyEvidenceOperationsAdminAuthorization.Action.VIEW)
+                .chain(() -> store.snapshot(tenant));
+    }
+
+    public Uni<List<ConsultancyEvidenceRecoveryAuditEntry>> recoveryHistory(
+            String tenantId, UUID operationId, UUID actorId, int limit, int offset) {
+        String tenant = requireTenant(tenantId);
+        Objects.requireNonNull(operationId, "operationId");
+        Objects.requireNonNull(actorId, "actorId");
+        validatePage(limit, offset);
+        return authorization.requireOperationsAccess(tenant, actorId,
+                        ConsultancyEvidenceOperationsAdminAuthorization.Action.VIEW_RECOVERY_HISTORY)
+                .chain(() -> store.recoveryHistory(tenant, operationId, limit, offset));
     }
 
     public Uni<ConsultancyEvidenceOperation> recoverTerminalFailure(
@@ -54,6 +72,11 @@ public class ConsultancyEvidenceOperationsAdminService {
         return authorization.requireOperationsAccess(tenant, actorId,
                         ConsultancyEvidenceOperationsAdminAuthorization.Action.RECOVER_TERMINAL_FAILURE)
                 .chain(() -> store.recoverTerminalFailure(request));
+    }
+
+    private static void validatePage(int limit, int offset) {
+        if (limit < 1 || limit > MAX_PAGE_SIZE) throw new IllegalArgumentException("limit must be between 1 and 200");
+        if (offset < 0) throw new IllegalArgumentException("offset cannot be negative");
     }
 
     private static String requireTenant(String tenantId) {

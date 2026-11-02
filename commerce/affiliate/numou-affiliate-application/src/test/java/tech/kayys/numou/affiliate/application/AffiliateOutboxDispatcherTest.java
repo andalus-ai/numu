@@ -66,7 +66,7 @@ class AffiliateOutboxDispatcherTest {
     private static AffiliateEventOutboxStore.ClaimedEvent event(int attempts) {
         return new AffiliateEventOutboxStore.ClaimedEvent("tenant-a", UUID.randomUUID(),
                 "PartnerPayout", UUID.randomUUID(), "affiliate.payout.submitted",
-                "event-key-" + attempts, "{}", attempts, "worker-a", NOW.plusSeconds(30));
+                "event-key-" + attempts, "{}", attempts, "worker-a", NOW.plusSeconds(30), NOW);
     }
 
     private static final class FakeStore implements AffiliateEventOutboxStore {
