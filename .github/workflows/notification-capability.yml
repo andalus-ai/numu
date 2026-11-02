@@ -35,7 +35,15 @@ jobs:
         run: python3 tools/verify-domain-boundaries.py
       - name: Install framework parent POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
-      - name: Verify notification domain, application, and Quarkus adapter
+      - name: Install foundation capabilities required by Numou security integration
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Install cache contracts required by Numou security integration
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
+      - name: Install observability contracts required by Numou security integration
+        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Install Numou security reactor required by Notification integration
+        run: mvn -B -ntp -f security/pom.xml install
+      - name: Verify notification domain, application, and host adapters
         run: mvn -B -ntp -f notification/pom.xml verify
       - name: Upload notification Maven test reports
         if: always()
