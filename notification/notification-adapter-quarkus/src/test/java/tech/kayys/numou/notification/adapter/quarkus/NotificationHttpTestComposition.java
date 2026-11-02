@@ -109,7 +109,7 @@ class NotificationHttpTestStore implements NotificationRepository, PushDeviceRep
     public Optional<PushDevice> disable(UUID tenantId, UUID recipientId, UUID deviceId, Instant disabledAt) {
         return devices.computeIfPresent(deviceId, (id, current) ->
                 current.tenantId().equals(tenantId) && current.recipientId().equals(recipientId)
-                        ? current.disable(disabledAt) : current) == null
+                        && current.isActive() ? current.disable(disabledAt) : current) == null
                 ? Optional.empty()
                 : Optional.ofNullable(devices.get(deviceId))
                         .filter(device -> device.tenantId().equals(tenantId)
