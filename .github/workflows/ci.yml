@@ -483,7 +483,9 @@ jobs:
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
         run: mvn -B -ntp -f core/framework/pom.xml install
-      - name: Verify workspace domain, application, persistence, and REST adapter
+      - name: Install Notification application contracts for Workspace integration
+        run: mvn -B -ntp -f notification/pom.xml -DskipTests install
+      - name: Verify workspace domain, application, persistence, REST, and Notification adapters
         env:
           NUMOU_WORKSPACE_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/numou_workspace
           NUMOU_WORKSPACE_TEST_DB_USER: postgres
