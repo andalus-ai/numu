@@ -32,8 +32,6 @@ CREATE TABLE IF NOT EXISTS vault_audit_outbox (
     attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
     next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_error VARCHAR(2000),
-    CONSTRAINT uq_vault_audit_event UNIQUE
-        (tenant_id, vault_id, secret_id, secret_version, event_type),
     CONSTRAINT fk_vault_audit_secret_version FOREIGN KEY
         (tenant_id, vault_id, secret_id, secret_version)
         REFERENCES vault_secret_version
