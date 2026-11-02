@@ -46,6 +46,8 @@ public final class PostgresSecretRepositoryAdapter implements SecretRepositoryPo
             int expectedPreviousVersion, int newVersion, String algorithm, int formatVersion,
             String keyId, byte[] ciphertext, Instant expiresAt, VaultAuditEntry auditEntry) {
         Instant createdAt = Instant.now();
+        if (expiresAt != null && !expiresAt.isAfter(createdAt))
+            throw new IllegalArgumentException("expiresAt must be after createdAt");
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
