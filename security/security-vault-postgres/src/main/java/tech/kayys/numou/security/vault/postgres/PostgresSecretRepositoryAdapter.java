@@ -54,6 +54,8 @@ public final class PostgresSecretRepositoryAdapter implements SecretRepositoryPo
                 int actual = lockAndReadLatestVersion(connection, tenantId, vaultId, secretId);
                 if (actual != expectedPreviousVersion)
                     throw new SecretVersionConflictException(expectedPreviousVersion, actual);
+                if (expectedPreviousVersion > 0 && isRevoked(connection, tenantId, vaultId, secretId))
+                    throw new IllegalStateException("revoked secret cannot be rotated");
 
                 String insertSecret = """
                         INSERT INTO vault_secret_version
@@ -109,6 +111,20 @@ public final class PostgresSecretRepositoryAdapter implements SecretRepositoryPo
             throw new VaultPersistenceException("Unable to open vault transaction", failure);
         } finally {
             java.util.Arrays.fill(ciphertext, (byte) 0);
+        }
+    }
+
+
+    private boolean isRevoked(Connection connection, UUID tenantId,
+                               VaultId vaultId, SecretId secretId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT 1 FROM vault_secret_lifecycle
+                WHERE tenant_id = ? AND vault_id = ? AND secret_id = ? AND status = 'REVOKED'
+                """)) {
+            bindScope(statement, tenantId, vaultId, secretId);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
         }
     }
 
