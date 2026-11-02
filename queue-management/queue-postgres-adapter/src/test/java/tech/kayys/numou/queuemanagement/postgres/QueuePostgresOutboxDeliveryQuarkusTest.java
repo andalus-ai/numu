@@ -150,6 +150,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
     private UUID insertEvent() throws Exception {
         UUID id = UUID.randomUUID();
         try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement insert = connection.prepareStatement(
                     "INSERT INTO queue_outbox (event_id, tenant_id, event_type, schema_version, aggregate_type, "
@@ -161,6 +162,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                 insert.setString(4, "corr-" + id);
                 insert.executeUpdate();
             }
+            connection.commit();
         }
         return id;
     }
