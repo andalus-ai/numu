@@ -73,6 +73,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                 assertEquals(1, expire.executeUpdate());
             }
             connection.commit();
+            clearTenant(connection);
         }
 
         QueueOutboxMessage second = delivery.claim(TENANT, "dispatcher-new", 10, Duration.ofSeconds(30))
@@ -121,6 +122,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                 }
             }
             connection.commit();
+            clearTenant(connection);
         }
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
@@ -136,6 +138,7 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                 }
             }
             connection.commit();
+            clearTenant(connection);
         }
     }
 
@@ -167,14 +170,21 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
                 insert.executeUpdate();
             }
             connection.commit();
+            clearTenant(connection);
         }
         return id;
     }
 
     private static void setTenant(Connection connection) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT set_config('numou.tenant_id', ?, true)")) {
+                "SELECT set_config('numou.tenant_id', ?, false)")) {
             statement.setString(1, TENANT.toString());
+            statement.execute();
+        }
+    }
+
+    private static void clearTenant(Connection connection) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement("RESET numou.tenant_id")) {
             statement.execute();
         }
     }
