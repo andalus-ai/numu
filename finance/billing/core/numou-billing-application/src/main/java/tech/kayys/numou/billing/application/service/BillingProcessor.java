@@ -114,6 +114,12 @@ public class BillingProcessor implements BillingService {
             });
     }
 
+    /**
+     * Bills one cycle. The order protects the customer and the books: the schedule is checked before anything is
+     * created, the cycle is stored as PENDING before any money is taken (so a crash after the charge leaves a
+     * pending cycle to investigate rather than an unrecorded payment, and the next billing date has already moved
+     * on so a second run cannot bill the same period), and a payment that throws counts as a failed payment.
+     */
     @Override
     public CompletionStage<BillingCycleResult> processBillingCycle(ProcessBillingCycleCommand command) {
         return billingScheduleRepository.findById(command.scheduleId()).subscribeAsCompletionStage()
@@ -121,6 +127,8 @@ public class BillingProcessor implements BillingService {
                 BillingSchedule schedule = scheduleOpt.orElseThrow(() ->
                     new IllegalArgumentException("Billing schedule not found: " + command.scheduleId())
                 );
+                Instant now = Instant.now();
+                schedule.ensureBillable(now);
 
                 return invoicePort.generateInvoice(
                     schedule.getCustomerId(),
@@ -128,48 +136,64 @@ public class BillingProcessor implements BillingService {
                     schedule.getCurrencyCode(),
                     "Recurring billing for schedule: " + schedule.getId()
                 ).thenCompose(invoiceId -> {
-                    BillingSchedule.BillingCycle cycle = schedule.processBillingCycle(
-                        Instant.now(),
-                        invoiceId
-                    );
+                    BillingSchedule.BillingCycle cycle = schedule.processBillingCycle(now, invoiceId);
 
-                    return paymentPort.processPayment(
-                        schedule.getPaymentMethodToken(),
-                        schedule.getAmount(),
-                        schedule.getCurrencyCode()
-                    ).thenCompose(paymentResult -> {
-                        if (paymentResult.success()) {
-                            schedule.markCycleSuccess(cycle.getCycleNumber(), paymentResult.transactionId());
+                    return billingScheduleRepository.save(schedule).subscribeAsCompletionStage()
+                        .thenCompose(saved -> charge(schedule))
+                        .thenCompose(paymentResult -> {
+                            if (paymentResult.success()) {
+                                schedule.markCycleSuccess(cycle.getCycleNumber(), paymentResult.transactionId());
+                            } else {
+                                schedule.markCycleFailed(cycle.getCycleNumber(), paymentResult.message());
+                            }
                             return billingScheduleRepository.save(schedule).subscribeAsCompletionStage()
                                 .thenApply(v -> new BillingCycleResult(
                                     schedule.getId(),
                                     cycle.getCycleNumber(),
-                                    true,
+                                    paymentResult.success(),
                                     schedule.getAmount(),
                                     invoiceId,
-                                    paymentResult.transactionId(),
-                                    "Payment processed successfully",
+                                    paymentResult.success() ? paymentResult.transactionId() : null,
+                                    paymentResult.success() ? "Payment processed successfully"
+                                        : paymentResult.message(),
                                     Instant.now()
                                 ));
-                        } else {
-                            schedule.markCycleFailed(cycle.getCycleNumber(), paymentResult.message());
-                            return billingScheduleRepository.save(schedule).subscribeAsCompletionStage()
-                                .thenApply(v -> new BillingCycleResult(
-                                    schedule.getId(),
-                                    cycle.getCycleNumber(),
-                                    false,
-                                    schedule.getAmount(),
-                                    invoiceId,
-                                    null,
-                                    paymentResult.message(),
-                                    Instant.now()
-                                ));
-                        }
-                    });
+                        });
                 });
             });
     }
 
+    private CompletionStage<PaymentPort.PaymentResult> charge(BillingSchedule schedule) {
+        try {
+            return paymentPort.processPayment(schedule.getPaymentMethodToken(), schedule.getAmount(),
+                    schedule.getCurrencyCode())
+                .handle((result, error) -> {
+                    if (error != null) {
+                        return new PaymentPort.PaymentResult(false, null,
+                            "Payment could not be completed: " + rootMessage(error));
+                    }
+                    return result;
+                });
+        } catch (RuntimeException e) {
+            return CompletableFuture.completedFuture(
+                new PaymentPort.PaymentResult(false, null, "Payment could not be completed: " + rootMessage(e)));
+        }
+    }
+
+    private static String rootMessage(Throwable t) {
+        Throwable root = t;
+        while ((root instanceof java.util.concurrent.CompletionException
+                || root instanceof java.util.concurrent.ExecutionException) && root.getCause() != null) {
+            root = root.getCause();
+        }
+        return root.getMessage() != null ? root.getMessage() : root.getClass().getSimpleName();
+    }
+
+    /**
+     * Bills every due schedule. One schedule failing (not found, not billable, a port that throws) is reported as a
+     * failed result for that schedule and never stops the others. The total sums the successful charges and is only
+     * given when they share one currency.
+     */
     @Override
     public CompletionStage<BatchBillingResult> processDueBillings(BatchBillingCommand command) {
         return billingScheduleRepository.findDueSchedules().subscribeAsCompletionStage()
@@ -182,11 +206,15 @@ public class BillingProcessor implements BillingService {
 
                 List<CompletableFuture<BillingCycleResult>> futures = schedules.stream()
                     .map(schedule -> {
-                        ProcessBillingCycleCommand cycleCommand = new ProcessBillingCycleCommand(
-                            schedule.getId()
-                        );
-                        return processBillingCycle(cycleCommand)
-                            .toCompletableFuture();
+                        CompletionStage<BillingCycleResult> stage;
+                        try {
+                            stage = processBillingCycle(new ProcessBillingCycleCommand(schedule.getId()));
+                        } catch (RuntimeException e) {
+                            stage = CompletableFuture.failedFuture(e);
+                        }
+                        return stage.handle((result, error) -> error == null ? result
+                            : new BillingCycleResult(schedule.getId(), 0, false, schedule.getAmount(), null, null,
+                                rootMessage(error), Instant.now())).toCompletableFuture();
                     })
                     .collect(Collectors.toList());
 
@@ -197,11 +225,22 @@ public class BillingProcessor implements BillingService {
                             .collect(Collectors.toList());
 
                         long successful = results.stream().filter(BillingCycleResult::success).count();
-                        long failed = results.stream().filter(r -> !r.success()).count();
+                        long failed = results.size() - successful;
 
-                        Money totalAmount = results.stream()
-                            .map(BillingCycleResult::amount)
-                            .reduce(Money.zero("USD"), Money::add);
+                        List<Money> charged = results.stream().filter(BillingCycleResult::success)
+                            .map(BillingCycleResult::amount).collect(Collectors.toList());
+                        long currencies = charged.stream().map(m -> m.getCurrency().getCurrencyCode()).distinct()
+                            .count();
+                        Money totalAmount;
+                        String message = "Batch processing completed";
+                        if (currencies <= 1) {
+                            totalAmount = charged.stream().reduce(Money::add).orElse(Money.zero(
+                                schedules.get(0).getCurrencyCode()));
+                        } else {
+                            totalAmount = Money.zero(charged.get(0).getCurrency().getCurrencyCode());
+                            message = "Batch processing completed; the charges are in several currencies, "
+                                + "so no single total is given";
+                        }
 
                         return new BatchBillingResult(
                             schedules.size(),
@@ -209,7 +248,7 @@ public class BillingProcessor implements BillingService {
                             (int) failed,
                             results.size(),
                             totalAmount,
-                            "Batch processing completed"
+                            message
                         );
                     });
             });

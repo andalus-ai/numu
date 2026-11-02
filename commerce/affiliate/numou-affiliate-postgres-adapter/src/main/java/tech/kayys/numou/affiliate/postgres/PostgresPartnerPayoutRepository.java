@@ -85,6 +85,15 @@ public class PostgresPartnerPayoutRepository implements PartnerPayoutRepository 
 
     @Override
     public CompletionStage<PartnerPayout> update(String tenantId, UUID payoutId, PartnerPayout replacement) {
+        return update(tenantId, payoutId, replacement, "SYSTEM");
+    }
+
+    @Override
+    public CompletionStage<PartnerPayout> update(
+            String tenantId, UUID payoutId, PartnerPayout replacement, String actorId) {
+        if (actorId == null || actorId.isBlank()) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("actorId is required"));
+        }
         if (!tenantId.equals(replacement.tenantId()) || !payoutId.equals(replacement.id())) {
             return CompletableFuture.failedFuture(
                     new IllegalArgumentException("tenant and payout id must match the replacement"));
@@ -132,7 +141,7 @@ public class PostgresPartnerPayoutRepository implements PartnerPayoutRepository 
                     throw new IllegalStateException("Stale payout update; reload before retrying");
                 }
                 AffiliateEventWriter.append(connection, tenantId, "PARTNER_PAYOUT", payoutId,
-                        "PartnerPayout" + replacement.status().name(), "SYSTEM", replacement.correlationId(),
+                        "PartnerPayout" + replacement.status().name(), actorId, replacement.correlationId(),
                         "payout:" + payoutId + ":" + replacement.updatedAt(),
                         AffiliateEventWriter.json(replacement.status().name()), replacement.updatedAt());
                 connection.commit();

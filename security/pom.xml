@@ -37,6 +37,11 @@
         <module>security-spi</module>
         <module>security-application</module>
         <module>security-adapter</module>
+        <module>security-vault-domain</module>
+        <module>security-vault-spi</module>
+        <module>security-vault-application</module>
+        <module>security-vault-postgres</module>
+        <module>security-vault-crypto</module>
     </modules>
 
 </project>

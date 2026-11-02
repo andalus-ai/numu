@@ -10,7 +10,7 @@ An optional browser client for the workspace REST capability. It is separate fro
 - Browse root pages in the selected space and open a page.
 - Edit page title and typed content blocks (headings, paragraphs, lists, to-dos, quotes, callouts, code, tables, toggles, and dividers) with an optimistic `expectedRevision` guard.
 - Add, remove, and reorder blocks while preserving stable block IDs and opaque file/domain-reference blocks.
-- Create page-level discussion threads, append replies, and resolve/reopen threads with optimistic revision guards.
+- Create page-level discussion threads, append replies, and resolve/reopen threads with optimistic revision guards.\n- Show active collaborators on the open page using short-lived, per-tab presence leases; presence pauses while the tab is hidden and expires automatically.
 - Type `@handle` in a comment to find active tenant members; the host's Notification integration receives idempotent mention commands.
 - Inspect page history and restore a prior revision as a new revision.
 - Search pages and create pages from templates.
@@ -43,4 +43,4 @@ Open `http://127.0.0.1:4173`. The preview server serves static assets only. The 
 
 The client restores the last selected workspace and space from tenant-authorized server listings and provides explicit workspace/space selectors. It selects the first accessible workspace/space when the saved selection is no longer available.
 
-The editor supports the block types currently defined by the workspace domain. File attachments and domain-reference blocks remain visible and preserved as opaque records; uploading files or editing domain-owned references belongs to their respective capabilities. Nested block trees, block-anchored comments, durable cross-service notification outbox delivery, collaborative cursors, and richer table-cell semantics remain follow-up work. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.
+The editor supports the block types currently defined by the workspace domain. File attachments and domain-reference blocks remain visible and preserved as opaque records; uploading files or editing domain-owned references belongs to their respective capabilities. Nested block trees, durable cross-service notification outbox delivery, collaborative cursors, push-based presence fan-out, and richer table-cell semantics remain follow-up work. Presence is advisory only and does not lock pages or grant edit access. Concurrent writes use the server revision guard; on conflict, the client preserves the local draft and does not overwrite automatically.

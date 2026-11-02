@@ -149,6 +149,17 @@ paths:
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/BalanceSheetView"}}}}
         default: {$ref: "#/components/responses/Error"}
+  /{id}/statements/capital-changes:
+    parameters:
+      - {$ref: "#/components/parameters/Id"}
+      - {name: from, in: query, required: true, schema: {type: string, format: date}}
+      - {name: to, in: query, required: true, schema: {type: string, format: date}}
+    get:
+      tags: [Syirkah]
+      summary: Statement of changes in capital for whole days from..to (UTC, inclusive)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/CapitalChangesView"}}}}
+        default: {$ref: "#/components/responses/Error"}
   /{id}/closes/{closeId}/income-statement:
     parameters:
       - {$ref: "#/components/parameters/Id"}
@@ -159,6 +170,33 @@ paths:
       summary: Profit and loss statement (laporan rugi laba) of one close
       responses:
         "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/IncomeStatementView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/revisions/preview:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Syirkah]
+      summary: Dry run of a contract revision - all problems listed, per-partner capital and share before and after; nothing stored
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ReviseRequest"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/RevisionPreview"}}}}
+  /{id}/partners/{partnerId}/statement:
+    parameters:
+      - {$ref: "#/components/parameters/Id"}
+      - {name: partnerId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Syirkah]
+      summary: A partner's movements with running balances and closing position (same data as statement.csv)
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/PartnerStatementView"}}}}
+        default: {$ref: "#/components/responses/Error"}
+  /{id}/closes/preview:
+    parameters: [{$ref: "#/components/parameters/Id"}]
+    post:
+      tags: [Syirkah]
+      summary: Preview a close on a copy - same checks and allocation as a real close, nothing stored or posted
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ClosePeriodRequest"}}}}
+      responses:
+        "200": {description: OK, content: {application/json: {schema: {$ref: "#/components/schemas/ClosePreview"}}}}
         default: {$ref: "#/components/responses/Error"}
   /{id}/closes/{closeId}/trading:
     parameters:
@@ -585,6 +623,26 @@ components:
         totalLiabilitiesAndCapital: {type: number}
         difference: {type: number}
         balanced: {type: boolean}
+    CapitalChangesView:
+      type: object
+      properties:
+        from: {type: string, format: date}
+        to: {type: string, format: date}
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              partner: {type: string, format: uuid}
+              name: {type: string}
+              opening: {type: number}
+              contributions: {type: number}
+              returns: {type: number}
+              retainedProfit: {type: number}
+              capitalRestored: {type: number}
+              lossesAllocated: {type: number}
+              deficitReclassified: {type: number}
+              closing: {type: number}
     IncomeStatementView:
       type: object
       properties:
