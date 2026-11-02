@@ -43,8 +43,8 @@ public final class PostgresVaultAuditOutboxAdapter implements VaultAuditOutboxPo
                   AND next_attempt_at <= ?
                   AND (lease_until IS NULL OR lease_until <= ?)
                 ORDER BY next_attempt_at, occurred_at, event_id
-                FOR UPDATE SKIP LOCKED
                 LIMIT ?
+                FOR UPDATE SKIP LOCKED
             )
             UPDATE vault_audit_outbox o
             SET lease_owner = ?, lease_until = ?, attempts = o.attempts + 1
@@ -56,6 +56,17 @@ public final class PostgresVaultAuditOutboxAdapter implements VaultAuditOutboxPo
             """;
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
+            try (PreparedStatement exhausted = connection.prepareStatement("""
+                    UPDATE vault_audit_outbox
+                    SET dead_lettered_at = ?, lease_owner = NULL, lease_until = NULL,
+                        last_error = COALESCE(last_error, 'LeaseExpiredAfterMaxAttempts')
+                    WHERE published_at IS NULL AND dead_lettered_at IS NULL
+                      AND lease_until <= ? AND attempts >= 12
+                    """)) {
+                exhausted.setTimestamp(1, Timestamp.from(now));
+                exhausted.setTimestamp(2, Timestamp.from(now));
+                exhausted.executeUpdate();
+            }
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setTimestamp(1, Timestamp.from(now));
                 statement.setTimestamp(2, Timestamp.from(now));
