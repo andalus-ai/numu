@@ -32,7 +32,7 @@ class PostgresSecretRepositoryAdapterTest {
     @BeforeEach
     void setUp() throws Exception {
         PGSimpleDataSource source = new PGSimpleDataSource();
-        source.setURL(POSTGRES.getJdbcUrl());
+        source.setUrl(POSTGRES.getJdbcUrl());
         source.setUser(POSTGRES.getUsername());
         source.setPassword(POSTGRES.getPassword());
         dataSource = source;
@@ -43,7 +43,10 @@ class PostgresSecretRepositoryAdapterTest {
             try (InputStream migration = getClass().getResourceAsStream(
                     "/db/migration/V1__vault_secret_versions_and_audit_outbox.sql")) {
                 assertNotNull(migration);
-                statement.execute(new String(migration.readAllBytes(), StandardCharsets.UTF_8));
+                String[] commands = new String(migration.readAllBytes(), StandardCharsets.UTF_8).split(";");
+                for (String command : commands) {
+                    if (!command.isBlank()) statement.execute(command);
+                }
             }
         }
     }
