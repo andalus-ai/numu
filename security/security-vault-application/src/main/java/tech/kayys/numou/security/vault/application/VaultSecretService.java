@@ -8,6 +8,7 @@ import tech.kayys.numou.security.vault.domain.*;
 import tech.kayys.numou.security.vault.spi.SecretEncryptionPort;
 import tech.kayys.numou.security.vault.spi.SecretLifecyclePort;
 import tech.kayys.numou.security.vault.spi.SecretRepositoryPort;
+import tech.kayys.numou.security.vault.spi.VaultAuditEntry;
 
 import java.time.Clock;
 import java.time.Instant;
