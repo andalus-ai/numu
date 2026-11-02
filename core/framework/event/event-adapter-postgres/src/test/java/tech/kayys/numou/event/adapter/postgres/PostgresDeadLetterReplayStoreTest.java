@@ -82,6 +82,8 @@ class PostgresDeadLetterReplayStoreTest {
     void expiredLeaseIsReclaimedAndOldTokenIsFenced() throws Exception {
         var first = store.beginReplay(request("dlq-2", tenant, "b".repeat(64))).await().indefinitely();
         Thread.sleep(250);
+        assertThatThrownBy(() -> store.completeReplay(first).await().indefinitely())
+                .isInstanceOf(IllegalStateException.class);
         var second = store.beginReplay(request("dlq-2", tenant, "b".repeat(64))).await().indefinitely();
         assertThat(second.status()).isEqualTo(DeadLetterReplayStorePort.ClaimStatus.ACQUIRED);
         assertThat(second.claimToken()).isNotEqualTo(first.claimToken());

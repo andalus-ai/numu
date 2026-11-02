@@ -191,7 +191,7 @@ public final class PostgresDeadLetterReplayStore implements DeadLetterReplayStor
                    SET state = ?, claim_token = NULL, lease_until = NULL,
                        completed_at = ?, failure_code = ?, updated_at = ?
                  WHERE dead_letter_record_id = ? AND tenant_id = ?
-                   AND state = 'IN_PROGRESS' AND claim_token = ?
+                   AND state = 'IN_PROGRESS' AND claim_token = ? AND lease_until > clock_timestamp()
                 """;
         String audit = """
                 INSERT INTO numou_event_dead_letter_replay_audit
