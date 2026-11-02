@@ -59,3 +59,12 @@ The delivery contract is at-least-once. A dispatcher may retry after a crash tha
 The adapter emits a concise inbox message and does not copy comment content into notification bodies. Hosts may render a link from the stable source reference after applying Workspace page/comment authorization. The recipient ID comes from the already-resolved mention intent; the display handle is not used as an authorization or delivery address.
 
 The integration is opt-in and host-composed. Applications that do not include the adapter retain the same Workspace module graph and may provide another implementation of `WorkspaceMentionDeliveryPort`. Push/email delivery remains a separate Notification concern: the adapter creates the durable in-app inbox item and does not assume a push provider is configured.
+## Worker lifecycle and operational health (M33)
+
+The application module exposes `WorkspaceMentionOutboxWorker` as a scheduler-neutral entry point. The host owns the scheduler, cadence, startup/shutdown hooks, stable worker ID, and delivery adapter. Each invocation processes one bounded batch (1..500); overlapping invocations on the same worker instance are skipped rather than competing for the same local worker slot. PostgreSQL lease claims remain the cross-process coordination mechanism, so multiple application instances may run workers safely.
+
+The host should stop scheduling new invocations before application shutdown and allow an in-flight batch to finish within the configured lease/shutdown budget. The worker does not create threads, own a timer, or introduce a runtime dependency.
+
+Operational health is exposed through `WorkspaceMentionOutboxHealthService` and the aggregate-only `WorkspaceMentionOutboxHealthStore` port. The JDBC adapter reports tenant-scoped pending, due, leased, expired-lease, and dead-letter counts plus the oldest pending creation time. It does not select handles, recipient IDs, comment bodies, or notification payloads. The application service authorizes the operator before the store is queried and returns the age of the oldest pending item at a single captured timestamp.
+
+Hosts may publish these values through their existing metrics/health system. Avoid tenant IDs, handles, recipient IDs, comment IDs, or idempotency keys as metric labels; prefer aggregate counters and bounded-cardinality status labels. A rising expired-lease count indicates stalled workers or lease sizing problems; a rising dead-letter count requires the authorized recovery workflow above.
