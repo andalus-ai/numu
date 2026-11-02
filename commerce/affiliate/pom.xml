@@ -18,5 +18,6 @@
         <module>numou-affiliate-spi</module>
         <module>numou-affiliate-application</module>
         <module>numou-affiliate-postgres-adapter</module>
+        <module>numou-affiliate-runtime</module>
     </modules>
 </project>

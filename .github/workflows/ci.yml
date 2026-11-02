@@ -341,7 +341,13 @@ jobs:
           cache: maven
       - name: Install framework parent POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
-      - name: Verify affiliate domain, SPI, and application contracts
+      - name: Install foundation contracts
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Install event platform contracts
+        run: mvn -B -ntp -f core/framework/event/pom.xml -pl event-domain,event-spi -am install
+      - name: Install observability API contracts
+        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api -am install
+      - name: Verify Affiliate capability and runtime integration
         run: mvn -B -ntp -f commerce/affiliate/pom.xml verify
       - name: Upload affiliate Maven test reports
         if: always()
