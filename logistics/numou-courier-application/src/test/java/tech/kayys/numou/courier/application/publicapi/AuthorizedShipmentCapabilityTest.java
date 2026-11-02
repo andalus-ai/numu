@@ -98,8 +98,9 @@ class AuthorizedShipmentCapabilityTest {
                 new IllegalStateException("policy service unavailable")));
         AuthorizedShipmentCapability capability = capability(repository, access);
 
-        assertThrows(IllegalStateException.class, () -> capability.findById(actor(tenant), "shipment-1")
+        CompletionException failure = assertThrows(CompletionException.class, () -> capability.findById(actor(tenant), "shipment-1")
                 .toCompletableFuture().join());
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
         verifyNoInteractions(repository);
     }
 
