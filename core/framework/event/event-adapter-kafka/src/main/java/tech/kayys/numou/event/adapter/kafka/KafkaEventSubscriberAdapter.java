@@ -87,14 +87,20 @@ public class KafkaEventSubscriberAdapter implements EventSubscriberPort {
                 })
                 .chain(this::dispatch);
 
-        // A processing failure nacks the record. An acknowledgement failure
-        // is different: the record has already reached its terminal action,
-        // so do not attempt a second nack on the same message.
+        // A successful nack is itself the terminal disposition of this record:
+        // the connector's configured failure strategy (retry/DLQ) has handled it.
+        // Complete the mediator invocation afterwards so one bad record does not
+        // terminate the incoming channel and strand later records in the partition.
+        // Keep ack outside the recovery branch so an ack failure is never followed
+        // by a second terminal action (nack) on the same message.
         return processing
+                .replaceWith(true)
                 .onFailure().recoverWithUni(failure ->
                         Uni.createFrom().completionStage(() -> message.nack(failure))
-                                .chain(() -> Uni.createFrom().failure(failure)))
-                .chain(() -> Uni.createFrom().completionStage(message::ack));
+                                .replaceWith(false))
+                .chain(shouldAcknowledge -> shouldAcknowledge
+                        ? Uni.createFrom().completionStage(message::ack)
+                        : Uni.createFrom().voidItem());
     }
 
     private Uni<Void> dispatch(EventEnvelope<? extends BusinessEvent> envelope) {
