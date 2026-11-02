@@ -62,23 +62,16 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
         UUID eventId = insertEvent();
         QueueOutboxMessage first = delivery.claim(TENANT, "dispatcher-old", 10, Duration.ofSeconds(1))
                 .stream().filter(item -> item.eventId().equals(eventId)).findFirst().orElseThrow();
+
         try (Connection connection = dataSource.getConnection()) {
-            connection.setAutoCommit(false);
-            setTenant(connection);
-            try (PreparedStatement expire = connection.prepareStatement(
-                     "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
-                             + "WHERE tenant_id = ? AND event_id = ?")) {
             connection.setAutoCommit(false);
             setTenant(connection);
             try (PreparedStatement expire = connection.prepareStatement(
                     "UPDATE queue_outbox SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second' "
                             + "WHERE tenant_id = ? AND event_id = ?")) {
-            expire.setObject(1, TENANT);
-            expire.setObject(2, eventId);
-            assertEquals(1, expire.executeUpdate());
-            expire.setObject(1, TENANT);
-            expire.setObject(2, eventId);
-            assertEquals(1, expire.executeUpdate());
+                expire.setObject(1, TENANT);
+                expire.setObject(2, eventId);
+                assertEquals(1, expire.executeUpdate());
             }
             connection.commit();
         }
