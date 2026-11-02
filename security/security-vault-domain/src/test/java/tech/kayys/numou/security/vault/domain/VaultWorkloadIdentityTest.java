@@ -22,6 +22,14 @@ class VaultWorkloadIdentityTest {
     }
 
     @Test
+    void operationsExposeStableLeastPrivilegeScopeNames() {
+        assertEquals("secret:create", VaultOperation.CREATE.requiredScope());
+        assertEquals("secret:read", VaultOperation.READ.requiredScope());
+        assertEquals("secret:rotate", VaultOperation.ROTATE.requiredScope());
+        assertEquals("secret:revoke", VaultOperation.REVOKE.requiredScope());
+    }
+
+    @Test
     void rejectsUnboundedOrEmptyClaims() {
         UUID tenant = UUID.randomUUID();
         Instant expiry = Instant.parse("2026-11-02T10:00:00Z");
