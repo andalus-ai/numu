@@ -11,9 +11,10 @@ import java.util.UUID;
 /** Persistence boundary. Implementations must enforce tenant-scoped uniqueness and append-only versions. */
 public interface SecretRepositoryPort {
     /** Atomically allocates and appends the next version; concurrent writers must not overwrite each other. */
-    Uni<EncryptedSecret> appendNextVersion(UUID tenantId, VaultId vaultId, SecretId secretId,
-                                           String algorithm, int formatVersion, String keyId,
-                                           byte[] ciphertext, java.time.Instant expiresAt);
+    Uni<EncryptedSecret> appendVersion(UUID tenantId, VaultId vaultId, SecretId secretId,
+                                      int expectedPreviousVersion, int newVersion,
+                                      String algorithm, int formatVersion, String keyId,
+                                      byte[] ciphertext, java.time.Instant expiresAt);
 
     Uni<Optional<EncryptedSecret>> findVersion(UUID tenantId, VaultId vaultId,
                                                 SecretId secretId, int version);
