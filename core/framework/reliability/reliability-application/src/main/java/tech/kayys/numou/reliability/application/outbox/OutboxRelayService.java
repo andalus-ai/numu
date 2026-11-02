@@ -56,15 +56,22 @@ public final class OutboxRelayService implements OutboxRelayPort {
 
     @Override
     public Uni<Integer> runOnce() {
-        return store.nextDue(batchSize).flatMap(due -> relayAll(due, 0, 0));
+        return relayNext(0, 0);
     }
 
-    private Uni<Integer> relayAll(List<OutboxClaim> due, int index, int relayed) {
-        if (index >= due.size()) return Uni.createFrom().item(relayed);
-        final OutboxClaim claim = due.get(index);
-        return relay(claim).map(ok -> 1)
-                .onFailure().recoverWithUni(failure -> recordFailure(claim, failure).replaceWith(0))
-                .flatMap(delta -> relayAll(due, index + 1, relayed + delta));
+    /**
+     * Claim one row immediately before publishing it. Claiming an entire sequential
+     * batch up front lets later rows' leases expire while earlier rows are in flight.
+     */
+    private Uni<Integer> relayNext(int processed, int relayed) {
+        if (processed >= batchSize) return Uni.createFrom().item(relayed);
+        return store.nextDue(1).flatMap(due -> {
+            if (due.isEmpty()) return Uni.createFrom().item(relayed);
+            final OutboxClaim claim = due.get(0);
+            return relay(claim).map(ok -> 1)
+                    .onFailure().recoverWithUni(failure -> recordFailure(claim, failure).replaceWith(0))
+                    .flatMap(delta -> relayNext(processed + 1, relayed + delta));
+        });
     }
 
     private Uni<Void> recordFailure(OutboxClaim claim, Throwable failure) {
