@@ -30,6 +30,23 @@ public class PostgresCheckoutRepository implements CheckoutRepository {
         } catch (SQLException e) { throw new CheckoutStorageException("Unable to load checkout", e); }
     }
 
+
+    @Override
+    public java.util.List<CheckoutSession> findRecoverable(String tenantId, int limit) {
+        if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
+        String sql = "SELECT * FROM pos_checkout_session WHERE tenant_id = ? AND status IN "
+                + "('PAYMENT_PENDING', 'PAYMENT_UNKNOWN', 'PAID', 'COMPENSATION_REQUIRED') "
+                + "ORDER BY updated_at ASC, checkout_id ASC LIMIT ?";
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, tenantId); ps.setInt(2, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                java.util.List<CheckoutSession> sessions = new java.util.ArrayList<>();
+                while (rs.next()) sessions.add(read(rs));
+                return java.util.List.copyOf(sessions);
+            }
+        } catch (SQLException e) { throw new CheckoutStorageException("Unable to list recoverable checkouts", e); }
+    }
+
     @Override
     @Transactional
     public CheckoutSession create(CheckoutSession s) {
