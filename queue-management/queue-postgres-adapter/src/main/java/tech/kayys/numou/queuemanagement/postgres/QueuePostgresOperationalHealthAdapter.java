@@ -27,30 +27,30 @@ public class QueuePostgresOperationalHealthAdapter implements QueueOperationalHe
             ),
             entry_stats AS (
                 SELECT
-                    COUNT(*) FILTER (WHERE status = 'WAITING') AS waiting_entries,
-                    COUNT(*) FILTER (WHERE status IN ('CALLED', 'SERVING', 'OFFERED', 'ACCEPTED')) AS active_entries
+                    COUNT(queue_outbox.event_id) FILTER (WHERE status = 'WAITING') AS waiting_entries,
+                    COUNT(queue_outbox.event_id) FILTER (WHERE status IN ('CALLED', 'SERVING', 'OFFERED', 'ACCEPTED')) AS active_entries
                 FROM queue_entry
                 WHERE tenant_id = ?
             ),
             outbox_stats AS (
                 SELECT
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                     ) AS pending_outbox,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                           AND available_at <= clock.captured_at
                           AND (lease_until IS NULL OR lease_until <= clock.captured_at)
                     ) AS due_outbox,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                           AND lease_until > clock.captured_at
                     ) AS leased_outbox,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                           AND lease_token IS NOT NULL AND lease_until <= clock.captured_at
                     ) AS expired_leases,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NOT NULL
                     ) AS dead_lettered_outbox,
                     COALESCE(
