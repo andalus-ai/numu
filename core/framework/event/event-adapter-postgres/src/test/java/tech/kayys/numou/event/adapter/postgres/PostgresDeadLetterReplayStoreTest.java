@@ -46,7 +46,7 @@ class PostgresDeadLetterReplayStoreTest {
         if (password != null) scoped.setPassword(password);
         scoped.setCurrentSchema(schema);
         try (Connection c = scoped.getConnection(); Statement s = c.createStatement();
-             InputStream in = getClass().getResourceAsStream("/db/migration/V1__event_dead_letter_replay.sql")) {
+             InputStream in = getClass().getResourceAsStream("/db/migration/V103__platform_event_dead_letter_replay.sql")) {
             if (in == null) throw new IllegalStateException("Replay migration missing");
             for (String sql : new String(in.readAllBytes(), StandardCharsets.UTF_8).split(";"))
                 if (!sql.isBlank()) s.execute(sql);
