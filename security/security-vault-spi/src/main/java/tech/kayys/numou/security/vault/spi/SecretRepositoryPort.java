@@ -22,6 +22,10 @@ public interface SecretRepositoryPort {
                                       String algorithm, int formatVersion, String keyId,
                                       byte[] ciphertext, java.time.Instant expiresAt, VaultAuditEntry auditEntry);
 
+    /** Appends a metadata-only audit fact for an existing immutable version. */
+    Uni<Void> appendAuditEvent(UUID tenantId, VaultId vaultId, SecretId secretId,
+                               int version, VaultAuditEntry auditEntry);
+
     Uni<Optional<EncryptedSecret>> findVersion(UUID tenantId, VaultId vaultId,
                                                 SecretId secretId, int version);
 
