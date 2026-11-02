@@ -41,8 +41,8 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Install observability contracts required by Numou security integration
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
-      - name: Install Numou security reactor required by Notification integration
-        run: mvn -B -ntp -f security/pom.xml install
+      - name: Install Numou security adapter and its required modules
+        run: mvn -B -ntp -f security/pom.xml -pl security-adapter -am install
       - name: Verify notification domain, application, and host adapters
         run: mvn -B -ntp -f notification/pom.xml verify
       - name: Upload notification Maven test reports
