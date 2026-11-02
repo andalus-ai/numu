@@ -15,6 +15,7 @@ import tech.kayys.numou.reliability.application.outbox.OutboxRelayService;
 import tech.kayys.numou.reliability.idempotency.IdempotencyOutcome;
 import tech.kayys.numou.reliability.inbox.InboxArrival;
 import tech.kayys.numou.reliability.inbox.InboxEntry;
+import tech.kayys.numou.reliability.outbox.OutboxClaim;
 import tech.kayys.numou.reliability.outbox.OutboxEntry;
 import tech.kayys.numou.reliability.retry.RetryPolicy;
 import tech.kayys.numou.reliability.spi.port.IdempotencyStorePort;
@@ -46,13 +47,27 @@ class ReliabilityApplicationTest {
 
     static final class MemOutbox implements OutboxStorePort {
         final Map<UUID, OutboxEntry> rows = new LinkedHashMap<>();
+        final Map<UUID, OutboxClaim> claims = new HashMap<>();
         Instant now = Instant.now().plusSeconds(1);
         public Uni<Void> append(List<OutboxEntry> es) { es.forEach(e -> rows.put(e.entryId(), e)); return Uni.createFrom().voidItem(); }
-        public Uni<List<OutboxEntry>> nextDue(int limit) {
-            return Uni.createFrom().item(rows.values().stream()
-                    .filter(e -> e.isDue(now) && !e.exhausted()).limit(limit).toList());
+        public Uni<List<OutboxClaim>> nextDue(int limit) {
+            final var due = rows.values().stream()
+                    .filter(e -> e.isDue(now) && !e.exhausted())
+                    .filter(e -> !claims.containsKey(e.entryId()) || !claims.get(e.entryId()).leaseUntil().isAfter(now))
+                    .limit(limit).map(e -> {
+                        final var claim = new OutboxClaim(e, UUID.randomUUID(), now.plusSeconds(30));
+                        claims.put(e.entryId(), claim);
+                        return claim;
+                    }).toList();
+            return Uni.createFrom().item(due);
         }
-        public Uni<Void> update(OutboxEntry e) { rows.put(e.entryId(), e); return Uni.createFrom().voidItem(); }
+        public Uni<Boolean> update(OutboxClaim claim, OutboxEntry e) {
+            final var current = claims.get(claim.entry().entryId());
+            if (current == null || !current.token().equals(claim.token()) || !current.leaseUntil().isAfter(now)) return Uni.createFrom().item(false);
+            rows.put(e.entryId(), e);
+            claims.remove(e.entryId());
+            return Uni.createFrom().item(true);
+        }
         public Uni<OutboxEntry> findById(UUID id) { return Uni.createFrom().item(rows.get(id)); }
         public Uni<Long> countPending() { return Uni.createFrom().item(rows.values().stream().filter(e -> !e.published()).count()); }
     }
@@ -74,6 +89,19 @@ class ReliabilityApplicationTest {
     }
 
     // ---- outbox ----
+
+    @Test
+    void expiredOutboxClaimCannotOverwriteNewOwnersResult() {
+        final var store = new MemOutbox();
+        final var event = entry();
+        store.append(List.of(event)).await().indefinitely();
+        final var firstClaim = store.nextDue(1).await().indefinitely().get(0);
+        store.now = firstClaim.leaseUntil().plusMillis(1);
+        final var secondClaim = store.nextDue(1).await().indefinitely().get(0);
+        assertThat(store.update(firstClaim, firstClaim.entry().markPublished()).await().indefinitely()).isFalse();
+        assertThat(store.update(secondClaim, secondClaim.entry().markPublished()).await().indefinitely()).isTrue();
+        assertThat(store.rows.get(event.entryId()).published()).isTrue();
+    }
 
     @Test
     void relaysDueEntriesAndMarksThemPublished() {
