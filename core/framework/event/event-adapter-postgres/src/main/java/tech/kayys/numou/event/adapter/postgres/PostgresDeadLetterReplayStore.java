@@ -43,18 +43,18 @@ public final class PostgresDeadLetterReplayStore implements DeadLetterReplayStor
     }
 
     private ReplayClaim beginReplayBlocking(ReplayRequest request) {
-        Instant now = Instant.now();
-        Instant leaseUntil = now.plus(leaseDuration);
+        Instant now; 
+        Instant leaseUntil;
         String insert = """
                 INSERT INTO numou_event_dead_letter_replay
                     (tenant_id, dead_letter_record_id, event_type, payload_sha256)
                 VALUES (?, ?, ?, ?)
-                ON CONFLICT (tenant_id, dead_letter_record_id) DO NOTHING
+                ON CONFLICT (dead_letter_record_id) DO NOTHING
                 """;
         String lock = """
                 SELECT event_type, payload_sha256, state, attempt, lease_until
                   FROM numou_event_dead_letter_replay
-                 WHERE tenant_id = ? AND dead_letter_record_id = ?
+                 WHERE dead_letter_record_id = ?
                  FOR UPDATE
                 """;
         String claim = """
@@ -73,6 +73,8 @@ public final class PostgresDeadLetterReplayStore implements DeadLetterReplayStor
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
+                now = databaseNow(connection);
+                leaseUntil = now.plus(leaseDuration);
                 try (PreparedStatement statement = connection.prepareStatement(insert)) {
                     statement.setObject(1, request.tenantId());
                     statement.setString(2, request.deadLetterRecordId());
@@ -84,10 +86,12 @@ public final class PostgresDeadLetterReplayStore implements DeadLetterReplayStor
                 int attempt;
                 Instant currentLease;
                 try (PreparedStatement statement = connection.prepareStatement(lock)) {
-                    statement.setObject(1, request.tenantId());
-                    statement.setString(2, request.deadLetterRecordId());
+                    statement.setString(1, request.deadLetterRecordId());
                     try (ResultSet rows = statement.executeQuery()) {
                         if (!rows.next()) throw new SQLException("Replay record disappeared while acquiring lock");
+                        if (!request.tenantId().equals(rows.getObject("tenant_id", UUID.class))) {
+                            throw new SecurityException("DLQ record belongs to a different tenant");
+                        }
                         if (!request.eventType().equals(rows.getString("event_type"))
                                 || !request.payloadSha256().equals(rows.getString("payload_sha256").trim())) {
                             throw new IllegalStateException("DLQ record identity was reused with different content");
@@ -163,11 +167,18 @@ public final class PostgresDeadLetterReplayStore implements DeadLetterReplayStor
                         : Uni.createFrom().failure(new IllegalStateException("DLQ replay claim was lost before failure audit")));
     }
 
+    private static Instant databaseNow(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT CURRENT_TIMESTAMP");
+             ResultSet rows = statement.executeQuery()) {
+            if (!rows.next()) throw new SQLException("Database clock query returned no row");
+            return rows.getTimestamp(1).toInstant();
+        }
+    }
+
     private boolean completeBlocking(ReplayClaim claim, boolean completed, String failureCode) {
         UUID token;
         try { token = UUID.fromString(claim.claimToken()); }
         catch (IllegalArgumentException invalid) { return false; }
-        Instant now = Instant.now();
         String state = completed ? "COMPLETED" : "FAILED";
         String update = """
                 UPDATE numou_event_dead_letter_replay
@@ -186,6 +197,7 @@ public final class PostgresDeadLetterReplayStore implements DeadLetterReplayStor
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
+                Instant now = databaseNow(connection);
                 int changed;
                 try (PreparedStatement statement = connection.prepareStatement(update)) {
                     statement.setString(1, state);
