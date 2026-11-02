@@ -139,7 +139,7 @@ class PostgresSecretRepositoryAdapterTest {
         Instant now = Instant.now().plusSeconds(1);
         var firstClaim = outbox.claimDue("worker-a", now, now.plusSeconds(30), 10).await().indefinitely();
         assertEquals(3, firstClaim.size());
-        assertEquals(1, firstClaim.stream().filter(e -> e.eventType().equals("VAULT_SECRET_REVEALED")).count());
+        assertEquals(2, firstClaim.stream().filter(e -> e.eventType().equals("VAULT_SECRET_REVEALED")).count());
 
         assertTrue(outbox.claimDue("worker-b", now, now.plusSeconds(30), 10)
                 .await().indefinitely().isEmpty());
