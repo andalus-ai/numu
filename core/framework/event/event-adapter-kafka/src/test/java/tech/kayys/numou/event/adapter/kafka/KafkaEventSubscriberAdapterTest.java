@@ -53,15 +53,14 @@ class KafkaEventSubscriberAdapterTest {
     }
 
     @Test
-    void nacksHandlerFailureAndPropagatesOriginalFailure() {
+    void nacksHandlerFailureAndCompletesAfterConnectorDisposition() {
         EventEnvelope<TestEvent> envelope = envelope();
         KafkaEventSubscriberAdapter adapter = new KafkaEventSubscriberAdapter(serializer(envelope));
         IllegalStateException failure = new IllegalStateException("temporary downstream failure");
         adapter.subscribe(EVENT_TYPE, ignored -> Uni.createFrom().failure(failure));
         Message<String> message = message(PAYLOAD, EVENT_TYPE);
 
-        assertThatThrownBy(() -> adapter.consume(message).await().indefinitely())
-                .isSameAs(failure);
+        adapter.consume(message).await().indefinitely();
 
         verify(message, never()).ack();
         verify(message, times(1)).nack(failure);
@@ -78,8 +77,10 @@ class KafkaEventSubscriberAdapterTest {
         Message<String> firstDelivery = message(PAYLOAD, EVENT_TYPE);
         Message<String> redelivery = message(PAYLOAD, EVENT_TYPE);
 
-        assertThatThrownBy(() -> adapter.consume(firstDelivery).await().indefinitely())
-                .isInstanceOf(IllegalStateException.class);
+        // The configured connector failure strategy has accepted the nack;
+        // the adapter must complete this invocation and remain able to process
+        // a later redelivery rather than fail the channel.
+        adapter.consume(firstDelivery).await().indefinitely();
         adapter.consume(redelivery).await().indefinitely();
 
         assertThat(attempts).hasValue(2);
@@ -116,8 +117,7 @@ class KafkaEventSubscriberAdapterTest {
         });
         Message<String> message = message(PAYLOAD, null);
 
-        assertThatThrownBy(() -> adapter.consume(message).await().indefinitely())
-                .isInstanceOf(IllegalArgumentException.class);
+        adapter.consume(message).await().indefinitely();
 
         assertThat(handled).hasValue(0);
         verify(message, never()).ack();
