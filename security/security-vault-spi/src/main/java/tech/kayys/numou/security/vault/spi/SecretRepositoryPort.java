@@ -20,7 +20,7 @@ public interface SecretRepositoryPort {
     Uni<EncryptedSecret> appendVersion(UUID tenantId, VaultId vaultId, SecretId secretId,
                                       int expectedPreviousVersion, int newVersion,
                                       String algorithm, int formatVersion, String keyId,
-                                      byte[] ciphertext, java.time.Instant expiresAt);
+                                      byte[] ciphertext, java.time.Instant expiresAt, VaultAuditEntry auditEntry);
 
     Uni<Optional<EncryptedSecret>> findVersion(UUID tenantId, VaultId vaultId,
                                                 SecretId secretId, int version);
