@@ -187,5 +187,6 @@ class QueuePostgresOutboxDeliveryQuarkusTest {
         try (PreparedStatement statement = connection.prepareStatement("RESET numou.tenant_id")) {
             statement.execute();
         }
+        connection.commit();
     }
 }
