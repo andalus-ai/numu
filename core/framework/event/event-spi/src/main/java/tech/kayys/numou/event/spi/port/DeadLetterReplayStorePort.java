@@ -15,8 +15,8 @@ public interface DeadLetterReplayStorePort {
     record ReplayRequest(String deadLetterRecordId, UUID tenantId, String actorId,
                          String reason, String eventType, String payloadSha256) {
         public ReplayRequest {
-            if (deadLetterRecordId == null || deadLetterRecordId.isBlank() || deadLetterRecordId.length() > 300)
-                throw new IllegalArgumentException("deadLetterRecordId must be non-blank and at most 300 characters");
+            if (deadLetterRecordId == null || deadLetterRecordId.isBlank() || deadLetterRecordId.length() > 500)
+                throw new IllegalArgumentException("deadLetterRecordId must be non-blank and at most 500 characters");
             if (tenantId == null) throw new IllegalArgumentException("tenantId is required");
             if (actorId == null || actorId.isBlank() || actorId.length() > 200)
                 throw new IllegalArgumentException("actorId must be non-blank and at most 200 characters");

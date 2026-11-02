@@ -1,5 +1,6 @@
 package tech.kayys.numou.event.adapter.postgres;
 
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,8 +8,6 @@ import org.junit.jupiter.api.Assumptions;
 import org.postgresql.ds.PGSimpleDataSource;
 import tech.kayys.numou.event.spi.port.DeadLetterReplayStorePort;
 
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Duration;
@@ -27,9 +26,11 @@ class PostgresDeadLetterReplayStoreTest {
     private PostgresDeadLetterReplayStore store;
     private final UUID tenant = UUID.randomUUID();
 
-    @BeforeEach void setUp() throws Exception {
+    @BeforeEach
+    void setUp() throws Exception {
         String url = System.getenv("NUMOU_TEST_POSTGRES_URL");
-        Assumptions.assumeTrue(url != null && !url.isBlank(), "Set NUMOU_TEST_POSTGRES_URL to run PostgreSQL tests");
+        Assumptions.assumeTrue(url != null && !url.isBlank(),
+                "Set NUMOU_TEST_POSTGRES_URL to run PostgreSQL replay integration tests");
         root = new PGSimpleDataSource();
         root.setURL(url);
         String user = System.getenv("NUMOU_TEST_POSTGRES_USER");
@@ -37,43 +38,48 @@ class PostgresDeadLetterReplayStoreTest {
         if (user != null) root.setUser(user);
         if (password != null) root.setPassword(password);
         schema = "event_dlq_" + UUID.randomUUID().toString().replace("-", "");
-        try (Connection c = root.getConnection(); Statement s = c.createStatement()) {
-            s.execute("CREATE SCHEMA " + schema);
+        try (Connection connection = root.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA " + schema);
         }
+
         scoped = new PGSimpleDataSource();
         scoped.setURL(url);
         if (user != null) scoped.setUser(user);
         if (password != null) scoped.setPassword(password);
         scoped.setCurrentSchema(schema);
-        try (Connection c = scoped.getConnection(); Statement s = c.createStatement();
-             InputStream in = getClass().getResourceAsStream("/db/migration/V103__platform_event_dead_letter_replay.sql")) {
-            if (in == null) throw new IllegalStateException("Replay migration missing");
-            s.execute(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-        }
+        Flyway.configure().dataSource(scoped).schemas(schema).defaultSchema(schema)
+                .locations("classpath:db/migration").load().migrate();
         store = new PostgresDeadLetterReplayStore(scoped, Duration.ofMillis(150));
     }
 
-    @AfterEach void tearDown() throws Exception {
-        if (root == null) return;
-        try (Connection c = root.getConnection(); Statement s = c.createStatement()) {
-            s.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+    @AfterEach
+    void tearDown() throws Exception {
+        if (root == null || schema == null) return;
+        try (Connection connection = root.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
         }
     }
 
-    @Test void concurrentReplayRequestsHaveOneWinner() throws Exception {
+    @Test
+    void concurrentReplayRequestsHaveOnlyOneWinner() throws Exception {
         var pool = Executors.newFixedThreadPool(2);
         try {
-            var a = pool.submit(() -> store.beginReplay(request("dlq-1", tenant, "a".repeat(64))).await().indefinitely());
-            var b = pool.submit(() -> store.beginReplay(request("dlq-1", tenant, "a".repeat(64))).await().indefinitely());
-            var first = a.get(10, TimeUnit.SECONDS);
-            var second = b.get(10, TimeUnit.SECONDS);
-            assertThat(java.util.List.of(first.status(), second.status()))
+            var first = pool.submit(() -> store.beginReplay(request("dlq-1", tenant, "a".repeat(64)))
+                    .await().indefinitely());
+            var second = pool.submit(() -> store.beginReplay(request("dlq-1", tenant, "a".repeat(64)))
+                    .await().indefinitely());
+            var resultA = first.get(10, TimeUnit.SECONDS);
+            var resultB = second.get(10, TimeUnit.SECONDS);
+            assertThat(java.util.List.of(resultA.status(), resultB.status()))
                     .containsExactlyInAnyOrder(DeadLetterReplayStorePort.ClaimStatus.ACQUIRED,
                             DeadLetterReplayStorePort.ClaimStatus.IN_PROGRESS);
-        } finally { pool.shutdownNow(); }
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
-    @Test void expiredLeaseIsReclaimedAndOldTokenIsFenced() throws Exception {
+    @Test
+    void expiredLeaseIsReclaimedAndOldTokenIsFenced() throws Exception {
         var first = store.beginReplay(request("dlq-2", tenant, "b".repeat(64))).await().indefinitely();
         Thread.sleep(250);
         var second = store.beginReplay(request("dlq-2", tenant, "b".repeat(64))).await().indefinitely();
@@ -86,7 +92,8 @@ class PostgresDeadLetterReplayStoreTest {
         assertThat(done.status()).isEqualTo(DeadLetterReplayStorePort.ClaimStatus.ALREADY_COMPLETED);
     }
 
-    @Test void sourceRecordCannotBeReboundToAnotherTenantOrPayload() {
+    @Test
+    void sourceRecordCannotBeReboundToAnotherTenantOrPayload() {
         store.beginReplay(request("dlq-3", tenant, "c".repeat(64))).await().indefinitely();
         assertThatThrownBy(() -> store.beginReplay(request("dlq-3", UUID.randomUUID(), "c".repeat(64)))
                 .await().indefinitely()).isInstanceOf(SecurityException.class);
