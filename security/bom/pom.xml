@@ -75,6 +75,16 @@
                 <artifactId>numou-security-vault-application</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-vault-postgres</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-security-vault-crypto</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- Extracted bounded contexts -->
             <dependency>

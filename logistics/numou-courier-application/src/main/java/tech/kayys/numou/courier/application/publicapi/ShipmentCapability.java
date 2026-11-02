@@ -14,11 +14,12 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Framework-neutral application contract for consumers that need shipment booking,
- * tenant-scoped lookup, and tracking reads without depending on courier persistence adapters.
+ * Framework-neutral, unguarded shipment application operations for trusted internal composition.
  *
- * Tenant identifiers must be supplied by a trusted composition/authentication boundary;
- * this class is not an authorization mechanism.
+ * <p>This class performs tenant-scoped repository access but does not authorize actors. Do not
+ * expose it directly to HTTP, messaging, partner, or other untrusted inbound adapters. Compose
+ * {@link AuthorizedShipmentCapability} with a {@code CourierShipmentAccess} policy adapter at
+ * those boundaries. Tenant identifiers supplied here must originate from a trusted host context.</p>
  */
 public final class ShipmentCapability {
     private final BookShipmentHandler booking;
