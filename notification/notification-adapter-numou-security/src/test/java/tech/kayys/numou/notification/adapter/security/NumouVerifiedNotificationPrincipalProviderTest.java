@@ -1,6 +1,7 @@
 package tech.kayys.numou.notification.adapter.security;
 
 import org.junit.jupiter.api.Test;
+import tech.kayys.numou.notification.adapter.quarkus.VerifiedNotificationPrincipalProvider;
 import tech.kayys.numou.security.adapter.CurrentSecurity;
 import tech.kayys.numou.security.application.context.SecurityContext;
 import tech.kayys.numou.security.domain.authorization.Principal;
