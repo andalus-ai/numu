@@ -33,7 +33,7 @@ public final class WorkspacePorts {
   List<PageRevision> history(UUID tenantId,UUID pageId);
   /** Bounded ascending revision replay through an observed page revision. */
   default List<PageRevision> historyAfter(UUID tenantId, UUID pageId, long afterRevision, long throughRevision, int limit) {
-   return history(tenantId, pageId).stream().filter(r -> r.revision() > afterRevision && r.revision() <= throughRevision).limit(limit).toList();
+   return history(tenantId, pageId).stream().filter(r -> r.revision() > afterRevision && r.revision() <= throughRevision).sorted(java.util.Comparator.comparingLong(PageRevision::revision)).limit(limit).toList();
   }
  }
  /**
