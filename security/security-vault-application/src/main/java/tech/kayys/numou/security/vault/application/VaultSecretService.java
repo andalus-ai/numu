@@ -90,8 +90,9 @@ public final class VaultSecretService {
                     char[] plaintext = encryption.decrypt(
                             new SecretEncryptionPort.EncryptionScope(context.tenantId(), vaultId, secretId, version),
                             record.keyId(), record.encryptionAlgorithm(), record.formatVersion(), record.ciphertext());
-                    return authorization.auditPerformed(context, "VAULT_SECRET_REVEALED", RESOURCE,
-                                    secretId.toString(), "version=" + version)
+                    return secrets.appendAuditEvent(context.tenantId(), vaultId, secretId, version,
+                                    new VaultAuditEntry(context.actor(), "VAULT_SECRET_REVEALED",
+                                            "version=" + version, clock.instant()))
                             .replaceWith(plaintext)
                             .onFailure().invoke(failure -> Arrays.fill(plaintext, (char) 0));
                 });
