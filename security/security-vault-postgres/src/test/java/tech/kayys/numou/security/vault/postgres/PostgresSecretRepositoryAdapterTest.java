@@ -86,11 +86,7 @@ class PostgresSecretRepositoryAdapterTest {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
             statement.execute("""
                     CREATE OR REPLACE FUNCTION reject_vault_audit_insert() RETURNS trigger
-                    LANGUAGE plpgsql AS $
-                    BEGIN
-                        RAISE EXCEPTION 'simulated audit storage failure';
-                    END;
-                    $
+                    LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''simulated audit storage failure''; END;'
                     """);
             statement.execute("""
                     CREATE TRIGGER reject_vault_audit BEFORE INSERT ON vault_audit_outbox
