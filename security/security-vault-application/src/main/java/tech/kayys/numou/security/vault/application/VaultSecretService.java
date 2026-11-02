@@ -64,8 +64,10 @@ public final class VaultSecretService {
                 .flatMap(latest -> {
                     if (latest.isEmpty()) return Uni.createFrom().failure(new SecretNotFoundException());
                     int previous = latest.get().version().value();
-                    return encryptAndAppend(context, vaultId, secretId, previous,
-                            Math.addExact(previous, 1), plaintext, expiresAt);
+                    int next = Math.addExact(previous, 1);
+                    return encryptAndAppend(context, vaultId, secretId, previous, next, plaintext, expiresAt)
+                            .flatMap(saved -> authorization.auditPerformed(context, "VAULT_SECRET_ROTATED",
+                                    RESOURCE, secretId.toString(), "version=" + next).replaceWith(saved));
                 });
     }
 
