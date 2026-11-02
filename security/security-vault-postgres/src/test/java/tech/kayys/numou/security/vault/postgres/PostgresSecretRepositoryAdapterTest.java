@@ -82,6 +82,39 @@ class PostgresSecretRepositoryAdapterTest {
     }
 
     @Test
+    void rollsBackSecretVersionWhenAuditOutboxInsertFails() throws Exception {
+        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE OR REPLACE FUNCTION reject_vault_audit_insert() RETURNS trigger
+                    LANGUAGE plpgsql AS $
+                    BEGIN
+                        RAISE EXCEPTION 'simulated audit storage failure';
+                    END;
+                    $
+                    """);
+            statement.execute("""
+                    CREATE TRIGGER reject_vault_audit BEFORE INSERT ON vault_audit_outbox
+                    FOR EACH ROW EXECUTE FUNCTION reject_vault_audit_insert()
+                    """);
+        }
+
+        UUID tenant = UUID.randomUUID();
+        VaultId vault = VaultId.generate();
+        SecretId secret = SecretId.generate();
+        assertThrows(RuntimeException.class, () -> repository.appendVersion(tenant, vault, secret, 0, 1,
+                "AES-256-GCM-ENVELOPE", 1, "kms/key/v1", new byte[]{1, 2}, null,
+                new VaultAuditEntry("operator", "VAULT_SECRET_CREATED", "version=1", Instant.now()))
+                .await().indefinitely());
+
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT count(*) FROM vault_secret_version")) {
+            assertTrue(result.next());
+            assertEquals(0, result.getInt(1), "secret version must roll back with failed audit insert");
+        }
+    }
+
+    @Test
     void rejectsStaleVersionAndDoesNotWriteSecondAuditEvent() throws Exception {
         UUID tenant = UUID.randomUUID();
         VaultId vault = VaultId.generate();
