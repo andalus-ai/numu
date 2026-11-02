@@ -34,23 +34,23 @@ public class QueuePostgresOperationalHealthAdapter implements QueueOperationalHe
             ),
             outbox_stats AS (
                 SELECT
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                     ) AS pending_outbox,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                           AND available_at <= clock.captured_at
                           AND (lease_until IS NULL OR lease_until <= clock.captured_at)
                     ) AS due_outbox,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                           AND lease_until > clock.captured_at
                     ) AS leased_outbox,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NULL
                           AND lease_token IS NOT NULL AND lease_until <= clock.captured_at
                     ) AS expired_leases,
-                    COUNT(*) FILTER (
+                    COUNT(queue_outbox.event_id) FILTER (
                         WHERE published_at IS NULL AND dead_lettered_at IS NOT NULL
                     ) AS dead_lettered_outbox,
                     COALESCE(
@@ -63,6 +63,7 @@ public class QueuePostgresOperationalHealthAdapter implements QueueOperationalHe
                     )::bigint AS oldest_pending_age_seconds
                 FROM clock
                 LEFT JOIN queue_outbox ON queue_outbox.tenant_id = ?
+                GROUP BY clock.captured_at
             )
             SELECT clock.captured_at, entry_stats.waiting_entries, entry_stats.active_entries,
                    outbox_stats.pending_outbox, outbox_stats.due_outbox,
