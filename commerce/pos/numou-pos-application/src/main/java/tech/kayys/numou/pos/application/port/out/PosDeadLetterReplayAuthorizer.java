@@ -1,4 +1,4 @@
-package tech.kayys.numou.pos.application.port.in;
+package tech.kayys.numou.pos.application.port.out;
 
 import java.util.UUID;
 

@@ -1,6 +1,6 @@
 package tech.kayys.numou.pos.application;
 
-import tech.kayys.numou.pos.application.port.in.PosDeadLetterReplayAuthorizer;
+import tech.kayys.numou.pos.application.port.out.PosDeadLetterReplayAuthorizer;
 import tech.kayys.numou.pos.application.port.out.PosOutboxOperations;
 
 import java.time.Clock;

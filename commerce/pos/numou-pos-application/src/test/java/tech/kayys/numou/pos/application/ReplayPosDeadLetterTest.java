@@ -1,7 +1,7 @@
 package tech.kayys.numou.pos.application;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.numou.pos.application.port.in.PosDeadLetterReplayAuthorizer;
+import tech.kayys.numou.pos.application.port.out.PosDeadLetterReplayAuthorizer;
 import tech.kayys.numou.pos.application.port.out.PosOutboxOperations;
 
 import java.time.Clock;
