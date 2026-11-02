@@ -11,7 +11,7 @@
     </parent>
     <artifactId>numou-reliability-adapter</artifactId>
     <name>Numou Reliability - Postgres/Kafka Adapter</name>
-    <description>Postgres outbox/inbox/idempotency/audit stores, JSON event serializer, relay scheduler, Kafka publisher, Flyway migration V100.</description>
+    <description>Postgres outbox/inbox/idempotency/audit stores, JSON event serializer, relay scheduler, Kafka publisher, and Flyway migrations V100-V102.</description>
     <dependencies>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
