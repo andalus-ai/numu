@@ -1,7 +1,7 @@
 package tech.kayys.numou.pos.application;
 
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.numou.payment.api.*;
+import tech.kayys.payment.api.*;
 import tech.kayys.numou.pos.application.port.out.CheckoutInventoryPort;
 import tech.kayys.numou.pos.application.port.out.CheckoutRepository;
 import tech.kayys.numou.pos.domain.CheckoutSession;
@@ -31,7 +31,7 @@ public final class CheckoutOrchestrationService {
         String tenant = required(tenantId); Objects.requireNonNull(checkoutId); Objects.requireNonNull(saleId); Objects.requireNonNull(total);
         CheckoutSession s = repository.find(tenant, checkoutId)
                 .orElseGet(() -> repository.create(CheckoutSession.start(checkoutId, tenant, saleId, total, clock.instant())));
-        if (!s.saleId().equals(saleId) || !s.amount().equals(total)) throw new IllegalStateException("checkout key reused with different sale/amount");
+        if (!s.saleId().equals(saleId) || s.amount().compareTo(total) != 0) throw new IllegalStateException("checkout key reused with different sale/amount");
         if (s.status() == CheckoutSession.Status.STOCK_PENDING) {
             var reservation = inventory.reserve(tenant, checkoutId, saleId, key(checkoutId, "reserve"));
             s = repository.update(s.reserveStock(reservation.reference(), clock.instant()), s.version());
