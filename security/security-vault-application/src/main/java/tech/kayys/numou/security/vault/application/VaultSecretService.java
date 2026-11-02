@@ -44,9 +44,8 @@ public final class VaultSecretService {
                 })
                 .flatMap(latest -> {
                     if (latest.isPresent()) return Uni.createFrom().failure(new SecretAlreadyExistsException());
-                    return encryptAndAppend(context, vaultId, secretId, 0, 1, plaintext, expiresAt)
-                            .flatMap(saved -> authorization.auditPerformed(context, "VAULT_SECRET_CREATED",
-                                    RESOURCE, secretId.toString(), "version=1").replaceWith(saved));
+                    return encryptAndAppend(context, vaultId, secretId, 0, 1, plaintext, expiresAt,
+                            new VaultAuditEntry(context.actor(), "VAULT_SECRET_CREATED", "version=1", clock.instant()));
                 });
     }
 
@@ -65,9 +64,8 @@ public final class VaultSecretService {
                     if (latest.isEmpty()) return Uni.createFrom().failure(new SecretNotFoundException());
                     int previous = latest.get().version().value();
                     int next = Math.addExact(previous, 1);
-                    return encryptAndAppend(context, vaultId, secretId, previous, next, plaintext, expiresAt)
-                            .flatMap(saved -> authorization.auditPerformed(context, "VAULT_SECRET_ROTATED",
-                                    RESOURCE, secretId.toString(), "version=" + next).replaceWith(saved));
+                    return encryptAndAppend(context, vaultId, secretId, previous, next, plaintext, expiresAt,
+                            new VaultAuditEntry(context.actor(), "VAULT_SECRET_ROTATED", "version=" + next, clock.instant()));
                 });
     }
 
@@ -106,7 +104,7 @@ public final class VaultSecretService {
     }
 
     private Uni<EncryptedSecret> encryptAndAppend(SecurityContext context, VaultId vaultId, SecretId secretId,
-                                                   int previous, int version, char[] plaintext, Instant expiresAt) {
+                                                   int previous, int version, char[] plaintext, Instant expiresAt, VaultAuditEntry auditEntry) {
         char[] copy = plaintext.clone();
         final SecretEncryptionPort.EncryptedPayload payload;
         try {
@@ -116,7 +114,7 @@ public final class VaultSecretService {
             Arrays.fill(copy, (char) 0);
         }
         return secrets.appendVersion(context.tenantId(), vaultId, secretId, previous, version,
-                payload.algorithm(), payload.formatVersion(), payload.keyId(), payload.ciphertext(), expiresAt);
+                payload.algorithm(), payload.formatVersion(), payload.keyId(), payload.ciphertext(), expiresAt, auditEntry);
     }
 
     private void validate(char[] plaintext, Instant expiresAt) {
