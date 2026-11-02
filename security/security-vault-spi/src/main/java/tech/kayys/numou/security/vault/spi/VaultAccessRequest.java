@@ -23,8 +23,6 @@ public record VaultAccessRequest(UUID tenantId, Principal principal, Set<String>
         Objects.requireNonNull(secretId, "secretId is required");
         Objects.requireNonNull(operation, "operation is required");
         workloadIdentity = workloadIdentity == null ? Optional.empty() : workloadIdentity;
-        if (!principal.isMemberOf(tenantId))
-            throw new IllegalArgumentException("principal is not a member of the requested tenant");
         workloadIdentity.ifPresent(identity -> {
             if (!identity.tenantId().equals(tenantId))
                 throw new IllegalArgumentException("workload identity tenant mismatch");
