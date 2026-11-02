@@ -13,15 +13,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 
-/**
- * Tenant-scoped use cases for versioned secrets. Authorization always precedes
- * storage access; implementations never expose plaintext as a String.
- */
+/** Tenant-scoped secret use cases. Plaintext is never represented as a String. */
 public final class VaultSecretService {
     private static final String RESOURCE = "vault-secret";
-
     private final AuthorizationService authorization;
     private final SecretRepositoryPort secrets;
     private final SecretLifecyclePort lifecycle;
@@ -37,49 +32,48 @@ public final class VaultSecretService {
         this.clock = Objects.requireNonNull(clock, "clock is required");
     }
 
-    /**
-     * Creates the first version or appends a new immutable version. The caller
-     * retains ownership of plaintext; a short-lived defensive copy is wiped
-     * immediately after synchronous encryption.
-     */
-    public Uni<EncryptedSecret> put(SecurityContext context, VaultId vaultId, SecretId secretId,
-                                    char[] plaintext, Instant expiresAt) {
-        Objects.requireNonNull(plaintext, "plaintext is required");
-        if (plaintext.length == 0) return Uni.createFrom().failure(new IllegalArgumentException("secret must not be empty"));
-        if (expiresAt != null && !expiresAt.isAfter(clock.instant()))
-            return Uni.createFrom().failure(new IllegalArgumentException("expiresAt must be in the future"));
+    /** Creates version 1. The caller retains ownership of the supplied array. */
+    public Uni<EncryptedSecret> create(SecurityContext context, VaultId vaultId, SecretId secretId,
+                                       char[] plaintext, Instant expiresAt) {
+        validate(plaintext, expiresAt);
+        return authorization.require(context, ActionType.CREATE, RESOURCE, secretId.toString())
+                .flatMap(ignored -> lifecycle.status(context.tenantId(), vaultId, secretId))
+                .flatMap(status -> {
+                    if (status.isPresent()) return Uni.createFrom().failure(new SecretAlreadyExistsException());
+                    return secrets.findLatest(context.tenantId(), vaultId, secretId);
+                })
+                .flatMap(latest -> {
+                    if (latest.isPresent()) return Uni.createFrom().failure(new SecretAlreadyExistsException());
+                    return encryptAndAppend(context, vaultId, secretId, 0, 1, plaintext, expiresAt);
+                });
+    }
 
+    /** Appends a new immutable version using compare-and-append concurrency control. */
+    public Uni<EncryptedSecret> rotate(SecurityContext context, VaultId vaultId, SecretId secretId,
+                                       char[] plaintext, Instant expiresAt) {
+        validate(plaintext, expiresAt);
         return authorization.require(context, ActionType.UPDATE, RESOURCE, secretId.toString())
                 .flatMap(ignored -> lifecycle.status(context.tenantId(), vaultId, secretId))
                 .flatMap(status -> {
-                    if (status == SecretStatus.REVOKED)
+                    if (status.orElse(SecretStatus.ACTIVE) == SecretStatus.REVOKED)
                         return Uni.createFrom().failure(new SecretRevokedException());
                     return secrets.findLatest(context.tenantId(), vaultId, secretId);
                 })
                 .flatMap(latest -> {
-                    int previous = latest.map(value -> value.version().value()).orElse(0);
-                    int next = Math.addExact(previous, 1);
-                    char[] copy = plaintext.clone();
-                    final SecretEncryptionPort.EncryptedPayload payload;
-                    try {
-                        payload = encryption.encrypt(new SecretEncryptionPort.EncryptionScope(
-                                context.tenantId(), vaultId, secretId, next), copy);
-                    } finally {
-                        Arrays.fill(copy, '\0');
-                    }
-                    return secrets.appendVersion(context.tenantId(), vaultId, secretId, previous, next,
-                            payload.algorithm(), payload.formatVersion(), payload.keyId(),
-                            payload.ciphertext(), expiresAt);
+                    if (latest.isEmpty()) return Uni.createFrom().failure(new SecretNotFoundException());
+                    int previous = latest.get().version().value();
+                    return encryptAndAppend(context, vaultId, secretId, previous,
+                            Math.addExact(previous, 1), plaintext, expiresAt);
                 });
     }
 
-    /** Reveals one version only after authorization, lifecycle and expiry checks. */
+    /** Reveals a version only after authorization, lifecycle and expiry checks. */
     public Uni<char[]> reveal(SecurityContext context, VaultId vaultId, SecretId secretId, int version) {
         if (version < 1) return Uni.createFrom().failure(new IllegalArgumentException("version must be positive"));
         return authorization.require(context, ActionType.READ, RESOURCE, secretId.toString())
                 .flatMap(ignored -> lifecycle.status(context.tenantId(), vaultId, secretId))
                 .flatMap(status -> {
-                    if (status != SecretStatus.ACTIVE)
+                    if (status.orElse(SecretStatus.ACTIVE) != SecretStatus.ACTIVE)
                         return Uni.createFrom().failure(new SecretRevokedException());
                     return secrets.findVersion(context.tenantId(), vaultId, secretId, version);
                 })
@@ -96,9 +90,29 @@ public final class VaultSecretService {
                 });
     }
 
-    /** Revocation is a separately authorized, idempotent lifecycle transition. */
     public Uni<Void> revoke(SecurityContext context, VaultId vaultId, SecretId secretId) {
         return authorization.require(context, ActionType.DELETE, RESOURCE, secretId.toString())
                 .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId));
+    }
+
+    private Uni<EncryptedSecret> encryptAndAppend(SecurityContext context, VaultId vaultId, SecretId secretId,
+                                                   int previous, int version, char[] plaintext, Instant expiresAt) {
+        char[] copy = plaintext.clone();
+        final SecretEncryptionPort.EncryptedPayload payload;
+        try {
+            payload = encryption.encrypt(new SecretEncryptionPort.EncryptionScope(
+                    context.tenantId(), vaultId, secretId, version), copy);
+        } finally {
+            Arrays.fill(copy, '\\0');
+        }
+        return secrets.appendVersion(context.tenantId(), vaultId, secretId, previous, version,
+                payload.algorithm(), payload.formatVersion(), payload.keyId(), payload.ciphertext(), expiresAt);
+    }
+
+    private void validate(char[] plaintext, Instant expiresAt) {
+        if (plaintext == null || plaintext.length == 0)
+            throw new IllegalArgumentException("secret must not be empty");
+        if (expiresAt != null && !expiresAt.isAfter(clock.instant()))
+            throw new IllegalArgumentException("expiresAt must be in the future");
     }
 }
