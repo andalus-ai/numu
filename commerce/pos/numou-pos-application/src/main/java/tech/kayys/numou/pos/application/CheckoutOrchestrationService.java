@@ -9,7 +9,6 @@ import tech.kayys.numou.pos.application.port.out.CheckoutInventoryPort;
 import tech.kayys.numou.pos.application.port.out.CheckoutRepository;
 import tech.kayys.numou.pos.domain.CheckoutSession;
 import java.time.Clock;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -42,6 +41,9 @@ public final class CheckoutOrchestrationService {
         if (s.status() == CheckoutSession.Status.PAYMENT_PENDING && s.paymentId() == null) {
             PaymentSnapshot p = payments.createOrGet(new PaymentRequest(tenant, key(checkoutId, "payment"),
                     checkoutId.toString(), total.amount(), total.currency().code(), "POS checkout " + checkoutId));
+            if (!p.tenantId().equals(tenant) || p.amount().compareTo(total.amount()) != 0
+                    || !p.currency().equals(total.currency().code()))
+                throw new IllegalStateException("created payment obligation does not match checkout");
             s = repository.update(s.attachPayment(p.paymentId(), clock.instant()), s.version());
         }
         return s;
