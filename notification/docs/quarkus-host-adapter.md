@@ -45,3 +45,15 @@ The host remains responsible for:
 - providing a tenant-scoped `NotificationRecipientResolver`;
 - composing `AuthenticatedNotificationApi` with the configured JDBC repository, managed `PushTokenKeyProvider`, `AesGcmPushTokenProtector`, and clock;
 - configuring authentication and endpoint permissions consistently with the security filter.
+
+
+## Optional Quarkus JDBC composition
+
+Numou Quarkus hosts can include `notification-adapter-quarkus-jdbc` to wire the existing JDBC push-device repository and AES-GCM token protector into CDI. The module requires:
+
+- a Quarkus-managed `DataSource` configured by the host (for example, the PostgreSQL JDBC extension and datasource configuration);
+- exactly one host-owned `PushTokenKeyProvider` backed by a managed KMS or secret manager.
+
+The adapter produces `PushTokenProtector` and `PushDeviceRepository` beans. It never creates or stores encryption keys, reads credentials from environment variables itself, or falls back to an embedded key. If the host does not provide `PushTokenKeyProvider`, CDI startup must fail rather than start with an insecure default.
+
+This composition covers push-device persistence only. Hosts still compose notification delivery/inbox repositories, `AuthenticatedNotificationApi`, `NotificationRecipientResolver`, and provider credentials according to their deployment. Do not include this module alongside another host-owned `PushDeviceRepository` or `PushTokenProtector` producer unless the competing bean is explicitly qualified or excluded.
