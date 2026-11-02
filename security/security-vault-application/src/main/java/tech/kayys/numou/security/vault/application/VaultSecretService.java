@@ -44,7 +44,9 @@ public final class VaultSecretService {
                 })
                 .flatMap(latest -> {
                     if (latest.isPresent()) return Uni.createFrom().failure(new SecretAlreadyExistsException());
-                    return encryptAndAppend(context, vaultId, secretId, 0, 1, plaintext, expiresAt);
+                    return encryptAndAppend(context, vaultId, secretId, 0, 1, plaintext, expiresAt)
+                            .flatMap(saved -> authorization.auditPerformed(context, "VAULT_SECRET_CREATED",
+                                    RESOURCE, secretId.toString(), "version=1").replaceWith(saved));
                 });
     }
 
@@ -84,15 +86,21 @@ public final class VaultSecretService {
                         return Uni.createFrom().failure(new SecretNotFoundException());
                     if (record.expiresAt() != null && !record.expiresAt().isAfter(clock.instant()))
                         return Uni.createFrom().failure(new SecretExpiredException());
-                    return Uni.createFrom().item(encryption.decrypt(
+                    char[] plaintext = encryption.decrypt(
                             new SecretEncryptionPort.EncryptionScope(context.tenantId(), vaultId, secretId, version),
-                            record.keyId(), record.encryptionAlgorithm(), record.formatVersion(), record.ciphertext()));
+                            record.keyId(), record.encryptionAlgorithm(), record.formatVersion(), record.ciphertext());
+                    return authorization.auditPerformed(context, "VAULT_SECRET_REVEALED", RESOURCE,
+                                    secretId.toString(), "version=" + version)
+                            .replaceWith(plaintext)
+                            .onFailure().invoke(failure -> Arrays.fill(plaintext, '\\0'));
                 });
     }
 
     public Uni<Void> revoke(SecurityContext context, VaultId vaultId, SecretId secretId) {
         return authorization.require(context, ActionType.DELETE, RESOURCE, secretId.toString())
-                .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId));
+                .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId))
+                .flatMap(ignored -> authorization.auditPerformed(context, "VAULT_SECRET_REVOKED",
+                        RESOURCE, secretId.toString(), "revoked=true"));
     }
 
     private Uni<EncryptedSecret> encryptAndAppend(SecurityContext context, VaultId vaultId, SecretId secretId,
