@@ -100,6 +100,10 @@ class PostgresSecretRepositoryAdapterTest {
 
         assertEquals(tech.kayys.numou.security.vault.domain.SecretStatus.REVOKED,
                 lifecycle.status(tenant, vault, secret).await().indefinitely().orElseThrow());
+        assertThrows(RuntimeException.class, () -> repository.appendVersion(tenant, vault, secret, 1, 2,
+                "AES-256-GCM-ENVELOPE", 1, "kms/key/v1", new byte[]{6, 7}, null,
+                new VaultAuditEntry("operator", "VAULT_SECRET_ROTATED", "version=2", Instant.now()))
+                .await().indefinitely());
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement();
              ResultSet result = statement.executeQuery("SELECT count(*) FROM vault_audit_outbox WHERE event_type = 'VAULT_SECRET_REVOKED'")) {
