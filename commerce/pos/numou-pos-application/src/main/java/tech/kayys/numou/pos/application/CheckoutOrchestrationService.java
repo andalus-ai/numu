@@ -1,7 +1,10 @@
 package tech.kayys.numou.pos.application;
 
 import tech.kayys.numou.foundation.domain.valueobject.Money;
-import tech.kayys.payment.api.*;
+import tech.kayys.numou.pos.application.port.out.CheckoutPaymentPort;
+import tech.kayys.numou.pos.application.port.out.CheckoutPaymentPort.PaymentRequest;
+import tech.kayys.numou.pos.application.port.out.CheckoutPaymentPort.PaymentSnapshot;
+import tech.kayys.numou.pos.application.port.out.CheckoutPaymentPort.Status;
 import tech.kayys.numou.pos.application.port.out.CheckoutInventoryPort;
 import tech.kayys.numou.pos.application.port.out.CheckoutRepository;
 import tech.kayys.numou.pos.domain.CheckoutSession;
@@ -17,11 +20,11 @@ import java.util.UUID;
 public final class CheckoutOrchestrationService {
     private final CheckoutRepository repository;
     private final CheckoutInventoryPort inventory;
-    private final PaymentApplicationPort payments;
+    private final CheckoutPaymentPort payments;
     private final Clock clock;
 
     public CheckoutOrchestrationService(CheckoutRepository repository, CheckoutInventoryPort inventory,
-            PaymentApplicationPort payments, Clock clock) {
+            CheckoutPaymentPort payments, Clock clock) {
         this.repository = Objects.requireNonNull(repository); this.inventory = Objects.requireNonNull(inventory);
         this.payments = Objects.requireNonNull(payments); this.clock = Objects.requireNonNull(clock);
     }
@@ -37,9 +40,8 @@ public final class CheckoutOrchestrationService {
             s = repository.update(s.reserveStock(reservation.reference(), clock.instant()), s.version());
         }
         if (s.status() == CheckoutSession.Status.PAYMENT_PENDING && s.paymentId() == null) {
-            PaymentObligation p = payments.createOrGet(new CreatePaymentObligation(tenant, key(checkoutId, "payment"),
-                    checkoutId.toString(), total.amount(), total.currency().code(), "POS checkout " + checkoutId,
-                    Map.of("saleId", saleId.toString(), "checkoutId", checkoutId.toString())));
+            PaymentSnapshot p = payments.createOrGet(new PaymentRequest(tenant, key(checkoutId, "payment"),
+                    checkoutId.toString(), total.amount(), total.currency().code(), "POS checkout " + checkoutId));
             s = repository.update(s.attachPayment(p.paymentId(), clock.instant()), s.version());
         }
         return s;
@@ -52,21 +54,21 @@ public final class CheckoutOrchestrationService {
                 .orElseThrow(() -> new IllegalArgumentException("checkout not found"));
         if (s.status() == CheckoutSession.Status.COMPLETED || s.status() == CheckoutSession.Status.CANCELLED
                 || s.status() == CheckoutSession.Status.STOCK_PENDING) return s;
-        PaymentObligation p = payments.find(tenant, s.paymentId())
+        PaymentSnapshot p = payments.find(tenant, s.paymentId())
                 .orElseThrow(() -> new IllegalStateException("payment obligation missing; manual reconciliation required"));
         if (!p.tenantId().equals(tenant) || !p.paymentId().equals(s.paymentId())
                 || p.amount().compareTo(s.amount().amount()) != 0 || !p.currency().equals(s.amount().currency().code()))
             throw new IllegalStateException("payment obligation does not match checkout");
-        if (p.status() == PaymentStatus.SUCCEEDED) {
+        if (p.status() == Status.SUCCEEDED) {
             if (s.status() != CheckoutSession.Status.PAID) s = repository.update(s.markPaid(clock.instant()), s.version());
             inventory.commit(tenant, s.reservationReference(), key(checkoutId, "commit-stock"));
             return repository.update(s.complete(clock.instant()), s.version());
         }
-        if (p.status() == PaymentStatus.FAILED || p.status() == PaymentStatus.CANCELLED || p.status() == PaymentStatus.EXPIRED) {
+        if (p.status() == Status.FAILED || p.status() == Status.CANCELLED || p.status() == Status.EXPIRED) {
             inventory.release(tenant, s.reservationReference(), key(checkoutId, "release-stock"));
             return repository.update(s.cancel(clock.instant()), s.version());
         }
-        if (p.status() == PaymentStatus.UNKNOWN && s.status() != CheckoutSession.Status.PAYMENT_UNKNOWN)
+        if (p.status() == Status.UNKNOWN && s.status() != CheckoutSession.Status.PAYMENT_UNKNOWN)
             return repository.update(s.markUnknown(clock.instant()), s.version());
         return s;
     }
