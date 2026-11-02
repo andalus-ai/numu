@@ -6,11 +6,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 
 /**
- * Pro-ration calculator for partial periods.
+ * Pro-ration calculator for partial periods. Days are counted in UTC so the result does not depend on the
+ * server's time zone.
  */
 public final class ProRationCalculator {
 
@@ -30,14 +31,14 @@ public final class ProRationCalculator {
 
         // Calculate days in full period
         long totalDays = ChronoUnit.DAYS.between(
-            periodStart.atZone(ZoneId.systemDefault()).toLocalDate(),
-            periodEnd.atZone(ZoneId.systemDefault()).toLocalDate()
+            periodStart.atZone(ZoneOffset.UTC).toLocalDate(),
+            periodEnd.atZone(ZoneOffset.UTC).toLocalDate()
         );
 
         // Calculate days in pro-rated period
         long proRatedDays = ChronoUnit.DAYS.between(
-            proRateStart.atZone(ZoneId.systemDefault()).toLocalDate(),
-            proRateEnd.atZone(ZoneId.systemDefault()).toLocalDate()
+            proRateStart.atZone(ZoneOffset.UTC).toLocalDate(),
+            proRateEnd.atZone(ZoneOffset.UTC).toLocalDate()
         );
 
         if (totalDays == 0 || proRatedDays == 0) {
@@ -59,8 +60,8 @@ public final class ProRationCalculator {
             Instant activationDate,
             Instant billingDate) {
         
-        LocalDate activation = activationDate.atZone(ZoneId.systemDefault()).toLocalDate();
-        LocalDate billing = billingDate.atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate activation = activationDate.atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate billing = billingDate.atZone(ZoneOffset.UTC).toLocalDate();
         LocalDate monthEnd = billing.withDayOfMonth(
             billing.getMonth().length(billing.isLeapYear())
         );
@@ -69,7 +70,8 @@ public final class ProRationCalculator {
             billing.withDayOfMonth(1), monthEnd
         ) + 1;
 
-        long daysUsed = ChronoUnit.DAYS.between(activation, monthEnd) + 1;
+        // an activation before the month began still pays for the whole month and no more
+        long daysUsed = Math.min(ChronoUnit.DAYS.between(activation, monthEnd) + 1, daysInMonth);
 
         if (daysUsed <= 0 || daysInMonth == 0) {
             return Money.zero(monthlyAmount.getCurrency().getCurrencyCode());
@@ -99,13 +101,13 @@ public final class ProRationCalculator {
         }
 
         long totalDays = ChronoUnit.DAYS.between(
-            serviceStart.atZone(ZoneId.systemDefault()).toLocalDate(),
-            serviceEnd.atZone(ZoneId.systemDefault()).toLocalDate()
+            serviceStart.atZone(ZoneOffset.UTC).toLocalDate(),
+            serviceEnd.atZone(ZoneOffset.UTC).toLocalDate()
         );
 
         long unusedDays = ChronoUnit.DAYS.between(
-            cancellationDate.atZone(ZoneId.systemDefault()).toLocalDate(),
-            serviceEnd.atZone(ZoneId.systemDefault()).toLocalDate()
+            cancellationDate.atZone(ZoneOffset.UTC).toLocalDate(),
+            serviceEnd.atZone(ZoneOffset.UTC).toLocalDate()
         );
 
         if (totalDays == 0 || unusedDays <= 0) {
