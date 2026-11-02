@@ -27,6 +27,18 @@ class WorkspaceMentionOutboxDispatcherTest {
         assertEquals(store.claimed.leaseToken(), store.completedToken);
     }
 
+    @Test void lifetimeAttemptsDoNotConsumeAReplayedRetryWindow() {
+        FakeStore store = new FakeStore(20, 1);
+        WorkspaceMentionOutboxDispatcher dispatcher = new WorkspaceMentionOutboxDispatcher(
+                store, mention -> { throw new IllegalStateException("notification unavailable"); },
+                Clock.fixed(NOW, ZoneOffset.UTC), "worker-a", 3, Duration.ofSeconds(30));
+
+        var result = dispatcher.dispatch(1);
+
+        assertEquals(1, result.retried());
+        assertEquals(0, result.deadLettered());
+    }
+
     @Test void transientFailureSchedulesRetryAndFinalAttemptDeadLetters() {
         FakeStore first = new FakeStore(1);
         WorkspaceMentionOutboxDispatcher retrying = new WorkspaceMentionOutboxDispatcher(
@@ -50,12 +62,13 @@ class WorkspaceMentionOutboxDispatcherTest {
         private final ClaimedMention claimed;
         private UUID completedToken;
         private Instant retryAt;
-        FakeStore(int attempts) {
+        FakeStore(int attempts) { this(attempts, attempts); }
+        FakeStore(int attempts, int retryAttempts) {
             UUID tenant=UUID.randomUUID(), page=UUID.randomUUID(), thread=UUID.randomUUID();
             UUID comment=UUID.randomUUID(), recipient=UUID.randomUUID(), actor=UUID.randomUUID();
             UUID id=UUID.randomUUID(), token=UUID.randomUUID();
             claimed=new ClaimedMention(id,tenant,page,thread,comment,recipient,actor,"member","Member",
-                    "Page","workspace:comment-mention:"+comment+":"+recipient,attempts,attempts,token,NOW.plusSeconds(30));
+                    "Page","workspace:comment-mention:"+comment+":"+recipient,attempts,retryAttempts,token,NOW.plusSeconds(30));
         }
         public boolean createThreadWithMentions(tech.kayys.numou.workspace.domain.PageCommentThread t,
                 tech.kayys.numou.workspace.application.WorkspacePorts.AuditEntry a,List<MentionIntent> m){throw new UnsupportedOperationException();}
