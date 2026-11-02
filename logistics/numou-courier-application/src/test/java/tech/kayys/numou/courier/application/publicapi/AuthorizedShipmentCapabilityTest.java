@@ -53,8 +53,7 @@ class AuthorizedShipmentCapabilityTest {
                 new CourierShipmentAccess.Decision(false, "policy-denied")));
         AuthorizedShipmentCapability capability = capability(repository, access);
 
-        assertThrows(SecurityException.class, () -> capability.book(actor(tenant), request(tenant.toString()))
-                .toCompletableFuture().join());
+        assertDenied(() -> capability.book(actor(tenant), request(tenant.toString())).toCompletableFuture().join());
         verifyNoInteractions(repository);
     }
 
@@ -66,7 +65,7 @@ class AuthorizedShipmentCapabilityTest {
         CourierShipmentAccess access = mock(CourierShipmentAccess.class);
         AuthorizedShipmentCapability capability = capability(repository, access);
 
-        assertThrows(SecurityException.class, () -> capability.book(actor(authenticatedTenant),
+        assertDenied(() -> capability.book(actor(authenticatedTenant),
                 request(suppliedTenant.toString())).toCompletableFuture().join());
         verifyNoInteractions(access, repository);
     }
