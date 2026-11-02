@@ -32,8 +32,6 @@ CREATE TABLE IF NOT EXISTS vault_audit_outbox (
     attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
     next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_error VARCHAR(2000),
-    CONSTRAINT uq_vault_audit_event UNIQUE
-        (tenant_id, vault_id, secret_id, secret_version, event_type),
     CONSTRAINT fk_vault_audit_secret_version FOREIGN KEY
         (tenant_id, vault_id, secret_id, secret_version)
         REFERENCES vault_secret_version
@@ -43,3 +41,14 @@ CREATE TABLE IF NOT EXISTS vault_audit_outbox (
 CREATE INDEX IF NOT EXISTS ix_vault_audit_outbox_due
     ON vault_audit_outbox (next_attempt_at, occurred_at)
     WHERE published_at IS NULL;
+
+
+-- Logical secret revocation is tenant-scoped and irreversible in this schema.
+CREATE TABLE IF NOT EXISTS vault_secret_lifecycle (
+    tenant_id UUID NOT NULL,
+    vault_id UUID NOT NULL,
+    secret_id UUID NOT NULL,
+    status VARCHAR(24) NOT NULL CHECK (status IN ('REVOKED')),
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, vault_id, secret_id)
+);
