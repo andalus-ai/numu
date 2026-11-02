@@ -1337,6 +1337,30 @@ class JdbcWorkspaceStorePostgresTest {
     }
 
     @Test
+    void pageRevisionReplayIsBoundedOrderedAndTenantScoped() {
+        Instant now = Instant.parse("2026-11-02T00:00:00Z");
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
+        Workspace workspace = Workspace.create(tenant, "Revision replay", "", now);
+        assertTrue(store.save(workspace));
+        Space space = Space.create(tenant, workspace.id(), "General", "general", now);
+        assertTrue(store.save(space));
+        Page page = Page.create(tenant, workspace.id(), space.id(), null, "Initial", List.of(), now);
+        assertTrue(store.saveWithRevision(page, PageRevision.snapshot(page, actor, now, "Created"), 0));
+        Page second = page.revise("Second", List.of(), now.plusSeconds(1));
+        assertTrue(store.saveWithRevision(second, PageRevision.snapshot(second, actor, now.plusSeconds(1), "Second"), 1));
+        Page third = second.revise("Third", List.of(), now.plusSeconds(2));
+        assertTrue(store.saveWithRevision(third, PageRevision.snapshot(third, actor, now.plusSeconds(2), "Third"), 2));
+
+        List<PageRevision> firstBatch = store.historyAfter(tenant, page.id(), 0, 3, 2);
+        assertEquals(List.of(1L, 2L), firstBatch.stream().map(PageRevision::revision).toList());
+        List<PageRevision> resumed = store.historyAfter(tenant, page.id(), 2, 3, 2);
+        assertEquals(List.of(3L), resumed.stream().map(PageRevision::revision).toList());
+        assertTrue(store.historyAfter(UUID.randomUUID(), page.id(), 0, 3, 10).isEmpty());
+        assertTrue(store.historyAfter(tenant, page.id(), 0, 2, 10).stream()
+                .allMatch(revision -> revision.revision() <= 2));
+    }
+
+    @Test
     void pagePresenceLeasesAreTenantScopedActorBoundAndExpire() {
         Instant now = Instant.parse("2026-10-31T00:00:00Z");
         UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), otherActor = UUID.randomUUID();
