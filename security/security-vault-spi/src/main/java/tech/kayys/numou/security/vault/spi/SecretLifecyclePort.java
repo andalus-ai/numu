@@ -12,5 +12,5 @@ import java.util.Optional;
 public interface SecretLifecyclePort {
     Uni<Optional<SecretStatus>> status(UUID tenantId, VaultId vaultId, SecretId secretId);
     /** Revocation is idempotent and must prevent subsequent reveal operations. */
-    Uni<Void> revoke(UUID tenantId, VaultId vaultId, SecretId secretId);
+    Uni<Void> revoke(UUID tenantId, VaultId vaultId, SecretId secretId, VaultAuditEntry auditEntry);
 }
