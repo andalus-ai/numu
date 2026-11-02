@@ -41,18 +41,18 @@ public final class VaultAuditOutboxRelay {
                 .flatMap(events -> {
                     if (events.isEmpty()) return Uni.createFrom().item(0);
                     List<Uni<Void>> work = events.stream()
-                            .map(event -> deliver(event, workerId, now))
+                            .map(event -> deliver(event, workerId))
                             .toList();
                     return Uni.join().all(work).andCollectFailures().replaceWith(events.size());
                 });
     }
 
-    private Uni<Void> deliver(VaultAuditOutboxEvent event, String workerId, Instant now) {
+    private Uni<Void> deliver(VaultAuditOutboxEvent event, String workerId) {
         return publisher.publish(event)
-                .flatMap(ignored -> outbox.markPublished(event.eventId(), workerId, now))
+                .flatMap(ignored -> outbox.markPublished(event.eventId(), workerId, Instant.now()))
                 .onFailure().recoverWithUni(failure -> {
                     boolean deadLetter = event.attempts() >= MAX_ATTEMPTS;
-                    Instant retryAt = now.plus(backoff(event.attempts()));
+                    Instant retryAt = Instant.now().plus(backoff(event.attempts()));
                     // Do not persist exception messages: providers can accidentally include
                     // credentials or payload fragments in them.
                     String safeError = failure.getClass().getSimpleName();
