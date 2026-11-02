@@ -6,13 +6,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Persistence boundary for operator inspection and explicit terminal recovery. */
 public interface ConsultancyEvidenceOperationsAdminStore {
     Uni<List<ConsultancyEvidenceOperation>> list(
             String tenantId, Optional<ConsultancyEvidenceOperation.Status> status, int limit, int offset);
 
-    /** Atomically requeues a terminal operation and appends its immutable audit record. */
     Uni<ConsultancyEvidenceOperation> recoverTerminalFailure(RecoveryRequest request);
+
+    Uni<ConsultancyEvidenceOperationsSnapshot> snapshot(String tenantId);
+
+    Uni<List<ConsultancyEvidenceRecoveryAuditEntry>> recoveryHistory(
+            String tenantId, UUID operationId, int limit, int offset);
 
     record RecoveryRequest(String tenantId, UUID operationId, UUID actorId,
             String reason, String idempotencyKey, Instant occurredAt) {
