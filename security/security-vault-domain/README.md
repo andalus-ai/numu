@@ -16,3 +16,7 @@ The domain intentionally does not implement cryptography, persistence, HTTP, clo
 ## Threat-model boundary
 
 This module cannot itself prevent a privileged process from reading plaintext while it is in memory. Callers and adapters must minimize plaintext lifetime, avoid immutable String conversion, clear mutable buffers where practical, and never log secret values. Production deployments must protect process memory, backups, key material, and operator access as separate controls.
+
+## Workload identity value
+
+`VaultWorkloadIdentity` is a validated, tenant-bound result of a trusted identity-resolution step. It is not a credential and cannot authenticate a caller by itself. Its issuer, subject, audience and scope claims are bounded; expiry is checked against the application clock before policy evaluation. Only the host identity adapter may construct it from an already authenticated platform principal.
