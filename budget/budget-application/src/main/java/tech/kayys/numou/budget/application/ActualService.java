@@ -8,8 +8,9 @@ import java.util.Objects;
 public final class ActualService {
     private final ActualRepository actuals;
     public ActualService(ActualRepository actuals) { this.actuals = Objects.requireNonNull(actuals); }
-    public void record(BudgetId budgetId, String accountCode, BudgetPeriod period, BigDecimal amount) {
+    public void record(String tenantId, BudgetId budgetId, String accountCode, BudgetPeriod period, BigDecimal amount) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId must not be blank");
         if (amount == null || amount.signum() < 0) throw new IllegalArgumentException("actual must not be negative");
-        actuals.add(budgetId, accountCode, period, amount);
+        actuals.add(tenantId, budgetId, accountCode, period, amount);
     }
 }

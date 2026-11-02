@@ -7,6 +7,6 @@ import java.util.Optional;
 
 public interface CommitmentRepository {
     BudgetCommitment save(BudgetCommitment commitment);
-    Optional<BudgetCommitment> find(CommitmentId id);
-    List<BudgetCommitment> openFor(BudgetId budgetId, String accountCode, BudgetPeriod period);
+    Optional<BudgetCommitment> find(String tenantId, CommitmentId id);
+    List<BudgetCommitment> openFor(String tenantId, BudgetId budgetId, String accountCode, BudgetPeriod period);
 }
