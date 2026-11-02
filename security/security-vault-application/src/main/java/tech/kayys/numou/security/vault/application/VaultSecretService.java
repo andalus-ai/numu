@@ -8,6 +8,7 @@ import tech.kayys.numou.security.vault.domain.*;
 import tech.kayys.numou.security.vault.spi.SecretEncryptionPort;
 import tech.kayys.numou.security.vault.spi.SecretLifecyclePort;
 import tech.kayys.numou.security.vault.spi.SecretRepositoryPort;
+import tech.kayys.numou.security.vault.spi.VaultAuditEntry;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -89,8 +90,9 @@ public final class VaultSecretService {
                     char[] plaintext = encryption.decrypt(
                             new SecretEncryptionPort.EncryptionScope(context.tenantId(), vaultId, secretId, version),
                             record.keyId(), record.encryptionAlgorithm(), record.formatVersion(), record.ciphertext());
-                    return authorization.auditPerformed(context, "VAULT_SECRET_REVEALED", RESOURCE,
-                                    secretId.toString(), "version=" + version)
+                    return secrets.appendAuditEvent(context.tenantId(), vaultId, secretId, version,
+                                    new VaultAuditEntry(context.actor(), "VAULT_SECRET_REVEALED",
+                                            "version=" + version, clock.instant()))
                             .replaceWith(plaintext)
                             .onFailure().invoke(failure -> Arrays.fill(plaintext, (char) 0));
                 });
@@ -98,9 +100,8 @@ public final class VaultSecretService {
 
     public Uni<Void> revoke(SecurityContext context, VaultId vaultId, SecretId secretId) {
         return authorization.require(context, ActionType.DELETE, RESOURCE, secretId.toString())
-                .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId))
-                .flatMap(ignored -> authorization.auditPerformed(context, "VAULT_SECRET_REVOKED",
-                        RESOURCE, secretId.toString(), "revoked=true"));
+                .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId,
+                        new VaultAuditEntry(context.actor(), "VAULT_SECRET_REVOKED", "revoked=true", clock.instant())));
     }
 
     private Uni<EncryptedSecret> encryptAndAppend(SecurityContext context, VaultId vaultId, SecretId secretId,
