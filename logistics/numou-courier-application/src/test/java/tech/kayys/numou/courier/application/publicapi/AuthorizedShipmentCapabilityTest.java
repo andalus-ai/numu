@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletableFuture;\nimport java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -103,7 +103,7 @@ class AuthorizedShipmentCapabilityTest {
         verifyNoInteractions(repository);
     }
 
-    private static AuthorizedShipmentCapability capability(ShipmentRepository repository,
+    private static void assertDenied(org.junit.jupiter.api.function.Executable action) {\n        CompletionException failure = assertThrows(CompletionException.class, action);\n        assertInstanceOf(SecurityException.class, failure.getCause());\n    }\n\n    private static AuthorizedShipmentCapability capability(ShipmentRepository repository,
                                                              CourierShipmentAccess access) {
         ShipmentCapability raw = new ShipmentCapability(new BookShipmentHandler(repository), repository,
                 mock(TrackingEventRepository.class));
