@@ -31,25 +31,25 @@ public final class BudgetingService {
         this.forecast = new TrendForecastEngine();
         this.allocation = new WeightedAllocationStrategy();
     }
-    public PlanningBudget create(BudgetId id, String code, int fiscalYear) { return lifecycle.create(id, code, fiscalYear); }
-    public PlanningBudget require(BudgetId id) { return lifecycle.require(id); }
-    public BudgetCommitment commit(CommitmentId id, BudgetId budgetId, String accountCode,
+    public PlanningBudget create(String tenantId, BudgetId id, String code, int fiscalYear) { return lifecycle.create(tenantId, id, code, fiscalYear); }
+    public PlanningBudget require(String tenantId, BudgetId id) { return lifecycle.require(tenantId, id); }
+    public BudgetCommitment commit(String tenantId, CommitmentId id, BudgetId budgetId, String accountCode,
                                    BudgetPeriod period, BigDecimal amount, String reference) {
-        return commit(id, budgetId, accountCode, Map.of(), period, amount, reference);
+        return commit(tenantId, id, budgetId, accountCode, Map.of(), period, amount, reference);
     }
-    public BudgetCommitment commit(CommitmentId id, BudgetId budgetId, String accountCode,
+    public BudgetCommitment commit(String tenantId, CommitmentId id, BudgetId budgetId, String accountCode,
                                    Map<String, String> dimensions, BudgetPeriod period,
                                    BigDecimal amount, String reference) {
-        return commitmentService.create(id, budgetId, accountCode, dimensions, period, amount, reference);
+        return commitmentService.create(tenantId, id, budgetId, accountCode, dimensions, period, amount, reference);
     }
-    public BudgetCommitment consume(CommitmentId id, BigDecimal amount) { return commitmentService.consume(id, amount); }
-    public BudgetCommitment release(CommitmentId id) { return commitmentService.release(id); }
-    public void recordActual(BudgetId id, String account, BudgetPeriod period, BigDecimal amount) {
-        lifecycle.require(id); actualService.record(id, account, period, amount);
+    public BudgetCommitment consume(String tenantId, CommitmentId id, BigDecimal amount) { return commitmentService.consume(tenantId, id, amount); }
+    public BudgetCommitment release(String tenantId, CommitmentId id) { return commitmentService.release(tenantId, id); }
+    public void recordActual(String tenantId, BudgetId id, String account, BudgetPeriod period, BigDecimal amount) {
+        lifecycle.require(tenantId, id); actualService.record(tenantId, id, account, period, amount);
     }
-    public Availability checkAvailability(BudgetId id, String account, Map<String, String> dimensions,
+    public Availability checkAvailability(String tenantId, BudgetId id, String account, Map<String, String> dimensions,
                                            BudgetPeriod period, BigDecimal requested) {
-        return control.check(id, account, dimensions, period, requested);
+        return control.check(tenantId, id, account, dimensions, period, requested);
     }
     public Map<BudgetPeriod, BigDecimal> forecast(List<BudgetPeriod> periods, List<BigDecimal> totals, List<BudgetPeriod> future) {
         return forecast.forecast(periods, totals, future);

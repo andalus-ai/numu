@@ -131,6 +131,72 @@ class JdbcOrganizationPartyAssociationRepositoryPostgresTest {
         }
     }
 
+
+    @Test
+    void outboxFailureRollsBackAssociationAndHistory() throws Exception {
+        var repository = repository();
+        UUID tenantId = UUID.randomUUID();
+        var proposed = OrganizationPartyAssociation.propose(
+                UUID.randomUUID(), OrganizationId.generate(), PartyId.generate(),
+                T0, "operator-1", "registry:atomicity");
+
+        try (Connection connection = dataSource().getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE platform_outbox");
+        }
+
+        assertThrows(RuntimeException.class,
+                () -> repository.save(proposed, tenantId).toCompletableFuture().join());
+
+        assertTrue(repository.findById(proposed.id()).toCompletableFuture().join().isEmpty(),
+                "association insert must roll back when its outbox insert fails");
+        assertTrue(repository.findHistory(proposed.id()).toCompletableFuture().join().isEmpty(),
+                "history insert must roll back when its outbox insert fails");
+    }
+
+    @Test
+    void eachLifecycleTransitionGetsItsOwnTenantScopedOutboxEvent() throws Exception {
+        var repository = repository();
+        UUID tenantId = UUID.randomUUID();
+        var proposed = OrganizationPartyAssociation.propose(
+                UUID.randomUUID(), OrganizationId.generate(), PartyId.generate(),
+                T0, "operator-1", null);
+        repository.save(proposed, tenantId).toCompletableFuture().join();
+
+        var active = proposed.activate(T0.plusSeconds(10), "verifier-1");
+        repository.save(active, tenantId).toCompletableFuture().join();
+
+        try (Connection connection = dataSource().getConnection();
+             var statement = connection.prepareStatement("""
+                     SELECT o.event_id, o.tenant_id, o.payload->>'eventId' AS envelope_event_id,
+                            o.payload->'payload'->>'eventType' AS payload_event_type,
+                            o.payload->'payload'->'data'->>'transition' AS transition,
+                            o.payload->'payload'->'data'->>'associationId' AS association_id
+                     FROM platform_outbox o
+                     WHERE o.event_type = ?
+                     ORDER BY o.created_at, o.event_id
+                     """)) {
+            statement.setString(1, "organization.party-association.changed");
+            try (var rows = statement.executeQuery()) {
+                assertTrue(rows.next());
+                UUID proposedEventId = rows.getObject("event_id", UUID.class);
+                assertEquals(tenantId, rows.getObject("tenant_id", UUID.class));
+                assertEquals(proposedEventId.toString(), rows.getString("envelope_event_id"));
+                assertEquals("organization.party-association.changed", rows.getString("payload_event_type"));
+                assertEquals("PROPOSED", rows.getString("transition"));
+                assertEquals(proposed.id().toString(), rows.getString("association_id"));
+
+                assertTrue(rows.next());
+                UUID activatedEventId = rows.getObject("event_id", UUID.class);
+                assertNotEquals(proposedEventId, activatedEventId);
+                assertEquals(tenantId, rows.getObject("tenant_id", UUID.class));
+                assertEquals("PENDING_VERIFICATION_TO_ACTIVE", rows.getString("transition"));
+                assertEquals(proposed.id().toString(), rows.getString("association_id"));
+                assertFalse(rows.next(), "one event is expected for each committed lifecycle transition");
+            }
+        }
+    }
+
     private OrganizationPartyAssociationRepository repository() throws Exception {
         DataSource dataSource = dataSource();
         migrate(dataSource);

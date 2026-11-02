@@ -66,7 +66,7 @@ class AffiliateOutboxDispatcherTest {
     private static AffiliateEventOutboxStore.ClaimedEvent event(int attempts) {
         return new AffiliateEventOutboxStore.ClaimedEvent("tenant-a", UUID.randomUUID(),
                 "PartnerPayout", UUID.randomUUID(), "affiliate.payout.submitted",
-                "event-key-" + attempts, "{}", attempts, "worker-a", NOW.plusSeconds(30));
+                "event-key-" + attempts, "{}", attempts, "worker-a", NOW.plusSeconds(30), NOW);
     }
 
     private static final class FakeStore implements AffiliateEventOutboxStore {
@@ -84,7 +84,20 @@ class AffiliateOutboxDispatcherTest {
             return CompletableFuture.completedFuture(events);
         }
 
-        @Override public java.util.concurrent.CompletionStage<Boolean> redriveDeadLetter(String tenantId, UUID eventId, String actorId, String reason, String idempotencyKey, String correlationId, Instant now) { return CompletableFuture.completedFuture(false); }
+        @Override public java.util.concurrent.CompletionStage<Boolean> redriveDeadLetter(
+                String tenantId, UUID eventId, String actorId, String reason,
+                String idempotencyKey, String correlationId, Instant now) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        @Override public java.util.concurrent.CompletionStage<DeadLetterPage> findDeadLetters(
+                String tenantId, DeadLetterCursor before, int limit) {
+            return CompletableFuture.completedFuture(new DeadLetterPage(List.of(), null));
+        }
+
+        @Override public java.util.concurrent.CompletionStage<OutboxHealthSnapshot> healthSnapshot() {
+            return CompletableFuture.completedFuture(new OutboxHealthSnapshot(0, 0, 0, 0, 0, 0));
+        }
 
         @Override public java.util.concurrent.CompletionStage<Void> markDelivered(
                 String tenantId, UUID eventId, String workerId, Instant now) {

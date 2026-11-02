@@ -187,7 +187,7 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
                 UPDATE notification_push_device
                 SET disabled_at = COALESCE(disabled_at, ?),
                     updated_at = GREATEST(updated_at, ?)
-                WHERE tenant_id = ? AND recipient_id = ? AND id = ?
+                WHERE tenant_id = ? AND recipient_id = ? AND id = ? AND disabled_at IS NULL
                 RETURNING id, tenant_id, recipient_id, platform, app_instance,
                           created_at, updated_at, disabled_at
                 """;
@@ -214,7 +214,7 @@ public final class JdbcPushDeviceRepository implements PushDeviceRepository {
         Objects.requireNonNull(disabledAt, "disabledAt is required");
         String sql = "UPDATE notification_push_device SET disabled_at = COALESCE(disabled_at, ?), " +
                 "updated_at = GREATEST(updated_at, ?) " +
-                "WHERE tenant_id = ? AND recipient_id = ? AND id = ? RETURNING " + COLUMNS;
+                "WHERE tenant_id = ? AND recipient_id = ? AND id = ? AND disabled_at IS NULL RETURNING " + COLUMNS;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setTimestamp(1, Timestamp.from(disabledAt));
