@@ -71,9 +71,6 @@ public class BillingScheduleEntity extends BaseEntity {
     @Column(name = "send_sms_notifications")
     public boolean sendSmsNotifications = false;
 
-    @Column(name = "active", nullable = false)
-    public boolean active;
-
     public BillingSchedule toDomain() {
         BillingSchedule schedule = BillingSchedule.create(
             tech.kayys.numou.billing.domain.identifier.BillingScheduleId.of(id),

@@ -24,8 +24,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class KafkaEventPublisherAdapterTest {
 
     private record TestEvent(String reference) implements BusinessEvent {
-        @Override public UUID eventId() { return UUID.nameUUIDFromBytes(reference.getBytes(StandardCharsets.UTF_8)); }
-        @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
         @Override
         public UUID eventId() {
             return UUID.nameUUIDFromBytes(reference.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -105,8 +103,6 @@ class KafkaEventPublisherAdapterTest {
     @Test
     void rejectsInvalidEventTopicSuffix() {
         BusinessEvent invalid = new BusinessEvent() {
-            @Override public UUID eventId() { return UUID.nameUUIDFromBytes("invalid".getBytes(StandardCharsets.UTF_8)); }
-            @Override public Instant occurredAt() { return Instant.parse("2026-10-31T00:00:00Z"); }
             @Override
             public UUID eventId() {
                 return UUID.nameUUIDFromBytes("invalid-event".getBytes(java.nio.charset.StandardCharsets.UTF_8));
