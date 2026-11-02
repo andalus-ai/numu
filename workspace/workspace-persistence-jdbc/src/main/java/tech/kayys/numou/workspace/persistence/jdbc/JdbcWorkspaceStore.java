@@ -616,8 +616,8 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be 1..500");
         if (leaseUntil == null || !leaseUntil.isAfter(now)) throw new IllegalArgumentException("leaseUntil must be after now");
         String sql = "WITH due AS (SELECT id FROM workspace_comment_mention_outbox WHERE (status='PENDING' AND available_at<=?) OR (status='LEASED' AND lease_until<=?) ORDER BY available_at,created_at,id FOR UPDATE SKIP LOCKED LIMIT ?) " +
-                "UPDATE workspace_comment_mention_outbox o SET status='LEASED',lease_owner=?,lease_token=gen_random_uuid(),lease_until=?,attempts=o.attempts+1,updated_at=? FROM due WHERE o.id=due.id " +
-                "RETURNING o.id,o.tenant_id,o.page_id,o.thread_id,o.comment_id,o.recipient_id,o.actor_id,o.handle,o.actor_display_name,o.page_title,o.idempotency_key,o.attempts,o.lease_token,o.lease_until";
+                "UPDATE workspace_comment_mention_outbox o SET status='LEASED',lease_owner=?,lease_token=gen_random_uuid(),lease_until=?,attempts=o.attempts+1,retry_attempts=o.retry_attempts+1,updated_at=? FROM due WHERE o.id=due.id " +
+                "RETURNING o.id,o.tenant_id,o.page_id,o.thread_id,o.comment_id,o.recipient_id,o.actor_id,o.handle,o.actor_display_name,o.page_title,o.idempotency_key,o.attempts,o.retry_attempts,o.lease_token,o.lease_until";
         try (Connection c=dataSource.getConnection()) {
             c.setAutoCommit(false);
             try (PreparedStatement p=c.prepareStatement(sql)) {
@@ -625,7 +625,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
                 p.setString(4,workerId);p.setTimestamp(5,Timestamp.from(leaseUntil));p.setTimestamp(6,Timestamp.from(now));
                 List<tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.ClaimedMention> out=new ArrayList<>();
                 try(ResultSet r=p.executeQuery()){while(r.next())out.add(new tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore.ClaimedMention(
-                    uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),uuid(r,5),uuid(r,6),uuid(r,7),r.getString(8),r.getString(9),r.getString(10),r.getString(11),r.getInt(12),uuid(r,13),instant(r,14)));}
+                    uuid(r,1),uuid(r,2),uuid(r,3),uuid(r,4),uuid(r,5),uuid(r,6),uuid(r,7),r.getString(8),r.getString(9),r.getString(10),r.getString(11),r.getInt(12),r.getInt(13),uuid(r,14),instant(r,15)));}
                 c.commit();return List.copyOf(out);
             } catch(SQLException|RuntimeException e){rollback(c,e);throw e;}
         } catch(SQLException e){throw failure("claim workspace comment mention outbox rows",e);}
@@ -658,7 +658,7 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
     @Override public boolean requeueDead(UUID tenantId,UUID id,UUID actorId,Instant now) {
         Objects.requireNonNull(actorId, "actorId");
         return atomicMutation("requeue dead workspace mention with audit", c -> {
-            String sql="UPDATE workspace_comment_mention_outbox SET status='PENDING',attempts=0,available_at=?,last_error=NULL,updated_at=? WHERE tenant_id=? AND id=? AND status='DEAD' RETURNING attempts";
+            String sql="UPDATE workspace_comment_mention_outbox SET status='PENDING',retry_attempts=0,available_at=?,last_error=NULL,updated_at=? WHERE tenant_id=? AND id=? AND status='DEAD' RETURNING attempts";
             try(PreparedStatement p=c.prepareStatement(sql)){
                 p.setTimestamp(1,Timestamp.from(now));p.setTimestamp(2,Timestamp.from(now));p.setObject(3,tenantId);p.setObject(4,id);
                 try(ResultSet r=p.executeQuery()){
