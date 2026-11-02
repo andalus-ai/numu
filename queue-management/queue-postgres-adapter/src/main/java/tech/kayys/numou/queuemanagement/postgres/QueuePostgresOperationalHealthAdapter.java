@@ -27,8 +27,8 @@ public class QueuePostgresOperationalHealthAdapter implements QueueOperationalHe
             ),
             entry_stats AS (
                 SELECT
-                    COUNT(queue_outbox.event_id) FILTER (WHERE status = 'WAITING') AS waiting_entries,
-                    COUNT(queue_outbox.event_id) FILTER (WHERE status IN ('CALLED', 'SERVING', 'OFFERED', 'ACCEPTED')) AS active_entries
+                    COUNT(*) FILTER (WHERE status = 'WAITING') AS waiting_entries,
+                    COUNT(*) FILTER (WHERE status IN ('CALLED', 'SERVING', 'OFFERED', 'ACCEPTED')) AS active_entries
                 FROM queue_entry
                 WHERE tenant_id = ?
             ),
