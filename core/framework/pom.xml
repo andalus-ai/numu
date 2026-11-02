@@ -208,6 +208,11 @@
                 <artifactId>numou-event-adapter-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-event-adapter-postgres</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
