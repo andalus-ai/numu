@@ -60,9 +60,7 @@ class WorkspacePageChangeSubscriptionApiTest {
         assertEquals(0, registrations.get());
 
         WorkspacePageChangeSubscriptionApi missing = new WorkspacePageChangeSubscriptionApi(
-                () -> new WorkspaceApi.AuthenticatedActor(tenant, actor), repository(tenant, page) {
-                    @Override public Optional<Page> findPage(UUID t, UUID id) { return Optional.empty(); }
-                }, (t, a, r, id, action) -> {}, (t, id, listener) -> {
+                () -> new WorkspaceApi.AuthenticatedActor(tenant, actor), repository(tenant, page, true), (t, a, r, id, action) -> {}, (t, id, listener) -> {
                     registrations.incrementAndGet(); return () -> {};
                 });
         assertEquals(404, assertThrows(WorkspaceApi.ApiException.class,
@@ -78,10 +76,12 @@ class WorkspacePageChangeSubscriptionApiTest {
                 () -> api.subscribe(UUID.randomUUID(), signal -> {})).status());
     }
 
-    private static PageRepository repository(UUID tenant, Page page) {
+    private static PageRepository repository(UUID tenant, Page page) { return repository(tenant, page, false); }
+
+    private static PageRepository repository(UUID tenant, Page page, boolean forceMissing) {
         return new PageRepository() {
             public Optional<Page> findPage(UUID t, UUID id) {
-                return page != null && tenant.equals(t) && page.id().equals(id) ? Optional.of(page) : Optional.empty();
+                return !forceMissing && page != null && tenant.equals(t) && page.id().equals(id) ? Optional.of(page) : Optional.empty();
             }
             public List<Page> findChildren(UUID t, UUID s, UUID parent) { return List.of(); }
             public boolean saveWithRevision(Page p, tech.kayys.numou.workspace.domain.PageRevision r, long expected) {
