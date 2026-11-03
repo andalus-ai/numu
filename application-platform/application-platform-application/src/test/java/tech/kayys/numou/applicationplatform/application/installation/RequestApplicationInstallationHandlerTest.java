@@ -3,6 +3,7 @@ package tech.kayys.numou.applicationplatform.application.installation;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.applicationplatform.domain.installation.*;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.plugin.application.manifest.ApplicationManifest;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -19,7 +20,9 @@ class RequestApplicationInstallationHandlerTest {
     private static final PackageVersion VERSION = new PackageVersion("1.0.0");
     private static final TenantId TENANT = TenantId.of(UUID.fromString("11111111-1111-1111-1111-111111111111"));
     private static final String KEY = "request-idempotency-key-123";
-    private static final ValidatedApplicationPackage PACKAGE = new ValidatedApplicationPackage(APP, VERSION, "b".repeat(64));
+    private static final ValidatedApplicationPackage PACKAGE = new ValidatedApplicationPackage(
+            new ApplicationManifest(APP.value(), VERSION.value(), "com.example", "Retail",
+                    java.util.List.of(), java.util.List.of(), java.util.Set.of(), java.util.List.of()), "b".repeat(64));
 
     @Test void createsTenantScopedRequestUsingTrustedActorAndHashedIdempotencyKey() {
         var actor = new InstallationActor(TENANT, "user:alice", "corr-1");
