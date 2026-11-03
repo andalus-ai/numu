@@ -47,6 +47,20 @@ CREATE TABLE sg_connection_audit (
 CREATE INDEX ix_sg_connection_audit_history
     ON sg_connection_audit (tenant_id, connection_id, occurred_at, audit_id);
 
+-- Audit is append-only even if a future adapter accidentally exposes mutation.
+CREATE FUNCTION sg_reject_connection_audit_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $
+BEGIN
+    RAISE EXCEPTION 'social graph connection audit is append-only';
+END;
+$;
+
+CREATE TRIGGER trg_sg_connection_audit_immutable
+    BEFORE UPDATE OR DELETE ON sg_connection_audit
+    FOR EACH ROW EXECUTE FUNCTION sg_reject_connection_audit_mutation();
+
 CREATE TABLE sg_command_idempotency (
     tenant_id UUID NOT NULL,
     idempotency_key VARCHAR(128) NOT NULL,
