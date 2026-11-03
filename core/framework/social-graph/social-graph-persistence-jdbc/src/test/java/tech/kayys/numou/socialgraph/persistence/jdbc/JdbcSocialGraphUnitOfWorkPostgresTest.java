@@ -47,6 +47,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
             tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, requester, connection.id(),
                     0, "social-graph.connection.requested.v1", 1, now,
                     "{\"connectionId\":\"" + connection.id() + "\"}"));
+            tx.appendAudit(new tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord(
+                    UUID.randomUUID(), tenant, connection.id(), requester, null,
+                    tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
+                    "REQUEST", "key-1", now));
             return null;
         });
 
@@ -72,6 +76,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
             tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, connection.requesterPartyId(), connection.id(),
                     0, "social-graph.connection.requested.v1", 1,
                     Instant.parse("2026-11-04T00:00:00Z"), "{\"rollback\":true}"));
+            tx.appendAudit(new tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord(
+                    UUID.randomUUID(), tenant, connection.id(), connection.requesterPartyId(), null,
+                    tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
+                    "REQUEST", "rollback-key", Instant.parse("2026-11-04T00:00:00Z")));
             throw new IllegalStateException("simulated command failure");
         })).isInstanceOf(IllegalStateException.class);
 
