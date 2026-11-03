@@ -50,55 +50,95 @@ public final class ApplicationInstallation {
     }
 
     public ApplicationInstallationTransition requestedEvent(Instant occurredAt) {
+        return requestedEvent("", occurredAt);
+    }
+    public ApplicationInstallationTransition requestedEvent(String correlationId, Instant occurredAt) {
         return new ApplicationInstallationTransition(id, tenantId, applicationId, Optional.empty(),
-                ApplicationInstallationStatus.REQUESTED, revision, createdBy, occurredAt, "INSTALL_REQUESTED");
+                ApplicationInstallationStatus.REQUESTED, revision, createdBy, correlationId, occurredAt, "INSTALL_REQUESTED");
     }
 
     public ApplicationInstallationTransition beginValidation(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.VALIDATING, actorId, now, "");
+        return beginValidation(actorId, "", now);
+    }
+    public ApplicationInstallationTransition beginValidation(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.VALIDATING, actorId, correlationId, now, "");
     }
     public ApplicationInstallationTransition awaitApproval(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.AWAITING_APPROVAL, actorId, now, "");
+        return awaitApproval(actorId, "", now);
+    }
+    public ApplicationInstallationTransition awaitApproval(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.AWAITING_APPROVAL, actorId, correlationId, now, "");
     }
     public ApplicationInstallationTransition approve(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, now, "INSTALL_APPROVED", ApplicationInstallationStatus.AWAITING_APPROVAL);
+        return approve(actorId, "", now);
+    }
+    public ApplicationInstallationTransition approve(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, correlationId, now,
+                "INSTALL_APPROVED", ApplicationInstallationStatus.AWAITING_APPROVAL);
     }
     public ApplicationInstallationTransition beginProvisioning(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, now, "", ApplicationInstallationStatus.VALIDATING);
+        return beginProvisioning(actorId, "", now);
+    }
+    public ApplicationInstallationTransition beginProvisioning(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, correlationId, now, "",
+                ApplicationInstallationStatus.VALIDATING);
     }
     public ApplicationInstallationTransition completeProvisioning(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.INSTALLED, actorId, now, "");
+        return completeProvisioning(actorId, "", now);
+    }
+    public ApplicationInstallationTransition completeProvisioning(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.INSTALLED, actorId, correlationId, now, "");
     }
     public ApplicationInstallationTransition enable(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.ENABLED, actorId, now, "");
+        return enable(actorId, "", now);
+    }
+    public ApplicationInstallationTransition enable(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.ENABLED, actorId, correlationId, now, "");
     }
     public ApplicationInstallationTransition suspend(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.SUSPENDED, actorId, now, "");
+        return suspend(actorId, "", now);
+    }
+    public ApplicationInstallationTransition suspend(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.SUSPENDED, actorId, correlationId, now, "");
     }
     public ApplicationInstallationTransition fail(String actorId, Instant now, String stableFailureCode) {
+        return fail(actorId, "", now, stableFailureCode);
+    }
+    public ApplicationInstallationTransition fail(String actorId, String correlationId, Instant now, String stableFailureCode) {
         if (stableFailureCode == null || !FAILURE_CODE.matcher(stableFailureCode).matches())
             throw new IllegalArgumentException("Failure code must be a stable uppercase code");
-        return transition(ApplicationInstallationStatus.FAILED, actorId, now, stableFailureCode);
+        return transition(ApplicationInstallationStatus.FAILED, actorId, correlationId, now, stableFailureCode);
     }
     public ApplicationInstallationTransition retry(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.VALIDATING, actorId, now, "RETRY_REQUESTED");
+        return retry(actorId, "", now);
+    }
+    public ApplicationInstallationTransition retry(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.VALIDATING, actorId, correlationId, now, "RETRY_REQUESTED");
     }
     public ApplicationInstallationTransition beginUninstall(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.UNINSTALLING, actorId, now, "");
+        return beginUninstall(actorId, "", now);
+    }
+    public ApplicationInstallationTransition beginUninstall(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.UNINSTALLING, actorId, correlationId, now, "");
     }
     public ApplicationInstallationTransition completeUninstall(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.UNINSTALLED, actorId, now, "");
+        return completeUninstall(actorId, "", now);
+    }
+    public ApplicationInstallationTransition completeUninstall(String actorId, String correlationId, Instant now) {
+        return transition(ApplicationInstallationStatus.UNINSTALLED, actorId, correlationId, now, "");
     }
 
     private ApplicationInstallationTransition transition(ApplicationInstallationStatus target,
-            String actorId, Instant now, String reasonCode) {
-        return transition(target, actorId, now, reasonCode, null);
+            String actorId, String correlationId, Instant now, String reasonCode) {
+        return transition(target, actorId, correlationId, now, reasonCode, null);
     }
 
     private ApplicationInstallationTransition transition(ApplicationInstallationStatus target,
-            String actorId, Instant now, String reasonCode, ApplicationInstallationStatus requiredFrom) {
+            String actorId, String correlationId, Instant now, String reasonCode,
+            ApplicationInstallationStatus requiredFrom) {
         String actor = requireText(actorId, "actorId");
         Objects.requireNonNull(now, "now");
+        String correlation = correlationId == null ? "" : correlationId;
         ApplicationInstallationStatus from = status;
         if ((requiredFrom != null && from != requiredFrom) || !allowed(from, target))
             throw new IllegalStateException("Invalid application installation transition: " + from + " -> " + target);
@@ -108,7 +148,7 @@ public final class ApplicationInstallation {
         updatedBy = actor;
         failureCode = target == ApplicationInstallationStatus.FAILED ? reasonCode : null;
         return new ApplicationInstallationTransition(id, tenantId, applicationId, Optional.of(from),
-                target, revision, actor, now, reasonCode);
+                target, revision, actor, correlation, now, reasonCode);
     }
 
     private static boolean allowed(ApplicationInstallationStatus from, ApplicationInstallationStatus to) {
