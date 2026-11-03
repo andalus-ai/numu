@@ -8,6 +8,7 @@ declare
     parent_account constant uuid := '10000000-0000-4000-8000-000000000001';
     account_id constant uuid := '10000000-0000-4000-8000-000000000002';
     customer_id constant uuid := '20000000-0000-4000-8000-000000000001';
+    legacy_customer constant uuid := '20000000-0000-4000-8000-000000000003';
     lead_id constant uuid := '30000000-0000-4000-8000-000000000001';
     opportunity_id constant uuid := '40000000-0000-4000-8000-000000000001';
     referral_id constant uuid := '50000000-0000-4000-8000-000000000001';
@@ -20,13 +21,13 @@ declare
     result text;
     audit_count integer;
 begin
-    insert into crm_accounts(id, participant_id, name, status, created_at, tenant_id)
+    insert into crm_accounts(id, participant_id, parent_account_id, name, status, created_at, tenant_id)
     values
-      (parent_account, gen_random_uuid(), 'Existing parent', 'ACTIVE', now(), tenant_a),
-      (account_id, gen_random_uuid(), 'Legacy child', 'ACTIVE', now(), null);
+      (parent_account, gen_random_uuid(), null, 'Existing parent', 'ACTIVE', now(), tenant_a),
+      (account_id, gen_random_uuid(), parent_account, 'Legacy child', 'ACTIVE', now(), null);
 
     insert into crm_customers(id, created_at, tenant_id)
-    values (customer_id, now(), tenant_a), (null_customer, now(), null);
+    values (customer_id, now(), tenant_a), (null_customer, now(), null), (legacy_customer, now(), null);
 
     insert into crm_leads(id, first_name, last_name, status, created_at)
     values (lead_id, 'Legacy', 'Lead', 'NEW', now());
@@ -58,7 +59,7 @@ begin
       evidence_type, evidence_reference, evidence_sha256, rationale, submitted_by
     ) values
       ('90000000-0000-4000-8000-000000000001','accounts',account_id,tenant_a,'CONTRACT','m7/account','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','Verified account ownership','submitter'),
-      ('90000000-0000-4000-8000-000000000002','customers',customer_id,tenant_a,'CONTRACT','m7/customer','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','Verified customer ownership','submitter'),
+      ('90000000-0000-4000-8000-000000000002','customers',legacy_customer,tenant_a,'CONTRACT','m7/customer','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','Verified customer ownership','submitter'),
       ('90000000-0000-4000-8000-000000000003','leads',lead_id,tenant_a,'CONTRACT','m7/lead','cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','Verified lead ownership','submitter'),
       ('90000000-0000-4000-8000-000000000004','opportunities',opportunity_id,tenant_a,'CONTRACT','m7/opportunity','dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd','Verified opportunity ownership','submitter'),
       ('90000000-0000-4000-8000-000000000005','referrals',referral_id,tenant_a,'CONTRACT','m7/referral','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee','Verified referral ownership','submitter'),
