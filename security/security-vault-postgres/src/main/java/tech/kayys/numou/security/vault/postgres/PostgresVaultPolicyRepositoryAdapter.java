@@ -128,7 +128,7 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
 
     @Override
     public Uni<VaultPolicySnapshot> publish(UUID tenantId, long expectedRevision,
-            List<VaultPolicyRule> rules, String actor, Instant publishedAt,
+            List<VaultPolicyRule> rules, String actor, String approver, Instant publishedAt,
             VaultPolicyChangeType changeType, Long sourceRevision) {
         Objects.requireNonNull(tenantId, "tenantId is required");
         Objects.requireNonNull(rules, "rules are required");
@@ -140,8 +140,11 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
             return Uni.createFrom().failure(new IllegalArgumentException("invalid policy change provenance"));
         if (expectedRevision < 0) return Uni.createFrom().failure(
                 new IllegalArgumentException("expectedRevision must not be negative"));
-        if (actor == null || actor.isBlank() || actor.length() > 200)
-            return Uni.createFrom().failure(new IllegalArgumentException("actor must contain 1..200 characters"));
+        if (actor == null || actor.isBlank() || actor.length() > 200
+                || approver == null || approver.isBlank() || approver.length() > 200
+                || actor.equals(approver))
+            return Uni.createFrom().failure(new IllegalArgumentException(
+                    "actor and independent approver must be non-empty, bounded and distinct"));
         List<VaultPolicyRule> immutableRules = List.copyOf(rules);
         long nextRevision = expectedRevision + 1;
         try {
@@ -150,12 +153,12 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
             return Uni.createFrom().failure(invalid);
         }
         return Uni.createFrom().item(() -> publishBlocking(tenantId, expectedRevision,
-                nextRevision, immutableRules, actor, publishedAt, changeType, sourceRevision))
+                nextRevision, immutableRules, actor, approver, publishedAt, changeType, sourceRevision))
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     private VaultPolicySnapshot publishBlocking(UUID tenantId, long expected, long revision,
-            List<VaultPolicyRule> rules, String actor, Instant publishedAt,
+            List<VaultPolicyRule> rules, String actor, String approver, Instant publishedAt,
             VaultPolicyChangeType changeType, Long sourceRevision) {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
@@ -182,17 +185,18 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
 
                 try (PreparedStatement revisionInsert = connection.prepareStatement("""
                         INSERT INTO vault_policy_revision
-                            (tenant_id, revision, published_by, published_at, rule_count, change_type, source_revision)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                            (tenant_id, revision, published_by, approved_by, published_at, rule_count, change_type, source_revision)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """)) {
                     revisionInsert.setObject(1, tenantId);
                     revisionInsert.setLong(2, revision);
                     revisionInsert.setString(3, actor);
-                    revisionInsert.setTimestamp(4, Timestamp.from(publishedAt));
-                    revisionInsert.setInt(5, rules.size());
-                    revisionInsert.setString(6, changeType.name());
-                    if (sourceRevision == null) revisionInsert.setNull(7, Types.BIGINT);
-                    else revisionInsert.setLong(7, sourceRevision);
+                    revisionInsert.setString(4, approver);
+                    revisionInsert.setTimestamp(5, Timestamp.from(publishedAt));
+                    revisionInsert.setInt(6, rules.size());
+                    revisionInsert.setString(7, changeType.name());
+                    if (sourceRevision == null) revisionInsert.setNull(8, Types.BIGINT);
+                    else revisionInsert.setLong(8, sourceRevision);
                     revisionInsert.executeUpdate();
                 }
 
@@ -237,17 +241,18 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
 
                 try (PreparedStatement audit = connection.prepareStatement("""
                         INSERT INTO vault_policy_admin_audit
-                            (event_id, tenant_id, revision, actor, event_type, occurred_at, rule_count)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                            (event_id, tenant_id, revision, actor, approved_by, event_type, occurred_at, rule_count)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """)) {
                     audit.setObject(1, UUID.randomUUID());
                     audit.setObject(2, tenantId);
                     audit.setLong(3, revision);
                     audit.setString(4, actor);
-                    audit.setString(5, changeType == VaultPolicyChangeType.ROLLBACK
+                    audit.setString(5, approver);
+                    audit.setString(6, changeType == VaultPolicyChangeType.ROLLBACK
                             ? "POLICY_ROLLED_BACK" : "POLICY_PUBLISHED");
-                    audit.setTimestamp(6, Timestamp.from(publishedAt));
-                    audit.setInt(7, rules.size());
+                    audit.setTimestamp(7, Timestamp.from(publishedAt));
+                    audit.setInt(8, rules.size());
                     audit.executeUpdate();
                 }
                 connection.commit();
