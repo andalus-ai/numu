@@ -9,7 +9,8 @@ M1 introduces the first PostgreSQL-backed social relationship vertical slice.
 - Trusted actor context supplied by the host application security boundary.
 - Idempotency keys scoped by tenant, with command fingerprint protection.
 - Optimistic version checks and a unique active/pending unordered Party-pair constraint.
-- Transaction-bound JDBC unit of work: connection state, idempotency record, and durable outbox event intent commit or roll back together.
+- Append-only, actor-attributed lifecycle audit history enforced by a PostgreSQL mutation-rejection trigger.
+- Transaction-bound JDBC unit of work: connection state, idempotency record, append-only audit record, and durable outbox event intent commit or roll back together.
 - PostgreSQL only. Neo4j is not a runtime dependency.
 
 ## Boundaries
