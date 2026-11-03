@@ -51,6 +51,15 @@ class SocialGraphServiceTest {
     }
 
     @Test
+    void idempotencyFingerprintIncludesAuthenticatedActor() {
+        service.requestConnection(new SocialGraphActor(tenant, requester), recipient, "shared-key");
+        PartyId other = PartyId.generate();
+
+        assertThatThrownBy(() -> service.requestConnection(new SocialGraphActor(tenant, recipient), other, "shared-key"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void duplicateOpenConnectionIsRejectedEvenWithDifferentKey() {
         service.requestConnection(new SocialGraphActor(tenant, requester), recipient, "request-3");
 
