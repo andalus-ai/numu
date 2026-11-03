@@ -40,5 +40,7 @@ jobs:
           cache: maven
       - name: Build and install foundation domain dependencies
         run: mvn -B -ntp -f core/framework/foundation/pom.xml -pl numou-foundation-domain -am install -DskipTests
+      - name: Build and install manifest validator and resolver contract
+        run: mvn -B -ntp -f core/framework/pom.xml -pl plugin -am install -DskipTests
       - name: Verify application installation lifecycle
         run: mvn -B -ntp -f application-platform/pom.xml -pl application-platform-application -am test
