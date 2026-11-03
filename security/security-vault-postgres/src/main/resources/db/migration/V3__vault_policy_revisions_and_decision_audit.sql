@@ -96,7 +96,7 @@ LANGUAGE plpgsql AS $$
 DECLARE
     active BIGINT;
 BEGIN
-    SELECT active_revision INTO active FROM vault_policy_head WHERE tenant_id = NEW.tenant_id;
+    SELECT active_revision INTO active FROM vault_policy_head WHERE tenant_id = NEW.tenant_id FOR UPDATE;
     IF active IS NOT NULL AND active >= NEW.revision THEN
         RAISE EXCEPTION 'published vault policy revisions are immutable';
     END IF;
