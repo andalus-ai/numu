@@ -108,7 +108,9 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
             String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
             try (Connection connection = dataSource.getConnection();
                  Statement statement = connection.createStatement()) {
-                statement.execute(sql);
+                for (String command : sql.split(";")) {
+                    if (!command.isBlank()) statement.execute(command);
+                }
             }
         }
     }
