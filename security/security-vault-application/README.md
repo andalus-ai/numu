@@ -13,11 +13,13 @@ The application layer requires both ports at construction. There is no permissiv
 
 The vault does not implement token issuance, OIDC federation, SPIFFE/SPIRE, cloud IAM exchange, or credential validation. Those belong in host authentication and identity adapters. A host may resolve a workload identity to no result for a human principal; its policy implementation still decides whether that human may perform the requested operation.
 
-Policy implementations should default deny and should enforce:
+The domain VaultPolicyEvaluator supplies deterministic default-deny semantics and deny-overrides-allow behavior for a supplied policy snapshot. It is not yet a persisted policy engine or an audit writer. A production adapter must load a consistent versioned snapshot and durably record every decision (including denials) before returning the result; storage, version-conflict, and audit failures must fail closed.
+
+Policy implementations should enforce:
 - tenant and vault boundary;
 - operation-specific scope (`CREATE`, `READ`, `ROTATE`, `REVOKE`);
 - workload issuer, subject, audience, expiry and scope where present;
 - least privilege, environment separation and explicit break-glass policy;
 - policy version and decision audit metadata without secret values.
 
-The platform grant check is not replaced by vault policy, and vault policy is not replaced by possession of a secret identifier. Policy adapters should be deterministic, observable, and tested against cross-tenant and cross-vault attempts. This milestone does not ship OIDC, SPIFFE/SPIRE or cloud-IAM provider adapters, a persisted policy engine, or break-glass workflows; those require a selected host identity provider, authoritative policy store, and auditable operator model rather than fabricated provider-specific implementations.
+The platform grant check is not replaced by vault policy, and vault policy is not replaced by possession of a secret identifier. Policy adapters should be deterministic, observable, and tested against cross-tenant and cross-vault attempts. This milestone does not ship OIDC, SPIFFE/SPIRE or cloud-IAM provider adapters, persisted policy administration/storage, durable decision-audit writing, or break-glass workflows. Those require a selected host identity provider, authoritative policy store, and auditable operator model rather than fabricated provider-specific implementations.
