@@ -130,20 +130,26 @@ class PostgresApplicationInstallationStoreTest {
         var installation = requested(tenant, "com.example.support", "1.0.0", "actor-a", now);
         store.createIfAbsent(installation, hash("client-key-00000006"), installation.requestedEvent(now))
                 .toCompletableFuture().join();
-
-        var claimed = store.claimDue(tenant, "worker-a", now, Duration.ofSeconds(30), 10)
+        var second = requested(tenant, "com.example.supportdesk", "1.0.0", "actor-a", now.plusSeconds(1));
+        store.createIfAbsent(second, hash("client-key-00000008"), second.requestedEvent(now.plusSeconds(1)))
                 .toCompletableFuture().join();
-        assertThat(claimed).hasSize(1);
-        assertThat(store.claimDue(otherTenant, "worker-b", now, Duration.ofSeconds(30), 10)
+
+        var claimed = store.claimDue(tenant, "worker-a", now.plusSeconds(2), Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join();
+        assertThat(claimed).hasSize(2);
+        assertThat(store.claimDue(otherTenant, "worker-b", now.plusSeconds(2), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
-        assertThat(store.claimDue(tenant, "worker-b", now.plusSeconds(1), Duration.ofSeconds(30), 10)
+        assertThat(store.claimDue(tenant, "worker-b", now.plusSeconds(3), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
 
-        var event = claimed.get(0);
-        assertThat(store.markDelivered(tenant, event.eventId(), "worker-b", event.leaseToken(), now.plusSeconds(2))
+        var dead = claimed.get(0);
+        var delivered = claimed.get(1);
+        assertThat(store.markDelivered(tenant, dead.eventId(), "worker-b", dead.leaseToken(), now.plusSeconds(4))
                 .toCompletableFuture().join()).isFalse();
-        assertThat(store.retry(tenant, event.eventId(), "worker-a", event.leaseToken(),
-                "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(60), now.plusSeconds(2), 1)
+        assertThat(store.markDelivered(tenant, delivered.eventId(), "worker-a", delivered.leaseToken(), now.plusSeconds(4))
+                .toCompletableFuture().join()).isTrue();
+        assertThat(store.retry(tenant, dead.eventId(), "worker-a", dead.leaseToken(),
+                "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(60), now.plusSeconds(4), 1)
                 .toCompletableFuture().join()).isEqualTo(ApplicationInstallationOutboxStore.RetryOutcome.DEAD_LETTERED);
         assertThat(store.claimDue(tenant, "worker-c", now.plusSeconds(120), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
