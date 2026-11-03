@@ -18,7 +18,7 @@ language plpgsql
 as $$
 declare
     actual_tenant_id uuid;
-    found_record boolean;
+    affected_rows integer;
 begin
     if p_record_id is null then
         return;
@@ -36,8 +36,8 @@ begin
         p_table_name
     ) into actual_tenant_id using p_record_id;
 
-    found_record := found;
-    if not found_record then
+    get diagnostics affected_rows = row_count;
+    if affected_rows <> 1 then
         raise exception 'CRM relationship target % in % does not exist',
             p_record_id, p_table_name;
     end if;
@@ -94,7 +94,8 @@ begin
     if proposal.status = 'APPLIED' then
         execute format('select tenant_id from %I where id = $1', target_table)
           into current_tenant_id using proposal.record_id;
-        if not found or current_tenant_id is distinct from proposal.proposed_tenant_id then
+        get diagnostics affected_rows = row_count;
+        if affected_rows <> 1 or current_tenant_id is distinct from proposal.proposed_tenant_id then
             raise exception 'Applied proposal no longer matches CRM record ownership';
         end if;
         return 'ALREADY_APPLIED';
@@ -109,7 +110,8 @@ begin
         'select tenant_id from %I where id = $1 for update',
         target_table
     ) into current_tenant_id using proposal.record_id;
-    target_exists := found;
+    get diagnostics affected_rows = row_count;
+    target_exists := affected_rows = 1;
 
     if not target_exists then
         raise exception 'CRM target record % in % does not exist',
