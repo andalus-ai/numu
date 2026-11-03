@@ -48,6 +48,7 @@ CREATE TABLE application_installation_transitions (
     occurred_at TIMESTAMPTZ NOT NULL,
     reason_code VARCHAR(120) NOT NULL DEFAULT '',
     CONSTRAINT uq_application_installation_transition_revision UNIQUE (tenant_id, installation_id, revision),
+    CONSTRAINT uq_application_installation_transition_tenant_event UNIQUE (tenant_id, event_id),
     CONSTRAINT fk_application_installation_transition_install FOREIGN KEY (tenant_id, installation_id)
         REFERENCES application_installations (tenant_id, id),
     CONSTRAINT ck_application_installation_transition_from CHECK (
@@ -94,8 +95,8 @@ CREATE TABLE application_installation_outbox (
     last_failure_code VARCHAR(120),
     delivered_at TIMESTAMPTZ,
     version BIGINT NOT NULL DEFAULT 0 CHECK (version >= 0),
-    CONSTRAINT fk_application_installation_outbox_transition FOREIGN KEY (event_id)
-        REFERENCES application_installation_transitions (event_id),
+    CONSTRAINT fk_application_installation_outbox_transition FOREIGN KEY (tenant_id, event_id)
+        REFERENCES application_installation_transitions (tenant_id, event_id),
     CONSTRAINT fk_application_installation_outbox_install FOREIGN KEY (tenant_id, installation_id)
         REFERENCES application_installations (tenant_id, id),
     CONSTRAINT ck_application_installation_outbox_lease CHECK (
