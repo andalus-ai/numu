@@ -109,7 +109,11 @@ public final class PostgresApplicationInstallationStore
             if (expectedRevision < 1 || transition.revision() != expectedRevision + 1
                     || !transition.installationId().equals(installation.id())
                     || !transition.tenantId().equals(installation.tenantId())
-                    || !transition.applicationId().equals(installation.applicationId()))
+                    || !transition.applicationId().equals(installation.applicationId())
+                    || transition.toStatus() != installation.status()
+                    || transition.revision() != installation.revision()
+                    || !transition.actorId().equals(installation.updatedBy())
+                    || !transition.occurredAt().equals(installation.updatedAt()))
                 throw new IllegalArgumentException("transition does not match expected installation revision and identity");
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
@@ -174,7 +178,7 @@ public final class PostgresApplicationInstallationStore
                         lease_until=?, attempts=attempts+1, version=version+1
                     FROM candidates c WHERE o.event_id=c.event_id
                     RETURNING o.event_id,o.installation_id,o.application_id,o.package_version,o.package_digest,
-                              o.event_type,o.to_status,o.revision,o.actor_id,o.correlation_id,o.occurred_at,
+                              o.event_type,o.to_status,o.revision,o.actor_id,o.correlation_id,o.reason_code,o.occurred_at,
                               o.attempts,o.lease_owner,o.lease_token,o.lease_until
                     """;
             try (Connection connection = dataSource.getConnection()) {
@@ -194,9 +198,9 @@ public final class PostgresApplicationInstallationStore
                                     result.getObject(1, UUID.class), result.getObject(2, UUID.class),
                                     result.getString(3), result.getString(4), result.getString(5),
                                     result.getString(6), result.getString(7), result.getLong(8),
-                                    result.getString(9), result.getString(10), result.getTimestamp(11).toInstant(),
-                                    result.getInt(12), result.getString(13), result.getObject(14, UUID.class),
-                                    result.getTimestamp(15).toInstant()));
+                                    result.getString(9), result.getString(10), result.getString(11), result.getTimestamp(12).toInstant(),
+                                    result.getInt(13), result.getString(14), result.getObject(15, UUID.class),
+                                    result.getTimestamp(16).toInstant()));
                         }
                     }
                     connection.commit();
@@ -237,6 +241,7 @@ public final class PostgresApplicationInstallationStore
     public CompletionStage<RetryOutcome> retry(TenantId tenantId, UUID eventId, String workerId,
             UUID leaseToken, String stableFailureCode, Instant retryAt, Instant now, int maxAttempts) {
         if (stableFailureCode == null || !stableFailureCode.matches("^[A-Z][A-Z0-9_]{1,119}$")
+                || retryAt == null || now == null || retryAt.isBefore(now)
                 || maxAttempts < 1 || maxAttempts > 100)
             return CompletableFuture.failedFuture(new IllegalArgumentException("invalid failure code or retry limit"));
         String sql = """
@@ -315,7 +320,9 @@ public final class PostgresApplicationInstallationStore
                 || event.toStatus() != ApplicationInstallationStatus.REQUESTED
                 || !event.installationId().equals(installation.id())
                 || !event.tenantId().equals(installation.tenantId())
-                || !event.applicationId().equals(installation.applicationId()))
+                || !event.applicationId().equals(installation.applicationId())
+                || !event.actorId().equals(installation.createdBy())
+                || !event.occurredAt().equals(installation.createdAt()))
             throw new IllegalArgumentException("initial transition does not match installation request");
     }
 
@@ -438,7 +445,7 @@ public final class PostgresApplicationInstallationStore
                 INSERT INTO application_installation_outbox
                   (event_id,tenant_id,installation_id,application_id,package_version,package_digest,
                    event_type,to_status,revision,actor_id,correlation_id,occurred_at,available_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(outboxSql)) {
             statement.setObject(1, eventId);
@@ -453,8 +460,9 @@ public final class PostgresApplicationInstallationStore
             statement.setLong(9, event.revision());
             statement.setString(10, event.actorId());
             statement.setString(11, event.correlationId());
-            statement.setTimestamp(12, Timestamp.from(event.occurredAt()));
+            statement.setString(12, event.reasonCode());
             statement.setTimestamp(13, Timestamp.from(event.occurredAt()));
+            statement.setTimestamp(14, Timestamp.from(event.occurredAt()));
             statement.executeUpdate();
         }
     }
