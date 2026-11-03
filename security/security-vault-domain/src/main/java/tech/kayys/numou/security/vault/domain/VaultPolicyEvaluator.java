@@ -56,7 +56,10 @@ public final class VaultPolicyEvaluator {
         return switch (rule.subjectType()) {
             case PRINCIPAL_ID -> principalId.toString().equals(rule.subject());
             case ROLE -> roles.contains(rule.subject());
-            case WORKLOAD_SUBJECT -> identity != null && identity.subject().equals(rule.subject());
+            case WORKLOAD_SUBJECT -> identity != null
+                    && identity.subject().equals(rule.subject())
+                    && identity.permits(identity.tenantId(), rule.workloadIssuer(),
+                            rule.workloadAudience(), rule.operation(), java.time.Instant.now());
         };
     }
 }
