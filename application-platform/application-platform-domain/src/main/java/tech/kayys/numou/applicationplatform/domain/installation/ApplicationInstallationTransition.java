@@ -20,8 +20,12 @@ public record ApplicationInstallationTransition(
         Objects.requireNonNull(installationId); Objects.requireNonNull(tenantId);
         Objects.requireNonNull(applicationId); Objects.requireNonNull(fromStatus);
         Objects.requireNonNull(toStatus); Objects.requireNonNull(actorId); Objects.requireNonNull(occurredAt);
-        correlationId = correlationId == null ? "" : correlationId;
-        reasonCode = reasonCode == null ? "" : reasonCode;
+        correlationId = correlationId == null ? "" : correlationId.trim();
+        reasonCode = reasonCode == null ? "" : reasonCode.trim();
+        if (actorId.isBlank() || actorId.length() > 200)
+            throw new IllegalArgumentException("actorId must contain 1 to 200 characters");
+        if (correlationId.length() > 200) throw new IllegalArgumentException("correlationId must not exceed 200 characters");
+        if (reasonCode.length() > 120) throw new IllegalArgumentException("reasonCode must not exceed 120 characters");
         if (revision < 1) throw new IllegalArgumentException("revision must be positive");
     }
 }

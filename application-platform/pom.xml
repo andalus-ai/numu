@@ -9,5 +9,5 @@
   <packaging>pom</packaging>
   <name>Numou Application Platform</name>
   <description>Tenant-scoped application installation lifecycle and control-plane contracts.</description>
-  <modules><module>application-platform-domain</module><module>application-platform-application</module></modules>
+  <modules><module>application-platform-domain</module><module>application-platform-application</module><module>application-platform-postgres-adapter</module></modules>
 </project>
