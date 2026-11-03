@@ -16,7 +16,7 @@ Base path: `/api/v1`
 | GET | `/pages/{pageId}` | Read a page |
 | PUT | `/pages/{pageId}` | Update a page using `expectedRevision` |
 | GET | `/pages/{pageId}/history` | Read immutable revision history |
-| GET | `/pages/{pageId}/changes?afterRevision={cursor}&limit={n}` | Replay bounded immutable page revisions after a resumable per-page cursor (1–100, default 50) |
+| GET | `/pages/{pageId}/changes?afterRevision={cursor}&limit={n}` | Replay bounded immutable page revisions after a resumable per-page cursor (1–100, default 50) |\n| GET | `/pages/{pageId}/events` | Optional content-free SSE invalidation stream; clients recover through the `/changes` revision feed |
 | POST | `/pages/{pageId}/history/restore` | Restore a historical snapshot as a new revision, guarded by `expectedCurrentRevision` |
 | GET | `/spaces/{spaceId}/pages?parentPageId={id}` | List direct children; omit `parentPageId` to list root pages |
 | POST | `/workspaces/{workspaceId}/templates` | Create a reusable page template |
@@ -32,7 +32,7 @@ Successful create operations return `201 Created` with a resource location; link
 
 ## Authentication and tenant isolation
 
-Navigation discovery is tenant-scoped in the repository and resource-authorized in the application service. The workspace list omits resources the actor cannot read; listing spaces first verifies access to the parent workspace. The adapter intentionally does **not** accept tenant or actor IDs in request bodies. A host runtime must provide CDI-managed `WorkspaceApi` and `WorkspaceContentApi` instances configured with an `IdentityProvider` that obtains tenant and actor identifiers from trusted, authenticated request context. The resources are not a standalone deployable server and do not invent an authentication strategy or a default tenant. A host must also compose the workspace services, persistence adapters, and authorization policy.
+Navigation discovery is tenant-scoped in the repository and resource-authorized in the application service. The workspace list omits resources the actor cannot read; listing spaces first verifies access to the parent workspace. The adapter intentionally does **not** accept tenant or actor IDs in request bodies. A host runtime must provide CDI-managed `WorkspaceApi` and `WorkspaceContentApi` instances configured with an `IdentityProvider` that obtains tenant and actor identifiers from trusted, authenticated request context. The resources are not a standalone deployable server and do not invent an authentication strategy or a default tenant. A host must also compose the workspace services, persistence adapters, and authorization policy. Enabling the SSE route additionally requires a `WorkspacePageChangeSubscriptionPort` implementation; it must enforce tenant/page subscription isolation, bounded subscriber resources, authorization revocation, and cross-instance fanout where needed. No single-instance in-memory broker is installed by default.
 
 ## Composition
 
