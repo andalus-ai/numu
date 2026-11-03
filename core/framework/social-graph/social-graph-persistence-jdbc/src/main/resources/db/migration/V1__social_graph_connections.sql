@@ -29,6 +29,24 @@ CREATE INDEX ix_sg_connection_requester
 CREATE INDEX ix_sg_connection_recipient
     ON sg_connection (tenant_id, recipient_party_id, status, updated_at DESC);
 
+CREATE TABLE sg_connection_audit (
+    audit_id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL,
+    connection_id UUID NOT NULL,
+    actor_party_id UUID NOT NULL,
+    from_status VARCHAR(16) CHECK (from_status IS NULL OR from_status IN ('PENDING', 'ACTIVE', 'REJECTED', 'CANCELLED', 'REMOVED')),
+    to_status VARCHAR(16) NOT NULL CHECK (to_status IN ('PENDING', 'ACTIVE', 'REJECTED', 'CANCELLED', 'REMOVED')),
+    action VARCHAR(24) NOT NULL,
+    idempotency_key VARCHAR(128) NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_sg_audit_connection
+        FOREIGN KEY (tenant_id, connection_id)
+        REFERENCES sg_connection (tenant_id, connection_id)
+);
+
+CREATE INDEX ix_sg_connection_audit_history
+    ON sg_connection_audit (tenant_id, connection_id, occurred_at, audit_id);
+
 CREATE TABLE sg_command_idempotency (
     tenant_id UUID NOT NULL,
     idempotency_key VARCHAR(128) NOT NULL,
@@ -44,6 +62,7 @@ CREATE TABLE sg_command_idempotency (
 CREATE TABLE sg_outbox (
     event_id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
+    actor_party_id UUID NOT NULL,
     aggregate_id UUID NOT NULL,
     aggregate_version INTEGER NOT NULL CHECK (aggregate_version >= 0),
     event_type VARCHAR(160) NOT NULL,
