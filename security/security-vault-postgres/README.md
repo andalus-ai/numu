@@ -17,3 +17,12 @@ A policy snapshot is loaded under a repeatable-read transaction. Rules are immut
 Decision audit records contain tenant, policy revision, subject reference, vault/secret identifiers, operation, effect, matched rule, reason, optional correlation ID and evaluation time. They never contain plaintext, ciphertext, key material, tokens or credentials. Restrict database access to policy administration and audit tables; runtime roles should not receive UPDATE/DELETE on immutable policy/audit records.
 
 The host must run all vault migrations before enabling the adapter and grant the runtime database role only required table privileges. Monitor pending outbox count, oldest pending age, expired leases, retry counts and dead-letter count. Dead-letter replay should be a separately authorized operator workflow with an audit trail.
+
+
+## Policy lifecycle controls
+
+Policy publication and rollback require two independently authenticated principals in the same tenant. The proposer must hold the platform `UPDATE` grant on `vault-policy`; the approver must separately hold the `PERFORM` grant on `vault-policy-approve` (or `vault-policy-rollback-approve`). The same principal ID cannot propose and approve. The database also rejects equal actor/approver labels and stores both identities on the immutable revision and administrative audit row. Hosts must provision these grants to distinct security-administrator roles; do not grant both permissions broadly.
+
+Rollback never rewinds the active pointer or edits old rows. It reads a tenant-scoped historical snapshot and publishes its rules as a new monotonically increasing revision. The new revision records `change_type=ROLLBACK` and its `source_revision`, while the admin audit records `POLICY_ROLLED_BACK`. The expected active revision is checked before copying and compare-and-set again during publication, so concurrent policy changes cannot be overwritten.
+
+`PostgresVaultPolicyMetricsAdapter` exposes tenant-scoped active revision/rule count and ALLOW/DENY decision counts over a caller-specified time window. The application service authorizes metric reads and bounds the window to seven days. These are operational counters, not a substitute for alerting on database availability, audit write failures, or relay health.
