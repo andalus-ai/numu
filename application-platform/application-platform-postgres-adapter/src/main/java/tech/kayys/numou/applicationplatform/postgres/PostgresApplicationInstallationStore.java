@@ -112,6 +112,7 @@ public final class PostgresApplicationInstallationStore
                     || !transition.applicationId().equals(installation.applicationId())
                     || transition.toStatus() != installation.status()
                     || transition.revision() != installation.revision()
+                    || transition.fromStatus().isEmpty()
                     || !transition.actorId().equals(installation.updatedBy())
                     || !transition.occurredAt().equals(installation.updatedAt()))
                 throw new IllegalArgumentException("transition does not match expected installation revision and identity");
@@ -122,7 +123,7 @@ public final class PostgresApplicationInstallationStore
                     String update = """
                             UPDATE application_installations
                             SET status=?, revision=?, updated_at=?, updated_by=?, failure_code=?
-                            WHERE tenant_id=? AND id=? AND revision=?
+                            WHERE tenant_id=? AND id=? AND revision=? AND status=?
                             """;
                     int changed;
                     try (PreparedStatement statement = connection.prepareStatement(update)) {
@@ -134,6 +135,7 @@ public final class PostgresApplicationInstallationStore
                         statement.setObject(6, installation.tenantId().value());
                         statement.setObject(7, installation.id().value());
                         statement.setLong(8, expectedRevision);
+                        statement.setString(9, transition.fromStatus().orElseThrow().name());
                         changed = statement.executeUpdate();
                     }
                     if (changed != 1) {
@@ -322,7 +324,8 @@ public final class PostgresApplicationInstallationStore
                 || !event.tenantId().equals(installation.tenantId())
                 || !event.applicationId().equals(installation.applicationId())
                 || !event.actorId().equals(installation.createdBy())
-                || !event.occurredAt().equals(installation.createdAt()))
+                || !event.occurredAt().equals(installation.createdAt())
+                || !"INSTALL_REQUESTED".equals(event.reasonCode()))
             throw new IllegalArgumentException("initial transition does not match installation request");
     }
 
@@ -419,6 +422,8 @@ public final class PostgresApplicationInstallationStore
 
     private static void insertTransitionAndOutbox(Connection connection, ApplicationInstallation installation,
             ApplicationInstallationTransition event) throws SQLException {
+        if (event.toStatus() != installation.status() || event.revision() != installation.revision())
+            throw new IllegalArgumentException("outbox transition must match the current installation snapshot");
         UUID eventId = UUID.randomUUID();
         String transitionSql = """
                 INSERT INTO application_installation_transitions
