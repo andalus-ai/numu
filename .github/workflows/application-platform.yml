@@ -38,8 +38,10 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Build and install foundation domain dependencies
-        run: mvn -B -ntp -f core/framework/foundation/pom.xml -pl numou-foundation-domain -am install -DskipTests
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation capabilities
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install -DskipTests
       - name: Build and install manifest validator and resolver contract
         run: mvn -B -ntp -f core/framework/pom.xml -pl plugin -am install -DskipTests
       - name: Verify application installation lifecycle
