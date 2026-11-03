@@ -11,7 +11,12 @@ CREATE TABLE IF NOT EXISTS vault_policy_revision (
     published_by VARCHAR(200) NOT NULL,
     published_at TIMESTAMPTZ NOT NULL,
     rule_count INTEGER NOT NULL CHECK (rule_count >= 0),
-    PRIMARY KEY (tenant_id, revision)
+    change_type VARCHAR(16) NOT NULL DEFAULT 'PUBLISH' CHECK (change_type IN ('PUBLISH', 'ROLLBACK')),
+    source_revision BIGINT,
+    PRIMARY KEY (tenant_id, revision),
+    FOREIGN KEY (tenant_id, source_revision) REFERENCES vault_policy_revision (tenant_id, revision) ON DELETE RESTRICT,
+    CHECK ((change_type = 'ROLLBACK' AND source_revision IS NOT NULL AND source_revision < revision)
+        OR (change_type = 'PUBLISH' AND source_revision IS NULL))
 );
 
 CREATE TABLE IF NOT EXISTS vault_policy_rule (
@@ -44,7 +49,7 @@ CREATE TABLE IF NOT EXISTS vault_policy_admin_audit (
     tenant_id UUID NOT NULL,
     revision BIGINT NOT NULL,
     actor VARCHAR(200) NOT NULL,
-    event_type VARCHAR(40) NOT NULL CHECK (event_type = 'POLICY_PUBLISHED'),
+    event_type VARCHAR(40) NOT NULL CHECK (event_type IN ('POLICY_PUBLISHED', 'POLICY_ROLLED_BACK')),
     occurred_at TIMESTAMPTZ NOT NULL,
     rule_count INTEGER NOT NULL CHECK (rule_count >= 0),
     FOREIGN KEY (tenant_id, revision) REFERENCES vault_policy_revision (tenant_id, revision) ON DELETE RESTRICT
