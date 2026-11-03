@@ -16,7 +16,7 @@ M1 implements the first durable social relationship vertical slice:
 - Canonical PartyId references from Ecosystem; no duplicate Person or Organization identity.
 - Tenant-scoped relationship storage.
 - Actor context contract that must be populated by the authenticated host boundary.
-- Active Party validation through an application-owned `PartyDirectoryPort`.
+- Active Party validation and authenticated subject resolution through Ecosystem's public `PartyLookupPort` and `PartyIdentityAssociationRepository` contracts.
 - Tenant-scoped idempotency key and actor-bound command fingerprint protection.
 - Optimistic version checking.
 - Unique PostgreSQL partial index prevents duplicate pending/active connections for an unordered Party pair in one tenant.
