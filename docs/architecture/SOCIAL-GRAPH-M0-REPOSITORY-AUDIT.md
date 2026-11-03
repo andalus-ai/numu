@@ -215,10 +215,12 @@ The audited root directory list contains no top-level `social` or `community` ca
 ### Outbox and reliability
 - The repository has reusable reliability/outbox infrastructure under `core/framework/reliability`, including API, SPI, application and adapter modules.
 - Multiple capabilities also implement mature local outbox patterns (for example construction, payment, courier, workspace, POS, document and affiliate).
-- M0 has not established that a single outbox API is universally suitable for Social Graph. M1 should inspect the reliability public contract and choose a supported composition rather than copy a private outbox implementation or create another broker abstraction.
+- The inspected public contracts include `reliability-api` `OutboxEntry` and `reliability-spi` `OutboxStorePort`/`OutboxRelayPort`. The entry carries an event envelope, retry timing and attempt count; the store port exposes append, leased due-claim, conditional update, lookup and pending count.
+- The contract is promising, but source inspection alone does not prove that the Social Graph aggregate write and outbox append can participate in one PostgreSQL transaction through the intended composition. M1 must inspect the adapter/unit-of-work transaction boundary and add an integration test proving atomic commit/rollback. Do not assume a separate `append` call is automatically atomic with the graph write.
 - Social relationship writes and their durable event intent must be atomic. Projection delivery is asynchronous and idempotent if/when Neo4j is introduced.
 
 ### Tenant and security
+- Foundation adapter `TenantContext` provides request-scoped tenant state with a thread-local fallback for non-request execution. Its own documentation says request tenant rebinding to a different value throws after security binding. This is an adapter utility, not a complete Social Graph actor/authorization contract; M1 must obtain trusted tenant and actor identity through the actual authenticated application boundary rather than reading an arbitrary payload/header.
 - Canonical Party is global; Organization, memberships and several Party associations are tenant-scoped.
 - Social Graph must distinguish global identity from tenant-owned relationship data and tenant-authorized visibility.
 - Never authorize graph reads because a caller knows PartyId or an edge ID.
@@ -287,7 +289,7 @@ M0 can be closed when:
 - [ ] Full PersonRef/PartyId consumer and persisted-data inventory is completed.
 - [ ] Profile and consent/privacy ownership is confirmed.
 - [ ] Social Graph actor/tenant authorization integration contract is agreed.
-- [ ] Reliability outbox/inbox contract is inspected for the intended composition.
+- [x] Public reliability outbox entry/store/relay contracts are inspected; atomic transaction composition remains unproven and is an M1 integration-test gate.
 - [ ] Baseline builds/tests are run on the affected reactors and recorded.
 - [ ] M1 API, event, persistence and security contracts are finalized.
 
