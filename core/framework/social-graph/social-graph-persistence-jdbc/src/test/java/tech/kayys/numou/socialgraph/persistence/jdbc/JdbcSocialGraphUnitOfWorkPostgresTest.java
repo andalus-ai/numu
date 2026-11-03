@@ -89,6 +89,33 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
     }
 
     @Test
+    void auditRowsRejectUpdateAndDelete() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId actor = PartyId.generate();
+        SocialConnection connection = SocialConnection.request(SocialConnectionId.generate(), tenant,
+                actor, PartyId.generate(), Instant.parse("2026-11-04T00:00:00Z"));
+        uow.execute(tx -> {
+            tx.insertConnection(connection);
+            tx.appendAudit(new tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord(
+                    UUID.randomUUID(), tenant, connection.id(), actor, null,
+                    tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
+                    "REQUEST", "immutable-audit", Instant.parse("2026-11-04T00:00:00Z")));
+            return null;
+        });
+
+        assertThatThrownBy(() -> executeSql(dataSource,
+                "UPDATE sg_connection_audit SET action = 'TAMPERED' WHERE idempotency_key = 'immutable-audit'"))
+                .isInstanceOf(Exception.class);
+        assertThatThrownBy(() -> executeSql(dataSource,
+                "DELETE FROM sg_connection_audit WHERE idempotency_key = 'immutable-audit'"))
+                .isInstanceOf(Exception.class);
+        assertThat(count(dataSource, "sg_connection_audit")).isEqualTo(1);
+    }
+
+    @Test
     void connectionLookupIsTenantScoped() throws Exception {
         DataSource dataSource = dataSource();
         migrate(dataSource);
@@ -112,6 +139,13 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
 
     private void migrate(DataSource dataSource) {
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+    }
+
+    private void executeSql(DataSource dataSource, String sql) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
     }
 
     private long count(DataSource dataSource, String table) throws Exception {
