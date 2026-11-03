@@ -33,7 +33,7 @@ class SocialGraphServiceTest {
     @Test
     void requestIsPersistedWithOutboxAndIdempotencyInOneUnitOfWork() {
         SocialConnection first = service.requestConnection(new SocialGraphActor(tenant, requester), recipient, "request-1").await().indefinitely();
-        SocialConnection replay = service.requestConnection(new SocialGraphActor(tenant, requester), recipient, "request-1");
+        SocialConnection replay = service.requestConnection(new SocialGraphActor(tenant, requester), recipient, "request-1").await().indefinitely();
 
         assertThat(first.id()).isEqualTo(replay.id());
         assertThat(uow.connections).hasSize(1);
@@ -47,7 +47,7 @@ class SocialGraphServiceTest {
         service.requestConnection(new SocialGraphActor(tenant, requester), recipient, "request-2").await().indefinitely();
         PartyId other = PartyId.generate();
 
-        assertThatThrownBy(() -> service.requestConnection(new SocialGraphActor(tenant, requester), other, "request-2"))
+        assertThatThrownBy(() -> service.requestConnection(new SocialGraphActor(tenant, requester), other, "request-2").await().indefinitely())
                 .isInstanceOf(IllegalStateException.class);
     }
 
