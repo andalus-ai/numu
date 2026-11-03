@@ -23,3 +23,8 @@ Policy implementations should enforce:
 - policy version and decision audit metadata without secret values.
 
 The platform grant check is not replaced by vault policy, and vault policy is not replaced by possession of a secret identifier. Policy adapters should be deterministic, observable, and tested against cross-tenant and cross-vault attempts. This milestone does not ship OIDC, SPIFFE/SPIRE or cloud-IAM provider adapters, a public policy-administration API, or break-glass workflows. Those require a selected host identity provider, host-authorized administration surface, and auditable operator model rather than fabricated provider-specific implementations.
+
+
+## Policy administration
+
+Policy publication is exposed through `VaultPolicyAdministrationService`, which requires the platform `AuthorizationService` grant for the active tenant's `vault-policy` resource before calling the repository. The caller supplies the expected active revision and a complete replacement rule set; the repository validates tenant/revision binding and performs compare-and-set publication with its administrative audit fact in one transaction. A host API must still authenticate the operator, grant only designated security administrators the policy-update permission, and expose no direct database write path.
