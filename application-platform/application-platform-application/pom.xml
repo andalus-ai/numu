@@ -5,6 +5,7 @@
   <artifactId>numou-application-platform-application</artifactId>
   <name>Numou Application Platform Application</name>
   <dependencies>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-plugin</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-application-platform-domain</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
     <dependency><groupId>org.assertj</groupId><artifactId>assertj-core</artifactId><scope>test</scope></dependency>
