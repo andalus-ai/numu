@@ -73,6 +73,59 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
         }
     }
 
+
+    @Override
+    public Uni<Optional<VaultPolicySnapshot>> loadRevision(UUID tenantId, long revision) {
+        Objects.requireNonNull(tenantId, "tenantId is required");
+        if (revision < 1) return Uni.createFrom().failure(
+                new IllegalArgumentException("revision must be positive"));
+        return Uni.createFrom().item(() -> loadRevisionBlocking(tenantId, revision))
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    private Optional<VaultPolicySnapshot> loadRevisionBlocking(UUID tenantId, long revision) {
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setReadOnly(true);
+            connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement exists = connection.prepareStatement(
+                        "SELECT 1 FROM vault_policy_revision WHERE tenant_id = ? AND revision = ?")) {
+                    exists.setObject(1, tenantId);
+                    exists.setLong(2, revision);
+                    try (ResultSet rs = exists.executeQuery()) {
+                        if (!rs.next()) {
+                            connection.commit();
+                            return Optional.empty();
+                        }
+                    }
+                }
+                List<VaultPolicyRule> rules = new ArrayList<>();
+                try (PreparedStatement statement = connection.prepareStatement("""
+                        SELECT rule_id, subject_type, subject_value, workload_issuer, workload_audience,
+                               vault_id, secret_id, operation, effect, valid_from, valid_until
+                        FROM vault_policy_rule
+                        WHERE tenant_id = ? AND revision = ?
+                        ORDER BY rule_id
+                        """)) {
+                    statement.setObject(1, tenantId);
+                    statement.setLong(2, revision);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) rules.add(mapRule(tenantId, revision, rs));
+                    }
+                }
+                connection.commit();
+                return Optional.of(new VaultPolicySnapshot(tenantId, revision, rules));
+            } catch (SQLException | RuntimeException failure) {
+                rollback(connection, failure);
+                if (failure instanceof RuntimeException runtime) throw runtime;
+                throw new VaultPersistenceException("Unable to load historical vault policy", (SQLException) failure);
+            }
+        } catch (SQLException failure) {
+            throw new VaultPersistenceException("Unable to open vault policy history transaction", failure);
+        }
+    }
+
     @Override
     public Uni<VaultPolicySnapshot> publish(UUID tenantId, long expectedRevision,
             List<VaultPolicyRule> rules, String actor, Instant publishedAt) {
