@@ -29,7 +29,8 @@ import java.util.function.Function;
  * JDBC transaction adapter. All graph state, idempotency and outbox writes
  * performed by the callback use the same physical PostgreSQL connection.
  *
- * <p>Call this blocking adapter from a worker thread, not an event-loop thread.
+ * <p>Blocking JDBC work is scheduled on Mutiny's default worker pool so callers
+ * can compose this port without blocking an event-loop thread.
  */
 @ApplicationScoped
 public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
