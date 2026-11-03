@@ -128,10 +128,16 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
 
     @Override
     public Uni<VaultPolicySnapshot> publish(UUID tenantId, long expectedRevision,
-            List<VaultPolicyRule> rules, String actor, Instant publishedAt) {
+            List<VaultPolicyRule> rules, String actor, Instant publishedAt,
+            VaultPolicyChangeType changeType, Long sourceRevision) {
         Objects.requireNonNull(tenantId, "tenantId is required");
         Objects.requireNonNull(rules, "rules are required");
         Objects.requireNonNull(publishedAt, "publishedAt is required");
+        Objects.requireNonNull(changeType, "changeType is required");
+        if ((changeType == VaultPolicyChangeType.ROLLBACK
+                && (sourceRevision == null || sourceRevision < 1 || sourceRevision >= expectedRevision + 1))
+                || (changeType == VaultPolicyChangeType.PUBLISH && sourceRevision != null))
+            return Uni.createFrom().failure(new IllegalArgumentException("invalid policy change provenance"));
         if (expectedRevision < 0) return Uni.createFrom().failure(
                 new IllegalArgumentException("expectedRevision must not be negative"));
         if (actor == null || actor.isBlank() || actor.length() > 200)
@@ -144,12 +150,13 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
             return Uni.createFrom().failure(invalid);
         }
         return Uni.createFrom().item(() -> publishBlocking(tenantId, expectedRevision,
-                nextRevision, immutableRules, actor, publishedAt))
+                nextRevision, immutableRules, actor, publishedAt, changeType, sourceRevision))
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     private VaultPolicySnapshot publishBlocking(UUID tenantId, long expected, long revision,
-            List<VaultPolicyRule> rules, String actor, Instant publishedAt) {
+            List<VaultPolicyRule> rules, String actor, Instant publishedAt,
+            VaultPolicyChangeType changeType, Long sourceRevision) {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -175,14 +182,17 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
 
                 try (PreparedStatement revisionInsert = connection.prepareStatement("""
                         INSERT INTO vault_policy_revision
-                            (tenant_id, revision, published_by, published_at, rule_count)
-                        VALUES (?, ?, ?, ?, ?)
+                            (tenant_id, revision, published_by, published_at, rule_count, change_type, source_revision)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                         """)) {
                     revisionInsert.setObject(1, tenantId);
                     revisionInsert.setLong(2, revision);
                     revisionInsert.setString(3, actor);
                     revisionInsert.setTimestamp(4, Timestamp.from(publishedAt));
                     revisionInsert.setInt(5, rules.size());
+                    revisionInsert.setString(6, changeType.name());
+                    if (sourceRevision == null) revisionInsert.setNull(7, Types.BIGINT);
+                    else revisionInsert.setLong(7, sourceRevision);
                     revisionInsert.executeUpdate();
                 }
 
@@ -228,14 +238,16 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
                 try (PreparedStatement audit = connection.prepareStatement("""
                         INSERT INTO vault_policy_admin_audit
                             (event_id, tenant_id, revision, actor, event_type, occurred_at, rule_count)
-                        VALUES (?, ?, ?, ?, 'POLICY_PUBLISHED', ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                         """)) {
                     audit.setObject(1, UUID.randomUUID());
                     audit.setObject(2, tenantId);
                     audit.setLong(3, revision);
                     audit.setString(4, actor);
-                    audit.setTimestamp(5, Timestamp.from(publishedAt));
-                    audit.setInt(6, rules.size());
+                    audit.setString(5, changeType == VaultPolicyChangeType.ROLLBACK
+                            ? "POLICY_ROLLED_BACK" : "POLICY_PUBLISHED");
+                    audit.setTimestamp(6, Timestamp.from(publishedAt));
+                    audit.setInt(7, rules.size());
                     audit.executeUpdate();
                 }
                 connection.commit();
