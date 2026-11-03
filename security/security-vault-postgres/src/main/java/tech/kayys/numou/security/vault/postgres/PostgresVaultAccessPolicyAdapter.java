@@ -60,7 +60,7 @@ public final class PostgresVaultAccessPolicyAdapter implements VaultAccessPolicy
     private static String workloadAuditReference(VaultWorkloadIdentity identity) {
         try {
             var digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] value = digest.digest((identity.issuer() + "\u0000" + identity.subject())
+            byte[] value = digest.digest((identity.issuer().length() + ":" + identity.issuer() + identity.subject())
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return "workload-sha256:" + java.util.HexFormat.of().formatHex(value);
         } catch (java.security.NoSuchAlgorithmException impossible) {
