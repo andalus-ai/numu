@@ -26,3 +26,6 @@ Policy publication and rollback require two independently authenticated principa
 Rollback never rewinds the active pointer or edits old rows. It reads a tenant-scoped historical snapshot and publishes its rules as a new monotonically increasing revision. The new revision records `change_type=ROLLBACK` and its `source_revision`, while the admin audit records `POLICY_ROLLED_BACK`. The expected active revision is checked before copying and compare-and-set again during publication, so concurrent policy changes cannot be overwritten.
 
 `PostgresVaultPolicyMetricsAdapter` exposes tenant-scoped active revision/rule count and ALLOW/DENY decision counts over a caller-specified time window. The application service authorizes metric reads and bounds the window to seven days. These are operational counters, not a substitute for alerting on database availability, audit write failures, or relay health.
+
+
+The application-level co-authorization check is not yet a persisted draft/approval workflow: the host must obtain the approver's independently authenticated confirmation for the exact policy payload before invoking publication. A future review workflow should persist a canonical proposal digest and approval state so approval can be deferred across requests without allowing payload substitution.
