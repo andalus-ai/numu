@@ -1,6 +1,6 @@
 # M3 — Application Manifest Validator and Capability Resolver
 
-- **Status:** implementation submitted for review; CI and Maven verification pending.
+- **Status:** merged via PR #1649; isolated Java 21 verification is now tracked by `.github/workflows/application-platform.yml`.
 - **Depends on:** merged M1 (#1646) and M2 (#1647).
 - **Implementation owner:** existing `core/framework/plugin` reactor, under `plugin.application`.
 - **Manifest contract:** `platform.numou/v1alpha1`.
@@ -47,6 +47,10 @@ The existing `GamelanWorkflowEngineAdapter` is still an in-memory DAG implementa
 - The schema resource is copied from the merged M2 schema rather than maintained as a second hand-written schema.
 - Maven tests and CI have **not** yet been verified for this branch. The NetworkNT dependency/API compatibility and the exact reactor test command remain CI gates.
 - No Gamelan adapter, tenant workflow dispatch, application installer, marketplace, or package execution runtime is claimed as delivered.
+
+### M3 post-merge CI evidence
+
+The PR-triggered Numou CI run associated with the M3 head completed with failures. Inspection of the failed framework job shows that its prerequisite build stopped in `security-vault-application` because `VaultSecretService` could not resolve `SecretAlreadyExistsException`. The framework/plugin reactor step was skipped, so that run does not establish whether the M3 code compiles or its unit tests pass. The separate focused workflow added in M4 removes that unrelated security-reactor prerequisite and tests the plugin reactor directly on Java 21. The focused workflow passed in [Application Platform Verification run #13](https://github.com/andalus-ai/numu/actions/runs/41569437049), including the framework plugin manifest and resolver tests.
 
 ## 6. Acceptance and next gates
 

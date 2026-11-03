@@ -20,6 +20,7 @@ These principles describe the intended architecture. Existing modules may still 
 - [Numou Application Platform — M1 foundation and capability architecture audit](docs/architecture/NUMOU-APPLICATION-PLATFORM-M1-FOUNDATION.md)
 - [Numou Application Platform — M2 descriptor and Gamelan workflow contract](docs/architecture/NUMOU-APPLICATION-PLATFORM-M2-DESCRIPTOR-GAMELAN-CONTRACT.md)
 - [Numou Application Platform — M3 manifest validator and capability resolver](docs/architecture/NUMOU-APPLICATION-PLATFORM-M3-VALIDATOR-RESOLVER.md)
+- [Numou Application Platform — M4 tenant installation lifecycle](docs/architecture/NUMOU-APPLICATION-PLATFORM-M4-TENANT-INSTALLATION.md)
 - [Architecture decisions and plans](docs/architecture/)
 
 This repository contains multiple Maven reactor roots; do not assume a single root-level `pom.xml`. Use the relevant module's documented reactor and the repository CI workflow when building or testing changes.
