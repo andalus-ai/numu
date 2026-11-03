@@ -140,6 +140,8 @@ class DeadLetterReplayServiceTest {
 
         private FakeOperations(DeadLetterReplayRecord record) { this.record = record; }
 
+        @Override public boolean capture(DeadLetterReplayRecord candidate) { return candidate != null; }
+
         @Override public Optional<DeadLetterReplayClaim> claim(
                 UUID tenant, DeadLetterSourceKey source, String actor, String reason,
                 Instant requestedAt, Duration leaseDuration) {
