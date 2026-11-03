@@ -142,14 +142,18 @@ class PostgresApplicationInstallationStoreTest {
         assertThat(store.claimDue(tenant, "worker-b", now.plusSeconds(3), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
 
-        var dead = claimed.get(0);
-        var delivered = claimed.get(1);
-        assertThat(store.markDelivered(tenant, dead.eventId(), "worker-b", dead.leaseToken(), now.plusSeconds(4))
+        var recovered = store.claimDue(tenant, "worker-b", now.plusSeconds(40), Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join();
+        assertThat(recovered).hasSize(2);
+        var dead = recovered.get(0);
+        var delivered = recovered.get(1);
+        assertThat(dead.attempts()).isEqualTo(2);
+        assertThat(store.markDelivered(tenant, dead.eventId(), "worker-a", claimed.get(0).leaseToken(), now.plusSeconds(41))
                 .toCompletableFuture().join()).isFalse();
-        assertThat(store.markDelivered(tenant, delivered.eventId(), "worker-a", delivered.leaseToken(), now.plusSeconds(4))
+        assertThat(store.markDelivered(tenant, delivered.eventId(), "worker-b", delivered.leaseToken(), now.plusSeconds(41))
                 .toCompletableFuture().join()).isTrue();
-        assertThat(store.retry(tenant, dead.eventId(), "worker-a", dead.leaseToken(),
-                "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(60), now.plusSeconds(4), 1)
+        assertThat(store.retry(tenant, dead.eventId(), "worker-b", dead.leaseToken(),
+                "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(60), now.plusSeconds(41), 2)
                 .toCompletableFuture().join()).isEqualTo(ApplicationInstallationOutboxStore.RetryOutcome.DEAD_LETTERED);
         assertThat(store.claimDue(tenant, "worker-c", now.plusSeconds(120), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
