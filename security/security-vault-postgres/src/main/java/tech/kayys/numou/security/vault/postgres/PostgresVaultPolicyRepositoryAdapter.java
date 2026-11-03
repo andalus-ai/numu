@@ -138,8 +138,8 @@ public final class PostgresVaultPolicyRepositoryAdapter implements VaultPolicyRe
                 && (sourceRevision == null || sourceRevision < 1 || sourceRevision >= expectedRevision + 1))
                 || (changeType == VaultPolicyChangeType.PUBLISH && sourceRevision != null))
             return Uni.createFrom().failure(new IllegalArgumentException("invalid policy change provenance"));
-        if (expectedRevision < 0) return Uni.createFrom().failure(
-                new IllegalArgumentException("expectedRevision must not be negative"));
+        if (expectedRevision < 0 || expectedRevision == Long.MAX_VALUE) return Uni.createFrom().failure(
+                new IllegalArgumentException("expectedRevision must be within [0, Long.MAX_VALUE)"));
         if (actor == null || actor.isBlank() || actor.length() > 200
                 || approver == null || approver.isBlank() || approver.length() > 200
                 || actor.equals(approver))
