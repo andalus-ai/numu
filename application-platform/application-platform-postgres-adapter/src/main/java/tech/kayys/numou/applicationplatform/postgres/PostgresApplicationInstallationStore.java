@@ -444,7 +444,7 @@ public final class PostgresApplicationInstallationStore
         String outboxSql = """
                 INSERT INTO application_installation_outbox
                   (event_id,tenant_id,installation_id,application_id,package_version,package_digest,
-                   event_type,to_status,revision,actor_id,correlation_id,occurred_at,available_at)
+                   event_type,to_status,revision,actor_id,correlation_id,reason_code,occurred_at,available_at)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(outboxSql)) {
