@@ -1,6 +1,7 @@
 package tech.kayys.numou.socialgraph.persistence.jdbc;
 
 import org.junit.jupiter.api.Test;
+import org.flywaydb.core.Flyway;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -13,8 +14,6 @@ import tech.kayys.numou.socialgraph.spi.SocialGraphIdempotencyRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphOutboxEvent;
 
 import javax.sql.DataSource;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Instant;
@@ -111,18 +110,8 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         return source;
     }
 
-    private void migrate(DataSource dataSource) throws Exception {
-        String resource = "db/migration/V1__social_graph_connections.sql";
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {
-            if (input == null) throw new IllegalStateException("Missing migration resource " + resource);
-            String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            try (Connection connection = dataSource.getConnection();
-                 Statement statement = connection.createStatement()) {
-                for (String command : sql.split(";")) {
-                    if (!command.isBlank()) statement.execute(command);
-                }
-            }
-        }
+    private void migrate(DataSource dataSource) {
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
     }
 
     private long count(DataSource dataSource, String table) throws Exception {
