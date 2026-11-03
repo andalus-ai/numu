@@ -37,6 +37,7 @@ class SocialGraphServiceTest {
         assertThat(first.id()).isEqualTo(replay.id());
         assertThat(uow.connections).hasSize(1);
         assertThat(uow.events).hasSize(1);
+        assertThat(uow.audits).hasSize(1);
         assertThat(uow.idempotency).hasSize(1);
     }
 
@@ -72,6 +73,7 @@ class SocialGraphServiceTest {
         private final Map<SocialConnectionId, SocialConnection> connections = new HashMap<>();
         private final Map<String, SocialGraphIdempotencyRecord> idempotency = new HashMap<>();
         private final Map<UUID, SocialGraphOutboxEvent> events = new HashMap<>();
+        private final java.util.List<tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord> audits = new java.util.ArrayList<>();
 
         @Override
         public <T> T execute(java.util.function.Function<SocialGraphTransaction, T> work) {
@@ -98,6 +100,7 @@ class SocialGraphServiceTest {
                     idempotency.put(record.tenantId() + ":" + record.key(), record);
                 }
                 @Override public void appendOutbox(SocialGraphOutboxEvent event) { events.put(event.eventId(), event); }
+                @Override public void appendAudit(tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord record) { audits.add(record); }
             });
         }
     }
