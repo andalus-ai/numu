@@ -16,4 +16,21 @@ class ApplicationCapabilityResolverTest {
         assertThat(result.providersByCapability()).containsEntry("numou.sales", provider);
         assertThat(result.unavailableOptionalCapabilities()).containsExactly("numou.crm");
     }
+    @Test void rejectsAmbiguousProvidersAndDependencyCycles() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
+        var resolver = new ApplicationCapabilityResolver();
+        var ambiguous = List.of(
+                new CapabilityProvider("a", "numou.sales", "1.0.0", List.of()),
+                new CapabilityProvider("b", "numou.sales", "1.1.0", List.of()));
+        assertThatThrownBy(() -> resolver.resolve(app, ambiguous))
+                .isInstanceOf(CapabilityResolutionException.class).hasMessageContaining("exactly one");
+        var cycle = List.of(
+                new CapabilityProvider("sales", "numou.sales", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.party", "^1.0.0"))),
+                new CapabilityProvider("party", "numou.party", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.sales", "^1.0.0"))));
+        assertThatThrownBy(() -> resolver.resolve(app, cycle))
+                .isInstanceOf(CapabilityResolutionException.class).hasMessageContaining("cycle");
+    }
 }
