@@ -184,6 +184,28 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- Social Graph -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-persistence-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-event-domain</artifactId>
