@@ -30,6 +30,6 @@ public interface VaultPolicyRepositoryPort {
 
     Uni<VaultPolicySnapshot> publish(UUID tenantId, long expectedRevision,
                                      List<tech.kayys.numou.security.vault.domain.VaultPolicyRule> rules,
-                                     String actor, Instant publishedAt,
+                                     String actor, String approver, Instant publishedAt,
                                      VaultPolicyChangeType changeType, Long sourceRevision);
 }
