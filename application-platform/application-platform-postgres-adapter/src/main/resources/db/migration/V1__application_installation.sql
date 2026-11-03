@@ -84,6 +84,7 @@ CREATE TABLE application_installation_outbox (
     revision BIGINT NOT NULL CHECK (revision >= 1),
     actor_id VARCHAR(200) NOT NULL,
     correlation_id VARCHAR(200) NOT NULL DEFAULT '',
+    reason_code VARCHAR(120) NOT NULL DEFAULT '',
     occurred_at TIMESTAMPTZ NOT NULL,
     delivery_status VARCHAR(16) NOT NULL DEFAULT 'PENDING'
         CHECK (delivery_status IN ('PENDING','LEASED','DELIVERED','DEAD')),
