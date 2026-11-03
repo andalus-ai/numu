@@ -16,4 +16,5 @@ public interface SocialGraphTransaction {
     Optional<SocialGraphIdempotencyRecord> findIdempotency(TenantId tenantId, String key);
     void saveIdempotency(SocialGraphIdempotencyRecord record);
     void appendOutbox(SocialGraphOutboxEvent event);
+    void appendAudit(SocialGraphAuditRecord record);
 }
