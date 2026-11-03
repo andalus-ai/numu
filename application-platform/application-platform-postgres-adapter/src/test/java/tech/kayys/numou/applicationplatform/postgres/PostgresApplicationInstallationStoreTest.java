@@ -27,6 +27,7 @@ class PostgresApplicationInstallationStoreTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
+    static DataSource adminDataSource;
     static DataSource dataSource;
     static PostgresApplicationInstallationStore store;
 
@@ -36,6 +37,7 @@ class PostgresApplicationInstallationStoreTest {
         source.setURL(POSTGRES.getJdbcUrl());
         source.setUser(POSTGRES.getUsername());
         source.setPassword(POSTGRES.getPassword());
+        adminDataSource = source;
         try (var connection = source.getConnection(); var statement = connection.createStatement();
              InputStream migration = PostgresApplicationInstallationStoreTest.class
                      .getResourceAsStream("/db/migration/V1__application_installation.sql")) {
@@ -197,6 +199,12 @@ class PostgresApplicationInstallationStoreTest {
             assertThatThrownBy(() -> statement.executeUpdate(
                     "DELETE FROM application_installation_idempotency WHERE tenant_id='" + tenant.value() + "'"))
                     .isInstanceOf(java.sql.SQLException.class);
+        } catch (java.sql.SQLException failure) {
+            throw new IllegalStateException(failure);
+        }
+        // Exercise the database trigger itself as the table owner; the runtime role
+        // deliberately has no TRUNCATE privilege.
+        try (var connection = adminDataSource.getConnection(); var statement = connection.createStatement()) {
             assertThatThrownBy(() -> statement.execute("TRUNCATE application_installation_transitions"))
                     .isInstanceOf(java.sql.SQLException.class);
             assertThatThrownBy(() -> statement.execute("TRUNCATE application_installation_idempotency"))
