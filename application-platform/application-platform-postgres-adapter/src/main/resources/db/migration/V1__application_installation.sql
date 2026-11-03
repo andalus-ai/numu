@@ -72,6 +72,18 @@ CREATE TRIGGER trg_application_installation_transitions_immutable
     BEFORE UPDATE OR DELETE ON application_installation_transitions
     FOR EACH ROW EXECUTE FUNCTION reject_application_installation_transition_mutation();
 
+
+CREATE TRIGGER trg_application_installation_transitions_no_truncate
+    BEFORE TRUNCATE ON application_installation_transitions
+    FOR EACH STATEMENT EXECUTE FUNCTION reject_application_installation_transition_mutation();
+
+CREATE TRIGGER trg_application_installation_idempotency_immutable
+    BEFORE UPDATE OR DELETE ON application_installation_idempotency
+    FOR EACH ROW EXECUTE FUNCTION reject_application_installation_transition_mutation();
+CREATE TRIGGER trg_application_installation_idempotency_no_truncate
+    BEFORE TRUNCATE ON application_installation_idempotency
+    FOR EACH STATEMENT EXECUTE FUNCTION reject_application_installation_transition_mutation();
+
 CREATE TABLE application_installation_outbox (
     event_id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
