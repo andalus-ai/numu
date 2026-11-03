@@ -28,3 +28,8 @@ The platform grant check is not replaced by vault policy, and vault policy is no
 ## Policy administration
 
 Policy publication is exposed through `VaultPolicyAdministrationService`, which requires the platform `AuthorizationService` grant for the active tenant's `vault-policy` resource before calling the repository. The caller supplies the expected active revision and a complete replacement rule set; the repository validates tenant/revision binding and performs compare-and-set publication with its administrative audit fact in one transaction. A host API must still authenticate the operator, grant only designated security administrators the policy-update permission, and expose no direct database write path.
+
+
+Policy publication and rollback require two different verified principals in the same tenant. The proposer needs the `vault-policy` UPDATE grant; the approver needs a separate `vault-policy-approve` or `vault-policy-rollback-approve` PERFORM grant. The application compares stable principal IDs, and persistence records both human-readable actor references. A host must provision these grants to separate security-administrator roles. Rollback republishes an immutable historical snapshot as a new revision and never rewrites history.
+
+Operational metrics are exposed through `VaultPolicyMetricsService`, require the `vault-policy-metrics` READ grant, and are limited to a seven-day window.
