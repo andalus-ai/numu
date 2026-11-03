@@ -50,7 +50,7 @@ The existing `GamelanWorkflowEngineAdapter` is still an in-memory DAG implementa
 
 ### M3 post-merge CI evidence
 
-The PR-triggered Numou CI run associated with the M3 head completed with failures. Inspection of the failed framework job shows that its prerequisite build stopped in `security-vault-application` because `VaultSecretService` could not resolve `SecretAlreadyExistsException`. The framework/plugin reactor step was skipped, so that run does not establish whether the M3 code compiles or its unit tests pass. The separate focused workflow added in M4 removes that unrelated security-reactor prerequisite and tests the plugin reactor directly on Java 21.
+The PR-triggered Numou CI run associated with the M3 head completed with failures. Inspection of the failed framework job shows that its prerequisite build stopped in `security-vault-application` because `VaultSecretService` could not resolve `SecretAlreadyExistsException`. The framework/plugin reactor step was skipped, so that run does not establish whether the M3 code compiles or its unit tests pass. The separate focused workflow added in M4 removes that unrelated security-reactor prerequisite and tests the plugin reactor directly on Java 21. The focused workflow passed in [Application Platform Verification run #13](https://github.com/andalus-ai/numu/actions/runs/41569437049), including the framework plugin manifest and resolver tests.
 
 ## 6. Acceptance and next gates
 
