@@ -83,6 +83,24 @@ CREATE TRIGGER trg_vault_policy_revision_immutable
     BEFORE UPDATE OR DELETE ON vault_policy_revision
     FOR EACH ROW EXECUTE FUNCTION reject_vault_policy_revision_mutation();
 
+CREATE OR REPLACE FUNCTION reject_insert_into_published_vault_policy() RETURNS trigger
+LANGUAGE plpgsql AS $
+DECLARE
+    active BIGINT;
+BEGIN
+    SELECT active_revision INTO active FROM vault_policy_head WHERE tenant_id = NEW.tenant_id;
+    IF active IS NOT NULL AND active >= NEW.revision THEN
+        RAISE EXCEPTION 'published vault policy revisions are immutable';
+    END IF;
+    RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS trg_vault_policy_rule_insert_guard ON vault_policy_rule;
+CREATE TRIGGER trg_vault_policy_rule_insert_guard
+    BEFORE INSERT ON vault_policy_rule
+    FOR EACH ROW EXECUTE FUNCTION reject_insert_into_published_vault_policy();
+
 DROP TRIGGER IF EXISTS trg_vault_policy_rule_immutable ON vault_policy_rule;
 CREATE TRIGGER trg_vault_policy_rule_immutable
     BEFORE UPDATE OR DELETE ON vault_policy_rule
