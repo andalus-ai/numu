@@ -4,6 +4,8 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.domain.SocialConnectionStatus;
+import tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphIdempotencyRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphOutboxEvent;
 import tech.kayys.numou.socialgraph.spi.SocialGraphTransaction;
@@ -127,10 +129,9 @@ public final class SocialGraphService {
     }
 
     private static void appendAudit(SocialGraphTransaction tx, SocialConnection connection,
-            PartyId actorPartyId, tech.kayys.numou.socialgraph.domain.SocialConnectionStatus fromStatus,
-            tech.kayys.numou.socialgraph.domain.SocialConnectionStatus toStatus,
+            PartyId actorPartyId, SocialConnectionStatus fromStatus, SocialConnectionStatus toStatus,
             String action, String idempotencyKey, Instant occurredAt) {
-        tx.appendAudit(new tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord(
+        tx.appendAudit(new SocialGraphAuditRecord(
                 UUID.randomUUID(), connection.tenantId(), connection.id(), actorPartyId,
                 fromStatus, toStatus, action, idempotencyKey, occurredAt));
     }
