@@ -176,18 +176,37 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
         }
 
         @Override
+        public void appendAudit(tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord record) {
+            String sql = "INSERT INTO sg_connection_audit (audit_id, tenant_id, connection_id, actor_party_id, "
+                    + "from_status, to_status, action, idempotency_key, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, record.auditId());
+                ps.setObject(2, record.tenantId().value());
+                ps.setObject(3, record.connectionId().value());
+                ps.setObject(4, record.actorPartyId().value());
+                ps.setString(5, record.fromStatus() == null ? null : record.fromStatus().name());
+                ps.setString(6, record.toStatus().name());
+                ps.setString(7, record.action());
+                ps.setString(8, record.idempotencyKey());
+                ps.setTimestamp(9, Timestamp.from(record.occurredAt()));
+                ps.executeUpdate();
+            } catch (SQLException e) { throw persistenceFailure("append social graph audit record", e); }
+        }
+
+        @Override
         public void appendOutbox(SocialGraphOutboxEvent event) {
-            String sql = "INSERT INTO sg_outbox (event_id, tenant_id, aggregate_id, aggregate_version, event_type, "
-                    + "schema_version, occurred_at, payload) VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))";
+            String sql = "INSERT INTO sg_outbox (event_id, tenant_id, actor_party_id, aggregate_id, aggregate_version, event_type, "
+                    + "schema_version, occurred_at, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setObject(1, event.eventId());
                 ps.setObject(2, event.tenantId().value());
-                ps.setObject(3, event.aggregateId().value());
-                ps.setInt(4, event.aggregateVersion());
-                ps.setString(5, event.eventType());
-                ps.setInt(6, event.schemaVersion());
-                ps.setTimestamp(7, Timestamp.from(event.occurredAt()));
-                ps.setString(8, event.payloadJson());
+                ps.setObject(3, event.actorPartyId().value());
+                ps.setObject(4, event.aggregateId().value());
+                ps.setInt(5, event.aggregateVersion());
+                ps.setString(6, event.eventType());
+                ps.setInt(7, event.schemaVersion());
+                ps.setTimestamp(8, Timestamp.from(event.occurredAt()));
+                ps.setString(9, event.payloadJson());
                 ps.executeUpdate();
             } catch (SQLException e) { throw persistenceFailure("append social graph outbox event", e); }
         }
