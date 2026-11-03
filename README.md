@@ -17,6 +17,8 @@ These principles describe the intended architecture. Existing modules may still 
 - [Contributor and AI agent instructions](AGENTS.md)
 - [ADR-003: Reusable capability modules across deployment topologies](docs/architecture/ADR-003-reusable-capability-modules.md)
 - [Domain capability ownership matrix](docs/architecture/DOMAIN-CAPABILITY-MATRIX.md)
+- [Numou Application Platform — M1 foundation and capability architecture audit](docs/architecture/NUMOU-APPLICATION-PLATFORM-M1-FOUNDATION.md)
+- [Numou Application Platform — M2 descriptor and Gamelan workflow contract](docs/architecture/NUMOU-APPLICATION-PLATFORM-M2-DESCRIPTOR-GAMELAN-CONTRACT.md)
 - [Architecture decisions and plans](docs/architecture/)
 
 This repository contains multiple Maven reactor roots; do not assume a single root-level `pom.xml`. Use the relevant module's documented reactor and the repository CI workflow when building or testing changes.
