@@ -61,10 +61,10 @@ public final class ApplicationInstallation {
         return transition(ApplicationInstallationStatus.AWAITING_APPROVAL, actorId, now, "");
     }
     public ApplicationInstallationTransition approve(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, now, "INSTALL_APPROVED");
+        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, now, "INSTALL_APPROVED", ApplicationInstallationStatus.AWAITING_APPROVAL);
     }
     public ApplicationInstallationTransition beginProvisioning(String actorId, Instant now) {
-        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, now, "");
+        return transition(ApplicationInstallationStatus.PROVISIONING, actorId, now, "", ApplicationInstallationStatus.VALIDATING);
     }
     public ApplicationInstallationTransition completeProvisioning(String actorId, Instant now) {
         return transition(ApplicationInstallationStatus.INSTALLED, actorId, now, "");
@@ -92,10 +92,15 @@ public final class ApplicationInstallation {
 
     private ApplicationInstallationTransition transition(ApplicationInstallationStatus target,
             String actorId, Instant now, String reasonCode) {
+        return transition(target, actorId, now, reasonCode, null);
+    }
+
+    private ApplicationInstallationTransition transition(ApplicationInstallationStatus target,
+            String actorId, Instant now, String reasonCode, ApplicationInstallationStatus requiredFrom) {
         String actor = requireText(actorId, "actorId");
         Objects.requireNonNull(now, "now");
         ApplicationInstallationStatus from = status;
-        if (!allowed(from, target))
+        if ((requiredFrom != null && from != requiredFrom) || !allowed(from, target))
             throw new IllegalStateException("Invalid application installation transition: " + from + " -> " + target);
         status = target;
         revision = Math.addExact(revision, 1);
