@@ -89,6 +89,46 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
     }
 
     @Test
+    void uniqueIndexRejectsReverseDuplicateOpenConnection() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId first = PartyId.generate();
+        PartyId second = PartyId.generate();
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+        SocialConnection original = SocialConnection.request(SocialConnectionId.generate(), tenant, first, second, now);
+        SocialConnection reverse = SocialConnection.request(SocialConnectionId.generate(), tenant, second, first, now);
+        uow.execute(tx -> { tx.insertConnection(original); return null; }).await().indefinitely();
+
+        assertThatThrownBy(() -> uow.execute(tx -> { tx.insertConnection(reverse); return null; }).await().indefinitely())
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(count(dataSource, "sg_connection")).isEqualTo(1);
+    }
+
+    @Test
+    void optimisticVersionCheckRejectsStaleTransition() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId requester = PartyId.generate();
+        PartyId recipient = PartyId.generate();
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+        SocialConnection original = SocialConnection.request(SocialConnectionId.generate(), tenant, requester, recipient, now);
+        uow.execute(tx -> { tx.insertConnection(original); return null; }).await().indefinitely();
+
+        SocialConnection stored = uow.execute(tx -> tx.findConnection(tenant, original.id()).orElseThrow())
+                .await().indefinitely();
+        SocialConnection accepted = stored.accept(recipient, now.plusSeconds(1));
+        uow.execute(tx -> { tx.updateConnection(accepted, stored.version()); return null; }).await().indefinitely();
+
+        SocialConnection stale = original.cancel(requester, now.plusSeconds(2));
+        assertThatThrownBy(() -> uow.execute(tx -> { tx.updateConnection(stale, original.version()); return null; })
+                .await().indefinitely()).isInstanceOf(SocialGraphOptimisticConflictException.class);
+    }
+
+    @Test
     void auditRowsRejectUpdateAndDelete() throws Exception {
         DataSource dataSource = dataSource();
         migrate(dataSource);
