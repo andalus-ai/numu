@@ -53,6 +53,7 @@ class RequestApplicationInstallationHandlerTest {
         assertThat(compatible).isTrue();
         assertThat(storedKey.get()).matches("[a-f0-9]{64}").isNotEqualTo(KEY);
         assertThat(storedEvent.get().toStatus()).isEqualTo(ApplicationInstallationStatus.REQUESTED);
+        assertThat(storedEvent.get().correlationId()).isEqualTo("corr-1");
     }
 
     @Test void missingPackageStopsBeforeCompatibilityAndPersistence() {
