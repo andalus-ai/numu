@@ -67,13 +67,13 @@ class PostgresVaultPolicyRepositoryAdapterTest {
         Instant now = Instant.parse("2026-11-03T10:00:00Z");
         VaultPolicyRule rule = rule(tenant, 1, principal, now);
 
-        VaultPolicySnapshot published = policies.publish(tenant, 0, List.of(rule), "security-admin", now)
+        VaultPolicySnapshot published = policies.publish(tenant, 0, List.of(rule), "security-admin", "independent-approver", now, VaultPolicyChangeType.PUBLISH, null)
                 .await().indefinitely();
 
         assertEquals(1, published.revision());
         assertEquals(1, policies.loadActive(tenant).await().indefinitely().orElseThrow().rules().size());
         assertTrue(policies.loadActive(UUID.randomUUID()).await().indefinitely().isEmpty());
-        assertThrows(RuntimeException.class, () -> policies.publish(tenant, 0, List.of(rule), "stale-admin", now)
+        assertThrows(RuntimeException.class, () -> policies.publish(tenant, 0, List.of(rule), "stale-admin", "independent-approver", now, VaultPolicyChangeType.PUBLISH, null)
                 .await().indefinitely());
 
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
@@ -103,7 +103,7 @@ class PostgresVaultPolicyRepositoryAdapterTest {
         UUID tenant = UUID.randomUUID();
         Instant now = Instant.now();
         assertThrows(RuntimeException.class, () -> policies.publish(tenant, 0,
-                List.of(rule(tenant, 1, UUID.randomUUID(), now)), "security-admin", now).await().indefinitely());
+                List.of(rule(tenant, 1, UUID.randomUUID(), now)), "security-admin", "independent-approver", now, VaultPolicyChangeType.PUBLISH, null).await().indefinitely());
         assertTrue(policies.loadActive(tenant).await().indefinitely().isEmpty());
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("SELECT count(*) FROM vault_policy_revision")) {
@@ -145,19 +145,19 @@ class PostgresVaultPolicyRepositoryAdapterTest {
         UUID principal = UUID.randomUUID();
         Instant now = Instant.parse("2026-11-03T10:00:00Z");
         policies.publish(tenant, 0, List.of(rule(tenant, 1, principal, now)),
-                "security-admin", now).await().indefinitely();
+                "security-admin", "independent-approver", now, VaultPolicyChangeType.PUBLISH, null).await().indefinitely();
 
         VaultPolicyRule changed = new VaultPolicyRule(UUID.randomUUID(), tenant, 2,
                 VaultPolicySubjectType.PRINCIPAL_ID, principal.toString(), null, null,
                 null, null, VaultOperation.READ, VaultPolicyEffect.DENY, now.minusSeconds(1), null);
-        policies.publish(tenant, 1, List.of(changed), "security-admin", now).await().indefinitely();
+        policies.publish(tenant, 1, List.of(changed), "security-admin", "independent-approver", now, VaultPolicyChangeType.PUBLISH, null).await().indefinitely();
 
         var historical = policies.loadRevision(tenant, 1).await().indefinitely().orElseThrow();
         var restoredRules = historical.rules().stream().map(rule -> new VaultPolicyRule(
                 rule.ruleId(), tenant, 3, rule.subjectType(), rule.subject(), rule.workloadIssuer(),
                 rule.workloadAudience(), rule.vaultId(), rule.secretId(), rule.operation(),
                 rule.effect(), rule.validFrom(), rule.validUntil())).toList();
-        var rollback = policies.publish(tenant, 2, restoredRules, "security-admin", now,
+        var rollback = policies.publish(tenant, 2, restoredRules, "security-admin", "independent-approver", now,
                 VaultPolicyChangeType.ROLLBACK, 1L).await().indefinitely();
 
         assertEquals(3, rollback.revision());
@@ -166,12 +166,13 @@ class PostgresVaultPolicyRepositoryAdapterTest {
                 .await().indefinitely().orElseThrow().rules().get(0).effect());
         try (Connection connection = dataSource.getConnection();
              var statement = connection.prepareStatement(
-                     "SELECT change_type, source_revision FROM vault_policy_revision WHERE tenant_id = ? AND revision = 3")) {
+                     "SELECT change_type, source_revision, approved_by FROM vault_policy_revision WHERE tenant_id = ? AND revision = 3")) {
             statement.setObject(1, tenant);
             try (ResultSet rs = statement.executeQuery()) {
                 assertTrue(rs.next());
                 assertEquals("ROLLBACK", rs.getString(1));
                 assertEquals(1L, rs.getLong(2));
+                assertEquals("independent-approver", rs.getString(3));
             }
         }
     }
