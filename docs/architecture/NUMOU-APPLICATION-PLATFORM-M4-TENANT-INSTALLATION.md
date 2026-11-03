@@ -43,7 +43,7 @@ M4 therefore introduces a separate `application-platform` reactor with domain an
 
 ## 4. Reliability and security boundaries
 
-The `ApplicationInstallationStore` contract is intentionally atomic: the initial installation row, tenant/application uniqueness, idempotency hash and transition outbox record must commit together. The raw idempotency key is never a persistence field. M5 must implement this guarantee in PostgreSQL and prove it under concurrent duplicate requests.
+The `ApplicationInstallationStore` contract is intentionally atomic: the initial installation row, tenant/application uniqueness, idempotency hash and transition outbox record must commit together. The raw idempotency key is never a persistence field. M5 implements this guarantee in PostgreSQL and verifies it with concurrent duplicate-request integration tests.
 
 No provisioning side effect is performed synchronously inside the request handler. The durable outbox consumer will be added with the PostgreSQL adapter and worker milestone. It must use a stable operation ID and idempotent provisioning ports. A crash after committing the request must be recoverable without creating duplicate subscriptions, permissions, navigation registrations or other resources.
 
