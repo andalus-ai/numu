@@ -28,36 +28,42 @@ public final class VaultPolicyAdministrationService {
     }
 
     /**
-     * Publishes a complete replacement snapshot for the active tenant.
-     * The platform authorization grant is checked before the repository is called.
+     * Publishes only after a distinct approver independently authorizes the operation.
+     * The proposer and approver must belong to the same tenant context.
      */
-    public Uni<VaultPolicySnapshot> publish(SecurityContext context, long expectedRevision,
-                                             List<VaultPolicyRule> rules) {
-        Objects.requireNonNull(context, "context is required");
+    public Uni<VaultPolicySnapshot> publish(SecurityContext proposer, SecurityContext approver,
+                                             long expectedRevision, List<VaultPolicyRule> rules) {
+        validateDistinctActors(proposer, approver);
         Objects.requireNonNull(rules, "rules are required");
-        return authorization.require(context, ActionType.UPDATE, RESOURCE, context.tenantId().toString())
-                .flatMap(ignored -> policies.publish(context.tenantId(), expectedRevision,
-                        rules, context.actor(), clock.instant()));
+        return authorization.require(proposer, ActionType.UPDATE, RESOURCE, proposer.tenantId().toString())
+                .flatMap(ignored -> authorization.require(approver, ActionType.PERFORM,
+                        "vault-policy-approve", approver.tenantId().toString()))
+                .flatMap(ignored -> policies.publish(proposer.tenantId(), expectedRevision,
+                        rules, proposer.actor(), approver.actor(), clock.instant(),
+                        VaultPolicyChangeType.PUBLISH, null));
     }
+
+
     /**
      * Rolls back by publishing a fresh revision copied from a historical snapshot.
      * Published history is never edited or made active by pointer rewrites.
      */
-    public Uni<VaultPolicySnapshot> rollback(SecurityContext context, long expectedActiveRevision,
+    public Uni<VaultPolicySnapshot> rollback(SecurityContext proposer, SecurityContext approver, long expectedActiveRevision,
                                               long targetRevision) {
-        Objects.requireNonNull(context, "context is required");
+        validateDistinctActors(proposer, approver);
         if (expectedActiveRevision < 1 || targetRevision < 1 || targetRevision >= expectedActiveRevision)
             return Uni.createFrom().failure(new IllegalArgumentException(
                     "rollback requires a historical target below the expected active revision"));
-        return authorization.require(context, ActionType.PERFORM, "vault-policy-rollback",
-                        context.tenantId().toString())
-                .flatMap(ignored -> policies.loadActive(context.tenantId()))
+        return authorization.require(proposer, ActionType.UPDATE, RESOURCE, proposer.tenantId().toString())
+                .flatMap(ignored -> authorization.require(approver, ActionType.PERFORM,
+                        "vault-policy-rollback-approve", approver.tenantId().toString()))
+                .flatMap(ignored -> policies.loadActive(proposer.tenantId()))
                 .flatMap(active -> {
                     long actual = active.map(VaultPolicySnapshot::revision).orElse(0L);
                     if (actual != expectedActiveRevision)
                         return Uni.createFrom().failure(new IllegalStateException(
                                 "active vault policy revision changed; reload before rollback"));
-                    return policies.loadRevision(context.tenantId(), targetRevision)
+                    return policies.loadRevision(proposer.tenantId(), targetRevision)
                             .flatMap(historical -> {
                                 VaultPolicySnapshot source = historical.orElseThrow(
                                         () -> new IllegalArgumentException("target policy revision does not exist"));
@@ -68,11 +74,20 @@ public final class VaultPolicyAdministrationService {
                                                 rule.secretId(), rule.operation(), rule.effect(),
                                                 rule.validFrom(), rule.validUntil()))
                                         .toList();
-                                return policies.publish(context.tenantId(), expectedActiveRevision, copied,
-                                        context.actor(), clock.instant(), VaultPolicyChangeType.ROLLBACK,
-                                        targetRevision);
+                                return policies.publish(proposer.tenantId(), expectedActiveRevision, copied,
+                                        proposer.actor(), approver.actor(), clock.instant(),
+                                        VaultPolicyChangeType.ROLLBACK, targetRevision);
                             });
                 });
+    }
+
+    private static void validateDistinctActors(SecurityContext proposer, SecurityContext approver) {
+        Objects.requireNonNull(proposer, "proposer context is required");
+        Objects.requireNonNull(approver, "approver context is required");
+        if (!proposer.tenantId().equals(approver.tenantId()))
+            throw new IllegalArgumentException("proposer and approver must act in the same tenant");
+        if (proposer.principal().id().equals(approver.principal().id()))
+            throw new IllegalArgumentException("policy proposer cannot approve their own change");
     }
 
 }
