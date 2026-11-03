@@ -3,6 +3,7 @@
 - **Status:** Proposed architecture; M0 repository audit required before implementation
 - **Date:** 2026-11-03
 - **Repository:** `andalus-ai/numu`
+- **M0 audit:** [Social Graph M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md) — source-grounded partial audit; build/runtime and remaining ownership checks are pending
 - **Related:** [ADR-003 — Reusable capability modules](ADR-003-reusable-capability-modules.md), [Domain capability matrix](DOMAIN-CAPABILITY-MATRIX.md), [Organization/Party convergence](organization-party-identity-convergence.md), [Person/Party identity mapping](person-party-identity-mapping-decision.md), [Party/Contact/Address contract](contact-address-capability-contract.md), [Customer contract](customer-capability-contract.md)
 
 ## 1. Purpose
