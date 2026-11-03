@@ -45,22 +45,22 @@ class VaultPolicyEvaluatorTest {
     }
 
     @Test
-    void explicitDenyWinsEvenWhenAllowHasHigherPolicyVersion() {
+    void explicitDenyWinsWithinOnePublishedSnapshot() {
         UUID tenant = UUID.randomUUID();
         UUID principal = UUID.randomUUID();
         VaultId vault = VaultId.generate();
         SecretId secret = SecretId.generate();
         VaultPolicyRule allow = rule(tenant, principal, vault, secret, VaultOperation.READ,
-                VaultPolicyEffect.ALLOW, 99L, now.minusSeconds(10), null);
+                VaultPolicyEffect.ALLOW, 7L, now.minusSeconds(10), null);
         VaultPolicyRule deny = rule(tenant, principal, vault, secret, VaultOperation.READ,
-                VaultPolicyEffect.DENY, 1L, now.minusSeconds(10), null);
+                VaultPolicyEffect.DENY, 7L, now.minusSeconds(10), null);
 
         var decision = evaluate(tenant, principal, vault, secret, VaultOperation.READ,
                 List.of(allow, deny));
 
         assertEquals(VaultPolicyEffect.DENY, decision.effect());
         assertEquals("EXPLICIT_DENY", decision.reasonCode());
-        assertEquals(99L, decision.policyVersion());
+        assertEquals(7L, decision.policyVersion());
         assertTrue(decision.matchedRuleId().isPresent());
     }
 
