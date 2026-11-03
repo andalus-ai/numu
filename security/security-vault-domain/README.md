@@ -20,3 +20,17 @@ This module cannot itself prevent a privileged process from reading plaintext wh
 ## Workload identity value
 
 `VaultWorkloadIdentity` is a validated, tenant-bound result of a trusted identity-resolution step. It is not a credential and cannot authenticate a caller by itself. Its issuer, subject, audience and scope claims are bounded; expiry is checked against the application clock before policy evaluation. Only the host identity adapter may construct it from an already authenticated platform principal.
+
+
+## Vault policy evaluation
+
+The domain provides immutable VaultPolicyRule records, explicit ALLOW/DENY effects, stable subject namespaces (principal ID, role, and verified workload subject), and a deterministic default-deny evaluator.
+
+- Tenant is always exact; vault and secret may be exact or explicitly wildcarded.
+- Operation is always exact and maps to the canonical least-privilege scope.
+- Rule validity is inclusive at validFrom and exclusive at validUntil.
+- Any applicable explicit deny takes precedence over every allow, regardless of rule version.
+- Workload-subject rules bind the exact subject, trusted issuer, audience, tenant, expiry and operation scope.
+- The result contains only decision metadata and a matched rule ID; it never contains secret material.
+
+The evaluator is a domain primitive, not a persisted policy service. A host adapter must load a consistent policy snapshot, authenticate workload identities before creating their value objects, persist policy changes with version control, and durably audit decisions. Missing policy data must produce default deny; adapters must not convert storage or evaluation errors into allow decisions.
