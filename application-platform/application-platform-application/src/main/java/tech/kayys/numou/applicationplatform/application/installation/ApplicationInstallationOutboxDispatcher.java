@@ -80,6 +80,9 @@ public final class ApplicationInstallationOutboxDispatcher {
 
     private CompletionStage<EventOutcome> process(ClaimedEvent event, TenantId tenantId, String workerId) {
         if (!REQUESTED_EVENT.equals(event.eventType())) return acknowledge(event, tenantId, workerId);
+        if (!"REQUESTED".equals(event.toStatus()) || event.revision() != 1)
+            return handleFailure(event, tenantId, workerId, new ApplicationInstallationProvisioningException(
+                    "INSTALLATION_EVENT_INVALID", false, "Initial installation event has an invalid state or revision"));
         return ensureProvisioned(event, tenantId).thenCompose(ignored -> acknowledge(event, tenantId, workerId))
                 .exceptionallyCompose(failure -> handleFailure(event, tenantId, workerId, unwrap(failure)));
     }
@@ -202,6 +205,7 @@ public final class ApplicationInstallationOutboxDispatcher {
                     || current.status() == ApplicationInstallationStatus.INSTALLED
                     || current.status() == ApplicationInstallationStatus.ENABLED
                     || current.status() == ApplicationInstallationStatus.SUSPENDED
+                    || current.status() == ApplicationInstallationStatus.UNINSTALLING
                     || current.status() == ApplicationInstallationStatus.UNINSTALLED)
                 return CompletableFuture.completedFuture(null);
             try {
