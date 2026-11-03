@@ -94,6 +94,16 @@ class PostgresVaultPolicyRepositoryAdapterTest {
     }
 
     @Test
+    void rejectsSelfApprovalBeforeOpeningPersistenceTransaction() {
+        UUID tenant = UUID.randomUUID();
+        Instant now = Instant.now();
+        assertThrows(RuntimeException.class, () -> policies.publish(tenant, 0,
+                List.of(rule(tenant, 1, UUID.randomUUID(), now)), "same-admin", "same-admin",
+                now, VaultPolicyChangeType.PUBLISH, null).await().indefinitely());
+        assertTrue(policies.loadActive(tenant).await().indefinitely().isEmpty());
+    }
+
+    @Test
     void auditFailureRollsBackPublicationAndActiveRevision() throws Exception {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
             statement.execute("""
