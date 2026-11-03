@@ -65,6 +65,26 @@ class VaultPolicyEvaluatorTest {
     }
 
     @Test
+    void evaluationIsPinnedToThePublishedSnapshotRevision() {
+        UUID tenant = UUID.randomUUID();
+        UUID principal = UUID.randomUUID();
+        VaultId vault = VaultId.generate();
+        SecretId secret = SecretId.generate();
+        VaultPolicyRule oldRevision = rule(tenant, principal, vault, secret, VaultOperation.READ,
+                VaultPolicyEffect.ALLOW, 1L, now.minusSeconds(10), null);
+
+        var stale = evaluator.evaluate(tenant, principal, Set.of(), null, vault, secret,
+                VaultOperation.READ, List.of(oldRevision), 2L, now);
+        var absent = evaluator.evaluate(tenant, principal, Set.of(), null, vault, secret,
+                VaultOperation.READ, List.of(), 0L, now);
+
+        assertEquals(VaultPolicyEffect.DENY, stale.effect());
+        assertEquals(2L, stale.policyVersion());
+        assertEquals(VaultPolicyEffect.DENY, absent.effect());
+        assertEquals(0L, absent.policyVersion());
+    }
+
+    @Test
     void supportsExactRoleAndVerifiedWorkloadSubjectMatching() {
         UUID tenant = UUID.randomUUID();
         UUID principal = UUID.randomUUID();
