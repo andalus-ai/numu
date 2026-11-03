@@ -31,6 +31,7 @@ class PostgresVaultPolicyRepositoryAdapterTest {
     private DataSource dataSource;
     private PostgresVaultPolicyRepositoryAdapter policies;
     private VaultPolicyDecisionAuditPort decisions;
+    private PostgresVaultPolicyMetricsAdapter metrics;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -41,6 +42,7 @@ class PostgresVaultPolicyRepositoryAdapterTest {
         dataSource = source;
         policies = new PostgresVaultPolicyRepositoryAdapter(dataSource);
         decisions = new PostgresVaultPolicyDecisionAuditAdapter(dataSource);
+        metrics = new PostgresVaultPolicyMetricsAdapter(dataSource);
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS vault_policy_decision_audit CASCADE");
             statement.execute("DROP TABLE IF EXISTS vault_policy_admin_audit CASCADE");
@@ -134,6 +136,67 @@ class PostgresVaultPolicyRepositoryAdapterTest {
             assertEquals("DENY", rs.getString(1));
             assertEquals(0, rs.getLong(2));
         }
+    }
+
+
+    @Test
+    void rollbackPublishesFreshRevisionAndRetainsHistoricalSnapshot() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        UUID principal = UUID.randomUUID();
+        Instant now = Instant.parse("2026-11-03T10:00:00Z");
+        policies.publish(tenant, 0, List.of(rule(tenant, 1, principal, now)),
+                "security-admin", now).await().indefinitely();
+
+        VaultPolicyRule changed = new VaultPolicyRule(UUID.randomUUID(), tenant, 2,
+                VaultPolicySubjectType.PRINCIPAL_ID, principal.toString(), null, null,
+                null, null, VaultOperation.READ, VaultPolicyEffect.DENY, now.minusSeconds(1), null);
+        policies.publish(tenant, 1, List.of(changed), "security-admin", now).await().indefinitely();
+
+        var historical = policies.loadRevision(tenant, 1).await().indefinitely().orElseThrow();
+        var restoredRules = historical.rules().stream().map(rule -> new VaultPolicyRule(
+                rule.ruleId(), tenant, 3, rule.subjectType(), rule.subject(), rule.workloadIssuer(),
+                rule.workloadAudience(), rule.vaultId(), rule.secretId(), rule.operation(),
+                rule.effect(), rule.validFrom(), rule.validUntil())).toList();
+        var rollback = policies.publish(tenant, 2, restoredRules, "security-admin", now,
+                VaultPolicyChangeType.ROLLBACK, 1L).await().indefinitely();
+
+        assertEquals(3, rollback.revision());
+        assertEquals(VaultPolicyEffect.ALLOW, rollback.rules().get(0).effect());
+        assertEquals(VaultPolicyEffect.DENY, policies.loadRevision(tenant, 2)
+                .await().indefinitely().orElseThrow().rules().get(0).effect());
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT change_type, source_revision FROM vault_policy_revision WHERE tenant_id = ? AND revision = 3")) {
+            statement.setObject(1, tenant);
+            try (ResultSet rs = statement.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals("ROLLBACK", rs.getString(1));
+                assertEquals(1L, rs.getLong(2));
+            }
+        }
+    }
+
+    @Test
+    void operationalMetricsAreTenantScopedAndWindowBounded() {
+        UUID tenant = UUID.randomUUID();
+        Instant now = Instant.parse("2026-11-03T10:00:00Z");
+        VaultId vault = VaultId.generate();
+        SecretId secret = SecretId.generate();
+        var allowed = new VaultPolicyDecision(tenant, VaultOperation.READ, VaultPolicyEffect.ALLOW,
+                0, Optional.empty(), "NO_MATCH_DEFAULT_DENY", now.minusSeconds(10));
+        var denied = new VaultPolicyDecision(tenant, VaultOperation.READ, VaultPolicyEffect.DENY,
+                0, Optional.empty(), "NO_MATCH_DEFAULT_DENY", now.minusSeconds(5));
+        decisions.append(new VaultPolicyDecisionAudit(UUID.randomUUID(), "principal:a",
+                vault, secret, allowed, null)).await().indefinitely();
+        decisions.append(new VaultPolicyDecisionAudit(UUID.randomUUID(), "principal:b",
+                vault, secret, denied, null)).await().indefinitely();
+
+        var result = metrics.load(tenant, now.minusSeconds(30), now).await().indefinitely();
+        var other = metrics.load(UUID.randomUUID(), now.minusSeconds(30), now).await().indefinitely();
+        assertEquals(1, result.decisionsAllowed());
+        assertEquals(1, result.decisionsDenied());
+        assertEquals(0, other.decisionsAllowed());
+        assertEquals(0, other.decisionsDenied());
     }
 
     private static VaultPolicyRule rule(UUID tenant, long revision, UUID principal, Instant now) {
