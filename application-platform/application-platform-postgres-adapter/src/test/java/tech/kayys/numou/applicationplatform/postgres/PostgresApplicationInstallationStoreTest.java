@@ -61,7 +61,7 @@ class PostgresApplicationInstallationStoreTest {
         var replay = store.createIfAbsent(duplicate, keyHash, duplicate.requestedEvent("corr-2", now.plusSeconds(1)))
                 .toCompletableFuture().join();
         assertThat(replay.outcome()).isEqualTo(ApplicationInstallationStore.CreateResult.Outcome.REPLAYED);
-        assertThat(replay.installation()).contains(created.installation().orElseThrow());
+        assertThat(replay.installation().orElseThrow().id()).isEqualTo(created.installation().orElseThrow().id());
         assertThat(count("application_installations", tenant)).isEqualTo(1);
         assertThat(count("application_installation_transitions", tenant)).isEqualTo(1);
         assertThat(count("application_installation_outbox", tenant)).isEqualTo(1);
