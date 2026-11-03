@@ -91,7 +91,7 @@ CREATE TRIGGER trg_vault_policy_revision_immutable
     FOR EACH ROW EXECUTE FUNCTION reject_vault_policy_revision_mutation();
 
 CREATE OR REPLACE FUNCTION reject_insert_into_published_vault_policy() RETURNS trigger
-LANGUAGE plpgsql AS $
+LANGUAGE plpgsql AS $$
 DECLARE
     active BIGINT;
 BEGIN
@@ -101,7 +101,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS trg_vault_policy_rule_insert_guard ON vault_policy_rule;
 CREATE TRIGGER trg_vault_policy_rule_insert_guard
