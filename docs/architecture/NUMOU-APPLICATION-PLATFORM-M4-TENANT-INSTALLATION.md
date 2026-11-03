@@ -66,7 +66,7 @@ These are explicit subsequent milestones, not hidden in-memory substitutes.
 - Domain tests cover valid/invalid lifecycle transitions, approval enforcement, revision monotonicity, failure/retry and uninstall provenance.
 - Application tests cover trusted tenant context, authorization ordering, package lookup, compatibility failure, hashed idempotency key and replay.
 - M4 adds a focused Java 21 workflow for the M3 framework plugin tests and the new application-platform reactor. This isolates both from the unrelated security-vault prerequisite failure observed in the broad Numou CI workflow.
-- Passing status must be confirmed from the resulting workflow run; adding a workflow is not itself test evidence.
+- **Verified:** [Application Platform Verification run #13](https://github.com/andalus-ai/numu/actions/runs/41569437049) completed successfully on Java 21 for head `4fbbcd9cff6343a94327e1b1175ae450a535ad66`. Both the framework plugin manifest/resolver tests and tenant installation domain/application tests passed.
 
 ## 7. Next milestone
 
