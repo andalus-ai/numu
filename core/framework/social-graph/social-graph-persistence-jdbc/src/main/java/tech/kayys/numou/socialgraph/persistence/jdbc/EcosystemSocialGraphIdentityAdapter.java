@@ -39,7 +39,7 @@ public class EcosystemSocialGraphIdentityAdapter implements PartyDirectoryPort, 
         Objects.requireNonNull(identitySubject, "identitySubject cannot be null");
         return associations.findActiveByTenantAndIdentity(tenantId, identitySubject)
                 .flatMap(association -> {
-                    if (association.isEmpty()) return Uni.createFrom().item(Optional.empty());
+                    if (association.isEmpty()) return Uni.createFrom().item(Optional.<SocialGraphActor>empty());
                     return parties.findParty(association.get().partyId())
                             .map(party -> party.filter(value -> value.isActive())
                                     .map(value -> new SocialGraphActor(tenantId, value.getId())));
