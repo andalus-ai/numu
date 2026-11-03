@@ -231,6 +231,43 @@ The audited root directory list contains no top-level `social` or `community` ca
 - No evidence in this source audit justifies making Neo4j mandatory.
 - M1 should use PostgreSQL only. Neo4j adoption remains gated by representative workload benchmarks and a proven projection/reconciliation design.
 
+## 5A. Additional M0 pass — profile, consent, authorization and transaction boundaries
+
+This pass inspected the canonical `PersonRef` source, shared unit-of-work/outbox adapters, and the existing Security/Identity authorization contracts.
+
+### PersonRef and PartyId
+
+- `PersonRef` is a UUID-backed universal person reference in `core/framework/foundation`. It is a distinct Java type from Ecosystem `PartyId`.
+- The existing mapping decision document explicitly rejects implicit UUID aliasing and requires explicit validated mapping.
+- The inspected `PartyIdentityAssociationRepository` resolves a tenant-scoped authenticated identity subject to Party; it is not a universal PersonRef-to-Party mapping.
+- Therefore Social Graph must not cast `PersonRef.value()` to PartyId, even though both are UUID-backed. A dedicated, documented resolution port or verified existing mapping must be selected for PersonRef-bearing domain subjects.
+- A complete consumer/persisted-column inventory is still outstanding; the recursive tree confirms the reference type exists but does not by itself enumerate every runtime producer or external integration.
+
+### Profile and consent/privacy ownership
+
+- The repository contains profile-shaped models owned by individual domains (for example construction project profile, madrasah profile, queue profile and automotive part profile). These are domain-specific records, not a canonical social/person profile service.
+- The inspected shared foundation `configuration/profile` package is deployment/configuration profile resolution, not a person profile.
+- The source-tree scan did not identify a single reusable platform consent/preference service that owns social visibility, discoverability, connection requests, blocking or consent revocation.
+- A Syirkah `LifecycleConsent` record exists, but it records a partner's approval of a proposed Syirkah lifecycle change and requires evidence; it is not a general privacy-consent contract.
+- Privacy ownership is therefore **not yet confirmed**. M1 must not treat a local consent value or profile visibility enum as a substitute for an authoritative consent/privacy policy. The social capability should own social relationship visibility/blocking rules while integrating with a broader consent service only if an established public contract is verified.
+
+### Trusted actor, tenant and authorization boundary
+
+- `security-application` exposes a verified `SecurityContext` containing a principal, tenant UUID and roles; its documentation says it is created after token validation and tenant resolution, not from raw client headers.
+- `SecurityContextProvider` exposes `current()` and `require()` for application-layer access.
+- `security-spi` exposes an authorization port, and Identity has a deny-by-default trusted authorization resolver that requires verified tenant scope and denies when evidence is missing or the policy resolver fails.
+- Ecosystem's `PartyIdentityAssociationRepository` is the explicit bridge from authenticated identity subject to Party within a tenant.
+- M1 should compose these contracts: obtain verified principal+tenant from the security context, authorize the requested social action through the existing authorization boundary, then resolve the actor Party through the tenant-scoped Party identity association. It must not accept actor PartyId, tenantId or roles as trusted command input.
+- The exact integration wiring and permissions/resources for Social Graph still need to be specified and tested; the existence of these contracts is not proof they are currently wired into a Social Graph runtime.
+
+### Unit-of-work and transactional outbox evidence
+
+- Shared `PgUnitOfWork` wraps work in `Panache.withTransaction(work)` and documents aggregate and outbox rows committing together.
+- `PgOutboxStore.append` obtains the active Panache session through `Panache.getSession()` and writes outbox rows through that session. This is a plausible same-transaction composition when invoked inside the same Panache unit of work.
+- `OutboxDomainEventSink` transforms domain events into outbox entries and delegates append to the store.
+- However, the existing `OutboxDomainEventSinkTest` uses an in-memory fake store. It verifies envelope metadata and serialization, not PostgreSQL transaction enlistment or rollback.
+- Conclusion: the implementation path is identified, but atomicity is **not yet integration-test proven**. M1 must add a PostgreSQL test that writes a graph aggregate and appends its event in one `PgUnitOfWork`, then separately proves both commit together and both roll back when the use case fails. Also verify the actual CDI wiring selects this UoW and that the outbox adapter shares the same reactive session.
+
 ## 6. M0 gaps and decisions still required
 
 The following are not yet proven by the source-tree audit and must remain open:
@@ -287,9 +324,9 @@ M0 can be closed when:
 - [x] The PersonRef-to-PartyId compatibility gate is documented.
 - [x] Repository Maven reactor topology and contributor rules are recorded.
 - [ ] Full PersonRef/PartyId consumer and persisted-data inventory is completed.
-- [ ] Profile and consent/privacy ownership is confirmed.
-- [ ] Social Graph actor/tenant authorization integration contract is agreed.
-- [x] Public reliability outbox entry/store/relay contracts are inspected; atomic transaction composition remains unproven and is an M1 integration-test gate.
+- [ ] Profile and consent/privacy ownership is confirmed; source scan found no canonical social privacy/consent owner.
+- [x] Existing verified SecurityContext, deny-by-default authorization and Party identity-association contracts are identified; Social Graph wiring/permissions still need agreement.
+- [x] Public reliability outbox entry/store/relay contracts and Panache UoW/store composition are inspected; atomic transaction composition remains unproven and is an M1 integration-test gate.
 - [ ] Baseline builds/tests are run on the affected reactors and recorded.
 - [ ] M1 API, event, persistence and security contracts are finalized.
 
