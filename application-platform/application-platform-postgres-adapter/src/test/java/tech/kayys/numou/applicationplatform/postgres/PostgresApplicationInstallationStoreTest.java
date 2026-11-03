@@ -36,13 +36,20 @@ class PostgresApplicationInstallationStoreTest {
         source.setURL(POSTGRES.getJdbcUrl());
         source.setUser(POSTGRES.getUsername());
         source.setPassword(POSTGRES.getPassword());
-        dataSource = source;
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement();
+        try (var connection = source.getConnection(); var statement = connection.createStatement();
              InputStream migration = PostgresApplicationInstallationStoreTest.class
                      .getResourceAsStream("/db/migration/V1__application_installation.sql")) {
             assertThat(migration).as("installation migration resource").isNotNull();
             statement.execute(new String(migration.readAllBytes(), StandardCharsets.UTF_8));
+            statement.execute("CREATE ROLE numou_app_test LOGIN PASSWORD 'numou-app-test' NOSUPERUSER NOBYPASSRLS");
+            statement.execute("GRANT USAGE ON SCHEMA public TO numou_app_test");
+            statement.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO numou_app_test");
         }
+        PGSimpleDataSource applicationRole = new PGSimpleDataSource();
+        applicationRole.setURL(POSTGRES.getJdbcUrl());
+        applicationRole.setUser("numou_app_test");
+        applicationRole.setPassword("numou-app-test");
+        dataSource = applicationRole;
         store = new PostgresApplicationInstallationStore(dataSource);
     }
 
