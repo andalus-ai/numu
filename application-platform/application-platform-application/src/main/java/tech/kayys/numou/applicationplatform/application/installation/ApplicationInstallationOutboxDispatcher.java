@@ -136,18 +136,19 @@ public final class ApplicationInstallationOutboxDispatcher {
                     "INSTALLATION_STATE_UNSUPPORTED", false, "Installation is not eligible for provisioning"));
         var transition = current.beginValidation(SYSTEM_ACTOR, event.correlationId(), clock.instant());
         return installations.appendTransition(current, transition, current.revision())
-                .thenCompose(saved -> saved ? CompletableFuture.completedFuture(current)
-                        : reloadAndMoveToValidation(event, current.tenantId(), 0));
-    }
-
-    private CompletionStage<ApplicationInstallation> reloadAndMoveToValidation(ClaimedEvent event,
-            TenantId tenantId, int attempt) {
-        if (attempt >= 5) return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
-                "INSTALLATION_CONCURRENT_MODIFICATION", true, "Installation state changed during validation"));
-        return load(event, tenantId).thenCompose(found -> found.isEmpty()
-                ? CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
-                        "INSTALLATION_NOT_FOUND", false, "Installation disappeared during validation"))
-                : moveToValidation(found.get(), event));
+                .thenCompose(saved -> {
+                    if (saved) return CompletableFuture.completedFuture(current);
+                    return load(event, current.tenantId()).thenCompose(found -> {
+                        if (found.isEmpty()) return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
+                                "INSTALLATION_NOT_FOUND", false, "Installation disappeared during validation"));
+                        ApplicationInstallation latest = found.get();
+                        if (latest.status() == ApplicationInstallationStatus.VALIDATING
+                                || latest.status() == ApplicationInstallationStatus.PROVISIONING)
+                            return CompletableFuture.completedFuture(latest);
+                        return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
+                                "INSTALLATION_CONCURRENT_MODIFICATION", true, "Installation changed during validation"));
+                    });
+                });
     }
 
     private CompletionStage<ApplicationInstallation> moveToProvisioning(ApplicationInstallation validating, ClaimedEvent event) {
@@ -158,11 +159,17 @@ public final class ApplicationInstallationOutboxDispatcher {
                     "INSTALLATION_STATE_UNSUPPORTED", false, "Installation is not ready for provisioning"));
         var transition = validating.beginProvisioning(SYSTEM_ACTOR, event.correlationId(), clock.instant());
         return installations.appendTransition(validating, transition, validating.revision())
-                .thenCompose(saved -> saved ? CompletableFuture.completedFuture(validating)
-                        : load(event, validating.tenantId()).thenCompose(found -> found.isEmpty()
-                                ? CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
-                                        "INSTALLATION_NOT_FOUND", false, "Installation disappeared during provisioning"))
-                                : moveToProvisioning(found.get(), event)));
+                .thenCompose(saved -> {
+                    if (saved) return CompletableFuture.completedFuture(validating);
+                    return load(event, validating.tenantId()).thenCompose(found -> {
+                        if (found.isEmpty()) return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
+                                "INSTALLATION_NOT_FOUND", false, "Installation disappeared during provisioning"));
+                        if (found.get().status() == ApplicationInstallationStatus.PROVISIONING)
+                            return CompletableFuture.completedFuture(found.get());
+                        return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
+                                "INSTALLATION_CONCURRENT_MODIFICATION", true, "Installation changed during provisioning"));
+                    });
+                });
     }
 
     private CompletionStage<Void> completeInstallation(ClaimedEvent event, TenantId tenantId) {
@@ -175,8 +182,15 @@ public final class ApplicationInstallationOutboxDispatcher {
                 return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
                         "INSTALLATION_STATE_CHANGED", true, "Installation state changed before completion"));
             var transition = current.completeProvisioning(SYSTEM_ACTOR, event.correlationId(), clock.instant());
-            return installations.appendTransition(current, transition, current.revision()).thenCompose(saved -> saved
-                    ? CompletableFuture.completedFuture(null) : completeInstallation(event, tenantId));
+            return installations.appendTransition(current, transition, current.revision()).thenCompose(saved -> {
+                if (saved) return CompletableFuture.completedFuture(null);
+                return load(event, tenantId).thenCompose(latest -> latest.isPresent()
+                        && latest.get().status() == ApplicationInstallationStatus.INSTALLED
+                        ? CompletableFuture.completedFuture(null)
+                        : CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
+                                "INSTALLATION_CONCURRENT_MODIFICATION", true,
+                                "Installation changed before completion")));
+            });
         });
     }
 
@@ -192,8 +206,15 @@ public final class ApplicationInstallationOutboxDispatcher {
                 return CompletableFuture.completedFuture(null);
             try {
                 var transition = current.fail(SYSTEM_ACTOR, event.correlationId(), clock.instant(), failureCode);
-                return installations.appendTransition(current, transition, current.revision()).thenCompose(saved -> saved
-                        ? CompletableFuture.completedFuture(null) : markFailed(event, tenantId, failureCode));
+                return installations.appendTransition(current, transition, current.revision()).thenCompose(saved -> {
+                    if (saved) return CompletableFuture.completedFuture(null);
+                    return load(event, tenantId).thenCompose(latest -> latest.isPresent()
+                            && latest.get().status() == ApplicationInstallationStatus.FAILED
+                            ? CompletableFuture.completedFuture(null)
+                            : CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
+                                    "INSTALLATION_CONCURRENT_MODIFICATION", true,
+                                    "Installation changed while recording provisioning failure")));
+                });
             } catch (IllegalStateException invalidTransition) {
                 return CompletableFuture.completedFuture(null);
             }
