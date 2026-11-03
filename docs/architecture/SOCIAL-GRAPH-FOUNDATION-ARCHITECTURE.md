@@ -160,21 +160,33 @@ Do not finalize aggregate boundaries, IDs, relationship cardinality, or table la
 - [ ] Actual Maven reactor roots, build conventions, migration conventions, and test commands are recorded.
 - [ ] M1 scope, dependencies, API/event contracts, migration strategy, and verification plan are reviewable before implementation.
 
-## 6. M1 — Social Graph core (planned; gated on M0)
+## 6. M1 — Social Graph core (initial vertical slice implemented)
 
-M1 should implement only the minimum generic relationship lifecycle supported by repository evidence:
+The initial M1 implementation is recorded in [Social Graph M1 Implementation](SOCIAL-GRAPH-M1-IMPLEMENTATION.md).
 
-- typed subject references through existing canonical identity contracts;
-- connection request, accept, reject, cancel, and remove;
-- follow/unfollow if its semantics are confirmed as foundation-level;
-- block/unblock with mandatory authorization enforcement;
-- tenant-aware PostgreSQL persistence and migrations;
-- idempotent commands and transactional outbox;
-- audit provenance and actor context;
-- public application ports and versioned events;
-- contract, domain, persistence, tenant-isolation, concurrency, and replay tests.
+Implemented on branch `social-graph/m1-core-postgresql`:
 
-M1 should not implement a social feed, posts, comments, messaging, recommendation engine, Neo4j runtime, job board, driver marketplace, or universal reputation score. Those belong to later milestones or extensions.
+- Dedicated framework Maven reactor: `core/framework/social-graph`.
+- Domain, SPI, application, and JDBC persistence modules.
+- Tenant-scoped connection request/accept/reject/cancel/remove lifecycle over canonical Ecosystem `PartyId`.
+- Trusted actor-context contract and Party-active validation port.
+- Tenant-scoped idempotency with command fingerprint protection.
+- Optimistic version checks and database uniqueness for open unordered Party pairs.
+- PostgreSQL JDBC Unit of Work that writes connection state, idempotency, and durable outbox event intent on one physical transaction.
+- Domain, application and PostgreSQL Testcontainers tests.
+
+M1 is **not yet review-ready**. Maven/CI has not been run in this session. The remaining gates are exact reactor compilation, PostgreSQL integration execution, host actor/Party-directory composition, runtime migration discovery, and confirmation of shared outbox relay ownership. Follow/block, feeds, profiles, traversal, search, recommendations, Neo4j and REST endpoints remain out of scope.
+
+### M1 acceptance criteria
+
+- [x] Initial connection lifecycle domain and application contracts.
+- [x] PostgreSQL schema for tenant-scoped connection state, idempotency and outbox.
+- [x] Single-connection JDBC unit of work for atomic state/idempotency/outbox commit and rollback.
+- [x] Unit and integration test sources added.
+- [ ] Maven reactor build and tests executed successfully.
+- [ ] PostgreSQL Testcontainers tests executed successfully in CI.
+- [ ] Host actor and Party directory composition implemented and verified.
+- [ ] Runtime migration discovery and outbox relay integration verified.
 
 ## 7. Neo4j enablement gate
 
