@@ -39,10 +39,11 @@ public final class RequestApplicationInstallationHandler {
                     if (!pkg.applicationId().equals(command.applicationId()) || !pkg.version().equals(command.packageVersion()))
                         return CompletableFuture.failedFuture(new IllegalStateException("Catalog returned a mismatched package descriptor"));
                     return compatibility.assertCompatible(actor.tenantId(), pkg).thenCompose(compatible -> {
+                        var now = clock.instant();
                         ApplicationInstallation installation = ApplicationInstallation.request(actor.tenantId(),
-                                pkg.applicationId(), pkg.version(), pkg.sha256Digest(), actor.actorId(), clock.instant());
+                                pkg.applicationId(), pkg.version(), pkg.sha256Digest(), actor.actorId(), now);
                         return store.createIfAbsent(installation, hash(command.idempotencyKey()),
-                                installation.requestedEvent(clock.instant())).thenApply(created -> {
+                                installation.requestedEvent(actor.correlationId(), now)).thenApply(created -> {
                             if (created.outcome() == ApplicationInstallationStore.CreateResult.Outcome.CONFLICT)
                                 throw new ApplicationInstallationConflictException(command.applicationId().value());
                             var saved = created.installation().orElseThrow();
