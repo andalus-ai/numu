@@ -43,7 +43,8 @@ public final class SocialGraphService {
             SocialConnection connection = SocialConnection.request(
                     SocialConnectionId.generate(), actor.tenantId(), actor.partyId(), recipient, now);
             tx.insertConnection(connection);
-            appendEvent(tx, connection, "social-graph.connection.requested.v1", now);
+            appendEvent(tx, connection, actor.partyId(), "social-graph.connection.requested.v1", now);
+            appendAudit(tx, connection, actor.partyId(), null, connection.status(), "REQUEST", idempotencyKey, now);
             return connection;
         });
     }
@@ -73,13 +74,15 @@ public final class SocialGraphService {
         Objects.requireNonNull(actor, "actor cannot be null");
         Objects.requireNonNull(id, "id cannot be null");
         requireActive(actor.partyId());
-        String fingerprint = operation + ":" + id;
+        String fingerprint = operation + ":" + actor.partyId() + ":" + id;
         return idempotent(actor.tenantId(), key, fingerprint, tx -> {
             SocialConnection current = tx.findConnection(actor.tenantId(), id)
                     .orElseThrow(SocialConnectionNotFoundException::new);
             SocialConnection changed = transition.apply(current, clock.instant());
             tx.updateConnection(changed, current.version());
-            appendEvent(tx, changed, eventType, changed.updatedAt());
+            appendEvent(tx, changed, actor.partyId(), eventType, changed.updatedAt());
+            appendAudit(tx, changed, actor.partyId(), current.status(), changed.status(),
+                    operation.toUpperCase(java.util.Locale.ROOT), key, changed.updatedAt());
             return changed;
         });
     }
@@ -113,14 +116,23 @@ public final class SocialGraphService {
     }
 
     private static void appendEvent(SocialGraphTransaction tx, SocialConnection connection,
-            String eventType, Instant occurredAt) {
+            PartyId actorPartyId, String eventType, Instant occurredAt) {
         String payload = "{\"connectionId\":\"" + connection.id()
                 + "\",\"requesterPartyId\":\"" + connection.requesterPartyId()
                 + "\",\"recipientPartyId\":\"" + connection.recipientPartyId()
                 + "\",\"status\":\"" + connection.status().name()
                 + "\",\"aggregateVersion\":" + connection.version() + "}";
         tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), connection.tenantId(),
-                connection.id(), connection.version(), eventType, 1, occurredAt, payload));
+                actorPartyId, connection.id(), connection.version(), eventType, 1, occurredAt, payload));
+    }
+
+    private static void appendAudit(SocialGraphTransaction tx, SocialConnection connection,
+            PartyId actorPartyId, tech.kayys.numou.socialgraph.domain.SocialConnectionStatus fromStatus,
+            tech.kayys.numou.socialgraph.domain.SocialConnectionStatus toStatus,
+            String action, String idempotencyKey, Instant occurredAt) {
+        tx.appendAudit(new tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord(
+                UUID.randomUUID(), connection.tenantId(), connection.id(), actorPartyId,
+                fromStatus, toStatus, action, idempotencyKey, occurredAt));
     }
 
     @FunctionalInterface
