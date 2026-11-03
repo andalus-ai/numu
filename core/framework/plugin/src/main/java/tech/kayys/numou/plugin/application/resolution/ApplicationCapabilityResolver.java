@@ -36,8 +36,13 @@ public final class ApplicationCapabilityResolver {
 
     private static void select(CapabilityRequirement requirement, Map<String, List<CapabilityProvider>> index,
             Map<String, CapabilityProvider> selected, boolean optional, List<String> unavailable) {
-        if (selected.containsKey(requirement.id())) return;
         VersionRange range = VersionRange.parse(requirement.contractRange());
+        CapabilityProvider alreadySelected = selected.get(requirement.id());
+        if (alreadySelected != null) {
+            if (!range.includes(SemanticVersion.parse(alreadySelected.contractVersion())))
+                throw new CapabilityResolutionException("Conflicting contract ranges for capability " + requirement.id());
+            return;
+        }
         List<CapabilityProvider> matches = index.getOrDefault(requirement.id(), List.of()).stream()
                 .filter(p -> range.includes(SemanticVersion.parse(p.contractVersion()))).toList();
         if (matches.isEmpty()) {
