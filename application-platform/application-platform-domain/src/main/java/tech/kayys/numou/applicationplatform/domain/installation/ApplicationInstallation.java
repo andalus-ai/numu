@@ -49,6 +49,21 @@ public final class ApplicationInstallation {
                 now, now, actor, actor, null);
     }
 
+    /** Reconstitutes a persisted aggregate after validating all stored invariants. */
+    public static ApplicationInstallation reconstitute(ApplicationInstallationId id, TenantId tenantId,
+            ApplicationId applicationId, PackageVersion packageVersion, String packageDigest,
+            ApplicationInstallationStatus status, long revision, Instant createdAt, Instant updatedAt,
+            String createdBy, String updatedBy, String failureCode) {
+        if (status == ApplicationInstallationStatus.FAILED) {
+            if (failureCode == null || !FAILURE_CODE.matcher(failureCode).matches())
+                throw new IllegalArgumentException("Persisted FAILED installation requires a stable failure code");
+        } else if (failureCode != null) {
+            throw new IllegalArgumentException("Only FAILED installations may carry a failure code");
+        }
+        return new ApplicationInstallation(id, tenantId, applicationId, packageVersion, packageDigest,
+                status, revision, createdAt, updatedAt, createdBy, updatedBy, failureCode);
+    }
+
     public ApplicationInstallationTransition requestedEvent(Instant occurredAt) {
         return requestedEvent("", occurredAt);
     }
