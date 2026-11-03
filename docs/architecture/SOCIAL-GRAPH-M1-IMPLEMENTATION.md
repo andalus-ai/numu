@@ -2,7 +2,7 @@
 
 - **Status:** Initial implementation committed on feature branch; build/CI verification pending
 - **Date:** 2026-11-04
-- **Branch:** `social-graph/m1-core-postgresql`
+- **Branch:** `social-graph/m1-core-postgresql-mainline`
 - **Architecture:** [Social Graph Foundation](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md)
 - **Audit:** [M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md)
 
