@@ -68,13 +68,19 @@ public class WorkspacePageChangeSseResource {
                     .mediaType(MediaType.APPLICATION_JSON_TYPE)
                     .data(ChangeEvent.class, ChangeEvent.from(signal))
                     .build();
-            sink.send(event).whenComplete((ignored, failure) -> {
+            try {
+                sink.send(event).whenComplete((ignored, failure) -> {
+                    sending.set(false);
+                    if (failure != null) {
+                        sink.close();
+                        closeQuietly(registration.get());
+                    }
+                });
+            } catch (RuntimeException sendFailure) {
                 sending.set(false);
-                if (failure != null) {
-                    sink.close();
-                    closeQuietly(registration.get());
-                }
-            });
+                sink.close();
+                closeQuietly(registration.get());
+            }
         });
         registration.set(handle);
         if (sink.isClosed()) closeQuietly(registration.get());
