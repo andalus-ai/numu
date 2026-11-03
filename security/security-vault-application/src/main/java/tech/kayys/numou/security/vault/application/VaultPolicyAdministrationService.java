@@ -28,8 +28,9 @@ public final class VaultPolicyAdministrationService {
     }
 
     /**
-     * Publishes only after a distinct approver independently authorizes the operation.
-     * The proposer and approver must belong to the same tenant context.
+     * Publishes only after distinct verified principals independently authorize the operation.
+     * Host composition must obtain the approver context from a separate authenticated action;
+     * the repository records stable principal IDs rather than mutable display handles.
      */
     public Uni<VaultPolicySnapshot> publish(SecurityContext proposer, SecurityContext approver,
                                              long expectedRevision, List<VaultPolicyRule> rules) {
@@ -39,7 +40,7 @@ public final class VaultPolicyAdministrationService {
                 .flatMap(ignored -> authorization.require(approver, ActionType.PERFORM,
                         "vault-policy-approve", approver.tenantId().toString()))
                 .flatMap(ignored -> policies.publish(proposer.tenantId(), expectedRevision,
-                        rules, proposer.actor(), approver.actor(), clock.instant(),
+                        rules, proposer.principal().id().value().toString(), approver.principal().id().value().toString(), clock.instant(),
                         VaultPolicyChangeType.PUBLISH, null));
     }
 
@@ -76,7 +77,7 @@ public final class VaultPolicyAdministrationService {
                                                 rule.validFrom(), rule.validUntil()))
                                         .toList();
                                 return policies.publish(proposer.tenantId(), expectedActiveRevision, copied,
-                                        proposer.actor(), approver.actor(), clock.instant(),
+                                        proposer.principal().id().value().toString(), approver.principal().id().value().toString(), clock.instant(),
                                         VaultPolicyChangeType.ROLLBACK, targetRevision);
                             });
                 });
