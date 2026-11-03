@@ -44,7 +44,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
             tx.insertConnection(connection);
             tx.saveIdempotency(new SocialGraphIdempotencyRecord(tenant, "key-1",
                     "request:" + requester + ":" + recipient, connection.id(), now));
-            tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, connection.id(),
+            tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, requester, connection.id(),
                     0, "social-graph.connection.requested.v1", 1, now,
                     "{\"connectionId\":\"" + connection.id() + "\"}"));
             return null;
@@ -53,6 +53,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isPresent();
         assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "key-1"))).isPresent();
         assertThat(count(dataSource, "sg_outbox")).isEqualTo(1);
+        assertThat(count(dataSource, "sg_connection_audit")).isEqualTo(1);
     }
 
     @Test
@@ -68,7 +69,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
             tx.insertConnection(connection);
             tx.saveIdempotency(new SocialGraphIdempotencyRecord(tenant, "rollback-key",
                     "fingerprint", connection.id(), Instant.parse("2026-11-04T00:00:00Z")));
-            tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, connection.id(),
+            tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, connection.requesterPartyId(), connection.id(),
                     0, "social-graph.connection.requested.v1", 1,
                     Instant.parse("2026-11-04T00:00:00Z"), "{\"rollback\":true}"));
             throw new IllegalStateException("simulated command failure");
@@ -77,6 +78,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isEmpty();
         assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "rollback-key"))).isEmpty();
         assertThat(count(dataSource, "sg_outbox")).isZero();
+        assertThat(count(dataSource, "sg_connection_audit")).isZero();
     }
 
     @Test
