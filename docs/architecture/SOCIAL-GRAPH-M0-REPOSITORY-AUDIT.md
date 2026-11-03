@@ -235,6 +235,29 @@ The audited root directory list contains no top-level `social` or `community` ca
 
 This pass inspected the canonical `PersonRef` source, shared unit-of-work/outbox adapters, and the existing Security/Identity authorization contracts.
 
+### Consumer inventory status and reactor boundaries
+
+The identity mapping decision already records a concrete current consumer: Workforce's `Worker` aggregate stores `PersonRef`, while Ecosystem Party is the intended canonical cross-domain identity. The source file confirms `PersonRef` is a distinct `DomainId<UUID>` record, not a type alias for `PartyId`.
+
+A complete repository-wide usage inventory could not be responsibly asserted from the available GitHub code-search results: searches for `PersonRef` and `PartyId` returned no indexed matches, while the recursive repository tree provides paths but not source references. The mapping decision document itself explicitly says all call sites, persisted columns, event payloads, APIs and serialized documents must be inventoried before migration. Keep this item open until a checked-out repository-wide source/data scan can be run (for example `git grep` plus migration/schema inspection); do not infer absence from an empty search index.
+
+The build topology also matters for baseline evidence:
+
+- `core/framework/pom.xml` is the shared `numou-framework` reactor (Java 21) and aggregates foundation, ecosystem, reliability, aggregate and other platform modules.
+- `identity/pom.xml`, `organization/pom.xml`, `workforce/pom.xml` and `security/pom.xml` declare that shared framework parent and are relevant standalone capability aggregators.
+- `core/pom.xml` is a separate legacy `numou-platform` reactor with Java 17 settings and a `Framework` module. It is not interchangeable with `core/framework/pom.xml`; do not assume a single root Maven invocation covers the entire repository.
+- A recursive tree scan found 444 `pom.xml` files, confirming a multi-reactor repository rather than one root Maven project.
+
+Recommended baseline sequence when a repository checkout/CI runner is available:
+1. `mvn -f core/framework/pom.xml -DskipTests=false test` (platform shared framework; first validate the reactor can resolve its own modules).
+2. `mvn -f identity/pom.xml test`.
+3. `mvn -f organization/pom.xml test`.
+4. `mvn -f workforce/pom.xml test`.
+5. `mvn -f security/pom.xml test`.
+6. Add Ecosystem and Reliability reactor tests through their actual module paths under `core/framework` (they are included in the framework reactor; target the module-specific poms if focused diagnosis is needed).
+
+These are proposed commands, not executed test results. No build runner or repository checkout was available in this audit pass, so the baseline remains unrun.
+
 ### PersonRef and PartyId
 
 - `PersonRef` is a UUID-backed universal person reference in `core/framework/foundation`. It is a distinct Java type from Ecosystem `PartyId`.
@@ -272,14 +295,14 @@ This pass inspected the canonical `PersonRef` source, shared unit-of-work/outbox
 
 The following are not yet proven by the source-tree audit and must remain open:
 
-1. Full consumer inventory for PersonRef and PartyId across every domain, API, event, database column and external integration.
+1. Full consumer inventory for PersonRef and PartyId across every domain, API, event, database column and external integration (Workforce Worker is confirmed; repository-wide scan remains blocked by unavailable checkout/code-search indexing).
 2. Exact Party relationship API/persistence lifecycle expectations and whether any non-Java adapter exists outside the audited paths.
 3. Canonical profile ownership and the existing user/person/organization profile implementations by consumer.
 4. Authoritative consent/privacy preference owner and revocation contract.
 5. Trusted actor/tenant context integration contract for Social Graph application commands.
 6. Cross-tenant relationship policy for global Party identities and tenant-specific network edges.
 7. Exact reusable outbox/inbox contract, transaction composition and migration conventions for a new capability.
-8. Actual Maven build/test execution and baseline results for Ecosystem, Identity, Organization, Workforce and Reliability reactor roots.
+8. Actual Maven build/test execution and baseline results for the shared framework plus Identity, Organization, Workforce and Security capability aggregators; commands and reactor boundaries are now recorded above.
 9. Existing data volumes, relationship cardinality, expected traversal depths, latency objectives and benchmark workload. No Neo4j decision can be made from architecture preference alone.
 
 ## 7. M1 implementation recommendation
