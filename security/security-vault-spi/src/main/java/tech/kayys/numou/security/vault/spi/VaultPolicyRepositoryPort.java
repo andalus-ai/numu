@@ -2,6 +2,7 @@ package tech.kayys.numou.security.vault.spi;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.security.vault.domain.VaultPolicySnapshot;
+import tech.kayys.numou.security.vault.domain.VaultPolicyChangeType;
 
 import java.time.Instant;
 import java.util.List;
@@ -20,7 +21,15 @@ public interface VaultPolicyRepositoryPort {
      * the tenant head, persist rules and the administrative audit fact atomically.
      * A conflict or audit failure must leave the active revision unchanged.
      */
+    default Uni<VaultPolicySnapshot> publish(UUID tenantId, long expectedRevision,
+                                     List<tech.kayys.numou.security.vault.domain.VaultPolicyRule> rules,
+                                     String actor, Instant publishedAt) {
+        return publish(tenantId, expectedRevision, rules, actor, publishedAt,
+                VaultPolicyChangeType.PUBLISH, null);
+    }
+
     Uni<VaultPolicySnapshot> publish(UUID tenantId, long expectedRevision,
                                      List<tech.kayys.numou.security.vault.domain.VaultPolicyRule> rules,
-                                     String actor, Instant publishedAt);
+                                     String actor, Instant publishedAt,
+                                     VaultPolicyChangeType changeType, Long sourceRevision);
 }
