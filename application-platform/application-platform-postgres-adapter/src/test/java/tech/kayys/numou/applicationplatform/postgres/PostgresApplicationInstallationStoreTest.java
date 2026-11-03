@@ -177,6 +177,28 @@ class PostgresApplicationInstallationStoreTest {
         }
     }
 
+    @Test
+    void idempotencyAndTransitionLedgersRejectMutationAndTruncation() {
+        TenantId tenant = TenantId.generate();
+        Instant now = Instant.parse("2026-11-03T10:06:00Z");
+        var installation = requested(tenant, "com.example.immutable", "1.0.0", "actor-a", now);
+        String keyHash = hash("client-key-00000009");
+        store.createIfAbsent(installation, keyHash, installation.requestedEvent(now))
+                .toCompletableFuture().join();
+        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("SELECT set_config('numou.tenant_id','" + tenant.value() + "',false)");
+            assertThatThrownBy(() -> statement.executeUpdate(
+                    "DELETE FROM application_installation_idempotency WHERE tenant_id='" + tenant.value() + "'"))
+                    .isInstanceOf(java.sql.SQLException.class);
+            assertThatThrownBy(() -> statement.execute("TRUNCATE application_installation_transitions"))
+                    .isInstanceOf(java.sql.SQLException.class);
+            assertThatThrownBy(() -> statement.execute("TRUNCATE application_installation_idempotency"))
+                    .isInstanceOf(java.sql.SQLException.class);
+        } catch (java.sql.SQLException failure) {
+            throw new IllegalStateException(failure);
+        }
+    }
+
     private static ApplicationInstallation requested(TenantId tenant, String app, String version,
             String actor, Instant now) {
         return ApplicationInstallation.request(tenant, new ApplicationId(app), new PackageVersion(version),
