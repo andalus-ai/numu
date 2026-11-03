@@ -223,14 +223,14 @@ public final class PostgresApplicationInstallationStore
                 WHERE tenant_id=? AND event_id=? AND delivery_status='LEASED'
                   AND lease_owner=? AND lease_token=? AND lease_until>?
                 """;
-        return fencedUpdate("mark installation event delivered", tenantId, sql, statement -> {
+        return fencedBooleanUpdate("mark installation event delivered", tenantId, sql, statement -> {
             statement.setTimestamp(1, Timestamp.from(now));
             statement.setObject(2, tenantId.value());
             statement.setObject(3, eventId);
             statement.setString(4, workerId);
             statement.setObject(5, leaseToken);
             statement.setTimestamp(6, Timestamp.from(now));
-        }, null);
+        });
     }
 
     @Override
@@ -248,7 +248,7 @@ public final class PostgresApplicationInstallationStore
                   AND lease_owner=? AND lease_token=? AND lease_until>?
                 RETURNING delivery_status
                 """;
-        return fencedUpdate("retry installation outbox event", tenantId, sql, statement -> {
+        return fencedRetryUpdate("retry installation outbox event", tenantId, sql, statement -> {
             statement.setInt(1, maxAttempts);
             statement.setTimestamp(2, Timestamp.from(retryAt));
             statement.setString(3, stableFailureCode);
@@ -257,31 +257,45 @@ public final class PostgresApplicationInstallationStore
             statement.setString(6, workerId);
             statement.setObject(7, leaseToken);
             statement.setTimestamp(8, Timestamp.from(now));
-        }, result -> "DEAD".equals(result));
+        });
     }
 
-    private <T> CompletionStage<T> fencedUpdate(String operation, TenantId tenantId, String sql,
-            StatementBinder binder, java.util.function.Function<String, T> resultMapper) {
+    private CompletionStage<Boolean> fencedBooleanUpdate(String operation, TenantId tenantId, String sql,
+            StatementBinder binder) {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             setTenant(connection, tenantId);
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 binder.bind(statement);
-                if (resultMapper == null) {
-                    boolean updated = statement.executeUpdate() == 1;
-                    connection.commit();
-                    @SuppressWarnings("unchecked") T result = (T) Boolean.valueOf(updated);
-                    return CompletableFuture.completedFuture(result);
-                }
+                boolean updated = statement.executeUpdate() == 1;
+                connection.commit();
+                return CompletableFuture.completedFuture(updated);
+            } catch (SQLException | RuntimeException failure) {
+                rollback(connection, failure);
+                throw failure;
+            }
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure(operation, failure));
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
+        }
+    }
+
+    private CompletionStage<RetryOutcome> fencedRetryUpdate(String operation, TenantId tenantId, String sql,
+            StatementBinder binder) {
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            setTenant(connection, tenantId);
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                binder.bind(statement);
                 try (ResultSet result = statement.executeQuery()) {
                     if (!result.next()) {
                         connection.commit();
-                        @SuppressWarnings("unchecked") T lost = (T) RetryOutcome.LEASE_LOST;
-                        return CompletableFuture.completedFuture(lost);
+                        return CompletableFuture.completedFuture(RetryOutcome.LEASE_LOST);
                     }
-                    boolean dead = resultMapper.apply(result.getString(1));
+                    RetryOutcome outcome = "DEAD".equals(result.getString(1))
+                            ? RetryOutcome.DEAD_LETTERED : RetryOutcome.RESCHEDULED;
                     connection.commit();
-                    @SuppressWarnings("unchecked") T outcome = (T) (dead ? RetryOutcome.DEAD_LETTERED : RetryOutcome.RESCHEDULED);
                     return CompletableFuture.completedFuture(outcome);
                 }
             } catch (SQLException | RuntimeException failure) {
