@@ -18,7 +18,9 @@ class ApplicationInstallationTest {
         var installation = requested();
         assertThat(installation.status()).isEqualTo(ApplicationInstallationStatus.REQUESTED);
         assertThat(installation.requestedEvent(NOW).fromStatus()).isEmpty();
-        assertThat(installation.beginValidation("user:alice", NOW.plusSeconds(1)).revision()).isEqualTo(2);
+        var validation = installation.beginValidation("user:alice", "corr-validation", NOW.plusSeconds(1));
+        assertThat(validation.revision()).isEqualTo(2);
+        assertThat(validation.correlationId()).isEqualTo("corr-validation");
         installation.awaitApproval("user:admin", NOW.plusSeconds(2));
         var approved = installation.approve("user:admin", NOW.plusSeconds(3));
         assertThat(approved.fromStatus()).contains(ApplicationInstallationStatus.AWAITING_APPROVAL);
