@@ -51,7 +51,8 @@ public final class VaultPolicyAdministrationService {
     public Uni<VaultPolicySnapshot> rollback(SecurityContext proposer, SecurityContext approver, long expectedActiveRevision,
                                               long targetRevision) {
         validateDistinctActors(proposer, approver);
-        if (expectedActiveRevision < 1 || targetRevision < 1 || targetRevision >= expectedActiveRevision)
+        if (expectedActiveRevision < 1 || expectedActiveRevision == Long.MAX_VALUE
+                || targetRevision < 1 || targetRevision >= expectedActiveRevision)
             return Uni.createFrom().failure(new IllegalArgumentException(
                     "rollback requires a historical target below the expected active revision"));
         return authorization.require(proposer, ActionType.UPDATE, RESOURCE, proposer.tenantId().toString())
