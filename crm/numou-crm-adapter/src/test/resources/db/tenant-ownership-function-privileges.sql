@@ -53,5 +53,9 @@ begin
 end;
 $$;
 
+revoke all on function crm_assert_related_tenant(text, uuid, uuid)
+    from crm_ownership_operator_m8_test;
+revoke all on function crm_apply_tenant_ownership_proposal(uuid, text, text)
+    from crm_ownership_operator_m8_test;
 drop role crm_ownership_operator_m8_test;
 rollback;
