@@ -10,6 +10,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.time.Instant;
 
 /**
  * One worker instance per tenant. The database lease coordinates replicas;
@@ -23,6 +25,8 @@ public final class ApplicationInstallationOutboxManagedWorker implements Managed
     private final Duration stopTimeout;
     private final AtomicBoolean inFlight = new AtomicBoolean();
     private volatile ScheduledExecutorService executor;
+    private final AtomicReference<Instant> lastCompletedAt = new AtomicReference<>();
+    private final AtomicReference<String> lastFailureCode = new AtomicReference<>();
 
     public ApplicationInstallationOutboxManagedWorker(TenantId tenantId, String workerId,
             ApplicationInstallationOutboxDispatcher dispatcher, Duration interval, Duration stopTimeout) {
@@ -49,8 +53,15 @@ public final class ApplicationInstallationOutboxManagedWorker implements Managed
     private void tick() {
         if (!inFlight.compareAndSet(false, true)) return;
         try {
-            dispatcher.dispatchOnce(tenantId, workerId).whenComplete((ignored, failure) -> inFlight.set(false));
+            dispatcher.dispatchOnce(tenantId, workerId).whenComplete((ignored, failure) -> {
+                lastCompletedAt.set(Instant.now());
+                if (failure == null) lastFailureCode.set(null);
+                else lastFailureCode.set("WORKER_DISPATCH_FAILURE");
+                inFlight.set(false);
+            });
         } catch (Throwable failure) {
+            lastCompletedAt.set(Instant.now());
+            lastFailureCode.set("WORKER_DISPATCH_FAILURE");
             inFlight.set(false);
         }
     }
@@ -74,6 +85,10 @@ public final class ApplicationInstallationOutboxManagedWorker implements Managed
             }
         });
     }
+
+    public Instant lastCompletedAt() { return lastCompletedAt.get(); }
+
+    public String lastFailureCode() { return lastFailureCode.get(); }
 
     @Override public synchronized boolean isRunning() {
         return executor != null && !executor.isShutdown();
