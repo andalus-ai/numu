@@ -20,6 +20,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>1.5.6</version>
+        </dependency>
+
+        <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-foundation-kernel</artifactId>
             <version>${project.version}</version>
