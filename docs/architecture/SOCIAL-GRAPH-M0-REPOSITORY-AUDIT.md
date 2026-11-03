@@ -1,0 +1,294 @@
+# Social Graph M0 — Repository Audit Findings
+
+- **Status:** M0 audit findings (source-tree review); implementation and runtime verification remain pending
+- **Date:** 2026-11-03
+- **Repository:** `andalus-ai/numu`
+- **Branch:** `social-graph/m0-foundation-architecture`
+- **Related:** [Social Graph Foundation Architecture](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md), [ADR-003](ADR-003-reusable-capability-modules.md), [PersonRef/PartyId mapping decision](person-party-identity-mapping-decision.md), [Organization/Party convergence](organization-party-identity-convergence.md), [Customer capability contract](customer-capability-contract.md)
+
+## 1. Executive summary
+
+The repository already contains useful identity and relationship building blocks, but it does not contain a dedicated Social Graph capability on the audited `main` tree.
+
+The most important finding is that the term "relationship" is already used for several different business concepts. These must not be collapsed into one universal relationship aggregate:
+
+1. `PartyRelationship` is a directed relationship between canonical Parties, with a small commercial/organizational type vocabulary.
+2. `ParticipantRelationship` is a relationship between Ecosystem Participants, intended for provider/customer/supplier/carrier commercial or operational links.
+3. `PartyParticipantAssociation` links a canonical Party to an Ecosystem Participant with a tenant-scoped business role.
+4. `OrganizationPartyAssociation` explicitly links the top-level Organization aggregate to canonical Ecosystem Party identity.
+5. `OrganizationMembership` links an Organization to an authenticated `UserId`; it is not the same as a social connection or a Party affiliation.
+
+**M0 recommendation:** Do not create Social Graph by extending or renaming any one of these models. First define a dedicated social relationship contract over canonical Party references, and explicitly integrate with existing contracts through public ports.
+
+PostgreSQL remains the right initial authoritative store. The audited source tree does not establish a persisted PartyRelationship repository/adapter or an existing Neo4j graph adapter. Neither a Neo4j runtime nor graph projection infrastructure should be added in M1.
+
+## 2. Repository instructions and build topology
+
+### Normative contributor guidance inspected
+
+- `AGENTS.md` requires reading architecture ownership documents, inspecting real Maven reactor roots, avoiding duplicate invariants, keeping domain code infrastructure-neutral, preserving tenant/security contracts, reporting test evidence accurately, and not opening a PR without explicit user approval.
+- `docs/ECOSYSTEM_VISION_AND_ENGINEERING_GUARDRAILS.md` requires Numou to remain application-neutral, preserve stable contracts, and prioritize identity, tenancy, security and production quality.
+- `docs/architecture/ADR-003-reusable-capability-modules.md` confirms there is no repository-root Maven POM and that the repository intentionally contains multiple Maven reactor roots. The shared framework parent is `core/framework/pom.xml`.
+
+### Observed reactor roots
+
+The root tree includes (among others):
+
+- `core/framework` — shared framework and Ecosystem.
+- `identity` — identity/authentication.
+- `organization` — organization structure and membership.
+- `workforce` — workforce/HRIS.
+- `crm` — CRM.
+- `geo`, `mobility`, `logistics`, `commerce`, `workspace`, and other independent capability roots.
+
+Inspected aggregator POMs confirm:
+- `core/framework/ecosystem/pom.xml` aggregates `ecosystem-domain`, `ecosystem-application`, and `ecosystem-persistence-jdbc`.
+- `identity/pom.xml` aggregates identity domain, application, and adapter.
+- `organization/pom.xml` aggregates organization domain, SPI, application, and adapter.
+- `workforce/pom.xml` aggregates workforce domain, SPI, application, adapter, JDBC persistence, and HRIS.
+
+Do not run or document `mvn` at repository root as the build command. M0 has not run Maven builds in this audit session.
+
+## 3. Existing relationship and identity inventory
+
+### 3.1 Canonical Ecosystem Party
+
+Observed source:
+- `core/framework/ecosystem/ecosystem-domain/.../domain/model/Party.java`
+- `core/framework/ecosystem/ecosystem-domain/.../domain/party/PartyId.java`
+- `core/framework/ecosystem/ecosystem-domain/.../domain/party/PartyRef.java`
+- `core/framework/ecosystem/ecosystem-application/.../port/PartyRepository.java`
+- `core/framework/ecosystem/ecosystem-persistence-jdbc/.../JdbcPartyRepository.java`
+- `core/framework/ecosystem/ecosystem-persistence-jdbc/.../db/migration/V2__canonical_parties.sql`
+
+Findings:
+- Party is explicitly documented as the canonical cross-domain identity for a person or organization.
+- Party kind is `PERSON` or `ORGANIZATION`; Party owns identity kind and lifecycle, not names, contact details, organization structure, or person-specific attributes.
+- Party IDs are UUID-backed and globally unique in the current `ecosystem_party` table; the migration comment says Party identity is cross-tenant.
+- `PartyRepository` and `JdbcPartyRepository` exist, and the JDBC adapter persists Party identity/lifecycle.
+- Party persistence is not tenant-owned; tenant-specific identity associations are separate.
+- `PartyRef` carries a PartyId and optional kind hint.
+
+Implication:
+- Social Graph subject identity should reference `PartyId` for people and organizations once the caller has resolved the subject through the appropriate public contract.
+- A graph edge still needs an explicit visibility/tenant access policy. Global identity does not imply globally visible relationships or profile data.
+
+### 3.2 Party-to-authenticated-identity association
+
+Observed source:
+- `IdentitySubjectRef.java`
+- `PartyIdentityAssociation.java`
+- `PartyIdentityAssociationRepository.java`
+- `JdbcPartyIdentityAssociationRepository.java`
+- `V1__party_identity_associations.sql`
+
+Findings:
+- Party-to-authenticated-subject linkage is explicit rather than inferred from matching UUIDs.
+- Repository contract includes tenant-scoped lookup by tenant and identity subject, and lookup by tenant and Party.
+- Persistence enforces tenant-scoped active identity association uniqueness.
+
+Implication:
+- Authentication principal/UserId must not be treated as a social graph PartyId without resolving this explicit association.
+- Social Graph commands should receive an authenticated actor context and resolve the actor's authorized Party association through a public application port.
+
+### 3.3 PartyRelationship
+
+Observed source:
+- `PartyRelationship.java`
+- `PartyRelationshipType.java`
+- `PartyRelationshipStatus.java`
+- `PartyRelationshipTest.java`
+
+Findings:
+- PartyRelationship is directed from source Party to target Party.
+- It rejects self-relationships and has effective-from/effective-to dates.
+- Its current type enum is `CUSTOMER_OF`, `SUPPLIER_OF`, `PARTNER_OF`, `PROVIDER_OF`, `MEMBER_OF`, and `SUBSIDIARY_OF`.
+- It defaults to PROPOSED on construction and `establish` creates an ACTIVE relationship.
+- Termination is modeled; this type does not expose a connection-request/acceptance lifecycle, follow semantics, block semantics, mute semantics, or social privacy rules.
+- In the audited recursive source tree, no `PartyRelationshipRepository`, JDBC persistence adapter, or PartyRelationship migration was found. The existing domain model therefore must not be described as a complete persisted relationship service.
+
+Implication:
+- Do not reuse `PartyRelationshipType` for LinkedIn-style connections, follows or blocks.
+- Do not add social types to this enum: commercial/legal/organizational relationships and social interactions have different invariants and lifecycles.
+- M1 must not assume PartyRelationship is already a durable persistence contract.
+
+### 3.4 ParticipantRelationship
+
+Observed source:
+- `ecosystem-domain/.../domain/model/ParticipantRelationship.java`
+- `ecosystem-domain/.../domain/valueobject/RelationshipType.java`
+- `ecosystem-application/.../port/ParticipantRelationshipRepository.java`
+
+Findings:
+- This model connects Ecosystem Participants, not canonical Party identities.
+- Its own documentation describes commercial/operational links such as who trades with whom and provider/customer/supplier/carrier relationships.
+- It has PROPOSED, ACTIVE, SUSPENDED and TERMINATED lifecycle semantics and effective dates.
+- A repository port exists with save/find-by-id/find-outgoing/find-incoming methods.
+- The audit did not find a corresponding production persistence implementation for this port in the Ecosystem JDBC source tree.
+
+Implication:
+- ParticipantRelationship is not the Social Graph's person-to-person connection model.
+- Social Graph may later reference participant/provider relationships for business network discovery, but should not silently reinterpret Participant IDs as Party IDs.
+
+### 3.5 PartyParticipantAssociation
+
+Observed source:
+- `PartyParticipantAssociation.java`
+- `PartyParticipantAssociationRepository.java`
+- `V3__party_participant_associations.sql`
+
+Findings:
+- This is a tenant-scoped association between canonical Party and Ecosystem Participant, with roles such as CUSTOMER, PARTNER, SUPPLIER, SERVICE_PROVIDER, MEMBER, EMPLOYEE and OTHER.
+- The migration enforces active uniqueness by tenant, Party, Participant and role.
+- It is a business role/association, not a mutual social connection.
+
+Implication:
+- Reuse the public association contract to enrich business-network context where authorized.
+- Do not copy these role facts into generic Social Graph edges.
+
+### 3.6 Organization identity and membership
+
+Observed source:
+- `organization-domain/.../Organization.java`
+- `OrganizationId.java`
+- `OrganizationMembership.java`
+- `OrganizationPartyAssociation.java`
+- `OrganizationPartyAssociationRepository.java`
+- `JdbcOrganizationPartyAssociationRepository.java`
+
+Findings:
+- Top-level Organization is tenant-owned and keyed by `OrganizationId`.
+- Organization membership currently references `UserId`, not PartyId.
+- OrganizationPartyAssociation is an explicit, audited association between OrganizationId and canonical PartyId. Its own documentation states that the identifiers remain distinct.
+- The association supports pending verification, activation, suspension, reinstatement, supersession and revocation, and stores actor/evidence/reason metadata.
+- Repository contracts support current association lookup by OrganizationId or PartyId and history lookup.
+
+Implication:
+- A graph organization subject should use canonical PartyId after resolving the explicit OrganizationPartyAssociation; do not cast OrganizationId to PartyId.
+- Organization membership is not automatically a social connection, and a UserId is not automatically a PartyId.
+- Membership visibility and authorization remain owned by Organization/Identity policy.
+
+### 3.7 PersonRef and Workforce
+
+Observed source:
+- `core/framework/foundation/numou-foundation-domain/.../domain/ref/PersonRef.java`
+- `docs/architecture/person-party-identity-mapping-decision.md`
+- `workforce/README.md` and Workforce reactor.
+
+Findings:
+- PersonRef is a UUID-backed universal person reference.
+- PartyId is a separate UUID-backed canonical Party identifier.
+- Existing architecture decision explicitly prohibits implicit UUID aliasing and calls for an explicit validated mapping during migration.
+- The source-tree audit has not established that every persisted PersonRef has a matching Party record.
+
+Implication:
+- Do not accept PersonRef as interchangeable with PartyId in graph contracts.
+- M0 identity mapping remains a gate for any Workforce/Person integration. A named resolver/translation contract must validate existence, PartyKind.PERSON and access policy.
+
+### 3.8 Dedicated social/profile/community implementation
+
+The audited root directory list contains no top-level `social` or `community` capability root, and the recursive source-tree search did not find a dedicated Social Graph reactor. This does not mean there are no profile-like concepts inside individual domains; those must be inventoried by consumer use case before profile aggregation is designed.
+
+## 4. Ownership decisions from observed code
+
+| Concept | Current owner | Social Graph treatment |
+|---|---|---|
+| Canonical person/organization identity | Ecosystem Party | Reference PartyId |
+| Authentication account/principal | Identity | Resolve through explicit Party identity association |
+| Organization structure and tenant membership | Organization | Reference via explicit OrganizationPartyAssociation and public membership contract |
+| Commercial/operational participant relationships | Ecosystem ParticipantRelationship | Keep separate; integrate by reference |
+| Generic Party business relationship vocabulary | Ecosystem PartyRelationship | Do not overload for social connection/follow/block |
+| Party-to-participant tenant business role | Ecosystem PartyParticipantAssociation | Reuse as business context, not social edge |
+| Workforce worker engagement | Workforce | Keep worker lifecycle/qualification/contract there; resolve person identity explicitly |
+| Customer lifecycle and sales relationships | Customer/CRM | Keep customer role, lead and pipeline ownership there |
+| Driver, truck and carrier operational state | Mobility/Logistics/Fleet owning capabilities | Graph may reference discoverable subjects/resources; do not own operational state |
+| Profile preference and privacy/consent | Not conclusively assigned by this audit | Must resolve owner before M3; no duplicate consent store |
+
+## 5. Persistence, events, tenancy and reliability observations
+
+### PostgreSQL
+- Ecosystem Party has a PostgreSQL JDBC adapter and migrations.
+- Party identity is global, while identity associations and PartyParticipantAssociation are tenant-scoped.
+- Organization uses a separate top-level capability and explicit OrganizationPartyAssociation adapter.
+- These distinctions must be preserved in Social Graph storage and queries.
+
+### Outbox and reliability
+- The repository has reusable reliability/outbox infrastructure under `core/framework/reliability`, including API, SPI, application and adapter modules.
+- Multiple capabilities also implement mature local outbox patterns (for example construction, payment, courier, workspace, POS, document and affiliate).
+- M0 has not established that a single outbox API is universally suitable for Social Graph. M1 should inspect the reliability public contract and choose a supported composition rather than copy a private outbox implementation or create another broker abstraction.
+- Social relationship writes and their durable event intent must be atomic. Projection delivery is asynchronous and idempotent if/when Neo4j is introduced.
+
+### Tenant and security
+- Canonical Party is global; Organization, memberships and several Party associations are tenant-scoped.
+- Social Graph must distinguish global identity from tenant-owned relationship data and tenant-authorized visibility.
+- Never authorize graph reads because a caller knows PartyId or an edge ID.
+- Blocking, privacy, consent revocation and tenant scope must be enforced at the authoritative application boundary; a future Neo4j projection cannot be the only security gate.
+
+### Neo4j
+- No Social Graph Neo4j adapter or graph projection module was identified in the audited tree.
+- No evidence in this source audit justifies making Neo4j mandatory.
+- M1 should use PostgreSQL only. Neo4j adoption remains gated by representative workload benchmarks and a proven projection/reconciliation design.
+
+## 6. M0 gaps and decisions still required
+
+The following are not yet proven by the source-tree audit and must remain open:
+
+1. Full consumer inventory for PersonRef and PartyId across every domain, API, event, database column and external integration.
+2. Exact Party relationship API/persistence lifecycle expectations and whether any non-Java adapter exists outside the audited paths.
+3. Canonical profile ownership and the existing user/person/organization profile implementations by consumer.
+4. Authoritative consent/privacy preference owner and revocation contract.
+5. Trusted actor/tenant context integration contract for Social Graph application commands.
+6. Cross-tenant relationship policy for global Party identities and tenant-specific network edges.
+7. Exact reusable outbox/inbox contract, transaction composition and migration conventions for a new capability.
+8. Actual Maven build/test execution and baseline results for Ecosystem, Identity, Organization, Workforce and Reliability reactor roots.
+9. Existing data volumes, relationship cardinality, expected traversal depths, latency objectives and benchmark workload. No Neo4j decision can be made from architecture preference alone.
+
+## 7. M1 implementation recommendation
+
+M1 should begin only after the open contract questions affecting its scope are resolved.
+
+Recommended first implementation slice:
+
+- Dedicated Social Graph capability using repository-consistent module naming and parent-POM conventions.
+- Social subject reference based on canonical PartyId, with explicit resolution for authenticated actors and domain-owned resource subjects.
+- Separate social relationship lifecycle; do not reuse PartyRelationshipType or ParticipantRelationship.
+- Start with connection request/accept/reject/cancel/remove and follow/unfollow only if M1 scope can include the required authorization and uniqueness invariants.
+- Block semantics must be included before exposing connection discovery or traversal; a block cannot be a later cosmetic feature.
+- PostgreSQL authoritative persistence with tenant/visibility policy, idempotency, audit and transactional outbox.
+- No Neo4j dependency, graph projection worker, feed, community, profile aggregate or recommendations in M1.
+- Domain tests, application policy tests, PostgreSQL integration tests, tenant-isolation tests, idempotency/concurrency tests and architecture boundary tests.
+
+## 8. Verification status
+
+| Check | Status |
+|---|---|
+| Read repository `AGENTS.md` | Complete |
+| Read ecosystem guardrails and ADR-003 | Complete |
+| Inspect root tree and reactor roots | Complete |
+| Inspect Party and Participant relationship models | Complete |
+| Inspect Party identity persistence and migrations | Complete |
+| Inspect Organization/Party association and membership | Complete |
+| Inspect PersonRef/PartyId mapping decision | Complete |
+| Identify dedicated Social Graph reactor on audited `main` | No dedicated reactor found |
+| Run Maven builds/tests | Not run in this audit session |
+| Run database integration tests | Not run |
+| Inspect production deployment/data volumes | Not available in source-tree audit |
+| Open PR | Not opened; explicit PR approval is required by repository guidance |
+
+## 9. M0 exit criteria
+
+M0 can be closed when:
+- [x] Existing identity and relationship source models are inventoried.
+- [x] Distinct relationship semantics and duplicate-ownership risks are documented.
+- [x] Existing canonical Party persistence and explicit identity association are identified.
+- [x] OrganizationId-to-PartyId mapping is shown to be explicit and auditable.
+- [x] The PersonRef-to-PartyId compatibility gate is documented.
+- [x] Repository Maven reactor topology and contributor rules are recorded.
+- [ ] Full PersonRef/PartyId consumer and persisted-data inventory is completed.
+- [ ] Profile and consent/privacy ownership is confirmed.
+- [ ] Social Graph actor/tenant authorization integration contract is agreed.
+- [ ] Reliability outbox/inbox contract is inspected for the intended composition.
+- [ ] Baseline builds/tests are run on the affected reactors and recorded.
+- [ ] M1 API, event, persistence and security contracts are finalized.
+
+Until the remaining items are resolved, treat this report as a source-grounded partial M0 audit, not a declaration that M0 is fully closed.
