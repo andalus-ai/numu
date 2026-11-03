@@ -185,7 +185,8 @@ public final class ApplicationInstallation {
     }
 
     private static String requireText(String value, String field) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
+        if (value == null || value.isBlank() || value.trim().length() > 200)
+            throw new IllegalArgumentException(field + " is required and must not exceed 200 characters");
         return value.trim();
     }
 
