@@ -354,3 +354,41 @@ M0 can be closed when:
 - [ ] M1 API, event, persistence and security contracts are finalized.
 
 Until the remaining items are resolved, treat this report as a source-grounded partial M0 audit, not a declaration that M0 is fully closed.
+
+## 10. Follow-up verification — canonical Party persistence boundary
+
+A follow-up inspection of the exact source files resolves an ambiguity in the earlier summary and in older identity-convergence documents.
+
+### Verified implementation
+
+- `Party` is a real, minimal domain aggregate in `core/framework/ecosystem/ecosystem-domain/.../domain/model/Party.java`. It owns only immutable `PartyKind` (`PERSON` or `ORGANIZATION`) and ACTIVE/INACTIVE lifecycle. It does not own profile fields, names, contact points, organization structure, person attributes, or tenant membership.
+- `PartyRepository` is a public application port with `save`, `findById`, and `findParty` lookup.
+- `JdbcPartyRepository` is a production JDBC adapter. It persists to `ecosystem_party`, uses optimistic version checks for lifecycle updates, and performs its own JDBC connection/transaction for each save.
+- `V2__canonical_parties.sql` creates the global UUID-keyed `ecosystem_party` table, constrained to PERSON/ORGANIZATION and ACTIVE/INACTIVE. Tenant membership and authentication links are explicitly separate.
+- `PartyIdentityAssociationRepository` / its JDBC adapter and `V1__party_identity_associations.sql` provide tenant-scoped external identity associations. The association migration does not make a Party ID equivalent to a principal/UserId.
+
+### Important limits for Social Graph
+
+1. **Canonical identity persistence exists.** The earlier wording that there was no Party persistence adapter is stale or too broad and must not be repeated as a current source-tree finding.
+2. **The Party aggregate is intentionally minimal.** Its existence does not establish a universal person profile, organization profile, consent service, or complete identity-resolution/migration system.
+3. **The Party JDBC adapter owns its own transaction.** It obtains a `DataSource` connection, disables auto-commit, commits/rolls back locally, and does not use the inspected Panache `PgUnitOfWork` session. Therefore, the audit has not established that a Party save, future Social Graph write, and the shared outbox can be enlisted in one transaction. M1 must use a transaction composition supported by the selected reactor or introduce a narrowly scoped persistence/outbox unit-of-work contract; it must not assume the existing Panache UoW automatically covers this JDBC adapter.
+4. **Party lifecycle events are not proven durable here.** `Party.register` raises `PartyRegistered`, but the inspected repository implementation does not persist/publish aggregate events. This audit does not claim Party registration is atomically coupled to the outbox.
+5. **Identity convergence remains gated.** PersonRef/PartyId and OrganizationId/PartyId consumer and stored-data inventories remain incomplete. A canonical Party table does not prove existing Workforce or Organization records already map to it.
+
+### M1 consequences
+
+- Social Graph can reference `PartyId` for canonical person/organization subjects when the caller has validated the reference through the public contract.
+- Do not add profile fields or duplicate identity state to Social Graph.
+- Resolve authenticated actors through the tenant-scoped Party identity association and verified security context; do not accept caller-supplied actor PartyId as authority.
+- Before implementing transactional graph events, inspect and select the actual JDBC/reactive persistence transaction model used by the target reactor. Add an integration test proving graph state and outbox event commit and roll back together.
+- Treat the cross-capability Party and Organization mapping work as separate explicit gates; do not perform automatic UUID backfills.
+
+### Evidence inspected in this follow-up
+
+- `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/model/Party.java`
+- `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/port/PartyRepository.java`
+- `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/java/tech/kayys/numou/ecosystem/persistence/jdbc/JdbcPartyRepository.java`
+- `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V2__canonical_parties.sql`
+- `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V1__party_identity_associations.sql`
+
+This follow-up is a GitHub source inspection only. It does not establish a successful Maven build, database migration run, transaction integration test, or deployed runtime behavior.
