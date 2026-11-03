@@ -32,7 +32,7 @@ public final class VaultPolicyEvaluator {
                 .filter(rule -> rule.vaultId() == null || rule.vaultId().equals(vaultId))
                 .filter(rule -> rule.secretId() == null || rule.secretId().equals(secretId))
                 .filter(rule -> rule.isEffectiveAt(now))
-                .filter(rule -> matchesSubject(rule, principalId, safeRoles, workloadIdentity))
+                .filter(rule -> matchesSubject(rule, tenantId, principalId, safeRoles, workloadIdentity, now))
                 .sorted(Comparator.comparingLong(VaultPolicyRule::policyVersion).reversed()
                         .thenComparing(rule -> rule.ruleId().toString()))
                 .toList();
@@ -51,15 +51,15 @@ public final class VaultPolicyEvaluator {
                 matched.map(VaultPolicyRule::ruleId), reason, now);
     }
 
-    private boolean matchesSubject(VaultPolicyRule rule, UUID principalId, Set<String> roles,
-                                   VaultWorkloadIdentity identity) {
+    private boolean matchesSubject(VaultPolicyRule rule, UUID tenantId, UUID principalId, Set<String> roles,
+                                   VaultWorkloadIdentity identity, Instant now) {
         return switch (rule.subjectType()) {
             case PRINCIPAL_ID -> principalId.toString().equals(rule.subject());
             case ROLE -> roles.contains(rule.subject());
             case WORKLOAD_SUBJECT -> identity != null
                     && identity.subject().equals(rule.subject())
-                    && identity.permits(identity.tenantId(), rule.workloadIssuer(),
-                            rule.workloadAudience(), rule.operation(), java.time.Instant.now());
+                    && identity.permits(tenantId, rule.workloadIssuer(),
+                            rule.workloadAudience(), rule.operation(), now);
         };
     }
 }
