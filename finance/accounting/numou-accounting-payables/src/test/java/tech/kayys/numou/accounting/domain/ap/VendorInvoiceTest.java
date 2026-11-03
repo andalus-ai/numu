@@ -31,7 +31,7 @@ class VendorInvoiceTest {
     @Test
     void posts_and_raises_supplier_invoice_posted() {
         var inv = new VendorInvoice(
-                VendorInvoiceId.generate(), VendorId.of("V-1"),
+                VendorInvoiceId.generate(), scope(), VendorId.of("V-1"),
                 "INV-001", "IDR", List.of(line("5000", "1000", "110")));
         inv.clearEvents();
 
@@ -48,7 +48,7 @@ class VendorInvoiceTest {
     @Test
     void cannot_post_twice() {
         var inv = new VendorInvoice(
-                VendorInvoiceId.generate(), VendorId.of("V-1"),
+                VendorInvoiceId.generate(), scope(), VendorId.of("V-1"),
                 "INV-001", "IDR", List.of(line("5000", "1000", "0")));
         inv.post("2000-AP", null);
         assertThrows(IllegalStateException.class, () -> inv.post("2000-AP", null));
@@ -57,7 +57,7 @@ class VendorInvoiceTest {
     @Test
     void can_cancel_draft() {
         var inv = new VendorInvoice(
-                VendorInvoiceId.generate(), VendorId.of("V-1"),
+                VendorInvoiceId.generate(), scope(), VendorId.of("V-1"),
                 "INV-001", "IDR", List.of(line("5000", "1000", "0")));
         inv.cancel();
         assertEquals(VendorInvoiceStatus.CANCELLED, inv.status());
@@ -66,7 +66,7 @@ class VendorInvoiceTest {
     @Test
     void cannot_cancel_posted() {
         var inv = new VendorInvoice(
-                VendorInvoiceId.generate(), VendorId.of("V-1"),
+                VendorInvoiceId.generate(), scope(), VendorId.of("V-1"),
                 "INV-001", "IDR", List.of(line("5000", "1000", "0")));
         inv.post("2000-AP", null);
         assertThrows(IllegalStateException.class, inv::cancel);
@@ -75,7 +75,7 @@ class VendorInvoiceTest {
     @Test
     void rejects_empty_lines() {
         assertThrows(IllegalArgumentException.class, () ->
-                new VendorInvoice(VendorInvoiceId.generate(), VendorId.of("V-1"),
+                new VendorInvoice(VendorInvoiceId.generate(), scope(), VendorId.of("V-1"),
                         "INV-001", "IDR", List.of()));
     }
 }
