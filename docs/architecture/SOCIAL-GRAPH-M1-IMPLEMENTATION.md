@@ -17,11 +17,12 @@ M1 implements the first durable social relationship vertical slice:
 - Tenant-scoped relationship storage.
 - Actor context contract that must be populated by the authenticated host boundary.
 - Active Party validation through an application-owned `PartyDirectoryPort`.
-- Tenant-scoped idempotency key and command fingerprint protection.
+- Tenant-scoped idempotency key and actor-bound command fingerprint protection.
 - Optimistic version checking.
 - Unique PostgreSQL partial index prevents duplicate pending/active connections for an unordered Party pair in one tenant.
-- One JDBC Unit of Work uses one physical connection for connection state, idempotency state, and outbox event intent.
-- Durable local outbox rows committed atomically with the relationship change.
+- One JDBC Unit of Work uses one physical connection for connection state, idempotency state, append-only actor-attributed audit, and outbox event intent.
+- Durable local outbox rows with actor provenance, committed atomically with the relationship change.
+- Append-only audit history enforced by a PostgreSQL trigger that rejects update/delete.
 - Domain and application service tests for lifecycle, actor authorization, duplicate commands, and event intent.
 
 ## 2. Package and reactor layout
@@ -97,7 +98,7 @@ mvn -f core/framework/pom.xml -pl social-graph -am test
 
 1. Run the exact Maven reactor build and resolve any dependency or compilation failures.
 2. Add Testcontainers PostgreSQL tests proving migration validity, uniqueness under concurrent requests, tenant isolation, optimistic conflict behavior, and rollback of state + idempotency + outbox on injected failure.
-3. Add an application composition adapter for authenticated actor resolution and Party lookup; no unsafe UUID conversions.
+3. Add an application composition adapter for authenticated actor resolution and Party lookup; no unsafe UUID conversions.\n4. Verify append-only audit trigger behavior and PostgreSQL transaction rollback tests in CI.
 4. Verify Flyway discovery/registration in the actual application runtime.
 5. Add read/list contracts with bounded pagination only after privacy and visibility rules are agreed; do not expose unrestricted traversal.
 6. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
