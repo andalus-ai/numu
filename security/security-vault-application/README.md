@@ -13,7 +13,7 @@ The application layer requires both ports at construction. There is no permissiv
 
 The vault does not implement token issuance, OIDC federation, SPIFFE/SPIRE, cloud IAM exchange, or credential validation. Those belong in host authentication and identity adapters. A host may resolve a workload identity to no result for a human principal; its policy implementation still decides whether that human may perform the requested operation.
 
-The domain VaultPolicyEvaluator supplies deterministic default-deny semantics and deny-overrides-allow behavior for a supplied policy snapshot. It is not yet a persisted policy engine or an audit writer. A production adapter must load a consistent versioned snapshot and durably record every decision (including denials) before returning the result; storage, version-conflict, and audit failures must fail closed.
+The domain VaultPolicyEvaluator supplies deterministic default-deny semantics and deny-overrides-allow behavior for one immutable policy snapshot. The PostgreSQL adapter persists tenant-local revisions, uses optimistic publication, loads a consistent snapshot, and durably records both allow and deny decisions before returning. Policy-store, publication-audit, and decision-audit failures fail closed. The host still owns policy-administration authorization and the stable mapping from verified platform principals to vault policy subject IDs.
 
 Policy implementations should enforce:
 - tenant and vault boundary;
@@ -22,4 +22,4 @@ Policy implementations should enforce:
 - least privilege, environment separation and explicit break-glass policy;
 - policy version and decision audit metadata without secret values.
 
-The platform grant check is not replaced by vault policy, and vault policy is not replaced by possession of a secret identifier. Policy adapters should be deterministic, observable, and tested against cross-tenant and cross-vault attempts. This milestone does not ship OIDC, SPIFFE/SPIRE or cloud-IAM provider adapters, persisted policy administration/storage, durable decision-audit writing, or break-glass workflows. Those require a selected host identity provider, authoritative policy store, and auditable operator model rather than fabricated provider-specific implementations.
+The platform grant check is not replaced by vault policy, and vault policy is not replaced by possession of a secret identifier. Policy adapters should be deterministic, observable, and tested against cross-tenant and cross-vault attempts. This milestone does not ship OIDC, SPIFFE/SPIRE or cloud-IAM provider adapters, a public policy-administration API, or break-glass workflows. Those require a selected host identity provider, host-authorized administration surface, and auditable operator model rather than fabricated provider-specific implementations.
