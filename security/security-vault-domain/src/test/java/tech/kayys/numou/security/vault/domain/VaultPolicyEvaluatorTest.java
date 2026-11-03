@@ -85,6 +85,18 @@ class VaultPolicyEvaluatorTest {
                 VaultOperation.READ, List.of(workload), Set.of(), identity).effect());
         assertEquals(VaultPolicyEffect.DENY, evaluate(tenant, principal, vault, secret,
                 VaultOperation.READ, List.of(workload), Set.of(), null).effect());
+
+        VaultPolicyRule wrongIssuer = new VaultPolicyRule(UUID.randomUUID(), tenant, 1L,
+                VaultPolicySubjectType.WORKLOAD_SUBJECT, "spiffe://prod/payments", "spiffe://untrusted",
+                "numou-vault", vault, null, VaultOperation.READ, VaultPolicyEffect.ALLOW,
+                now.minusSeconds(1), null);
+        assertEquals(VaultPolicyEffect.DENY, evaluate(tenant, principal, vault, secret,
+                VaultOperation.READ, List.of(wrongIssuer), Set.of(), identity).effect());
+
+        VaultWorkloadIdentity wrongScope = new VaultWorkloadIdentity(tenant, "spiffe://prod",
+                "spiffe://prod/payments", Set.of("numou-vault"), Set.of("secret:rotate"), now.plusSeconds(30));
+        assertEquals(VaultPolicyEffect.DENY, evaluate(tenant, principal, vault, secret,
+                VaultOperation.READ, List.of(workload), Set.of(), wrongScope).effect());
     }
 
     @Test
