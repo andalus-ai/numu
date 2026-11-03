@@ -137,8 +137,9 @@ public final class ApplicationInstallationOutboxDispatcher {
         if (current.status() != ApplicationInstallationStatus.REQUESTED)
             return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
                     "INSTALLATION_STATE_UNSUPPORTED", false, "Installation is not eligible for provisioning"));
+        long expectedRevision = current.revision();
         var transition = current.beginValidation(SYSTEM_ACTOR, event.correlationId(), clock.instant());
-        return installations.appendTransition(current, transition, current.revision())
+        return installations.appendTransition(current, transition, expectedRevision)
                 .thenCompose(saved -> {
                     if (saved) return CompletableFuture.completedFuture(current);
                     return load(event, current.tenantId()).thenCompose(found -> {
@@ -160,8 +161,9 @@ public final class ApplicationInstallationOutboxDispatcher {
         if (validating.status() != ApplicationInstallationStatus.VALIDATING)
             return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
                     "INSTALLATION_STATE_UNSUPPORTED", false, "Installation is not ready for provisioning"));
+        long expectedRevision = validating.revision();
         var transition = validating.beginProvisioning(SYSTEM_ACTOR, event.correlationId(), clock.instant());
-        return installations.appendTransition(validating, transition, validating.revision())
+        return installations.appendTransition(validating, transition, expectedRevision)
                 .thenCompose(saved -> {
                     if (saved) return CompletableFuture.completedFuture(validating);
                     return load(event, validating.tenantId()).thenCompose(found -> {
@@ -184,8 +186,9 @@ public final class ApplicationInstallationOutboxDispatcher {
             if (current.status() != ApplicationInstallationStatus.PROVISIONING)
                 return CompletableFuture.failedFuture(new ApplicationInstallationProvisioningException(
                         "INSTALLATION_STATE_CHANGED", true, "Installation state changed before completion"));
+            long expectedRevision = current.revision();
             var transition = current.completeProvisioning(SYSTEM_ACTOR, event.correlationId(), clock.instant());
-            return installations.appendTransition(current, transition, current.revision()).thenCompose(saved -> {
+            return installations.appendTransition(current, transition, expectedRevision).thenCompose(saved -> {
                 if (saved) return CompletableFuture.completedFuture(null);
                 return load(event, tenantId).thenCompose(latest -> latest.isPresent()
                         && latest.get().status() == ApplicationInstallationStatus.INSTALLED
@@ -209,8 +212,9 @@ public final class ApplicationInstallationOutboxDispatcher {
                     || current.status() == ApplicationInstallationStatus.UNINSTALLED)
                 return CompletableFuture.completedFuture(null);
             try {
+                long expectedRevision = current.revision();
                 var transition = current.fail(SYSTEM_ACTOR, event.correlationId(), clock.instant(), failureCode);
-                return installations.appendTransition(current, transition, current.revision()).thenCompose(saved -> {
+                return installations.appendTransition(current, transition, expectedRevision).thenCompose(saved -> {
                     if (saved) return CompletableFuture.completedFuture(null);
                     return load(event, tenantId).thenCompose(latest -> latest.isPresent()
                             && latest.get().status() == ApplicationInstallationStatus.FAILED
