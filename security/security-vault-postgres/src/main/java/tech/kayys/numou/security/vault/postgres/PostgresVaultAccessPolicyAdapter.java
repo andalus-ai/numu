@@ -46,7 +46,7 @@ public final class PostgresVaultAccessPolicyAdapter implements VaultAccessPolicy
                     workload.orElse(null), request.vaultId(), request.secretId(), request.operation(),
                     rules, revision, clock.instant());
             String subjectReference = workload
-                    .map(identity -> "workload:" + identity.issuer() + ":" + identity.subject())
+                    .map(PostgresVaultAccessPolicyAdapter::workloadAuditReference)
                     .orElseGet(() -> "principal:" + resolvedPrincipal);
             var auditRecord = new VaultPolicyDecisionAudit(UUID.randomUUID(), subjectReference,
                     request.vaultId(), request.secretId(), decision, null);
@@ -55,5 +55,16 @@ public final class PostgresVaultAccessPolicyAdapter implements VaultAccessPolicy
                 return Uni.createFrom().failure(new VaultPolicyAccessDeniedException());
             });
         });
+    }
+
+    private static String workloadAuditReference(VaultWorkloadIdentity identity) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] value = digest.digest((identity.issuer() + "\u0000" + identity.subject())
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return "workload-sha256:" + java.util.HexFormat.of().formatHex(value);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
     }
 }
