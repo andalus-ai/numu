@@ -18,7 +18,7 @@ M4 therefore introduces a separate `application-platform` reactor with domain an
 - Stable reverse-DNS `ApplicationId`, SemVer package version and SHA-256 package digest.
 - Tenant-scoped `ApplicationInstallation` aggregate.
 - Explicit lifecycle: `REQUESTED → VALIDATING → AWAITING_APPROVAL / PROVISIONING → INSTALLED → ENABLED`, with `SUSPENDED`, `FAILED`, retry and `UNINSTALLING → UNINSTALLED` branches.
-- Every transition increments a monotonic aggregate revision and returns an audit/outbox-ready transition record with tenant, application, actor, timestamp and stable reason code.
+- Every transition increments a monotonic aggregate revision and returns an audit/outbox-ready transition record with tenant, application, actor, correlation ID, timestamp and stable reason code.
 - Approval is an explicit transition. The direct provisioning path is allowed only from validation; an installation awaiting approval cannot bypass the approval method.
 - Failure state stores a stable failure code, not arbitrary exception text or secrets.
 - Uninstall changes application activation state only. Capability-owned business records are outside this aggregate and are not cascade-deleted.
