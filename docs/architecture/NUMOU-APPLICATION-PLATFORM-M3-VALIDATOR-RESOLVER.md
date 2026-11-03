@@ -48,6 +48,10 @@ The existing `GamelanWorkflowEngineAdapter` is still an in-memory DAG implementa
 - Maven tests and CI have **not** yet been verified for this branch. The NetworkNT dependency/API compatibility and the exact reactor test command remain CI gates.
 - No Gamelan adapter, tenant workflow dispatch, application installer, marketplace, or package execution runtime is claimed as delivered.
 
+### M3 post-merge CI evidence
+
+The PR-triggered Numou CI run associated with the M3 head completed with failures. Inspection of the failed framework job shows that its prerequisite build stopped in `security-vault-application` because `VaultSecretService` could not resolve `SecretAlreadyExistsException`. The framework/plugin reactor step was skipped, so that run does not establish whether the M3 code compiles or its unit tests pass. The separate focused workflow added in M4 removes that unrelated security-reactor prerequisite and tests the plugin reactor directly on Java 21.
+
 ## 6. Acceptance and next gates
 
 - [x] Use the existing framework plugin reactor rather than create a new Maven module.
