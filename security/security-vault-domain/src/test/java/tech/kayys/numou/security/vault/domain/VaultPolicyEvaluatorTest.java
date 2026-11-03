@@ -71,11 +71,11 @@ class VaultPolicyEvaluatorTest {
         VaultId vault = VaultId.generate();
         SecretId secret = SecretId.generate();
         VaultPolicyRule role = new VaultPolicyRule(UUID.randomUUID(), tenant, 1L,
-                VaultPolicySubjectType.ROLE, "vault-reader", vault, null, VaultOperation.READ,
+                VaultPolicySubjectType.ROLE, "vault-reader", null, null, vault, null, VaultOperation.READ,
                 VaultPolicyEffect.ALLOW, now.minusSeconds(1), null);
         VaultPolicyRule workload = new VaultPolicyRule(UUID.randomUUID(), tenant, 1L,
-                VaultPolicySubjectType.WORKLOAD_SUBJECT, "spiffe://prod/payments", vault, null,
-                VaultOperation.READ, VaultPolicyEffect.ALLOW, now.minusSeconds(1), null);
+                VaultPolicySubjectType.WORKLOAD_SUBJECT, "spiffe://prod/payments", "spiffe://prod", "numou-vault",
+                vault, null, VaultOperation.READ, VaultPolicyEffect.ALLOW, now.minusSeconds(1), null);
         VaultWorkloadIdentity identity = new VaultWorkloadIdentity(tenant, "spiffe://prod",
                 "spiffe://prod/payments", Set.of("numou-vault"), Set.of("secret:read"), now.plusSeconds(30));
 
@@ -115,7 +115,7 @@ class VaultPolicyEvaluatorTest {
             VaultOperation operation, VaultPolicyEffect effect, long version,
             Instant from, Instant until) {
         return new VaultPolicyRule(UUID.randomUUID(), tenant, version,
-                VaultPolicySubjectType.PRINCIPAL_ID, principal.toString(), vault, secret,
+                VaultPolicySubjectType.PRINCIPAL_ID, principal.toString(), null, null, vault, secret,
                 operation, effect, from, until);
     }
 }
