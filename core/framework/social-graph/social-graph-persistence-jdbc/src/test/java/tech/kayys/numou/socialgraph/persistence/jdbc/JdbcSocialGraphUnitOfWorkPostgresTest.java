@@ -51,10 +51,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
                     tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
                     "REQUEST", "key-1", now));
             return null;
-        });
+        }).await().indefinitely();
 
-        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isPresent();
-        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "key-1"))).isPresent();
+        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isPresent();
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "key-1")).await().indefinitely()).isPresent();
         assertThat(count(dataSource, "sg_outbox")).isEqualTo(1);
         assertThat(count(dataSource, "sg_connection_audit")).isEqualTo(1);
     }
@@ -80,10 +80,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
                     tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
                     "REQUEST", "rollback-key", Instant.parse("2026-11-04T00:00:00Z")));
             throw new IllegalStateException("simulated command failure");
-        })).isInstanceOf(IllegalStateException.class);
+        }).await().indefinitely()).isInstanceOf(IllegalStateException.class);
 
-        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isEmpty();
-        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "rollback-key"))).isEmpty();
+        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isEmpty();
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "rollback-key")).await().indefinitely()).isEmpty();
         assertThat(count(dataSource, "sg_outbox")).isZero();
         assertThat(count(dataSource, "sg_connection_audit")).isZero();
     }
@@ -104,7 +104,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
                     tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
                     "REQUEST", "immutable-audit", Instant.parse("2026-11-04T00:00:00Z")));
             return null;
-        });
+        }).await().indefinitely();
 
         assertThatThrownBy(() -> executeSql(dataSource,
                 "UPDATE sg_connection_audit SET action = 'TAMPERED' WHERE idempotency_key = 'immutable-audit'"))
@@ -123,10 +123,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         TenantId tenant = TenantId.generate();
         SocialConnection connection = SocialConnection.request(SocialConnectionId.generate(), tenant,
                 PartyId.generate(), PartyId.generate(), Instant.parse("2026-11-04T00:00:00Z"));
-        uow.execute(tx -> { tx.insertConnection(connection); return null; });
+        uow.execute(tx -> { tx.insertConnection(connection); return null; }).await().indefinitely();
 
-        assertThat(uow.execute(tx -> tx.findConnection(TenantId.generate(), connection.id()))).isEmpty();
-        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isPresent();
+        assertThat(uow.execute(tx -> tx.findConnection(TenantId.generate(), connection.id())).await().indefinitely()).isEmpty();
+        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isPresent();
     }
 
     private DataSource dataSource() {
