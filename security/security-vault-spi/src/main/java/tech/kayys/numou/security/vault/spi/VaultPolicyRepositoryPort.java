@@ -12,6 +12,9 @@ import java.util.UUID;
 public interface VaultPolicyRepositoryPort {
     Uni<Optional<VaultPolicySnapshot>> loadActive(UUID tenantId);
 
+    /** Loads one immutable historical revision without changing the active pointer. */
+    Uni<Optional<VaultPolicySnapshot>> loadRevision(UUID tenantId, long revision);
+
     /**
      * Publishes revision expectedRevision + 1. Implementations must compare-and-set
      * the tenant head, persist rules and the administrative audit fact atomically.
