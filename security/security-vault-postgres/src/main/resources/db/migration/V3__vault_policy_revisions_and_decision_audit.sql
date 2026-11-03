@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS vault_policy_revision (
     change_type VARCHAR(16) NOT NULL DEFAULT 'PUBLISH' CHECK (change_type IN ('PUBLISH', 'ROLLBACK')),
     source_revision BIGINT,
     PRIMARY KEY (tenant_id, revision),
+    CHECK (published_by <> approved_by),
     FOREIGN KEY (tenant_id, source_revision) REFERENCES vault_policy_revision (tenant_id, revision) ON DELETE RESTRICT,
     CHECK ((change_type = 'ROLLBACK' AND source_revision IS NOT NULL AND source_revision < revision)
         OR (change_type = 'PUBLISH' AND source_revision IS NULL))
