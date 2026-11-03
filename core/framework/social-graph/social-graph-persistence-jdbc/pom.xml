@@ -6,6 +6,7 @@
   <artifactId>numou-social-graph-persistence-jdbc</artifactId>
   <dependencies>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-application</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-ecosystem-application</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId></dependency>
     <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-jdbc-postgresql</artifactId></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
