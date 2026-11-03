@@ -80,6 +80,11 @@ class PostgresVaultPolicyRepositoryAdapterTest {
             assertThrows(java.sql.SQLException.class, () -> statement.executeUpdate(
                     "UPDATE vault_policy_rule SET effect = 'DENY' WHERE tenant_id = '" + tenant
                             + "' AND revision = 1"));
+            assertThrows(java.sql.SQLException.class, () -> statement.executeUpdate(
+                    "INSERT INTO vault_policy_rule (tenant_id, revision, rule_id, subject_type, subject_value, "
+                            + "operation, effect, valid_from) VALUES ('" + tenant
+                            + "', 1, '" + UUID.randomUUID() + "', 'PRINCIPAL_ID', 'operator', "
+                            + "'READ', 'ALLOW', CURRENT_TIMESTAMP)"));
             try (ResultSet rs = statement.executeQuery(
                     "SELECT count(*) FROM vault_policy_admin_audit WHERE tenant_id = '" + tenant + "'")) {
                 assertTrue(rs.next());
