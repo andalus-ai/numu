@@ -139,6 +139,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
 
     private void migrate(DataSource dataSource) {
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("TRUNCATE TABLE sg_outbox, sg_command_idempotency, sg_connection_audit, sg_connection CASCADE");
+        }
     }
 
     private void executeSql(DataSource dataSource, String sql) throws Exception {
