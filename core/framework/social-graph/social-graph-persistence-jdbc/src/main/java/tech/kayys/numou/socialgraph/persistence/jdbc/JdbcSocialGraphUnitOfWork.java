@@ -51,6 +51,9 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
             } catch (RuntimeException | Error failure) {
                 rollback(connection, failure);
                 throw failure;
+            } catch (SQLException failure) {
+                rollback(connection, failure);
+                throw persistenceFailure("commit social graph transaction", failure);
             } finally {
                 try { connection.setAutoCommit(previousAutoCommit); }
                 catch (SQLException ignored) { /* connection is closed by try-with-resources */ }
