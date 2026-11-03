@@ -1,6 +1,6 @@
 # M3 — Application Manifest Validator and Capability Resolver
 
-- **Status:** implementation submitted for review; CI and Maven verification pending.
+- **Status:** merged via PR #1649; isolated Java 21 verification is now tracked by `.github/workflows/application-platform.yml`.
 - **Depends on:** merged M1 (#1646) and M2 (#1647).
 - **Implementation owner:** existing `core/framework/plugin` reactor, under `plugin.application`.
 - **Manifest contract:** `platform.numou/v1alpha1`.
