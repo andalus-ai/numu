@@ -20,7 +20,7 @@ public final class ApiProduct extends AbstractAggregateRoot<ApiProductId> {
  private ApiProduct(ApiProductId id,UUID tenant,String name,String slug,String description,Instant now){
   super(Objects.requireNonNull(id,"id cannot be null"));
   this.id=id;this.providerTenantId=Objects.requireNonNull(tenant,"providerTenantId cannot be null");
-  this.name=text(name,"name");this.slug=slug(slug);this.description=description(description);
+  this.name=text(name,"name");if(this.name.length()>200)throw new IllegalArgumentException("name exceeds 200 characters");this.slug=slug(slug);this.description=description(description);
   this.status=ApiProductStatus.DRAFT;this.createdAt=Objects.requireNonNull(now,"now cannot be null");
   this.updatedAt=now;this.revision=1;
   raise(new ApiProductCreated(UUID.randomUUID(),now,id,tenant,this.slug));
@@ -29,7 +29,7 @@ public final class ApiProduct extends AbstractAggregateRoot<ApiProductId> {
                     Instant createdAt,Instant updatedAt,long revision,Collection<ApiVersion> versions){
   super(Objects.requireNonNull(id,"id cannot be null"));
   this.id=id;this.providerTenantId=Objects.requireNonNull(tenant,"providerTenantId cannot be null");
-  this.name=text(name,"name");this.slug=slug(slug);this.description=description(description);
+  this.name=text(name,"name");if(this.name.length()>200)throw new IllegalArgumentException("name exceeds 200 characters");this.slug=slug(slug);this.description=description(description);
   this.status=Objects.requireNonNull(status,"status cannot be null");
   this.createdAt=Objects.requireNonNull(createdAt,"createdAt cannot be null");
   this.updatedAt=Objects.requireNonNull(updatedAt,"updatedAt cannot be null");
@@ -60,7 +60,7 @@ public final class ApiProduct extends AbstractAggregateRoot<ApiProductId> {
  private ApiVersion requireVersion(String v){ApiVersion x=versions.get(text(v,"version"));if(x==null)throw new IllegalArgumentException("unknown API version: "+v);return x;}
  private void mutable(Instant now){Objects.requireNonNull(now,"now cannot be null");if(now.isBefore(updatedAt))throw new IllegalArgumentException("now cannot be before updatedAt");}
  private void touch(Instant now){updatedAt=now;revision=Math.addExact(revision,1);}
- private static String slug(String v){String n=text(v,"slug").toLowerCase(Locale.ROOT);if(!n.matches("[a-z0-9]+(?:-[a-z0-9]+)*"))throw new IllegalArgumentException("invalid API product slug");return n;}
+ private static String slug(String v){String n=text(v,"slug").toLowerCase(Locale.ROOT);if(n.length()>120||!n.matches("[a-z0-9]+(?:-[a-z0-9]+)*"))throw new IllegalArgumentException("invalid API product slug");return n;}
  private static String description(String v){if(v==null)return "";String n=v.trim();if(n.length()>2000)throw new IllegalArgumentException("description exceeds 2000 characters");return n;}
  private static String text(String v,String f){Objects.requireNonNull(v,f+" cannot be null");String n=v.trim();if(n.isEmpty())throw new IllegalArgumentException(f+" cannot be blank");return n;}
  public ApiProductId id(){return id;} public UUID providerTenantId(){return providerTenantId;} public String name(){return name;} public String slug(){return slug;} public String description(){return description;} public ApiProductStatus status(){return status;} public Instant createdAt(){return createdAt;} public Instant updatedAt(){return updatedAt;} public long revision(){return revision;} public Map<String,ApiVersion> versions(){return Map.copyOf(versions);}
