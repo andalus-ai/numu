@@ -6,7 +6,7 @@ M1 introduces the first PostgreSQL-backed social relationship vertical slice.
 
 - Canonical Ecosystem Party references (PartyId); no duplicate person or organization identity.
 - Tenant-scoped bilateral connection request lifecycle: request, accept, reject, cancel, remove.
-- Trusted actor context resolved through Ecosystem's tenant-scoped `PartyIdentityAssociationRepository` and canonical `PartyLookupPort`; the host still enforces tenant membership/authorization before invoking commands.
+- Trusted actor context resolved through Ecosystem's tenant-scoped `PartyIdentityAssociationRepository` and canonical `PartyLookupPort`; command authorization is mandatory through `SocialGraphAuthorizationPort`.
 - Idempotency keys scoped by tenant, with command fingerprint protection.
 - Optimistic version checks and a unique active/pending unordered Party-pair constraint.
 - Append-only, actor-attributed lifecycle audit history enforced by a PostgreSQL mutation-rejection trigger.

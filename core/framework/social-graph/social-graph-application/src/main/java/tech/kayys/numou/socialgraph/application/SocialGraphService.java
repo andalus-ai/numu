@@ -25,11 +25,14 @@ import java.util.function.Function;
 public final class SocialGraphService {
     private final SocialGraphUnitOfWork unitOfWork;
     private final PartyDirectoryPort parties;
+    private final SocialGraphAuthorizationPort authorization;
     private final Clock clock;
 
-    public SocialGraphService(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties, Clock clock) {
+    public SocialGraphService(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties,
+            SocialGraphAuthorizationPort authorization, Clock clock) {
         this.unitOfWork = Objects.requireNonNull(unitOfWork, "unitOfWork cannot be null");
         this.parties = Objects.requireNonNull(parties, "parties cannot be null");
+        this.authorization = Objects.requireNonNull(authorization, "authorization cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
@@ -38,7 +41,8 @@ public final class SocialGraphService {
         Objects.requireNonNull(recipient, "recipient cannot be null");
         validateKey(idempotencyKey);
         String fingerprint = "request:" + actor.partyId() + ":" + recipient;
-        return requireActive(actor.partyId()).flatMap(actorActive -> {
+        return authorize(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION)
+                .flatMap(ignored -> requireActive(actor.partyId())).flatMap(actorActive -> {
             if (!actorActive) return failure("Authenticated Party does not exist or is not active");
             return requireActive(recipient).flatMap(recipientActive -> {
                 if (!recipientActive) return failure("Recipient Party does not exist or is not active");
@@ -88,7 +92,8 @@ public final class SocialGraphService {
         Objects.requireNonNull(id, "id cannot be null");
         validateKey(key);
         String fingerprint = operation + ":" + actor.partyId() + ":" + id;
-        return requireActive(actor.partyId()).flatMap(active -> {
+        return authorize(actor, SocialGraphAuthorizationAction.MANAGE_CONNECTION)
+                .flatMap(ignored -> requireActive(actor.partyId())).flatMap(active -> {
             if (!active) return failure("Authenticated Party does not exist or is not active");
             return idempotent(actor.tenantId(), key, fingerprint, tx -> {
                 SocialConnection current = tx.findConnection(actor.tenantId(), id)
@@ -120,6 +125,13 @@ public final class SocialGraphService {
                     tenantId, key, fingerprint, result.id(), clock.instant()));
             return result;
         });
+    }
+
+    private Uni<Void> authorize(SocialGraphActor actor, SocialGraphAuthorizationAction action) {
+        return Uni.createFrom().item(() -> {
+            authorization.requireAuthorized(actor, action);
+            return Boolean.TRUE;
+        }).replaceWithVoid();
     }
 
     private Uni<Boolean> requireActive(PartyId partyId) {

@@ -28,7 +28,7 @@ class SocialGraphServiceTest {
     private final PartyId recipient = PartyId.generate();
     private final MemoryUnitOfWork uow = new MemoryUnitOfWork();
     private final SocialGraphService service = new SocialGraphService(
-            uow, party -> Uni.createFrom().item(true), Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
+            uow, party -> Uni.createFrom().item(true), (actor, action) -> {}, Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
 
     @Test
     void requestIsPersistedWithOutboxAndIdempotencyInOneUnitOfWork() {
@@ -77,6 +77,42 @@ class SocialGraphServiceTest {
 
         SocialConnection active = service.acceptConnection(new SocialGraphActor(tenant, recipient), pending.id(), "accept-1").await().indefinitely();
         assertThat(active.status().name()).isEqualTo("ACTIVE");
+    }
+
+
+    @Test
+    void requestAndLifecycleCommandsRequireDifferentPermissions() {
+        var requested = new java.util.ArrayList<SocialGraphAuthorizationAction>();
+        SocialGraphService secured = new SocialGraphService(
+                uow, party -> Uni.createFrom().item(true),
+                (actor, action) -> requested.add(action),
+                Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
+
+        SocialConnection pending = secured.requestConnection(
+                new SocialGraphActor(tenant, requester), recipient, "permission-request").await().indefinitely();
+        secured.acceptConnection(
+                new SocialGraphActor(tenant, recipient), pending.id(), "permission-accept").await().indefinitely();
+
+        assertThat(requested).containsExactly(
+                SocialGraphAuthorizationAction.REQUEST_CONNECTION,
+                SocialGraphAuthorizationAction.MANAGE_CONNECTION);
+    }
+
+    @Test
+    void deniedAuthorizationFailsReactiveCommandWithoutSideEffects() {
+        SocialGraphService denied = new SocialGraphService(
+                uow, party -> Uni.createFrom().item(true),
+                (actor, action) -> { throw new SocialGraphAccessDeniedException(); },
+                Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
+
+        assertThatThrownBy(() -> denied.requestConnection(
+                new SocialGraphActor(tenant, requester), recipient, "denied-request").await().indefinitely())
+                .isInstanceOf(SocialGraphAccessDeniedException.class);
+
+        assertThat(uow.connections).isEmpty();
+        assertThat(uow.events).isEmpty();
+        assertThat(uow.audits).isEmpty();
+        assertThat(uow.idempotency).isEmpty();
     }
 
     private static final class MemoryUnitOfWork implements SocialGraphUnitOfWork {
