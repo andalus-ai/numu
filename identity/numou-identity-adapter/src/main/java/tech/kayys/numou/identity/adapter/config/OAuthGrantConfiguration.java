@@ -13,7 +13,7 @@ public class OAuthGrantConfiguration {
     @Produces
     ClientSecretGenerator clientSecretGenerator() { return new ClientSecretGenerator(); }
 
-    @Produces @ApplicationScoped
+    @Produces
     OAuthClientCredentialsGrantService grantService(OAuthClientCredentialRepository credentials,
             ClientSecretGenerator secrets, OAuthAccessTokenIssuerPort issuer, Config config) {
         long lifetime = config.getOptionalValue("numou.oauth.access-token.lifespan-seconds", Long.class).orElse(300L);
