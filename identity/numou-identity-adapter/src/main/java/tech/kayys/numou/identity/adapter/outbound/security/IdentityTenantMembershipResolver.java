@@ -1,6 +1,8 @@
 package tech.kayys.numou.identity.adapter.outbound.security;
 
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.identity.application.port.MembershipManagementPort;
 import tech.kayys.numou.identity.domain.user.UserId;
@@ -21,14 +23,15 @@ public class IdentityTenantMembershipResolver implements TenantMembershipResolve
 
     private final MembershipManagementPort memberships;
 
+    @Inject
     public IdentityTenantMembershipResolver(MembershipManagementPort memberships) {
         this.memberships = Objects.requireNonNull(memberships, "memberships");
     }
 
     @Override
-    public io.smallrye.mutiny.Uni<Boolean> isMember(Principal principal, TenantId tenantId) {
+    public Uni<Boolean> isMember(Principal principal, TenantId tenantId) {
         if (principal == null || principal.id() == null || tenantId == null) {
-            return io.smallrye.mutiny.Uni.createFrom().item(false);
+            return Uni.createFrom().item(false);
         }
         return memberships.isActive(tenantId, UserId.of(principal.id().value()));
     }
