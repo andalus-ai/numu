@@ -16,6 +16,36 @@ class ApplicationCapabilityResolverTest {
         assertThat(result.providersByCapability()).containsEntry("numou.sales", provider);
         assertThat(result.unavailableOptionalCapabilities()).containsExactly("numou.crm");
     }
+    @Test void rejectsConflictingTransitiveRangesForSharedCapability() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(
+                        new CapabilityRequirement("numou.sales", "^1.0.0"),
+                        new CapabilityRequirement("numou.inventory", "^1.0.0")),
+                List.of(), Set.of(), List.of());
+        var providers = List.of(
+                new CapabilityProvider("sales", "numou.sales", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.party", "^1.0.0"))),
+                new CapabilityProvider("inventory", "numou.inventory", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.party", "^2.0.0"))),
+                new CapabilityProvider("party-v1", "numou.party", "1.5.0", List.of()));
+
+        assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
+                .isInstanceOf(CapabilityResolutionException.class)
+                .hasMessageContaining("Conflicting contract ranges for capability numou.party");
+    }
+
+    @Test void rejectsMissingTransitiveRequiredCapability() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")),
+                List.of(), Set.of(), List.of());
+        var providers = List.of(new CapabilityProvider("sales", "numou.sales", "1.0.0",
+                List.of(new CapabilityRequirement("numou.party", "^1.0.0"))));
+
+        assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
+                .isInstanceOf(CapabilityResolutionException.class)
+                .hasMessageContaining("Missing required capability provider: numou.party");
+    }
+
     @Test void rejectsAmbiguousProvidersAndDependencyCycles() {
         var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
                 List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
