@@ -27,6 +27,7 @@ class TalentProfileApplicationServiceTest {
     private ExecutionContext context;
     private InMemoryUnitOfWork unitOfWork;
     private MutableAccessPolicy access;
+    private MutableEvidenceVerifier evidenceVerifier;
     private TalentProfileApplicationService service;
 
     @BeforeEach
@@ -37,9 +38,10 @@ class TalentProfileApplicationServiceTest {
         context = ExecutionContext.builder().tenantId(tenant).actorId(ActorId.of("user:alice")).build();
         unitOfWork = new InMemoryUnitOfWork();
         access = new MutableAccessPolicy();
+        evidenceVerifier = new MutableEvidenceVerifier();
         service = new TalentProfileApplicationService(unitOfWork.repository,
                 (tenantId, subject) -> Uni.createFrom().item(tenant.equals(tenantId) && person.equals(subject)),
-                access, unitOfWork);
+                access, evidenceVerifier, unitOfWork);
     }
 
     @Test
@@ -108,6 +110,22 @@ class TalentProfileApplicationServiceTest {
     }
 
     @Test
+    void rejectsUnverifiedSkillClaimBeforeChangingProfile() {
+        TalentProfileId id = TalentProfileId.generate();
+        service.create(context, id, person, "Engineer", null, null).await().indefinitely();
+        evidenceVerifier.allowed = false;
+        var skill = new ProfileContent.Skill(UUID.randomUUID(), "Java", null,
+                ProfileContent.SkillLevel.EXPERT, ProfileContent.Verification.PLATFORM_VERIFIED);
+
+        assertThatThrownBy(() -> service.replaceSkills(context, id, List.of(skill)).await().indefinitely())
+                .isInstanceOf(SecurityException.class);
+
+        TalentProfile stored = unitOfWork.repository.findByTenantAndId(tenant, id).await().indefinitely().orElseThrow();
+        assertThat(stored.skills()).isEmpty();
+        assertThat(stored.getVersion()).isZero();
+    }
+
+    @Test
     void anonymousOrMissingTenantExecutionContextIsRejected() {
         ExecutionContext anonymous = ExecutionContext.builder().tenantId(tenant).build();
         assertThatThrownBy(() -> service.get(anonymous, TalentProfileId.generate()))
@@ -123,6 +141,20 @@ class TalentProfileApplicationServiceTest {
 
         @Override
         public Uni<Boolean> isAllowed(ExecutionContext context, Action action, PartyRef subject, TalentProfile profile) {
+            return Uni.createFrom().item(allowed);
+        }
+    }
+
+    private static final class MutableEvidenceVerifier implements ProfileEvidenceVerifier {
+        private boolean allowed = true;
+
+        @Override
+        public Uni<Boolean> verifySkill(ExecutionContext context, PartyRef subject, ProfileContent.Skill skill) {
+            return Uni.createFrom().item(allowed);
+        }
+
+        @Override
+        public Uni<Boolean> verifyCredential(ExecutionContext context, PartyRef subject, ProfileContent.Credential credential) {
             return Uni.createFrom().item(allowed);
         }
     }
