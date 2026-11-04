@@ -42,8 +42,10 @@ public final class ApplicationManifestValidator {
 
         JsonNode metadata = root.path("metadata");
         JsonNode requires = root.path("requires");
-        List<CapabilityRequirement> required = requirements(requires.path("capabilities"));
-        List<CapabilityRequirement> optional = requirements(requires.path("optionalCapabilities"));
+        List<CapabilityRequirement> required = requirements(
+                requires.path("capabilities"), "requires.capabilities", violations);
+        List<CapabilityRequirement> optional = requirements(
+                requires.path("optionalCapabilities"), "requires.optionalCapabilities", violations);
         Set<String> capabilityIds = new HashSet<>();
         for (CapabilityRequirement r : required)
             if (!capabilityIds.add(r.id())) violations.add("Duplicate capability requirement: " + r.id());
@@ -81,10 +83,20 @@ public final class ApplicationManifestValidator {
                 required, optional, permissions, navigation);
     }
 
-    private static List<CapabilityRequirement> requirements(JsonNode array) {
+    private static List<CapabilityRequirement> requirements(
+            JsonNode array, String field, List<String> violations) {
         List<CapabilityRequirement> result = new ArrayList<>();
-        if (array.isArray()) for (JsonNode item : array)
-            result.add(new CapabilityRequirement(item.path("id").asText(), item.path("contractRange").asText()));
+        if (array.isArray()) {
+            for (int i = 0; i < array.size(); i++) {
+                JsonNode item = array.get(i);
+                try {
+                    result.add(new CapabilityRequirement(
+                            item.path("id").asText(), item.path("contractRange").asText()));
+                } catch (IllegalArgumentException e) {
+                    violations.add(field + "[" + i + "].contractRange: " + e.getMessage());
+                }
+            }
+        }
         return result;
     }
 }
