@@ -16,7 +16,12 @@ on:
     branches: [main]
     paths:
       - "core/framework/social-graph/**"
+      - "core/framework/cache/**"
       - "core/framework/pom.xml"
+      - "security/social-graph-adapter/**"
+      - "security/security-application/**"
+      - "security/security-domain/**"
+      - "security/pom.xml"
       - ".github/workflows/social-graph.yml"
 
 permissions:
