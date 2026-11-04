@@ -8,6 +8,7 @@ on:
       - "core/framework/ecosystem/**"
       - "core/framework/pom.xml"
       - "security/social-graph-adapter/**"
+      - "security/security-adapter/**"
       - "security/security-application/**"
       - "security/security-domain/**"
       - "security/pom.xml"
@@ -46,7 +47,7 @@ jobs:
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
       - name: Install Social Graph and Ecosystem framework artifacts
-        run: mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am install
+        run: mvn -B -ntp -f core/framework/pom.xml -pl social-graph,ecosystem,cache,observability -am install
       - name: Verify SecurityContext Social Graph adapter
         run: mvn -B -ntp -f security/pom.xml -pl social-graph-adapter -am verify
       - name: Upload Social Graph Maven test reports
