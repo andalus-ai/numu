@@ -10,7 +10,7 @@ import java.time.Clock;
 
 @ApplicationScoped
 public class OAuthGrantConfiguration {
-    @Produces @ApplicationScoped
+    @Produces
     ClientSecretGenerator clientSecretGenerator() { return new ClientSecretGenerator(); }
 
     @Produces @ApplicationScoped
