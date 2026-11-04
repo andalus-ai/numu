@@ -136,6 +136,43 @@ class PostgresApplicationConfigurationStoreTest {
         assertThat(count("application_configurations", tenantB)).isZero();
     }
 
+    @Test
+    void historyUsesStableDescendingExclusiveCursorAndEnforcesPageBound() throws Exception {
+        TenantId tenant = TenantId.generate();
+        ApplicationId app = new ApplicationId("com.example.history");
+        createInstallation(tenant, app);
+        Instant now = Instant.parse("2026-11-04T05:30:00Z");
+        var current = ApplicationConfigurationSnapshot.first(
+                tenant, app, "1.0", "{\"revision\":1}", "user:a", now);
+        assertThat(store.save(current, 0).toCompletableFuture().join().saved()).isTrue();
+        for (int revision = 2; revision <= 5; revision++) {
+            var next = current.next("1.0", "{\"revision\":" + revision + "}",
+                    "user:a", now.plusSeconds(revision));
+            assertThat(store.save(next, current.revision()).toCompletableFuture().join().saved()).isTrue();
+            current = next;
+        }
+
+        var firstPage = store.findHistory(tenant, app, null, 2).toCompletableFuture().join();
+        assertThat(firstPage.revisions()).extracting(ApplicationConfigurationSnapshot::revision)
+                .containsExactly(5L, 4L);
+        assertThat(firstPage.nextBeforeRevision()).isEqualTo(4L);
+
+        var secondPage = store.findHistory(tenant, app, firstPage.nextBeforeRevision(), 2)
+                .toCompletableFuture().join();
+        assertThat(secondPage.revisions()).extracting(ApplicationConfigurationSnapshot::revision)
+                .containsExactly(3L, 2L);
+        assertThat(secondPage.nextBeforeRevision()).isEqualTo(2L);
+
+        var finalPage = store.findHistory(tenant, app, secondPage.nextBeforeRevision(), 2)
+                .toCompletableFuture().join();
+        assertThat(finalPage.revisions()).extracting(ApplicationConfigurationSnapshot::revision)
+                .containsExactly(1L);
+        assertThat(finalPage.nextBeforeRevision()).isNull();
+
+        assertThatThrownBy(() -> store.findHistory(tenant, app, null, 101).toCompletableFuture().join())
+                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+    }
+
     private static void createInstallation(TenantId tenant, ApplicationId app) throws Exception {
         try (var connection = applicationRole.getConnection()) {
             connection.setAutoCommit(false);
