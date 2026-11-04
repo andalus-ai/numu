@@ -24,10 +24,10 @@ public class SocialGraphCommandFacadeProducer {
     @Inject
     public SocialGraphCommandFacadeProducer(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties,
             SocialGraphAuthorizationPort authorization, SocialGraphActorResolver actors) {
-        this.unitOfWork = Objects.requireNonNull(unitOfWork);
-        this.parties = Objects.requireNonNull(parties);
-        this.authorization = Objects.requireNonNull(authorization);
-        this.actors = Objects.requireNonNull(actors);
+        this.unitOfWork = Objects.requireNonNull(unitOfWork, "unitOfWork cannot be null");
+        this.parties = Objects.requireNonNull(parties, "parties cannot be null");
+        this.authorization = Objects.requireNonNull(authorization, "authorization cannot be null");
+        this.actors = Objects.requireNonNull(actors, "actors cannot be null");
     }
 
     @Produces

@@ -23,11 +23,13 @@ public class AuthenticatedSocialGraphCommandGateway {
     private final SocialGraphCommandInvoker commands;
 
     @Inject
-    public AuthenticatedSocialGraphCommandGateway(SecurityContextProvider securityContexts,
-            VerifiedIdentitySubjectProvider identitySubjects, SocialGraphCommandInvoker commands) {
-        this.securityContexts = Objects.requireNonNull(securityContexts);
-        this.identitySubjects = Objects.requireNonNull(identitySubjects);
-        this.commands = Objects.requireNonNull(commands);
+    public AuthenticatedSocialGraphCommandGateway(
+            SecurityContextProvider securityContexts,
+            VerifiedIdentitySubjectProvider identitySubjects,
+            SocialGraphCommandInvoker commands) {
+        this.securityContexts = Objects.requireNonNull(securityContexts, "securityContexts cannot be null");
+        this.identitySubjects = Objects.requireNonNull(identitySubjects, "identitySubjects cannot be null");
+        this.commands = Objects.requireNonNull(commands, "commands cannot be null");
     }
 
     public Uni<SocialConnection> requestConnection(PartyId recipient, String key) {
@@ -53,6 +55,11 @@ public class AuthenticatedSocialGraphCommandGateway {
         Optional<IdentitySubjectRef> subject = identitySubjects.current();
         if (subject == null || subject.isEmpty()) return denied();
         return command.execute(context.tenantId(), subject.get());
+    }
+
+    private SecurityContext currentContext() {
+        Optional<SecurityContext> current = securityContexts.current();
+        return current == null ? null : current.orElse(null);
     }
 
     private static Uni<SocialConnection> denied() {

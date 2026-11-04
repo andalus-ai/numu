@@ -11,29 +11,37 @@
     </parent>
     <artifactId>numou-security-social-graph-adapter</artifactId>
     <name>Numou Security - Social Graph Adapter</name>
+    <description>Bridges the verified Numou SecurityContext to Social Graph command authorization.</description>
     <dependencies>
-        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-security-adapter</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-security-application</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-application</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-persistence-jdbc</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-ecosystem-persistence-jdbc</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>jakarta.enterprise</groupId><artifactId>jakarta.enterprise.cdi-api</artifactId><scope>provided</scope></dependency>
-        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
-        <dependency><groupId>org.assertj</groupId><artifactId>assertj-core</artifactId><scope>test</scope></dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-security-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-social-graph-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-social-graph-persistence-jdbc</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.enterprise</groupId>
+            <artifactId>jakarta.enterprise.cdi-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>io.smallrye</groupId>
-                <artifactId>jandex-maven-plugin</artifactId>
-                <version>3.2.7</version>
-                <executions>
-                    <execution>
-                        <id>make-jandex-index</id>
-                        <goals><goal>jandex</goal></goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>

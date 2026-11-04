@@ -7,6 +7,7 @@
   <dependencies>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-domain</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-spi</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-ecosystem-application</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
     <dependency><groupId>org.assertj</groupId><artifactId>assertj-core</artifactId><scope>test</scope></dependency>
   </dependencies>

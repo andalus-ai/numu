@@ -12,11 +12,16 @@ import tech.kayys.numou.socialgraph.application.SocialGraphAuthorizationPort;
 
 import java.util.Objects;
 
-/** Enforces Social Graph permissions using the current verified Numou SecurityContext. */
+/**
+ * Enforces Social Graph command permissions using the request's verified
+ * Numou SecurityContext. It deliberately does not resolve principal IDs to
+ * Party IDs; that identity association belongs to the trusted actor resolver.
+ */
 @ApplicationScoped
 public class SecurityContextSocialGraphAuthorizationAdapter implements SocialGraphAuthorizationPort {
-    private static final Permission REQUEST = Permission.of("social-graph", "create");
-    private static final Permission MANAGE = Permission.of("social-graph", "perform");
+    private static final Permission REQUEST_CONNECTION = Permission.of("social-graph", "create");
+    private static final Permission MANAGE_CONNECTION = Permission.of("social-graph", "perform");
+
     private final SecurityContextProvider securityContexts;
 
     @Inject
