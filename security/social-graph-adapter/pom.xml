@@ -12,6 +12,7 @@
     <artifactId>numou-security-social-graph-adapter</artifactId>
     <name>Numou Security - Social Graph Adapter</name>
     <dependencies>
+        <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-security-adapter</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-security-application</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-application</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-persistence-jdbc</artifactId><version>${project.version}</version></dependency>
