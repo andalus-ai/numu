@@ -164,6 +164,15 @@ class PostgresApplicationInstallationStoreTest {
         assertThat(store.retry(tenant, dead.eventId(), "worker-b", dead.leaseToken(),
                 "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(60), now.plusSeconds(41), 2)
                 .toCompletableFuture().join()).isEqualTo(ApplicationInstallationOutboxStore.RetryOutcome.DEAD_LETTERED);
+
+        // The DEAD delivery and FAILED aggregate transition must commit atomically.
+        var failedInstallation = store.find(tenant, new ApplicationInstallationId(dead.installationId()))
+                .toCompletableFuture().join().orElseThrow();
+        assertThat(failedInstallation.status()).isEqualTo(ApplicationInstallationStatus.FAILED);
+        assertThat(failedInstallation.failureCode()).contains("PROVISIONING_TEMPORARY_FAILURE");
+        assertThat(failedInstallation.revision()).isEqualTo(2);
+        assertThat(count("application_installation_transitions", tenant)).isEqualTo(3);
+        assertThat(count("application_installation_outbox", tenant)).isEqualTo(3);
         assertThat(store.claimDue(tenant, "worker-c", now.plusSeconds(120), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
     }
