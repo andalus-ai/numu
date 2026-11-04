@@ -4,9 +4,11 @@ import tech.kayys.numou.ecosystem.domain.party.PartyKind;
 import tech.kayys.numou.ecosystem.domain.party.PartyRef;
 import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.foundation.domain.repository.TenantAware;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileCreated;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileContentChanged;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfilePublished;
+import tech.kayys.numou.talent.domain.profile.event.TalentProfilePresentationChanged;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileVisibilityChanged;
 
 import java.time.Instant;
@@ -22,7 +24,7 @@ import java.util.UUID;
  * workforce assignments and candidate applications remain owned by their
  * respective capabilities.
  */
-public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> {
+public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> implements TenantAware {
 
     public static final int HEADLINE_MAX_LENGTH = 160;
     public static final int SUMMARY_MAX_LENGTH = 5_000;
@@ -84,6 +86,7 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
         this.summary = normalizedSummary;
         this.locationLabel = normalizedLocation;
         touch();
+        raise(new TalentProfilePresentationChanged(id(), tenantId));
     }
 
     /** Changes discoverability independently from publication and authorization. */
