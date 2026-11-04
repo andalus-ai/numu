@@ -248,3 +248,50 @@ Still required before M0 closure:
 - inventory Jobs, Marketplace, Fleet, Carrier and Logistics identity mapping contracts;
 - establish current privacy/consent/deletion/export ownership;
 - complete repository-wide identifier/persistence/event scan and executable Maven/PostgreSQL baseline.
+
+
+## 9. Security authorization implementation revalidation (2026-11-04)
+
+Direct current-main source inspection:
+
+- `security/security-domain/src/main/java/tech/kayys/numou/security/domain/authorization/AccessRequest.java`
+- `security/security-domain/src/main/java/tech/kayys/numou/security/domain/authorization/AccessDecision.java`
+- `security/security-domain/src/main/java/tech/kayys/numou/security/domain/authorization/PermissionEvaluator.java`
+- `security/security-spi/src/main/java/tech/kayys/numou/security/spi/port/PolicyPort.java`
+- `security/security-spi/src/main/java/tech/kayys/numou/security/spi/port/ResourceAuthorizationPort.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/authorization/DefaultAuthorizationService.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/authz/AuthorizationService.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/authz/RoleGrantResolver.java`
+
+### 9.1 Confirmed authorization semantics
+
+- AccessRequest requires a non-null principal, tenant, action and resource type; resource id and context normalize null to empty strings.
+- PermissionEvaluator denies when the principal is not a member of the requested tenant, then denies missing resource/action permission, then checks a scoped resource-id set when one is supplied.
+- An empty permission set therefore denies. AccessDecision has explicit ALLOW/DENY and a reason.
+- PolicyPort loads effective permissions by Principal + TenantId.
+- ResourceAuthorizationPort is a separate ABAC/resource-level evaluation port.
+
+### 9.2 Two application-level authorization paths exist
+
+The current source tree contains two distinct authorization services:
+
+1. `authorization.AuthorizationService` plus CDI `@ApplicationScoped DefaultAuthorizationService`: loads tenant-scoped permissions through PolicyPort, applies PermissionEvaluator, and invokes ResourceAuthorizationPort only when one is resolvable. The resource-level evaluator is optional in this implementation.
+2. `authz.AuthorizationService`: a separate final class accepting SecurityContext, GrantResolver and AuditPort. It builds an AccessRequest from trusted context, checks grants, audits denials (audit failure is recovered so it cannot turn denial into allow), and fails require() with AccessDeniedException. RoleGrantResolver maps verified context roles through RolePermissionMatrix.
+
+These are not interchangeable contracts. The second path is not annotated as a CDI bean in the inspected source, while the first has an application-scoped default implementation. The full composition/wiring and call-site inventory has not yet been completed, so this audit does not declare either path the sole canonical entry point.
+
+### 9.3 Social Graph authorization rule
+
+- Social Graph commands must derive actor and tenant from the trusted SecurityContextProvider; never accept caller-supplied actor, tenant or roles.
+- Resolve the authenticated subject to Party using the tenant-scoped PartyIdentityAssociation, then authorize the requested action/resource separately.
+- Keep Social Graph resource/relationship visibility checks in a Social Graph-owned policy adapter or an explicitly configured ResourceAuthorizationPort; do not assume the optional resource evaluator is present.
+- Treat PolicyPort errors, missing grants, unresolved actor mapping and missing tenant membership as failures; never fail open.
+- Before M1 implementation, inspect the runtime composition and tests to establish which authorization service is actually used by the relevant HTTP/application adapters and whether resource-level policy is configured.
+
+## 10. Current-main module discovery: jobs, marketplace, fleet and privacy
+
+- Repository-root directory listing contains no top-level `jobs` or `recruitment` module. Workforce currently has `hris` and `leave` submodules. This is only a directory-level observation; job vacancy or candidate concepts may live under another capability and need targeted source inspection before concluding they are absent.
+- Marketplace is present under `commerce/marketplace/numou-marketplace-domain`; its domain source tree has been located, but the model and identifier contracts have not yet been inspected in this pass.
+- Fleet is present at `logistics/numou-fleet`; Courier domain is present at `logistics/numou-courier-domain`. Their source package contracts and tenant/subject identifiers remain to be inspected.
+- The inspected Security domain package tree contains audit, authentication, authorization, identifier and valueobject packages; no privacy/consent package is present there. A broad code search for consent/privacy/export/erasure returned no indexed matches, which is not proof that no such capability exists elsewhere. Privacy ownership remains unresolved pending a full source/schema scan.
+
