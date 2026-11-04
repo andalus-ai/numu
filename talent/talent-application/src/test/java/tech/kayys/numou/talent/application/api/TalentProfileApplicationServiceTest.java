@@ -55,6 +55,18 @@ class TalentProfileApplicationServiceTest {
         assertThat(unitOfWork.repository.findByTenantAndId(tenant, id).await().indefinitely()).isPresent();
         assertThat(unitOfWork.publishedEvents).extracting(DomainEvent::eventType)
                 .containsExactly("talent.profile.created");
+        assertThat(unitOfWork.publishedContexts).hasSize(1);
+        assertThat(unitOfWork.publishedContexts.get(0).tenantId()).isEqualTo(tenant);
+        assertThat(unitOfWork.publishedContexts.get(0).actorId()).isEqualTo(ActorId.of("user:alice"));
+    }
+
+    @Test
+    void rejectsPartyThatIsNotPresentInTheActiveTenant() {
+        assertThatThrownBy(() -> service.create(context, TalentProfileId.generate(),
+                PartyRef.of(PartyId.generate(), PartyKind.PERSON), "Engineer", null, null)
+                .await().indefinitely()).isInstanceOf(IllegalArgumentException.class);
+        assertThat(unitOfWork.repository.profiles).isEmpty();
+        assertThat(unitOfWork.publishedEvents).isEmpty();
     }
 
     @Test
@@ -119,6 +131,7 @@ class TalentProfileApplicationServiceTest {
     private static final class InMemoryUnitOfWork implements TalentProfileTransactionRunner, TalentProfileTransaction {
         private final InMemoryRepository repository = new InMemoryRepository();
         private final List<DomainEvent> publishedEvents = new ArrayList<>();
+        private final List<ExecutionContext> publishedContexts = new ArrayList<>();
 
         @Override
         public <T> Uni<T> inTransaction(ExecutionContext context, Function<TalentProfileTransaction, Uni<T>> work) {
@@ -132,6 +145,7 @@ class TalentProfileApplicationServiceTest {
 
         @Override
         public Uni<Void> publish(ExecutionContext context, List<DomainEvent> events) {
+            publishedContexts.add(context);
             publishedEvents.addAll(events);
             return Uni.createFrom().voidItem();
         }
