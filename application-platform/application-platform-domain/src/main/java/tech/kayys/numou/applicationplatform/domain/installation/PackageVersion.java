@@ -11,6 +11,7 @@ public record PackageVersion(String value) {
 
     public PackageVersion {
         Objects.requireNonNull(value, "package version is required");
+        if (value.length() > 256) throw new IllegalArgumentException("Package version must not exceed 256 characters");
         Matcher matcher = FORMAT.matcher(value);
         if (!matcher.matches()) throw new IllegalArgumentException("Package version must be SemVer 2.0.0");
         validateIdentifiers(matcher.group(4), true);

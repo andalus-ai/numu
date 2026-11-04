@@ -78,6 +78,24 @@ class SocialGraphServiceTest {
         assertThat(active.status().name()).isEqualTo("ACTIVE");
     }
 
+
+    @Test
+    void tenantAuthorizationIsCheckedBeforeAnyCommandSideEffect() {
+        SocialGraphService denied = new SocialGraphService(
+                uow, party -> true,
+                actor -> { throw new SocialGraphAccessDeniedException(); },
+                Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
+
+        assertThatThrownBy(() -> denied.requestConnection(
+                new SocialGraphActor(tenant, requester), recipient, "denied-request"))
+                .isInstanceOf(SocialGraphAccessDeniedException.class);
+
+        assertThat(uow.connections).isEmpty();
+        assertThat(uow.events).isEmpty();
+        assertThat(uow.audits).isEmpty();
+        assertThat(uow.idempotency).isEmpty();
+    }
+
     private static final class MemoryUnitOfWork implements SocialGraphUnitOfWork {
         private final Map<SocialConnectionId, SocialConnection> connections = new HashMap<>();
         private final Map<String, SocialGraphIdempotencyRecord> idempotency = new HashMap<>();
