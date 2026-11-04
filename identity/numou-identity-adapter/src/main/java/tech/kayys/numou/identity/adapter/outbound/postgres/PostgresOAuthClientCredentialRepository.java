@@ -32,7 +32,7 @@ public class PostgresOAuthClientCredentialRepository implements OAuthClientCrede
 
     @Override
     public Uni<Optional<OAuthClientCredential>> findByClientId(String clientId) {
-        return OAuthClientCredentialEntity.<OAuthClientCredentialEntity>find(\"clientId = ?1\", clientId)
+        return OAuthClientCredentialEntity.<OAuthClientCredentialEntity>find("clientId = ?1", clientId)
                 .firstResult().map(entity -> Optional.ofNullable(entity).map(this::toDomain));
     }
 
