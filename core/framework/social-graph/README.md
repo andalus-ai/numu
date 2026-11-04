@@ -1,36 +1,49 @@
 # Numou Social Graph
 
-M1 introduces the first PostgreSQL-backed social relationship vertical slice.
+M1 provides the first PostgreSQL-backed social relationship vertical slice.
 
 ## Current scope
 
-- Canonical Ecosystem Party references (PartyId); no duplicate person or organization identity.
-- Tenant-scoped bilateral connection request lifecycle: request, accept, reject, cancel, remove.
-- Trusted actor context resolved through Ecosystem's tenant-scoped `PartyIdentityAssociationRepository` and canonical `PartyLookupPort`; command authorization is mandatory through `SocialGraphAuthorizationPort`.
-- Idempotency keys scoped by tenant, with command fingerprint protection.
-- Optimistic version checks and a unique active/pending unordered Party-pair constraint.
-- Append-only, actor-attributed lifecycle audit history enforced by a PostgreSQL mutation-rejection trigger.
-- Explicit actor resolver and active Party directory adapter over Ecosystem public application ports.
-- Transaction-bound JDBC unit of work: connection state, idempotency record, append-only audit record, and durable outbox event intent commit or roll back together.
-- PostgreSQL only. Neo4j is not a runtime dependency.
-- The JDBC adapter includes the Quarkus Flyway runtime extension, making its packaged `db/migration` resource discoverable to composed Quarkus hosts. Hosts explicitly control migration timing with `quarkus.flyway.migrate-at-start=true`; the capability does not force migration for deployments that do not opt in.
+- Canonical Ecosystem Party references (`PartyId`); no duplicate person or organization identity.
+- Tenant-scoped bilateral connection lifecycle: request, accept, reject, cancel, remove.
+- `EcosystemSocialGraphActorResolver` resolves a verified issuer/subject through Ecosystem's tenant-scoped `PartyIdentityAssociationRepository`, then confirms the canonical Party exists and is active through `PartyLookupPort`.
+- `EcosystemSocialGraphPartyDirectoryAdapter` implements Social Graph's active-Party check through the same public Ecosystem lookup port.
+- `SocialGraphCommandFacade` is the public command entry point. The underlying `SocialGraphService` is package-private so other modules cannot bypass the facade through the application API.
+- `SocialGraphService` enforces `SocialGraphAuthorizationPort` before Party checks or persistence; identity association alone does not grant tenant membership or capability permission.
+- Idempotency keys are tenant-scoped and protected by command fingerprints.
+- Optimistic version checks and a PostgreSQL partial unique index prevent duplicate pending/active connections for an unordered Party pair within one tenant.
+- Append-only, actor-attributed lifecycle audit history is enforced by a PostgreSQL mutation-rejection trigger.
+- A transaction-bound JDBC unit of work commits connection state, idempotency, audit and durable outbox event intent together.
+- PostgreSQL is authoritative. Neo4j is not a runtime dependency.
+- The JDBC adapter includes the Quarkus Flyway runtime extension. Hosts control migration timing with `quarkus.flyway.migrate-at-start=true`; Social Graph does not force migrations on consumers.
 
-## Boundaries
+## Host composition and security
 
-- PartyDirectoryPort must be implemented by the composition layer using the public Ecosystem Party lookup contract. It must not infer Party identity from UserId, PersonRef, OrganizationId, or equal UUID values.
-- SocialGraphActor must be constructed from the authenticated tenant/Party association; never populate it from untrusted request fields.
-- The JDBC adapter exposes a Mutiny Uni and schedules blocking database work on the default worker pool.
-- The outbox table is an atomic event-intent store. Broker relay/CDC integration and operational DLQ controls are not part of this M1 slice.
-- No REST API, feed, follow/block, profile, Neo4j, or cross-tenant federation is included in M1.
+1. The HTTP/messaging host must authenticate the request and obtain tenant, issuer and subject from its verified security context. These values must never be copied from untrusted command-body fields.
+2. The host passes the trusted tenant and `IdentitySubjectRef` to `SocialGraphCommandFacade`.
+3. The facade calls `EcosystemSocialGraphActorResolver`, which requires an active tenant-scoped Party identity association and an active canonical Party.
+4. The facade invokes the package-private command service; the service calls the host-provided `SocialGraphAuthorizationPort` to enforce tenant membership and the requested capability permission.
+5. Domain transitions independently enforce participant roles (recipient accepts/rejects, requester cancels, either participant removes an active connection).
+
+The Ecosystem adapters do not validate JWT signatures, choose the active tenant, or establish membership. Those are host/security-provider responsibilities. The authorization port must fail closed when membership or permission cannot be established. A Party ID, even one correctly resolved from an authenticated subject, is not authorization.
+
+Do not infer identity equivalence from UUID equality between `UserId`, `PersonRef`, `OrganizationId`, driver IDs or `PartyId`. Social Graph consumes only explicit Ecosystem associations and canonical Party references.
+
+## Reliability and non-goals
+
+- The outbox table is an atomic event-intent store; broker relay/CDC and operational DLQ controls are not part of M1.
+- The JDBC adapter exposes Mutiny `Uni` and schedules blocking database work on the default worker pool.
+- No REST API, feed, follow/block, profile, unrestricted graph traversal, Neo4j projection or cross-tenant federation is included in M1.
+- Consent, visibility and data-subject erasure policy must be defined before public discovery or social read APIs are exposed.
 
 ## Build and test
 
 There is no repository-root Maven reactor. From the repository root:
 
 ```bash
-mvn -f core/framework/pom.xml -pl social-graph -am test
+mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am verify
 ```
 
-The build has not been claimed as passing until it is executed in CI or a checked-out workspace.
+The dedicated Social Graph workflow runs this command on relevant pull requests and main-branch changes. Source changes are not considered verified until Maven and PostgreSQL/Testcontainers checks pass.
 
-For a Quarkus host that includes this adapter, Flyway's default `classpath:db/migration` scan discovers the Social Graph migration from the dependency JAR. The host owns migration timing and should set `quarkus.flyway.migrate-at-start=true` only when ready to apply the schema. Do not configure a Social Graph-only location that hides other modules' migrations.
+For a Quarkus host, Flyway's default `classpath:db/migration` scan discovers the Social Graph migration from the adapter dependency JAR. The host owns migration timing; do not configure a Social Graph-only location that hides other modules' migrations.
