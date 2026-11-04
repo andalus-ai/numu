@@ -15,8 +15,8 @@ import java.util.*;
 
 /**
  * JDBC implementation of the API catalog aggregate repository.
- * Every operation starts a transaction, installs the trusted tenant in transaction-local
- * PostgreSQL state, and also carries the tenant predicate in every statement.
+ * Operations install the trusted tenant in transaction-local PostgreSQL state and carry
+ * the tenant predicate in every statement. Calls inside UnitOfWork reuse its connection.
  */
 @ApplicationScoped
 public final class PostgresApiProductRepository implements ApiProductRepository {

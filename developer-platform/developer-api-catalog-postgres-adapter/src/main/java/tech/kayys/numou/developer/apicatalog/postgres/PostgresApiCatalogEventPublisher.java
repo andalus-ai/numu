@@ -37,7 +37,7 @@ public final class PostgresApiCatalogEventPublisher implements EventPublisher {
  private void append(Connection c,TenantId tenant,ExecutionContext context,DomainEvent event)throws SQLException{
   ObjectNode root=mapper.createObjectNode();
   root.put("specVersion","1");root.put("eventId",event.eventId().toString());root.put("eventType",event.eventType());
-  root.put("eventVersion",event.eventVersion().toString());root.put("correlationId",context.correlationId().value());
+  root.put("eventVersion","1.0");root.put("correlationId",context.correlationId().value());
   root.put("causationId",context.causationId().value());root.put("tenantId",tenant.value().toString());
   root.putNull("participantId");root.put("actorId",context.actorId().value());root.put("occurredAt",event.occurredAt().toString());root.put("traceId",context.traceId());
   JsonNode data=mapper.valueToTree(event);
