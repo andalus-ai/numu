@@ -18,6 +18,7 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -201,14 +202,14 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
             return null;
         }).await().indefinitely();
 
-        assertThat(uow.execute(tx -> tx.findConnection(tenantA, sharedConnectionId))
-                .await().indefinitely()).contains(connectionA);
-        assertThat(uow.execute(tx -> tx.findConnection(tenantB, sharedConnectionId))
-                .await().indefinitely()).contains(connectionB);
-        assertThat(uow.execute(tx -> tx.findOpenConnection(tenantA, requester, recipient))
-                .await().indefinitely()).contains(connectionA);
-        assertThat(uow.execute(tx -> tx.findOpenConnection(tenantB, requester, recipient))
-                .await().indefinitely()).contains(connectionB);
+        assertStoredConnection(uow.execute(tx -> tx.findConnection(tenantA, sharedConnectionId))
+                .await().indefinitely(), connectionA);
+        assertStoredConnection(uow.execute(tx -> tx.findConnection(tenantB, sharedConnectionId))
+                .await().indefinitely(), connectionB);
+        assertStoredConnection(uow.execute(tx -> tx.findOpenConnection(tenantA, requester, recipient))
+                .await().indefinitely(), connectionA);
+        assertStoredConnection(uow.execute(tx -> tx.findOpenConnection(tenantB, requester, recipient))
+                .await().indefinitely(), connectionB);
         assertThat(uow.execute(tx -> tx.findIdempotency(tenantA, "same-key"))
                 .await().indefinitely()).contains(new SocialGraphIdempotencyRecord(
                         tenantA, "same-key", "request:" + requester + ":" + recipient,
@@ -217,6 +218,17 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
                 .await().indefinitely()).contains(new SocialGraphIdempotencyRecord(
                         tenantB, "same-key", "request:" + requester + ":" + recipient,
                         sharedConnectionId, now.plusSeconds(1)));
+    }
+
+    private static void assertStoredConnection(Optional<SocialConnection> actual, SocialConnection expected) {
+        assertThat(actual).hasValueSatisfying(stored -> {
+            assertThat(stored.id()).isEqualTo(expected.id());
+            assertThat(stored.tenantId()).isEqualTo(expected.tenantId());
+            assertThat(stored.requesterPartyId()).isEqualTo(expected.requesterPartyId());
+            assertThat(stored.recipientPartyId()).isEqualTo(expected.recipientPartyId());
+            assertThat(stored.requestedAt()).isEqualTo(expected.requestedAt());
+            assertThat(stored.status()).isEqualTo(expected.status());
+        });
     }
 
     @Test
