@@ -1,9 +1,9 @@
 # Social Graph M1 — Current-main implementation review
 
 - **Review date:** 2026-11-04
-- **Reviewed base:** `main` at `259d80cd3b1b79c529c9f541e69338eeeac8b79b`
-- **Review branch:** `social-graph/m0-current-main-audit-2`
-- **Status:** Source review and two targeted repairs committed; build, PostgreSQL and host-runtime verification pending
+- **Reviewed base:** `main` at `03917c97ac5cd11db26fb8f212ac465be61d7279`
+- **Review branch:** `feat/social-graph-m1-trusted-command-facade`
+- **Status:** Trusted command facade and boundary tests committed on a feature branch; build, PostgreSQL and host-runtime verification pending
 - **Related:** [Foundation architecture](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md), [M1 implementation plan](SOCIAL-GRAPH-M1-IMPLEMENTATION.md), [M0 repository audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md)
 
 ## 1. Current implementation found on main
@@ -55,7 +55,7 @@ File: `core/framework/social-graph/social-graph-persistence-jdbc/src/test/java/t
 
 Commit: `7a9375a4e8520f79cdebd702ac495b35b38e8d77`
 
-Both repairs are source-reviewed only. They have not yet been compiled or run.
+Both repairs are present on the reviewed current `main` source. They have not yet been compiled or run in this session.
 
 ## 4. Security and tenant-boundary findings
 
@@ -68,11 +68,10 @@ Both repairs are source-reviewed only. They have not yet been compiled or run.
 
 ### Remaining M1 integration gate
 
-- `SocialGraphAuthorizationPort` exists, but the current `SocialGraphService` does not depend on or invoke it.
-- `SocialGraphService` accepts a `SocialGraphActor` directly. The actor record is publicly constructible.
-- The README and M1 document place trusted actor construction and tenant/capability authorization at the host boundary. No REST adapter or production host composition was found in this Social Graph slice.
-- Therefore, the service must only be exposed through a trusted composition boundary that obtains tenant and issuer/subject from verified security context, resolves the actor, invokes authorization, and then calls the service. Never accept a caller-provided PartyId or tenant as the authenticated actor.
-- Add an integration test proving unauthenticated, unassociated, inactive, non-member and unauthorized actors cannot invoke commands through the public host entry point.
+- `SocialGraphService` already invokes `SocialGraphAuthorizationPort` before active-Party checks and persistence side effects for connection requests and lifecycle commands.
+- `SocialGraphActor` remains publicly constructible, so a host must not treat an actor DTO or caller-supplied PartyId/tenant as authenticated identity.
+- The feature branch adds `SocialGraphCommandFacade`, which resolves a verified issuer/subject against the trusted tenant, rejects missing associations and cross-tenant resolver results, then delegates to the service. The service's authorization port remains mandatory; identity association alone does not grant capability access.
+- Facade tests cover unassociated identities, cross-tenant resolver results, and authorization denial before persistence. No REST adapter or production host composition was found in this Social Graph slice; host wiring and end-to-end authentication tests remain outstanding.
 - The Social Graph tables do not currently declare PostgreSQL row-level security policies. The persistence adapter applies tenant predicates. Decide whether database RLS is required as defense-in-depth for the intended deployment roles before exposing broader read/query APIs.
 
 ## 5. Adjacent capability ownership revalidated
@@ -112,7 +111,7 @@ The current repository tree contains capability-specific privacy/retention behav
 ## 7. M1 acceptance gates and next work
 
 1. Run the dedicated Social Graph workflow / Maven command and record exact results; verify the Flyway migration and Testcontainers PostgreSQL tests execute (not silently skipped because Docker is unavailable).
-2. Implement and test the trusted host composition for security-context → tenant-scoped identity association → active Party → authorization → Social Graph command.
+2. Integrate the new command facade into the actual host composition and test verified principal → tenant-scoped identity association → active Party → authorization → command end-to-end.
 3. Decide and document PostgreSQL RLS requirements for graph, audit, idempotency and outbox tables under actual application/worker roles.
 4. Add concurrency coverage for duplicate idempotency keys and active-pair races, and confirm retry/replay behavior.
 5. Define consent, visibility, block and deletion semantics before adding read/list/search or cross-tenant discovery.
