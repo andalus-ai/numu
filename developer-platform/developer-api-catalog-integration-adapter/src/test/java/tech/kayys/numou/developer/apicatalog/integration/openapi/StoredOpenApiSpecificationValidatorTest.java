@@ -33,7 +33,7 @@ class StoredOpenApiSpecificationValidatorTest {
   var validator=new StoredOpenApiSpecificationValidator(new MemoryStorage(bytes,sha(bytes)));
   assertThatThrownBy(()->validator.validateAndVerify(tenant,
     new ApiSpecification("3.1","rustfs://api-specs/orders.yaml","b".repeat(64))).await().indefinitely())
-    .hasRootCauseInstanceOf(StoredOpenApiSpecificationValidator.ApiSpecificationValidationException.class);
+    .isInstanceOf(StoredOpenApiSpecificationValidator.ApiSpecificationValidationException.class);
  }
 
  @Test void rejectsMalformedOpenApiDocument(){
@@ -41,7 +41,7 @@ class StoredOpenApiSpecificationValidatorTest {
   var validator=new StoredOpenApiSpecificationValidator(new MemoryStorage(bytes,digest));
   assertThatThrownBy(()->validator.validateAndVerify(tenant,
     new ApiSpecification("3.1","rustfs://api-specs/orders.yaml",digest)).await().indefinitely())
-    .hasRootCauseInstanceOf(StoredOpenApiSpecificationValidator.ApiSpecificationValidationException.class);
+    .isInstanceOf(StoredOpenApiSpecificationValidator.ApiSpecificationValidationException.class);
  }
 
  private static String sha(byte[] bytes){
