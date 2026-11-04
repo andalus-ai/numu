@@ -121,6 +121,31 @@ public final class JdbcWorkspaceStore implements WorkspaceRepository, SpaceRepos
         }catch(SQLException e){throw failure("read page history",e);}
     }
 
+    @Override public List<PageRevision> historyAfter(UUID tenantId, UUID pageId, long afterRevision,
+                                                       long throughRevision, int limit) {
+        if (afterRevision < 0 || throughRevision < afterRevision || limit < 1) {
+            throw new IllegalArgumentException("Invalid page revision replay bounds");
+        }
+        String sql = "SELECT revision,title,actor_id,recorded_at,change_summary FROM workspace_page_revisions "
+                + "WHERE tenant_id=? AND page_id=? AND revision>? AND revision<=? ORDER BY revision LIMIT ?";
+        try (Connection c=dataSource.getConnection(); PreparedStatement p=c.prepareStatement(sql)) {
+            p.setObject(1, tenantId); p.setObject(2, pageId); p.setLong(3, afterRevision);
+            p.setLong(4, throughRevision); p.setInt(5, limit);
+            List<PageRevision> out = new ArrayList<>();
+            try (ResultSet r=p.executeQuery()) {
+                while (r.next()) {
+                    long revision = r.getLong(1);
+                    out.add(new PageRevision(tenantId, pageId, revision, r.getString(2),
+                            readBlocks(c, "workspace_page_revision_blocks", tenantId, pageId, revision),
+                            uuid(r,3), instant(r,4), r.getString(5)));
+                }
+            }
+            return List.copyOf(out);
+        } catch (SQLException e) {
+            throw failure("replay page revisions", e);
+        }
+    }
+
     @Override public void record(AuditEntry entry) {
         String sql="INSERT INTO workspace_audit_events(tenant_id,actor_id,action,resource_type,resource_id,revision,summary,occurred_at) VALUES(?,?,?,?,?,?,?,?)";
         try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){
