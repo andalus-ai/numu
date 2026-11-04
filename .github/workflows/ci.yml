@@ -32,6 +32,35 @@ jobs:
       - name: Enforce declared capability dependency directions
         run: python3 tools/verify-capability-boundaries.py
 
+  organization-invitation:
+    name: Organization invitation lifecycle verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation contracts
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Build and install ecosystem contracts
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Identity contracts
+        run: mvn -B -ntp -f identity/pom.xml install
+      - name: Verify Organization and invitation lifecycle
+        run: mvn -B -ntp -f organization/pom.xml verify
+      - name: Upload Organization Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: organization-invitation-test-reports
+          path: "organization/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
+
   queue-management-postgres:
     name: Queue Management PostgreSQL runtime verification
     runs-on: ubuntu-24.04
