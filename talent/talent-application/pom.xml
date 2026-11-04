@@ -15,6 +15,11 @@
     <dependencies>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-ecosystem-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-talent-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
