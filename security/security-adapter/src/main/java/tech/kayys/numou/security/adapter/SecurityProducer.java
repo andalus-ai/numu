@@ -36,7 +36,7 @@ public class SecurityProducer {
     @Produces
     @ApplicationScoped
     RolePermissionMatrix roleMatrix() {
-        return RolePermissionMatrix.restaurantDefaults();
+        return RolePermissionMatrix.restaurantDefaults().merge(RolePermissionMatrix.socialGraphDefaults());
     }
 
     @Produces
