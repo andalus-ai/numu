@@ -1,13 +1,55 @@
 package tech.kayys.numou.developer.apicatalog.domain;
+
 import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import java.time.Instant;
 import java.util.*;
+
 /** Tenant-owned API product metadata; gateway routes and credentials are separate capabilities. */
 public final class ApiProduct extends AbstractAggregateRoot<ApiProductId> {
- private final ApiProductId id; private final UUID providerTenantId; private final Instant createdAt; private final Map<String,ApiVersion> versions=new TreeMap<>();
- private final String name; private final String slug; private final String description; private ApiProductStatus status; private Instant updatedAt; private long revision;
- private ApiProduct(ApiProductId id,UUID tenant,String name,String slug,String description,Instant now){super(Objects.requireNonNull(id,"id cannot be null"));this.id=id;this.providerTenantId=Objects.requireNonNull(tenant,"providerTenantId cannot be null");this.name=text(name,"name");this.slug=slug(slug);this.description=description(description);this.status=ApiProductStatus.DRAFT;this.createdAt=Objects.requireNonNull(now,"now cannot be null");this.updatedAt=now;this.revision=1;raise(new ApiProductCreated(UUID.randomUUID(),now,id,tenant,this.slug));}
- public static ApiProduct create(ApiProductId id,UUID tenant,String name,String slug,String description,Instant now){return new ApiProduct(id,tenant,name,slug,description,now);}
+ private final ApiProductId id;
+ private final UUID providerTenantId;
+ private final Instant createdAt;
+ private final Map<String,ApiVersion> versions=new TreeMap<>();
+ private final String name;
+ private final String slug;
+ private final String description;
+ private ApiProductStatus status;
+ private Instant updatedAt;
+ private long revision;
+
+ private ApiProduct(ApiProductId id,UUID tenant,String name,String slug,String description,Instant now){
+  super(Objects.requireNonNull(id,"id cannot be null"));
+  this.id=id;this.providerTenantId=Objects.requireNonNull(tenant,"providerTenantId cannot be null");
+  this.name=text(name,"name");this.slug=slug(slug);this.description=description(description);
+  this.status=ApiProductStatus.DRAFT;this.createdAt=Objects.requireNonNull(now,"now cannot be null");
+  this.updatedAt=now;this.revision=1;
+  raise(new ApiProductCreated(UUID.randomUUID(),now,id,tenant,this.slug));
+ }
+ private ApiProduct(ApiProductId id,UUID tenant,String name,String slug,String description,ApiProductStatus status,
+                    Instant createdAt,Instant updatedAt,long revision,Collection<ApiVersion> versions){
+  super(Objects.requireNonNull(id,"id cannot be null"));
+  this.id=id;this.providerTenantId=Objects.requireNonNull(tenant,"providerTenantId cannot be null");
+  this.name=text(name,"name");this.slug=slug(slug);this.description=description(description);
+  this.status=Objects.requireNonNull(status,"status cannot be null");
+  this.createdAt=Objects.requireNonNull(createdAt,"createdAt cannot be null");
+  this.updatedAt=Objects.requireNonNull(updatedAt,"updatedAt cannot be null");
+  if(updatedAt.isBefore(createdAt))throw new IllegalArgumentException("updatedAt cannot be before createdAt");
+  if(revision<1)throw new IllegalArgumentException("revision must be positive");
+  this.revision=revision;
+  for(ApiVersion version:Objects.requireNonNull(versions,"versions cannot be null")){
+   Objects.requireNonNull(version,"version cannot be null");
+   if(this.versions.putIfAbsent(version.version(),version)!=null)throw new IllegalArgumentException("duplicate API version: "+version.version());
+  }
+ }
+ public static ApiProduct create(ApiProductId id,UUID tenant,String name,String slug,String description,Instant now){
+  return new ApiProduct(id,tenant,name,slug,description,now);
+ }
+ /** Reconstitutes persisted state without emitting creation events or changing the stored revision. */
+ public static ApiProduct reconstitute(ApiProductId id,UUID tenant,String name,String slug,String description,
+                                       ApiProductStatus status,Instant createdAt,Instant updatedAt,long revision,
+                                       Collection<ApiVersion> versions){
+  return new ApiProduct(id,tenant,name,slug,description,status,createdAt,updatedAt,revision,versions);
+ }
  public void addVersion(ApiVersion version,Instant now){mutable(now);Objects.requireNonNull(version,"version cannot be null");if(status==ApiProductStatus.RETIRED)throw new IllegalStateException("retired product cannot be changed");if(version.status()!=ApiVersionStatus.DRAFT)throw new IllegalArgumentException("only draft versions can be added");if(versions.putIfAbsent(version.version(),version)!=null)throw new IllegalStateException("API version already exists: "+version.version());touch(now);}
  public void publishVersion(String version,Instant now){mutable(now);ApiVersion v=requireVersion(version);if(status==ApiProductStatus.SUSPENDED||status==ApiProductStatus.RETIRED)throw new IllegalStateException("suspended or retired product cannot publish versions");versions.put(version,v.publish());if(status==ApiProductStatus.DRAFT)status=ApiProductStatus.ACTIVE;touch(now);raise(new ApiVersionPublished(UUID.randomUUID(),now,id,version));}
  public void deprecateVersion(String version,Instant now){mutable(now);versions.put(version,requireVersion(version).deprecate());touch(now);}
