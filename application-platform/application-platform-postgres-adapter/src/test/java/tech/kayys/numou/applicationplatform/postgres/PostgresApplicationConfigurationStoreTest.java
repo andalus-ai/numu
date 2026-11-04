@@ -133,6 +133,7 @@ class PostgresApplicationConfigurationStoreTest {
                 "{\"warehouse\":\"A\"}", "user:a", Instant.parse("2026-11-04T05:20:00Z"));
         assertThat(store.save(snapshot, 0).toCompletableFuture().join().saved()).isTrue();
         assertThat(store.findCurrent(tenantB, app.value()).toCompletableFuture().join()).isEmpty();
+        assertThat(store.findHistory(tenantB, app, null, 10).toCompletableFuture().join().revisions()).isEmpty();
         assertThat(count("application_configurations", tenantB)).isZero();
     }
 
