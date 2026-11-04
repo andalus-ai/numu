@@ -28,8 +28,15 @@ public final class InMemoryApplicationExtensionPointRegistry implements Applicat
     public boolean unregister(String id, String expectedContractVersion) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(expectedContractVersion, "expectedContractVersion");
-        return points.computeIfPresent(id, (key, current) ->
-                current.contractVersion().equals(expectedContractVersion) ? null : current) == null;
+        java.util.concurrent.atomic.AtomicBoolean removed = new java.util.concurrent.atomic.AtomicBoolean();
+        points.computeIfPresent(id, (key, current) -> {
+            if (current.contractVersion().equals(expectedContractVersion)) {
+                removed.set(true);
+                return null;
+            }
+            return current;
+        });
+        return removed.get();
     }
 
     @Override
