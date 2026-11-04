@@ -11,7 +11,6 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * JDBC implementation of the API catalog aggregate repository.
@@ -73,8 +72,8 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
       s.setString(1,tenant.value().toString());s.execute();
      }
      T result=work.apply(c);c.commit();return result;
-    }catch(Throwable e){try{c.rollback();}catch(SQLException rollback){e.addSuppressed(rollback);}throw e;}
-   }catch(SQLException e){throw new IllegalStateException("API catalog PostgreSQL operation failed",e);}
+    }catch(SQLException|RuntimeException|Error e){try{c.rollback();}catch(SQLException rollback){e.addSuppressed(rollback);}throw e;}
+   }catch(SQLException e){if("40001".equals(e.getSQLState()))throw new OptimisticLockException("Concurrent API product update; reload and retry",e);throw new IllegalStateException("API catalog PostgreSQL operation failed",e);}
   }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
  }
 
@@ -168,7 +167,7 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
   }
   return Optional.of(ApiProduct.reconstitute(ApiProductId.of(id),tenant,name,slug,description,status,created,updated,revision,versions));
  }
- @FunctionalInterface private interface SqlWork<T>{T apply(Connection connection)throws Exception;}
+ @FunctionalInterface private interface SqlWork<T>{T apply(Connection connection)throws SQLException;}
  public static final class OptimisticLockException extends RuntimeException{
   public OptimisticLockException(String message){super(message);}
  }
