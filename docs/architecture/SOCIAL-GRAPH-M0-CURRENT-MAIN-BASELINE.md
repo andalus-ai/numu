@@ -83,3 +83,117 @@ Select only one after current code and integration-test evidence. Required Postg
 - [ ] Exact Maven reactor commands and current CI outcomes recorded; no unrun command marked passed.
 - [ ] M1 domain/API/event/migration/test slice reviewed against current-main contracts.
 - [ ] No PR opened until explicitly approved.
+
+
+## 7. Current-main domain contract revalidation (2026-11-04)
+
+This section records direct source-file inspection against current `main`. It supersedes older assumptions only where stated; it does not claim a complete repository-wide identifier scan.
+
+### 7.1 Canonical Party and Party relationships
+
+Inspected current-main source:
+
+- `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/model/Party.java`
+- `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/PartyId.java`
+- `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/PartyRelationship.java`
+- `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/PartyRelationshipType.java`
+
+Confirmed:
+
+- Party remains canonical cross-domain identity for PERSON or ORGANIZATION and owns only kind/lifecycle. The source comment explicitly assigns names, contact details, organization structure and person-specific attributes to their respective profile capabilities.
+- PartyId is a strongly typed UUID identifier; its UUID representation does not make it interchangeable with any other UUID identifier.
+- PartyRelationship is a directed source Party -> target Party relationship with effective dates and ACTIVE/PROPOSED/TERMINATED lifecycle behavior. It rejects self-relations and invalid date ranges.
+- PartyRelationshipType remains the commercial/organizational vocabulary: CUSTOMER_OF, SUPPLIER_OF, PARTNER_OF, PROVIDER_OF, MEMBER_OF, SUBSIDIARY_OF.
+
+Decision unchanged: do not add connection/follow/block semantics to PartyRelationship or its enum. Social Graph must own a distinct social relationship lifecycle and reference PartyId only after identity resolution.
+
+### 7.2 Authenticated identity association
+
+Inspected current-main source:
+
+- `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/IdentitySubjectRef.java`
+- `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/PartyIdentityAssociation.java`
+- `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/port/PartyIdentityAssociationRepository.java`
+
+Confirmed:
+
+- IdentitySubjectRef is the issuer + subject pair. Its source documentation explicitly says it is never interpreted as UserId or PartyId, even if its text resembles a UUID.
+- PartyIdentityAssociation is tenant-scoped and explicitly links that external authenticated subject to a Party.
+- The association documentation says it establishes identity linkage only; it does not grant roles, tenant membership, or authorization.
+- The public repository port exposes tenant+identity active lookup and tenant+Party lookup.
+
+M1 actor resolution must use trusted authenticated context and this explicit association. It must perform authorization separately; successful identity linkage alone is not access permission.
+
+### 7.3 Workforce identity remains unresolved
+
+Inspected current-main source:
+
+- `workforce/workforce-domain/src/main/java/tech/kayys/numou/workforce/domain/worker/Worker.java`
+
+Confirmed:
+
+- Worker is tenant-owned and stores a `PersonRef`, WorkerType, WorkerStatus and audit metadata.
+- No PartyId is stored in the Worker aggregate contract inspected here.
+- The Worker factory raises WorkerCreated with PersonRef; no mapping to Party is implied by the event.
+
+M1 must not cast PersonRef UUID to PartyId. A validated mapping/resolver contract remains required before Workforce profiles or workers can be linked into the graph. The current pass did not complete a repository-wide persisted-column/event/API scan of PersonRef.
+
+### 7.4 CRM owns customer and referral semantics
+
+Inspected current-main source:
+
+- `crm/numou-crm-domain/src/main/java/tech/kayys/numou/crm/domain/model/Customer.java`
+- `crm/numou-crm-domain/src/main/java/tech/kayys/numou/crm/domain/referral/Referral.java`
+- `crm/numou-crm-domain/src/main/java/tech/kayys/numou/crm/domain/relationship/AccountRelationship.java`
+
+Confirmed:
+
+- CRM Customer currently contains its own company/person contact fields, addresses, contact list, commercial terms and active flag. This is a domain-specific customer model, not proof of canonical Party linkage.
+- CRM AccountRelationship connects AccountIds and has its own type and termination semantics. It is not a social relationship.
+- CRM Referral represents a business introduction from a referrer Account to a Lead or Opportunity and has pending/accepted/rejected/converted lifecycle semantics.
+
+Decision: Social Graph may later provide social connection context or referrals as a consumer integration, but must not take over CRM customer lifecycle, account relationships, lead/opportunity referral conversion, or copy their state into generic social edges. Any CRM-to-Party mapping must be verified before cross-linking.
+
+### 7.5 Mobility Driver remains an operational domain subject
+
+Inspected current-main source:
+
+- `mobility/driver/mobility-driver-domain/src/main/java/tech/kayys/numou/mobility/driver/domain/Driver.java`
+- `mobility/driver/mobility-driver-domain/src/main/java/tech/kayys/numou/mobility/driver/domain/Vehicle.java`
+
+Confirmed:
+
+- Driver owns onboarding verification, online/offline/on-trip state, active ride claim, rating counters and cancellation/suspension behavior.
+- Driver stores operational name/phone/vehicle information in its own aggregate.
+- Vehicle is a driver-domain value object with vehicle type, plate, model and color.
+- The inspected Driver aggregate does not expose PartyId or PersonRef as its identity contract.
+
+Decision: Social Graph must not become the owner of driver identity, verification, availability, ride assignment, vehicle details or operational reputation. A DriverId-to-Party mapping must be explicitly discovered or introduced by the Mobility owner before a person profile can be linked. DriverId must not be treated as PartyId.
+
+### 7.6 Updated ownership and integration matrix
+
+| Domain concept | Current owner / identifier | Social Graph integration rule |
+|---|---|---|
+| Canonical person/organization | Ecosystem Party / PartyId | Reference after validated resolution |
+| Authenticated principal | Identity subject (issuer + subject) | Resolve tenant-scoped Party association; separately authorize |
+| Workforce worker | Workforce / WorkerId + PersonRef | Require explicit PersonRef-to-Party resolver |
+| CRM customer | CRM / CustomerId | Do not infer Party mapping from customer fields |
+| CRM account relationship | CRM / AccountId pair | Keep separate from social connection |
+| CRM referral | CRM / ReferralId, AccountId, Lead/Opportunity | Integrate by contract; preserve referral lifecycle |
+| Mobility driver | Mobility / DriverId | Require explicit DriverId-to-Party mapping |
+| Mobility vehicle | Mobility / vehicle value object | Reference only through Mobility-owned authorized views |
+| Ecosystem Party relationship | Ecosystem / PartyId pair | Commercial/organizational relationship only |
+
+### 7.7 Remaining M0 inventory gaps
+
+The following are intentionally still open:
+
+- Current-main OrganizationPartyAssociation and OrganizationMembership source revalidation (including exact API and persistence behavior).
+- Current-main Customer/CRM account-to-Party mapping inventory and any migration/backfill contracts.
+- Jobs/recruitment and marketplace subject contracts, plus Fleet/Carrier/Logistics mappings.
+- Complete repository-wide PersonRef, PartyId, UserId, WorkerId, DriverId and OrganizationId usage scan, including persisted columns, events, APIs and serialized documents.
+- Current-main consent/privacy/deletion/export owner and policy integration contract.
+- Current-main Security authorization contract and the exact application composition point for actor Party resolution.
+- Current-main persistence/outbox transaction implementation and executable PostgreSQL proof.
+
+These are not presumed absent based on GitHub code-search results. A complete checked-out scan and affected-reactor CI evidence are still needed before M0 can be declared complete.
