@@ -38,6 +38,9 @@
         <module>scope</module>
         <module>planning</module>
         <module>aggregate</module>
+
+        <!-- Business-facing developer ecosystem capability -->
+        <module>../../developer-platform</module>
     </modules>
 
     <properties>
