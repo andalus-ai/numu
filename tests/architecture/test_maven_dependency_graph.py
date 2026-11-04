@@ -63,6 +63,29 @@ class MavenDependencyGraphTest(unittest.TestCase):
             project = MODULE.parse_pom(pom, root)
             self.assertEqual(MODULE.dependencies(project), [])
 
+    def test_unversioned_internal_dependency_links_only_unique_ga(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            a = write_pom(root, "a/pom.xml", """<project xmlns="http://maven.apache.org/POM/4.0.0">
+              <modelVersion>4.0.0</modelVersion><groupId>tech.kayys.numou</groupId>
+              <artifactId>a</artifactId><version>1</version><dependencies><dependency>
+              <groupId>tech.kayys.numou</groupId><artifactId>b</artifactId>
+              </dependency></dependencies></project>""")
+            b = write_pom(root, "b/pom.xml", """<project xmlns="http://maven.apache.org/POM/4.0.0">
+              <modelVersion>4.0.0</modelVersion><groupId>tech.kayys.numou</groupId>
+              <artifactId>b</artifactId><version>1</version></project>""")
+            projects = [MODULE.parse_pom(path, root) for path in (a, b)]
+            for project in projects:
+                project["coordinate"] = MODULE.coordinate(
+                    project["group_id"], project["artifact_id"], project["version"])
+            deps = [dep for project in projects for dep in MODULE.dependencies(project)]
+            payload = MODULE.write_outputs(root / "out", projects, deps,
+                                           "tech.kayys.numou", {"compile"})
+            edge = payload["dependencies"][0]
+            self.assertEqual(edge["resolution"], "resolved-internal-version-unspecified")
+            self.assertEqual(edge["target_paths"], ["b/pom.xml"])
+            self.assertEqual(edge["target_coordinates"], ["tech.kayys.numou:b:1"])
+
     def test_tarjan_reports_multi_node_and_self_cycles(self):
         nodes = {"a", "b", "c"}
         cycles = MODULE.strongly_connected_components(nodes, [("a", "b"), ("b", "a"), ("c", "c")])
