@@ -2,6 +2,7 @@ package tech.kayys.numou.security.socialgraph;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 import tech.kayys.numou.socialgraph.application.PartyDirectoryPort;
 import tech.kayys.numou.socialgraph.application.SocialGraphActorResolver;
 import tech.kayys.numou.socialgraph.application.SocialGraphAuthorizationPort;
@@ -20,6 +21,7 @@ public class SocialGraphCommandFacadeProducer {
     private final SocialGraphAuthorizationPort authorization;
     private final SocialGraphActorResolver actors;
 
+    @Inject
     public SocialGraphCommandFacadeProducer(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties,
             SocialGraphAuthorizationPort authorization, SocialGraphActorResolver actors) {
         this.unitOfWork = Objects.requireNonNull(unitOfWork, "unitOfWork cannot be null");
