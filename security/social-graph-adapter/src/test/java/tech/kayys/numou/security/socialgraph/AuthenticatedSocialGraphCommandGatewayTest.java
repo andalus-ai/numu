@@ -34,6 +34,8 @@ class AuthenticatedSocialGraphCommandGatewayTest {
         var gateway = gateway(context(tenant), Optional.of(subject), new SocialGraphCommandInvoker() {
             @Override public Uni<SocialConnection> requestConnection(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
             @Override public Uni<SocialConnection> acceptConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) {
+        SocialGraphCommandInvoker invoker = new NoOpInvoker() {
+            @Override public Uni<SocialConnection> acceptConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String key) {
                 assertThat(t).isEqualTo(tenant);
                 assertThat(s).isEqualTo(subject);
                 invoked.set(true);
@@ -45,6 +47,10 @@ class AuthenticatedSocialGraphCommandGatewayTest {
         });
         assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key-1")
                 .await().indefinitely()).isInstanceOf(UnsupportedOperationException.class);
+        };
+        assertThatThrownBy(() -> gateway(context(tenant), Optional.of(subject), invoker)
+                .acceptConnection(SocialConnectionId.generate(), "key").await().indefinitely())
+                .isInstanceOf(UnsupportedOperationException.class);
         assertThat(invoked).isTrue();
     }
 

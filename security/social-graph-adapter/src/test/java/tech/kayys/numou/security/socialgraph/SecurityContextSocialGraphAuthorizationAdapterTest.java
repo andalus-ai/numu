@@ -37,6 +37,13 @@ class SecurityContextSocialGraphAuthorizationAdapterTest {
     void allowsLifecycleCommandOnlyWithPerformPermission() {
         var adapter = adapter(context(tenant, Set.of(Permission.of("social-graph", "perform"))));
 
+    @Test void permitsRequestWithCreatePermission() {
+        var adapter = adapter(context(tenant, Set.of(Permission.of("social-graph", "create"))));
+        assertThatCode(() -> adapter.requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
+                .doesNotThrowAnyException();
+    }
+    @Test void requiresPerformPermissionForLifecycle() {
+        var adapter = adapter(context(tenant, Set.of(Permission.of("social-graph", "perform"))));
         assertThatCode(() -> adapter.requireAuthorized(actor, SocialGraphAuthorizationAction.MANAGE_CONNECTION))
                 .doesNotThrowAnyException();
         assertThatThrownBy(() -> adapter.requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
