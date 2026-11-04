@@ -232,6 +232,52 @@ class PostgresApplicationInstallationStoreTest {
         }
     }
 
+    @Test
+    void enabledInstallationQueryIsTenantScopedAndDeterministicallyOrdered() {
+        TenantId tenant = TenantId.generate();
+        TenantId otherTenant = TenantId.generate();
+        Instant now = Instant.parse("2026-11-03T10:07:00Z");
+
+        var zulu = requested(tenant, "com.example.zulu", "1.0.0", "actor-a", now);
+        store.createIfAbsent(zulu, hash("client-key-00000010"), zulu.requestedEvent(now))
+                .toCompletableFuture().join();
+        var alpha = requested(tenant, "com.example.alpha", "1.0.0", "actor-a", now.plusSeconds(1));
+        store.createIfAbsent(alpha, hash("client-key-00000011"), alpha.requestedEvent(now.plusSeconds(1)))
+                .toCompletableFuture().join();
+        var pending = requested(tenant, "com.example.pending", "1.0.0", "actor-a", now.plusSeconds(2));
+        store.createIfAbsent(pending, hash("client-key-00000012"), pending.requestedEvent(now.plusSeconds(2)))
+                .toCompletableFuture().join();
+        var other = requested(otherTenant, "com.example.other", "1.0.0", "actor-a", now);
+        store.createIfAbsent(other, hash("client-key-00000013"), other.requestedEvent(now))
+                .toCompletableFuture().join();
+
+        enable(zulu, now.plusSeconds(10));
+        enable(alpha, now.plusSeconds(20));
+        enable(other, now.plusSeconds(30));
+
+        assertThat(store.findEnabled(tenant).toCompletableFuture().join())
+                .extracting(i -> i.applicationId().value())
+                .containsExactly("com.example.alpha", "com.example.zulu");
+        assertThat(store.findEnabled(otherTenant).toCompletableFuture().join())
+                .extracting(i -> i.applicationId().value())
+                .containsExactly("com.example.other");
+    }
+
+    private static void enable(ApplicationInstallation installation, Instant now) {
+        var validating = installation.beginValidation("worker", now);
+        assertThat(store.appendTransition(installation, validating, installation.revision())
+                .toCompletableFuture().join()).isTrue();
+        var provisioning = installation.beginProvisioning("worker", now.plusSeconds(1));
+        assertThat(store.appendTransition(installation, provisioning, installation.revision())
+                .toCompletableFuture().join()).isTrue();
+        var installed = installation.completeProvisioning("worker", now.plusSeconds(2));
+        assertThat(store.appendTransition(installation, installed, installation.revision())
+                .toCompletableFuture().join()).isTrue();
+        var enabled = installation.enable("operator", now.plusSeconds(3));
+        assertThat(store.appendTransition(installation, enabled, installation.revision())
+                .toCompletableFuture().join()).isTrue();
+    }
+
     private static ApplicationInstallation requested(TenantId tenant, String app, String version,
             String actor, Instant now) {
         return ApplicationInstallation.request(tenant, new ApplicationId(app), new PackageVersion(version),
