@@ -29,14 +29,17 @@ public class OAuthIntrospectionResource {
     private final JWTParser jwtParser;
     private final OAuthClientAccessTokenStateValidator stateValidator;
     private final String expectedAudience;
+    private final String expectedIssuer;
 
     @Inject
     public OAuthIntrospectionResource(JWTParser jwtParser,
             OAuthClientAccessTokenStateValidator stateValidator,
-            @org.eclipse.microprofile.config.inject.ConfigProperty(name = "numou.oauth.access-token.audience") String expectedAudience) {
+            @org.eclipse.microprofile.config.inject.ConfigProperty(name = "numou.oauth.access-token.audience") String expectedAudience,
+            @org.eclipse.microprofile.config.inject.ConfigProperty(name = "mp.jwt.verify.issuer") String expectedIssuer) {
         this.jwtParser = jwtParser;
         this.stateValidator = stateValidator;
         this.expectedAudience = expectedAudience;
+        this.expectedIssuer = expectedIssuer;
     }
 
     @POST
@@ -55,7 +58,8 @@ public class OAuthIntrospectionResource {
             return inactive();
         }
         if (principal.getExpirationTime() <= System.currentTimeMillis() / 1000
-                || !principal.getAudience().contains(expectedAudience)) {
+                || !expectedIssuer.equals(principal.getIssuer())
+                || principal.getAudience() == null || !principal.getAudience().contains(expectedAudience)) {
             return inactive();
         }
         String scopeClaim = principal.getClaim("scope");
