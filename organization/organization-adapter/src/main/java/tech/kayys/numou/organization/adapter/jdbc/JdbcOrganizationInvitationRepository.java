@@ -60,7 +60,7 @@ public final class JdbcOrganizationInvitationRepository implements OrganizationI
         Objects.requireNonNull(normalizedEmail);
         return query("SELECT " + COLUMNS + " FROM organization_invitations "
                         + "WHERE tenant_id = ? AND organization_id = ? AND recipient_email = ? "
-                        + "AND status = 'PENDING' AND expires_at > CURRENT_TIMESTAMP",
+                        + "AND status = 'PENDING'",
                 s -> {
                     s.setObject(1, tenantId.value());
                     s.setObject(2, organizationId.value());
@@ -78,6 +78,16 @@ public final class JdbcOrganizationInvitationRepository implements OrganizationI
                     insert(c, candidate, tenantId);
                 } else {
                     OrganizationInvitation old = current.get();
+                    if (candidate.getVersion() == old.getVersion()
+                            && candidate.status() == old.status()
+                            && candidate.tokenHash().equals(old.tokenHash())
+                            && candidate.expiresAt().equals(old.expiresAt())
+                            && Objects.equals(candidate.acceptedBy(), old.acceptedBy())
+                            && Objects.equals(candidate.acceptedAt(), old.acceptedAt())
+                            && Objects.equals(candidate.revokedAt(), old.revokedAt())) {
+                        c.commit();
+                        return old;
+                    }
                     if (candidate.getVersion() != old.getVersion() + 1) {
                         throw new IllegalStateException("Invitation version conflict");
                     }
