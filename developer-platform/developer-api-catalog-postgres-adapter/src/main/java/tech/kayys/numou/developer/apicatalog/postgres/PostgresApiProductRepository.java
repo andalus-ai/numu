@@ -66,7 +66,7 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
 
  private <T> Uni<T> inTenant(TenantId tenant,SqlWork<T> work){
   Objects.requireNonNull(tenant,"tenant cannot be null");
-  return transactions.withTenant(tenant,work);
+  return transactions.withTenant(tenant,connection->work.apply(connection));
  }
 
  private static void insertProduct(Connection c,UUID tenant,ApiProduct p)throws SQLException{
