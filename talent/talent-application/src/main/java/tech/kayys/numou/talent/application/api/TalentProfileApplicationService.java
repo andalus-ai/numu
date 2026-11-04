@@ -24,17 +24,20 @@ public final class TalentProfileApplicationService {
     private final TalentProfileRepository profiles;
     private final PersonPartyDirectory parties;
     private final TalentProfileAccessPolicy access;
+    private final ProfileEvidenceVerifier evidenceVerifier;
     private final TalentProfileTransactionRunner transactions;
 
     public TalentProfileApplicationService(
             TalentProfileRepository profiles,
             PersonPartyDirectory parties,
             TalentProfileAccessPolicy access,
+            ProfileEvidenceVerifier evidenceVerifier,
             TalentProfileTransactionRunner transactions
     ) {
         this.profiles = Objects.requireNonNull(profiles, "profiles");
         this.parties = Objects.requireNonNull(parties, "parties");
         this.access = Objects.requireNonNull(access, "access");
+        this.evidenceVerifier = Objects.requireNonNull(evidenceVerifier, "evidenceVerifier");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
     }
 
@@ -82,7 +85,8 @@ public final class TalentProfileApplicationService {
             ExecutionContext context, TalentProfileId id, List<ProfileContent.Skill> skills
     ) {
         List<ProfileContent.Skill> safe = List.copyOf(Objects.requireNonNull(skills, "skills"));
-        return mutate(context, id, TalentProfileAccessPolicy.Action.UPDATE, profile -> profile.replaceSkills(safe));
+        return mutateAsync(context, id, TalentProfileAccessPolicy.Action.UPDATE, profile ->
+                verifySkills(context, profile.subject(), safe, 0).invoke(() -> profile.replaceSkills(safe)));
     }
 
     public Uni<TalentProfileView> replaceExperiences(
@@ -103,7 +107,8 @@ public final class TalentProfileApplicationService {
             ExecutionContext context, TalentProfileId id, List<ProfileContent.Credential> credentials
     ) {
         List<ProfileContent.Credential> safe = List.copyOf(Objects.requireNonNull(credentials, "credentials"));
-        return mutate(context, id, TalentProfileAccessPolicy.Action.UPDATE, profile -> profile.replaceCredentials(safe));
+        return mutateAsync(context, id, TalentProfileAccessPolicy.Action.UPDATE, profile ->
+                verifyCredentials(context, profile.subject(), safe, 0).invoke(() -> profile.replaceCredentials(safe)));
     }
 
     public Uni<TalentProfileView> replacePortfolio(
@@ -140,6 +145,61 @@ public final class TalentProfileApplicationService {
             return allowed(context, action, profile.subject(), profile)
                     .map(ignored -> TalentProfileView.from(profile));
         });
+    }
+
+    private Uni<Void> verifySkills(
+            ExecutionContext context, PartyRef subject, List<ProfileContent.Skill> skills, int index
+    ) {
+        if (index >= skills.size()) return Uni.createFrom().voidItem();
+        ProfileContent.Skill skill = skills.get(index);
+        if (skill.verification() == ProfileContent.Verification.SELF_REPORTED) {
+            return verifySkills(context, subject, skills, index + 1);
+        }
+        return evidenceVerifier.verifySkill(context, subject, skill).flatMap(verified -> {
+            if (!Boolean.TRUE.equals(verified)) {
+                return Uni.createFrom().failure(new SecurityException("Skill verification evidence was not accepted"));
+            }
+            return verifySkills(context, subject, skills, index + 1);
+        });
+    }
+
+    private Uni<Void> verifyCredentials(
+            ExecutionContext context, PartyRef subject, List<ProfileContent.Credential> credentials, int index
+    ) {
+        if (index >= credentials.size()) return Uni.createFrom().voidItem();
+        ProfileContent.Credential credential = credentials.get(index);
+        if (credential.verification() == ProfileContent.Verification.SELF_REPORTED) {
+            return verifyCredentials(context, subject, credentials, index + 1);
+        }
+        return evidenceVerifier.verifyCredential(context, subject, credential).flatMap(verified -> {
+            if (!Boolean.TRUE.equals(verified)) {
+                return Uni.createFrom().failure(new SecurityException("Credential verification evidence was not accepted"));
+            }
+            return verifyCredentials(context, subject, credentials, index + 1);
+        });
+    }
+
+    private Uni<TalentProfileView> mutateAsync(
+            ExecutionContext context,
+            TalentProfileId id,
+            TalentProfileAccessPolicy.Action action,
+            java.util.function.Function<TalentProfile, Uni<Void>> mutation
+    ) {
+        TenantId tenantId = requireTrustedContext(context);
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(mutation, "mutation");
+        return transactions.inTransaction(context, tx ->
+                tx.profiles().findByTenantAndId(tenantId, id).flatMap(found -> {
+                    if (found.isEmpty()) return Uni.createFrom().failure(new TalentProfileNotFoundException(id));
+                    TalentProfile profile = found.get();
+                    return allowed(context, action, profile.subject(), profile).flatMap(ignored ->
+                            mutation.apply(profile).flatMap(done -> {
+                                List<DomainEvent> events = profile.pullDomainEvents();
+                                return tx.profiles().save(tenantId, profile)
+                                        .flatMap(saved -> tx.publish(context, events)
+                                                .replaceWith(TalentProfileView.from(saved)));
+                            }));
+                }));
     }
 
     private Uni<TalentProfileView> mutate(
