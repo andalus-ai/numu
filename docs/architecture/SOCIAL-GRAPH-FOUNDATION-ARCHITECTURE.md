@@ -1,9 +1,9 @@
 # Social Graph Foundation — Architecture and M0 Audit
 
-- **Status:** Proposed architecture; M0 repository audit required before implementation
+- **Status:** Target architecture; M1 PostgreSQL social-connection vertical slice is present on `main`; M1 verification and production hardening remain in progress
 - **Date:** 2026-11-03
 - **Repository:** `andalus-ai/numu`
-- **M0 audit:** [Social Graph M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md) — source-grounded partial audit; build/runtime and remaining ownership checks are pending
+- **M0/M1 review:** [Social Graph M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md) and [M1 implementation review](SOCIAL-GRAPH-M1-IMPLEMENTATION.md) — current-main source review; build/runtime verification and host security composition remain pending
 - **Related:** [ADR-003 — Reusable capability modules](ADR-003-reusable-capability-modules.md), [Domain capability matrix](DOMAIN-CAPABILITY-MATRIX.md), [Organization/Party convergence](organization-party-identity-convergence.md), [Person/Party identity mapping](person-party-identity-mapping-decision.md), [Party/Contact/Address contract](contact-address-capability-contract.md), [Customer contract](customer-capability-contract.md)
 
 ## 1. Purpose
@@ -12,7 +12,7 @@ Establish a reusable, application-neutral Social Graph capability for profession
 
 The Social Graph is shared relationship infrastructure. It is not a replacement for Identity, Party, Organization, Customer, CRM, Workforce, Geo, Scheduling, Mobility, Logistics, Jobs, Marketplace, or domain-owned reputation and eligibility policies.
 
-This document is a target architecture and M0 audit plan. It does not claim that a Social Graph implementation, graph database adapter, or production integration already exists.
+This document remains the target architecture. A PostgreSQL-backed M1 social-connection slice now exists on `main` (domain, SPI, application service, JDBC persistence, migration and tests). Its presence does not imply that the broader graph roadmap, REST/read APIs, feed, privacy/consent policy, broker relay, Neo4j projection, or production host integration has been implemented or verified.
 
 ## 2. Core architectural decisions
 
