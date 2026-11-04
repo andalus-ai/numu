@@ -70,7 +70,7 @@ the freshness/revocation window for the request's membership snapshot.
 Verification from the repository root:
 
 ```bash
-mvn -f core/framework/pom.xml -pl social-graph -am install
+mvn -f core/framework/pom.xml -pl social-graph,ecosystem,cache,observability -am install
 mvn -f security/pom.xml -pl social-graph-adapter -am verify
 ```
 
