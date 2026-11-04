@@ -24,6 +24,32 @@ M1 introduces the first PostgreSQL-backed social relationship vertical slice.
 - No REST API, feed, follow/block, profile, Neo4j, or cross-tenant federation is included in M1.
 
 
+
+## Authenticated command gateway
+
+The `security/social-graph-adapter` module exposes
+`AuthenticatedSocialGraphCommandGateway`. It derives the tenant from the
+current verified Numou `SecurityContext`, verifies that the principal is
+authenticated and a member of that tenant, and obtains the issuer/subject
+through `VerifiedIdentitySubjectProvider`. Callers supply only business
+command data (recipient/connection ID and idempotency key); tenant, issuer,
+and subject are not command arguments.
+
+The host application must provide exactly one CDI implementation of
+`VerifiedIdentitySubjectProvider` backed by its validated authentication
+mechanism. It must return the original issuer and subject from verified
+claims, not request headers, query parameters, or body fields. The current
+SecurityContext contract does not itself expose issuer/subject claims, so the
+adapter intentionally does not infer them from `PrincipalId` or
+`Principal.handle`. If no provider or no active tenant-scoped Party identity
+association exists, commands fail closed.
+
+The adapter's CDI producer composes the Social Graph application service,
+PostgreSQL unit of work, Ecosystem Party/identity adapter, and action-scoped
+authorization adapter. The host still owns datasource configuration,
+Flyway migration policy, the verified-claims provider, and the membership
+snapshot freshness/revocation window.
+
 ## Security runtime composition
 
 The optional `security/social-graph-adapter` module provides
