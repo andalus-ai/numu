@@ -392,3 +392,47 @@ A follow-up inspection of the exact source files resolves an ambiguity in the ea
 - `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V1__party_identity_associations.sql`
 
 This follow-up is a GitHub source inspection only. It does not establish a successful Maven build, database migration run, transaction integration test, or deployed runtime behavior.
+
+## 11. Follow-up verification — UnitOfWork and platform outbox transaction composition
+
+### Verified transaction contracts
+
+- Foundation `UnitOfWork` is a reactive application port with `execute(Supplier<Uni<R>>)`. Its default `context()` is empty; it does not itself expose a JDBC connection, Hibernate session, or transaction handle.
+- `DefaultUnitOfWork` coordinates a ThreadLocal lifecycle/synchronization context. It is not a database transaction manager and its `afterCommit` event publication is not an atomic database outbox.
+- `PgUnitOfWork` in `core/framework/aggregate/aggregate-persistence` delegates to `Panache.withTransaction(work)`. Its source comment explicitly says "NOT COMPILED in sandbox"; it must not be assumed build-verified.
+- `PgOutboxStore.append` calls `Panache.getSession()` and writes `platform_outbox` using that session. This is the shared outbox append path that can participate in a Panache transaction when called inside the same active session/transaction.
+- The same `PgOutboxStore` uses injected `PgPool` for relay claims, delivery updates, and reads. That is a separate relay concern and does not change the append transaction behavior.
+- `OutboxDomainEventSink` serializes domain events into `OutboxEntry` and delegates to `OutboxStorePort.append`. It has no database transaction of its own.
+- The current `OutboxDomainEventSinkTest` uses an in-memory fake store. It validates envelope metadata, serialization and empty-batch behavior, but not PostgreSQL transaction enlistment, commit, rollback or session sharing.
+- The shared migration `V100__platform_reliability.sql` creates `platform_outbox` and documents that it must be written in the same transaction as aggregate state. `V102` adds lease fencing for relay updates.
+
+### Confirmed incompatibility with the current Ecosystem JDBC adapters
+
+`JdbcPartyRepository` and `JdbcPartyIdentityAssociationRepository` each obtain a `DataSource` connection, disable auto-commit for writes, and commit/rollback independently. They do not accept a caller-owned connection and do not use the Panache session.
+
+Therefore:
+- Calling either repository inside `PgUnitOfWork.execute` does not enlist its JDBC work in the Panache transaction.
+- Calling `OutboxDomainEventSink` backed by `PgOutboxStore` in the same use case does not make the Party JDBC write atomic with the outbox append.
+- Foundation `UnitOfWork` by itself is not evidence of a shared database transaction.
+- Do not write Social Graph state through one transaction mechanism and append its event through another while claiming atomic outbox behavior.
+
+### M1 persistence decision gate
+
+Before implementation, choose and verify exactly one transaction composition for each graph command:
+
+**Option A — Panache/Hibernate Reactive composition**
+- Use the existing `PgUnitOfWork` and `PgOutboxStore` only after the relevant aggregate reactor compiles and a PostgreSQL integration test proves both use the same active session.
+- Graph persistence must use the same Hibernate Reactive/Panache transaction. Do not invoke the independent Ecosystem JDBC save path inside this command.
+- This is the shortest route to the existing shared platform outbox, but its compile/build and runtime integration evidence are currently absent.
+
+**Option B — JDBC transaction composition**
+- Introduce a narrow JDBC transaction boundary that supplies one caller-owned connection to graph persistence and an outbox append adapter.
+- The graph rows and `platform_outbox` row must be written on that exact connection before one commit.
+- The adapter may preserve the shared outbox wire schema and relay contract, but must not call `PgOutboxStore.append` if that would acquire a separate Panache session.
+- Keep connection handling in the persistence adapter; do not leak JDBC into domain/application contracts.
+
+Do not implement both options or add a new generic transaction abstraction until the affected reactor baseline establishes which supported runtime is viable. The decision must be accompanied by integration tests for successful atomic commit, rollback on graph-write failure, rollback on outbox-write failure, duplicate event idempotency, and tenant metadata preservation.
+
+### Evidence and limitations
+
+This is source inspection against `main` plus the Social Graph M0 branch documentation. No compilation, PostgreSQL test, runtime wiring inspection, or transaction test was run in this follow-up.
