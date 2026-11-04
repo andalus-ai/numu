@@ -20,5 +20,6 @@
     <module>developer-api-catalog-domain</module>
     <module>developer-api-catalog-application</module>
     <module>developer-api-catalog-postgres-adapter</module>
+    <module>developer-api-catalog-integration-adapter</module>
   </modules>
 </project>
