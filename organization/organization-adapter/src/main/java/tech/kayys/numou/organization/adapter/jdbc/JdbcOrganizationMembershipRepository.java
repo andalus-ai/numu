@@ -266,8 +266,7 @@ public final class JdbcOrganizationMembershipRepository implements OrganizationM
     private static boolean sameState(OrganizationMembership left, OrganizationMembership right) {
         return left.getVersion() == right.getVersion()
                 && left.status() == right.status()
-                && left.role() == right.role()
-                && left.getUpdatedAt().equals(right.getUpdatedAt());
+                && left.role() == right.role();
     }
 
     private static void rollback(Connection connection, Throwable original) {
