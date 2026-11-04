@@ -164,7 +164,7 @@ Do not finalize aggregate boundaries, IDs, relationship cardinality, or table la
 
 The initial M1 implementation is recorded in [Social Graph M1 Implementation](SOCIAL-GRAPH-M1-IMPLEMENTATION.md).
 
-Implemented on branch `social-graph/m1-core-postgresql`:
+Implemented on branch `social-graph/m1-core-postgresql-mainline`:
 
 - Dedicated framework Maven reactor: `core/framework/social-graph`.
 - Domain, SPI, application, and JDBC persistence modules.
@@ -212,19 +212,3 @@ Until then, PostgreSQL-only deployment is the supported default. The domain and 
 - One universal reputation score across unrelated domains.
 - Splitting the capability into a microservice without an operational reason.
 - Claiming implementation completeness based on this architecture document.
-
-## 9. M1 transaction implementation gate — verified repository constraints
-
-The transaction path is not yet proven interchangeable across persistence adapters:
-
-- The shared `PgOutboxStore.append` obtains the active Hibernate Reactive/Panache session through `Panache.getSession()`.
-- The shared `PgUnitOfWork` delegates to `Panache.withTransaction`, but its source currently carries a "NOT COMPILED in sandbox" comment and has no transaction integration test in the inspected aggregate-persistence tests.
-- Ecosystem `JdbcPartyRepository` and `JdbcPartyIdentityAssociationRepository` open and commit their own JDBC connections. They cannot be assumed to join a Panache transaction.
-- The generic Foundation `UnitOfWork` interface is an orchestration port; `DefaultUnitOfWork` uses lifecycle hooks/ThreadLocal context and is not a database transaction manager.
-- Existing `OutboxDomainEventSinkTest` uses an in-memory store and does not prove transaction enlistment.
-
-M1 must select one verified transaction composition before implementing graph writes:
-1. **Panache path:** graph persistence, `PgUnitOfWork`, and shared `PgOutboxStore.append` use the same active Hibernate Reactive session, proven by PostgreSQL commit/rollback integration tests; or
-2. **JDBC path:** graph persistence and a transaction-aware outbox writer use the same caller-owned JDBC connection and commit once. Do not invoke the Panache outbox append from this path.
-
-The preferred choice is determined by the actual supported reactor/build and integration-test evidence, not by naming or assumptions. Required tests: atomic graph+outbox commit; rollback when either write fails; idempotent duplicate event handling; tenant metadata preservation. Do not claim atomic outbox delivery until those tests pass.

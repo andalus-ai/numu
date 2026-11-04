@@ -45,11 +45,11 @@ class EcosystemSocialGraphIdentityAdapterTest {
 
         EcosystemSocialGraphIdentityAdapter adapter = new EcosystemSocialGraphIdentityAdapter(lookup, associations);
 
-        assertThat(adapter.resolve(tenant, subject)).hasValueSatisfying(actor -> {
+        assertThat(adapter.resolve(tenant, subject).await().indefinitely()).hasValueSatisfying(actor -> {
             assertThat(actor.tenantId()).isEqualTo(tenant);
             assertThat(actor.partyId()).isEqualTo(party.getId());
         });
-        assertThat(adapter.resolve(TenantId.generate(), subject)).isEmpty();
-        assertThat(adapter.isActive(party.getId())).isTrue();
+        assertThat(adapter.resolve(TenantId.generate(), subject).await().indefinitely()).isEmpty();
+        assertThat(adapter.isActive(party.getId()).await().indefinitely()).isTrue();
     }
 }
