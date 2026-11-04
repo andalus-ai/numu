@@ -52,8 +52,8 @@ Because the security and framework modules are separate Maven aggregators,
 install the framework artifacts before building the adapter:
 
 ```bash
-mvn -f core/framework/pom.xml install
-mvn -f security/pom.xml -pl social-graph-adapter -am test
+mvn -f core/framework/pom.xml -pl social-graph,cache -am install
+mvn -f security/pom.xml -pl social-graph-adapter -am verify
 ```
 
 ## Build and test
