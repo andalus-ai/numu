@@ -35,7 +35,8 @@ public class SecurityContextSocialGraphAuthorizationAdapter implements SocialGra
             throw new SocialGraphAccessDeniedException();
         }
 
-        SecurityContext context = securityContexts.current().orElse(null);
+        var current = securityContexts.current();
+        SecurityContext context = current == null ? null : current.orElse(null);
         if (context == null
                 || !context.authenticated()
                 || !actor.tenantId().equals(context.tenantId())
