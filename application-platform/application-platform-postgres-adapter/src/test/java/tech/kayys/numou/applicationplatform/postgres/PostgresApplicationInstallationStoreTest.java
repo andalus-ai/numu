@@ -173,7 +173,16 @@ class PostgresApplicationInstallationStoreTest {
         assertThat(failedInstallation.revision()).isEqualTo(2);
         assertThat(count("application_installation_transitions", tenant)).isEqualTo(3);
         assertThat(count("application_installation_outbox", tenant)).isEqualTo(3);
-        assertThat(store.claimDue(tenant, "worker-c", now.plusSeconds(120), Duration.ofSeconds(30), 10)
+
+        // The failure status-change event remains independently deliverable.
+        var statusChanged = store.claimDue(tenant, "worker-c", now.plusSeconds(120), Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join();
+        assertThat(statusChanged).hasSize(1);
+        assertThat(statusChanged.get(0).eventType()).isEqualTo("APPLICATION_INSTALLATION_STATUS_CHANGED");
+        assertThat(statusChanged.get(0).toStatus()).isEqualTo("FAILED");
+        assertThat(store.markDelivered(tenant, statusChanged.get(0).eventId(), "worker-c",
+                statusChanged.get(0).leaseToken(), now.plusSeconds(121)).toCompletableFuture().join()).isTrue();
+        assertThat(store.claimDue(tenant, "worker-d", now.plusSeconds(122), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
     }
 
