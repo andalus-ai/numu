@@ -1,6 +1,6 @@
 package tech.kayys.numou.applicationplatform.application.configuration;
 
-import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationActor;
+import tech.kayys.numou.applicationplatform.application.installation.InstallationActor;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationActorProvider;
 import tech.kayys.numou.applicationplatform.domain.configuration.ApplicationConfigurationSnapshot;
 
@@ -29,7 +29,7 @@ public final class PutApplicationConfigurationHandler {
 
     public CompletionStage<ApplicationConfigurationStore.SaveResult> handle(PutApplicationConfigurationCommand command) {
         Objects.requireNonNull(command, "command");
-        final ApplicationInstallationActor actor = Objects.requireNonNull(
+        final InstallationActor actor = Objects.requireNonNull(
                 actors.currentActor(), "verified actor context");
         return authorization.requireCanConfigure(actor, command.applicationId())
                 .thenCompose(ignored -> schemas.validate(command.applicationId(),
