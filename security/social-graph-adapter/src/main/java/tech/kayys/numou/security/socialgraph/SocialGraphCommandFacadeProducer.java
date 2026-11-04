@@ -20,11 +20,8 @@ public class SocialGraphCommandFacadeProducer {
     private final SocialGraphAuthorizationPort authorization;
     private final SocialGraphActorResolver actors;
 
-    public SocialGraphCommandFacadeProducer(
-            SocialGraphUnitOfWork unitOfWork,
-            PartyDirectoryPort parties,
-            SocialGraphAuthorizationPort authorization,
-            SocialGraphActorResolver actors) {
+    public SocialGraphCommandFacadeProducer(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties,
+            SocialGraphAuthorizationPort authorization, SocialGraphActorResolver actors) {
         this.unitOfWork = Objects.requireNonNull(unitOfWork, "unitOfWork cannot be null");
         this.parties = Objects.requireNonNull(parties, "parties cannot be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization cannot be null");
@@ -33,8 +30,40 @@ public class SocialGraphCommandFacadeProducer {
 
     @Produces
     @ApplicationScoped
-    public SocialGraphCommandFacade socialGraphCommandFacade() {
+    public SocialGraphCommandInvoker socialGraphCommandInvoker() {
         SocialGraphService service = new SocialGraphService(unitOfWork, parties, authorization, Clock.systemUTC());
-        return new SocialGraphCommandFacade(actors, service);
+        SocialGraphCommandFacade facade = new SocialGraphCommandFacade(actors, service);
+        return new SocialGraphCommandInvoker() {
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialConnection>
+            requestConnection(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.ecosystem.domain.party.PartyId recipient, String key) {
+                return facade.requestConnection(tenant, subject, recipient, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialConnection>
+            acceptConnection(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.socialgraph.domain.SocialConnectionId id, String key) {
+                return facade.acceptConnection(tenant, subject, id, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialConnection>
+            rejectConnection(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.socialgraph.domain.SocialConnectionId id, String key) {
+                return facade.rejectConnection(tenant, subject, id, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialConnection>
+            cancelConnection(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.socialgraph.domain.SocialConnectionId id, String key) {
+                return facade.cancelConnection(tenant, subject, id, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialConnection>
+            removeConnection(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.socialgraph.domain.SocialConnectionId id, String key) {
+                return facade.removeConnection(tenant, subject, id, key);
+            }
+        };
     }
 }
