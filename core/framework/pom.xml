@@ -38,6 +38,9 @@
         <module>scope</module>
         <module>planning</module>
         <module>aggregate</module>
+
+        <!-- Developer Platform bounded contexts live at repository root. -->
+        <module>../../developer-platform</module>
     </modules>
 
     <properties>
