@@ -49,7 +49,7 @@ jobs:
       - name: Build and install ecosystem contracts
         run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
       - name: Build and install Identity contracts
-        run: mvn -B -ntp -f identity/pom.xml install
+        run: mvn -B -ntp -f identity/pom.xml -pl numou-identity-domain,numou-identity-application -am install
       - name: Verify Organization and invitation lifecycle
         run: mvn -B -ntp -f organization/pom.xml verify
       - name: Upload Organization Maven test reports
