@@ -169,6 +169,25 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isPresent();
     }
 
+    @Test
+    void canonicalPairOrderingMatchesPostgresUuidOrderingAndSupportsReverseLookup() {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        // Java UUID.compareTo treats the high bit as signed; PostgreSQL UUID
+        // ordering and canonical string ordering place 0x00 before 0x80.
+        PartyId lower = new PartyId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+        PartyId higher = new PartyId(UUID.fromString("80000000-0000-0000-0000-000000000001"));
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+        SocialConnection connection = SocialConnection.request(
+                SocialConnectionId.generate(), tenant, lower, higher, now);
+
+        uow.execute(tx -> { tx.insertConnection(connection); return null; });
+
+        assertThat(uow.execute(tx -> tx.findOpenConnection(tenant, higher, lower))).isPresent();
+    }
+
     private DataSource dataSource() {
         PGSimpleDataSource source = new PGSimpleDataSource();
         source.setURL(POSTGRES.getJdbcUrl());
