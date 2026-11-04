@@ -58,7 +58,7 @@ The profile now supports immutable, bounded collections for:
 - credentials with issuer, issue/expiry dates, optional Document reference and verification provenance;
 - portfolio items referencing either an HTTPS URL or a stable Document identifier.
 
-Each section is replaced atomically, is capped at 100 entries, rejects duplicate entry IDs, and is immutable to callers. Career history is presentation data only: it does not create or mutate Workforce employment records. Skills remain profile claims; this increment deliberately does not invent a shared skill taxonomy or depend on Workforce's internal catalogue. Credential verification values are provenance labels, not proof that verification has occurred. A trusted application service must validate issuer evidence before recording a verified status.
+Each section is replaced atomically, is capped at 100 entries, rejects duplicate entry IDs, and is immutable to callers. Each successful replacement increments aggregate version and emits a tenant-scoped `talent.profile.content-changed` event naming the changed section. Career history is presentation data only: it does not create or mutate Workforce employment records. Skills remain profile claims; this increment deliberately does not invent a shared skill taxonomy or depend on Workforce's internal catalogue. Credential verification values are provenance labels, not proof that verification has occurred. A trusted application service must validate issuer evidence before recording a verified status.
 
 Portfolio and credential files are referenced by Document IDs; binary content is never stored in the aggregate. HTTPS portfolio links reject embedded credentials. URL allow-listing, malware scanning, document access checks and remote-link safety belong in application/adapters before publication.
 
@@ -73,8 +73,9 @@ Portfolio and credential files are referenced by Document IDs; binary content is
 
 ## 6. Follow-up implementation sequence
 
-1. M1b: profile skills, experience, education, credential and portfolio references with explicit verification provenance and privacy.
-2. M1c: application ports, tenant-scoped repository contract, command/query handlers, authorization policy and deterministic in-memory adapter for domain/application tests.
+1. M1a: profile identity, presentation and lifecycle domain.
+2. M1b: skills, experience, education, credential and portfolio references with explicit provenance and bounded immutable sections.
+3. M1c: application ports, tenant-scoped repository contract, command/query handlers, authorization policy and deterministic in-memory adapter for domain/application tests.
 4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency and integration tests.
 5. M2: job vacancy aggregate, publication lifecycle, search criteria and employer authorization.
 6. M3: recruitment application aggregate and ATS pipeline.
