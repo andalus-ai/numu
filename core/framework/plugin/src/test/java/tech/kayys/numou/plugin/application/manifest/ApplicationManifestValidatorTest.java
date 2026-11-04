@@ -41,8 +41,7 @@ class ApplicationManifestValidatorTest {
     @Test void reportsInvalidSemVerCapabilityRangesAsManifestViolations() {
         String invalid = valid()
                 .replace("\"contractRange\":\"^1.0.0\"", "\"contractRange\":\"^1.0.0-01\"")
-                .replace("\"capabilities\":[", "\"capabilities\":[")
-                .replace("\"requires\":{", "\"requires\":{\"optionalCapabilities\":[{\"id\":\"numou.crm\",\"contractRange\":\"~1.0.0-alpha..1\"}],");
+                .replace("\"requires\":{", "\"requires\":{\"optionalCapabilities\":[{\"id\":\"numou.crm\",\"contractRange\":\"~1.0.0-02\"}],");
         assertThatThrownBy(() -> validator().validate(invalid, Set.of("commerce.pos.operate")))
                 .isInstanceOfSatisfying(ManifestValidationException.class, error ->
                         assertThat(error.violations())
@@ -51,6 +50,6 @@ class ApplicationManifestValidatorTest {
                                         "Invalid SemVer prerelease identifier: 01"))
                                 .anySatisfy(v -> assertThat(v).contains(
                                         "requires.optionalCapabilities[0].contractRange",
-                                        "Invalid SemVer prerelease identifier: ")));
+                                        "Invalid SemVer prerelease identifier: 02")));
     }
 }
