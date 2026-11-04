@@ -97,19 +97,18 @@ Expected CI command:
 mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am verify
 ```
 
-**Verification status:** Not run in this session. The earlier current-main review identified an invalid PostgreSQL dollar-quote delimiter in the audit trigger function and a missing Mutiny await in the UUID-ordering integration test; those repairs were committed on a prior review branch that is no longer listed. Their presence on current `main` must be rechecked before calling this milestone complete. The new facade and tests are source changes only; no compilation, PostgreSQL test, or CI pass is claimed.
+**Verification status:** Not run in this session. The earlier current-main review identified an invalid PostgreSQL dollar-quote delimiter in the audit trigger function and a missing Mutiny await in the UUID-ordering integration test. Both repairs are now confirmed present on current `main`. The new facade and tests are source changes only; no compilation, PostgreSQL test, or CI pass is claimed.
 
 ## 7. Remaining M1 hardening before review
 
-1. Recheck whether the prior SQL delimiter and Mutiny await repairs are present on current `main`; reapply only if absent.
-2. Run the exact Maven reactor verification and resolve compilation/dependency failures.
-3. Confirm Testcontainers PostgreSQL tests execute rather than silently skip because Docker is unavailable.
-4. Add/verify the actual host composition adapter for verified principal → trusted tenant + issuer/subject → tenant-scoped Party association → active Party → authorization → command.
-5. Decide whether PostgreSQL RLS is required as defense-in-depth for graph, audit, idempotency and outbox tables under the actual application/worker roles.
-6. Add concurrency coverage for duplicate idempotency keys and active-pair races, and confirm retry/replay behavior.
-7. Define consent, visibility, block and deletion semantics before adding read/list/search or cross-tenant discovery.
-8. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
-9. Update this document with exact test and CI evidence before requesting review.
+1. Run the exact Maven reactor verification and resolve compilation/dependency failures.
+2. Confirm Testcontainers PostgreSQL tests execute rather than silently skip because Docker is unavailable.
+3. Integrate the facade into the actual host composition using verified principal → trusted tenant + issuer/subject → tenant-scoped Party association → active Party → authorization → command.
+4. Decide whether PostgreSQL RLS is required as defense-in-depth for graph, audit, idempotency and outbox tables under the actual application/worker roles.
+5. Add concurrency coverage for duplicate idempotency keys and active-pair races, and confirm retry/replay behavior.
+6. Define consent, visibility, block and deletion semantics before adding read/list/search or cross-tenant discovery.
+7. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
+8. Update this document with exact test and CI evidence before requesting review.
 
 ## 8. Explicitly excluded
 
