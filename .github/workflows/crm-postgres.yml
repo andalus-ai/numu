@@ -63,6 +63,12 @@ jobs:
         run: |
           psql -h localhost -U postgres -d numou_crm_test -v ON_ERROR_STOP=1 \
             -f crm/numou-crm-adapter/src/test/resources/db/tenant-ownership-proposals.sql
+      - name: Verify ownership function execution privileges
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d numou_crm_test -v ON_ERROR_STOP=1 \
+            -f crm/numou-crm-adapter/src/test/resources/db/tenant-ownership-function-privileges.sql
       - name: Verify transactional ownership proposal execution
         env:
           PGPASSWORD: postgres
