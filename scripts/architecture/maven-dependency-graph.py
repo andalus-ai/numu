@@ -179,21 +179,32 @@ def strongly_connected_components(nodes: set[str], edges: list[tuple[str, str]])
 def write_outputs(out: Path, projects: list[dict[str, Any]], deps: list[dict[str, Any]],
                   group_prefix: str, cycle_scopes: set[str]) -> dict[str, Any]:
     by_coord: dict[str, list[str]] = defaultdict(list)
+    by_ga: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
     for project in projects:
-        if project["group_id"] and project["artifact_id"] and project["version"]:
-            by_coord[coordinate(project["group_id"], project["artifact_id"], project["version"])].append(project["path"])
+        if project["group_id"] and project["artifact_id"]:
+            by_ga[(project["group_id"], project["artifact_id"])].append(project)
+            if project["version"]:
+                by_coord[coordinate(project["group_id"], project["artifact_id"], project["version"])].append(project["path"])
 
     for dep in deps:
         key = coordinate(dep["group_id"], dep["artifact_id"], dep["version"])
-        dep["target_paths"] = sorted(by_coord.get(key, []))
-        dep["is_internal"] = dep["group_id"].startswith(group_prefix)
+        dep["target_paths"] = sorted(by_coord.get(key, [])) if dep["version"] else []
+        dep["target_coordinates"] = [key] if dep["target_paths"] else []
+        dep["is_internal"] = (dep["group_id"] == group_prefix or dep["group_id"].startswith(group_prefix + "."))
+        if not dep["version"] and not dep["unresolved_properties"]:
+            candidates = by_ga.get((dep["group_id"], dep["artifact_id"]), [])
+            if len(candidates) == 1:
+                dep["target_paths"] = [candidates[0]["path"]]
+                dep["target_coordinates"] = [candidates[0]["coordinate"]]
         dep["resolution"] = ("unresolved-property" if dep["unresolved_properties"] else
-                             "resolved-internal" if dep["target_paths"] else
+                             "resolved-internal" if dep["target_paths"] and dep["version"] else
+                             "resolved-internal-version-unspecified" if dep["target_paths"] else
                              "unmatched-internal" if dep["is_internal"] else "external")
 
-    internal = [d for d in deps if d["resolution"] == "resolved-internal"]
-    cycle_edges = [(d["source"], coordinate(d["group_id"], d["artifact_id"], d["version"]))
-                   for d in internal if d["scope"] in cycle_scopes]
+    internal = [d for d in deps if d["resolution"] in
+                {"resolved-internal", "resolved-internal-version-unspecified"}]
+    cycle_edges = [(d["source"], d["target_coordinates"][0])
+                   for d in internal if d["scope"] in cycle_scopes and len(d["target_coordinates"]) == 1]
     nodes = {p["coordinate"] for p in projects if p["coordinate"]}
     cycles = strongly_connected_components(nodes, cycle_edges)
 
@@ -225,13 +236,14 @@ def write_outputs(out: Path, projects: list[dict[str, Any]], deps: list[dict[str
 
     fields = ["source_path", "source", "group_id", "artifact_id", "version", "scope",
               "type", "classifier", "optional", "declaration_context", "resolution",
-              "target_paths", "unresolved_properties"]
+              "target_paths", "target_coordinates", "unresolved_properties"]
     with (out / "maven-dependency-edges.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         for dep in payload["dependencies"]:
             row = dict(dep)
             row["target_paths"] = ";".join(row["target_paths"])
+            row["target_coordinates"] = ";".join(row["target_coordinates"])
             row["unresolved_properties"] = ";".join(row["unresolved_properties"])
             writer.writerow({key: row[key] for key in fields})
 
@@ -240,7 +252,7 @@ def write_outputs(out: Path, projects: list[dict[str, Any]], deps: list[dict[str
         lines.append(f'  "{node}";')
     for dep in internal:
         if dep["scope"] in cycle_scopes:
-            target = coordinate(dep["group_id"], dep["artifact_id"], dep["version"])
+            target = dep["target_coordinates"][0]
             lines.append(f'  "{dep["source"]}" -> "{target}" [label="{dep["scope"]}"];')
     lines.append("}")
     (out / "maven-dependency-graph.dot").write_text("\n".join(lines) + "\n", encoding="utf-8")
