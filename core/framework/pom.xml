@@ -39,7 +39,7 @@
         <module>planning</module>
         <module>aggregate</module>
 
-        <!-- Developer Platform bounded contexts live at repository root. -->
+        <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
     </modules>
 
