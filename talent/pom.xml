@@ -15,5 +15,6 @@
     <description>Reusable talent, recruitment and work marketplace capabilities.</description>
     <modules>
         <module>talent-domain</module>
+        <module>talent-application</module>
     </modules>
 </project>
