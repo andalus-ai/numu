@@ -27,7 +27,7 @@ class SocialGraphServiceTest {
     private final PartyId recipient = PartyId.generate();
     private final MemoryUnitOfWork uow = new MemoryUnitOfWork();
     private final SocialGraphService service = new SocialGraphService(
-            uow, party -> true, actor -> {}, Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
+            uow, party -> true, Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
 
     @Test
     void requestIsPersistedWithOutboxAndIdempotencyInOneUnitOfWork() {

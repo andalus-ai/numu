@@ -23,21 +23,17 @@ import java.util.UUID;
 public final class SocialGraphService {
     private final SocialGraphUnitOfWork unitOfWork;
     private final PartyDirectoryPort parties;
-    private final SocialGraphAuthorizationPort authorization;
     private final Clock clock;
 
-    public SocialGraphService(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties,
-            SocialGraphAuthorizationPort authorization, Clock clock) {
+    public SocialGraphService(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties, Clock clock) {
         this.unitOfWork = Objects.requireNonNull(unitOfWork, "unitOfWork cannot be null");
         this.parties = Objects.requireNonNull(parties, "parties cannot be null");
-        this.authorization = Objects.requireNonNull(authorization, "authorization cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
     public SocialConnection requestConnection(SocialGraphActor actor, PartyId recipient, String idempotencyKey) {
         Objects.requireNonNull(actor, "actor cannot be null");
         Objects.requireNonNull(recipient, "recipient cannot be null");
-        authorize(actor);
         requireActive(actor.partyId());
         requireActive(recipient);
         String fingerprint = "request:" + actor.partyId() + ":" + recipient;
@@ -79,7 +75,6 @@ public final class SocialGraphService {
             String operation, Transition transition, String eventType) {
         Objects.requireNonNull(actor, "actor cannot be null");
         Objects.requireNonNull(id, "id cannot be null");
-        authorize(actor);
         requireActive(actor.partyId());
         String fingerprint = operation + ":" + actor.partyId() + ":" + id;
         return idempotent(actor.tenantId(), key, fingerprint, tx -> {
@@ -114,10 +109,6 @@ public final class SocialGraphService {
                     tenantId, key, fingerprint, result.id(), clock.instant()));
             return result;
         });
-    }
-
-    private void authorize(SocialGraphActor actor) {
-        authorization.requireAuthorized(actor);
     }
 
     private void requireActive(PartyId partyId) {
