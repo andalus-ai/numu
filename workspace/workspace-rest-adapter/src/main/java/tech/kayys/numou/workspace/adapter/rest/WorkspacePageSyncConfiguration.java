@@ -6,6 +6,8 @@ import jakarta.enterprise.inject.Produces;
 import tech.kayys.numou.workspace.application.WorkspaceApi;
 import tech.kayys.numou.workspace.application.WorkspacePageSyncApi;
 import tech.kayys.numou.workspace.application.WorkspacePageSyncService;
+import tech.kayys.numou.workspace.application.WorkspacePageChangeSubscriptionApi;
+import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscriptionPort;
 import tech.kayys.numou.workspace.application.WorkspacePorts.AccessPolicy;
 import tech.kayys.numou.workspace.application.WorkspacePorts.PageRepository;
 
@@ -19,5 +21,12 @@ public class WorkspacePageSyncConfiguration {
     @Produces @Dependent
     WorkspacePageSyncApi workspacePageSyncApi(WorkspaceApi.IdentityProvider identity, WorkspacePageSyncService service) {
         return new WorkspacePageSyncApi(identity, service);
+    }
+
+    @Produces @Dependent
+    WorkspacePageChangeSubscriptionApi workspacePageChangeSubscriptionApi(
+            WorkspaceApi.IdentityProvider identity, PageRepository pages, AccessPolicy access,
+            WorkspacePageChangeSubscriptionPort subscriptions) {
+        return new WorkspacePageChangeSubscriptionApi(identity, pages, access, subscriptions);
     }
 }
