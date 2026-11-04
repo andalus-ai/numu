@@ -17,11 +17,28 @@ public final class DeveloperApplication {
  }
  public static DeveloperApplication register(TenantId tenantId,String slug,String name,String description,String actor,Instant now){String who=requireActor(actor);return new DeveloperApplication(DeveloperApplicationId.generate(),tenantId,slug,name,description,DeveloperApplicationStatus.ACTIVE,1,now,now,who,who);}
  public static DeveloperApplication reconstitute(DeveloperApplicationId id,TenantId tenantId,String slug,String name,String description,DeveloperApplicationStatus status,long revision,Instant createdAt,Instant updatedAt,String createdBy,String updatedBy){return new DeveloperApplication(id,tenantId,slug,name,description,status,revision,createdAt,updatedAt,createdBy,updatedBy);}
- public DeveloperApplicationEvent updateProfile(String name,String description,String actor,String correlation,Instant now){ensureMutable();this.name=requireName(name);this.description=normalizeDescription(description);return advance("DEVELOPER_APPLICATION_PROFILE_UPDATED",actor,correlation,now);}
- public DeveloperApplicationEvent suspend(String actor,String correlation,Instant now){if(status!=DeveloperApplicationStatus.ACTIVE)throw new IllegalStateException("only active applications can be suspended");status=DeveloperApplicationStatus.SUSPENDED;return advance("DEVELOPER_APPLICATION_SUSPENDED",actor,correlation,now);}
- public DeveloperApplicationEvent reactivate(String actor,String correlation,Instant now){if(status!=DeveloperApplicationStatus.SUSPENDED)throw new IllegalStateException("only suspended applications can be reactivated");status=DeveloperApplicationStatus.ACTIVE;return advance("DEVELOPER_APPLICATION_REACTIVATED",actor,correlation,now);}
- public DeveloperApplicationEvent archive(String actor,String correlation,Instant now){if(status==DeveloperApplicationStatus.ARCHIVED)throw new IllegalStateException("already archived");status=DeveloperApplicationStatus.ARCHIVED;return advance("DEVELOPER_APPLICATION_ARCHIVED",actor,correlation,now);}
- private DeveloperApplicationEvent advance(String type,String actor,String correlation,Instant now){String who=requireActor(actor);Objects.requireNonNull(now);if(now.isBefore(updatedAt))throw new IllegalArgumentException("updatedAt cannot move backwards");revision=Math.addExact(revision,1);updatedAt=now;updatedBy=who;return new DeveloperApplicationEvent(UUID.randomUUID(),tenantId,id,type,revision,who,correlation,now);}
+ public DeveloperApplicationEvent updateProfile(String name,String description,String actor,String correlation,Instant now){
+  ensureMutable();String nextName=requireName(name);String nextDescription=normalizeDescription(description);
+  return advance("DEVELOPER_APPLICATION_PROFILE_UPDATED",actor,correlation,now,()->{this.name=nextName;this.description=nextDescription;});
+ }
+ public DeveloperApplicationEvent suspend(String actor,String correlation,Instant now){
+  if(status!=DeveloperApplicationStatus.ACTIVE)throw new IllegalStateException("only active applications can be suspended");
+  return advance("DEVELOPER_APPLICATION_SUSPENDED",actor,correlation,now,()->status=DeveloperApplicationStatus.SUSPENDED);
+ }
+ public DeveloperApplicationEvent reactivate(String actor,String correlation,Instant now){
+  if(status!=DeveloperApplicationStatus.SUSPENDED)throw new IllegalStateException("only suspended applications can be reactivated");
+  return advance("DEVELOPER_APPLICATION_REACTIVATED",actor,correlation,now,()->status=DeveloperApplicationStatus.ACTIVE);
+ }
+ public DeveloperApplicationEvent archive(String actor,String correlation,Instant now){
+  if(status==DeveloperApplicationStatus.ARCHIVED)throw new IllegalStateException("already archived");
+  return advance("DEVELOPER_APPLICATION_ARCHIVED",actor,correlation,now,()->status=DeveloperApplicationStatus.ARCHIVED);
+ }
+ private DeveloperApplicationEvent advance(String type,String actor,String correlation,Instant now,Runnable mutation){
+  String who=requireActor(actor);Objects.requireNonNull(now);if(now.isBefore(updatedAt))throw new IllegalArgumentException("updatedAt cannot move backwards");
+  long nextRevision=Math.addExact(revision,1);
+  DeveloperApplicationEvent event=new DeveloperApplicationEvent(UUID.randomUUID(),tenantId,id,type,nextRevision,who,correlation,now);
+  mutation.run();revision=nextRevision;updatedAt=now;updatedBy=who;return event;
+ }
  private void ensureMutable(){if(status==DeveloperApplicationStatus.ARCHIVED)throw new IllegalStateException("archived application is immutable");}
  public static String normalizeSlug(String value){if(value==null)throw new IllegalArgumentException("slug is required");String s=value.trim().toLowerCase(Locale.ROOT);if(!SLUG.matcher(s).matches())throw new IllegalArgumentException("slug must be 1-63 lowercase letters, digits or internal hyphens");return s;}
  private static String requireName(String s){if(s==null||s.isBlank()||s.trim().length()>120)throw new IllegalArgumentException("name must contain 1-120 characters");return s.trim();}
