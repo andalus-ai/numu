@@ -2,13 +2,11 @@ package tech.kayys.numou.identity.adapter.inbound.security;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tech.kayys.numou.identity.application.service.ScopedRoleAssignmentService;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.security.domain.authorization.AccessRequest;
 import tech.kayys.numou.security.domain.authorization.Principal;
