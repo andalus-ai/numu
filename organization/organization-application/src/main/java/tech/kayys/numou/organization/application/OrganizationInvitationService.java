@@ -43,14 +43,20 @@ public final class OrganizationInvitationService {
         Objects.requireNonNull(organizationId);
         Objects.requireNonNull(actorId);
         return policy.requireCanInvite(tenantId, organizationId, actorId).thenCompose(ignored -> {
-            Instant now = clock.instant();
-            GeneratedSecret secret = generateSecret();
-            OrganizationInvitation invitation = OrganizationInvitation.issue(
-                    OrganizationInvitationId.generate(), tenantId, organizationId, recipientEmail, role,
-                    actorId, secret.digest(), now.plus(DEFAULT_LIFETIME), now);
-            return repository.save(invitation, tenantId).thenApply(saved ->
-                    new IssuedInvitation(saved.getId(), secret.plaintext(), saved.expiresAt(),
-                            saved.recipientEmail(), saved.organizationId(), saved.role()));
+            String normalizedEmail = recipientEmail.trim().toLowerCase(java.util.Locale.ROOT);
+            return repository.findPendingByTenantAndOrganizationAndEmail(
+                    tenantId, organizationId, normalizedEmail).thenCompose(existing -> {
+                if (existing.isPresent()) return CompletableFuture.failedFuture(
+                        new IllegalStateException("A pending invitation already exists for this recipient"));
+                Instant now = clock.instant();
+                GeneratedSecret secret = generateSecret();
+                OrganizationInvitation invitation = OrganizationInvitation.issue(
+                        OrganizationInvitationId.generate(), tenantId, organizationId, normalizedEmail, role,
+                        actorId, secret.digest(), now.plus(DEFAULT_LIFETIME), now);
+                return repository.save(invitation, tenantId).thenApply(saved ->
+                        new IssuedInvitation(saved.getId(), secret.plaintext(), saved.expiresAt(),
+                                saved.recipientEmail(), saved.organizationId(), saved.role()));
+            });
         });
     }
 
