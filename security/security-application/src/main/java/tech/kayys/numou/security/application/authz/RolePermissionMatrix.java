@@ -124,6 +124,17 @@ public final class RolePermissionMatrix {
                 .build();
     }
 
+    /**
+     * Baseline Social Graph membership permissions. Hosts may replace or
+     * extend this role mapping through their configured RolePermissionMatrix.
+     */
+    public static RolePermissionMatrix socialGraphDefaults() {
+        return builder()
+                .grant("social-graph-member", CREATE, "social-graph")
+                .grant("social-graph-member", PERFORM, "social-graph")
+                .build();
+    }
+
     /** Everything this platform ships: restaurant and mobility roles together. */
     public static RolePermissionMatrix platformDefaults() {
         return restaurantDefaults().merge(mobilityDefaults());
