@@ -19,7 +19,7 @@ M1 introduces the first PostgreSQL-backed social relationship vertical slice.
 
 - PartyDirectoryPort must be implemented by the composition layer using the public Ecosystem Party lookup contract. It must not infer Party identity from UserId, PersonRef, OrganizationId, or equal UUID values.
 - SocialGraphActor must be constructed from the authenticated tenant/Party association; never populate it from untrusted request fields.
-- This adapter is blocking JDBC. Invoke it on a worker thread, not an event-loop thread.
+- The JDBC adapter exposes a Mutiny Uni and schedules blocking database work on the default worker pool.
 - The outbox table is an atomic event-intent store. Broker relay/CDC integration and operational DLQ controls are not part of this M1 slice.
 - No REST API, feed, follow/block, profile, Neo4j, or cross-tenant federation is included in M1.
 

@@ -2,7 +2,7 @@
 
 - **Status:** M1 merged; runtime Flyway discovery dependency added in follow-up hardening branch; build/CI verification pending
 - **Date:** 2026-11-04
-- **Branch:** `social-graph/m1-core-postgresql`
+- **Branch:** `social-graph/m1-core-postgresql-mainline`
 - **Architecture:** [Social Graph Foundation](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md)
 - **Audit:** [M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md)
 
@@ -76,7 +76,7 @@ The JDBC adapter executes the command callback and all persistence/outbox writes
 - Do not equate UserId, PersonRef, OrganizationId and PartyId by UUID value.
 - `PartyDirectoryPort` is intentionally a public application port. The composition root must implement it using the Ecosystem Party lookup contract and validate active status. It must not query Ecosystem persistence tables directly.
 - Tenant authorization for an actor and relationship visibility must be enforced by the host/application boundary.
-- JDBC is blocking; invoke the adapter on a worker thread.
+- The application contracts are reactive Mutiny ports; the JDBC adapter schedules blocking work on Mutiny's default worker pool.
 - No Neo4j driver or Cypher dependency exists in M1.
 
 ## 6. Verification

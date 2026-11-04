@@ -1,5 +1,6 @@
 package tech.kayys.numou.socialgraph.application;
 
+import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
@@ -15,10 +16,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
- * M1 command application service. Actor and tenant context must be resolved
- * by the authenticated host boundary; request payloads cannot choose them.
+ * M1 reactive command application service. Actor and tenant context must be
+ * resolved by the authenticated host boundary; request payloads cannot choose them.
  */
 public final class SocialGraphService {
     private final SocialGraphUnitOfWork unitOfWork;
@@ -31,69 +33,78 @@ public final class SocialGraphService {
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
-    public SocialConnection requestConnection(SocialGraphActor actor, PartyId recipient, String idempotencyKey) {
+    public Uni<SocialConnection> requestConnection(SocialGraphActor actor, PartyId recipient, String idempotencyKey) {
         Objects.requireNonNull(actor, "actor cannot be null");
         Objects.requireNonNull(recipient, "recipient cannot be null");
-        requireActive(actor.partyId());
-        requireActive(recipient);
+        validateKey(idempotencyKey);
         String fingerprint = "request:" + actor.partyId() + ":" + recipient;
-        return idempotent(actor.tenantId(), idempotencyKey, fingerprint, tx -> {
-            if (tx.findOpenConnection(actor.tenantId(), actor.partyId(), recipient).isPresent()) {
-                throw new IllegalStateException("A pending or active connection already exists between these Parties");
-            }
-            Instant now = clock.instant();
-            SocialConnection connection = SocialConnection.request(
-                    SocialConnectionId.generate(), actor.tenantId(), actor.partyId(), recipient, now);
-            tx.insertConnection(connection);
-            appendEvent(tx, connection, actor.partyId(), "social-graph.connection.requested.v1", now);
-            appendAudit(tx, connection, actor.partyId(), null, connection.status(), "REQUEST", idempotencyKey, now);
-            return connection;
+        return requireActive(actor.partyId()).flatMap(actorActive -> {
+            if (!actorActive) return failure("Authenticated Party does not exist or is not active");
+            return requireActive(recipient).flatMap(recipientActive -> {
+                if (!recipientActive) return failure("Recipient Party does not exist or is not active");
+                return idempotent(actor.tenantId(), idempotencyKey, fingerprint, tx -> {
+                    if (tx.findOpenConnection(actor.tenantId(), actor.partyId(), recipient).isPresent()) {
+                        throw new IllegalStateException("A pending or active connection already exists between these Parties");
+                    }
+                    Instant now = clock.instant();
+                    SocialConnection connection = SocialConnection.request(
+                            SocialConnectionId.generate(), actor.tenantId(), actor.partyId(), recipient, now);
+                    tx.insertConnection(connection);
+                    appendEvent(tx, connection, actor.partyId(), "social-graph.connection.requested.v1", now);
+                    appendAudit(tx, connection, actor.partyId(), null, connection.status(), "REQUEST", idempotencyKey, now);
+                    return connection;
+                });
+            });
         });
     }
 
-    public SocialConnection acceptConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
-        return transition(actor, id, key, "accept", (connection, now) -> connection.accept(actor.partyId(), now),
+    public Uni<SocialConnection> acceptConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+        return transition(actor, id, key, "accept",
+                (connection, now) -> connection.accept(actor.partyId(), now),
                 "social-graph.connection.accepted.v1");
     }
 
-    public SocialConnection rejectConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
-        return transition(actor, id, key, "reject", (connection, now) -> connection.reject(actor.partyId(), now),
+    public Uni<SocialConnection> rejectConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+        return transition(actor, id, key, "reject",
+                (connection, now) -> connection.reject(actor.partyId(), now),
                 "social-graph.connection.rejected.v1");
     }
 
-    public SocialConnection cancelConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
-        return transition(actor, id, key, "cancel", (connection, now) -> connection.cancel(actor.partyId(), now),
+    public Uni<SocialConnection> cancelConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+        return transition(actor, id, key, "cancel",
+                (connection, now) -> connection.cancel(actor.partyId(), now),
                 "social-graph.connection.cancelled.v1");
     }
 
-    public SocialConnection removeConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
-        return transition(actor, id, key, "remove", (connection, now) -> connection.remove(actor.partyId(), now),
+    public Uni<SocialConnection> removeConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+        return transition(actor, id, key, "remove",
+                (connection, now) -> connection.remove(actor.partyId(), now),
                 "social-graph.connection.removed.v1");
     }
 
-    private SocialConnection transition(SocialGraphActor actor, SocialConnectionId id, String key,
+    private Uni<SocialConnection> transition(SocialGraphActor actor, SocialConnectionId id, String key,
             String operation, Transition transition, String eventType) {
         Objects.requireNonNull(actor, "actor cannot be null");
         Objects.requireNonNull(id, "id cannot be null");
-        requireActive(actor.partyId());
+        validateKey(key);
         String fingerprint = operation + ":" + actor.partyId() + ":" + id;
-        return idempotent(actor.tenantId(), key, fingerprint, tx -> {
-            SocialConnection current = tx.findConnection(actor.tenantId(), id)
-                    .orElseThrow(SocialConnectionNotFoundException::new);
-            SocialConnection changed = transition.apply(current, clock.instant());
-            tx.updateConnection(changed, current.version());
-            appendEvent(tx, changed, actor.partyId(), eventType, changed.updatedAt());
-            appendAudit(tx, changed, actor.partyId(), current.status(), changed.status(),
-                    operation.toUpperCase(java.util.Locale.ROOT), key, changed.updatedAt());
-            return changed;
+        return requireActive(actor.partyId()).flatMap(active -> {
+            if (!active) return failure("Authenticated Party does not exist or is not active");
+            return idempotent(actor.tenantId(), key, fingerprint, tx -> {
+                SocialConnection current = tx.findConnection(actor.tenantId(), id)
+                        .orElseThrow(SocialConnectionNotFoundException::new);
+                SocialConnection changed = transition.apply(current, clock.instant());
+                tx.updateConnection(changed, current.version());
+                appendEvent(tx, changed, actor.partyId(), eventType, changed.updatedAt());
+                appendAudit(tx, changed, actor.partyId(), current.status(), changed.status(),
+                        operation.toUpperCase(java.util.Locale.ROOT), key, changed.updatedAt());
+                return changed;
+            });
         });
     }
 
-    private SocialConnection idempotent(TenantId tenantId, String key, String fingerprint,
-            java.util.function.Function<SocialGraphTransaction, SocialConnection> work) {
-        if (key == null || key.isBlank() || key.length() > 128) {
-            throw new IllegalArgumentException("A non-blank idempotency key of at most 128 characters is required");
-        }
+    private Uni<SocialConnection> idempotent(TenantId tenantId, String key, String fingerprint,
+            Function<SocialGraphTransaction, SocialConnection> work) {
         return unitOfWork.execute(tx -> {
             var prior = tx.findIdempotency(tenantId, key);
             if (prior.isPresent()) {
@@ -111,10 +122,18 @@ public final class SocialGraphService {
         });
     }
 
-    private void requireActive(PartyId partyId) {
-        if (!parties.isActive(partyId)) {
-            throw new IllegalArgumentException("Party does not exist or is not active");
+    private Uni<Boolean> requireActive(PartyId partyId) {
+        return parties.isActive(partyId);
+    }
+
+    private static void validateKey(String key) {
+        if (key == null || key.isBlank() || key.length() > 128) {
+            throw new IllegalArgumentException("A non-blank idempotency key of at most 128 characters is required");
         }
+    }
+
+    private static <T> Uni<T> failure(String message) {
+        return Uni.createFrom().failure(new IllegalArgumentException(message));
     }
 
     private static void appendEvent(SocialGraphTransaction tx, SocialConnection connection,
@@ -131,9 +150,8 @@ public final class SocialGraphService {
     private static void appendAudit(SocialGraphTransaction tx, SocialConnection connection,
             PartyId actorPartyId, SocialConnectionStatus fromStatus, SocialConnectionStatus toStatus,
             String action, String idempotencyKey, Instant occurredAt) {
-        tx.appendAudit(new SocialGraphAuditRecord(
-                UUID.randomUUID(), connection.tenantId(), connection.id(), actorPartyId,
-                fromStatus, toStatus, action, idempotencyKey, occurredAt));
+        tx.appendAudit(new SocialGraphAuditRecord(UUID.randomUUID(), connection.tenantId(),
+                connection.id(), actorPartyId, fromStatus, toStatus, action, idempotencyKey, occurredAt));
     }
 
     @FunctionalInterface
