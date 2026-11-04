@@ -264,18 +264,21 @@ class PostgresApplicationInstallationStoreTest {
     }
 
     private static void enable(ApplicationInstallation installation, Instant now) {
+        long expected = installation.revision();
         var validating = installation.beginValidation("worker", now);
-        assertThat(store.appendTransition(installation, validating, installation.revision())
-                .toCompletableFuture().join()).isTrue();
+        assertThat(store.appendTransition(installation, validating, expected).toCompletableFuture().join()).isTrue();
+
+        expected = installation.revision();
         var provisioning = installation.beginProvisioning("worker", now.plusSeconds(1));
-        assertThat(store.appendTransition(installation, provisioning, installation.revision())
-                .toCompletableFuture().join()).isTrue();
+        assertThat(store.appendTransition(installation, provisioning, expected).toCompletableFuture().join()).isTrue();
+
+        expected = installation.revision();
         var installed = installation.completeProvisioning("worker", now.plusSeconds(2));
-        assertThat(store.appendTransition(installation, installed, installation.revision())
-                .toCompletableFuture().join()).isTrue();
+        assertThat(store.appendTransition(installation, installed, expected).toCompletableFuture().join()).isTrue();
+
+        expected = installation.revision();
         var enabled = installation.enable("operator", now.plusSeconds(3));
-        assertThat(store.appendTransition(installation, enabled, installation.revision())
-                .toCompletableFuture().join()).isTrue();
+        assertThat(store.appendTransition(installation, enabled, expected).toCompletableFuture().join()).isTrue();
     }
 
     private static ApplicationInstallation requested(TenantId tenant, String app, String version,
