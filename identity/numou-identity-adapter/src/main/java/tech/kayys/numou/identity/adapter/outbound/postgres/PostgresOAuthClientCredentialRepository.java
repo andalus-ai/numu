@@ -31,6 +31,12 @@ public class PostgresOAuthClientCredentialRepository implements OAuthClientCrede
     }
 
     @Override
+    public Uni<Optional<OAuthClientCredential>> findByClientId(String clientId) {
+        return OAuthClientCredentialEntity.<OAuthClientCredentialEntity>find(\"clientId = ?1\", clientId)
+                .firstResult().map(entity -> Optional.ofNullable(entity).map(this::toDomain));
+    }
+
+    @Override
     public Uni<Void> save(OAuthClientCredential credential) {
         return OAuthClientCredentialEntity.<OAuthClientCredentialEntity>find(
                 "tenantId = ?1 and id = ?2", credential.tenantId(), credential.id().value())
