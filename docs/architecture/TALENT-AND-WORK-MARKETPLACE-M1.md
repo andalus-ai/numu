@@ -1,6 +1,6 @@
 # Talent & Work Marketplace — M1 Talent Profile Foundation
 
-- **Status:** M1a–M1b domain and M1c application increments implemented on a feature branch; PostgreSQL persistence and transport adapters remain pending.
+- **Status:** M1a–M1b domain and M1c application increments committed on a feature branch; PostgreSQL persistence and transport adapters remain pending.
 - **Owner:** Talent capability.
 - **Repository:** `andalus-ai/numu`.
 - **Scope:** establish the first production-oriented domain boundary for professional profiles.
@@ -64,18 +64,18 @@ Portfolio and credential files are referenced by Document IDs; binary content is
 
 ### M1c — application boundary and authorization
 
-The `talent-application` module provides a framework-neutral Mutiny application service and outbound ports for:
-- tenant-explicit profile lookup and save;
+The `talent-application` module now exposes a framework-neutral Mutiny application service and outbound ports for:
+- tenant-explicit profile lookup/save;
 - canonical PERSON Party existence validation in the active tenant;
-- authorization for create, update, visibility changes, publish and visibility-tier reads;
-- evidence verification before skill or credential claims may be marked issuer/platform verified;
+- authorization decisions for create, update, visibility changes, publish and visibility-tier reads;
+- evidence verification before skill or credential claims can be marked issuer/platform verified;
 - transaction-scoped profile persistence and event/outbox publication.
 
-Commands and reads require a trusted `ExecutionContext` with a non-anonymous actor and tenant. Tenant identity is never accepted from a command payload. Repository lookup includes the tenant ID, and cross-tenant lookup is indistinguishable from not-found. The service returns immutable `TalentProfileView` projections rather than mutable aggregate instances.
+All commands and reads require a trusted `ExecutionContext` with a non-anonymous actor and a tenant. The tenant is never accepted from a command payload. Repository lookup includes the tenant ID, and a cross-tenant lookup is indistinguishable from not-found. The application service returns immutable `TalentProfileView` projections, not mutable aggregate instances.
 
-Authorization is delegated to a mandatory policy port so host applications can enforce owner/member roles, tenant sharing, consent, blocks, moderation and employer/candidate permissions without embedding a second identity or ACL system in Talent. The policy is evaluated before profile data is returned or an aggregate is mutated. A transaction runner receives the full execution context; the transaction contract requires profile persistence and event/outbox append to commit or roll back together. Event publication receives the same actor, tenant and correlation metadata.
+Authorization is delegated to a mandatory policy port so host applications can enforce owner/member roles, tenant sharing, consent, blocks, moderation and employer/candidate permissions without embedding a second identity or ACL system in Talent. The policy is evaluated before a profile view is returned and before aggregate mutation. A transaction runner receives the full execution context; the transaction contract requires state persistence and event/outbox append to commit or roll back together. Event publication receives the same actor, tenant and correlation metadata. Presentation changes emit a privacy-safe event containing identifiers and event metadata only, never the headline or summary text.
 
-A deterministic in-memory repository/unit-of-work test adapter exercises tenant isolation, Party existence, anonymous-context rejection, denied reads/writes and rejected unverified skill claims. It is test-only, not a production persistence adapter. Presentation changes emit a privacy-safe event containing identifiers and metadata only, never headline or summary text.
+A deterministic in-memory repository/unit-of-work test adapter exercises tenant isolation, party existence, anonymous-context rejection, denied reads, denied writes and rejected unverified skill claims. It is test-only and is not represented as a production persistence adapter.
 
 ## 5. Security and privacy constraints
 

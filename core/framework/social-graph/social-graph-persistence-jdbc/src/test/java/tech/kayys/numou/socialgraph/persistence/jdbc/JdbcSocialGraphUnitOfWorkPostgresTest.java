@@ -183,9 +183,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         SocialConnection connection = SocialConnection.request(
                 SocialConnectionId.generate(), tenant, lower, higher, now);
 
-        uow.execute(tx -> { tx.insertConnection(connection); return null; });
+        uow.execute(tx -> { tx.insertConnection(connection); return null; }).await().indefinitely();
 
-        assertThat(uow.execute(tx -> tx.findOpenConnection(tenant, higher, lower))).isPresent();
+        assertThat(uow.execute(tx -> tx.findOpenConnection(tenant, higher, lower))
+                .await().indefinitely()).isPresent();
     }
 
     private DataSource dataSource() {
