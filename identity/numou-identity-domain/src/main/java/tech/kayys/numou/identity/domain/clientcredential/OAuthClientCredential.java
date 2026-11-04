@@ -85,6 +85,17 @@ public final class OAuthClientCredential extends AbstractAggregateRoot<OAuthClie
         return credential;
     }
 
+    /** Rehydrates persisted state without emitting a new domain event. */
+    public static OAuthClientCredential reconstitute(
+            OAuthClientCredentialId id, UUID tenantId, UUID applicationId, String clientId,
+            String secretHash, String secretPrefix, Set<String> scopes,
+            OAuthClientCredentialStatus status, long credentialVersion, Instant createdAt,
+            Instant expiresAt, Instant rotatedAt, Instant revokedAt) {
+        return new OAuthClientCredential(id, tenantId, applicationId, clientId, secretHash,
+                secretPrefix, scopes, status, credentialVersion, createdAt, expiresAt,
+                rotatedAt, revokedAt);
+    }
+
     public void rotate(String nextSecretHash, String nextSecretPrefix,
                        Instant nextExpiresAt, Instant occurredAt) {
         requireActive(occurredAt);
