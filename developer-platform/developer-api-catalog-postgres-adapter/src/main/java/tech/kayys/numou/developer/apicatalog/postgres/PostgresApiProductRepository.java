@@ -170,5 +170,6 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
  @FunctionalInterface private interface SqlWork<T>{T apply(Connection connection)throws SQLException;}
  public static final class OptimisticLockException extends RuntimeException{
   public OptimisticLockException(String message){super(message);}
+  public OptimisticLockException(String message,Throwable cause){super(message,cause);}
  }
 }

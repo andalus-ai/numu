@@ -29,7 +29,7 @@ public final class ApiProduct extends AbstractAggregateRoot<ApiProductId> {
                     Instant createdAt,Instant updatedAt,long revision,Collection<ApiVersion> versions){
   super(Objects.requireNonNull(id,"id cannot be null"));
   this.id=id;this.providerTenantId=Objects.requireNonNull(tenant,"providerTenantId cannot be null");
-  this.name=text(name,"name");this.slug=slug(slug);this.description=description(description);
+  this.name=text(name,"name");if(this.name.length()>200)throw new IllegalArgumentException("name exceeds 200 characters");this.slug=slug(slug);this.description=description(description);
   this.status=Objects.requireNonNull(status,"status cannot be null");
   this.createdAt=Objects.requireNonNull(createdAt,"createdAt cannot be null");
   this.updatedAt=Objects.requireNonNull(updatedAt,"updatedAt cannot be null");
