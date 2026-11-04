@@ -1,9 +1,9 @@
 # Social Graph M1 — Current-main implementation review
 
 - **Review date:** 2026-11-04
-- **Reviewed base:** `main` at `259d80cd3b1b79c529c9f541e69338eeeac8b79b`
-- **Review branch:** `social-graph/m0-current-main-audit-2`
-- **Status:** Source review and two targeted repairs committed; build, PostgreSQL and host-runtime verification pending
+- **Reviewed base:** `main` at `d51bba2cb192c84fe092b631fa98c6c5ea808770`
+- **Review branch:** `feat/social-graph-m1-ecosystem-identity-adapters`
+- **Status:** Trusted command facade and Ecosystem identity adapters added on feature branch; build, PostgreSQL and host-runtime verification pending
 - **Related:** [Foundation architecture](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md), [M1 implementation plan](SOCIAL-GRAPH-M1-IMPLEMENTATION.md), [M0 repository audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md)
 
 ## 1. Current implementation found on main
@@ -30,7 +30,7 @@ This is configured CI behavior, not evidence that the workflow has passed for th
 - `SocialConnection` models a tenant-scoped bilateral connection with request, accept, reject, cancel and remove transitions.
 - The domain enforces participant-specific transitions: recipient accepts/rejects, requester cancels, either participant removes an active connection.
 - The aggregate references canonical Ecosystem `PartyId`; it does not create a second person or organization identity.
-- `EcosystemSocialGraphIdentityAdapter` resolves issuer/subject through Ecosystem's tenant-scoped `PartyIdentityAssociationRepository`, then loads the Party through `PartyLookupPort` and requires it to be active.
+- The current `main` has the Ecosystem public ports (`PartyIdentityAssociationRepository` and `PartyLookupPort`) but no concrete Social Graph adapter in the application package. The feature branch adds `EcosystemSocialGraphActorResolver` and `EcosystemSocialGraphPartyDirectoryAdapter` against those public contracts.
 - `SocialGraphService` validates active Parties, tenant-scoped idempotency keys and command fingerprints, and uses optimistic version checks.
 - PostgreSQL enforces one pending/active connection per unordered Party pair per tenant with a partial unique index.
 - The JDBC unit of work executes connection, idempotency, audit and outbox writes through one physical connection and one transaction.
@@ -68,11 +68,11 @@ Both repairs are source-reviewed only. They have not yet been compiled or run.
 
 ### Remaining M1 integration gate
 
-- `SocialGraphAuthorizationPort` exists, but the current `SocialGraphService` does not depend on or invoke it.
-- `SocialGraphService` accepts a `SocialGraphActor` directly. The actor record is publicly constructible.
-- The README and M1 document place trusted actor construction and tenant/capability authorization at the host boundary. No REST adapter or production host composition was found in this Social Graph slice.
-- Therefore, the service must only be exposed through a trusted composition boundary that obtains tenant and issuer/subject from verified security context, resolves the actor, invokes authorization, and then calls the service. Never accept a caller-provided PartyId or tenant as the authenticated actor.
-- Add an integration test proving unauthenticated, unassociated, inactive, non-member and unauthorized actors cannot invoke commands through the public host entry point.
+- `SocialGraphService` invokes `SocialGraphAuthorizationPort` before Party checks or persistence for connection requests and lifecycle commands.
+- `SocialGraphActor` remains publicly constructible, so direct service exposure would allow callers to supply an arbitrary actor context. The feature branch makes `SocialGraphService` package-private and exposes `SocialGraphCommandFacade` as the public command entry point.
+- The facade resolves a host-verified issuer/subject against the trusted tenant through `EcosystemSocialGraphActorResolver`, rejects missing/cross-tenant/inactive associations, and delegates to the service. The service still requires host-provided tenant membership and capability authorization.
+- Facade tests cover all five commands, missing identity association, cross-tenant actor rejection, and authorization denial before persistence. Adapter tests cover tenant/subject matching and Party lifecycle.
+- No HTTP/messaging host composition was found in this Social Graph slice. The host must still populate trusted tenant/issuer/subject from verified authentication context and provide a fail-closed `SocialGraphAuthorizationPort` implementation.
 - The Social Graph tables do not currently declare PostgreSQL row-level security policies. The persistence adapter applies tenant predicates. Decide whether database RLS is required as defense-in-depth for the intended deployment roles before exposing broader read/query APIs.
 
 ## 5. Adjacent capability ownership revalidated
@@ -112,7 +112,7 @@ The current repository tree contains capability-specific privacy/retention behav
 ## 7. M1 acceptance gates and next work
 
 1. Run the dedicated Social Graph workflow / Maven command and record exact results; verify the Flyway migration and Testcontainers PostgreSQL tests execute (not silently skipped because Docker is unavailable).
-2. Implement and test the trusted host composition for security-context → tenant-scoped identity association → active Party → authorization → Social Graph command.
+2. Wire the facade and Ecosystem adapters into an actual host using verified authentication context; provide and test a fail-closed tenant membership/capability authorization implementation.
 3. Decide and document PostgreSQL RLS requirements for graph, audit, idempotency and outbox tables under actual application/worker roles.
 4. Add concurrency coverage for duplicate idempotency keys and active-pair races, and confirm retry/replay behavior.
 5. Define consent, visibility, block and deletion semantics before adding read/list/search or cross-tenant discovery.
