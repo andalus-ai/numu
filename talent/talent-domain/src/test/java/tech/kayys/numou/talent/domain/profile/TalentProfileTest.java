@@ -62,7 +62,7 @@ class TalentProfileTest {
         assertThat(profile.visibility()).isEqualTo(ProfileVisibility.PUBLIC);
         assertThat(profile.getVersion()).isEqualTo(3);
         assertThat(profile.pullDomainEvents()).extracting("eventType")
-                .containsExactly("talent.profile.visibility-changed", "talent.profile.published");
+                .containsExactly("talent.profile.presentation-changed", "talent.profile.visibility-changed", "talent.profile.published");
     }
 
     @Test
