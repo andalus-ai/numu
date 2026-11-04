@@ -25,8 +25,9 @@ public final class OAuthClientAccessTokenStateValidator {
 
     public Uni<VerifiedClientAccessToken> validate(String tokenUse, String clientId, String tenantId,
             String applicationId, long credentialVersion, Set<String> tokenScopes) {
-        if (!"access".equals(tokenUse) || blank(clientId) || blank(tenantId) || blank(applicationId)
-                || credentialVersion < 1 || tokenScopes == null || tokenScopes.isEmpty()) {
+        if (!"access".equals(tokenUse) || blank(clientId) || clientId.length() > 96
+                || blank(tenantId) || tenantId.length() > 36 || blank(applicationId) || applicationId.length() > 36
+                || credentialVersion < 1 || !validScopes(tokenScopes)) {
             return Uni.createFrom().failure(OAuthTokenRejectedException.invalidToken());
         }
         final UUID claimedTenant;
@@ -54,6 +55,12 @@ public final class OAuthClientAccessTokenStateValidator {
     }
 
     private static boolean blank(String value) { return value == null || value.isBlank(); }
+
+    private static boolean validScopes(Set<String> scopes) {
+        if (scopes == null || scopes.isEmpty() || scopes.size() > 64) return false;
+        return scopes.stream().allMatch(scope -> scope != null && scope.length() <= 128
+                && scope.matches("[a-z][a-z0-9]*(?:[.:][a-z0-9][a-z0-9-]*)*"));
+    }
 
     public record VerifiedClientAccessToken(String clientId, UUID tenantId, UUID applicationId,
             long credentialVersion, Set<String> scopes) {
