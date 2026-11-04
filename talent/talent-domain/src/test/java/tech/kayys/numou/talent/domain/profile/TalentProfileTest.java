@@ -123,6 +123,7 @@ class TalentProfileTest {
     @Test
     void storesImmutableSkillsAndCareerEvidenceWithoutOwningEmploymentRecords() {
         var profile = profile();
+        profile.pullDomainEvents();
         var skill = new ProfileContent.Skill(UUID.randomUUID(), "Java", "Engineering",
                 ProfileContent.SkillLevel.EXPERT, ProfileContent.Verification.SELF_REPORTED);
         var experience = new ProfileContent.Experience(UUID.randomUUID(), "Example Co", "Backend Engineer",
@@ -146,6 +147,8 @@ class TalentProfileTest {
         assertThat(profile.education()).containsExactly(education);
         assertThat(profile.credentials()).containsExactly(credential);
         assertThat(profile.portfolio()).containsExactly(portfolio);
+        assertThat(profile.pullDomainEvents()).extracting("eventType")
+                .containsOnly("talent.profile.content-changed");
         assertThatThrownBy(() -> profile.skills().clear()).isInstanceOf(UnsupportedOperationException.class);
     }
 
