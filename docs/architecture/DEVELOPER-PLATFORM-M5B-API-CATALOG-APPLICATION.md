@@ -32,7 +32,7 @@ The module does not depend on Quarkus, Hibernate, a database driver, Iket, or Ga
 5. Missing tenant context fails closed through ExecutionContext.requireTenant().
 6. Authorization implementations derive actor identity from trusted execution context; do not accept actor or tenant IDs from request DTOs.
 7. Event publication must be atomic with persistence through transaction/outbox adapter.
-8. OpenAPI artifact verification and semantic parsing are not performed by this layer; publication must be guarded by the dedicated validation/application port in the next milestone before external exposure.
+8. OpenAPI artifact verification and semantic parsing are delegated to ApiSpecificationValidationPort. PublishApiVersionCommandHandler requires this port and refuses publication unless tenant-owned artifact integrity and OpenAPI semantic validation succeed.
 
 ## Read model
 ApiProductView exposes catalog metadata, version status, OpenAPI artifact pointer/digest, and declared scope vocabulary. It does not expose secrets, OAuth credentials, gateway runtime state, or provider internals.
@@ -45,7 +45,8 @@ ApiProductView exposes catalog metadata, version status, OpenAPI artifact pointe
 - [x] Transactional create/publish orchestration and event publication.
 - [x] Create/list/get/add/publish/deprecate/retire use cases.
 - [x] Create-handler unit test for tenant propagation and event publication.
+- [x] Required OpenAPI validation port invoked before publication.
 - [ ] Run Maven reactor build and ArchUnit/unit tests in CI.
 - [ ] Implement PostgreSQL repository, unique constraints and optimistic-lock mapping.
 - [ ] Implement concrete authorization policy adapter and transactional outbox integration.
-- [ ] Add OpenAPI validation gate before API version publication.
+- [ ] Implement artifact-store and OpenAPI parser adapter for ApiSpecificationValidationPort.
