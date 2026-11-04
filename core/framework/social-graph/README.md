@@ -46,20 +46,26 @@ business inputs. Tenant scope is read from the current verified
 `SecurityContext`; the issuer/subject is read from
 `VerifiedIdentitySubjectProvider`.
 
-The host application must supply exactly one CDI implementation of
-`VerifiedIdentitySubjectProvider`, backed by its validated authentication
-mechanism. It must return the original issuer and subject from verified
-claims, never request headers, query parameters, or body fields. The current
-Numou `SecurityContext` contract does not expose issuer/subject claims, so
-this adapter intentionally does not infer them from `PrincipalId` or
-`Principal.handle`. Missing context, missing tenant membership, missing
-verified subject, or missing active tenant-scoped Party association fails
-closed.
+The adapter includes `OidcVerifiedIdentitySubjectProvider`, which reads the
+issuer and subject from the validated MicroProfile JWT supplied by Quarkus
+OIDC. It does not infer either value from `PrincipalId`, `Principal.handle`,
+request headers, query parameters, or body fields. The
+`CurrentRequestSecurityContextProvider` bridges the request-scoped
+`CurrentSecurity` populated by Numou's `RequestSecurityFilter` into the
+canonical security-domain context and derives effective permissions from the
+configured role matrix.
 
-The host also owns datasource configuration, Flyway migration policy, and
-the freshness/revocation window for its SecurityContext membership snapshot.
-A runtime that has not provided the verified-subject CDI bean is intentionally
-not ready to expose the gateway.
+The default role matrix grants `social-graph.create` and
+`social-graph.perform` to the `social-graph-member` role. Hosts should
+assign that role only to users permitted to create and manage their own
+connections, or replace/extend the matrix with their own policy. The route
+must be covered by the security filter's protected prefixes and the JWT must
+contain the configured tenant membership claims. Missing request context,
+tenant membership, issuer/subject, permission, or active tenant-scoped Party
+association fails closed.
+
+The host still owns datasource configuration, Flyway migration policy, and
+the freshness/revocation window for the request's membership snapshot.
 
 Verification from the repository root:
 
