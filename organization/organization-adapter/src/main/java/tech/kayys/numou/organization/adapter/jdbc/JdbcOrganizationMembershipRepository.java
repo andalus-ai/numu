@@ -153,7 +153,8 @@ public final class JdbcOrganizationMembershipRepository implements OrganizationM
                     OrganizationMembership previous = current.get();
                     if (!previous.organizationId().equals(candidate.organizationId())
                             || !previous.userId().equals(candidate.userId())
-                            || !previous.getCreatedAt().truncatedTo(ChronoUnit.MICROS)\n                                    .equals(candidate.getCreatedAt().truncatedTo(ChronoUnit.MICROS))) {
+                            || !previous.getCreatedAt().truncatedTo(ChronoUnit.MICROS)
+                                    .equals(candidate.getCreatedAt().truncatedTo(ChronoUnit.MICROS))) {
                         throw new IllegalArgumentException(
                                 "Membership identity and creation timestamp are immutable");
                     }
