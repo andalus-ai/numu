@@ -17,6 +17,10 @@ on:
     paths:
       - "core/framework/social-graph/**"
       - "core/framework/ecosystem/**"
+      - "security/social-graph-adapter/**"
+      - "security/security-application/**"
+      - "security/security-domain/**"
+      - "security/pom.xml"
       - "core/framework/pom.xml"
       - ".github/workflows/social-graph.yml"
 
