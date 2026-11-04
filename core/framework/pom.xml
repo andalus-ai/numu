@@ -39,6 +39,10 @@
         <module>planning</module>
         <module>aggregate</module>
 
+        <!-- Shared business-facing capabilities used by Developer Platform adapters. -->
+        <module>../../identity</module>
+        <module>../../documents</module>
+
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
     </modules>
