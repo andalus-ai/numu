@@ -16,6 +16,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "security/security-adapter/**"
       - "core/framework/social-graph/**"
       - "core/framework/ecosystem/**"
       - "security/social-graph-adapter/**"
