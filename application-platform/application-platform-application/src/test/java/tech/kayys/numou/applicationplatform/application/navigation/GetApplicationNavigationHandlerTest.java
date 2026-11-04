@@ -26,7 +26,8 @@ class GetApplicationNavigationHandlerTest {
     void exposesOnlyAuthorizedNavigationFromEnabledVerifiedPackagesInStableOrder() {
         var crm = enabled("com.example.crm");
         var commerce = enabled("com.example.commerce");
-        var suspended = enabled("com.example.suspended").suspend("user:admin", Instant.parse("2026-11-04T00:00:01Z"));
+        var suspended = enabled("com.example.suspended");
+        suspended.suspend("user:admin", Instant.parse("2026-11-04T00:00:01Z"));
         var actor = new InstallationActor(TENANT, "user:alice", "corr");
         var packageLookups = new AtomicInteger();
 
@@ -38,8 +39,8 @@ class GetApplicationNavigationHandlerTest {
             packageLookups.incrementAndGet();
             return CompletableFuture.completedFuture(Optional.of(new ValidatedApplicationPackage(
                     manifest(id.value(), List.of(
-                            new NavigationContribution("home", "Home", "/apps/" + id.value() + "/home", "app.read"),
-                            new NavigationContribution("admin", "Admin", "/apps/" + id.value() + "/admin", "app.admin"))),
+                            new NavigationContribution("home", "Home", "/apps/home", "app.read"),
+                            new NavigationContribution("admin", "Admin", "/apps/admin", "app.admin"))),
                     DIGEST)));
         };
         ApplicationNavigationAuthorizationPort policy = (who, permission) -> {
