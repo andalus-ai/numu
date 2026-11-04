@@ -44,7 +44,7 @@ The initial aggregate provides:
 - bounded headline, summary and location label;
 - private-by-default visibility (`PRIVATE`, `NETWORK`, `PUBLIC`);
 - publication lifecycle (`DRAFT`, `PUBLISHED`, `SUSPENDED`, `ARCHIVED`);
-- explicit transitions and domain events for creation, publication and visibility changes;
+- explicit transitions and privacy-safe domain events for creation, presentation changes, publication and visibility changes;
 - immutable subject and tenant identity after creation.
 
 The domain has no framework, transport, persistence or broker dependency. The only cross-capability domain dependency is the public Ecosystem Party reference contract.
