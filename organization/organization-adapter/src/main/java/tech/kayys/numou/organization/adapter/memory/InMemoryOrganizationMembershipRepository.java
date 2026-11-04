@@ -24,9 +24,8 @@ public class InMemoryOrganizationMembershipRepository implements OrganizationMem
     @Override
     @Deprecated(forRemoval = false)
     public synchronized CompletionStage<OrganizationMembership> save(OrganizationMembership membership) {
-        Objects.requireNonNull(membership, "membership");
-        store.put(membership.getId(), new Entry(null, membership));
-        return CompletableFuture.completedFuture(membership);
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "TenantId is required to persist an organization membership"));
     }
 
     @Override
@@ -54,8 +53,16 @@ public class InMemoryOrganizationMembershipRepository implements OrganizationMem
 
     @Override
     public CompletionStage<Optional<OrganizationMembership>> findById(OrganizationMembershipId id) {
-        Entry entry = store.get(id);
-        return CompletableFuture.completedFuture(Optional.ofNullable(entry).map(Entry::membership));
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "TenantId is required for membership reads; use findByTenantAndId"));
+    }
+
+    @Override
+    public CompletionStage<Boolean> existsByTenantAndId(TenantId tenantId, OrganizationMembershipId membershipId) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(membershipId, "membershipId");
+        Entry entry = store.get(membershipId);
+        return CompletableFuture.completedFuture(entry != null && tenantId.equals(entry.tenantId()));
     }
 
     @Override
@@ -70,29 +77,28 @@ public class InMemoryOrganizationMembershipRepository implements OrganizationMem
 
     @Override
     public CompletionStage<Boolean> existsById(OrganizationMembershipId id) {
-        return CompletableFuture.completedFuture(store.containsKey(id));
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "TenantId is required for membership existence checks; use existsByTenantAndId"));
     }
 
     @Override
     public CompletionStage<Void> delete(OrganizationMembership membership) {
-        store.remove(membership.getId());
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "Membership history is retained; use the tenant-scoped lifecycle transition"));
     }
 
     @Override
     public CompletionStage<Void> deleteById(OrganizationMembershipId id) {
-        store.remove(id);
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "Membership history is retained; use the tenant-scoped lifecycle transition"));
     }
 
     @Override
     @Deprecated(forRemoval = false)
     public CompletionStage<Optional<OrganizationMembership>> findByOrganizationAndUser(
             OrganizationId organizationId, UserId userId) {
-        return CompletableFuture.completedFuture(store.values().stream()
-                .filter(entry -> entry.membership().organizationId().equals(organizationId)
-                        && entry.membership().userId().equals(userId))
-                .map(Entry::membership).findFirst());
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "TenantId is required for membership reads; use findByTenantAndOrganizationAndUser"));
     }
 
     @Override
