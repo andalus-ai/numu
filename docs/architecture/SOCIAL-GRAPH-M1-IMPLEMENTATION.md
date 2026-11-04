@@ -1,6 +1,6 @@
 # Social Graph M1 — PostgreSQL Core Implementation
 
-- **Status:** M1 merged; runtime Flyway discovery dependency added in follow-up hardening branch; build/CI verification pending
+- **Status:** M1 source is present on main; current-main review found and repaired two verification blockers on `social-graph/m0-current-main-audit-2`; build/CI verification and host security composition remain pending
 - **Date:** 2026-11-04
 - **Branch:** `social-graph/m1-core-postgresql-mainline`
 - **Architecture:** [Social Graph Foundation](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md)
@@ -81,10 +81,11 @@ The JDBC adapter executes the command callback and all persistence/outbox writes
 
 ## 6. Verification
 
-Tests added:
+Tests present in the current source tree:
 
 - `SocialConnectionLifecycleTest`
 - `SocialGraphServiceTest`
+- `JdbcSocialGraphUnitOfWorkPostgresTest` (Testcontainers; includes migration, commit/rollback, uniqueness, optimistic concurrency, audit immutability, tenant-scoped lookup and UUID ordering checks)
 
 Expected build command from repository root:
 
@@ -92,13 +93,13 @@ Expected build command from repository root:
 mvn -f core/framework/pom.xml -pl social-graph -am test
 ```
 
-**Verification status:** Not run in this session. Do not mark M1 complete or open a review-ready PR until the command passes in a checked-out workspace/CI, PostgreSQL migration and transaction integration tests pass, and the composition layer's PartyDirectory/actor binding is implemented and tested.
+**Verification status:** Not run in this session. The current-main audit identified an invalid PostgreSQL dollar-quote delimiter in the audit trigger function and a missing Mutiny await in the UUID-ordering integration test; both are repaired on `social-graph/m0-current-main-audit-2`. These changes are not yet build- or CI-verified. Do not mark M1 complete or open a review-ready PR until the command passes in CI, PostgreSQL migration and transaction integration tests pass, and the host composition's PartyDirectory/actor binding and authorization boundary are implemented and tested.
 
 ## 7. Remaining M1 hardening before review
 
 1. Run the exact Maven reactor build and resolve any dependency or compilation failures.
 2. Add Testcontainers PostgreSQL tests proving migration validity, uniqueness under concurrent requests, tenant isolation, optimistic conflict behavior, and rollback of state + idempotency + outbox on injected failure.
-3. Add an application composition adapter for authenticated actor resolution and Party lookup; no unsafe UUID conversions.\n4. Verify append-only audit trigger behavior and PostgreSQL transaction rollback tests in CI.
+3. Add/verify a host composition adapter for authenticated actor resolution and Party lookup; the resolver must receive trusted tenant + issuer/subject context, with no unsafe UUID conversions.\n4. Wire and test the declared `SocialGraphAuthorizationPort` at the command boundary. The current `SocialGraphService` accepts a `SocialGraphActor` directly and does not invoke this port itself; hosts must not expose that service through an untrusted DTO path.\n5. Verify append-only audit trigger behavior and PostgreSQL transaction rollback tests in CI.
 5. Verify Flyway discovery/registration in an actual Quarkus host runtime; the adapter now supplies the Quarkus Flyway extension, while each host controls `quarkus.flyway.migrate-at-start`.
 6. Add read/list contracts with bounded pagination only after privacy and visibility rules are agreed; do not expose unrestricted traversal.
 7. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
