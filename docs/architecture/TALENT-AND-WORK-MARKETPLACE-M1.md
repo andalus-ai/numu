@@ -1,6 +1,6 @@
 # Talent & Work Marketplace — M1 Talent Profile Foundation
 
-- **Status:** M1a and M1b domain increments committed on a feature branch; application APIs and persistence are not yet implemented.
+- **Status:** M1a–M1b domain and M1c application increments implemented on a feature branch; PostgreSQL persistence and transport adapters remain pending.
 - **Owner:** Talent capability.
 - **Repository:** `andalus-ai/numu`.
 - **Scope:** establish the first production-oriented domain boundary for professional profiles.
@@ -62,6 +62,21 @@ Each section is replaced atomically, is capped at 100 entries, rejects duplicate
 
 Portfolio and credential files are referenced by Document IDs; binary content is never stored in the aggregate. HTTPS portfolio links reject embedded credentials. URL allow-listing, malware scanning, document access checks and remote-link safety belong in application/adapters before publication.
 
+### M1c — application boundary and authorization
+
+The `talent-application` module provides a framework-neutral Mutiny application service and outbound ports for:
+- tenant-explicit profile lookup and save;
+- canonical PERSON Party existence validation in the active tenant;
+- authorization for create, update, visibility changes, publish and visibility-tier reads;
+- evidence verification before skill or credential claims may be marked issuer/platform verified;
+- transaction-scoped profile persistence and event/outbox publication.
+
+Commands and reads require a trusted `ExecutionContext` with a non-anonymous actor and tenant. Tenant identity is never accepted from a command payload. Repository lookup includes the tenant ID, and cross-tenant lookup is indistinguishable from not-found. The service returns immutable `TalentProfileView` projections rather than mutable aggregate instances.
+
+Authorization is delegated to a mandatory policy port so host applications can enforce owner/member roles, tenant sharing, consent, blocks, moderation and employer/candidate permissions without embedding a second identity or ACL system in Talent. The policy is evaluated before profile data is returned or an aggregate is mutated. A transaction runner receives the full execution context; the transaction contract requires profile persistence and event/outbox append to commit or roll back together. Event publication receives the same actor, tenant and correlation metadata.
+
+A deterministic in-memory repository/unit-of-work test adapter exercises tenant isolation, Party existence, anonymous-context rejection, denied reads/writes and rejected unverified skill claims. It is test-only, not a production persistence adapter. Presentation changes emit a privacy-safe event containing identifiers and metadata only, never headline or summary text.
+
 ## 5. Security and privacy constraints
 
 - Public visibility does not bypass tenant, consent, moderation, block-list or privacy checks.
@@ -75,8 +90,8 @@ Portfolio and credential files are referenced by Document IDs; binary content is
 
 1. M1a: profile identity, presentation and lifecycle domain.
 2. M1b: skills, experience, education, credential and portfolio references with explicit provenance and bounded immutable sections.
-3. M1c: application ports, tenant-scoped repository contract, command/query handlers, authorization policy and deterministic in-memory adapter for domain/application tests.
-4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency and integration tests.
+3. M1c: tenant-aware application ports, authorization boundary, immutable read model, transaction/event contract and in-memory application tests.
+4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency, idempotency and integration tests.
 5. M2: job vacancy aggregate, publication lifecycle, search criteria and employer authorization.
 6. M3: recruitment application aggregate and ATS pipeline.
 7. M4–M5: freelance and crowdsourcing engagement lifecycles.
@@ -84,4 +99,4 @@ Portfolio and credential files are referenced by Document IDs; binary content is
 
 ## 7. Verification status
 
-Domain unit tests are included in this increment. Build execution, persistence, REST/API exposure, search integration and production authorization are not claimed by this document. The domain module must be built with the framework reactor and the test result recorded before merge.
+Domain and application unit tests are included in this increment. Build execution, PostgreSQL persistence, REST/API exposure, search integration and a concrete production authorization policy are not claimed by this document. The domain module must be built with the framework reactor and the test result recorded before merge.
