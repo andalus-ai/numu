@@ -11,5 +11,5 @@
   <artifactId>numou-developer-platform</artifactId>
   <packaging>pom</packaging>
   <name>Numou Developer Platform</name>
-  <modules><module>developer-api-catalog-domain</module></modules>
+  <modules><module>developer-api-catalog-domain</module><module>developer-api-catalog-application</module></modules>
 </project>
