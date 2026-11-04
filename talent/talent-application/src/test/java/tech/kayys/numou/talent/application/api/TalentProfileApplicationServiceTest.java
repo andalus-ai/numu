@@ -223,7 +223,7 @@ class TalentProfileApplicationServiceTest {
             Key key = new Key(tenantId, profile.id());
             TalentProfile current = profiles.get(key);
             if (current == null || current.getVersion() != expectedVersion
-                    || profile.getVersion() != expectedVersion + 1) {
+                    || (profile.getVersion() != expectedVersion && profile.getVersion() != expectedVersion + 1)) {
                 return Uni.createFrom().failure(new IllegalStateException("Talent profile changed concurrently"));
             }
             profiles.put(key, profile);
