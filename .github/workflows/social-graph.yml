@@ -16,6 +16,7 @@ on:
     branches: [main]
     paths:
       - "core/framework/social-graph/**"
+      - "core/framework/ecosystem/**"
       - "core/framework/pom.xml"
       - ".github/workflows/social-graph.yml"
 
