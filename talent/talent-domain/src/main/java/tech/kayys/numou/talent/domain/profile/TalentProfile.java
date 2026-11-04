@@ -10,6 +10,8 @@ import tech.kayys.numou.talent.domain.profile.event.TalentProfileVisibilityChang
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Tenant-scoped professional profile owned by a canonical PERSON Party.
@@ -32,6 +34,13 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
     private String locationLabel;
     private ProfileVisibility visibility;
     private TalentProfileStatus status;
+    private List<ProfileContent.Skill> skills = List.of();
+    private List<ProfileContent.Experience> experiences = List.of();
+    private List<ProfileContent.Education> education = List.of();
+    private List<ProfileContent.Credential> credentials = List.of();
+    private List<ProfileContent.PortfolioItem> portfolio = List.of();
+
+    public static final int MAX_PROFILE_ITEMS = 100;
 
     private TalentProfile(
             TalentProfileId id,
@@ -126,6 +135,58 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
         raise(new tech.kayys.numou.talent.domain.profile.event.TalentProfileArchived(id(), tenantId));
     }
 
+
+    public void replaceSkills(List<ProfileContent.Skill> items) {
+        ensureEditable();
+        skills = validatedItems(items, "skills");
+        touch();
+    }
+
+    public void replaceExperiences(List<ProfileContent.Experience> items) {
+        ensureEditable();
+        experiences = validatedItems(items, "experiences");
+        touch();
+    }
+
+    public void replaceEducation(List<ProfileContent.Education> items) {
+        ensureEditable();
+        education = validatedItems(items, "education");
+        touch();
+    }
+
+    public void replaceCredentials(List<ProfileContent.Credential> items) {
+        ensureEditable();
+        credentials = validatedItems(items, "credentials");
+        touch();
+    }
+
+    public void replacePortfolio(List<ProfileContent.PortfolioItem> items) {
+        ensureEditable();
+        portfolio = validatedItems(items, "portfolio");
+        touch();
+    }
+
+    private static <T> List<T> validatedItems(List<T> items, String section) {
+        Objects.requireNonNull(items, section + " must not be null");
+        if (items.size() > MAX_PROFILE_ITEMS) {
+            throw new IllegalArgumentException(section + " cannot contain more than " + MAX_PROFILE_ITEMS + " items");
+        }
+        var copy = List.copyOf(items);
+        var ids = new java.util.HashSet<UUID>();
+        for (T item : copy) {
+            Objects.requireNonNull(item, section + " item must not be null");
+            UUID itemId;
+            if (item instanceof ProfileContent.Skill value) itemId = value.id();
+            else if (item instanceof ProfileContent.Experience value) itemId = value.id();
+            else if (item instanceof ProfileContent.Education value) itemId = value.id();
+            else if (item instanceof ProfileContent.Credential value) itemId = value.id();
+            else if (item instanceof ProfileContent.PortfolioItem value) itemId = value.id();
+            else throw new IllegalArgumentException("Unsupported " + section + " item type");
+            if (!ids.add(itemId)) throw new IllegalArgumentException(section + " contains duplicate item IDs");
+        }
+        return copy;
+    }
+
     private void ensureEditable() {
         if (status == TalentProfileStatus.ARCHIVED) {
             throw new IllegalStateException("Archived talent profile cannot be edited");
@@ -181,4 +242,9 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
     public String locationLabel() { return locationLabel; }
     public ProfileVisibility visibility() { return visibility; }
     public TalentProfileStatus status() { return status; }
+    public List<ProfileContent.Skill> skills() { return skills; }
+    public List<ProfileContent.Experience> experiences() { return experiences; }
+    public List<ProfileContent.Education> education() { return education; }
+    public List<ProfileContent.Credential> credentials() { return credentials; }
+    public List<ProfileContent.PortfolioItem> portfolio() { return portfolio; }
 }
