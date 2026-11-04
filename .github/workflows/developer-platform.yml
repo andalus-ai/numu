@@ -1,0 +1,40 @@
+name: Developer Platform Registry Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "developer-platform/**"
+      - "core/framework/pom.xml"
+      - "core/framework/foundation/**"
+      - ".github/workflows/developer-platform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  registry:
+    name: Developer application registry reactor
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation contracts
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Verify Developer Platform registry reactor
+        run: mvn -B -ntp -f developer-platform/pom.xml verify
+      - name: Upload Developer Platform Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-platform-maven-test-reports
+          path: "developer-platform/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7

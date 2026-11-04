@@ -11,5 +11,14 @@
   <artifactId>numou-developer-platform</artifactId>
   <packaging>pom</packaging>
   <name>Numou Developer Platform</name>
-  <modules><module>developer-api-catalog-domain</module><module>developer-api-catalog-application</module></modules>
+  <modules>
+    <!-- Existing developer application registry bounded context. -->
+    <module>developer-platform-domain</module>
+    <module>developer-platform-application</module>
+    <module>developer-platform-postgres-adapter</module>
+    <!-- API catalog capability. -->
+    <module>developer-api-catalog-domain</module>
+    <module>developer-api-catalog-application</module>
+    <module>developer-api-catalog-postgres-adapter</module>
+  </modules>
 </project>
