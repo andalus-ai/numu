@@ -10,10 +10,10 @@ SELECT gen_random_uuid(), grants.tenant_id, grants.role_id, target_permission.id
   FROM tenant_role_permissions grants
   JOIN identity_permissions legacy_permission
     ON legacy_permission.id = grants.permission_id
-  JOIN identity_permissions target_permission
-    ON target_permission.code = CASE legacy_permission.code
-        WHEN 'identity.service-account.manage' THEN 'identity.service-account.create'
-        ELSE 'identity.service-account.update'
-    END
+ CROSS JOIN identity_permissions target_permission
  WHERE legacy_permission.code = 'identity.service-account.manage'
+   AND target_permission.code IN (
+       'identity.service-account.create',
+       'identity.service-account.update'
+   )
 ON CONFLICT (tenant_id, role_id, permission_id) DO NOTHING;
