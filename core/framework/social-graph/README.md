@@ -13,6 +13,7 @@ M1 introduces the first PostgreSQL-backed social relationship vertical slice.
 - Explicit actor resolver and active Party directory adapter over Ecosystem public application ports.
 - Transaction-bound JDBC unit of work: connection state, idempotency record, append-only audit record, and durable outbox event intent commit or roll back together.
 - PostgreSQL only. Neo4j is not a runtime dependency.
+- The JDBC adapter includes the Quarkus Flyway runtime extension, making its packaged `db/migration` resource discoverable to composed Quarkus hosts. Hosts explicitly control migration timing with `quarkus.flyway.migrate-at-start=true`; the capability does not force migration for deployments that do not opt in.
 
 ## Boundaries
 
@@ -31,3 +32,5 @@ mvn -f core/framework/pom.xml -pl social-graph -am test
 ```
 
 The build has not been claimed as passing until it is executed in CI or a checked-out workspace.
+
+For a Quarkus host that includes this adapter, Flyway's default `classpath:db/migration` scan discovers the Social Graph migration from the dependency JAR. The host owns migration timing and should set `quarkus.flyway.migrate-at-start=true` only when ready to apply the schema. Do not configure a Social Graph-only location that hides other modules' migrations.
