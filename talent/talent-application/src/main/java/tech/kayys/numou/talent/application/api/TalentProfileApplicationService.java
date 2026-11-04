@@ -10,7 +10,6 @@ import tech.kayys.numou.talent.domain.profile.*;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -161,7 +160,7 @@ public final class TalentProfileApplicationService {
                         mutation.accept(profile);
                         List<DomainEvent> events = profile.pullDomainEvents();
                         return tx.profiles().save(tenantId, profile)
-                                .flatMap(saved -> tx.publish(tenantId, events)
+                                .flatMap(saved -> tx.publish(context, events)
                                         .replaceWith(TalentProfileView.from(saved)));
                     });
                 }));
