@@ -102,4 +102,26 @@ class ApplicationCapabilityResolverTest {
         assertThat(reverseFailure).isInstanceOf(CapabilityResolutionException.class)
                 .hasMessage("Capability dependency cycle: numou.sales -> numou.party -> numou.sales");
     }
+
+    @Test void rejectsDuplicateProviderIdsAcrossCapabilities() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
+        var providers = List.of(
+                new CapabilityProvider("shared-provider-id", "numou.sales", "1.0.0", List.of()),
+                new CapabilityProvider("shared-provider-id", "numou.party", "1.0.0", List.of()));
+
+        assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
+                .isInstanceOf(CapabilityResolutionException.class)
+                .hasMessage("Duplicate provider ID: shared-provider-id");
+    }
+
+    @Test void rejectsProviderWithInvalidContractVersion() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
+        var provider = new CapabilityProvider("sales-provider", "numou.sales", "1.0", List.of());
+
+        assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, List.of(provider)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid SemVer 2.0.0 version: 1.0");
+    }
 }
