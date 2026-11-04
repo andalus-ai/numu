@@ -3,6 +3,7 @@ package tech.kayys.numou.security.socialgraph;
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef;
+import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.security.application.context.SecurityContextProvider;
 import tech.kayys.numou.security.domain.authentication.AuthenticationInfo;
@@ -12,10 +13,14 @@ import tech.kayys.numou.security.domain.authorization.Principal;
 import tech.kayys.numou.security.domain.authorization.SecurityContext;
 import tech.kayys.numou.security.domain.identifier.PrincipalId;
 import tech.kayys.numou.socialgraph.application.SocialGraphAccessDeniedException;
+import tech.kayys.numou.socialgraph.application.SocialGraphActor;
+import tech.kayys.numou.socialgraph.application.SocialGraphActorResolver;
 import tech.kayys.numou.socialgraph.application.SocialGraphCommandFacade;
+import tech.kayys.numou.socialgraph.application.SocialGraphService;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -58,7 +63,8 @@ class AuthenticatedSocialGraphCommandGatewayTest {
 
     @Test
     void deniesMissingVerifiedSubject() {
-        var gateway = gateway(context(tenant), Optional.empty(), facade((t, s) -> Uni.createFrom().nullItem()));
+        var gateway = gateway(context(tenant), Optional.empty(),
+                facade((t, s) -> Uni.createFrom().nullItem()));
         assertDenied(gateway);
     }
 
@@ -98,36 +104,24 @@ class AuthenticatedSocialGraphCommandGatewayTest {
     }
 
     private SocialGraphCommandFacade facade(TrustedFacadeCall call) {
-        return new SocialGraphCommandFacade((tenant, identity) -> {
-            assertThat(tenant).isEqualTo(tenant);
-            return Uni.createFrom().item(Optional.of(
-                    new tech.kayys.numou.socialgraph.application.SocialGraphActor(
-                            tenant, tech.kayys.numou.ecosystem.domain.party.PartyId.generate())));
-        }, new SocialGraphServiceStub(call));
+        SocialGraphActorResolver resolver = (tenantId, identity) ->
+                Uni.createFrom().item(Optional.of(new SocialGraphActor(tenantId, PartyId.generate())));
+        SocialGraphService service = new SocialGraphService(
+                work -> Uni.createFrom().failure(new UnsupportedOperationException("not used")),
+                partyId -> Uni.createFrom().item(true),
+                (actor, action) -> { },
+                Clock.systemUTC());
+        return new SocialGraphCommandFacade(resolver, service) {
+            @Override
+            public Uni<SocialConnection> acceptConnection(
+                    TenantId tenantId, IdentitySubjectRef identity, SocialConnectionId id, String key) {
+                return call.execute(tenantId, identity);
+            }
+        };
     }
 
     @FunctionalInterface
     private interface TrustedFacadeCall {
         Uni<SocialConnection> execute(TenantId tenant, IdentitySubjectRef subject);
-    }
-
-    /**
-     * Keeps this boundary test independent from persistence while allowing the
-     * facade's resolver to prove that only gateway-derived identity is passed.
-     */
-    private static final class SocialGraphServiceStub extends tech.kayys.numou.socialgraph.application.SocialGraphService {
-        private final TrustedFacadeCall call;
-        SocialGraphServiceStub(TrustedFacadeCall call) {
-            super((work) -> Uni.createFrom().failure(new UnsupportedOperationException()),
-                    partyId -> Uni.createFrom().item(true),
-                    (actor, action) -> { }, Clock.systemUTC());
-            this.call = call;
-        }
-        @Override
-        public Uni<SocialConnection> acceptConnection(
-                tech.kayys.numou.socialgraph.application.SocialGraphActor actor,
-                SocialConnectionId id, String key) {
-            return call.execute(actor.tenantId(), new IdentitySubjectRef("https://issuer.example", "subject-123"));
-        }
     }
 }
