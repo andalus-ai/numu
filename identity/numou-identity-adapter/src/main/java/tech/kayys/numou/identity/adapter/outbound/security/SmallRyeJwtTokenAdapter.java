@@ -29,10 +29,11 @@ public class SmallRyeJwtTokenAdapter implements TokenIssuerPort, TokenVerifierPo
 
     @Override
     public String issueToken(UUID principalId, String principalType, String displayName) {
+        String verifiedPrincipalType = requirePrincipalType(principalType);
         return Jwt.issuer(issuer)
                 .subject(principalId.toString())
                 .upn(displayName)
-                .claim("principalType", principalType)
+                .claim("principalType", verifiedPrincipalType)
                 .groups(Set.of())
                 .expiresIn(Duration.ofSeconds(lifespanSeconds))
                 .sign();
@@ -43,16 +44,22 @@ public class SmallRyeJwtTokenAdapter implements TokenIssuerPort, TokenVerifierPo
         return Uni.createFrom().item(() -> {
             try {
                 JsonWebToken jwt = jwtParser.parse(rawToken);
-                String principalType = jwt.getClaim("principalType");
-                if (principalType == null || principalType.isBlank()) {
-                    principalType = "USER";
-                }
+                String principalType = requirePrincipalType(jwt.getClaim("principalType"));
                 UUID principalId = UUID.fromString(jwt.getSubject());
                 String displayName = jwt.getClaim("upn");
                 return new VerifiedToken(principalType, principalId, displayName != null ? displayName : "");
             } catch (Exception e) {
-                throw ApplicationError.of("INVALID_TOKEN", "Token could not be verified: " + e.getMessage()).toException();
+                // Parser exceptions may contain token-derived material. Keep the public
+                // authentication error deliberately generic and never echo parser details.
+                throw ApplicationError.of("INVALID_TOKEN", "Token could not be verified").toException();
             }
         });
+    }
+
+    static String requirePrincipalType(String principalType) {
+        if (!"USER".equals(principalType) && !"SERVICE".equals(principalType)) {
+            throw new IllegalArgumentException("Missing or unsupported principal type");
+        }
+        return principalType;
     }
 }

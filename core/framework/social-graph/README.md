@@ -36,6 +36,65 @@ Do not infer identity equivalence from UUID equality between `UserId`, `PersonRe
 - No REST API, feed, follow/block, profile, unrestricted graph traversal, Neo4j projection or cross-tenant federation is included in M1.
 - Consent, visibility and data-subject erasure policy must be defined before public discovery or social read APIs are exposed.
 
+
+
+## Authenticated command gateway
+
+The `security/social-graph-adapter` module exposes
+`AuthenticatedSocialGraphCommandGateway`. It derives the tenant from the
+current verified Numou `SecurityContext`, verifies that the principal is
+authenticated and a member of that tenant, and obtains the issuer/subject
+through `VerifiedIdentitySubjectProvider`. Callers supply only business
+command data (recipient/connection ID and idempotency key); tenant, issuer,
+and subject are not command arguments.
+
+The host application must provide exactly one CDI implementation of
+`VerifiedIdentitySubjectProvider` backed by its validated authentication
+mechanism. It must return the original issuer and subject from verified
+claims, not request headers, query parameters, or body fields. The current
+SecurityContext contract does not itself expose issuer/subject claims, so the
+adapter intentionally does not infer them from `PrincipalId` or
+`Principal.handle`. If no provider or no active tenant-scoped Party identity
+association exists, commands fail closed.
+
+The adapter's CDI producer composes the Social Graph application service,
+PostgreSQL unit of work, Ecosystem Party/identity adapter, and action-scoped
+authorization adapter. The host still owns datasource configuration,
+Flyway migration policy, the verified-claims provider, and the membership
+snapshot freshness/revocation window.
+
+## Security runtime composition
+
+The optional `security/social-graph-adapter` module provides
+`SecurityContextSocialGraphAuthorizationAdapter`, which implements the
+application authorization port using the current verified `SecurityContext`.
+It fails closed unless the context is authenticated, its tenant exactly
+matches the resolved actor tenant, the principal is a member of that tenant,
+and the action permission is present:
+
+- `REQUEST_CONNECTION` requires `social-graph.create`.
+- `MANAGE_CONNECTION` requires `social-graph.perform`.
+
+The adapter intentionally does not map `PrincipalId` to `PartyId`. The
+host must obtain the issuer/subject from verified authentication claims and
+resolve the tenant-scoped canonical Party through the Social Graph actor
+resolver before invoking `SocialGraphCommandFacade`. Never accept tenant,
+issuer, subject, or actor Party identity from an untrusted command body.
+
+The adapter consumes the current request's `SecurityContext` membership
+snapshot. The host's security-context construction and token/session
+invalidation policy must keep that snapshot within the documented membership
+revocation window; this adapter does not independently query a second
+membership store.
+
+Because the security and framework modules are separate Maven aggregators,
+install the framework artifacts before building the adapter:
+
+```bash
+mvn -f core/framework/pom.xml -pl social-graph,cache -am install
+mvn -f security/pom.xml -pl social-graph-adapter -am verify
+```
+
 ## Build and test
 
 There is no repository-root Maven reactor. From the repository root:

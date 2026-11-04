@@ -8,11 +8,20 @@ import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
  * Trusted application entry point for Social Graph commands.
  *
+ * <p>The host must pass tenant and issuer/subject values obtained from its
+ * verified security context, never from command-body fields. This facade
+ * resolves the canonical Party for that subject and tenant before delegating
+ * to {@link SocialGraphService}, which performs capability authorization and
+ * domain lifecycle validation.</p>
+ *
+ * <p>Keep the underlying service behind the host composition boundary; expose
+ * this facade to HTTP, messaging, and other untrusted input adapters.</p>
  * <p>Only call this facade with tenant and issuer/subject values obtained from
  * the host's verified security context. The facade resolves the subject to
  * an active canonical Party before invoking the command service. Tenant
@@ -76,6 +85,7 @@ public final class SocialGraphCommandFacade {
                         return denied();
                     }
                     SocialGraphActor actor = resolved.get();
+                    // Defend the composition boundary even if a resolver adapter is misconfigured.
                     if (!trustedTenant.equals(actor.tenantId())) {
                         return denied();
                     }
