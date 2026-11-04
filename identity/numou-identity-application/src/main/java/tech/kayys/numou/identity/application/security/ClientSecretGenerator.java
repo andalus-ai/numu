@@ -10,7 +10,7 @@ import java.util.Objects;
 
 /**
  * Creates high-entropy OAuth client secrets. Persist only the returned SHA-256
- * digest and display prefix; disclose {@link SecretMaterial#secret()} once.
+ * digest and display prefix; disclose {@link SecretMaterial#takeSecret()} once.
  */
 public final class ClientSecretGenerator {
     private static final String PREFIX = "nmc_live_";
