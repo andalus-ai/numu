@@ -9,17 +9,25 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Thread-safe in-memory repository for tests and bootstrap wiring. */
+/** Tenant-isolated in-memory repository for tests and explicitly non-durable bootstrap use. */
 public final class InMemoryVendorInvoiceRepository implements VendorInvoiceRepository {
-
-    private final Map<VendorInvoiceId, VendorInvoice> store = new ConcurrentHashMap<>();
-
-    public Optional<VendorInvoice> find(VendorInvoiceId id) {
-        return Optional.ofNullable(store.get(id));
+    private record Key(String tenantId, VendorInvoiceId invoiceId) {
+        private Key {
+            if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId must not be blank");
+            Objects.requireNonNull(invoiceId, "invoiceId");
+        }
     }
 
+    private final Map<Key, VendorInvoice> store = new ConcurrentHashMap<>();
+
+    @Override
+    public Optional<VendorInvoice> find(String tenantId, VendorInvoiceId id) {
+        return Optional.ofNullable(store.get(new Key(tenantId, id)));
+    }
+
+    @Override
     public void save(VendorInvoice invoice) {
-        Objects.requireNonNull(invoice);
-        store.put(invoice.id(), invoice);
+        Objects.requireNonNull(invoice, "invoice");
+        store.put(new Key(invoice.scope().tenantId(), invoice.id()), invoice);
     }
 }

@@ -89,7 +89,7 @@ select pg_temp.assert_sqlstate($q$
     update crm_tenant_ownership_proposals
        set status = 'PENDING'
      where proposal_id = 'a1600000-0000-0000-0000-000000000010'
-$q$, 'P0001');
+$q$, '23514');
 
 -- Approval metadata cannot be replaced while marking execution complete.
 select pg_temp.assert_sqlstate($q$

@@ -3,6 +3,8 @@ package tech.kayys.numou.accounting.interfaces.producer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import tech.kayys.numou.accounting.application.ap.ApInvoiceService;
+import tech.kayys.numou.accounting.application.ap.ApRequestContextProvider;
+import tech.kayys.numou.accounting.application.ap.ApInvoiceAuthorizationPort;
 import tech.kayys.numou.accounting.application.api.command.*;
 import tech.kayys.numou.accounting.application.api.query.*;
 import tech.kayys.numou.accounting.application.ar.ArInvoiceService;
@@ -169,8 +171,10 @@ public class AccountingServiceProducer {
 
     @Produces
     @ApplicationScoped
-    public ApInvoiceService apInvoiceService(InMemoryVendorInvoiceRepository vendorRepo) {
-        return new ApInvoiceService(vendorRepo);
+    public ApInvoiceService apInvoiceService(InMemoryVendorInvoiceRepository vendorRepo,
+                                             ApRequestContextProvider contextProvider,
+                                             ApInvoiceAuthorizationPort authorization) {
+        return new ApInvoiceService(vendorRepo, contextProvider, authorization);
     }
 
     @Produces
