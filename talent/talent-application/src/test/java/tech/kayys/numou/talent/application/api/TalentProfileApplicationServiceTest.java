@@ -66,8 +66,7 @@ class TalentProfileApplicationServiceTest {
                 .tenantId(otherTenant).actorId(ActorId.of("user:bob")).build();
 
         assertThatThrownBy(() -> service.get(foreign, id).await().indefinitely())
-                .hasCauseInstanceOf(TalentProfileNotFoundException.class)
-                .or().isInstanceOf(TalentProfileNotFoundException.class);
+                .isInstanceOf(TalentProfileNotFoundException.class);
     }
 
     @Test
@@ -77,8 +76,7 @@ class TalentProfileApplicationServiceTest {
         access.allowed = false;
 
         assertThatThrownBy(() -> service.get(context, id).await().indefinitely())
-                .hasCauseInstanceOf(TalentProfileAccessDeniedException.class)
-                .or().isInstanceOf(TalentProfileAccessDeniedException.class);
+                .isInstanceOf(TalentProfileAccessDeniedException.class);
     }
 
     @Test
@@ -133,7 +131,7 @@ class TalentProfileApplicationServiceTest {
         }
 
         @Override
-        public Uni<Void> publish(TenantId tenantId, List<DomainEvent> events) {
+        public Uni<Void> publish(ExecutionContext context, List<DomainEvent> events) {
             publishedEvents.addAll(events);
             return Uni.createFrom().voidItem();
         }
