@@ -46,16 +46,16 @@ public final class OrganizationInvitationService {
             String normalizedEmail = recipientEmail.trim().toLowerCase(java.util.Locale.ROOT);
             return repository.findPendingByTenantAndOrganizationAndEmail(
                     tenantId, organizationId, normalizedEmail).thenCompose(existing -> {
-                if (existing.isPresent()) return CompletableFuture.failedFuture(
-                        new IllegalStateException("A pending invitation already exists for this recipient"));
                 Instant now = clock.instant();
-                GeneratedSecret secret = generateSecret();
-                OrganizationInvitation invitation = OrganizationInvitation.issue(
-                        OrganizationInvitationId.generate(), tenantId, organizationId, normalizedEmail, role,
-                        actorId, secret.digest(), now.plus(DEFAULT_LIFETIME), now);
-                return repository.save(invitation, tenantId).thenApply(saved ->
-                        new IssuedInvitation(saved.getId(), secret.plaintext(), saved.expiresAt(),
-                                saved.recipientEmail(), saved.organizationId(), saved.role()));
+                if (existing.isPresent()) {
+                    OrganizationInvitation prior = existing.get();
+                    if (now.isBefore(prior.expiresAt())) return CompletableFuture.failedFuture(
+                            new IllegalStateException("A pending invitation already exists for this recipient"));
+                    prior.expire(now);
+                    return repository.save(prior, tenantId).thenCompose(ignored ->
+                            createInvitation(tenantId, organizationId, normalizedEmail, role, actorId, now));
+                }
+                return createInvitation(tenantId, organizationId, normalizedEmail, role, actorId, now);
             });
         });
     }
@@ -94,6 +94,17 @@ public final class OrganizationInvitationService {
                         return repository.save(invitation, tenantId).thenApply(saved -> null);
                     });
         });
+    }
+
+    private CompletionStage<IssuedInvitation> createInvitation(TenantId tenantId, OrganizationId organizationId,
+            String email, OrganizationMembership.Role role, UserId actorId, Instant now) {
+        GeneratedSecret secret = generateSecret();
+        OrganizationInvitation invitation = OrganizationInvitation.issue(
+                OrganizationInvitationId.generate(), tenantId, organizationId, email, role,
+                actorId, secret.digest(), now.plus(DEFAULT_LIFETIME), now);
+        return repository.save(invitation, tenantId).thenApply(saved ->
+                new IssuedInvitation(saved.getId(), secret.plaintext(), saved.expiresAt(),
+                        saved.recipientEmail(), saved.organizationId(), saved.role()));
     }
 
     private GeneratedSecret generateSecret() {
