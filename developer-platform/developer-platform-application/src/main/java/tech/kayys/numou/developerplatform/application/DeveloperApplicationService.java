@@ -24,5 +24,19 @@ public final class DeveloperApplicationService{
    return store.update(app,command.expectedRevision(),event);
   }));
  }
+ public CompletionStage<Boolean> changeStatus(ChangeDeveloperApplicationStatusCommand command){
+  Objects.requireNonNull(command);var actor=Objects.requireNonNull(actors.currentActor(),"verified actor context");
+  return authorization.requireCanManage(actor,command.applicationId()).thenCompose(x->store.find(actor.tenantId(),command.applicationId()).thenCompose(found->{
+   if(found.isEmpty()||found.get().revision()!=command.expectedRevision())return CompletableFuture.completedFuture(false);
+   var app=found.get();var now=clock.instant();DeveloperApplicationEvent event;
+   switch(command.targetStatus()){
+    case ACTIVE -> event=app.reactivate(actor.actorId(),actor.correlationId(),now);
+    case SUSPENDED -> event=app.suspend(actor.actorId(),actor.correlationId(),now);
+    case ARCHIVED -> event=app.archive(actor.actorId(),actor.correlationId(),now);
+    default -> throw new IllegalStateException("unsupported application status");
+   }
+   return store.update(app,command.expectedRevision(),event);
+  }));
+ }
  private static String sha256(String value){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException("SHA-256 unavailable",e);}}
 }
