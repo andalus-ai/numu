@@ -1,8 +1,7 @@
 # Social Graph M1 — PostgreSQL Core Implementation
 
-- **Status:** M1 source is present on main; current-main review found and repaired two verification blockers on `social-graph/m0-current-main-audit-2`; build/CI verification and host security composition remain pending
+- **Status:** M1 command security composition has a new trusted facade on `feat/social-graph-m1-trusted-command-facade`; build, PostgreSQL and host-runtime verification remain pending
 - **Date:** 2026-11-04
-- **Branch:** `social-graph/m1-core-postgresql-mainline`
 - **Architecture:** [Social Graph Foundation](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md)
 - **Audit:** [M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md)
 
@@ -15,15 +14,15 @@ M1 implements the first durable social relationship vertical slice:
 - Social connection lifecycle: request, accept, reject, cancel, remove.
 - Canonical PartyId references from Ecosystem; no duplicate Person or Organization identity.
 - Tenant-scoped relationship storage.
-- Actor context contract that must be populated by the authenticated host boundary.
-- Active Party validation and authenticated subject resolution through Ecosystem's public `PartyLookupPort` and `PartyIdentityAssociationRepository` contracts.
-- Tenant-scoped idempotency key and actor-bound command fingerprint protection.
+- Actor resolution contract based on authenticated issuer/subject plus trusted tenant context.
+- `SocialGraphCommandFacade` as the trusted application entry point for all five commands.
+- Capability authorization through `SocialGraphAuthorizationPort` inside `SocialGraphService`.
+- Active Party validation, tenant-scoped idempotency key and actor-bound command fingerprint protection.
 - Optimistic version checking.
 - Unique PostgreSQL partial index prevents duplicate pending/active connections for an unordered Party pair in one tenant.
 - One JDBC Unit of Work uses one physical connection for connection state, idempotency state, append-only actor-attributed audit, and outbox event intent.
 - Durable local outbox rows with actor provenance, committed atomically with the relationship change.
 - Append-only audit history enforced by a PostgreSQL trigger that rejects update/delete.
-- Domain and application service tests for lifecycle, actor authorization, duplicate commands, and event intent.
 
 ## 2. Package and reactor layout
 
@@ -65,45 +64,52 @@ Tables:
 - `sg_command_idempotency`: tenant-scoped idempotency result key/fingerprint.
 - `sg_outbox`: durable event intent, schema version, aggregate version and delivery metadata.
 
-The partial unique index covers only `PENDING` and `ACTIVE` rows for a tenant and canonical unordered Party pair. Terminal historical records remain available without preventing a later new request. PostgreSQL documents partial unique indexes as a supported way to enforce uniqueness over a subset of rows: https://www.postgresql.org/docs/current/indexes-partial.html.
+The partial unique index covers only `PENDING` and `ACTIVE` rows for a tenant and canonical unordered Party pair. Terminal historical records remain available without preventing a later new request.
 
-The JDBC adapter executes the command callback and all persistence/outbox writes using one connection and commits once. Callback failures and commit failures trigger rollback. The outbox is durable but this milestone does not yet include a relay, broker integration, lease worker, or DLQ operations. Those should integrate with the shared reliability capability after its transaction and serialization contracts are verified.
+The JDBC adapter executes the command callback and all persistence/outbox writes using one connection and commits once. Callback failures and commit failures trigger rollback. The outbox is durable but this milestone does not yet include a relay, broker integration, lease worker, or DLQ operations.
 
 ## 5. Security and integration boundaries
 
-- `SocialGraphActor` is a trusted application context, not a DTO for untrusted request fields.
-- The host must resolve authenticated principal → tenant-scoped Party association using the existing Identity/Ecosystem association contract.
+- Host adapters must obtain tenant and issuer/subject from a verified authentication/security context, never from request-body fields.
+- `SocialGraphCommandFacade` resolves the issuer/subject through `SocialGraphActorResolver` for the trusted tenant before invoking a command.
+- The facade rejects missing identity associations and rejects a resolver result whose tenant differs from the trusted tenant.
+- `SocialGraphService` invokes `SocialGraphAuthorizationPort` before active-Party checks or persistence side effects. Identity association alone does not grant capability access.
+- Domain transitions independently enforce participant-specific permissions: recipient accepts/rejects, requester cancels, either participant removes an active connection.
+- Expose the facade—not caller-constructed `SocialGraphActor` instances or direct service invocation—to HTTP, messaging, and other untrusted input adapters.
+- `PartyDirectoryPort` is a public application port. The composition root must implement it using Ecosystem's public Party lookup contract and validate active status. It must not query Ecosystem persistence tables directly.
 - Do not equate UserId, PersonRef, OrganizationId and PartyId by UUID value.
-- `PartyDirectoryPort` is intentionally a public application port. The composition root must implement it using the Ecosystem Party lookup contract and validate active status. It must not query Ecosystem persistence tables directly.
-- Tenant authorization for an actor and relationship visibility must be enforced by the host/application boundary.
-- The application contracts are reactive Mutiny ports; the JDBC adapter schedules blocking work on Mutiny's default worker pool.
 - No Neo4j driver or Cypher dependency exists in M1.
+
+The facade is a composition boundary, not a replacement for the host's authentication mechanism. The tenant and issuer/subject arguments are trusted only when populated by the host from verified security context.
 
 ## 6. Verification
 
-Tests present in the current source tree:
+Tests present in the source tree include:
 
 - `SocialConnectionLifecycleTest`
 - `SocialGraphServiceTest`
-- `JdbcSocialGraphUnitOfWorkPostgresTest` (Testcontainers; includes migration, commit/rollback, uniqueness, optimistic concurrency, audit immutability, tenant-scoped lookup and UUID ordering checks)
+- `SocialGraphCommandFacadeTest` — verifies unassociated subjects and cross-tenant resolver results are denied before persistence, and capability authorization is invoked before persistence.
+- `JdbcSocialGraphUnitOfWorkPostgresTest` (Testcontainers; migration, commit/rollback, uniqueness, optimistic concurrency, audit immutability, tenant-scoped lookup and UUID ordering checks).
 
-Expected build command from repository root:
+Expected CI command:
 
 ```bash
-mvn -f core/framework/pom.xml -pl social-graph -am test
+mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am verify
 ```
 
-**Verification status:** Not run in this session. The current-main audit identified an invalid PostgreSQL dollar-quote delimiter in the audit trigger function and a missing Mutiny await in the UUID-ordering integration test; both are repaired on `social-graph/m0-current-main-audit-2`. These changes are not yet build- or CI-verified. Do not mark M1 complete or open a review-ready PR until the command passes in CI, PostgreSQL migration and transaction integration tests pass, and the host composition's PartyDirectory/actor binding and authorization boundary are implemented and tested.
+**Verification status:** Not run in this session. The earlier current-main review identified an invalid PostgreSQL dollar-quote delimiter in the audit trigger function and a missing Mutiny await in the UUID-ordering integration test; those repairs were committed on a prior review branch that is no longer listed. Their presence on current `main` must be rechecked before calling this milestone complete. The new facade and tests are source changes only; no compilation, PostgreSQL test, or CI pass is claimed.
 
 ## 7. Remaining M1 hardening before review
 
-1. Run the exact Maven reactor build and resolve any dependency or compilation failures.
-2. Add Testcontainers PostgreSQL tests proving migration validity, uniqueness under concurrent requests, tenant isolation, optimistic conflict behavior, and rollback of state + idempotency + outbox on injected failure.
-3. Add/verify a host composition adapter for authenticated actor resolution and Party lookup; the resolver must receive trusted tenant + issuer/subject context, with no unsafe UUID conversions.\n4. Wire and test the declared `SocialGraphAuthorizationPort` at the command boundary. The current `SocialGraphService` accepts a `SocialGraphActor` directly and does not invoke this port itself; hosts must not expose that service through an untrusted DTO path.\n5. Verify append-only audit trigger behavior and PostgreSQL transaction rollback tests in CI.
-5. Verify Flyway discovery/registration in an actual Quarkus host runtime; the adapter now supplies the Quarkus Flyway extension, while each host controls `quarkus.flyway.migrate-at-start`.
-6. Add read/list contracts with bounded pagination only after privacy and visibility rules are agreed; do not expose unrestricted traversal.
-7. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
-8. Update this document with exact test commands and CI evidence before requesting review.
+1. Recheck whether the prior SQL delimiter and Mutiny await repairs are present on current `main`; reapply only if absent.
+2. Run the exact Maven reactor verification and resolve compilation/dependency failures.
+3. Confirm Testcontainers PostgreSQL tests execute rather than silently skip because Docker is unavailable.
+4. Add/verify the actual host composition adapter for verified principal → trusted tenant + issuer/subject → tenant-scoped Party association → active Party → authorization → command.
+5. Decide whether PostgreSQL RLS is required as defense-in-depth for graph, audit, idempotency and outbox tables under the actual application/worker roles.
+6. Add concurrency coverage for duplicate idempotency keys and active-pair races, and confirm retry/replay behavior.
+7. Define consent, visibility, block and deletion semantics before adding read/list/search or cross-tenant discovery.
+8. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
+9. Update this document with exact test and CI evidence before requesting review.
 
 ## 8. Explicitly excluded
 
