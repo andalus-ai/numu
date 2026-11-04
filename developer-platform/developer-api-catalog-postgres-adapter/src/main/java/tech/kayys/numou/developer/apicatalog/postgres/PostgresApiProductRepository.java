@@ -1,7 +1,6 @@
 package tech.kayys.numou.developer.apicatalog.postgres;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiProductRepository;
 import tech.kayys.numou.developer.apicatalog.domain.*;
 import tech.kayys.numou.foundation.application.page.Page;
@@ -9,6 +8,8 @@ import tech.kayys.numou.foundation.application.page.PageRequest;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import javax.sql.DataSource;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.sql.*;
 import java.util.*;
 
@@ -17,9 +18,11 @@ import java.util.*;
  * Every operation starts a transaction, installs the trusted tenant in transaction-local
  * PostgreSQL state, and also carries the tenant predicate in every statement.
  */
+@ApplicationScoped
 public final class PostgresApiProductRepository implements ApiProductRepository {
- private final DataSource dataSource;
- public PostgresApiProductRepository(DataSource dataSource){this.dataSource=Objects.requireNonNull(dataSource,"dataSource cannot be null");}
+ private final ApiCatalogJdbcTransactionManager transactions;
+ @Inject public PostgresApiProductRepository(ApiCatalogJdbcTransactionManager transactions){this.transactions=Objects.requireNonNull(transactions,"transactions cannot be null");}
+ public PostgresApiProductRepository(DataSource dataSource){this(new ApiCatalogJdbcTransactionManager(dataSource));}
 
  @Override public Uni<Optional<ApiProduct>> findById(TenantId tenant,ApiProductId id){
   Objects.requireNonNull(id,"id cannot be null");
@@ -63,18 +66,7 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
 
  private <T> Uni<T> inTenant(TenantId tenant,SqlWork<T> work){
   Objects.requireNonNull(tenant,"tenant cannot be null");
-  return Uni.createFrom().item(()->{
-   try(Connection c=dataSource.getConnection()){
-    c.setAutoCommit(false);
-    c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-    try{
-     try(PreparedStatement s=c.prepareStatement("SELECT set_config('numou.tenant_id',?,true)")){
-      s.setString(1,tenant.value().toString());s.execute();
-     }
-     T result=work.apply(c);c.commit();return result;
-    }catch(SQLException|RuntimeException|Error e){try{c.rollback();}catch(SQLException rollback){e.addSuppressed(rollback);}throw e;}
-   }catch(SQLException e){if("40001".equals(e.getSQLState()))throw new OptimisticLockException("Concurrent API product update; reload and retry",e);throw new IllegalStateException("API catalog PostgreSQL operation failed",e);}
-  }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+  return transactions.withTenant(tenant,work);
  }
 
  private static void insertProduct(Connection c,UUID tenant,ApiProduct p)throws SQLException{
