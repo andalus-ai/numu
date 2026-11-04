@@ -53,6 +53,16 @@ class PostgresDeveloperApplicationStoreTest {
   assertThat(store.list(tenantA,null,100).toCompletableFuture().join()).extracting(DeveloperApplication::slug).containsExactly("shared-app");
   assertThat(register(tenantA,"shared-app","key-tenant-a-0002").outcome()).isEqualTo(DeveloperApplicationStore.CreateResult.Outcome.CONFLICT);
  }
+ @Test void concurrentSlugClaimsCannotCreateDuplicates(){
+  TenantId tenant=TenantId.generate();
+  var first=DeveloperApplication.register(tenant,"race-app","Race A","","actor-1",NOW);
+  var second=DeveloperApplication.register(tenant,"race-app","Race B","","actor-2",NOW);
+  var f1=java.util.concurrent.CompletableFuture.supplyAsync(()->store.registerIfAbsent(first,sha("race-idempotency-key-0001"),sha("race-a"),event(first,"DEVELOPER_APPLICATION_REGISTERED",1)).toCompletableFuture().join());
+  var f2=java.util.concurrent.CompletableFuture.supplyAsync(()->store.registerIfAbsent(second,sha("race-idempotency-key-0002"),sha("race-b"),event(second,"DEVELOPER_APPLICATION_REGISTERED",1)).toCompletableFuture().join());
+  var outcomes=java.util.List.of(f1.join().outcome(),f2.join().outcome());
+  assertThat(outcomes).containsExactlyInAnyOrder(DeveloperApplicationStore.CreateResult.Outcome.CREATED,DeveloperApplicationStore.CreateResult.Outcome.CONFLICT);
+  assertThat(store.list(tenant,null,100).toCompletableFuture().join()).hasSize(1);
+ }
  @Test void registrationIsIdempotentAndRejectsKeyReuseWithDifferentPayload(){
   TenantId tenant=TenantId.generate();
   var first=register(tenant,"idempotent-app","stable-idempotency-key-0001");
