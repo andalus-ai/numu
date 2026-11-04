@@ -82,8 +82,9 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public Optional<SocialConnection> findOpenConnection(TenantId tenantId, PartyId first, PartyId second) {
-            UUID low = first.value().toString().compareTo(second.value().toString()) < 0 ? first.value() : second.value();
-            UUID high = first.value().compareTo(second.value()) < 0 ? second.value() : first.value();
+            boolean firstComesFirst = comparePartyIds(first.value(), second.value()) < 0;
+            UUID low = firstComesFirst ? first.value() : second.value();
+            UUID high = firstComesFirst ? second.value() : first.value();
             String sql = "SELECT * FROM sg_connection WHERE tenant_id = ? AND pair_low = ? AND pair_high = ? "
                     + "AND status IN ('PENDING', 'ACTIVE') FOR UPDATE";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -98,10 +99,10 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public void insertConnection(SocialConnection c) {
-            UUID low = c.requesterPartyId().value().toString().compareTo(c.recipientPartyId().value().toString()) < 0
-                    ? c.requesterPartyId().value() : c.recipientPartyId().value();
-            UUID high = c.requesterPartyId().value().compareTo(c.recipientPartyId().value()) < 0
-                    ? c.recipientPartyId().value() : c.requesterPartyId().value();
+            boolean requesterComesFirst = comparePartyIds(
+                    c.requesterPartyId().value(), c.recipientPartyId().value()) < 0;
+            UUID low = requesterComesFirst ? c.requesterPartyId().value() : c.recipientPartyId().value();
+            UUID high = requesterComesFirst ? c.recipientPartyId().value() : c.requesterPartyId().value();
             String sql = "INSERT INTO sg_connection (tenant_id, connection_id, requester_party_id, recipient_party_id, "
                     + "pair_low, pair_high, status, requested_at, updated_at, resolved_at, version) "
                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -224,6 +225,15 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
                     resolved == null ? null : resolved.toInstant(),
                     rs.getInt("version"));
         }
+    }
+
+    /**
+     * Uses the same canonical ordering as PostgreSQL's UUID comparison and the
+     * pair_low < pair_high database constraint. UUID.compareTo is signed-long
+     * based and can disagree with PostgreSQL's bytewise UUID ordering.
+     */
+    private static int comparePartyIds(UUID first, UUID second) {
+        return first.toString().compareTo(second.toString());
     }
 
     private static void rollback(Connection connection, Throwable original) {
