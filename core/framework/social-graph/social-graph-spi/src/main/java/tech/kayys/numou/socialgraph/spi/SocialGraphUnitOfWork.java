@@ -1,8 +1,10 @@
 package tech.kayys.numou.socialgraph.spi;
 
+import io.smallrye.mutiny.Uni;
+
 import java.util.function.Function;
 
-/** Executes graph state, idempotency and outbox writes in one atomic transaction. */
+/** Executes graph state, idempotency, audit and outbox writes in one atomic transaction. */
 public interface SocialGraphUnitOfWork {
-    <T> T execute(Function<SocialGraphTransaction, T> work);
+    <T> Uni<T> execute(Function<SocialGraphTransaction, T> work);
 }

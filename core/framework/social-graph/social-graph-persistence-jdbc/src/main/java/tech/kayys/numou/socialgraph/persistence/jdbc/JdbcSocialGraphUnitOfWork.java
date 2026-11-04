@@ -2,6 +2,8 @@ package tech.kayys.numou.socialgraph.persistence.jdbc;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
@@ -27,7 +29,8 @@ import java.util.function.Function;
  * JDBC transaction adapter. All graph state, idempotency and outbox writes
  * performed by the callback use the same physical PostgreSQL connection.
  *
- * <p>Call this blocking adapter from a worker thread, not an event-loop thread.
+ * <p>Blocking JDBC work is scheduled on Mutiny's default worker pool so callers
+ * can compose this port without blocking an event-loop thread.
  */
 @ApplicationScoped
 public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
@@ -39,8 +42,13 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
     }
 
     @Override
-    public <T> T execute(Function<SocialGraphTransaction, T> work) {
+    public <T> Uni<T> execute(Function<SocialGraphTransaction, T> work) {
         Objects.requireNonNull(work, "work cannot be null");
+        return Uni.createFrom().item(() -> executeBlocking(work))
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    private <T> T executeBlocking(Function<SocialGraphTransaction, T> work) {
         try (Connection connection = dataSource.getConnection()) {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
@@ -82,7 +90,7 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public Optional<SocialConnection> findOpenConnection(TenantId tenantId, PartyId first, PartyId second) {
-            UUID low = first.value().toString().compareTo(second.value().toString()) < 0 ? first.value() : second.value();
+            UUID low = first.value().compareTo(second.value()) < 0 ? first.value() : second.value();
             UUID high = first.value().compareTo(second.value()) < 0 ? second.value() : first.value();
             String sql = "SELECT * FROM sg_connection WHERE tenant_id = ? AND pair_low = ? AND pair_high = ? "
                     + "AND status IN ('PENDING', 'ACTIVE') FOR UPDATE";
@@ -98,7 +106,7 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public void insertConnection(SocialConnection c) {
-            UUID low = c.requesterPartyId().value().toString().compareTo(c.recipientPartyId().value().toString()) < 0
+            UUID low = c.requesterPartyId().value().compareTo(c.recipientPartyId().value()) < 0
                     ? c.requesterPartyId().value() : c.recipientPartyId().value();
             UUID high = c.requesterPartyId().value().compareTo(c.recipientPartyId().value()) < 0
                     ? c.recipientPartyId().value() : c.requesterPartyId().value();

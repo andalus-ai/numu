@@ -1,8 +1,8 @@
 # Social Graph M1 — PostgreSQL Core Implementation
 
-- **Status:** Initial implementation committed on feature branch; build/CI verification pending
+- **Status:** M1 merged; runtime Flyway discovery dependency added in follow-up hardening branch; build/CI verification pending
 - **Date:** 2026-11-04
-- **Branch:** `social-graph/m1-core-postgresql`
+- **Branch:** `social-graph/m1-core-postgresql-mainline`
 - **Architecture:** [Social Graph Foundation](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md)
 - **Audit:** [M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md)
 
@@ -76,7 +76,7 @@ The JDBC adapter executes the command callback and all persistence/outbox writes
 - Do not equate UserId, PersonRef, OrganizationId and PartyId by UUID value.
 - `PartyDirectoryPort` is intentionally a public application port. The composition root must implement it using the Ecosystem Party lookup contract and validate active status. It must not query Ecosystem persistence tables directly.
 - Tenant authorization for an actor and relationship visibility must be enforced by the host/application boundary.
-- JDBC is blocking; invoke the adapter on a worker thread.
+- The application contracts are reactive Mutiny ports; the JDBC adapter schedules blocking work on Mutiny's default worker pool.
 - No Neo4j driver or Cypher dependency exists in M1.
 
 ## 6. Verification
@@ -99,10 +99,10 @@ mvn -f core/framework/pom.xml -pl social-graph -am test
 1. Run the exact Maven reactor build and resolve any dependency or compilation failures.
 2. Add Testcontainers PostgreSQL tests proving migration validity, uniqueness under concurrent requests, tenant isolation, optimistic conflict behavior, and rollback of state + idempotency + outbox on injected failure.
 3. Add an application composition adapter for authenticated actor resolution and Party lookup; no unsafe UUID conversions.\n4. Verify append-only audit trigger behavior and PostgreSQL transaction rollback tests in CI.
-4. Verify Flyway discovery/registration in the actual application runtime.
-5. Add read/list contracts with bounded pagination only after privacy and visibility rules are agreed; do not expose unrestricted traversal.
-6. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
-7. Update this document with exact test commands and CI evidence before requesting review.
+5. Verify Flyway discovery/registration in an actual Quarkus host runtime; the adapter now supplies the Quarkus Flyway extension, while each host controls `quarkus.flyway.migrate-at-start`.
+6. Add read/list contracts with bounded pagination only after privacy and visibility rules are agreed; do not expose unrestricted traversal.
+7. Verify outbox event naming/payload compatibility and define relay ownership with the shared reliability capability.
+8. Update this document with exact test commands and CI evidence before requesting review.
 
 ## 8. Explicitly excluded
 
