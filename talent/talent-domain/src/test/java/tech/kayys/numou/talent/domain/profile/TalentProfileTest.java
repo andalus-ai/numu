@@ -91,6 +91,29 @@ class TalentProfileTest {
         )).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void invalidPresentationUpdateDoesNotPartiallyMutateAggregate() {
+        var profile = profile();
+        assertThatThrownBy(() -> profile.updatePresentation(
+                "New headline", "x".repeat(5_001), "Jakarta"
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(profile.headline()).isEqualTo("Backend Engineer");
+        assertThat(profile.summary()).isNull();
+        assertThat(profile.locationLabel()).isNull();
+        assertThat(profile.getVersion()).isZero();
+    }
+
+    @Test
+    void suspendedProfileCannotChangeVisibility() {
+        var profile = profile();
+        profile.suspend();
+
+        assertThatThrownBy(() -> profile.changeVisibility(ProfileVisibility.PUBLIC))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(profile.visibility()).isEqualTo(ProfileVisibility.PRIVATE);
+    }
+
     private TalentProfile profile() {
         return TalentProfile.create(
                 TalentProfileId.generate(), tenantId, person, "Backend Engineer", null, null

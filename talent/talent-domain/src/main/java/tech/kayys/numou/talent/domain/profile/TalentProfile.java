@@ -67,18 +67,19 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
     /** Replaces the professional presentation without changing identity or publication state. */
     public void updatePresentation(String headline, String summary, String locationLabel) {
         ensureEditable();
-        this.headline = requireText(headline, "headline", HEADLINE_MAX_LENGTH);
-        this.summary = optionalText(summary, "summary", SUMMARY_MAX_LENGTH);
-        this.locationLabel = optionalText(locationLabel, "locationLabel", LOCATION_MAX_LENGTH);
+        var normalizedHeadline = requireText(headline, "headline", HEADLINE_MAX_LENGTH);
+        var normalizedSummary = optionalText(summary, "summary", SUMMARY_MAX_LENGTH);
+        var normalizedLocation = optionalText(locationLabel, "locationLabel", LOCATION_MAX_LENGTH);
+        this.headline = normalizedHeadline;
+        this.summary = normalizedSummary;
+        this.locationLabel = normalizedLocation;
         touch();
     }
 
     /** Changes discoverability independently from publication and authorization. */
     public void changeVisibility(ProfileVisibility visibility) {
         Objects.requireNonNull(visibility, "Visibility must not be null");
-        if (status == TalentProfileStatus.ARCHIVED) {
-            throw new IllegalStateException("Archived talent profile cannot change visibility");
-        }
+        ensureEditable();
         if (this.visibility == visibility) {
             return;
         }
@@ -112,6 +113,7 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
         }
         status = TalentProfileStatus.SUSPENDED;
         touch();
+        raise(new tech.kayys.numou.talent.domain.profile.event.TalentProfileSuspended(id(), tenantId));
     }
 
     public void archive() {
@@ -121,6 +123,7 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
         status = TalentProfileStatus.ARCHIVED;
         visibility = ProfileVisibility.PRIVATE;
         touch();
+        raise(new tech.kayys.numou.talent.domain.profile.event.TalentProfileArchived(id(), tenantId));
     }
 
     private void ensureEditable() {
