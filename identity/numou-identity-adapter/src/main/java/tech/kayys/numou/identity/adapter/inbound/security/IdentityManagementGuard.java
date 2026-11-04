@@ -2,22 +2,20 @@ package tech.kayys.numou.identity.adapter.inbound.security;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import tech.kayys.numou.identity.application.service.ScopedRoleAssignmentService;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
+import tech.kayys.numou.identity.application.service.ScopedRoleAssignmentService;
 import tech.kayys.numou.security.domain.authorization.AccessRequest;
 import tech.kayys.numou.security.domain.authorization.Principal;
 import tech.kayys.numou.security.domain.identifier.PrincipalId;
 import tech.kayys.numou.security.domain.valueobject.ActionType;
 import tech.kayys.numou.security.spi.port.AuthorizationServicePort;
 import tech.kayys.numou.security.spi.port.TenantMembershipResolver;
-import java.time.Duration;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -70,12 +68,11 @@ public class IdentityManagementGuard {
         return value;
     }
 
-
     /**
-     * Authorizes an identity operation in the tenant selected by a validated
-     * authentication claim. Request headers and payload fields are never consulted.
+     * Authenticates tenant membership and tenant-scoped permission using only
+     * the tenant claim already attached to the verified SecurityIdentity.
      */
-    public Uni<UUID> requireTenantPermission(String resourceType, ActionType action) {
+    public Uni<TenantAuthorizationContext> requireTenantAuthorization(String resourceType, ActionType action) {
         UUID actor = actor();
         Object rawTenant = identity.getAttribute(tenantAttribute);
         if (!(rawTenant instanceof String tenantClaim) || tenantClaim.isBlank()) {
@@ -113,9 +110,14 @@ public class IdentityManagementGuard {
                                 if (decision == null || !decision.isAllowed()) {
                                     throw new WebApplicationException("Forbidden", 403);
                                 }
-                                return actor;
+                                return new TenantAuthorizationContext(actor, tenant);
                             });
                 });
+    }
+
+    /** Compatibility convenience for callers that only need the actor. */
+    public Uni<UUID> requireTenantPermission(String resourceType, ActionType action) {
+        return requireTenantAuthorization(resourceType, action).map(TenantAuthorizationContext::actorId);
     }
 
     public Uni<UUID> require(String permission) {
