@@ -218,6 +218,7 @@ def write_outputs(out: Path, projects: list[dict[str, Any]], deps: list[dict[str
             "Profile dependencies are reported separately and are not assumed active.",
             "No transitive dependency expansion, settings.xml, mirrors, BOM import, or plugin resolution.",
             "Unresolved property expressions and internal coordinates without scanned targets are retained as diagnostics.",
+            "A dependency without an explicit version is linked by groupId/artifactId only when exactly one scanned project matches; the managed version itself is not inferred.",
         ],
         "cycle_scopes": sorted(cycle_scopes),
         "project_count": len(projects),
@@ -280,7 +281,8 @@ def main() -> int:
     for path in pom_paths:
         try:
             project = parse_pom(path, root)
-            project["coordinate"] = coordinate(project["group_id"], project["artifact_id"], project["version"])
+            project["coordinate"] = (coordinate(project["group_id"], project["artifact_id"], project["version"])
+                                      if project["group_id"] and project["artifact_id"] and project["version"] else "")
             projects.append(project)
         except (ET.ParseError, OSError) as exc:
             errors.append(f"{path.relative_to(root)}: {exc}")
