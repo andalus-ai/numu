@@ -1,24 +1,56 @@
-# CRM tenant ownership proposal execution (M7)
+# CRM tenant ownership proposal execution (M8)
 
 ## Purpose and safety boundary
 
 V17 adds `crm_apply_tenant_ownership_proposal`, a single-record executor for an
-ownership proposal that has already reached `APPROVED`. It is not an ownership
-discovery mechanism and it does not infer a tenant from a participant, parent,
+ownership proposal that has already reached `APPROVED`. V18 removes the
+default PostgreSQL `PUBLIC EXECUTE` privilege from the internal
+`crm_assert_related_tenant` helper as well. Neither function is an ownership
+discovery mechanism and neither infers a tenant from a participant, parent,
 referrer, or related record.
 
-The function runs as **SECURITY INVOKER**. It does not authenticate the supplied
-executor string. A production caller must derive that value from a verified
-operator identity, enforce a separate operational authorization policy, and
-restrict database access to a dedicated trusted role. Do not expose this
-function directly to ordinary application users or accept executor identity
-from an HTTP request body.
+Both functions run as **SECURITY INVOKER**. They do not authenticate the
+supplied executor string. A production caller must derive that value from a
+verified operator identity, enforce a separate operational authorization
+policy, and restrict database access to a dedicated trusted role. Do not expose
+either function directly to ordinary application users or accept executor
+identity from an HTTP request body.
 
-The migration revokes function execution from `PUBLIC`. A deployment must
-explicitly grant execution to its trusted operational role. Because the
-function is SECURITY INVOKER, that role also needs only the table privileges
-required by the function; do not grant broad schema ownership or superuser
-access. Review the exact grants against the deployment's database role model.
+The migrations revoke function execution from `PUBLIC`. They intentionally
+do not create deployment roles or grant execution to a guessed role name.
+Create a dedicated role in the deployment and explicitly grant both functions.
+For example:
+
+```sql
+create role crm_ownership_operator nologin;
+
+grant execute on function crm_assert_related_tenant(text, uuid, uuid)
+    to crm_ownership_operator;
+grant execute on function crm_apply_tenant_ownership_proposal(uuid, text, text)
+    to crm_ownership_operator;
+
+-- SECURITY INVOKER means the role also needs the table rights used by the
+-- executor and its audit trigger. Scope these grants to the CRM schema.
+grant select, update on crm_tenant_ownership_proposals
+    to crm_ownership_operator;
+grant select, insert on crm_tenant_ownership_proposal_audit
+    to crm_ownership_operator;
+grant select, update on
+    crm_accounts,
+    crm_customers,
+    crm_leads,
+    crm_opportunities,
+    crm_referrals,
+    crm_territories,
+    crm_territory_assignments
+    to crm_ownership_operator;
+```
+
+The role must not be granted to ordinary application roles. The example table
+grants cover the supported aggregate set; a deployment may narrow them further
+only after verifying every relationship read, target update, and audit-trigger
+write required by its chosen operations. Do not grant schema ownership or
+superuser access.
 
 ## Execution semantics
 
@@ -77,9 +109,12 @@ parent aggregate and are not independently reassigned.
 5. Verify the target `tenant_id`, proposal status, and audit event after commit.
 6. Preserve database audit logs and restrict direct DML on proposal/audit tables.
 7. Never edit immutable proposal evidence to make a failed execution pass.
+8. Keep the trusted operator role assignment and its membership changes under
+   deployment change control; database role membership is part of the security
+   boundary.
 
-V17 does not provide a batch executor, HTTP endpoint, UI, automatic retries, or
-cross-proposal dependency orchestration. It does not protect against a database
-owner/superuser who can alter triggers, grants, or table contents. Database
-privileges and operational identity controls remain part of the deployment's
-security boundary.
+V17/V18 do not provide a batch executor, HTTP endpoint, UI, automatic retries,
+or cross-proposal dependency orchestration. They do not protect against a
+database owner/superuser who can alter triggers, grants, or table contents.
+Application authorization must still use Numou's verified identity and tenant
+context; a database function grant is not a substitute for actor authorization.

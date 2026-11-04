@@ -27,6 +27,7 @@ class PostgresApplicationInstallationStoreTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
+    static DataSource adminDataSource;
     static DataSource dataSource;
     static PostgresApplicationInstallationStore store;
 
@@ -36,13 +37,21 @@ class PostgresApplicationInstallationStoreTest {
         source.setURL(POSTGRES.getJdbcUrl());
         source.setUser(POSTGRES.getUsername());
         source.setPassword(POSTGRES.getPassword());
-        dataSource = source;
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement();
+        adminDataSource = source;
+        try (var connection = source.getConnection(); var statement = connection.createStatement();
              InputStream migration = PostgresApplicationInstallationStoreTest.class
                      .getResourceAsStream("/db/migration/V1__application_installation.sql")) {
             assertThat(migration).as("installation migration resource").isNotNull();
             statement.execute(new String(migration.readAllBytes(), StandardCharsets.UTF_8));
+            statement.execute("CREATE ROLE numou_app_test LOGIN PASSWORD 'numou-app-test' NOSUPERUSER NOBYPASSRLS");
+            statement.execute("GRANT USAGE ON SCHEMA public TO numou_app_test");
+            statement.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO numou_app_test");
         }
+        PGSimpleDataSource applicationRole = new PGSimpleDataSource();
+        applicationRole.setURL(POSTGRES.getJdbcUrl());
+        applicationRole.setUser("numou_app_test");
+        applicationRole.setPassword("numou-app-test");
+        dataSource = applicationRole;
         store = new PostgresApplicationInstallationStore(dataSource);
     }
 
@@ -130,20 +139,30 @@ class PostgresApplicationInstallationStoreTest {
         var installation = requested(tenant, "com.example.support", "1.0.0", "actor-a", now);
         store.createIfAbsent(installation, hash("client-key-00000006"), installation.requestedEvent(now))
                 .toCompletableFuture().join();
-
-        var claimed = store.claimDue(tenant, "worker-a", now, Duration.ofSeconds(30), 10)
+        var second = requested(tenant, "com.example.supportdesk", "1.0.0", "actor-a", now.plusSeconds(1));
+        store.createIfAbsent(second, hash("client-key-00000008"), second.requestedEvent(now.plusSeconds(1)))
                 .toCompletableFuture().join();
-        assertThat(claimed).hasSize(1);
-        assertThat(store.claimDue(otherTenant, "worker-b", now, Duration.ofSeconds(30), 10)
+
+        var claimed = store.claimDue(tenant, "worker-a", now.plusSeconds(2), Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join();
+        assertThat(claimed).hasSize(2);
+        assertThat(store.claimDue(otherTenant, "worker-b", now.plusSeconds(2), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
-        assertThat(store.claimDue(tenant, "worker-b", now.plusSeconds(1), Duration.ofSeconds(30), 10)
+        assertThat(store.claimDue(tenant, "worker-b", now.plusSeconds(3), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
 
-        var event = claimed.get(0);
-        assertThat(store.markDelivered(tenant, event.eventId(), "worker-b", event.leaseToken(), now.plusSeconds(2))
+        var recovered = store.claimDue(tenant, "worker-b", now.plusSeconds(40), Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join();
+        assertThat(recovered).hasSize(2);
+        var dead = recovered.get(0);
+        var delivered = recovered.get(1);
+        assertThat(dead.attempts()).isEqualTo(2);
+        assertThat(store.markDelivered(tenant, dead.eventId(), "worker-a", claimed.get(0).leaseToken(), now.plusSeconds(41))
                 .toCompletableFuture().join()).isFalse();
-        assertThat(store.retry(tenant, event.eventId(), "worker-a", event.leaseToken(),
-                "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(60), now.plusSeconds(2), 1)
+        assertThat(store.markDelivered(tenant, delivered.eventId(), "worker-b", delivered.leaseToken(), now.plusSeconds(41))
+                .toCompletableFuture().join()).isTrue();
+        assertThat(store.retry(tenant, dead.eventId(), "worker-b", dead.leaseToken(),
+                "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(60), now.plusSeconds(41), 2)
                 .toCompletableFuture().join()).isEqualTo(ApplicationInstallationOutboxStore.RetryOutcome.DEAD_LETTERED);
         assertThat(store.claimDue(tenant, "worker-c", now.plusSeconds(120), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join()).isEmpty();
@@ -164,6 +183,34 @@ class PostgresApplicationInstallationStoreTest {
             assertThatThrownBy(() -> statement.executeUpdate(
                     "DELETE FROM application_installation_transitions WHERE tenant_id='" + tenant.value() + "'"))
                     .isInstanceOf(java.sql.SQLException.class);
+        }
+    }
+
+    @Test
+    void idempotencyAndTransitionLedgersRejectMutationAndTruncation() {
+        TenantId tenant = TenantId.generate();
+        Instant now = Instant.parse("2026-11-03T10:06:00Z");
+        var installation = requested(tenant, "com.example.immutable", "1.0.0", "actor-a", now);
+        String keyHash = hash("client-key-00000009");
+        store.createIfAbsent(installation, keyHash, installation.requestedEvent(now))
+                .toCompletableFuture().join();
+        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("SELECT set_config('numou.tenant_id','" + tenant.value() + "',false)");
+            assertThatThrownBy(() -> statement.executeUpdate(
+                    "DELETE FROM application_installation_idempotency WHERE tenant_id='" + tenant.value() + "'"))
+                    .isInstanceOf(java.sql.SQLException.class);
+        } catch (java.sql.SQLException failure) {
+            throw new IllegalStateException(failure);
+        }
+        // Exercise the database trigger itself as the table owner; the runtime role
+        // deliberately has no TRUNCATE privilege.
+        try (var connection = adminDataSource.getConnection(); var statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute("TRUNCATE application_installation_transitions"))
+                    .isInstanceOf(java.sql.SQLException.class);
+            assertThatThrownBy(() -> statement.execute("TRUNCATE application_installation_idempotency"))
+                    .isInstanceOf(java.sql.SQLException.class);
+        } catch (java.sql.SQLException failure) {
+            throw new IllegalStateException(failure);
         }
     }
 

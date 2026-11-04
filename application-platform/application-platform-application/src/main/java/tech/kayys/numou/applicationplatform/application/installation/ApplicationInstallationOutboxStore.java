@@ -20,6 +20,6 @@ public interface ApplicationInstallationOutboxStore {
 
     record ClaimedEvent(UUID eventId, UUID installationId, String applicationId, String packageVersion,
             String packageDigest, String eventType, String toStatus, long revision, String actorId,
-            String correlationId, Instant occurredAt, int attempts, String workerId,
+            String correlationId, String reasonCode, Instant occurredAt, int attempts, String workerId,
             UUID leaseToken, Instant leaseUntil) {}
 }
