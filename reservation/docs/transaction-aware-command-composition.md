@@ -197,3 +197,28 @@ On shutdown, the runtime stops admitting new polls and waits up to
 If the timeout expires, it logs a warning and leaves unacknowledged rows to recover through
 lease expiry. This is bounded graceful draining, not a guarantee that an external broker
 publication and database acknowledgement are atomic.
+
+
+## Outbox operational metrics
+
+The Quarkus runtime exports low-cardinality Micrometer counters and gauges:
+
+| Metric | Type | Meaning |
+| --- | --- | --- |
+| `numou.reservation.outbox.polls` | counter | Scheduled relay poll attempts |
+| `numou.reservation.outbox.events.published` | counter | Events acknowledged as published |
+| `numou.reservation.outbox.poll.failures` | counter | Relay poll failures |
+| `numou.reservation.outbox.shutdown.drain.timeouts` | counter | Shutdowns that exceeded the configured drain window |
+| `numou.reservation.outbox.backlog.refresh.failures` | counter | Failures refreshing database backlog gauges |
+| `numou.reservation.outbox.events.pending` | gauge | Current pending row count |
+| `numou.reservation.outbox.events.processing` | gauge | Current leased/in-flight row count |
+| `numou.reservation.outbox.events.dead` | gauge | Current dead-letter row count |
+| `numou.reservation.outbox.oldest.pending.age.seconds` | gauge | Age of the oldest pending event |
+
+Backlog gauges refresh at `numou.reservation.outbox.metrics-refresh-interval` (default
+15 seconds). Metrics are global to the reservation outbox table and deliberately do not
+use tenant IDs as labels, avoiding unbounded cardinality and tenant activity leakage.
+Operational alert rules should be owned by the deployment: alert on sustained growth in
+pending count/oldest age, any dead-letter growth, repeated poll/refresh failures, and
+shutdown drain timeouts. Thresholds must be set from the service's SLO and workload rather
+than hard-coded into the reusable capability.

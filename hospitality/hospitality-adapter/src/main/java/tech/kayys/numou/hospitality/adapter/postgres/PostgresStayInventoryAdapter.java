@@ -109,7 +109,8 @@ public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, S
         if (!holdExpiresAt.equals(booking.holdExpiresAt())) {
             return Uni.createFrom().failure(new IllegalArgumentException("hold expiry must match booking snapshot"));
         }
-        return async(() -> createHoldTransactionally(booking));
+        StayBooking persistedPrecisionBooking = normalizePostgresTimestamps(booking);
+        return async(() -> createHoldTransactionally(persistedPrecisionBooking));
     }
 
     @Override
@@ -261,6 +262,18 @@ public final class PostgresStayInventoryAdapter implements AtomicStayHoldPort, S
         public InvalidStayBookingTransitionException(StayBookingStatus current, String action) {
             super("Cannot " + action.toLowerCase(java.util.Locale.ROOT) + " booking in status " + current);
         }
+    }
+
+    /** PostgreSQL timestamp columns retain microsecond precision and round higher precision values.
+     * Normalize before both persistence and returning the newly-created aggregate so the first
+     * response and every idempotent replay expose the same immutable timestamp snapshot.
+     */
+    private static StayBooking normalizePostgresTimestamps(StayBooking booking) {
+        return StayBooking.restore(booking.id(), booking.tenantId(), booking.customerId(),
+                booking.listingId(), booking.unitId(), booking.checkIn(), booking.checkOut(),
+                booking.guestCount(), booking.quoteId(), booking.currency(), booking.idempotencyKey(),
+                booking.createdAt().truncatedTo(ChronoUnit.MICROS),
+                booking.holdExpiresAt().truncatedTo(ChronoUnit.MICROS), booking.status());
     }
 
     private StayBooking createHoldTransactionally(StayBooking proposed) {

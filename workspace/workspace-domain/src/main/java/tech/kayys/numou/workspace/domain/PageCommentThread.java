@@ -11,6 +11,7 @@ public record PageCommentThread(
         UUID id,
         UUID tenantId,
         UUID pageId,
+        UUID anchorBlockId,
         boolean resolved,
         long revision,
         UUID resolvedBy,
@@ -18,6 +19,13 @@ public record PageCommentThread(
         Instant createdAt,
         Instant updatedAt,
         List<PageComment> comments) {
+
+    public PageCommentThread(UUID id, UUID tenantId, UUID pageId, boolean resolved, long revision,
+                             UUID resolvedBy, Instant resolvedAt, Instant createdAt, Instant updatedAt,
+                             List<PageComment> comments) {
+        this(id, tenantId, pageId, null, resolved, revision, resolvedBy, resolvedAt,
+                createdAt, updatedAt, comments);
+    }
 
     public PageCommentThread {
         Objects.requireNonNull(id, "id");
@@ -50,9 +58,14 @@ public record PageCommentThread(
 
     public static PageCommentThread open(UUID tenantId, UUID pageId, UUID authorId,
                                           String body, Instant now) {
+        return open(tenantId, pageId, null, authorId, body, now);
+    }
+
+    public static PageCommentThread open(UUID tenantId, UUID pageId, UUID anchorBlockId,
+                                          UUID authorId, String body, Instant now) {
         UUID threadId = UUID.randomUUID();
         PageComment root = PageComment.root(tenantId, pageId, threadId, authorId, body, now);
-        return new PageCommentThread(threadId, tenantId, pageId, false, 1,
+        return new PageCommentThread(threadId, tenantId, pageId, anchorBlockId, false, 1,
                 null, null, now, now, List.of(root));
     }
 
@@ -60,20 +73,20 @@ public record PageCommentThread(
         Instant latestActivity = entries == null ? updatedAt : entries.stream()
                 .map(PageComment::createdAt).max(Instant::compareTo).orElse(updatedAt);
         Instant activityAt = latestActivity.isAfter(updatedAt) ? latestActivity : updatedAt;
-        return new PageCommentThread(id, tenantId, pageId, resolved, revision,
+        return new PageCommentThread(id, tenantId, pageId, anchorBlockId, resolved, revision,
                 resolvedBy, resolvedAt, createdAt, activityAt, entries);
     }
 
     public PageCommentThread resolve(UUID actorId, Instant now) {
         Objects.requireNonNull(actorId, "actorId");
         if (resolved) return this;
-        return new PageCommentThread(id, tenantId, pageId, true, revision + 1,
+        return new PageCommentThread(id, tenantId, pageId, anchorBlockId, true, revision + 1,
                 actorId, now, createdAt, now, comments);
     }
 
     public PageCommentThread reopen(Instant now) {
         if (!resolved) return this;
-        return new PageCommentThread(id, tenantId, pageId, false, revision + 1,
+        return new PageCommentThread(id, tenantId, pageId, anchorBlockId, false, revision + 1,
                 null, null, createdAt, now, comments);
     }
 }

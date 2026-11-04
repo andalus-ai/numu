@@ -1,6 +1,7 @@
 package tech.kayys.numou.numourest;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -126,7 +127,10 @@ public class SyirkahProducers {
     @ApplicationScoped
     SyirkahApi api(SyirkahApplicationService service, GovernedSyirkahService governed,
                    SyirkahIntegrityAuditor auditor, JdbcOperationsSupport ops, StaffContractService staff,
-                   JdbcTradingRecordPort trading) {
-        return new SyirkahApi(service, governed, auditor, ops, context, staff, trading);
+                   JdbcTradingRecordPort trading, JdbcUnitOfWork uow,
+                   Instance<tech.kayys.numou.numouapplication.port.BusinessAssetsPort> books) {
+        // optional: a deployment that provides a BusinessAssetsPort bean gets balance sheets read from its books
+        return new SyirkahApi(service, governed, auditor, ops, context, staff, trading, uow,
+                books.isResolvable() ? books.get() : null);
     }
 }

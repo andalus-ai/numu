@@ -8,7 +8,6 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import tech.kayys.numou.accounting.application.ap.ApInvoiceService;
-import tech.kayys.numou.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
 import tech.kayys.numou.accounting.domain.ap.VendorId;
 import tech.kayys.numou.accounting.domain.ap.VendorInvoice;
 import tech.kayys.numou.accounting.domain.ap.VendorInvoiceId;
@@ -24,12 +23,7 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Accounts Payable API", description = "Vendor invoice registration and posting")
 public class AccountsPayableResource {
-
-    @Inject
-    ApInvoiceService apService;
-
-    @Inject
-    InMemoryVendorInvoiceRepository vendorRepo;
+    @Inject ApInvoiceService apService;
 
     @POST
     @Path("/register")
@@ -38,27 +32,23 @@ public class AccountsPayableResource {
         return Uni.createFrom().item(() -> {
             List<VendorInvoiceLine> lines = new ArrayList<>();
             if (req.lines() != null) {
-                for (RegisterVendorInvoiceRequest.InvoiceLineDto l : req.lines()) {
-                    lines.add(new VendorInvoiceLine(l.accountCode(), l.description(), l.netAmount(), l.taxAmount()));
+                for (RegisterVendorInvoiceRequest.InvoiceLineDto line : req.lines()) {
+                    lines.add(new VendorInvoiceLine(line.accountCode(), line.description(), line.netAmount(), line.taxAmount()));
                 }
             }
-            VendorInvoice invoice = apService.register(
-                    new VendorInvoiceId(req.invoiceId()),
-                    new VendorId(req.vendorId()),
-                    req.vendorRef(),
-                    req.currency(),
-                    lines
-            );
+            VendorInvoice invoice = apService.register(new VendorInvoiceId(req.invoiceId()),
+                    req.companyId(), req.ledgerId(), req.periodId(), new VendorId(req.vendorId()),
+                    req.vendorRef(), req.currency(), lines);
             return Response.created(URI.create("/api/v1/accounting/ap/invoices/" + invoice.id().value()))
-                    .entity(invoice)
-                    .build();
+                    .entity(invoice).build();
         });
     }
 
     @POST
     @Path("/{id}/post")
     @Operation(summary = "Post a vendor invoice to AP subledger")
-    public Uni<Response> post(@PathParam("id") String id, @QueryParam("apAccount") String apAccount, @QueryParam("taxAccount") String taxAccount) {
+    public Uni<Response> post(@PathParam("id") String id, @QueryParam("apAccount") String apAccount,
+                              @QueryParam("taxAccount") String taxAccount) {
         return Uni.createFrom().item(() -> {
             VendorInvoice invoice = apService.post(new VendorInvoiceId(id), apAccount, taxAccount);
             return Response.ok(invoice).build();
@@ -69,10 +59,8 @@ public class AccountsPayableResource {
     @Path("/{id}")
     @Operation(summary = "Get vendor invoice by ID")
     public Uni<Response> getById(@PathParam("id") String id) {
-        return Uni.createFrom().item(() -> {
-            return vendorRepo.find(new VendorInvoiceId(id))
-                    .map(inv -> Response.ok(inv).build())
-                    .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build());
-        });
+        return Uni.createFrom().item(() -> apService.find(new VendorInvoiceId(id))
+                .map(invoice -> Response.ok(invoice).build())
+                .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build()));
     }
 }

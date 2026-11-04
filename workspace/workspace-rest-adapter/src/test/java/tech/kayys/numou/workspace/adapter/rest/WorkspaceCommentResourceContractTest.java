@@ -34,6 +34,22 @@ class WorkspaceCommentResourceContractTest {
     }
 
     @Test
+    void createCommentRequestAcceptsOnlyOptionalBlockAnchorInAdditionToBody() {
+        var components = Arrays.stream(WorkspaceCommentResource.CreateThreadRequest.class.getRecordComponents())
+                .map(RecordComponent::getName).toList();
+        assertEquals(List.of("body", "anchorBlockId"), components);
+        assertNotNull(WorkspaceCommentResource.CreateThreadRequest.class.getRecordComponents()[0]
+                .getAnnotation(NotBlank.class));
+    }
+
+    @Test
+    void threadResponsesExposeTheStableBlockAnchor() {
+        var components = Arrays.stream(tech.kayys.numou.workspace.application.WorkspaceCommentApi.ThreadView.class
+                .getRecordComponents()).map(RecordComponent::getName).toList();
+        assertTrue(components.contains("anchorBlockId"));
+    }
+
+    @Test
     void requestBodiesAreValidatedAtTheTransportBoundary() {
         assertNotNull(WorkspaceCommentResource.CreateThreadRequest.class.getRecordComponents()[0]
                 .getAnnotation(NotBlank.class));

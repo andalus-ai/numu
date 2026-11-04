@@ -1,0 +1,43 @@
+{
+  "apiVersion": "platform.numou/v1alpha1",
+  "kind": "Application",
+  "metadata": {
+    "id": "com.example.retail",
+    "version": "1.0.0",
+    "publisher": "com.example",
+    "displayName": "Retail Operations",
+    "description": "Retail sales and branch operations."
+  },
+  "requires": {
+    "capabilities": [
+      { "id": "numou.party", "contractRange": "^1.0.0" },
+      { "id": "numou.commerce.catalog", "contractRange": "^1.0.0" },
+      { "id": "numou.commerce.pos", "contractRange": "^1.0.0" },
+      { "id": "numou.workflow.orchestration", "contractRange": "^1.0.0" }
+    ],
+    "optionalCapabilities": [
+      { "id": "numou.crm", "contractRange": "^1.0.0" }
+    ]
+  },
+  "permissions": [
+    "commerce.catalog.read",
+    "commerce.pos.operate",
+    "workflow.definition.read",
+    "workflow.run.create"
+  ],
+  "configuration": {
+    "schemaRef": "schemas/retail-config-v1.json",
+    "schemaVersion": "1.0.0",
+    "required": true
+  },
+  "contributions": {
+    "navigation": [
+      {
+        "id": "com.example.retail.sales",
+        "label": "Sales",
+        "route": "/retail/sales",
+        "requiredPermission": "commerce.pos.operate"
+      }
+    ]
+  }
+}

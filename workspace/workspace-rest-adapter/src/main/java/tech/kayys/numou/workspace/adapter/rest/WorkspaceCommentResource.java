@@ -50,7 +50,7 @@ public class WorkspaceCommentResource {
     @POST
     @Path("/pages/{pageId}/comment-threads")
     public Response createThread(@PathParam("pageId") UUID pageId, @Valid CreateThreadRequest request) {
-        var created = comments.createThread(pageId, new WorkspaceCommentApi.CreateThreadRequest(request.body()));
+        var created = comments.createThread(pageId, new WorkspaceCommentApi.CreateThreadRequest(request.body(), request.anchorBlockId()));
         return Response.created(URI.create("/api/v1/pages/" + pageId
                 + "/comment-threads/" + created.id())).entity(created).build();
     }
@@ -82,7 +82,7 @@ public class WorkspaceCommentResource {
                 new WorkspaceCommentApi.ResolutionRequest(request.expectedRevision()));
     }
 
-    public record CreateThreadRequest(@NotBlank String body) {}
+    public record CreateThreadRequest(@NotBlank String body, UUID anchorBlockId) { public CreateThreadRequest(String body) { this(body, null); } }
     public record ReplyRequest(@NotNull UUID parentCommentId, @NotBlank String body) {}
     public record ResolutionRequest(@Positive long expectedRevision) {}
 }

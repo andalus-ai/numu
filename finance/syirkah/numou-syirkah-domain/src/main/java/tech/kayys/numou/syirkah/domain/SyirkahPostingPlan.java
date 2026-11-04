@@ -96,6 +96,24 @@ public final class SyirkahPostingPlan {
     }
 
     /** Idempotency key for the journal produced from one movement. */
+    /** Plain-language label of a movement for journal descriptions and memos. */
+    public static String label(MovementType t) {
+        return switch (t) {
+            case CONTRIBUTION -> "Capital contribution";
+            case CAPITAL_RETURN -> "Capital returned";
+            case LOSS_ALLOCATED -> "Loss charged to capital";
+            case CAPITAL_RESTORED -> "Capital restored from profit";
+            case PROFIT_ALLOCATED -> "Profit allocated";
+            case PROFIT_RETAINED -> "Profit retained as capital";
+            case PROFIT_DISTRIBUTED -> "Profit paid out";
+            case MANAGER_LOSS_LIABILITY -> "Loss owed by manager";
+            case LIABILITY_SETTLED -> "Partner liability settled";
+            case DEFICIT_TO_LIABILITY -> "Deficit recorded as partner liability";
+            case OVERPAYMENT_TO_LIABILITY -> "Overpayment recorded as partner liability";
+            case BASIS_CLOSED -> "Capital basis closed";
+        };
+    }
+
     public static String sourceKey(SyirkahId id, PartnerMovement m) {
         return "syirkah:" + id.value() + ":movement:" + m.sequence();
     }

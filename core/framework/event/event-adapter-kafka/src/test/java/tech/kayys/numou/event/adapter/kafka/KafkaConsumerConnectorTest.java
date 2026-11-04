@@ -251,6 +251,16 @@ class KafkaConsumerConnectorTest {
         }
 
         @Override
+        public UUID eventId() {
+            return UUID.nameUUIDFromBytes(saleId.getBytes(StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public Instant occurredAt() {
+            return Instant.EPOCH;
+        }
+
+        @Override
         public String eventType() {
             return EVENT_TYPE;
         }

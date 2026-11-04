@@ -105,3 +105,12 @@ boundary for at-least-once redelivery. Do not publish arbitrary DLQ payloads thr
 an unauthenticated endpoint or treat a Kafka source offset as a business idempotency
 key. The shared transport adapter intentionally does not expose an administrative
 replay API.
+
+
+## Controlled dead-letter replay
+
+The shared event application now contains a transport-neutral replay use case.
+See [event-application controlled replay](../event-application/README.md) for
+the authorization, durable claim/audit, tenant validation and at-least-once
+delivery contract. Kafka only supplies the dead-letter record to a trusted
+application adapter; it does not expose an administrative replay endpoint.
