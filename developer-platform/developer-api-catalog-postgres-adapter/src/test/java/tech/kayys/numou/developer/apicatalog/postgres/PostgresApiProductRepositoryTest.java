@@ -77,7 +77,7 @@ class PostgresApiProductRepositoryTest {
   first.addVersion(version("1.0.0"),NOW.plusSeconds(1));repository.save(tenant,first,1).await().indefinitely();
   stale.addVersion(version("2.0.0"),NOW.plusSeconds(2));
   assertThatThrownBy(()->repository.save(tenant,stale,1).await().indefinitely())
-    .hasRootCauseInstanceOf(PostgresApiProductRepository.OptimisticLockException.class);
+    .isInstanceOf(PostgresApiProductRepository.OptimisticLockException.class);
   assertThat(repository.findById(tenant,product.id()).await().indefinitely().orElseThrow().versions()).containsKey("1.0.0");
  }
 
