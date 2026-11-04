@@ -197,3 +197,101 @@ The following are intentionally still open:
 - Current-main persistence/outbox transaction implementation and executable PostgreSQL proof.
 
 These are not presumed absent based on GitHub code-search results. A complete checked-out scan and affected-reactor CI evidence are still needed before M0 can be declared complete.
+
+
+## 8. Organization and authorization contract revalidation (2026-11-04)
+
+Direct source inspection against current `main`:
+
+- `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationPartyAssociation.java`
+- `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationMembership.java`
+- `organization/organization-application/src/main/java/tech/kayys/numou/organization/application/port/PartyOrganizationEligibilityPort.java`
+- `organization/organization-adapter/src/main/java/tech/kayys/numou/organization/adapter/ecosystem/PartyOrganizationEligibilityAdapter.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/context/SecurityContext.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/context/SecurityContextProvider.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/authorization/AuthorizationService.java`
+
+### 8.1 Organization identity is explicitly associated, not aliased
+
+Confirmed:
+
+- OrganizationPartyAssociation stores both OrganizationId and PartyId as distinct typed identifiers. Its class documentation explicitly states that it owns only the association and does not own either aggregate, tenant membership, authorization, or Party lifecycle.
+- It has a controlled verification/lifecycle model: pending verification, active, suspended, and terminal transitions, with evidence/reason and actor metadata.
+- OrganizationMembership stores OrganizationId and Identity UserId, with pending/active/suspended/revoked lifecycle. It is not a Party social connection and must not be used as proof that a PartyId equals UserId.
+- Organization's Party eligibility adapter uses Ecosystem's public PartyLookupPort; it does not read Ecosystem persistence tables directly. This is a useful integration pattern for Social Graph.
+
+Decision: an organization graph subject resolves through a verified OrganizationPartyAssociation. Organization membership can inform organization-owned authorization only through its own public contract; it is not a social edge.
+
+### 8.2 Security context is trusted context, not authorization by itself
+
+Confirmed:
+
+- SecurityContext is documented as verified request identity built only after token validation and tenant resolution; it carries principal, tenant UUID, roles and client IP.
+- Its actor() helper returns the principal handle.
+- SecurityContextProvider exposes current()/require() for reactive execution.
+- Security AuthorizationService is an application port evaluating an AccessRequest into an AccessDecision.
+
+M1 application handlers must obtain trusted context through the supported provider, convert the trusted tenant UUID to the capability's tenant identifier at the composition boundary, resolve actor Party via the explicit tenant-scoped PartyIdentityAssociation contract, and then separately invoke authorization. Do not accept actor, tenant, or roles as caller-controlled command fields. The exact authorization action/resource vocabulary and runtime wiring still require inspection of the current Security implementation and its consuming adapters before the Social Graph contract is finalized.
+
+### 8.3 M0 ownership implications
+
+- OrganizationPartyAssociation is the explicit canonical organization-to-Party bridge. Never cast OrganizationId to PartyId.
+- OrganizationMembership is an Organization/UserId membership relationship. Never cast UserId to PartyId and never treat membership as a social connection.
+- SecurityContext provides trusted tenant/principal context but does not automatically resolve a Party and does not itself prove authorization for a social action.
+- Reuse public application ports and adapter composition; do not couple Social Graph to Organization or Ecosystem persistence tables.
+
+### 8.4 Remaining source audit gates
+
+Still required before M0 closure:
+- inspect the full Security authorization request/decision contract and trusted resolver wiring, including deny-by-default behavior and tenant scope;
+- inspect OrganizationPartyAssociation repository queries/history and JDBC transaction ownership;
+- inventory Jobs, Marketplace, Fleet, Carrier and Logistics identity mapping contracts;
+- establish current privacy/consent/deletion/export ownership;
+- complete repository-wide identifier/persistence/event scan and executable Maven/PostgreSQL baseline.
+
+
+## 9. Security authorization implementation revalidation (2026-11-04)
+
+Direct current-main source inspection:
+
+- `security/security-domain/src/main/java/tech/kayys/numou/security/domain/authorization/AccessRequest.java`
+- `security/security-domain/src/main/java/tech/kayys/numou/security/domain/authorization/AccessDecision.java`
+- `security/security-domain/src/main/java/tech/kayys/numou/security/domain/authorization/PermissionEvaluator.java`
+- `security/security-spi/src/main/java/tech/kayys/numou/security/spi/port/PolicyPort.java`
+- `security/security-spi/src/main/java/tech/kayys/numou/security/spi/port/ResourceAuthorizationPort.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/authorization/DefaultAuthorizationService.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/authz/AuthorizationService.java`
+- `security/security-application/src/main/java/tech/kayys/numou/security/application/authz/RoleGrantResolver.java`
+
+### 9.1 Confirmed authorization semantics
+
+- AccessRequest requires a non-null principal, tenant, action and resource type; resource id and context normalize null to empty strings.
+- PermissionEvaluator denies when the principal is not a member of the requested tenant, then denies missing resource/action permission, then checks a scoped resource-id set when one is supplied.
+- An empty permission set therefore denies. AccessDecision has explicit ALLOW/DENY and a reason.
+- PolicyPort loads effective permissions by Principal + TenantId.
+- ResourceAuthorizationPort is a separate ABAC/resource-level evaluation port.
+
+### 9.2 Two application-level authorization paths exist
+
+The current source tree contains two distinct authorization services:
+
+1. `authorization.AuthorizationService` plus CDI `@ApplicationScoped DefaultAuthorizationService`: loads tenant-scoped permissions through PolicyPort, applies PermissionEvaluator, and invokes ResourceAuthorizationPort only when one is resolvable. The resource-level evaluator is optional in this implementation.
+2. `authz.AuthorizationService`: a separate final class accepting SecurityContext, GrantResolver and AuditPort. It builds an AccessRequest from trusted context, checks grants, audits denials (audit failure is recovered so it cannot turn denial into allow), and fails require() with AccessDeniedException. RoleGrantResolver maps verified context roles through RolePermissionMatrix.
+
+These are not interchangeable contracts. The second path is not annotated as a CDI bean in the inspected source, while the first has an application-scoped default implementation. The full composition/wiring and call-site inventory has not yet been completed, so this audit does not declare either path the sole canonical entry point.
+
+### 9.3 Social Graph authorization rule
+
+- Social Graph commands must derive actor and tenant from the trusted SecurityContextProvider; never accept caller-supplied actor, tenant or roles.
+- Resolve the authenticated subject to Party using the tenant-scoped PartyIdentityAssociation, then authorize the requested action/resource separately.
+- Keep Social Graph resource/relationship visibility checks in a Social Graph-owned policy adapter or an explicitly configured ResourceAuthorizationPort; do not assume the optional resource evaluator is present.
+- Treat PolicyPort errors, missing grants, unresolved actor mapping and missing tenant membership as failures; never fail open.
+- Before M1 implementation, inspect the runtime composition and tests to establish which authorization service is actually used by the relevant HTTP/application adapters and whether resource-level policy is configured.
+
+## 10. Current-main module discovery: jobs, marketplace, fleet and privacy
+
+- Repository-root directory listing contains no top-level `jobs` or `recruitment` module. Workforce currently has `hris` and `leave` submodules. This is only a directory-level observation; job vacancy or candidate concepts may live under another capability and need targeted source inspection before concluding they are absent.
+- Marketplace is present under `commerce/marketplace/numou-marketplace-domain`; its domain source tree has been located, but the model and identifier contracts have not yet been inspected in this pass.
+- Fleet is present at `logistics/numou-fleet`; Courier domain is present at `logistics/numou-courier-domain`. Their source package contracts and tenant/subject identifiers remain to be inspected.
+- The inspected Security domain package tree contains audit, authentication, authorization, identifier and valueobject packages; no privacy/consent package is present there. A broad code search for consent/privacy/export/erasure returned no indexed matches, which is not proof that no such capability exists elsewhere. Privacy ownership remains unresolved pending a full source/schema scan.
+
