@@ -15,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -266,7 +267,9 @@ public final class JdbcOrganizationMembershipRepository implements OrganizationM
     private static boolean sameState(OrganizationMembership left, OrganizationMembership right) {
         return left.getVersion() == right.getVersion()
                 && left.status() == right.status()
-                && left.role() == right.role();
+                && left.role() == right.role()
+                && left.getUpdatedAt().truncatedTo(ChronoUnit.MICROS)
+                        .equals(right.getUpdatedAt().truncatedTo(ChronoUnit.MICROS));
     }
 
     private static void rollback(Connection connection, Throwable original) {
