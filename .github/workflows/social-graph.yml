@@ -9,6 +9,7 @@ on:
       - "core/framework/pom.xml"
       - "security/social-graph-adapter/**"
       - "security/security-adapter/**"
+      - "security/security-adapter/**"
       - "security/security-application/**"
       - "security/security-domain/**"
       - "security/pom.xml"
