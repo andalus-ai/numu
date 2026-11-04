@@ -60,7 +60,8 @@ class PostgresApiProductRepositoryTest {
   TenantId tenantA=TenantId.generate(),tenantB=TenantId.generate();
   ApiProduct a=product(tenantA,"shared");ApiProduct b=product(tenantB,"shared");
   repository.save(tenantA,a,0).await().indefinitely();repository.save(tenantB,b,0).await().indefinitely();
-  assertThat(repository.findBySlug(tenantA,"shared").await().indefinitely()).contains(aOrLoaded(tenantA,a.id()));
+  var bySlug=repository.findBySlug(tenantA,"shared").await().indefinitely().orElseThrow();
+  assertThat(bySlug.id()).isEqualTo(a.id());
   assertThat(repository.findById(tenantA,b.id()).await().indefinitely()).isEmpty();
   assertThat(repository.findAll(tenantA,tech.kayys.numou.foundation.application.page.PageRequest.first(10)).await().indefinitely().content())
     .extracting(ApiProduct::slug).containsExactly("shared");
@@ -76,13 +77,12 @@ class PostgresApiProductRepositoryTest {
   first.addVersion(version("1.0.0"),NOW.plusSeconds(1));repository.save(tenant,first,1).await().indefinitely();
   stale.addVersion(version("2.0.0"),NOW.plusSeconds(2));
   assertThatThrownBy(()->repository.save(tenant,stale,1).await().indefinitely())
-    .hasRootCauseInstanceOf(PostgresApiProductRepository.OptimisticLockException.class);
+    .isInstanceOf(PostgresApiProductRepository.OptimisticLockException.class);
   assertThat(repository.findById(tenant,product.id()).await().indefinitely().orElseThrow().versions()).containsKey("1.0.0");
  }
 
  private static ApiProduct product(TenantId tenant,String slug){return ApiProduct.create(ApiProductId.newId(),tenant.value(),"API "+slug,slug,"test catalog",NOW);}
  private static ApiVersion version(String v){return ApiVersion.draft(v,new ApiSpecification("3.1","rustfs://api-specs/orders.yaml","a".repeat(64)),Set.of(new ApiScope("orders.read","Read orders")));}
- private ApiProduct aOrLoaded(TenantId tenant,ApiProductId id){return repository.findById(tenant,id).await().indefinitely().orElseThrow();}
 
  private static final class RoleDataSource implements DataSource{
   private final DataSource delegate;RoleDataSource(DataSource d){delegate=d;}
