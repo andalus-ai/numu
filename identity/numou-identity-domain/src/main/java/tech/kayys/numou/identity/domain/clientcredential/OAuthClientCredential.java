@@ -26,7 +26,7 @@ public final class OAuthClientCredential extends AbstractAggregateRoot<OAuthClie
     private OAuthClientCredentialStatus status;
     private long credentialVersion;
     private final Instant createdAt;
-    private final Instant expiresAt;
+    private Instant expiresAt;
     private Instant rotatedAt;
     private Instant revokedAt;
 
@@ -95,18 +95,11 @@ public final class OAuthClientCredential extends AbstractAggregateRoot<OAuthClie
         }
         this.secretHash = verifiedHash;
         this.secretPrefix = verifiedPrefix;
-        this.expiresAtCheck(nextExpiresAt, occurredAt);
+        this.expiresAt = nextExpiresAt;
         this.rotatedAt = Objects.requireNonNull(occurredAt, "occurredAt cannot be null");
         this.credentialVersion = Math.addExact(credentialVersion, 1);
         raise(new OAuthClientCredentialRotated(UUID.randomUUID(), occurredAt,
                 id, tenantId, applicationId, clientId, credentialVersion));
-    }
-
-    private void expiresAtCheck(Instant nextExpiresAt, Instant occurredAt) {
-        // Expiry is immutable for a credential generation; a rotation creates a new generation.
-        if (nextExpiresAt != null && !nextExpiresAt.isAfter(occurredAt)) {
-            throw new IllegalArgumentException("expiresAt must be after rotation time");
-        }
     }
 
     public void revoke(Instant occurredAt) {
