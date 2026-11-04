@@ -1,6 +1,6 @@
 # M5 — PostgreSQL Installation Store and Durable Transition Outbox
 
-- **Status:** implementation merged into review branch; focused Java 21 verification passed.
+- **Status:** merged into `main` as PR #1656; focused Java 21 verification passed.
 - **Depends on:** M4 tenant installation lifecycle (PR #1653).
 - **Owner:** optional `application-platform` capability.
 - **Adapter:** `application-platform-postgres-adapter`; plain JDBC, no Quarkus dependency.
@@ -68,9 +68,9 @@ The PostgreSQL Testcontainers suite covers:
 - Transition-history immutability.
 - Tenant-scoped outbox claims, lease expiry/recovery, stale-token fencing, delivery acknowledgement and terminal retry exhaustion.
 
-The focused Java 21 workflow [run #18](https://github.com/andalus-ai/numu/actions/runs/41627218811) passed on commit `8f27e4a8227993a1fcc8f15f078ea31deca235bb`. The framework plugin manifest/resolver job passed; the tenant installation job passed the domain (4 tests), application (4 tests), and PostgreSQL adapter (7 Testcontainers tests) suites with zero failures, errors or skips. The PostgreSQL suite creates a separate `NOSUPERUSER NOBYPASSRLS` runtime role so RLS assertions are meaningful; table-owner operations are used only to verify the append-only TRUNCATE triggers. Testcontainers requires Docker in CI; local runs without Docker will skip the integration suite through `disabledWithoutDocker`.
+The focused Java 21 workflow [run #19](https://github.com/andalus-ai/numu/actions/runs/41627467377) passed on the latest PR head `766137b2e81cbdd5d87590992af09f45551e9e1f`. The framework plugin manifest/resolver job passed; the tenant installation job passed the domain (4 tests), application (4 tests), and PostgreSQL adapter (7 Testcontainers tests) suites with zero failures, errors or skips. The PostgreSQL suite creates a separate `NOSUPERUSER NOBYPASSRLS` runtime role so RLS assertions are meaningful; table-owner operations are used only to verify the append-only TRUNCATE triggers. Testcontainers requires Docker in CI; local runs without Docker will skip the integration suite through `disabledWithoutDocker`.
 
-The broader Numou CI run #2654 is still running at the time of this update. The focused Application Platform result is authoritative for the modules and tests in this milestone, not a claim that unrelated repository jobs have passed.
+The broader Numou CI run #2655 was still in progress at the time PR #1656 was updated; this document does not claim unrelated repository jobs passed. The focused Application Platform result is authoritative for the modules and tests in this milestone, not a claim that unrelated repository jobs have passed.
 
 ## 6. Explicit non-goals
 

@@ -57,6 +57,13 @@ public class PgOutboxStore implements OutboxStorePort {
                AND lease_token = $2
                AND locked_until > clock_timestamp()""";
 
+    static final String QUARANTINE = """
+            UPDATE platform_outbox
+               SET attempts = 10, locked_until = NULL, lease_token = NULL, last_error = $3
+             WHERE entry_id = $1
+               AND lease_token = $2
+               AND published_at IS NULL""";
+
     static final String FIND = """
             SELECT entry_id, payload::text AS payload, event_type, created_at, available_at, attempts, published_at
               FROM platform_outbox WHERE entry_id = $1""";
@@ -98,11 +105,27 @@ public class PgOutboxStore implements OutboxStorePort {
         if (limit < 1) throw new IllegalArgumentException("limit must be >= 1");
         if (lease.isZero() || lease.isNegative()) throw new IllegalStateException("numou.outbox.lease must be positive");
         return pool.preparedQuery(CLAIM).execute(Tuple.of(limit, lease.toMillis()))
-                .map(rows -> StreamSupport.stream(rows.spliterator(), false)
-                        .map(this::toClaim)
-                        .sorted(Comparator.comparing((OutboxClaim c) -> c.entry().createdAt())
-                                .thenComparing(c -> c.entry().entryId()))
-                        .toList());
+                .flatMap(rows -> {
+                    final List<Row> claimed = StreamSupport.stream(rows.spliterator(), false).toList();
+                    final List<OutboxClaim> valid = new java.util.ArrayList<>();
+                    Uni<Void> quarantine = Uni.createFrom().voidItem();
+                    for (Row row : claimed) {
+                        try {
+                            valid.add(toClaim(row));
+                        } catch (RuntimeException malformed) {
+                            final String detail = boundedError(malformed);
+                            quarantine = quarantine.flatMap(ignored ->
+                                    pool.preparedQuery(QUARANTINE)
+                                            .execute(Tuple.of(row.getUUID("entry_id"),
+                                                    row.getUUID("lease_token"), detail))
+                                            .replaceWithVoid());
+                        }
+                    }
+                    return quarantine.map(ignored -> valid.stream()
+                            .sorted(Comparator.comparing((OutboxClaim claim) -> claim.entry().createdAt())
+                                    .thenComparing(claim -> claim.entry().entryId()))
+                            .toList());
+                });
     }
 
     @Override
@@ -125,6 +148,13 @@ public class PgOutboxStore implements OutboxStorePort {
 
     private Uni<Long> scalar(String sql, String column) {
         return pool.query(sql).execute().map(rows -> rows.iterator().next().getLong(column));
+    }
+
+    private static String boundedError(RuntimeException failure) {
+        String message = failure.getMessage();
+        String detail = failure.getClass().getSimpleName()
+                + (message == null || message.isBlank() ? "" : ": " + message);
+        return detail.length() <= 2000 ? detail : detail.substring(0, 2000);
     }
 
     private OutboxClaim toClaim(Row row) {
