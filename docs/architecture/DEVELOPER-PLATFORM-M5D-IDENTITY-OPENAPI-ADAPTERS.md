@@ -3,7 +3,7 @@
 ## Identity integration
 - Uses the existing Identity `CurrentPrincipalPort`, `TenantMembershipPort`, and `ResourceAuthorizationService`.
 - Enforces tenant membership before catalog permission evaluation.
-- Requires the actor in trusted `ExecutionContext` to match the authenticated principal subject; this prevents a caller from pairing a valid token with a different actor context.
+- Requires the actor in trusted `ExecutionContext` to match the authenticated principal subject, or the authenticated user UUID for USER principals; this prevents a caller from pairing a valid token with a different actor context.
 - RBAC and ABAC are evaluated through the shared identity service using `developer.api-catalog.read` and `developer.api-catalog.manage`.
 - Missing principal, actor mismatch, wrong tenant context, non-membership, and denied permission all fail closed.
 

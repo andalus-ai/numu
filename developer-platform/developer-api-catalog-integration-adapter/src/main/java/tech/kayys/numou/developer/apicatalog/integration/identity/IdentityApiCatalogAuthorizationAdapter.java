@@ -56,8 +56,11 @@ public final class IdentityApiCatalogAuthorizationAdapter implements ApiCatalogA
  }
 
  private static boolean authenticatedActorMatches(ExecutionContext context,Principal principal){
-  return principal!=null&&principal.authenticated()
-    &&context.actorId()!=null&&context.actorId().value().equals(principal.subject());
+  if(principal==null||!principal.authenticated()||context.actorId()==null)return false;
+  String actor=context.actorId().value();
+  if(actor.equals(principal.subject()))return true;
+  return principal.type()==tech.kayys.numou.identity.application.security.PrincipalType.USER
+    &&principal.userId()!=null&&actor.equals(principal.userId().value().toString());
  }
  private static Uni<Void> denied(String permission){
   return Uni.createFrom().failure(new AuthorizationException(permission));

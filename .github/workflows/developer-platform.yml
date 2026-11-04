@@ -28,6 +28,8 @@ jobs:
         run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation contracts
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Install shared Identity and Document Storage contracts
+        run: mvn -B -ntp -f core/framework/pom.xml -pl numou-identity-application,numou-document-storage-spi -am install
       - name: Verify Developer Platform registry reactor
         run: mvn -B -ntp -f developer-platform/pom.xml verify
       - name: Upload Developer Platform Maven test reports
