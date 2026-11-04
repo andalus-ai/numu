@@ -2,6 +2,8 @@ package tech.kayys.numou.socialgraph.persistence.jdbc;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
@@ -27,7 +29,8 @@ import java.util.function.Function;
  * JDBC transaction adapter. All graph state, idempotency and outbox writes
  * performed by the callback use the same physical PostgreSQL connection.
  *
- * <p>Call this blocking adapter from a worker thread, not an event-loop thread.
+ * <p>Blocking JDBC work is scheduled on Mutiny's default worker pool so callers
+ * can compose this port without blocking an event-loop thread.
  */
 @ApplicationScoped
 public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
@@ -39,8 +42,13 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
     }
 
     @Override
-    public <T> T execute(Function<SocialGraphTransaction, T> work) {
+    public <T> Uni<T> execute(Function<SocialGraphTransaction, T> work) {
         Objects.requireNonNull(work, "work cannot be null");
+        return Uni.createFrom().item(() -> executeBlocking(work))
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    private <T> T executeBlocking(Function<SocialGraphTransaction, T> work) {
         try (Connection connection = dataSource.getConnection()) {
             boolean previousAutoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
@@ -82,8 +90,9 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public Optional<SocialConnection> findOpenConnection(TenantId tenantId, PartyId first, PartyId second) {
-            UUID low = first.value().toString().compareTo(second.value().toString()) < 0 ? first.value() : second.value();
-            UUID high = first.value().compareTo(second.value()) < 0 ? second.value() : first.value();
+            boolean firstComesFirst = comparePartyIds(first.value(), second.value()) < 0;
+            UUID low = firstComesFirst ? first.value() : second.value();
+            UUID high = firstComesFirst ? second.value() : first.value();
             String sql = "SELECT * FROM sg_connection WHERE tenant_id = ? AND pair_low = ? AND pair_high = ? "
                     + "AND status IN ('PENDING', 'ACTIVE') FOR UPDATE";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -98,10 +107,10 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public void insertConnection(SocialConnection c) {
-            UUID low = c.requesterPartyId().value().toString().compareTo(c.recipientPartyId().value().toString()) < 0
-                    ? c.requesterPartyId().value() : c.recipientPartyId().value();
-            UUID high = c.requesterPartyId().value().compareTo(c.recipientPartyId().value()) < 0
-                    ? c.recipientPartyId().value() : c.requesterPartyId().value();
+            boolean requesterComesFirst = comparePartyIds(
+                    c.requesterPartyId().value(), c.recipientPartyId().value()) < 0;
+            UUID low = requesterComesFirst ? c.requesterPartyId().value() : c.recipientPartyId().value();
+            UUID high = requesterComesFirst ? c.recipientPartyId().value() : c.requesterPartyId().value();
             String sql = "INSERT INTO sg_connection (tenant_id, connection_id, requester_party_id, recipient_party_id, "
                     + "pair_low, pair_high, status, requested_at, updated_at, resolved_at, version) "
                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -224,6 +233,15 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
                     resolved == null ? null : resolved.toInstant(),
                     rs.getInt("version"));
         }
+    }
+
+    /**
+     * Uses the same canonical ordering as PostgreSQL's UUID comparison and the
+     * pair_low < pair_high database constraint. UUID.compareTo is signed-long
+     * based and can disagree with PostgreSQL's bytewise UUID ordering.
+     */
+    private static int comparePartyIds(UUID first, UUID second) {
+        return first.toString().compareTo(second.toString());
     }
 
     private static void rollback(Connection connection, Throwable original) {

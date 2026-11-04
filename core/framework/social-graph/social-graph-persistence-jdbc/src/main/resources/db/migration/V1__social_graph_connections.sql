@@ -51,11 +51,11 @@ CREATE INDEX ix_sg_connection_audit_history
 CREATE FUNCTION sg_reject_connection_audit_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $$
+AS $
 BEGIN
     RAISE EXCEPTION 'social graph connection audit is append-only';
 END;
-$$;
+$;
 
 CREATE TRIGGER trg_sg_connection_audit_immutable
     BEFORE UPDATE OR DELETE ON sg_connection_audit

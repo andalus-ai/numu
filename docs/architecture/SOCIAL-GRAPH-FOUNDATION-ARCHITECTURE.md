@@ -164,7 +164,7 @@ Do not finalize aggregate boundaries, IDs, relationship cardinality, or table la
 
 The initial M1 implementation is recorded in [Social Graph M1 Implementation](SOCIAL-GRAPH-M1-IMPLEMENTATION.md).
 
-Implemented on branch `social-graph/m1-core-postgresql`:
+Implemented on branch `social-graph/m1-core-postgresql-mainline`:
 
 - Dedicated framework Maven reactor: `core/framework/social-graph`.
 - Domain, SPI, application, and JDBC persistence modules.
