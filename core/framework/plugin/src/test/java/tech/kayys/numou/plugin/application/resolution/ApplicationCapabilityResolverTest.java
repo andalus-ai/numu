@@ -27,7 +27,7 @@ class ApplicationCapabilityResolverTest {
                         List.of(new CapabilityRequirement("numou.party", "^1.0.0"))),
                 new CapabilityProvider("inventory", "numou.inventory", "1.0.0",
                         List.of(new CapabilityRequirement("numou.party", "^2.0.0"))),
-                new CapabilityProvider("party-v1", "numou.party", "1.5.0", List.of()));
+                new CapabilityProvider("party-v1", "numou.party", "1.2.0", List.of()));
 
         assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
                 .isInstanceOf(CapabilityResolutionException.class)
