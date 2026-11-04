@@ -8,7 +8,6 @@ import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 
 /**
