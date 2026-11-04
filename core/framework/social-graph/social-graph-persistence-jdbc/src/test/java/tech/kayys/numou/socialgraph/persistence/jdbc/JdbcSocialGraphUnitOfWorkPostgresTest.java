@@ -170,7 +170,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
     }
 
     @Test
-    void canonicalPairOrderingMatchesPostgresUuidOrderingAndSupportsReverseLookup() {
+    void canonicalPairOrderingMatchesPostgresUuidOrderingAndSupportsReverseLookup() throws Exception {
         DataSource dataSource = dataSource();
         migrate(dataSource);
         JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
@@ -197,7 +197,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         return source;
     }
 
-    private void migrate(DataSource dataSource) {
+    private void migrate(DataSource dataSource) throws Exception {
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
