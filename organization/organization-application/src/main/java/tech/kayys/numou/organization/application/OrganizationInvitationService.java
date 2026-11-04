@@ -43,7 +43,7 @@ public final class OrganizationInvitationService {
         Objects.requireNonNull(tenantId);
         Objects.requireNonNull(organizationId);
         Objects.requireNonNull(actorId);
-        return policy.requireCanInvite(tenantId, organizationId, actorId).thenCompose(ignored -> {
+        return policy.requireCanInvite(tenantId, organizationId, actorId).thenCompose(authorized -> {
             String normalizedEmail = recipientEmail.trim().toLowerCase(java.util.Locale.ROOT);
             return repository.findPendingByTenantAndOrganizationAndEmail(
                     tenantId, organizationId, normalizedEmail).thenCompose(existing -> {
@@ -53,7 +53,7 @@ public final class OrganizationInvitationService {
                     if (now.isBefore(prior.expiresAt())) return CompletableFuture.failedFuture(
                             new IllegalStateException("A pending invitation already exists for this recipient"));
                     prior.expire(now);
-                    return repository.save(prior, tenantId).thenCompose(ignored ->
+                    return repository.save(prior, tenantId).thenCompose(expired ->
                             createInvitation(tenantId, organizationId, normalizedEmail, role, actorId, now));
                 }
                 return createInvitation(tenantId, organizationId, normalizedEmail, role, actorId, now);
@@ -70,7 +70,7 @@ public final class OrganizationInvitationService {
             OrganizationInvitation invitation = found.orElseThrow(
                     () -> new IllegalArgumentException("Invitation not found"));
             return policy.requireCanInvite(tenantId, invitation.organizationId(), actorId)
-                    .thenCompose(ignored -> {
+                    .thenCompose(authorized -> {
                         Instant now = clock.instant();
                         GeneratedSecret secret = generateSecret();
                         invitation.rotate(secret.digest(), now.plus(DEFAULT_LIFETIME), now);
@@ -90,7 +90,7 @@ public final class OrganizationInvitationService {
             OrganizationInvitation invitation = found.orElseThrow(
                     () -> new IllegalArgumentException("Invitation not found"));
             return policy.requireCanInvite(tenantId, invitation.organizationId(), actorId)
-                    .thenCompose(ignored -> {
+                    .thenCompose(authorized -> {
                         invitation.revoke(clock.instant());
                         return repository.save(invitation, tenantId).thenApply(saved -> null);
                     });
