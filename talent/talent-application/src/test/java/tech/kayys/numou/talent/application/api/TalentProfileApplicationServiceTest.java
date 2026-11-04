@@ -100,8 +100,7 @@ class TalentProfileApplicationServiceTest {
 
         assertThatThrownBy(() -> service.updatePresentation(context, id, "Changed", null, null)
                 .await().indefinitely())
-                .hasCauseInstanceOf(TalentProfileAccessDeniedException.class)
-                .or().isInstanceOf(TalentProfileAccessDeniedException.class);
+                .isInstanceOf(TalentProfileAccessDeniedException.class);
 
         TalentProfile stored = unitOfWork.repository.findByTenantAndId(tenant, id).await().indefinitely().orElseThrow();
         assertThat(stored.headline()).isEqualTo("Engineer");
