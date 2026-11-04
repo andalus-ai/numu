@@ -12,6 +12,7 @@ import tech.kayys.numou.organization.spi.OrganizationMembershipRepository;
 import java.lang.reflect.Proxy;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -21,11 +22,9 @@ class MembershipOrganizationInvitationPolicyTest {
     @Test
     void permitsOnlyActiveOwnerOrAdminMembership() {
         assertDoesNotThrow(() -> policyFor(OrganizationMembership.Role.OWNER,
-                OrganizationMembershipStatus.ACTIVE).requireCanInvite(
-                TenantId.generate(), OrganizationId.generate(), UserId.newId()).toCompletableFuture().join());
+                OrganizationMembershipStatus.ACTIVE).toCompletableFuture().join());
         assertDoesNotThrow(() -> policyFor(OrganizationMembership.Role.ADMIN,
-                OrganizationMembershipStatus.ACTIVE).requireCanInvite(
-                TenantId.generate(), OrganizationId.generate(), UserId.newId()).toCompletableFuture().join());
+                OrganizationMembershipStatus.ACTIVE).toCompletableFuture().join());
     }
 
     @Test
@@ -54,15 +53,16 @@ class MembershipOrganizationInvitationPolicyTest {
                     }
                     throw new UnsupportedOperationException(method.getName());
                 });
-        new MembershipOrganizationInvitationPolicy(repository).requireCanInvite(tenant, organization, actor)
-                .toCompletableFuture().handle((ignored, error) -> null).join();
+        CompletionStage<Void> denied = new MembershipOrganizationInvitationPolicy(repository)
+                .requireCanInvite(tenant, organization, actor);
+        assertSecurityFailure(denied);
         assertNotNull(observed.get());
         assertEquals(tenant, observed.get()[0]);
         assertEquals(organization, observed.get()[1]);
         assertEquals(actor, observed.get()[2]);
     }
 
-    private static MembershipOrganizationInvitationPolicy policyFor(
+    private static CompletionStage<Void> policyFor(
             OrganizationMembership.Role role, OrganizationMembershipStatus status) {
         TenantId tenant = TenantId.generate();
         OrganizationId organization = OrganizationId.generate();
@@ -81,14 +81,13 @@ class MembershipOrganizationInvitationPolicyTest {
                     }
                     throw new UnsupportedOperationException(method.getName());
                 });
-        return new MembershipOrganizationInvitationPolicy(repository) {
-        };
+        return new MembershipOrganizationInvitationPolicy(repository)
+                .requireCanInvite(tenant, organization, actor);
     }
 
-    private static void assertSecurityFailure(MembershipOrganizationInvitationPolicy policy) {
-        CompletionStage<Void> result = policy.requireCanInvite(
-                TenantId.generate(), OrganizationId.generate(), UserId.newId());
-        assertThrows(SecurityException.class, () -> result.toCompletableFuture().join()
-                .toCompletableFuture().join());
+    private static void assertSecurityFailure(CompletionStage<Void> result) {
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> result.toCompletableFuture().join());
+        assertInstanceOf(SecurityException.class, failure.getCause());
     }
 }
