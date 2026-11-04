@@ -8,6 +8,7 @@ import tech.kayys.numou.foundation.domain.repository.TenantAware;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileCreated;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileContentChanged;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfilePublished;
+import tech.kayys.numou.talent.domain.profile.event.TalentProfilePresentationChanged;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileVisibilityChanged;
 
 import java.time.Instant;
@@ -85,6 +86,7 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
         this.summary = normalizedSummary;
         this.locationLabel = normalizedLocation;
         touch();
+        raise(new TalentProfilePresentationChanged(id(), tenantId));
     }
 
     /** Changes discoverability independently from publication and authorization. */
