@@ -29,3 +29,7 @@ CREATE INDEX ix_organization_invitation_pending_email
     WHERE status = 'PENDING';
 CREATE INDEX ix_organization_invitation_tenant_org
     ON organization_invitations (tenant_id, organization_id, created_at DESC, invitation_id);
+
+CREATE UNIQUE INDEX uq_organization_invitation_pending_email
+    ON organization_invitations (tenant_id, organization_id, recipient_email)
+    WHERE status = 'PENDING';
