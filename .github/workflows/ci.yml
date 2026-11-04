@@ -48,6 +48,8 @@ jobs:
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Build and install ecosystem contracts
         run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install cache contracts required by Identity
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install Identity contracts
         run: mvn -B -ntp -f identity/pom.xml -pl numou-identity-domain,numou-identity-application -am install
       - name: Verify Organization and invitation lifecycle
