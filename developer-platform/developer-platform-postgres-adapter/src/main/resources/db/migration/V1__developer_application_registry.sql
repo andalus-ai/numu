@@ -18,6 +18,10 @@ CREATE TABLE developer_application_idempotency(
  PRIMARY KEY(tenant_id,idempotency_key_sha256),
  CONSTRAINT fk_developer_application_idempotency FOREIGN KEY(tenant_id,application_id) REFERENCES developer_applications(tenant_id,id)
 );
+CREATE FUNCTION reject_developer_application_idempotency_mutation() RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN RAISE EXCEPTION 'developer application idempotency records are immutable'; END; $;
+CREATE TRIGGER trg_developer_application_idempotency_immutable BEFORE UPDATE OR DELETE ON developer_application_idempotency FOR EACH ROW EXECUTE FUNCTION reject_developer_application_idempotency_mutation();
+CREATE TRIGGER trg_developer_application_idempotency_no_truncate BEFORE TRUNCATE ON developer_application_idempotency FOR EACH STATEMENT EXECUTE FUNCTION reject_developer_application_idempotency_mutation();
 CREATE TABLE developer_application_events(
  event_id UUID PRIMARY KEY,tenant_id UUID NOT NULL,application_id UUID NOT NULL,event_type VARCHAR(100) NOT NULL,
  revision BIGINT NOT NULL CHECK(revision>=1),actor_id VARCHAR(200) NOT NULL,correlation_id VARCHAR(200) NOT NULL DEFAULT '',occurred_at TIMESTAMPTZ NOT NULL,
