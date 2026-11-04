@@ -35,7 +35,7 @@ CREATE TABLE developer_api_scopes (
  provider_tenant_id UUID NOT NULL,
  product_id UUID NOT NULL,
  api_version VARCHAR(80) NOT NULL,
- scope_name VARCHAR(160) NOT NULL CHECK(scope_name ~ '^[a-z][a-z0-9]*(\.[a-z0-9][a-z0-9-]*)*(\:[a-z0-9][a-z0-9-]*)?$'),
+ scope_name VARCHAR(160) NOT NULL CHECK(scope_name ~ '^[a-z][a-z0-9]*([.:][a-z0-9][a-z0-9-]*)*$'),
  description VARCHAR(500) NOT NULL CHECK(length(btrim(description)) BETWEEN 1 AND 500),
  CONSTRAINT pk_developer_api_scopes PRIMARY KEY(provider_tenant_id,product_id,api_version,scope_name),
  CONSTRAINT fk_developer_api_scopes_version FOREIGN KEY(provider_tenant_id,product_id,api_version)
