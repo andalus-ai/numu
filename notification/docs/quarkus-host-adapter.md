@@ -18,11 +18,11 @@ Unauthenticated requests are rejected by Quarkus `@Authenticated`; a missing ver
 
 A host must provide CDI implementations for:
 
-- `VerifiedNotificationPrincipalProvider`: reads the verified request context only. In Numou Quarkus hosts, this should bridge `security-adapter/CurrentSecurity.require()` after `RequestSecurityFilter` has run, returning the verified tenant ID and principal ID.
+- `VerifiedNotificationPrincipalProvider`: reads the verified request context only. Numou hosts can include the optional `notification-adapter-numou-security` module, which implements this port by reading `security-adapter/CurrentSecurity.require()` after `RequestSecurityFilter` has run. It returns only the verified tenant ID and principal ID. Hosts using another security system can provide their own implementation instead.
 - `NotificationRecipientResolver`: resolves the principal to the notification recipient using an explicit, tenant-scoped identity association. Never assume principal UUID equals recipient UUID.
 - `AuthenticatedNotificationApi`: compose the existing notification services and repositories using the host's configured JDBC datasource, token protector/key provider, and clock.
 
-The adapter deliberately does not depend on a particular identity-to-recipient schema or silently equate IDs. This allows a host to use user, service, Party, or participant identity mappings without leaking those decisions into the notification capability.
+The optional Numou security integration deliberately does not implement `NotificationRecipientResolver`. A host must still resolve the verified principal to a notification recipient through an explicit tenant-scoped, active identity association; it must never equate principal and recipient IDs by assumption. This allows a host to use user, service, Party, or participant identity mappings without leaking those decisions into the notification capability.
 
 ## Production controls
 
@@ -35,3 +35,25 @@ The adapter deliberately does not depend on a particular identity-to-recipient s
 ## Build
 
 Run `mvn -B -ntp -f notification/pom.xml verify` from the repository root after installing the framework parent POM as documented in the Notification capability workflow.
+
+
+## Numou security integration
+
+Add `numou-notification-adapter-numou-security` to a Numou Quarkus host to reuse the framework's verified request security context. The integration reads `CurrentSecurity.require()`, which is populated by `RequestSecurityFilter` only after authentication and tenant resolution. It does not inspect raw headers or parse JWT claims itself.
+
+The host remains responsible for:
+- providing a tenant-scoped `NotificationRecipientResolver`;
+- composing `AuthenticatedNotificationApi` with the configured JDBC repository, managed `PushTokenKeyProvider`, `AesGcmPushTokenProtector`, and clock;
+- configuring authentication and endpoint permissions consistently with the security filter.
+
+
+## Optional Quarkus JDBC composition
+
+Numou Quarkus hosts can include `notification-adapter-quarkus-jdbc` to wire the existing JDBC push-device repository and AES-GCM token protector into CDI. The module requires:
+
+- a Quarkus-managed `DataSource` configured by the host (for example, the PostgreSQL JDBC extension and datasource configuration);
+- exactly one host-owned `PushTokenKeyProvider` backed by a managed KMS or secret manager.
+
+The adapter produces `PushTokenProtector` and `PushDeviceRepository` beans. It never creates or stores encryption keys, reads credentials from environment variables itself, or falls back to an embedded key. If the host does not provide `PushTokenKeyProvider`, CDI startup must fail rather than start with an insecure default.
+
+This composition covers push-device persistence only. Hosts still compose notification delivery/inbox repositories, `AuthenticatedNotificationApi`, `NotificationRecipientResolver`, and provider credentials according to their deployment. Do not include this module alongside another host-owned `PushDeviceRepository` or `PushTokenProtector` producer unless the competing bean is explicitly qualified or excluded.
