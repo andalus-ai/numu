@@ -170,6 +170,56 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
     }
 
     @Test
+    void samePartyPairAndConnectionIdRemainIsolatedAcrossTenants() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenantA = TenantId.generate();
+        TenantId tenantB = TenantId.generate();
+        PartyId requester = PartyId.generate();
+        PartyId recipient = PartyId.generate();
+        SocialConnectionId sharedConnectionId = SocialConnectionId.generate();
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+
+        SocialConnection connectionA = SocialConnection.request(
+                sharedConnectionId, tenantA, requester, recipient, now);
+        SocialConnection connectionB = SocialConnection.request(
+                sharedConnectionId, tenantB, requester, recipient, now.plusSeconds(1));
+
+        uow.execute(tx -> {
+            tx.insertConnection(connectionA);
+            tx.saveIdempotency(new SocialGraphIdempotencyRecord(
+                    tenantA, "same-key", "request:" + requester + ":" + recipient,
+                    sharedConnectionId, now));
+            return null;
+        }).await().indefinitely();
+        uow.execute(tx -> {
+            tx.insertConnection(connectionB);
+            tx.saveIdempotency(new SocialGraphIdempotencyRecord(
+                    tenantB, "same-key", "request:" + requester + ":" + recipient,
+                    sharedConnectionId, now.plusSeconds(1)));
+            return null;
+        }).await().indefinitely();
+
+        assertThat(uow.execute(tx -> tx.findConnection(tenantA, sharedConnectionId))
+                .await().indefinitely()).contains(connectionA);
+        assertThat(uow.execute(tx -> tx.findConnection(tenantB, sharedConnectionId))
+                .await().indefinitely()).contains(connectionB);
+        assertThat(uow.execute(tx -> tx.findOpenConnection(tenantA, requester, recipient))
+                .await().indefinitely()).contains(connectionA);
+        assertThat(uow.execute(tx -> tx.findOpenConnection(tenantB, requester, recipient))
+                .await().indefinitely()).contains(connectionB);
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenantA, "same-key"))
+                .await().indefinitely()).contains(new SocialGraphIdempotencyRecord(
+                        tenantA, "same-key", "request:" + requester + ":" + recipient,
+                        sharedConnectionId, now));
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenantB, "same-key"))
+                .await().indefinitely()).contains(new SocialGraphIdempotencyRecord(
+                        tenantB, "same-key", "request:" + requester + ":" + recipient,
+                        sharedConnectionId, now.plusSeconds(1)));
+    }
+
+    @Test
     void canonicalPairOrderingMatchesPostgresUuidOrderingAndSupportsReverseLookup() throws Exception {
         DataSource dataSource = dataSource();
         migrate(dataSource);
