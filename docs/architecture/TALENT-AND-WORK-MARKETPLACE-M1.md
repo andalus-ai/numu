@@ -77,6 +77,12 @@ Authorization is delegated to a mandatory policy port so host applications can e
 
 A deterministic in-memory repository/unit-of-work test adapter exercises tenant isolation, party existence, anonymous-context rejection, denied reads, denied writes and rejected unverified skill claims. It is test-only and is not represented as a production persistence adapter.
 
+### M1d-a — persistence-safe aggregate rehydration
+
+The domain aggregate now exposes an explicit `rehydrate(...)` factory for persistence adapters. It restores the full profile snapshot, including all five profile sections, lifecycle state, creation/update timestamps and the exact optimistic-lock version. Rehydration does not emit a creation event or replay lifecycle transitions. It reuses the aggregate's bounded collection and identity validation, rejects negative versions and invalid timestamp ordering, and enforces the archived/private visibility invariant.
+
+This is a domain contract only: no PostgreSQL schema, JDBC adapter or transaction implementation is implied yet. The persistence adapter must use the restored version as the expected version for conditional updates, and must append outbox events in the same database transaction as the aggregate write.
+
 ## 5. Security and privacy constraints
 
 - Public visibility does not bypass tenant, consent, moderation, block-list or privacy checks.
