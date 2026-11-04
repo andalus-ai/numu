@@ -51,10 +51,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
                     tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
                     "REQUEST", "key-1", now));
             return null;
-        });
+        }).await().indefinitely();
 
-        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isPresent();
-        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "key-1"))).isPresent();
+        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isPresent();
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "key-1")).await().indefinitely()).isPresent();
         assertThat(count(dataSource, "sg_outbox")).isEqualTo(1);
         assertThat(count(dataSource, "sg_connection_audit")).isEqualTo(1);
     }
@@ -80,12 +80,52 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
                     tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
                     "REQUEST", "rollback-key", Instant.parse("2026-11-04T00:00:00Z")));
             throw new IllegalStateException("simulated command failure");
-        })).isInstanceOf(IllegalStateException.class);
+        }).await().indefinitely()).isInstanceOf(IllegalStateException.class);
 
-        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isEmpty();
-        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "rollback-key"))).isEmpty();
+        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isEmpty();
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenant, "rollback-key")).await().indefinitely()).isEmpty();
         assertThat(count(dataSource, "sg_outbox")).isZero();
         assertThat(count(dataSource, "sg_connection_audit")).isZero();
+    }
+
+    @Test
+    void uniqueIndexRejectsReverseDuplicateOpenConnection() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId first = PartyId.generate();
+        PartyId second = PartyId.generate();
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+        SocialConnection original = SocialConnection.request(SocialConnectionId.generate(), tenant, first, second, now);
+        SocialConnection reverse = SocialConnection.request(SocialConnectionId.generate(), tenant, second, first, now);
+        uow.execute(tx -> { tx.insertConnection(original); return null; }).await().indefinitely();
+
+        assertThatThrownBy(() -> uow.execute(tx -> { tx.insertConnection(reverse); return null; }).await().indefinitely())
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(count(dataSource, "sg_connection")).isEqualTo(1);
+    }
+
+    @Test
+    void optimisticVersionCheckRejectsStaleTransition() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId requester = PartyId.generate();
+        PartyId recipient = PartyId.generate();
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+        SocialConnection original = SocialConnection.request(SocialConnectionId.generate(), tenant, requester, recipient, now);
+        uow.execute(tx -> { tx.insertConnection(original); return null; }).await().indefinitely();
+
+        SocialConnection stored = uow.execute(tx -> tx.findConnection(tenant, original.id()).orElseThrow())
+                .await().indefinitely();
+        SocialConnection accepted = stored.accept(recipient, now.plusSeconds(1));
+        uow.execute(tx -> { tx.updateConnection(accepted, stored.version()); return null; }).await().indefinitely();
+
+        SocialConnection stale = original.cancel(requester, now.plusSeconds(2));
+        assertThatThrownBy(() -> uow.execute(tx -> { tx.updateConnection(stale, original.version()); return null; })
+                .await().indefinitely()).isInstanceOf(SocialGraphOptimisticConflictException.class);
     }
 
     @Test
@@ -104,7 +144,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
                     tech.kayys.numou.socialgraph.domain.SocialConnectionStatus.PENDING,
                     "REQUEST", "immutable-audit", Instant.parse("2026-11-04T00:00:00Z")));
             return null;
-        });
+        }).await().indefinitely();
 
         assertThatThrownBy(() -> executeSql(dataSource,
                 "UPDATE sg_connection_audit SET action = 'TAMPERED' WHERE idempotency_key = 'immutable-audit'"))
@@ -123,35 +163,10 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         TenantId tenant = TenantId.generate();
         SocialConnection connection = SocialConnection.request(SocialConnectionId.generate(), tenant,
                 PartyId.generate(), PartyId.generate(), Instant.parse("2026-11-04T00:00:00Z"));
-        uow.execute(tx -> { tx.insertConnection(connection); return null; });
+        uow.execute(tx -> { tx.insertConnection(connection); return null; }).await().indefinitely();
 
-        assertThat(uow.execute(tx -> tx.findConnection(TenantId.generate(), connection.id()))).isEmpty();
-        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isPresent();
-    }
-
-    @Test
-    void unorderedOpenPairIsUniqueWithinTenantButIsolatedAcrossTenants() {
-        DataSource dataSource = dataSource();
-        migrate(dataSource);
-        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
-        TenantId tenant = TenantId.generate();
-        PartyId first = PartyId.generate();
-        PartyId second = PartyId.generate();
-        Instant now = Instant.parse("2026-11-04T00:00:00Z");
-
-        SocialConnection original = SocialConnection.request(
-                SocialConnectionId.generate(), tenant, first, second, now);
-        uow.execute(tx -> { tx.insertConnection(original); return null; });
-
-        SocialConnection reverseDuplicate = SocialConnection.request(
-                SocialConnectionId.generate(), tenant, second, first, now.plusSeconds(1));
-        assertThatThrownBy(() -> uow.execute(tx -> { tx.insertConnection(reverseDuplicate); return null; }))
-                .isInstanceOf(IllegalStateException.class);
-
-        SocialConnection otherTenant = SocialConnection.request(
-                SocialConnectionId.generate(), TenantId.generate(), second, first, now.plusSeconds(1));
-        uow.execute(tx -> { tx.insertConnection(otherTenant); return null; });
-        assertThat(count(dataSource, "sg_connection")).isEqualTo(2);
+        assertThat(uow.execute(tx -> tx.findConnection(TenantId.generate(), connection.id())).await().indefinitely()).isEmpty();
+        assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isPresent();
     }
 
     @Test

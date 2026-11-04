@@ -9,6 +9,9 @@ import tech.kayys.numou.security.vault.spi.SecretEncryptionPort;
 import tech.kayys.numou.security.vault.spi.SecretLifecyclePort;
 import tech.kayys.numou.security.vault.spi.SecretRepositoryPort;
 import tech.kayys.numou.security.vault.spi.VaultAuditEntry;
+import tech.kayys.numou.security.vault.spi.VaultAccessRequest;
+import tech.kayys.numou.security.vault.spi.VaultAccessPolicyPort;
+import tech.kayys.numou.security.vault.spi.WorkloadIdentityResolverPort;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -22,14 +25,20 @@ public final class VaultSecretService {
     private final SecretRepositoryPort secrets;
     private final SecretLifecyclePort lifecycle;
     private final SecretEncryptionPort encryption;
+    private final VaultAccessPolicyPort accessPolicy;
+    private final WorkloadIdentityResolverPort workloadIdentities;
     private final Clock clock;
 
     public VaultSecretService(AuthorizationService authorization, SecretRepositoryPort secrets,
-                              SecretLifecyclePort lifecycle, SecretEncryptionPort encryption, Clock clock) {
+                              SecretLifecyclePort lifecycle, SecretEncryptionPort encryption,
+                              VaultAccessPolicyPort accessPolicy, WorkloadIdentityResolverPort workloadIdentities,
+                              Clock clock) {
         this.authorization = Objects.requireNonNull(authorization, "authorization is required");
         this.secrets = Objects.requireNonNull(secrets, "secrets is required");
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle is required");
         this.encryption = Objects.requireNonNull(encryption, "encryption is required");
+        this.accessPolicy = Objects.requireNonNull(accessPolicy, "accessPolicy is required");
+        this.workloadIdentities = Objects.requireNonNull(workloadIdentities, "workloadIdentities is required");
         this.clock = Objects.requireNonNull(clock, "clock is required");
     }
 
@@ -37,7 +46,7 @@ public final class VaultSecretService {
     public Uni<EncryptedSecret> create(SecurityContext context, VaultId vaultId, SecretId secretId,
                                        char[] plaintext, Instant expiresAt) {
         validate(plaintext, expiresAt);
-        return authorization.require(context, ActionType.CREATE, RESOURCE, secretId.toString())
+        return authorize(context, ActionType.CREATE, VaultOperation.CREATE, vaultId, secretId)
                 .flatMap(ignored -> lifecycle.status(context.tenantId(), vaultId, secretId))
                 .flatMap(status -> {
                     if (status.isPresent()) return Uni.createFrom().failure(new SecretAlreadyExistsException());
@@ -54,7 +63,7 @@ public final class VaultSecretService {
     public Uni<EncryptedSecret> rotate(SecurityContext context, VaultId vaultId, SecretId secretId,
                                        char[] plaintext, Instant expiresAt) {
         validate(plaintext, expiresAt);
-        return authorization.require(context, ActionType.UPDATE, RESOURCE, secretId.toString())
+        return authorize(context, ActionType.UPDATE, VaultOperation.ROTATE, vaultId, secretId)
                 .flatMap(ignored -> lifecycle.status(context.tenantId(), vaultId, secretId))
                 .flatMap(status -> {
                     if (status.orElse(SecretStatus.ACTIVE) == SecretStatus.REVOKED)
@@ -73,7 +82,7 @@ public final class VaultSecretService {
     /** Reveals a version only after authorization, lifecycle and expiry checks. */
     public Uni<char[]> reveal(SecurityContext context, VaultId vaultId, SecretId secretId, int version) {
         if (version < 1) return Uni.createFrom().failure(new IllegalArgumentException("version must be positive"));
-        return authorization.require(context, ActionType.READ, RESOURCE, secretId.toString())
+        return authorize(context, ActionType.READ, VaultOperation.READ, vaultId, secretId)
                 .flatMap(ignored -> lifecycle.status(context.tenantId(), vaultId, secretId))
                 .flatMap(status -> {
                     if (status.orElse(SecretStatus.ACTIVE) != SecretStatus.ACTIVE)
@@ -99,9 +108,25 @@ public final class VaultSecretService {
     }
 
     public Uni<Void> revoke(SecurityContext context, VaultId vaultId, SecretId secretId) {
-        return authorization.require(context, ActionType.DELETE, RESOURCE, secretId.toString())
+        return authorize(context, ActionType.DELETE, VaultOperation.REVOKE, vaultId, secretId)
                 .flatMap(ignored -> lifecycle.revoke(context.tenantId(), vaultId, secretId,
                         new VaultAuditEntry(context.actor(), "VAULT_SECRET_REVOKED", "revoked=true", clock.instant())));
+    }
+
+    /**
+     * Applies generic platform authorization and the vault's host-owned policy.
+     * Workload identity is resolved from a verified principal, never request claims.
+     */
+    private Uni<Void> authorize(SecurityContext context, ActionType action, VaultOperation operation,
+                                VaultId vaultId, SecretId secretId) {
+        return authorization.require(context, action, RESOURCE, secretId.toString())
+                .flatMap(ignored -> workloadIdentities.resolve(context.principal(), context.tenantId()))
+                .flatMap(identity -> {
+                    if (identity.isPresent() && !identity.get().isValidFor(context.tenantId(), clock.instant()))
+                        return Uni.createFrom().failure(new VaultAccessDeniedException());
+                    return accessPolicy.authorize(new VaultAccessRequest(context.tenantId(),
+                            context.principal(), context.roles(), vaultId, secretId, operation, identity));
+                });
     }
 
     private Uni<EncryptedSecret> encryptAndAppend(SecurityContext context, VaultId vaultId, SecretId secretId,

@@ -6,6 +6,7 @@
   <name>Numou Security Vault - SPI</name>
   <dependencies>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-security-vault-domain</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-security-domain</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>io.smallrye.reactive</groupId><artifactId>mutiny</artifactId></dependency>
   </dependencies>
 </project>
