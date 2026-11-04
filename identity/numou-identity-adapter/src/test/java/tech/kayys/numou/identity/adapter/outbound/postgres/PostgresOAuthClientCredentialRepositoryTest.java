@@ -32,11 +32,11 @@ class PostgresOAuthClientCredentialRepositoryTest {
         applicationId = UUID.randomUUID();
         Panache.withTransaction(() -> Panache.getSession()
                 .chain(session -> session.createNativeQuery(
-                        "insert into tenants (id, name, status, version) values (:id, 'oauth-test', 'ACTIVE', 0)")
-                        .setParameter("id", tenantId).executeUpdate())
+                        "insert into tenants (id, name, status, version) values (:id, :name, 'ACTIVE', 0)")
+                        .setParameter("id", tenantId).setParameter("name", "oauth-test-" + tenantId).executeUpdate())
                 .chain(() -> Panache.getSession().chain(session -> session.createNativeQuery(
-                        "insert into tenants (id, name, status, version) values (:id, 'oauth-other', 'ACTIVE', 0)")
-                        .setParameter("id", otherTenantId).executeUpdate())))
+                        "insert into tenants (id, name, status, version) values (:id, :name, 'ACTIVE', 0)")
+                        .setParameter("id", otherTenantId).setParameter("name", "oauth-other-" + otherTenantId).executeUpdate())))
                 .await().indefinitely();
 
         credential = OAuthClientCredential.issue(OAuthClientCredentialId.newId(), tenantId,
