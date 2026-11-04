@@ -5,7 +5,12 @@ on:
     branches: [main]
     paths:
       - "core/framework/social-graph/**"
+      - "core/framework/cache/**"
       - "core/framework/pom.xml"
+      - "security/social-graph-adapter/**"
+      - "security/security-application/**"
+      - "security/security-domain/**"
+      - "security/pom.xml"
       - ".github/workflows/social-graph.yml"
   push:
     branches: [main]
@@ -34,13 +39,17 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
-      - name: Verify Social Graph reactor and PostgreSQL Testcontainers
-        run: mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am verify
+      - name: Install Social Graph and cache framework artifacts
+        run: mvn -B -ntp -f core/framework/pom.xml -pl social-graph,cache -am install
+      - name: Verify SecurityContext Social Graph adapter
+        run: mvn -B -ntp -f security/pom.xml -pl social-graph-adapter -am verify
       - name: Upload Social Graph Maven test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: social-graph-maven-test-reports
-          path: "core/framework/social-graph/**/target/surefire-reports/**"
+          path: |
+            core/framework/social-graph/**/target/surefire-reports/**
+            security/social-graph-adapter/**/target/surefire-reports/**
           if-no-files-found: warn
           retention-days: 7
