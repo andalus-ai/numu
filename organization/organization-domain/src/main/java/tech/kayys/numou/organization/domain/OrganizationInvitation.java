@@ -102,11 +102,7 @@ public final class OrganizationInvitation extends AbstractAggregateRoot<Organiza
     private void requirePending(Instant now) {
         Objects.requireNonNull(now);
         if (status != OrganizationInvitationStatus.PENDING) throw new IllegalStateException("Invitation is not pending");
-        if (!now.isBefore(expiresAt)) {
-            status = OrganizationInvitationStatus.EXPIRED;
-            touch(now);
-            throw new IllegalStateException("Invitation has expired");
-        }
+        if (!now.isBefore(expiresAt)) throw new IllegalStateException("Invitation has expired");
     }
 
     private void touch(Instant now) {
