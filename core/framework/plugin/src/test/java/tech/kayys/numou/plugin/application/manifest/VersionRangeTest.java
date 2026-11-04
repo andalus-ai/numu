@@ -37,4 +37,16 @@ class VersionRangeTest {
   assertThatThrownBy(() -> VersionRange.parse(">=1.0.0")).isInstanceOf(IllegalArgumentException.class);
   assertThatThrownBy(() -> SemanticVersion.parse("01.0.0")).isInstanceOf(IllegalArgumentException.class);
  }
+
+ @Test void semverPrereleasePrecedenceMatchesSpecificationSequence() {
+  String[] ordered = {"1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.beta",
+   "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1", "1.0.0"};
+  for (int i = 0; i < ordered.length - 1; i++)
+   assertThat(SemanticVersion.parse(ordered[i])).isLessThan(SemanticVersion.parse(ordered[i + 1]));
+ }
+ @Test void rejectsEmptyAndLeadingZeroPrereleaseIdentifiers() {
+  assertThatThrownBy(() -> SemanticVersion.parse("1.0.0-alpha..1")).isInstanceOf(IllegalArgumentException.class);
+  assertThatThrownBy(() -> SemanticVersion.parse("1.0.0-01")).isInstanceOf(IllegalArgumentException.class);
+  assertThatThrownBy(() -> SemanticVersion.parse("1.0.0-alpha+")).isInstanceOf(IllegalArgumentException.class);
+ }
 }
