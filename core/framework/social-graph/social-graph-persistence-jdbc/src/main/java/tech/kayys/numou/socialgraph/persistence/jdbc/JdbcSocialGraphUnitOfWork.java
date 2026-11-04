@@ -82,7 +82,7 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public Optional<SocialConnection> findOpenConnection(TenantId tenantId, PartyId first, PartyId second) {
-            UUID low = first.value().compareTo(second.value()) < 0 ? first.value() : second.value();
+            UUID low = first.value().toString().compareTo(second.value().toString()) < 0 ? first.value() : second.value();
             UUID high = first.value().compareTo(second.value()) < 0 ? second.value() : first.value();
             String sql = "SELECT * FROM sg_connection WHERE tenant_id = ? AND pair_low = ? AND pair_high = ? "
                     + "AND status IN ('PENDING', 'ACTIVE') FOR UPDATE";
@@ -98,7 +98,7 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public void insertConnection(SocialConnection c) {
-            UUID low = c.requesterPartyId().value().compareTo(c.recipientPartyId().value()) < 0
+            UUID low = c.requesterPartyId().value().toString().compareTo(c.recipientPartyId().value().toString()) < 0
                     ? c.requesterPartyId().value() : c.recipientPartyId().value();
             UUID high = c.requesterPartyId().value().compareTo(c.recipientPartyId().value()) < 0
                     ? c.recipientPartyId().value() : c.requesterPartyId().value();
