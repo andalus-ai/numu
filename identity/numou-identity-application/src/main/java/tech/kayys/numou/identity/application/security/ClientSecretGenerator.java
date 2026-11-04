@@ -77,7 +77,7 @@ public final class ClientSecretGenerator {
     }
 
     public static final class SecretMaterial {
-        private final String secret;
+        private String secret;
         private final String secretHash;
         private final String displayPrefix;
 
@@ -87,8 +87,13 @@ public final class ClientSecretGenerator {
             this.displayPrefix = Objects.requireNonNull(displayPrefix);
         }
 
-        /** Must be returned to the caller only once and never persisted. */
-        public String secret() { return secret; }
+        /** Returns the raw secret once; subsequent attempts fail closed. */
+        public synchronized String takeSecret() {
+            if (secret == null) throw new IllegalStateException("client secret has already been disclosed");
+            String disclosed = secret;
+            secret = null;
+            return disclosed;
+        }
         public String secretHash() { return secretHash; }
         public String displayPrefix() { return displayPrefix; }
 
