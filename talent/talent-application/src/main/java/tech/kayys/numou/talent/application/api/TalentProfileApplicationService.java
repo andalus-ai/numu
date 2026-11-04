@@ -65,7 +65,7 @@ public final class TalentProfileApplicationService {
                                 headline, summary, locationLabel);
                         List<DomainEvent> events = profile.pullDomainEvents();
                         return tx.profiles().save(tenantId, profile)
-                                .flatMap(saved -> tx.publish(tenantId, events)
+                                .flatMap(saved -> tx.publish(context, events)
                                         .replaceWith(TalentProfileView.from(saved)));
                     }));
         });
