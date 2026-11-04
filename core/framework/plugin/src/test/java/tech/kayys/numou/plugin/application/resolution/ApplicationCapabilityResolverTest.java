@@ -84,4 +84,22 @@ class ApplicationCapabilityResolverTest {
                 .containsExactlyElementsOf(forward.initializationOrder().stream()
                         .map(CapabilityProvider::providerId).toList());
     }
+
+    @Test void cycleDiagnosticsAreStableAcrossProviderInputPermutations() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
+        var sales = new CapabilityProvider("sales-provider", "numou.sales", "1.0.0",
+                List.of(new CapabilityRequirement("numou.party", "^1.0.0")));
+        var party = new CapabilityProvider("party-provider", "numou.party", "1.0.0",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")));
+        var resolver = new ApplicationCapabilityResolver();
+
+        var forwardFailure = catchThrowable(() -> resolver.resolve(app, List.of(sales, party)));
+        var reverseFailure = catchThrowable(() -> resolver.resolve(app, List.of(party, sales)));
+
+        assertThat(forwardFailure).isInstanceOf(CapabilityResolutionException.class)
+                .hasMessage("Capability dependency cycle: numou.sales -> numou.party -> numou.sales");
+        assertThat(reverseFailure).isInstanceOf(CapabilityResolutionException.class)
+                .hasMessage("Capability dependency cycle: numou.sales -> numou.party -> numou.sales");
+    }
 }
