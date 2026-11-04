@@ -5,6 +5,7 @@ import tech.kayys.numou.ecosystem.domain.party.PartyRef;
 import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileCreated;
+import tech.kayys.numou.talent.domain.profile.event.TalentProfileContentChanged;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfilePublished;
 import tech.kayys.numou.talent.domain.profile.event.TalentProfileVisibilityChanged;
 
@@ -140,30 +141,35 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
         ensureEditable();
         skills = validatedItems(items, "skills");
         touch();
+        raise(new TalentProfileContentChanged(id(), tenantId, TalentProfileContentChanged.Section.SKILLS));
     }
 
     public void replaceExperiences(List<ProfileContent.Experience> items) {
         ensureEditable();
         experiences = validatedItems(items, "experiences");
         touch();
+        raise(new TalentProfileContentChanged(id(), tenantId, TalentProfileContentChanged.Section.EXPERIENCES));
     }
 
     public void replaceEducation(List<ProfileContent.Education> items) {
         ensureEditable();
         education = validatedItems(items, "education");
         touch();
+        raise(new TalentProfileContentChanged(id(), tenantId, TalentProfileContentChanged.Section.EDUCATION));
     }
 
     public void replaceCredentials(List<ProfileContent.Credential> items) {
         ensureEditable();
         credentials = validatedItems(items, "credentials");
         touch();
+        raise(new TalentProfileContentChanged(id(), tenantId, TalentProfileContentChanged.Section.CREDENTIALS));
     }
 
     public void replacePortfolio(List<ProfileContent.PortfolioItem> items) {
         ensureEditable();
         portfolio = validatedItems(items, "portfolio");
         touch();
+        raise(new TalentProfileContentChanged(id(), tenantId, TalentProfileContentChanged.Section.PORTFOLIO));
     }
 
     private static <T> List<T> validatedItems(List<T> items, String section) {
