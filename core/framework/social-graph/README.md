@@ -23,6 +23,39 @@ M1 introduces the first PostgreSQL-backed social relationship vertical slice.
 - The outbox table is an atomic event-intent store. Broker relay/CDC integration and operational DLQ controls are not part of this M1 slice.
 - No REST API, feed, follow/block, profile, Neo4j, or cross-tenant federation is included in M1.
 
+
+## Security runtime composition
+
+The optional `security/social-graph-adapter` module provides
+`SecurityContextSocialGraphAuthorizationAdapter`, which implements the
+application authorization port using the current verified `SecurityContext`.
+It fails closed unless the context is authenticated, its tenant exactly
+matches the resolved actor tenant, the principal is a member of that tenant,
+and the action permission is present:
+
+- `REQUEST_CONNECTION` requires `social-graph.create`.
+- `MANAGE_CONNECTION` requires `social-graph.perform`.
+
+The adapter intentionally does not map `PrincipalId` to `PartyId`. The
+host must obtain the issuer/subject from verified authentication claims and
+resolve the tenant-scoped canonical Party through the Social Graph actor
+resolver before invoking `SocialGraphCommandFacade`. Never accept tenant,
+issuer, subject, or actor Party identity from an untrusted command body.
+
+The adapter consumes the current request's `SecurityContext` membership
+snapshot. The host's security-context construction and token/session
+invalidation policy must keep that snapshot within the documented membership
+revocation window; this adapter does not independently query a second
+membership store.
+
+Because the security and framework modules are separate Maven aggregators,
+install the framework artifacts before building the adapter:
+
+```bash
+mvn -f core/framework/pom.xml install
+mvn -f security/pom.xml -pl social-graph-adapter -am test
+```
+
 ## Build and test
 
 There is no repository-root Maven reactor. From the repository root:
