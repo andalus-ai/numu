@@ -129,6 +129,31 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id()))).isPresent();
     }
 
+    @Test
+    void unorderedOpenPairIsUniqueWithinTenantButIsolatedAcrossTenants() {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId first = PartyId.generate();
+        PartyId second = PartyId.generate();
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+
+        SocialConnection original = SocialConnection.request(
+                SocialConnectionId.generate(), tenant, first, second, now);
+        uow.execute(tx -> { tx.insertConnection(original); return null; });
+
+        SocialConnection reverseDuplicate = SocialConnection.request(
+                SocialConnectionId.generate(), tenant, second, first, now.plusSeconds(1));
+        assertThatThrownBy(() -> uow.execute(tx -> { tx.insertConnection(reverseDuplicate); return null; }))
+                .isInstanceOf(IllegalStateException.class);
+
+        SocialConnection otherTenant = SocialConnection.request(
+                SocialConnectionId.generate(), TenantId.generate(), second, first, now.plusSeconds(1));
+        uow.execute(tx -> { tx.insertConnection(otherTenant); return null; });
+        assertThat(count(dataSource, "sg_connection")).isEqualTo(2);
+    }
+
     private DataSource dataSource() {
         PGSimpleDataSource source = new PGSimpleDataSource();
         source.setURL(POSTGRES.getJdbcUrl());
