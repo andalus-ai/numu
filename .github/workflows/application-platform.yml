@@ -46,3 +46,5 @@ jobs:
         run: mvn -B -ntp -f core/framework/pom.xml -pl plugin -am install -DskipTests
       - name: Verify application installation lifecycle
         run: mvn -B -ntp -f application-platform/pom.xml -pl application-platform-application -am test
+      - name: Verify PostgreSQL installation store and outbox
+        run: mvn -B -ntp -f application-platform/pom.xml -pl application-platform-postgres-adapter -am test

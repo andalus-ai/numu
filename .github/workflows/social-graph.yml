@@ -1,0 +1,46 @@
+name: Social Graph CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "core/framework/social-graph/**"
+      - "core/framework/pom.xml"
+      - ".github/workflows/social-graph.yml"
+  push:
+    branches: [main]
+    paths:
+      - "core/framework/social-graph/**"
+      - "core/framework/pom.xml"
+      - ".github/workflows/social-graph.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-graph-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  social-graph-postgres:
+    name: Social Graph Maven and PostgreSQL verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Validate capability reactor parent paths
+        run: python3 tools/verify-module-topology.py
+      - name: Verify Social Graph reactor and PostgreSQL Testcontainers
+        run: mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am verify
+      - name: Upload Social Graph Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: social-graph-maven-test-reports
+          path: "core/framework/social-graph/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7

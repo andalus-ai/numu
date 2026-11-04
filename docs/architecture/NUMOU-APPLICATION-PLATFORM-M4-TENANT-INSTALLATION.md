@@ -43,7 +43,7 @@ M4 therefore introduces a separate `application-platform` reactor with domain an
 
 ## 4. Reliability and security boundaries
 
-The `ApplicationInstallationStore` contract is intentionally atomic: the initial installation row, tenant/application uniqueness, idempotency hash and transition outbox record must commit together. The raw idempotency key is never a persistence field. M5 must implement this guarantee in PostgreSQL and prove it under concurrent duplicate requests.
+The `ApplicationInstallationStore` contract is intentionally atomic: the initial installation row, tenant/application uniqueness, idempotency hash and transition outbox record must commit together. The raw idempotency key is never a persistence field. M5 implements this guarantee in PostgreSQL and verifies it with concurrent duplicate-request integration tests.
 
 No provisioning side effect is performed synchronously inside the request handler. The durable outbox consumer will be added with the PostgreSQL adapter and worker milestone. It must use a stable operation ID and idempotent provisioning ports. A crash after committing the request must be recoverable without creating duplicate subscriptions, permissions, navigation registrations or other resources.
 
@@ -68,14 +68,8 @@ These are explicit subsequent milestones, not hidden in-memory substitutes.
 - M4 adds a focused Java 21 workflow for the M3 framework plugin tests and the new application-platform reactor. This isolates both from the unrelated security-vault prerequisite failure observed in the broad Numou CI workflow.
 - **Verified:** [Application Platform Verification run #13](https://github.com/andalus-ai/numu/actions/runs/41569437049) completed successfully on Java 21 for head `4fbbcd9cff6343a94327e1b1175ae450a535ad66`. Both the framework plugin manifest/resolver tests and tenant installation domain/application tests passed.
 
-## 7. Next milestone
+## 7. Follow-up
 
-**M5 — PostgreSQL Installation Store and Durable Provisioning Outbox**
+M5 implements the PostgreSQL installation store, forced tenant RLS, atomic idempotency and transition outbox, optimistic transition persistence, lease-fenced delivery operations, retry exhaustion and PostgreSQL integration tests. See [M5 PostgreSQL store and outbox](NUMOU-APPLICATION-PLATFORM-M5-POSTGRES-OUTBOX.md).
 
-Implement:
-1. Tenant-scoped installation schema with composite uniqueness/FKs, optimistic revision and RLS.
-2. Atomic create-if-absent with idempotency-key hash and initial outbox record in one transaction.
-3. Transition persistence with expected-revision compare-and-set.
-4. Outbox lease, retry/backoff, terminal failure and safe replay contracts.
-5. Concurrent duplicate-request, cross-tenant isolation, crash/replay and audit integrity PostgreSQL tests.
-6. Keep package provisioning operations idempotent and outside the database transaction.
+**M6 — Installation Provisioning Worker and Operations** will add the managed worker, idempotent provisioning adapters, audited dead-letter recovery, tenant-authorized history/status queries and operational health. Provisioning remains outside the installation database transaction.

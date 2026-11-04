@@ -27,6 +27,7 @@
         <!-- Technical Platform Chassis -->
         <module>foundation</module>
         <module>ecosystem</module>
+        <module>social-graph</module>
         <module>event</module>
         <module>integration</module>
         <module>observability</module>
@@ -180,6 +181,28 @@
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-ecosystem-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Social Graph -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-persistence-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

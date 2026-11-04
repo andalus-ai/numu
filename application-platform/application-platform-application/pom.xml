@@ -5,6 +5,7 @@
   <artifactId>numou-application-platform-application</artifactId>
   <name>Numou Application Platform Application</name>
   <dependencies>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-foundation-application</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-plugin</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-application-platform-domain</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
