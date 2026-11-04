@@ -1,8 +1,7 @@
 package tech.kayys.numou.identity.adapter.inbound.rest;
 
 import io.smallrye.jwt.auth.principal.JWTParser;
-import io.smallrye.jwt.auth.principal.ParseException;
-import io.smallrye.jwt.auth.principal.DefaultJWTCallerPrincipal;
+import io.smallrye.jwt.auth.principal.JWTCallerPrincipal;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -48,10 +47,10 @@ public class OAuthIntrospectionResource {
         if (token == null || token.isBlank() || token.length() > MAX_TOKEN_LENGTH) {
             return inactive();
         }
-        final DefaultJWTCallerPrincipal principal;
+        final JWTCallerPrincipal principal;
         try {
             // JWTParser verifies signature and configured issuer using Identity's trusted public key.
-            principal = (DefaultJWTCallerPrincipal) jwtParser.parse(token);
+            principal = jwtParser.parse(token);
         } catch (Exception invalid) {
             return inactive();
         }
