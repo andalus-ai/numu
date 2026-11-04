@@ -4,6 +4,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.identity.domain.user.UserId;
 import tech.kayys.numou.organization.domain.*;
 import tech.kayys.numou.organization.spi.OrganizationInvitationRepository;
+import tech.kayys.numou.organization.application.OrganizationInvitationAcceptancePort;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -11,7 +12,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 
-public final class JdbcOrganizationInvitationRepository implements OrganizationInvitationRepository {
+public final class JdbcOrganizationInvitationRepository implements OrganizationInvitationRepository, OrganizationInvitationAcceptancePort {
     private static final String COLUMNS = "invitation_id, tenant_id, organization_id, recipient_email, role, "
             + "invited_by, token_hash, expires_at, status, accepted_by, accepted_at, revoked_at, "
             + "created_at, updated_at, version";
@@ -66,6 +67,75 @@ public final class JdbcOrganizationInvitationRepository implements OrganizationI
                     s.setObject(2, organizationId.value());
                     s.setString(3, normalizedEmail);
                 });
+    }
+
+    @Override
+    public CompletionStage<AcceptedInvitation> accept(TenantId tenantId, String tokenHash,
+            UserId authenticatedUserId, String verifiedEmail, Instant acceptedAt) {
+        Objects.requireNonNull(tenantId);
+        Objects.requireNonNull(tokenHash);
+        Objects.requireNonNull(authenticatedUserId);
+        Objects.requireNonNull(verifiedEmail);
+        Objects.requireNonNull(acceptedAt);
+        return CompletableFuture.supplyAsync(() -> acceptBlocking(
+                tenantId, tokenHash, authenticatedUserId, verifiedEmail, acceptedAt), jdbcExecutor);
+    }
+
+    private AcceptedInvitation acceptBlocking(TenantId tenantId, String tokenHash,
+            UserId authenticatedUserId, String verifiedEmail, Instant acceptedAt) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                String select = "SELECT " + COLUMNS + " FROM organization_invitations "
+                        + "WHERE tenant_id = ? AND token_hash = ? FOR UPDATE";
+                OrganizationInvitation invitation;
+                try (PreparedStatement s = c.prepareStatement(select)) {
+                    s.setObject(1, tenantId.value());
+                    s.setString(2, tokenHash);
+                    try (ResultSet rs = s.executeQuery()) {
+                        if (!rs.next()) throw new IllegalArgumentException("Invitation not found");
+                        invitation = read(rs);
+                    }
+                }
+                int expectedVersion = invitation.getVersion();
+                invitation.accept(authenticatedUserId, verifiedEmail, acceptedAt);
+                update(c, invitation, tenantId, expectedVersion);
+
+                OrganizationMembership membership = OrganizationMembership.invite(
+                        OrganizationMembershipId.generate(), invitation.organizationId(),
+                        authenticatedUserId, invitation.role());
+                membership.activate();
+                membership.setCreatedAt(acceptedAt);
+                membership.setUpdatedAt(acceptedAt);
+                String insertMembership = "INSERT INTO organization_memberships "
+                        + "(membership_id, tenant_id, organization_id, user_id, status, role, version, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                try (PreparedStatement s = c.prepareStatement(insertMembership)) {
+                    s.setObject(1, membership.getId().value());
+                    s.setObject(2, tenantId.value());
+                    s.setObject(3, invitation.organizationId().value());
+                    s.setObject(4, authenticatedUserId.value());
+                    s.setString(5, membership.status().name());
+                    s.setString(6, membership.role().name());
+                    s.setLong(7, membership.getVersion());
+                    s.setTimestamp(8, Timestamp.from(acceptedAt));
+                    s.setTimestamp(9, Timestamp.from(acceptedAt));
+                    s.executeUpdate();
+                }
+                c.commit();
+                return new AcceptedInvitation(invitation.getId(), membership.getId(),
+                        invitation.organizationId(), authenticatedUserId, invitation.role());
+            } catch (SQLException | RuntimeException e) {
+                try { c.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                if (e instanceof RuntimeException runtime) throw runtime;
+                if (e instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+                    throw new IllegalStateException("Invitation already consumed or membership already exists", sql);
+                }
+                throw new IllegalStateException("Unable to accept organization invitation", e);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to open invitation acceptance transaction", e);
+        }
     }
 
     private OrganizationInvitation saveBlocking(OrganizationInvitation candidate, TenantId tenantId) {
