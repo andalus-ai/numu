@@ -19,5 +19,6 @@
     <!-- API catalog capability. -->
     <module>developer-api-catalog-domain</module>
     <module>developer-api-catalog-application</module>
+    <module>developer-api-catalog-postgres-adapter</module>
   </modules>
 </project>
