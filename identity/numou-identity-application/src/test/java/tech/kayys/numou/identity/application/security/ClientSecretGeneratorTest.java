@@ -8,18 +8,21 @@ class ClientSecretGeneratorTest {
     private final ClientSecretGenerator generator = new ClientSecretGenerator();
 
     @Test
-    void generatesUniqueHighEntropySecretsAndStableDigests() {
+    void generatesUniqueHighEntropySecretsAndDisclosesEachOnlyOnce() {
         var first = generator.generate();
         var second = generator.generate();
+        String firstSecret = first.takeSecret();
+        String secondSecret = second.takeSecret();
 
-        assertNotEquals(first.secret(), second.secret());
-        assertTrue(first.secret().startsWith("nmc_live_"));
+        assertNotEquals(firstSecret, secondSecret);
+        assertTrue(firstSecret.startsWith("nmc_live_"));
         assertEquals(64, first.secretHash().length());
-        assertTrue(generator.matches(first.secret(), first.secretHash()));
-        assertFalse(generator.matches(second.secret(), first.secretHash()));
-        assertEquals(first.secret().substring(0, 16), first.displayPrefix());
-        assertFalse(first.toString().contains(first.secret()));
+        assertTrue(generator.matches(firstSecret, first.secretHash()));
+        assertFalse(generator.matches(secondSecret, first.secretHash()));
+        assertEquals(firstSecret.substring(0, 16), first.displayPrefix());
+        assertFalse(first.toString().contains(firstSecret));
         assertFalse(first.toString().contains(first.secretHash()));
+        assertThrows(IllegalStateException.class, first::takeSecret);
     }
 
     @Test
