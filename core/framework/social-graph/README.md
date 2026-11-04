@@ -34,3 +34,37 @@ mvn -f core/framework/pom.xml -pl social-graph -am test
 The build has not been claimed as passing until it is executed in CI or a checked-out workspace.
 
 For a Quarkus host that includes this adapter, Flyway's default `classpath:db/migration` scan discovers the Social Graph migration from the dependency JAR. The host owns migration timing and should set `quarkus.flyway.migrate-at-start=true` only when ready to apply the schema. Do not configure a Social Graph-only location that hides other modules' migrations.
+
+
+## Authenticated runtime command boundary
+
+The optional `security/social-graph-adapter` module composes the application
+service with the PostgreSQL unit of work, Ecosystem Party/identity adapter,
+and action-scoped Numou authorization adapter. It exposes
+`AuthenticatedSocialGraphCommandGateway`, whose command methods accept only
+business inputs. Tenant scope is read from the current verified
+`SecurityContext`; the issuer/subject is read from
+`VerifiedIdentitySubjectProvider`.
+
+The host application must supply exactly one CDI implementation of
+`VerifiedIdentitySubjectProvider`, backed by its validated authentication
+mechanism. It must return the original issuer and subject from verified
+claims, never request headers, query parameters, or body fields. The current
+Numou `SecurityContext` contract does not expose issuer/subject claims, so
+this adapter intentionally does not infer them from `PrincipalId` or
+`Principal.handle`. Missing context, missing tenant membership, missing
+verified subject, or missing active tenant-scoped Party association fails
+closed.
+
+The host also owns datasource configuration, Flyway migration policy, and
+the freshness/revocation window for its SecurityContext membership snapshot.
+A runtime that has not provided the verified-subject CDI bean is intentionally
+not ready to expose the gateway.
+
+Verification from the repository root:
+
+```bash
+mvn -f core/framework/pom.xml -pl social-graph -am install
+mvn -f security/pom.xml -pl social-graph-adapter -am verify
+```
+
