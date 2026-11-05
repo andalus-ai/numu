@@ -48,15 +48,19 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
         synchronized (locks.computeIfAbsent(key, ignored -> new Object())) {
             ActiveInstallation existing = active.get(key);
             if (existing != null) {
-                if (existing.applicationId.equals(command.applicationId())
-                        && existing.operationIds.contains(command.operationId())) {
-                    return CompletableFuture.completedFuture(null);
-                }
                 if (!existing.applicationId.equals(command.applicationId())) {
                     return CompletableFuture.failedFuture(
                             new IllegalStateException("Installation is already active for another application"));
                 }
-                return CompletableFuture.completedFuture(null);
+                if (existing.packageVersion.equals(command.packageVersion())
+                        && existing.packageDigest.equals(command.packageDigest())) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                Throwable previousStopFailure = stopReverse(existing.providers);
+                if (previousStopFailure != null) {
+                    return CompletableFuture.failedFuture(previousStopFailure);
+                }
+                active.remove(key, existing);
             }
             try {
                 CapabilityResolution resolution = resolver.resolve(command.tenantId(), command.applicationPackage())
@@ -193,7 +197,6 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
         private final String packageVersion;
         private final String packageDigest;
         private final List<StartedProvider> providers;
-        private final java.util.Set<UUID> operationIds = ConcurrentHashMap.newKeySet();
 
         private ActiveInstallation(String applicationId, String packageVersion, String packageDigest,
                 List<StartedProvider> providers, UUID operationId) {
@@ -201,7 +204,6 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
             this.packageVersion = packageVersion;
             this.packageDigest = packageDigest;
             this.providers = List.copyOf(providers);
-            this.operationIds.add(operationId);
         }
     }
 
