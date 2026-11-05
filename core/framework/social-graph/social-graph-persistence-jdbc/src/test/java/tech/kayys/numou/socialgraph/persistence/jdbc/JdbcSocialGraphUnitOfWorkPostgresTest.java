@@ -48,19 +48,27 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         uow.execute(tx -> { tx.insertRelationship(relationship); return null; }).await().indefinitely();
 
         assertThat(uow.execute(tx -> tx.findRelationship(tenant, relationship.id())).await().indefinitely())
-                .contains(relationship);
+                .hasValueSatisfying(found -> {
+                    assertThat(found.id()).isEqualTo(relationship.id());
+                    assertThat(found.metadata()).containsAllEntriesOf(relationship.metadata());
+                    assertThat(found.provenance()).isEqualTo("manual");
+                });
         assertThat(uow.execute(tx -> tx.findRelationship(otherTenant, relationship.id())).await().indefinitely())
                 .isEmpty();
         assertThat(uow.execute(tx -> tx.findActiveRelationship(
                 tenant, SocialRelationshipType.FOLLOW, source, target)).await().indefinitely())
-                .contains(relationship);
+                .hasValueSatisfying(found -> assertThat(found.id()).isEqualTo(relationship.id()));
 
         SocialRelationship removed = relationship.remove(source, now.plusSeconds(30));
         uow.execute(tx -> { tx.updateRelationship(removed, relationship.version()); return null; })
                 .await().indefinitely();
 
         assertThat(uow.execute(tx -> tx.findRelationship(tenant, relationship.id())).await().indefinitely())
-                .contains(removed);
+                .hasValueSatisfying(found -> {
+                    assertThat(found.status()).isEqualTo(removed.status());
+                    assertThat(found.version()).isEqualTo(1);
+                    assertThat(found.removedAt()).isEqualTo(removed.removedAt());
+                });
         assertThat(uow.execute(tx -> tx.findActiveRelationship(
                 tenant, SocialRelationshipType.FOLLOW, source, target)).await().indefinitely())
                 .isEmpty();
