@@ -111,5 +111,4 @@ public final class GregorianCalendarDateConverter implements CalendarDateConvert
         }
     }
 
-    private static final BigInteger THREE_HUNDRED_TWENTY_FIVE = BigInteger.valueOf(32045);
 }
