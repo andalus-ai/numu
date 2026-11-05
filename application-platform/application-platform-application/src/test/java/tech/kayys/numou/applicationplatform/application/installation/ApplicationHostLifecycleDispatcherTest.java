@@ -40,12 +40,39 @@ class ApplicationHostLifecycleDispatcherTest {
                                 new tech.kayys.numou.plugin.application.manifest.ApplicationManifest(
                                         APP, VERSION, "test-publisher", "Inventory", java.util.List.of(),
                                         java.util.List.of(), java.util.Set.of(), java.util.List.of()), DIGEST))),
-                host);
+                (tenant, pkg) -> CompletableFuture.completedFuture(null), host);
 
         assertThat(dispatcher.dispatch(TENANT, event("ENABLED")).toCompletableFuture().join())
                 .isEqualTo(ApplicationHostLifecycleDispatcher.Outcome.ACTIVATED);
         assertThat(activated).hasValue(1);
         assertThat(activated.get()).isEqualTo(1);
+    }
+
+
+    @Test
+    void incompatibleCapabilitiesPreventHostActivation() {
+        AtomicInteger activated = new AtomicInteger();
+        var dispatcher = new ApplicationHostLifecycleDispatcher(
+                (id, version) -> CompletableFuture.completedFuture(Optional.of(
+                        new ValidatedApplicationPackage(
+                                new tech.kayys.numou.plugin.application.manifest.ApplicationManifest(
+                                        APP, VERSION, "test-publisher", "Inventory", java.util.List.of(),
+                                        java.util.List.of(), java.util.Set.of(), java.util.List.of()), DIGEST))),
+                (tenant, pkg) -> CompletableFuture.failedFuture(new IllegalStateException("missing required capability")),
+                new ApplicationHostCompositionPort() {
+                    public java.util.concurrent.CompletionStage<Void> activate(ActivationCommand command) {
+                        activated.incrementAndGet();
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    public java.util.concurrent.CompletionStage<Void> deactivate(DeactivationCommand command) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                });
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                dispatcher.dispatch(TENANT, event("ENABLED")).toCompletableFuture().join())
+                .hasRootCauseMessage("missing required capability");
+        assertThat(activated.get()).isZero();
     }
 
     @Test
@@ -76,6 +103,7 @@ class ApplicationHostLifecycleDispatcherTest {
     void unrelatedTransitionsAreIgnored() {
         ApplicationHostLifecycleDispatcher dispatcher = new ApplicationHostLifecycleDispatcher(
                 (id, version) -> CompletableFuture.completedFuture(Optional.empty()),
+                (tenant, pkg) -> CompletableFuture.completedFuture(null),
                 new ApplicationHostCompositionPort() {
                     public java.util.concurrent.CompletionStage<Void> activate(ActivationCommand command) {
                         throw new AssertionError();
