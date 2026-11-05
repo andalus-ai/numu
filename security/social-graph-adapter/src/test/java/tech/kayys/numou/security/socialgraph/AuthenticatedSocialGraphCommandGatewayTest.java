@@ -31,26 +31,18 @@ class AuthenticatedSocialGraphCommandGatewayTest {
     @Test
     void derivesTenantAndIdentityFromTrustedProviders() {
         AtomicBoolean invoked = new AtomicBoolean();
-        var gateway = gateway(context(tenant), Optional.of(subject), new SocialGraphCommandInvoker() {
-            @Override public Uni<SocialConnection> requestConnection(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
-            @Override public Uni<SocialConnection> acceptConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) {
         SocialGraphCommandInvoker invoker = new NoOpInvoker() {
-            @Override public Uni<SocialConnection> acceptConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String key) {
-                assertThat(t).isEqualTo(tenant);
-                assertThat(s).isEqualTo(subject);
+            @Override public Uni<SocialConnection> acceptConnection(TenantId actualTenant, IdentitySubjectRef actualSubject,
+                    SocialConnectionId id, String key) {
+                assertThat(actualTenant).isEqualTo(tenant);
+                assertThat(actualSubject).isEqualTo(subject);
                 invoked.set(true);
                 return Uni.createFrom().failure(new UnsupportedOperationException("test sentinel"));
             }
-            @Override public Uni<SocialConnection> rejectConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
-            @Override public Uni<SocialConnection> cancelConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
-            @Override public Uni<SocialConnection> removeConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
-        });
-        assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key-1")
-                .await().indefinitely()).isInstanceOf(UnsupportedOperationException.class);
         };
-        assertThatThrownBy(() -> gateway(context(tenant), Optional.of(subject), invoker)
-                .acceptConnection(SocialConnectionId.generate(), "key").await().indefinitely())
-                .isInstanceOf(UnsupportedOperationException.class);
+        var gateway = gateway(context(tenant), Optional.of(subject), invoker);
+        assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key")
+                .await().indefinitely()).isInstanceOf(UnsupportedOperationException.class);
         assertThat(invoked).isTrue();
     }
 
@@ -60,14 +52,14 @@ class AuthenticatedSocialGraphCommandGatewayTest {
         var gateway = gateway(null, () -> {
             subjectRead.set(true);
             return Optional.of(subject);
-        }, noOpInvoker());
+        }, new NoOpInvoker());
         assertDenied(gateway);
         assertThat(subjectRead).isFalse();
     }
 
     @Test
     void deniesMissingVerifiedSubject() {
-        assertDenied(gateway(context(tenant), Optional.empty(), noOpInvoker()));
+        assertDenied(gateway(context(tenant), Optional.empty(), new NoOpInvoker()));
     }
 
     @Test
@@ -76,11 +68,11 @@ class AuthenticatedSocialGraphCommandGatewayTest {
         var context = new SecurityContext(principal, tenant,
                 AuthenticationInfo.authenticated(AuthenticationMethod.OIDC, Instant.now()),
                 Set.of(Permission.of("social-graph", "perform")));
-        assertDenied(gateway(context, Optional.of(subject), noOpInvoker()));
+        assertDenied(gateway(context, Optional.of(subject), new NoOpInvoker()));
     }
 
     private void assertDenied(AuthenticatedSocialGraphCommandGateway gateway) {
-        assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key-denied")
+        assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key")
                 .await().indefinitely()).isInstanceOf(SocialGraphAccessDeniedException.class);
     }
 
@@ -99,17 +91,17 @@ class AuthenticatedSocialGraphCommandGatewayTest {
             SecurityContext context, VerifiedIdentitySubjectProvider subject, SocialGraphCommandInvoker invoker) {
         return new AuthenticatedSocialGraphCommandGateway(new SecurityContextProvider() {
             @Override public Optional<SecurityContext> current() { return Optional.ofNullable(context); }
-            @Override public SecurityContext require() { return Optional.ofNullable(context).orElseThrow(); }
+            @Override public SecurityContext require() {
+                return Optional.ofNullable(context).orElseThrow(SocialGraphAccessDeniedException::new);
+            }
         }, subject, invoker);
     }
 
-    private SocialGraphCommandInvoker noOpInvoker() {
-        return new SocialGraphCommandInvoker() {
-            @Override public Uni<SocialConnection> requestConnection(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
-            @Override public Uni<SocialConnection> acceptConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
-            @Override public Uni<SocialConnection> rejectConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
-            @Override public Uni<SocialConnection> cancelConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
-            @Override public Uni<SocialConnection> removeConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
-        };
+    private static class NoOpInvoker implements SocialGraphCommandInvoker {
+        @Override public Uni<SocialConnection> requestConnection(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialConnection> acceptConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialConnection> rejectConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialConnection> cancelConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialConnection> removeConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
     }
 }
