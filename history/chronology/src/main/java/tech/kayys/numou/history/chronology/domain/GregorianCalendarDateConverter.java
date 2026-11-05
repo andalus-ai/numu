@@ -11,7 +11,7 @@ public final class GregorianCalendarDateConverter implements CalendarDateConvert
     private static final BigInteger FOUR = BigInteger.valueOf(4);
     private static final BigInteger ONE_HUNDRED = BigInteger.valueOf(100);
     private static final BigInteger FOUR_HUNDRED = BigInteger.valueOf(400);
-    private static final BigInteger THREE_HUNDRED_TWENTY_FOURTY_FIVE = BigInteger.valueOf(32045);
+    private static final BigInteger JDN_OFFSET = BigInteger.valueOf(32045);
 
     @Override
     public CalendarSystemId calendarSystem() {
@@ -53,7 +53,7 @@ public final class GregorianCalendarDateConverter implements CalendarDateConvert
                 .add(floorDivide(y, FOUR))
                 .subtract(floorDivide(y, ONE_HUNDRED))
                 .add(floorDivide(y, FOUR_HUNDRED))
-                .subtract(THREE_HUNDRED_TWENTY_FIVE.multiply(BigInteger.ONE));
+                .subtract(JDN_OFFSET);
         return result.longValueExact();
     }
 
