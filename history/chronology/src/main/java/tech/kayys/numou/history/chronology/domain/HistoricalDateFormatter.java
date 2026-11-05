@@ -21,8 +21,8 @@ public final class HistoricalDateFormatter {
         }
         String label = switch (date.precision()) {
             case YEAR -> formatYear(date);
-            case MONTH -> date.month() + " " + formatYear(date);
-            case DAY -> date.day() + "/" + date.month() + "/" + formatYear(date);
+            case MONTH -> date.month() + " " + date.displayedYearOfEra() + " " + date.eraLabel();
+            case DAY -> date.day() + "/" + date.month() + "/" + date.displayedYearOfEra() + " " + date.eraLabel();
         };
         if (date.approximate() && date.precision() != DatePrecision.YEAR) {
             return "c. " + label;
