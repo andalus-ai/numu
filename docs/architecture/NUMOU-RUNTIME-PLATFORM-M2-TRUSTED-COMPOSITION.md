@@ -35,6 +35,7 @@ The manifest and existing `ApplicationCapabilityResolver` describe and resolve c
 - Plugin initialization and start/stop are invoked directly. It does not call global `RuntimePluginManager.start()`.
 - Each application gets an isolated service registry shared only by its selected plugin contexts; plugin properties and attributes remain scoped to each plugin context.
 - Duplicate registration of one plugin instance is rejected to prevent duplicate lifecycle invocation when a plugin advertises multiple capabilities. Supporting one plugin lifecycle for multiple provider contracts requires a grouped-provider abstraction and is deliberately not approximated by starting the same plugin more than once.
+- Required plugin dependencies must be registered and also represented in the provider's capability dependency graph, so the existing resolver can enforce startup ordering. Optional plugin dependencies are not promoted to required capability dependencies.
 - If initialization partially fails, the host's rollback path calls plugin stop. Plugin implementations should make stop safe after partial initialization.
 
 ## Trust and lifecycle boundaries
