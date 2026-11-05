@@ -27,6 +27,27 @@ public final class GregorianCalendarDateConverter implements CalendarDateConvert
     }
 
     @Override
+    public HistoricalDate fromAbsoluteDay(long absoluteDay) {
+        BigInteger jdn = BigInteger.valueOf(absoluteDay);
+        BigInteger a = jdn.add(BigInteger.valueOf(32044));
+        BigInteger b = floorDivide(BigInteger.valueOf(4).multiply(a).add(BigInteger.valueOf(3)),
+                BigInteger.valueOf(146097));
+        BigInteger c = a.subtract(floorDivide(BigInteger.valueOf(146097).multiply(b), BigInteger.valueOf(4)));
+        BigInteger d = floorDivide(BigInteger.valueOf(4).multiply(c).add(BigInteger.valueOf(3)),
+                BigInteger.valueOf(1461));
+        BigInteger e = c.subtract(floorDivide(BigInteger.valueOf(1461).multiply(d), BigInteger.valueOf(4)));
+        BigInteger m = floorDivide(BigInteger.valueOf(5).multiply(e).add(BigInteger.valueOf(2)),
+                BigInteger.valueOf(153));
+        BigInteger day = e.subtract(floorDivide(BigInteger.valueOf(153).multiply(m).add(BigInteger.valueOf(2)),
+                BigInteger.valueOf(5))).add(BigInteger.ONE);
+        BigInteger month = m.add(BigInteger.valueOf(3))
+                .subtract(BigInteger.valueOf(12).multiply(floorDivide(m, BigInteger.TEN)));
+        BigInteger year = BigInteger.valueOf(100).multiply(b).add(d).subtract(BigInteger.valueOf(4800))
+                .add(floorDivide(m, BigInteger.TEN));
+        return HistoricalDate.day(year.longValueExact(), month.intValueExact(), day.intValueExact(), ID);
+    }
+
+    @Override
     public Optional<AbsoluteDayRange> toAbsoluteDayBounds(HistoricalDate date) {
         Objects.requireNonNull(date, "Date is required");
         requireCalendar(date);
