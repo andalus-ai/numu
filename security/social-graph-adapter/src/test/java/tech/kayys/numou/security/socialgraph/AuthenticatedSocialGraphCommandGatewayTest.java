@@ -75,7 +75,7 @@ class AuthenticatedSocialGraphCommandGatewayTest {
     }
 
     private void assertDenied(AuthenticatedSocialGraphCommandGateway gateway) {
-        assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key-denied")
+        assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key")
                 .await().indefinitely()).isInstanceOf(SocialGraphAccessDeniedException.class);
     }
 

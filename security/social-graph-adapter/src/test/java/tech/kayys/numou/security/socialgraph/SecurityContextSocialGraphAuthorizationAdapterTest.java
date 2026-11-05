@@ -56,7 +56,13 @@ class SecurityContextSocialGraphAuthorizationAdapterTest {
     }
 
     @Test
-    void deniesPrincipalWithoutTenantMembershipEvenWhenPermissionIsPresent() {
+    void deniesMissingAndCrossTenantContext() {
+        assertDenied(adapter(null));
+        assertDenied(adapter(context(TenantId.generate(), Set.of(Permission.of("social-graph", "create")))));
+    }
+
+    @Test
+    void deniesNonMemberEvenWhenPermissionIsPresent() {
         var principal = new Principal(PrincipalId.generate(), "test", Set.of());
         var context = new SecurityContext(principal, tenant,
                 AuthenticationInfo.authenticated(AuthenticationMethod.OIDC, Instant.now()),

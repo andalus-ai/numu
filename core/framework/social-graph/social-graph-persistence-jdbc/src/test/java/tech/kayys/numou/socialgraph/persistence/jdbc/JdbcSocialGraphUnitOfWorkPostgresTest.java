@@ -18,6 +18,7 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -167,6 +168,67 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
 
         assertThat(uow.execute(tx -> tx.findConnection(TenantId.generate(), connection.id())).await().indefinitely()).isEmpty();
         assertThat(uow.execute(tx -> tx.findConnection(tenant, connection.id())).await().indefinitely()).isPresent();
+    }
+
+    @Test
+    void samePartyPairAndConnectionIdRemainIsolatedAcrossTenants() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenantA = TenantId.generate();
+        TenantId tenantB = TenantId.generate();
+        PartyId requester = PartyId.generate();
+        PartyId recipient = PartyId.generate();
+        SocialConnectionId sharedConnectionId = SocialConnectionId.generate();
+        Instant now = Instant.parse("2026-11-04T00:00:00Z");
+
+        SocialConnection connectionA = SocialConnection.request(
+                sharedConnectionId, tenantA, requester, recipient, now);
+        SocialConnection connectionB = SocialConnection.request(
+                sharedConnectionId, tenantB, requester, recipient, now.plusSeconds(1));
+
+        uow.execute(tx -> {
+            tx.insertConnection(connectionA);
+            tx.saveIdempotency(new SocialGraphIdempotencyRecord(
+                    tenantA, "same-key", "request:" + requester + ":" + recipient,
+                    sharedConnectionId, now));
+            return null;
+        }).await().indefinitely();
+        uow.execute(tx -> {
+            tx.insertConnection(connectionB);
+            tx.saveIdempotency(new SocialGraphIdempotencyRecord(
+                    tenantB, "same-key", "request:" + requester + ":" + recipient,
+                    sharedConnectionId, now.plusSeconds(1)));
+            return null;
+        }).await().indefinitely();
+
+        assertStoredConnection(uow.execute(tx -> tx.findConnection(tenantA, sharedConnectionId))
+                .await().indefinitely(), connectionA);
+        assertStoredConnection(uow.execute(tx -> tx.findConnection(tenantB, sharedConnectionId))
+                .await().indefinitely(), connectionB);
+        assertStoredConnection(uow.execute(tx -> tx.findOpenConnection(tenantA, requester, recipient))
+                .await().indefinitely(), connectionA);
+        assertStoredConnection(uow.execute(tx -> tx.findOpenConnection(tenantB, requester, recipient))
+                .await().indefinitely(), connectionB);
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenantA, "same-key"))
+                .await().indefinitely()).contains(new SocialGraphIdempotencyRecord(
+                        tenantA, "same-key", "request:" + requester + ":" + recipient,
+                        sharedConnectionId, now));
+        assertThat(uow.execute(tx -> tx.findIdempotency(tenantB, "same-key"))
+                .await().indefinitely()).contains(new SocialGraphIdempotencyRecord(
+                        tenantB, "same-key", "request:" + requester + ":" + recipient,
+                        sharedConnectionId, now.plusSeconds(1)));
+    }
+
+    private static void assertStoredConnection(Optional<SocialConnection> actual, SocialConnection expected) {
+        assertThat(actual).hasValueSatisfying(stored -> {
+            assertThat(stored.id()).isEqualTo(expected.id());
+            assertThat(stored.tenantId()).isEqualTo(expected.tenantId());
+            assertThat(stored.requesterPartyId()).isEqualTo(expected.requesterPartyId());
+            assertThat(stored.recipientPartyId()).isEqualTo(expected.recipientPartyId());
+            assertThat(stored.requestedAt()).isEqualTo(expected.requestedAt());
+            assertThat(stored.status()).isEqualTo(expected.status());
+        });
     }
 
     @Test

@@ -20,7 +20,7 @@ public class InMemoryOrganizationMembershipRepository implements OrganizationMem
     private record Entry(TenantId tenantId, OrganizationMembership membership) { }
     private final Map<OrganizationMembershipId, Entry> store = new ConcurrentHashMap<>();
 
-    /** Compatibility path. Tenant-scoped reads intentionally cannot see these entries. */
+    /** Legacy unscoped persistence is rejected; tenant ownership is mandatory. */
     @Override
     @Deprecated(forRemoval = false)
     public synchronized CompletionStage<OrganizationMembership> save(OrganizationMembership membership) {
