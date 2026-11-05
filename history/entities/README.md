@@ -11,6 +11,15 @@ Framework-free historical entity domain contracts for people, collectives and pl
 - `HistoricalEventParticipant` and `HistoricalEventPlace`: links from canonical event IDs to canonical people, collectives and places.
 - `HistoricalEntityTemporalPolicy`: calendar-aware validation for biography ordering, affiliation intervals and place assertions.
 
+## Knowledge graph semantics (M4)
+
+- HistoricalRelationship connects typed canonical person, collective, place, or event references; it never embeds another aggregate.
+- HistoricalRelationshipVocabulary validates relationship codes, allowed endpoint kinds, direction, symmetry, and reciprocal inverse definitions.
+- Symmetric relationships are stored once with deterministic endpoint ordering; directed relationships preserve subject-to-object meaning.
+- Relationship validity uses HistoricalDateRange; unknown validity remains unknown. This domain does not infer causality, transitivity, or inverse edges automatically.
+- The standard vocabulary deliberately excludes member-of, participated-in, and occurred-at while M3's HistoricalAffiliation, HistoricalEventParticipant, and HistoricalEventPlace remain the canonical specialized contracts. Do not dual-write these links. A later migration must choose one canonical representation and provide a compatibility projection.
+- This is the provider-neutral graph domain, not a Neo4j dependency or persistence implementation. PostgreSQL remains the intended authoritative store; any graph database is a rebuildable read projection behind an adapter.
+
 ## Important semantics
 
 - Names, affiliations, coordinates and boundaries can change over historical time; they are assertions associated with stable identities.
