@@ -57,6 +57,7 @@ public class PostgresAdvertisingAdServingStore implements AdvertisingAdServingSt
         "cr.creative_id,cr.creative_name,cr.creative_format,cr.headline,cr.body,cr.destination_uri,cr.document_reference,"+
         "cr.creative_status,cr.review_note,cr.created_at,cr.version "+
         "FROM advertising_campaign_creative cc "+
+        "JOIN advertising_campaign_placement cp ON cp.tenant_id=cc.tenant_id AND cp.campaign_id=cc.campaign_id AND cp.placement_id=? "+
         "JOIN advertising_campaign ca ON ca.tenant_id=cc.tenant_id AND ca.campaign_id=cc.campaign_id "+
         "JOIN advertising_advertiser_account ad ON ad.tenant_id=ca.tenant_id AND ad.account_id=ca.advertiser_account_id "+
         "JOIN advertising_creative cr ON cr.tenant_id=cc.tenant_id AND cr.creative_id=cc.creative_id "+
@@ -66,8 +67,8 @@ public class PostgresAdvertisingAdServingStore implements AdvertisingAdServingSt
         "AND cr.creative_status='APPROVED' AND cr.creative_format=? AND upper(pl.format)=? "+
         "ORDER BY ca.created_at,ca.campaign_id,cr.creative_id";
       try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(sql)){
-        s.setObject(1,placementId.value());s.setString(2,tenant.value());s.setTimestamp(3,Timestamp.from(at));
-        s.setTimestamp(4,Timestamp.from(at));s.setString(5,format.toUpperCase(Locale.ROOT));s.setString(6,format.toUpperCase(Locale.ROOT));
+        s.setObject(1,placementId.value());s.setObject(2,placementId.value());s.setString(3,tenant.value());s.setTimestamp(4,Timestamp.from(at));
+        s.setTimestamp(5,Timestamp.from(at));s.setString(6,format.toUpperCase(Locale.ROOT));s.setString(7,format.toUpperCase(Locale.ROOT));
         try(ResultSet r=s.executeQuery()){
           List<AdServingCandidate> result=new ArrayList<>();
           while(r.next()){
