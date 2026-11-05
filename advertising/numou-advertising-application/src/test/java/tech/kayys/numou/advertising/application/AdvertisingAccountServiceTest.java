@@ -20,16 +20,33 @@ class AdvertisingAccountServiceTest {
     @Test
     void deniedAuthorizationPreventsAccountMutation() {
         InMemoryStore store=new InMemoryStore();
-        AdvertisingAccountService service=new AdvertisingAccountService(store,(tenant,action)->CompletableFuture.completedFuture(false),CLOCK);
+        AdvertisingAccountService service=new AdvertisingAccountService(store,(tenant,action)->CompletableFuture.completedFuture(false),
+            party->CompletableFuture.completedFuture(true),CLOCK);
 
         assertThrows(CompletionException.class,()->service.registerAdvertiser(TENANT,new PartyReference("party-a"),"Advertiser").toCompletableFuture().join());
         assertTrue(store.advertisers.isEmpty());
     }
 
     @Test
+    void inactiveCanonicalPartyPreventsAdvertiserAndPublisherRegistration() {
+        InMemoryStore store=new InMemoryStore();
+        AdvertisingAccountService service=new AdvertisingAccountService(store,
+            (tenant,action)->CompletableFuture.completedFuture(true),
+            party->CompletableFuture.completedFuture(false),CLOCK);
+
+        assertThrows(CompletionException.class,()->service.registerAdvertiser(TENANT,
+            new PartyReference("party-a"),"Advertiser").toCompletableFuture().join());
+        assertThrows(CompletionException.class,()->service.registerPublisher(TENANT,
+            new PartyReference("party-b"),"Publisher").toCompletableFuture().join());
+        assertTrue(store.advertisers.isEmpty());
+        assertTrue(store.publishers.isEmpty());
+    }
+
+    @Test
     void inventoryLifecycleRequiresActivePublisherAndVerifiedProperty() {
         InMemoryStore store=new InMemoryStore();
-        AdvertisingAccountService service=new AdvertisingAccountService(store,(tenant,action)->CompletableFuture.completedFuture(true),CLOCK);
+        AdvertisingAccountService service=new AdvertisingAccountService(store,(tenant,action)->CompletableFuture.completedFuture(true),
+            party->CompletableFuture.completedFuture(true),CLOCK);
 
         PublisherAccount publisher=service.registerPublisher(TENANT,new PartyReference("publisher-a"),"Publisher").toCompletableFuture().join();
         assertEquals(AccountStatus.PENDING,publisher.status());

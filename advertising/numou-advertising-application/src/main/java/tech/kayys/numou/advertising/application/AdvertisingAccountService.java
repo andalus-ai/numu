@@ -10,19 +10,22 @@ import java.util.concurrent.*;
 public final class AdvertisingAccountService {
   private final AdvertisingAccountStore store;
   private final AdvertisingAuthorizationPort authorization;
+  private final AdvertisingPartyVerificationPort partyVerification;
   private final Clock clock;
 
-  public AdvertisingAccountService(AdvertisingAccountStore store,AdvertisingAuthorizationPort authorization,Clock clock){
-    this.store=Objects.requireNonNull(store); this.authorization=Objects.requireNonNull(authorization); this.clock=Objects.requireNonNull(clock);
+  public AdvertisingAccountService(AdvertisingAccountStore store,AdvertisingAuthorizationPort authorization,
+                                   AdvertisingPartyVerificationPort partyVerification,Clock clock){
+    this.store=Objects.requireNonNull(store); this.authorization=Objects.requireNonNull(authorization);
+    this.partyVerification=Objects.requireNonNull(partyVerification); this.clock=Objects.requireNonNull(clock);
   }
 
   public CompletionStage<AdvertiserAccount> registerAdvertiser(TenantId tenant,PartyReference party,String name){
-    return authorized(tenant,"advertiser.register").thenCompose(v->store.saveAdvertiser(
+    return authorized(tenant,"advertiser.register").thenCompose(v->activeParty(party)).thenCompose(v->store.saveAdvertiser(
       AdvertiserAccount.register(AdvertisingAccountId.generate(),tenant,party,name,clock.instant())));
   }
 
   public CompletionStage<PublisherAccount> registerPublisher(TenantId tenant,PartyReference party,String name){
-    return authorized(tenant,"publisher.register").thenCompose(v->store.savePublisher(
+    return authorized(tenant,"publisher.register").thenCompose(v->activeParty(party)).thenCompose(v->store.savePublisher(
       PublisherAccount.register(AdvertisingAccountId.generate(),tenant,party,name,clock.instant())));
   }
 
@@ -78,6 +81,13 @@ public final class AdvertisingAccountService {
           });
         });
       });
+  }
+
+  private CompletionStage<Void> activeParty(PartyReference party) {
+    Objects.requireNonNull(party,"party");
+    return partyVerification.isActiveParty(party).thenCompose(active->active
+      ? CompletableFuture.completedFuture(null)
+      : CompletableFuture.failedFuture(new IllegalArgumentException("party reference must resolve to an active canonical Party")));
   }
 
   private CompletionStage<Void> authorized(TenantId tenant,String action){
