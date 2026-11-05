@@ -56,8 +56,10 @@ public final class ApplicationRuntimeHost implements AutoCloseable {
                     throw new IllegalStateException("Runtime provider mismatch: expected "
                             + provider.providerId() + " but got " + runtime.providerId());
                 }
-                runtime.start();
+                // Track before start so rollback also releases resources acquired by a
+                // provider whose start method fails part-way through initialization.
                 started.add(runtime);
+                runtime.start();
             }
             state = ApplicationRuntimeState.RUNNING;
         } catch (Exception failure) {
