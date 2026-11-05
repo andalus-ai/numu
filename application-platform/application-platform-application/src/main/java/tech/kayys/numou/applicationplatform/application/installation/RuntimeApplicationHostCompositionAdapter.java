@@ -78,10 +78,10 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
                         verifyPluginIdentity(plugin, descriptor);
                         PluginContext context = contexts.create(command.tenantId(), command.installationId(),
                                 command.applicationId(), descriptor, command.correlationId());
-                        boolean initialized = false;
+                        boolean initializationAttempted = false;
                         try {
+                            initializationAttempted = true;
                             plugin.initialize(context);
-                            initialized = true;
                             plugin.start();
                             if (plugin.state() != PluginState.ACTIVE) {
                                 throw new IllegalStateException("Provider did not reach ACTIVE state: "
@@ -89,7 +89,7 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
                             }
                             started.add(new StartedProvider(descriptor, plugin, context));
                         } catch (Throwable failure) {
-                            if (initialized) {
+                            if (initializationAttempted) {
                                 try { plugin.stop(); } catch (Throwable stopFailure) { failure.addSuppressed(stopFailure); }
                             }
                             throw propagate(failure);
