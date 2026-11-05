@@ -18,7 +18,7 @@ class HistoricalEntitiesTest {
             HistoricalDate.year(1300, GregorianCalendarDateConverter.ID));
 
     @Test
-    void personSupportsAlternativeNamesAndRevision() {
+    void personSupportsAlternativeNamesAndRevisionWithoutLosingDisplayForm() {
         HistoricalPerson person = HistoricalPerson.create("Gajah Mada",
                 List.of("Mahapatih Gajah Mada"), null, null, "Majapahit statesman", T0);
         HistoricalPerson revised = person.revise("Gajah Mada",
@@ -28,11 +28,11 @@ class HistoricalEntitiesTest {
         assertEquals(person.id(), revised.id());
         assertEquals(1, person.revision());
         assertEquals(2, revised.revision());
-        assertTrue(revised.alternativeNames().contains("rakryan mapatih"));
+        assertTrue(revised.alternativeNames().contains("Rakryan Mapatih"));
     }
 
     @Test
-    void collectiveSupportsOpenEndedDateKnowledgeAndParentReference() {
+    void collectiveSupportsOptionalDatesAndParentReference() {
         HistoricalCollectiveId parentId = HistoricalCollectiveId.generate();
         HistoricalCollective collective = HistoricalCollective.create("Majapahit",
                 Set.of("Wilwatikta"), HistoricalEntityKindCode.of("empire"),
@@ -41,6 +41,7 @@ class HistoricalEntitiesTest {
         assertEquals(parentId, collective.parentCollectiveId());
         assertTrue(collective.activeDates().isPresent());
         assertEquals("empire", collective.kind().value());
+        assertTrue(collective.alternativeNames().contains("Wilwatikta"));
     }
 
     @Test
@@ -48,7 +49,7 @@ class HistoricalEntitiesTest {
         HistoricalPlace place = HistoricalPlace.create(
                 HistoricalPlaceKindCode.of("settlement"),
                 List.of(
-                        new HistoricalPlaceName("Batavia", "id", PERIOD, true),
+                        new HistoricalPlaceName("Batavia", "id", PERIOD, false),
                         new HistoricalPlaceName("Jakarta", "id", null, true)),
                 List.of(new HistoricalPlaceLocation(
                         new GeoPoint(-6.1754, 106.8272),
@@ -87,5 +88,11 @@ class HistoricalEntitiesTest {
     @Test
     void rejectsInvalidGeoCoordinatesThroughSharedGeoPrimitive() {
         assertThrows(IllegalArgumentException.class, () -> new GeoPoint(91.0, 0.0));
+    }
+
+    @Test
+    void rejectsAlternativeNameThatDuplicatesPrimaryNameIgnoringCase() {
+        assertThrows(IllegalArgumentException.class, () -> HistoricalPerson.create(
+                "Gajah Mada", List.of("gajah mada"), null, null, "", T0));
     }
 }
