@@ -8,6 +8,7 @@ import tech.kayys.numou.security.domain.authorization.AccessDecision;
 import tech.kayys.numou.security.domain.authorization.AccessRequest;
 import tech.kayys.numou.security.domain.authorization.PermissionEvaluator;
 import tech.kayys.numou.security.spi.port.PolicyPort;
+import tech.kayys.numou.security.spi.port.AuthorizationServicePort;
 import tech.kayys.numou.security.spi.port.ResourceAuthorizationPort;
 
 import java.util.Objects;
@@ -20,7 +21,7 @@ import java.util.Objects;
  * fine-grained ABAC/resource policy.
  */
 @ApplicationScoped
-public class DefaultAuthorizationService implements AuthorizationService {
+public class DefaultAuthorizationService implements AuthorizationService, AuthorizationServicePort {
 
     private final PolicyPort policyPort;
     private final ResourceAuthorizationPort resourceAuthorizationPort;

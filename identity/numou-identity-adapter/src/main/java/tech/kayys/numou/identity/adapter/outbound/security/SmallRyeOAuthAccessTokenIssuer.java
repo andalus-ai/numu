@@ -24,6 +24,9 @@ public class SmallRyeOAuthAccessTokenIssuer implements OAuthAccessTokenIssuerPor
         return Jwt.issuer(issuer).subject(clientId).audience(audience)
                 .claim("client_id", clientId).claim("tenant_id", tenantId.toString())
                 .claim("application_id", applicationId.toString()).claim("scope", scope)
+                // Quarkus @RolesAllowed consumes the standard groups claim. Each
+                // group is derived only from scopes authorized on this credential.
+                .claim("groups", Set.copyOf(scopes))
                 .claim("credential_version", credentialVersion).claim("token_use", "access")
                 .claim("jti", UUID.randomUUID().toString())
                 .expiresIn(Duration.ofSeconds(lifespanSeconds)).sign();
