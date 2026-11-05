@@ -40,7 +40,7 @@ jobs:
       - name: Build and install Ecosystem Party lookup contract
         run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
       - name: Build and install Security authorization contracts
-        run: mvn -B -ntp -f security/pom.xml install
+        run: mvn -B -ntp -f security/pom.xml -pl security-domain,security-spi,security-application,security-adapter -am install
       - name: Build and install Identity application contracts
         run: mvn -B -ntp -f identity/pom.xml -pl numou-identity-domain,numou-identity-application -am install
       - name: Verify Advertising capability
