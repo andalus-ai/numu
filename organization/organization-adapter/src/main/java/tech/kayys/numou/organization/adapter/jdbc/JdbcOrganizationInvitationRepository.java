@@ -122,6 +122,72 @@ public final class JdbcOrganizationInvitationRepository implements OrganizationI
         }, jdbcExecutor);
     }
 
+    /** Rotates invitation credentials and appends the replacement delivery in one transaction. */
+    @Override
+    public CompletionStage<Void> rotateAndPersist(OrganizationInvitation invitation,
+            OrganizationInvitationDeliveryOutboxPort.DeliveryMessage delivery, TenantId tenantId,
+            int expectedVersion, Instant changedAt) {
+        Objects.requireNonNull(invitation);
+        Objects.requireNonNull(delivery);
+        Objects.requireNonNull(tenantId);
+        Objects.requireNonNull(changedAt);
+        if (!invitation.tenantId().equals(tenantId) || !delivery.tenantId().equals(tenantId)
+                || !invitation.getId().equals(delivery.invitationId())
+                || !invitation.recipientEmail().equals(delivery.recipientEmail())
+                || !invitation.getUpdatedAt().equals(changedAt)
+                || invitation.getVersion() != expectedVersion + 1) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Invitation resend scope/version mismatch"));
+        }
+        return CompletableFuture.runAsync(() -> {
+            try (Connection c = dataSource.getConnection()) {
+                c.setAutoCommit(false);
+                try {
+                    update(c, invitation, tenantId, expectedVersion);
+                    String supersede = "UPDATE organization_invitation_delivery_outbox SET status='DEAD', "
+                            + "failed_at=?, last_error_code='SUPERSEDED_BY_RESEND', lease_token=NULL, "
+                            + "lease_until=NULL, updated_at=? WHERE tenant_id=? AND invitation_id=? "
+                            + "AND status IN ('PENDING','LEASED')";
+                    try (PreparedStatement s = c.prepareStatement(supersede)) {
+                        s.setTimestamp(1, Timestamp.from(changedAt));
+                        s.setTimestamp(2, Timestamp.from(changedAt));
+                        s.setObject(3, tenantId.value());
+                        s.setObject(4, invitation.getId().value());
+                        s.executeUpdate();
+                    }
+                    var secret = delivery.secret();
+                    String insertDelivery = "INSERT INTO organization_invitation_delivery_outbox "
+                            + "(delivery_id, tenant_id, invitation_id, recipient_email, encryption_algorithm, "
+                            + "encryption_format_version, encryption_key_id, vault_id, secret_id, secret_ciphertext, "
+                            + "status, attempts, available_at, created_at, updated_at) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, ?, ?)";
+                    try (PreparedStatement s = c.prepareStatement(insertDelivery)) {
+                        s.setObject(1, delivery.deliveryId());
+                        s.setObject(2, tenantId.value());
+                        s.setObject(3, invitation.getId().value());
+                        s.setString(4, delivery.recipientEmail());
+                        s.setString(5, secret.algorithm());
+                        s.setInt(6, secret.formatVersion());
+                        s.setString(7, secret.keyId());
+                        s.setObject(8, UUID.fromString(secret.vaultId()));
+                        s.setObject(9, UUID.fromString(secret.secretId()));
+                        s.setBytes(10, secret.ciphertext());
+                        s.setTimestamp(11, Timestamp.from(delivery.createdAt()));
+                        s.setTimestamp(12, Timestamp.from(delivery.createdAt()));
+                        s.setTimestamp(13, Timestamp.from(delivery.createdAt()));
+                        s.executeUpdate();
+                    }
+                    c.commit();
+                } catch (SQLException | RuntimeException e) {
+                    try { c.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                    if (e instanceof RuntimeException runtime) throw runtime;
+                    throw new IllegalStateException("Unable to atomically resend organization invitation", e);
+                }
+            } catch (SQLException e) {
+                throw new IllegalStateException("Unable to open invitation resend transaction", e);
+            }
+        }, jdbcExecutor);
+    }
+
     @Override
     public CompletionStage<AcceptedInvitation> accept(TenantId tenantId, String tokenHash,
             UserId authenticatedUserId, String verifiedEmail, Instant acceptedAt) {
