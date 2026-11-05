@@ -35,6 +35,33 @@ class OrganizationMembershipTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+
+    @Test
+    void invitationCanOnlyBeAcceptedByItsIntendedUser() {
+        var intendedUser = UserId.newId();
+        var membership = OrganizationMembership.invite(
+                OrganizationMembershipId.generate(), OrganizationId.generate(), intendedUser);
+        var initialVersion = membership.getVersion();
+
+        membership.acceptInvitation(intendedUser);
+
+        assertThat(membership.isActive()).isTrue();
+        assertThat(membership.getVersion()).isEqualTo(initialVersion + 1);
+        assertThatThrownBy(() -> membership.acceptInvitation(UserId.newId()))
+                .isInstanceOf(InvalidStateException.class);
+    }
+
+    @Test
+    void acceptedInvitationCannotBeAcceptedAgain() {
+        var userId = UserId.newId();
+        var membership = OrganizationMembership.invite(
+                OrganizationMembershipId.generate(), OrganizationId.generate(), userId);
+        membership.acceptInvitation(userId);
+
+        assertThatThrownBy(() -> membership.acceptInvitation(userId))
+                .isInstanceOf(InvalidStateException.class);
+    }
+
     @Test
     void activeMemberCanChangeRole() {
         var membership = OrganizationMembership.invite(OrganizationMembershipId.generate(), OrganizationId.generate(), UserId.newId());

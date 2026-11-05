@@ -56,6 +56,69 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
     }
 
     @Override
+    public CompletionStage<HistoryPage> findHistory(
+            TenantId tenantId, ApplicationId applicationId, Long beforeRevision, int pageSize) {
+        try {
+            Objects.requireNonNull(tenantId, "tenantId");
+            Objects.requireNonNull(applicationId, "applicationId");
+            if (beforeRevision != null && beforeRevision < 1)
+                throw new IllegalArgumentException("beforeRevision must be positive");
+            if (pageSize < 1 || pageSize > 100)
+                throw new IllegalArgumentException("pageSize must be between 1 and 100");
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    setTenant(connection, tenantId);
+                    String sql = """
+                            SELECT revision, schema_version, payload_json, payload_sha256, updated_by, updated_at
+                            FROM application_configuration_revisions
+                            WHERE tenant_id=? AND application_id=? AND (? IS NULL OR revision < ?)
+                            ORDER BY revision DESC
+                            LIMIT ?
+                            """;
+                    java.util.List<ApplicationConfigurationSnapshot> revisions = new java.util.ArrayList<>();
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statement.setObject(1, tenantId.value());
+                        statement.setString(2, applicationId.value());
+                        if (beforeRevision == null) {
+                            statement.setNull(3, Types.BIGINT);
+                            statement.setNull(4, Types.BIGINT);
+                        } else {
+                            statement.setLong(3, beforeRevision);
+                            statement.setLong(4, beforeRevision);
+                        }
+                        statement.setInt(5, pageSize + 1);
+                        try (ResultSet result = statement.executeQuery()) {
+                            while (result.next()) {
+                                revisions.add(new ApplicationConfigurationSnapshot(
+                                        tenantId, applicationId, result.getString("schema_version"),
+                                        result.getLong("revision"), result.getString("payload_json"),
+                                        result.getString("payload_sha256"), result.getString("updated_by"),
+                                        result.getTimestamp("updated_at").toInstant()));
+                            }
+                        }
+                    }
+                    Long nextBeforeRevision = null;
+                    if (revisions.size() > pageSize) {
+                        revisions.remove(revisions.size() - 1);
+                        nextBeforeRevision = revisions.get(revisions.size() - 1).revision();
+                    }
+                    connection.commit();
+                    return CompletableFuture.completedFuture(
+                            new HistoryPage(revisions, nextBeforeRevision));
+                } catch (SQLException | RuntimeException failure) {
+                    rollback(connection, failure);
+                    throw failure;
+                }
+            }
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("find application configuration history", failure));
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
+        }
+    }
+
+    @Override
     public CompletionStage<SaveResult> save(ApplicationConfigurationSnapshot snapshot, long expectedRevision) {
         try {
             Objects.requireNonNull(snapshot, "snapshot");
@@ -80,6 +143,7 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
                     else updateCurrent(connection, snapshot, expectedRevision);
                     appendRevision(connection, snapshot);
                     connection.commit();
+                    return CompletableFuture.completedFuture(new SaveResult(true, Optional.of(snapshot)));
                     return CompletableFuture.completedFuture(
                             new SaveResult(true, Optional.of(snapshot)));
                 } catch (SQLException | RuntimeException failure) {

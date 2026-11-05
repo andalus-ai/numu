@@ -42,14 +42,14 @@ public final class ApplicationManifestValidator {
 
         JsonNode metadata = root.path("metadata");
         JsonNode requires = root.path("requires");
-        List<CapabilityRequirement> required = requirements(requires.path("capabilities"));
-        List<CapabilityRequirement> optional = requirements(requires.path("optionalCapabilities"));
-        Set<String> capabilityIds = new HashSet<>();
-        for (CapabilityRequirement r : required)
-            if (!capabilityIds.add(r.id())) violations.add("Duplicate capability requirement: " + r.id());
-        for (CapabilityRequirement r : optional)
-            if (!capabilityIds.add(r.id()))
-                violations.add("Capability cannot be duplicated or both required and optional: " + r.id());
+        List<CapabilityRequirement> required = requirements(
+                requires.path("capabilities"), "requires.capabilities", violations);
+        List<CapabilityRequirement> optional = requirements(
+                requires.path("optionalCapabilities"), "requires.optionalCapabilities", violations);
+        Map<String, List<CapabilityDeclaration>> declarations = new TreeMap<>();
+        collectCapabilityDeclarations(required, "required", declarations);
+        collectCapabilityDeclarations(optional, "optional", declarations);
+        validateCapabilityDeclarations(declarations, violations);
 
         Set<String> permissions = new TreeSet<>();
         root.path("permissions").forEach(p -> permissions.add(p.asText()));
@@ -75,16 +75,65 @@ public final class ApplicationManifestValidator {
             if (!URI.create(website).isAbsolute()) violations.add("metadata.website must be an absolute URI");
         } catch (IllegalArgumentException e) { violations.add("metadata.website must be a valid URI"); }
 
-        if (!violations.isEmpty()) throw new ManifestValidationException(violations);
+        if (!violations.isEmpty()) {
+            violations.sort(String::compareTo);
+            throw new ManifestValidationException(violations);
+        }
         return new ApplicationManifest(metadata.path("id").asText(), metadata.path("version").asText(),
                 metadata.path("publisher").asText(), metadata.path("displayName").asText(),
                 required, optional, permissions, navigation);
     }
 
-    private static List<CapabilityRequirement> requirements(JsonNode array) {
+
+    private static void collectCapabilityDeclarations(
+            List<CapabilityRequirement> requirements,
+            String declarationKind,
+            Map<String, List<CapabilityDeclaration>> declarations) {
+        for (CapabilityRequirement requirement : requirements) {
+            declarations.computeIfAbsent(requirement.id(), ignored -> new ArrayList<>())
+                    .add(new CapabilityDeclaration(declarationKind, requirement.contractRange()));
+        }
+    }
+
+    private static void validateCapabilityDeclarations(
+            Map<String, List<CapabilityDeclaration>> declarations,
+            List<String> violations) {
+        declarations.forEach((id, entries) -> {
+            boolean required = entries.stream().anyMatch(entry -> entry.kind().equals("required"));
+            boolean optional = entries.stream().anyMatch(entry -> entry.kind().equals("optional"));
+            if (required && optional) {
+                violations.add("Capability cannot be both required and optional: " + id);
+                return;
+            }
+
+            TreeSet<String> ranges = new TreeSet<>();
+            entries.forEach(entry -> ranges.add(entry.contractRange()));
+            if (ranges.size() > 1) {
+                violations.add("Conflicting " + entries.get(0).kind()
+                        + " capability contract ranges for " + id + ": " + String.join(", ", ranges));
+            } else if (entries.size() > 1) {
+                violations.add("Duplicate " + entries.get(0).kind()
+                        + " capability requirement: " + id);
+            }
+        });
+    }
+
+    private record CapabilityDeclaration(String kind, String contractRange) {}
+
+    private static List<CapabilityRequirement> requirements(
+            JsonNode array, String field, List<String> violations) {
         List<CapabilityRequirement> result = new ArrayList<>();
-        if (array.isArray()) for (JsonNode item : array)
-            result.add(new CapabilityRequirement(item.path("id").asText(), item.path("contractRange").asText()));
+        if (array.isArray()) {
+            for (int i = 0; i < array.size(); i++) {
+                JsonNode item = array.get(i);
+                try {
+                    result.add(new CapabilityRequirement(
+                            item.path("id").asText(), item.path("contractRange").asText()));
+                } catch (IllegalArgumentException e) {
+                    violations.add(field + "[" + i + "].contractRange: " + e.getMessage());
+                }
+            }
+        }
         return result;
     }
 }
