@@ -62,6 +62,34 @@ public final class AdvertisingCampaignService {
       .thenCompose(found->campaigns.saveCampaign(found.orElseThrow(()->new IllegalArgumentException("campaign not found")).archive()));
   }
 
+  public CompletionStage<CampaignPlacementTarget> targetCampaignToPlacement(TenantId tenant,CampaignId campaignId,
+                                                                             AdPlacementId placementId) {
+    return authorized(tenant,"campaign.manage").thenCompose(v->campaigns.findCampaign(tenant,campaignId))
+      .thenCompose(found->{
+        Campaign campaign=found.orElseThrow(()->new IllegalArgumentException("campaign not found"));
+        if(campaign.status()!=CampaignStatus.DRAFT && campaign.status()!=CampaignStatus.SCHEDULED)
+          throw new IllegalStateException("inventory targeting can only change before campaign activation");
+        return activeAdvertiser(tenant,campaign.advertiserId()).thenCompose(v->accounts.findPlacement(tenant,placementId))
+          .thenCompose(placementFound->{
+            AdPlacement placement=placementFound.orElseThrow(()->new IllegalArgumentException("placement not found"));
+            if(placement.status()!=PlacementStatus.ENABLED)
+              throw new IllegalStateException("campaign can only target enabled inventory");
+            return accounts.findProperty(tenant,placement.propertyId()).thenCompose(propertyFound->{
+              PublisherProperty property=propertyFound.orElseThrow(()->new IllegalArgumentException("publisher property not found"));
+              if(property.status()!=PropertyStatus.VERIFIED)
+                throw new IllegalStateException("campaign can only target verified publisher properties");
+              return accounts.findPublisher(tenant,property.publisherId()).thenCompose(publisherFound->{
+                PublisherAccount publisher=publisherFound.orElseThrow(()->new IllegalArgumentException("publisher not found"));
+                if(publisher.status()!=AccountStatus.ACTIVE)
+                  throw new IllegalStateException("campaign can only target active publisher accounts");
+                return campaigns.assignPlacement(new CampaignPlacementTarget(tenant,campaign.advertiserId(),
+                  campaignId,placementId,clock.instant()));
+              });
+            });
+          });
+      });
+  }
+
   public CompletionStage<Creative> createCreative(TenantId tenant,AdvertisingAccountId advertiser,String name,
                                                     CreativeFormat format,String headline,String body,URI destination,
                                                     String documentReference) {
