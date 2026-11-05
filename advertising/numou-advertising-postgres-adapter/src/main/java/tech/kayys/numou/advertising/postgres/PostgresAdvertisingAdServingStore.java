@@ -97,14 +97,15 @@ public class PostgresAdvertisingAdServingStore implements AdvertisingAdServingSt
 
   @Override public CompletionStage<AdDecision> recordDecision(AdDecision d) {
     return execute(()->{
-      String sql="INSERT INTO advertising_ad_decision(tenant_id,decision_id,placement_id,property_id,campaign_id,creative_id,decision_status,decision_reason,decided_at) VALUES(?,?,?,?,?,?,?,?,?)";
+      String sql="INSERT INTO advertising_ad_decision(tenant_id,decision_id,placement_id,property_id,campaign_id,advertiser_account_id,creative_id,decision_status,decision_reason,decided_at) VALUES(?,?,?,?,?,?,?,?,?,?)";
       try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(sql)){
         s.setString(1,d.tenantId().value());s.setObject(2,d.id());
         setUuid(s,3,d.placementId()==null?null:d.placementId().value());
         setUuid(s,4,d.propertyId()==null?null:d.propertyId().value());
         setUuid(s,5,d.campaignId()==null?null:d.campaignId().value());
-        setUuid(s,6,d.creativeId()==null?null:d.creativeId().value());
-        s.setString(7,d.status().name());s.setString(8,d.reason().name());s.setTimestamp(9,Timestamp.from(d.decidedAt()));
+        setUuid(s,6,d.advertiserId()==null?null:d.advertiserId().value());
+        setUuid(s,7,d.creativeId()==null?null:d.creativeId().value());
+        s.setString(8,d.status().name());s.setString(9,d.reason().name());s.setTimestamp(10,Timestamp.from(d.decidedAt()));
         if(s.executeUpdate()!=1)throw new IllegalStateException("ad decision audit insert failed");
         return d;
       }
