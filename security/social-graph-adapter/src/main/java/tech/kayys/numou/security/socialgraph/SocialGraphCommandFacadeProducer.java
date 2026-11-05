@@ -13,7 +13,7 @@ import tech.kayys.numou.socialgraph.spi.SocialGraphUnitOfWork;
 import java.time.Clock;
 import java.util.Objects;
 
-/** CDI composition for the Social Graph application command boundary. */
+/** CDI composition of the service, PostgreSQL unit of work and Ecosystem adapters. */
 @ApplicationScoped
 public class SocialGraphCommandFacadeProducer {
     private final SocialGraphUnitOfWork unitOfWork;

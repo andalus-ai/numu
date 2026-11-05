@@ -3,6 +3,11 @@ package tech.kayys.numou.developer.apicatalog.postgres;
 import static org.assertj.core.api.Assertions.*;
 
 import org.flywaydb.core.Flyway;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.smallrye.mutiny.Uni;
+import tech.kayys.numou.foundation.application.context.ActorId;
+import tech.kayys.numou.foundation.application.context.ExecutionContext;
 import org.junit.jupiter.api.*;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -23,7 +28,7 @@ class PostgresApiProductRepositoryTest {
  @Container static final PostgreSQLContainer<?> POSTGRES=new PostgreSQLContainer<>("postgres:16-alpine")
   .withDatabaseName("api_catalog").withUsername("migration_owner").withPassword("migration_owner");
  static PGSimpleDataSource owner;static DataSource runtime;
- PostgresApiProductRepository repository;
+ PostgresApiProductRepository repository;ApiCatalogJdbcTransactionManager transactions;
  static final Instant NOW=Instant.parse("2026-11-04T10:00:00Z");
 
  @BeforeAll static void migrate()throws Exception{
@@ -31,12 +36,14 @@ class PostgresApiProductRepositoryTest {
   Flyway.configure().dataSource(owner).locations("classpath:db/migration/api-catalog").load().migrate();
   try(Connection c=owner.getConnection();Statement s=c.createStatement()){
    s.execute("CREATE ROLE api_catalog_runtime NOLOGIN NOBYPASSRLS");
+   s.execute("CREATE TABLE platform_outbox (entry_id uuid PRIMARY KEY,event_id uuid NOT NULL UNIQUE,tenant_id uuid,event_type text NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL,available_at timestamptz NOT NULL,attempts integer NOT NULL DEFAULT 0,locked_until timestamptz,published_at timestamptz,last_error text)");
    s.execute("GRANT USAGE ON SCHEMA public TO api_catalog_runtime");
    s.execute("GRANT SELECT,INSERT,UPDATE ON developer_api_products,developer_api_versions,developer_api_scopes TO api_catalog_runtime");
+   s.execute("GRANT SELECT,INSERT ON platform_outbox TO api_catalog_runtime");
   }
   runtime=new RoleDataSource(owner);
  }
- @BeforeEach void setup(){repository=new PostgresApiProductRepository(runtime);}
+ @BeforeEach void setup(){transactions=new ApiCatalogJdbcTransactionManager(runtime);repository=new PostgresApiProductRepository(transactions);}
 
  @Test void roundTripsProductVersionsAndScopesWithoutEmittingCreationEventOnLoad(){
   TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"orders");
@@ -60,7 +67,8 @@ class PostgresApiProductRepositoryTest {
   TenantId tenantA=TenantId.generate(),tenantB=TenantId.generate();
   ApiProduct a=product(tenantA,"shared");ApiProduct b=product(tenantB,"shared");
   repository.save(tenantA,a,0).await().indefinitely();repository.save(tenantB,b,0).await().indefinitely();
-  assertThat(repository.findBySlug(tenantA,"shared").await().indefinitely()).contains(aOrLoaded(tenantA,a.id()));
+  var bySlug=repository.findBySlug(tenantA,"shared").await().indefinitely().orElseThrow();
+  assertThat(bySlug.id()).isEqualTo(a.id());
   assertThat(repository.findById(tenantA,b.id()).await().indefinitely()).isEmpty();
   assertThat(repository.findAll(tenantA,tech.kayys.numou.foundation.application.page.PageRequest.first(10)).await().indefinitely().content())
     .extracting(ApiProduct::slug).containsExactly("shared");
@@ -76,13 +84,36 @@ class PostgresApiProductRepositoryTest {
   first.addVersion(version("1.0.0"),NOW.plusSeconds(1));repository.save(tenant,first,1).await().indefinitely();
   stale.addVersion(version("2.0.0"),NOW.plusSeconds(2));
   assertThatThrownBy(()->repository.save(tenant,stale,1).await().indefinitely())
-    .hasRootCauseInstanceOf(PostgresApiProductRepository.OptimisticLockException.class);
+    .isInstanceOf(PostgresApiProductRepository.OptimisticLockException.class);
   assertThat(repository.findById(tenant,product.id()).await().indefinitely().orElseThrow().versions()).containsKey("1.0.0");
+ }
+
+
+ @Test void commitsCatalogStateAndOutboxEventAtomically(){
+  TenantId tenant=TenantId.generate();
+  var context=new ExecutionContext(tenant,null,null,ActorId.of("developer-user"),"trace-api-catalog",null,NOW,null,null,null);
+  var publisher=new PostgresApiCatalogEventPublisher(transactions,()->context,new ObjectMapper().registerModule(new JavaTimeModule()));
+  ApiProduct committed=product(tenant,"atomic-commit");var committedEvents=committed.pullDomainEvents();
+  transactions.execute(()->repository.save(tenant,committed,0).chain(()->publisher.publish(committedEvents))).await().indefinitely();
+  assertThat(repository.findById(tenant,committed.id()).await().indefinitely()).isPresent();
+  assertThat(outboxCount(tenant)).isEqualTo(1);
+
+  ApiProduct rolledBack=product(tenant,"atomic-rollback");var rollbackEvents=rolledBack.pullDomainEvents();
+  assertThatThrownBy(()->transactions.execute(()->repository.save(tenant,rolledBack,0)
+    .chain(()->publisher.publish(rollbackEvents))
+    .chain(()->Uni.createFrom().<Void>failure(new IllegalStateException("force rollback")))).await().indefinitely())
+    .hasMessageContaining("force rollback");
+  assertThat(repository.findById(tenant,rolledBack.id()).await().indefinitely()).isEmpty();
+  assertThat(outboxCount(tenant)).isEqualTo(1);
+ }
+ private long outboxCount(TenantId tenant){
+  try(Connection c=runtime.getConnection();PreparedStatement s=c.prepareStatement("SELECT count(*) FROM platform_outbox WHERE tenant_id=?")){
+   s.setObject(1,tenant.value());try(ResultSet rs=s.executeQuery()){rs.next();return rs.getLong(1);}
+  }catch(SQLException e){throw new IllegalStateException(e);}
  }
 
  private static ApiProduct product(TenantId tenant,String slug){return ApiProduct.create(ApiProductId.newId(),tenant.value(),"API "+slug,slug,"test catalog",NOW);}
  private static ApiVersion version(String v){return ApiVersion.draft(v,new ApiSpecification("3.1","rustfs://api-specs/orders.yaml","a".repeat(64)),Set.of(new ApiScope("orders.read","Read orders")));}
- private ApiProduct aOrLoaded(TenantId tenant,ApiProductId id){return repository.findById(tenant,id).await().indefinitely().orElseThrow();}
 
  private static final class RoleDataSource implements DataSource{
   private final DataSource delegate;RoleDataSource(DataSource d){delegate=d;}

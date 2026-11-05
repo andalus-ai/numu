@@ -1,7 +1,6 @@
 package tech.kayys.numou.developer.apicatalog.postgres;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiProductRepository;
 import tech.kayys.numou.developer.apicatalog.domain.*;
 import tech.kayys.numou.foundation.application.page.Page;
@@ -9,18 +8,21 @@ import tech.kayys.numou.foundation.application.page.PageRequest;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import javax.sql.DataSource;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.sql.*;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * JDBC implementation of the API catalog aggregate repository.
- * Every operation starts a transaction, installs the trusted tenant in transaction-local
- * PostgreSQL state, and also carries the tenant predicate in every statement.
+ * Operations install the trusted tenant in transaction-local PostgreSQL state and carry
+ * the tenant predicate in every statement. Calls inside UnitOfWork reuse its connection.
  */
+@ApplicationScoped
 public final class PostgresApiProductRepository implements ApiProductRepository {
- private final DataSource dataSource;
- public PostgresApiProductRepository(DataSource dataSource){this.dataSource=Objects.requireNonNull(dataSource,"dataSource cannot be null");}
+ private final ApiCatalogJdbcTransactionManager transactions;
+ @Inject public PostgresApiProductRepository(ApiCatalogJdbcTransactionManager transactions){this.transactions=Objects.requireNonNull(transactions,"transactions cannot be null");}
+ public PostgresApiProductRepository(DataSource dataSource){this(new ApiCatalogJdbcTransactionManager(dataSource));}
 
  @Override public Uni<Optional<ApiProduct>> findById(TenantId tenant,ApiProductId id){
   Objects.requireNonNull(id,"id cannot be null");
@@ -64,18 +66,7 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
 
  private <T> Uni<T> inTenant(TenantId tenant,SqlWork<T> work){
   Objects.requireNonNull(tenant,"tenant cannot be null");
-  return Uni.createFrom().item(()->{
-   try(Connection c=dataSource.getConnection()){
-    c.setAutoCommit(false);
-    c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-    try{
-     try(PreparedStatement s=c.prepareStatement("SELECT set_config('numou.tenant_id',?,true)")){
-      s.setString(1,tenant.value().toString());s.execute();
-     }
-     T result=work.apply(c);c.commit();return result;
-    }catch(Throwable e){try{c.rollback();}catch(SQLException rollback){e.addSuppressed(rollback);}throw e;}
-   }catch(SQLException e){throw new IllegalStateException("API catalog PostgreSQL operation failed",e);}
-  }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+  return transactions.withTenant(tenant,connection->work.apply(connection));
  }
 
  private static void insertProduct(Connection c,UUID tenant,ApiProduct p)throws SQLException{
@@ -168,8 +159,9 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
   }
   return Optional.of(ApiProduct.reconstitute(ApiProductId.of(id),tenant,name,slug,description,status,created,updated,revision,versions));
  }
- @FunctionalInterface private interface SqlWork<T>{T apply(Connection connection)throws Exception;}
+ @FunctionalInterface private interface SqlWork<T>{T apply(Connection connection)throws SQLException;}
  public static final class OptimisticLockException extends RuntimeException{
   public OptimisticLockException(String message){super(message);}
+  public OptimisticLockException(String message,Throwable cause){super(message,cause);}
  }
 }
