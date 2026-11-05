@@ -34,6 +34,7 @@
         <module>reliability</module>
         <module>cache</module>
         <module>plugin</module>
+        <module>runtime</module>
         <module>workflow</module>
         <module>scope</module>
         <module>planning</module>
