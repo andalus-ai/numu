@@ -15,7 +15,7 @@
 3. `GET /api/v2/auth/tenants` returns tenant IDs from Identity's existing `tenant_memberships` records, filtered to active memberships and active users, in deterministic order.
 4. `POST /api/v2/auth/tenant-exchange` accepts a selected tenant ID as a request, rechecks active membership server-side, then issues a tenant-bound human access JWT.
 5. The access JWT includes `tenant_id`, `token_use=access`, a bounded lifetime, and the compatibility claim `numou_tenant_id` while the existing identity guard still defaults to that older claim.
-6. `TenantSelectionCredentialFilter` rejects a tenant-selection JWT on every route except the exact tenant discovery and exchange endpoints.
+6. `TenantSelectionCredentialFilter` rejects a tenant-selection JWT on every JAX-RS route except the exact tenant discovery and exchange endpoints. The generic `TokenVerifierPort` adapter also rejects `token_use=tenant_selection`, preventing the Identity gRPC `resolvePrincipal` path from treating it as a business credential.
 
 ## Ownership and data
 
@@ -39,7 +39,7 @@
 - Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup.
 - Adapter integration test added: PostgreSQL query returns only active memberships for active users, sorted deterministically.
 - JWT tests: selection and access tokens have distinct `token_use`, audiences, claims, and bounded lifetimes.
-- Request-level tests: selection tokens cannot access ordinary business APIs; malformed/expired/wrong-purpose credentials are rejected.
+- Request-level tests: route allowlist unit tests cover JAX-RS restrictions; generic JWT-verifier unit tests cover rejection by the Identity token-verification/gRPC principal-resolution path. Full Quarkus request tests remain required.
 - CI must run against the exact PR head. No local build or CI success is claimed until evidence is available.
 
 ## Remaining before production enablement
