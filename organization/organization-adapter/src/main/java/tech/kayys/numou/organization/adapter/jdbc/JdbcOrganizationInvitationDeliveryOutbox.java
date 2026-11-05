@@ -29,7 +29,7 @@ public final class JdbcOrganizationInvitationDeliveryOutbox implements Organizat
                     + "encryption_format_version, encryption_key_id, vault_id, secret_id, secret_ciphertext, "
                     + "status, attempts, available_at, created_at, updated_at) "
                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, ?, ?) "
-                    + "ON CONFLICT (tenant_id, invitation_id) DO NOTHING";
+                    + "ON CONFLICT (delivery_id) DO NOTHING";
             try (Connection c = dataSource.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
                 s.setObject(1, m.deliveryId());
                 s.setObject(2, m.tenantId().value());

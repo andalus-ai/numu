@@ -186,6 +186,59 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
         assertTrue(outbox.claim(now.plusSeconds(6), now.plusSeconds(36), 10).toCompletableFuture().join().size() == 1);
     }
 
+    @Test
+    void secureResendRotatesDigestAndSupersedesOldLeasedDeliveryAtomically() throws Exception {
+        var repository = repository();
+        var tenant = TenantId.generate();
+        var now = Instant.now();
+        var invitation = OrganizationInvitation.issue(OrganizationInvitationId.generate(), tenant,
+                OrganizationId.generate(), "resend@example.com", OrganizationMembership.Role.DEVELOPER,
+                UserId.newId(), "i".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
+        var vaultId = java.util.UUID.randomUUID().toString();
+        var firstSecret = new InvitationSecretCipherPort.EncryptedSecret("TEST", 1, "key-1",
+                vaultId, invitation.getId().value().toString(), new byte[]{1});
+        var firstDelivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
+                java.util.UUID.randomUUID(), tenant, invitation.getId(), invitation.recipientEmail(), firstSecret, now);
+        repository.persist(invitation, firstDelivery, tenant).toCompletableFuture().join();
+
+        var outbox = new JdbcOrganizationInvitationDeliveryOutbox(dataSource(), Runnable::run);
+        var leased = outbox.claim(now, now.plusSeconds(60), 10).toCompletableFuture().join().get(0);
+        var rotated = repository.findByTenantAndId(tenant, invitation.getId())
+                .toCompletableFuture().join().orElseThrow();
+        int expectedVersion = rotated.getVersion();
+        Instant resentAt = now.plusSeconds(1);
+        rotated.rotate("j".repeat(64), resentAt.plus(7, ChronoUnit.DAYS), resentAt);
+        var secondSecret = new InvitationSecretCipherPort.EncryptedSecret("TEST", 1, "key-1",
+                vaultId, invitation.getId().value().toString(), new byte[]{2});
+        var secondDelivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
+                java.util.UUID.randomUUID(), tenant, invitation.getId(), invitation.recipientEmail(),
+                secondSecret, resentAt);
+
+        repository.rotateAndPersist(rotated, secondDelivery, tenant, expectedVersion, resentAt)
+                .toCompletableFuture().join();
+
+        assertEquals("j".repeat(64), repository.findByTenantAndId(tenant, invitation.getId())
+                .toCompletableFuture().join().orElseThrow().tokenHash());
+        assertFalse(outbox.markSent(leased.deliveryId(), tenant, leased.leaseToken(), resentAt)
+                .toCompletableFuture().join(), "superseded worker must lose its lease fence");
+        try (Connection c = dataSource().getConnection();
+             var s = c.prepareStatement("SELECT delivery_id, status, last_error_code FROM "
+                     + "organization_invitation_delivery_outbox WHERE tenant_id=? AND invitation_id=? "
+                     + "ORDER BY created_at, delivery_id")) {
+            s.setObject(1, tenant.value());
+            s.setObject(2, invitation.getId().value());
+            try (var rs = s.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(leased.deliveryId(), rs.getObject("delivery_id", java.util.UUID.class));
+                assertEquals("DEAD", rs.getString("status"));
+                assertEquals("SUPERSEDED_BY_RESEND", rs.getString("last_error_code"));
+                assertTrue(rs.next());
+                assertEquals(secondDelivery.deliveryId(), rs.getObject("delivery_id", java.util.UUID.class));
+                assertEquals("PENDING", rs.getString("status"));
+            }
+        }
+    }
+
     private JdbcOrganizationInvitationRepository repository() throws Exception {
         DataSource source = dataSource();
         try (Connection connection = source.getConnection(); Statement statement = connection.createStatement()) {
@@ -206,6 +259,11 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
                     .getResourceAsStream("db/migration/V5__organization_invitation_delivery_outbox.sql")) {
                 assertNotNull(outboxMigration);
                 statement.execute(new String(outboxMigration.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            try (InputStream resendMigration = getClass().getClassLoader()
+                    .getResourceAsStream("db/migration/V6__organization_invitation_delivery_resend.sql")) {
+                assertNotNull(resendMigration);
+                statement.execute(new String(resendMigration.readAllBytes(), StandardCharsets.UTF_8));
             }
         }
         return new JdbcOrganizationInvitationRepository(source, Runnable::run);
