@@ -48,6 +48,7 @@ public final class AdvertisingAdServingService {
             .sorted(Comparator.comparing((AdServingCandidate c)->c.campaign().createdAt())
               .thenComparing(c->c.campaign().id().value())
               .thenComparing(c->c.creative().id().value()))
+            .limit(MAX_CANDIDATES_PER_DECISION)
             .toList();
           if(eligible.isEmpty()) return noFill(request,inventory,AdDecisionReason.NO_ELIGIBLE_CANDIDATE,now);
           AdServingCandidate selected=eligible.get(0);
