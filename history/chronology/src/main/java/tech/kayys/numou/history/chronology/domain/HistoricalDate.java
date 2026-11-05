@@ -20,6 +20,9 @@ public record HistoricalDate(
         String originalExpression) {
 
     public HistoricalDate {
+        if (astronomicalYear == Long.MIN_VALUE) {
+            throw new IllegalArgumentException("Astronomical year is outside the supported display range");
+        }
         Objects.requireNonNull(precision, "Date precision is required");
         Objects.requireNonNull(calendarSystem, "Calendar system is required");
         originalExpression = originalExpression == null ? "" : originalExpression.trim();
@@ -77,6 +80,6 @@ public record HistoricalDate(
 
     /** Converts astronomical numbering to a human-facing BCE/CE year; no year zero is displayed. */
     public long displayedYearOfEra() {
-        return astronomicalYear <= 0 ? 1L - astronomicalYear : astronomicalYear;
+        return astronomicalYear <= 0 ? Math.subtractExact(1L, astronomicalYear) : astronomicalYear;
     }
 }
