@@ -21,7 +21,7 @@ class DocumentStorageApiSpecificationArtifactStoreTest {
         CapturingStorage storage = new CapturingStorage();
         var adapter = new DocumentStorageApiSpecificationArtifactStore(storage);
         var tenant = TenantId.generate();
-        byte[] bytes = "{\\"openapi\\":\\"3.1.0\\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] bytes = "openapi: 3.1.0\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String digest;
         try {
             digest = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
