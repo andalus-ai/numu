@@ -20,9 +20,9 @@ class HistoricalRelationshipTest {
         var subject = HistoricalEntityReference.person(HistoricalPersonId.generate());
         var object = HistoricalEntityReference.collective(HistoricalCollectiveId.generate());
         var range = new HistoricalDateRange(HistoricalDate.year(1000, CalendarSystemId.of("julian")),
-                HistoricalDate.year(1100, CalendarSystemId.JULIAN));
+                HistoricalDate.year(1100, CalendarSystemId.of("julian")));
         var relation = HistoricalRelationship.create(subject, object,
-                HistoricalRelationshipKindCode.of("member-of"), range, "Member of court", now, vocabulary);
+                HistoricalRelationshipKindCode.of("founded"), range, "Founded by historical figure", now, vocabulary);
         assertEquals(subject, relation.subject());
         assertEquals(object, relation.object());
         assertEquals(range, relation.validDuring());
