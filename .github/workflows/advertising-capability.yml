@@ -1,0 +1,55 @@
+name: Advertising Capability Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "advertising/**"
+      - "core/framework/pom.xml"
+      - "core/framework/foundation/**"
+      - "core/framework/cache/**"
+      - "core/framework/observability/**"
+      - "core/framework/ecosystem/**"
+      - "identity/**"
+      - "security/**"
+      - ".github/workflows/advertising-capability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  advertising:
+    name: Advertising domain, application, PostgreSQL and host integration
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation contracts
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Build and install cache contracts required by Security
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
+      - name: Build and install observability contracts required by Security
+        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install Ecosystem Party lookup contract
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Security authorization contracts
+        run: mvn -B -ntp -f security/pom.xml install
+      - name: Build and install Identity application contracts
+        run: mvn -B -ntp -f identity/pom.xml -pl numou-identity-domain,numou-identity-application -am install
+      - name: Verify Advertising capability
+        run: mvn -B -ntp -f advertising/pom.xml verify
+      - name: Upload Advertising Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: advertising-maven-test-reports
+          path: "advertising/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
