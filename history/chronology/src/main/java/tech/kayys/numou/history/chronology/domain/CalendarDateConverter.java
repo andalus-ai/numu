@@ -4,8 +4,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 /**
- * Port implemented by calendar adapters to map historical dates onto the
- * chronology engine's absolute-day axis. Implementations must validate dates
+ * Port implemented by calendar adapters to map historical dates to and from
+ * the chronology engine's absolute-day axis. Implementations validate dates
  * according to their own calendar rules.
  */
 public interface CalendarDateConverter {
@@ -13,6 +13,9 @@ public interface CalendarDateConverter {
 
     /** Exact day conversion; partial dates return empty. */
     OptionalLong toAbsoluteDay(HistoricalDate date);
+
+    /** Converts an absolute day to an exact date in this calendar. */
+    HistoricalDate fromAbsoluteDay(long absoluteDay);
 
     /**
      * Inclusive absolute-day bounds for the precision supplied by the date.
