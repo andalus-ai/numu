@@ -86,6 +86,7 @@ class AdvertisingCampaignServiceTest {
     public CompletionStage<Creative> saveCreative(Creative c){creatives.put(key(c.tenantId(),c.id()),c);return CompletableFuture.completedFuture(c);}
     public CompletionStage<Optional<Creative>> findCreative(TenantId t,CreativeId id){return CompletableFuture.completedFuture(Optional.ofNullable(creatives.get(key(t,id))));}
     public CompletionStage<CampaignCreativeAssignment> assignCreative(CampaignCreativeAssignment a){assignments.computeIfAbsent(key(a.tenantId(),a.campaignId()),k->new ArrayList<>()).add(a.creativeId());return CompletableFuture.completedFuture(a);}
+    public CompletionStage<CampaignPlacementTarget> assignPlacement(CampaignPlacementTarget target){return CompletableFuture.completedFuture(target);}
     public CompletionStage<List<Creative>> findAssignedCreatives(TenantId t,CampaignId id){return CompletableFuture.completedFuture(assignments.getOrDefault(key(t,id),List.of()).stream().map(cid->creatives.get(key(t,cid))).toList());}
   }
 }
