@@ -2,8 +2,6 @@ package tech.kayys.numou.applicationplatform.application.installation;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOutboxStore.ClaimedEvent;
-import tech.kayys.numou.applicationplatform.domain.installation.ApplicationId;
-import tech.kayys.numou.applicationplatform.domain.installation.PackageVersion;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
@@ -40,8 +38,8 @@ class ApplicationHostLifecycleDispatcherTest {
                 (id, version) -> CompletableFuture.completedFuture(Optional.of(
                         new ValidatedApplicationPackage(
                                 new tech.kayys.numou.plugin.application.manifest.ApplicationManifest(
-                                        APP, VERSION, "Inventory", "Inventory app", java.util.List.of(),
-                                        java.util.List.of()), DIGEST))),
+                                        APP, VERSION, "test-publisher", "Inventory", java.util.List.of(),
+                                        java.util.List.of(), java.util.Set.of(), java.util.List.of()), DIGEST))),
                 host);
 
         assertThat(dispatcher.dispatch(TENANT, event("ENABLED")).toCompletableFuture().join())
