@@ -35,7 +35,7 @@ class ApplicationCompositionServiceTest {
                 .containsExactly("party-provider", "accounting-provider");
         assertThat(composition.resolutionReport().dependencyEdges())
                 .extracting(CapabilityResolutionEdge::targetCapability)
-                .containsExactly("numou.documents", "numou.accounting", "numou.party");
+                .containsExactly("numou.accounting", "numou.documents", "numou.party");
         assertThat(composition.resolutionReport().unavailableOptionalCapabilities())
                 .containsExactly("numou.documents");
     }
