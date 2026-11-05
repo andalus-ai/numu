@@ -42,7 +42,7 @@ public class ApiCatalogResource {
 
     public record AddVersionRequest(
             @NotBlank @Pattern(regexp = "[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?") String version,
-            @NotBlank @Pattern(regexp = "3\\.0\\.[0-9]+|3\\.1\\.[0-9]+") String openApiVersion,
+            @NotBlank @Pattern(regexp = "3\\.0|3\\.1") String openApiVersion,
             @NotBlank @Size(max = 1024) String artifactReference,
             @NotBlank @Pattern(regexp = "[a-fA-F0-9]{64}") String sha256,
             @Size(max = 100) List<@Valid ScopeRequest> scopes) {
