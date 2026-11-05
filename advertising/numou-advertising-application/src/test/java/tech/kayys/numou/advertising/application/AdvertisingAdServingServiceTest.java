@@ -72,6 +72,8 @@ class AdvertisingAdServingServiceTest {
       URI.create("javascript:alert(1)"),"IMAGE"));
     assertThrows(IllegalArgumentException.class,()->new AdServingRequest(TENANT,AdPlacementId.generate(),
       URI.create("https://publisher.example"),"bad format"));
+    assertThrows(IllegalArgumentException.class,()->new AdServingRequest(TENANT,AdPlacementId.generate(),
+      URI.create("https://trusted@publisher.example/page"),"IMAGE"));
   }
 
   private static final class Fixture {
