@@ -51,6 +51,25 @@ public final class HistoricalChronology {
         return Optional.of(TemporalRelation.OVERLAPS);
     }
 
+    /**
+     * Converts an exact date to another registered calendar. Partial dates
+     * return empty because a single target-calendar date cannot represent
+     * their interval without changing precision semantics.
+     */
+    public Optional<HistoricalDate> convert(HistoricalDate source, CalendarSystemId targetCalendar) {
+        Objects.requireNonNull(source, "Source date is required");
+        Objects.requireNonNull(targetCalendar, "Target calendar is required");
+        CalendarDateConverter sourceConverter = converters.get(source.calendarSystem());
+        CalendarDateConverter targetConverter = converters.get(targetCalendar);
+        if (sourceConverter == null || targetConverter == null) return Optional.empty();
+        if (source.calendarSystem().equals(targetCalendar)) return Optional.of(source);
+        Optional<java.util.OptionalLong> absoluteDay = Optional.of(sourceConverter.toAbsoluteDay(source));
+        if (absoluteDay.orElseThrow().isEmpty()) return Optional.empty();
+        HistoricalDate converted = targetConverter.fromAbsoluteDay(absoluteDay.orElseThrow().getAsLong());
+        if (!source.approximate()) return Optional.of(converted);
+        return Optional.of(converted.asApproximate(""));
+    }
+
     public Optional<AbsoluteDayRange> bounds(HistoricalDate date) {
         Objects.requireNonNull(date, "Date is required");
         CalendarDateConverter converter = converters.get(date.calendarSystem());
