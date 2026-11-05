@@ -144,11 +144,15 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
         if (status != BillingStatus.ACTIVE) {
             throw new IllegalStateException("Cannot retry billing in status: " + status);
         }
-        BillingCycle cycle = (cycleNumber != null ? billingCycles.stream()
-                .filter(c -> c.cycleNumber == cycleNumber) : billingCycles.stream()
-                .filter(c -> c.status == BillingCycleStatus.FAILED).reduce((first, second) -> second))
-            .orElseThrow(() -> new IllegalStateException(cycleNumber != null
-                ? "Cycle not found: " + cycleNumber : "No failed billing cycle to retry"));
+        BillingCycle cycle;
+        if (cycleNumber != null) {
+            cycle = billingCycles.stream().filter(c -> c.cycleNumber == cycleNumber).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Cycle not found: " + cycleNumber));
+        } else {
+            cycle = billingCycles.stream().filter(c -> c.status == BillingCycleStatus.FAILED)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new IllegalStateException("No failed billing cycle to retry"));
+        }
         if (cycle.status != BillingCycleStatus.FAILED) {
             throw new IllegalStateException("Only a failed cycle can be retried; cycle " + cycle.cycleNumber
                 + " is " + cycle.status);
