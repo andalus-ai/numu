@@ -57,6 +57,8 @@ class PostgresAdvertisingAdServingStoreTest {
 
     List<AdServingCandidate> candidates=serving.findEligibleCandidates(tenant,placement.id(),"IMAGE",now).toCompletableFuture().join();
     assertEquals(1,candidates.size());
+    assertTrue(serving.findEligibleCandidates(new TenantId("tenant-other"),placement.id(),"IMAGE",now)
+      .toCompletableFuture().join().isEmpty());
     assertEquals(targeted.creative.id(),candidates.get(0).creative().id());
     assertNotEquals(notTargeted.creative.id(),candidates.get(0).creative().id());
 
@@ -91,8 +93,12 @@ class PostgresAdvertisingAdServingStoreTest {
     campaigns.saveCreative(creative).toCompletableFuture().join();
     campaigns.assignCreative(new CampaignCreativeAssignment(tenant,advertiser.id(),campaign.id(),creative.id(),now))
       .toCompletableFuture().join();
-    if(target)campaigns.assignPlacement(new CampaignPlacementTarget(tenant,advertiser.id(),campaign.id(),placement.id(),now))
-      .toCompletableFuture().join();
+    if(target) {
+      campaigns.assignPlacement(new CampaignPlacementTarget(tenant,advertiser.id(),campaign.id(),placement.id(),now))
+        .toCompletableFuture().join();
+      assertThrows(RuntimeException.class,()->campaigns.assignPlacement(new CampaignPlacementTarget(
+        new TenantId("tenant-other"),advertiser.id(),campaign.id(),placement.id(),now)).toCompletableFuture().join());
+    }
     return new AdServingCandidateData(campaign,creative);
   }
 
