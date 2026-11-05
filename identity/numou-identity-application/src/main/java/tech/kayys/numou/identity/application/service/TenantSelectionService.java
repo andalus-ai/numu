@@ -15,7 +15,6 @@ import java.util.UUID;
 
 /** Tenant discovery and exchange for a verified, authenticated human user. */
 public class TenantSelectionService {
-    private static final long SELECTION_TOKEN_LIFETIME_SECONDS = 300;
     private static final long ACCESS_TOKEN_LIFETIME_SECONDS = 900;
 
     private final TenantDiscoveryPort discovery;
@@ -34,14 +33,6 @@ public class TenantSelectionService {
             return failure("AUTHENTICATION_REQUIRED", "Authenticated user is required");
         }
         return discovery.activeTenantIds(UserId.of(principalId));
-    }
-
-    public Uni<AccessTokenResponse> issueSelectionCredential(UUID principalId, String displayName) {
-        if (principalId == null || displayName == null || displayName.isBlank()) {
-            return failure("INVALID_PRINCIPAL", "Authenticated user profile is incomplete");
-        }
-        String token = tokenIssuer.issueTenantSelectionToken(principalId, displayName);
-        return Uni.createFrom().item(AccessTokenResponse.bearer(token, SELECTION_TOKEN_LIFETIME_SECONDS));
     }
 
     public Uni<AccessTokenResponse> exchange(UUID principalId, String displayName, UUID requestedTenantId) {
