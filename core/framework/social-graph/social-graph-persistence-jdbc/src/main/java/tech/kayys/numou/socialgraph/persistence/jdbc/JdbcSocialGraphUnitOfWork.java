@@ -26,10 +26,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Map;
-import java.util.TreeMap;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -116,7 +112,7 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
         public void insertRelationship(SocialRelationship relationship) {
             String sql = "INSERT INTO sg_relationship (tenant_id, relationship_id, relationship_type, "
                     + "source_party_id, target_party_id, status, created_at, updated_at, valid_from, valid_until, "
-                    + "removed_at, provenance, metadata_blob, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + "removed_at, provenance, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setObject(1, relationship.tenantId().value());
                 ps.setObject(2, relationship.id().value());
@@ -130,9 +126,9 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
                 ps.setTimestamp(10, relationship.validUntil() == null ? null : Timestamp.from(relationship.validUntil()));
                 ps.setTimestamp(11, relationship.removedAt() == null ? null : Timestamp.from(relationship.removedAt()));
                 ps.setString(12, relationship.provenance());
-                ps.setString(13, encodeMetadata(relationship.metadata()));
-                ps.setInt(14, relationship.version());
+                ps.setInt(13, relationship.version());
                 ps.executeUpdate();
+                saveRelationshipMetadata(relationship);
             } catch (SQLException e) {
                 if ("23505".equals(e.getSQLState())) {
                     throw new IllegalStateException("An active relationship of this type already exists for this Party pair", e);
@@ -144,7 +140,7 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
         @Override
         public void updateRelationship(SocialRelationship relationship, int expectedVersion) {
             String sql = "UPDATE sg_relationship SET status = ?, updated_at = ?, valid_from = ?, valid_until = ?, "
-                    + "removed_at = ?, provenance = ?, metadata_blob = ?, version = ? "
+                    + "removed_at = ?, provenance = ?, version = ? "
                     + "WHERE tenant_id = ? AND relationship_id = ? AND version = ?";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setString(1, relationship.status().name());
@@ -153,14 +149,14 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
                 ps.setTimestamp(4, relationship.validUntil() == null ? null : Timestamp.from(relationship.validUntil()));
                 ps.setTimestamp(5, relationship.removedAt() == null ? null : Timestamp.from(relationship.removedAt()));
                 ps.setString(6, relationship.provenance());
-                ps.setString(7, encodeMetadata(relationship.metadata()));
-                ps.setInt(8, relationship.version());
-                ps.setObject(9, relationship.tenantId().value());
-                ps.setObject(10, relationship.id().value());
-                ps.setInt(11, expectedVersion);
+                ps.setInt(7, relationship.version());
+                ps.setObject(8, relationship.tenantId().value());
+                ps.setObject(9, relationship.id().value());
+                ps.setInt(10, expectedVersion);
                 if (ps.executeUpdate() != 1) {
                     throw new SocialGraphOptimisticConflictException("Social relationship changed concurrently");
                 }
+                replaceRelationshipMetadata(relationship);
             } catch (SQLException e) {
                 if ("23505".equals(e.getSQLState())) {
                     throw new IllegalStateException("An active relationship of this type already exists for this Party pair", e);
@@ -169,7 +165,7 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
             }
         }
 
-        private static SocialRelationship readRelationship(ResultSet rs) throws SQLException {
+        private SocialRelationship readRelationship(ResultSet rs) throws SQLException {
             Timestamp validUntil = rs.getTimestamp("valid_until");
             Timestamp removedAt = rs.getTimestamp("removed_at");
             return SocialRelationship.rehydrate(
@@ -185,33 +181,48 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
                     validUntil == null ? null : validUntil.toInstant(),
                     removedAt == null ? null : removedAt.toInstant(),
                     rs.getString("provenance"),
-                    decodeMetadata(rs.getString("metadata_blob")),
+                    loadRelationshipMetadata(
+                            TenantId.of(rs.getObject("tenant_id", UUID.class)),
+                            SocialRelationshipId.of(rs.getObject("relationship_id", UUID.class))),
                     rs.getInt("version"));
         }
 
-        // Stable, delimiter-safe encoding keeps the JDBC adapter dependency-free.
-        private static String encodeMetadata(Map<String, String> metadata) {
-            Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-            StringBuilder encoded = new StringBuilder();
-            new TreeMap<>(metadata).forEach((key, value) -> encoded
-                    .append(encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)))
-                    .append(':')
-                    .append(encoder.encodeToString(value.getBytes(StandardCharsets.UTF_8)))
-                    .append('\\n'));
-            return encoded.toString();
+        private void saveRelationshipMetadata(SocialRelationship relationship) throws SQLException {
+            String sql = "INSERT INTO sg_relationship_metadata "
+                    + "(tenant_id, relationship_id, metadata_key, metadata_value) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                for (var entry : relationship.metadata().entrySet()) {
+                    ps.setObject(1, relationship.tenantId().value());
+                    ps.setObject(2, relationship.id().value());
+                    ps.setString(3, entry.getKey());
+                    ps.setString(4, entry.getValue());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
         }
 
-        private static Map<String, String> decodeMetadata(String encoded) {
-            Map<String, String> metadata = new TreeMap<>();
-            if (encoded == null || encoded.isEmpty()) return Map.of();
-            Base64.Decoder decoder = Base64.getUrlDecoder();
-            for (String line : encoded.split("\\n")) {
-                if (line.isEmpty()) continue;
-                int separator = line.indexOf(':');
-                if (separator < 1) throw new IllegalStateException("Corrupt social relationship metadata");
-                String key = new String(decoder.decode(line.substring(0, separator)), StandardCharsets.UTF_8);
-                String value = new String(decoder.decode(line.substring(separator + 1)), StandardCharsets.UTF_8);
-                metadata.put(key, value);
+        private void replaceRelationshipMetadata(SocialRelationship relationship) throws SQLException {
+            try (PreparedStatement delete = connection.prepareStatement(
+                    "DELETE FROM sg_relationship_metadata WHERE tenant_id = ? AND relationship_id = ?")) {
+                delete.setObject(1, relationship.tenantId().value());
+                delete.setObject(2, relationship.id().value());
+                delete.executeUpdate();
+            }
+            saveRelationshipMetadata(relationship);
+        }
+
+        private Map<String, String> loadRelationshipMetadata(TenantId tenantId, SocialRelationshipId id)
+                throws SQLException {
+            Map<String, String> metadata = new java.util.TreeMap<>();
+            String sql = "SELECT metadata_key, metadata_value FROM sg_relationship_metadata "
+                    + "WHERE tenant_id = ? AND relationship_id = ? ORDER BY metadata_key";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, tenantId.value());
+                ps.setObject(2, id.value());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) metadata.put(rs.getString(1), rs.getString(2));
+                }
             }
             return Map.copyOf(metadata);
         }
