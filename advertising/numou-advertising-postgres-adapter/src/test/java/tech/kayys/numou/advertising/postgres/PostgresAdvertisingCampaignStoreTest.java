@@ -71,6 +71,15 @@ class PostgresAdvertisingCampaignStoreTest {
 
     var crossTenant=new CampaignCreativeAssignment(tenantB,advertiser.id(),campaign.id(),creative.id(),now);
     assertThrows(RuntimeException.class,()->campaignStore.assignCreative(crossTenant).toCompletableFuture().join());
+
+    var otherAdvertiser=AdvertiserAccount.register(AdvertisingAccountId.generate(),tenantA,
+      new PartyReference("advertiser-other"),"Other advertiser",now);
+    accountStore.saveAdvertiser(otherAdvertiser).toCompletableFuture().join();
+    var otherCreative=Creative.draft(CreativeId.generate(),tenantA,otherAdvertiser.id(),"Other creative",CreativeFormat.TEXT,
+      "Headline","Body",java.net.URI.create("https://other.example"),null,now);
+    campaignStore.saveCreative(otherCreative).toCompletableFuture().join();
+    var crossAdvertiser=new CampaignCreativeAssignment(tenantA,advertiser.id(),campaign.id(),otherCreative.id(),now);
+    assertThrows(RuntimeException.class,()->campaignStore.assignCreative(crossAdvertiser).toCompletableFuture().join());
   }
 
   private static void apply(DataSource ds,String resource) throws Exception {
