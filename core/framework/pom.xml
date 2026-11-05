@@ -45,6 +45,7 @@
         <module>../../identity</module>
         <module>../../documents</module>
         <module>../../advertising</module>
+        <module>../../attendee</module>
 
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
