@@ -6,6 +6,9 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.spi.SocialGraphUnitOfWork;
+
+import java.time.Clock;
 
 import java.util.Objects;
 import java.util.function.Function;
@@ -30,6 +33,21 @@ import java.util.function.Function;
 public final class SocialGraphCommandFacade {
     private final SocialGraphActorResolver actorResolver;
     private final SocialGraphService service;
+
+    /**
+     * Creates the application facade while keeping the command service package-private.
+     * Infrastructure hosts compose through this factory rather than depending on
+     * the service implementation or weakening its visibility.
+     */
+    public static SocialGraphCommandFacade compose(
+            SocialGraphUnitOfWork unitOfWork,
+            PartyDirectoryPort parties,
+            SocialGraphAuthorizationPort authorization,
+            SocialGraphActorResolver actorResolver,
+            Clock clock) {
+        SocialGraphService service = new SocialGraphService(unitOfWork, parties, authorization, clock);
+        return new SocialGraphCommandFacade(actorResolver, service);
+    }
 
     public SocialGraphCommandFacade(SocialGraphActorResolver actorResolver, SocialGraphService service) {
         this.actorResolver = Objects.requireNonNull(actorResolver, "actorResolver cannot be null");
