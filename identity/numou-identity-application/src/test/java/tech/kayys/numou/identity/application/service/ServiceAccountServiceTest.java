@@ -140,9 +140,10 @@ class ServiceAccountServiceTest {
 
         @Override
         public Uni<List<ServiceAccount>> findAll(TenantId tenantId) {
-            return Uni.createFrom().item(store.values().stream()
+            List<ServiceAccount> tenantAccounts = store.values().stream()
                     .filter(sa -> tenantId.equals(sa.tenantId()))
-                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new)));
+                    .toList();
+            return Uni.createFrom().item(tenantAccounts);
         }
     }
 }
