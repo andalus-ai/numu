@@ -68,7 +68,7 @@ Tables:
 - `advertising_campaign_placement`: explicit tenant/advertiser/campaign/placement targeting, uniqueness and foreign keys.
 - `advertising_ad_decision`: append-only serving outcome audit for fills and no-fills.
 
-Indexes support placement-target candidate lookup and tenant/placement/time decision retrieval. Unknown placement identifiers are retained in no-fill decisions without a placement foreign key because the request may intentionally reference an unknown ID; all resolved property/campaign/creative references remain tenant-scoped and foreign-key constrained.
+Indexes support placement-target candidate lookup and tenant/placement/time decision retrieval. Unknown placement identifiers are retained in no-fill decisions without a placement foreign key because the request may intentionally reference an unknown ID. Filled decisions carry the advertiser reference and use composite foreign keys to prove that campaign, creative and placement-target ownership all match; resolved property references remain tenant-scoped and foreign-key constrained.
 
 The serving adapter uses a single joined candidate query with database-side status/time/format predicates and deterministic ordering. It rechecks placement, property and publisher eligibility in the query to reduce races between inventory lookup and candidate retrieval.
 
@@ -80,9 +80,10 @@ Application tests cover:
 - deterministic candidate selection;
 - campaign schedule-window and creative approval eligibility;
 - placement/property/publisher eligibility;
-- property-origin and format mismatch no-fills;
+- property-origin, format mismatch and credential-bearing URI rejection;
 - unknown placement no-fill;
-- durable-decision contract invocation.
+- durable-decision contract invocation;
+- cross-tenant candidate and campaign-target rejection.
 
 Campaign application tests cover explicit placement targeting and rejection of unverified publisher inventory.
 
