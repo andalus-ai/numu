@@ -31,6 +31,7 @@ Advertising is a standalone business capability, not a child of Commerce Promoti
 ## Initial verification tests added
 
 - Domain lifecycle and URI/placement validation tests.
+- Application tests for denied authorization, active-publisher requirements, property verification, and placement enablement.
 - PostgreSQL Testcontainers tests for tenant-isolated reads, stale-version rejection, tenant-scoped uniqueness, cross-tenant foreign-key rejection, and duplicate placement codes.
 
 **Verification caveat:** These tests have been added to the repository, but no Maven build or Testcontainers execution has been run from this environment. Do not interpret committed tests as passing CI.
