@@ -10,12 +10,12 @@ CREATE TABLE advertising_campaign (
     created_at TIMESTAMPTZ NOT NULL,
     version BIGINT NOT NULL DEFAULT 0 CHECK (version >= 0),
     PRIMARY KEY (tenant_id, campaign_id),
+    CONSTRAINT uq_advertising_campaign_owner UNIQUE (tenant_id,campaign_id,advertiser_account_id),
     CONSTRAINT fk_advertising_campaign_advertiser
       FOREIGN KEY (tenant_id, advertiser_account_id)
       REFERENCES advertising_advertiser_account (tenant_id, account_id) ON DELETE RESTRICT,
     CONSTRAINT ck_advertising_campaign_window CHECK (ends_at IS NULL OR ends_at > starts_at)
 );
-
 CREATE INDEX ix_advertising_campaign_tenant_advertiser_status
     ON advertising_campaign (tenant_id, advertiser_account_id, campaign_status, starts_at);
 
@@ -34,30 +34,28 @@ CREATE TABLE advertising_creative (
     created_at TIMESTAMPTZ NOT NULL,
     version BIGINT NOT NULL DEFAULT 0 CHECK (version >= 0),
     PRIMARY KEY (tenant_id, creative_id),
+    CONSTRAINT uq_advertising_creative_owner UNIQUE (tenant_id,creative_id,advertiser_account_id),
     CONSTRAINT fk_advertising_creative_advertiser
       FOREIGN KEY (tenant_id, advertiser_account_id)
       REFERENCES advertising_advertiser_account (tenant_id, account_id) ON DELETE RESTRICT,
-    CONSTRAINT ck_advertising_creative_asset CHECK (
-      creative_format = 'TEXT' OR document_reference IS NOT NULL
-    )
+    CONSTRAINT ck_advertising_creative_asset CHECK (creative_format = 'TEXT' OR document_reference IS NOT NULL)
 );
-
 CREATE INDEX ix_advertising_creative_tenant_advertiser_status
     ON advertising_creative (tenant_id, advertiser_account_id, creative_status, created_at);
 
 CREATE TABLE advertising_campaign_creative (
     tenant_id VARCHAR(200) NOT NULL,
+    advertiser_account_id UUID NOT NULL,
     campaign_id UUID NOT NULL,
     creative_id UUID NOT NULL,
     assigned_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (tenant_id, campaign_id, creative_id),
     CONSTRAINT fk_advertising_campaign_creative_campaign
-      FOREIGN KEY (tenant_id, campaign_id)
-      REFERENCES advertising_campaign (tenant_id, campaign_id) ON DELETE RESTRICT,
+      FOREIGN KEY (tenant_id,campaign_id,advertiser_account_id)
+      REFERENCES advertising_campaign (tenant_id,campaign_id,advertiser_account_id) ON DELETE RESTRICT,
     CONSTRAINT fk_advertising_campaign_creative_creative
-      FOREIGN KEY (tenant_id, creative_id)
-      REFERENCES advertising_creative (tenant_id, creative_id) ON DELETE RESTRICT
+      FOREIGN KEY (tenant_id,creative_id,advertiser_account_id)
+      REFERENCES advertising_creative (tenant_id,creative_id,advertiser_account_id) ON DELETE RESTRICT
 );
-
 CREATE INDEX ix_advertising_campaign_creative_by_creative
     ON advertising_campaign_creative (tenant_id, creative_id, campaign_id);
