@@ -68,6 +68,9 @@ public final class ApplicationRuntimeBootstrap implements AutoCloseable {
         if (shutdownHook != null) {
             return;
         }
+        if (readiness == RuntimeReadiness.STOPPED) {
+            throw new IllegalStateException("Cannot install a shutdown hook after the runtime has stopped");
+        }
         shutdownHook = new Thread(this::close, "numou-runtime-shutdown-" + configuration.applicationId());
         Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
@@ -78,8 +81,7 @@ public final class ApplicationRuntimeBootstrap implements AutoCloseable {
         boolean ready = readiness == RuntimeReadiness.READY;
         return new RuntimeHealthSnapshot(configuration.applicationId(), configuration.profile(),
                 readiness, live, ready, active, host.unavailableOptionalCapabilities(),
-                Instant.now(), failure == null ? null : failure.getClass().getSimpleName()
-                        + ": " + failure.getMessage());
+                Instant.now(), failure == null ? null : failure.getClass().getSimpleName());
     }
 
     public synchronized void close() {
@@ -88,6 +90,7 @@ public final class ApplicationRuntimeBootstrap implements AutoCloseable {
         }
         if (readiness == RuntimeReadiness.STARTING && host.state() == ApplicationRuntimeState.NEW) {
             readiness = RuntimeReadiness.STOPPED;
+            removeShutdownHook();
             return;
         }
         readiness = RuntimeReadiness.STOPPING;
