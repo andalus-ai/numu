@@ -9,13 +9,16 @@ public final class ApplicationCapabilityResolver {
         Objects.requireNonNull(manifest, "Application manifest is required");
         Objects.requireNonNull(available, "Provider collection is required");
         Map<String, List<CapabilityProvider>> index = new TreeMap<>();
+        List<CapabilityProvider> providerCatalog = new ArrayList<>(available.size());
         Set<String> providerIds = new HashSet<>();
         for (CapabilityProvider provider : available) {
             if (!providerIds.add(provider.providerId()))
                 throw new CapabilityResolutionException("Duplicate provider ID: " + provider.providerId());
             validateProviderVersion(provider);
+            providerCatalog.add(provider);
             index.computeIfAbsent(provider.capabilityId(), ignored -> new ArrayList<>()).add(provider);
         }
+        validateProviderDependencies(providerCatalog);
         index.values().forEach(list -> list.sort(Comparator.comparing(CapabilityProvider::providerId)));
 
         Map<String, CapabilityProvider> selected = new TreeMap<>();
@@ -32,6 +35,31 @@ public final class ApplicationCapabilityResolver {
             visit(capability, selected, index, state, path, order);
         unavailable.sort(String::compareTo);
         return new CapabilityResolution(selected, order, unavailable);
+    }
+
+    private static void validateProviderDependencies(Collection<CapabilityProvider> providers) {
+        List<String> diagnostics = new ArrayList<>();
+        providers.stream().sorted(Comparator.comparing(CapabilityProvider::providerId)).forEach(provider -> {
+            Map<String, List<String>> rangesByCapability = new TreeMap<>();
+            provider.dependencies().forEach(dependency -> rangesByCapability
+                    .computeIfAbsent(dependency.id(), ignored -> new ArrayList<>())
+                    .add(dependency.contractRange()));
+            rangesByCapability.forEach((capabilityId, ranges) -> {
+                if (ranges.size() > 1) {
+                    TreeSet<String> distinctRanges = new TreeSet<>(ranges);
+                    if (distinctRanges.size() > 1) {
+                        diagnostics.add("Provider " + provider.providerId()
+                                + " declares conflicting dependency ranges for " + capabilityId
+                                + ": " + String.join(", ", distinctRanges));
+                    } else {
+                        diagnostics.add("Provider " + provider.providerId()
+                                + " declares duplicate dependency " + capabilityId
+                                + " with range " + ranges.get(0));
+                    }
+                }
+            });
+        });
+        if (!diagnostics.isEmpty()) throw new CapabilityResolutionException(diagnostics);
     }
 
     private static void validateProviderVersion(CapabilityProvider provider) {
