@@ -31,8 +31,10 @@ public record HistoricalCollective(
         Objects.requireNonNull(id, "Collective ID is required");
         primaryName = requireText(primaryName, "Primary name", 240);
         alternativeNames = normalizeNames(alternativeNames);
-        if (alternativeNames.stream().anyMatch(name -> name.equalsIgnoreCase(primaryName))) {
-            throw new IllegalArgumentException("Alternative names must not duplicate the primary name");
+        for (String alternativeName : alternativeNames) {
+            if (alternativeName.equalsIgnoreCase(primaryName)) {
+                throw new IllegalArgumentException("Alternative names must not duplicate the primary name");
+            }
         }
         Objects.requireNonNull(kind, "Collective kind is required");
         if (id.equals(parentCollectiveId)) throw new IllegalArgumentException("A collective cannot be its own parent");
