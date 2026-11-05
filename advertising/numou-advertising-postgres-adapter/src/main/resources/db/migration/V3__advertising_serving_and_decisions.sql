@@ -15,6 +15,9 @@ CREATE TABLE advertising_campaign_placement (
 CREATE INDEX ix_advertising_campaign_placement_by_inventory
     ON advertising_campaign_placement (tenant_id,placement_id,campaign_id);
 
+ALTER TABLE advertising_ad_placement
+  ADD CONSTRAINT uq_advertising_placement_property UNIQUE (tenant_id,placement_id,property_id);
+
 CREATE TABLE advertising_ad_decision (
     tenant_id VARCHAR(200) NOT NULL,
     decision_id UUID NOT NULL,
@@ -34,6 +37,9 @@ CREATE TABLE advertising_ad_decision (
     CONSTRAINT fk_advertising_decision_property
       FOREIGN KEY (tenant_id,property_id)
       REFERENCES advertising_publisher_property (tenant_id,property_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_advertising_decision_placement_property
+      FOREIGN KEY (tenant_id,placement_id,property_id)
+      REFERENCES advertising_ad_placement (tenant_id,placement_id,property_id) ON DELETE RESTRICT,
     CONSTRAINT fk_advertising_decision_campaign_owner
       FOREIGN KEY (tenant_id,campaign_id,advertiser_account_id)
       REFERENCES advertising_campaign (tenant_id,campaign_id,advertiser_account_id) ON DELETE RESTRICT,
@@ -43,6 +49,9 @@ CREATE TABLE advertising_ad_decision (
     CONSTRAINT fk_advertising_decision_campaign_placement
       FOREIGN KEY (tenant_id,campaign_id,placement_id)
       REFERENCES advertising_campaign_placement (tenant_id,campaign_id,placement_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_advertising_decision_campaign_creative
+      FOREIGN KEY (tenant_id,campaign_id,creative_id)
+      REFERENCES advertising_campaign_creative (tenant_id,campaign_id,creative_id) ON DELETE RESTRICT,
     CONSTRAINT ck_advertising_decision_outcome CHECK (
       (decision_status='FILLED' AND placement_id IS NOT NULL AND property_id IS NOT NULL
         AND campaign_id IS NOT NULL AND advertiser_account_id IS NOT NULL AND creative_id IS NOT NULL AND decision_reason='SELECTED')
