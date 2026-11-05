@@ -31,7 +31,8 @@ class AdvertisingCampaignServiceTest {
 
     Creative creative=service.createCreative(TENANT,advertiserId,"Creative",CreativeFormat.TEXT,
       "Headline","Body",URI.create("https://advertiser.example"),null).toCompletableFuture().join();
-    assertThrows(CompletionException.class,()->service.assignCreative(TENANT,campaign.id(),creative.id()).toCompletableFuture().join());
+    CreativeId unreviewedCreativeId=creative.id();
+    assertThrows(CompletionException.class,()->service.assignCreative(TENANT,campaign.id(),unreviewedCreativeId).toCompletableFuture().join());
     creative=service.submitCreative(TENANT,creative.id()).toCompletableFuture().join();
     creative=service.approveCreative(TENANT,creative.id()).toCompletableFuture().join();
     assertEquals(CreativeStatus.APPROVED,creative.status());
