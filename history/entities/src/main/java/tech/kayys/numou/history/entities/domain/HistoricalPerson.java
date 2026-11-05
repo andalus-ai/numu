@@ -30,8 +30,10 @@ public record HistoricalPerson(
         Objects.requireNonNull(id, "Person ID is required");
         primaryName = requireText(primaryName, "Primary name", 240);
         alternativeNames = normalizeNames(alternativeNames);
-        if (alternativeNames.stream().anyMatch(name -> name.equalsIgnoreCase(primaryName))) {
-            throw new IllegalArgumentException("Alternative names must not duplicate the primary name");
+        for (String alternativeName : alternativeNames) {
+            if (alternativeName.equalsIgnoreCase(primaryName)) {
+                throw new IllegalArgumentException("Alternative names must not duplicate the primary name");
+            }
         }
         biography = biography == null ? "" : biography.trim();
         if (biography.length() > 8_000) throw new IllegalArgumentException("Biography cannot exceed 8000 characters");
