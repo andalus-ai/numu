@@ -2,6 +2,8 @@ package tech.kayys.numou.developer.apicatalog.integration.openapi;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import io.swagger.v3.parser.core.models.ParseOptions;
@@ -26,12 +28,13 @@ import java.util.Set;
  * Verifies tenant-scoped artifact existence, size, content digest and OpenAPI 3.0/3.1 semantics.
  * OpenAPI parsing is local-only: external $ref resolution is disabled to prevent network fetches.
  */
+@ApplicationScoped
 public final class StoredOpenApiSpecificationValidator implements ApiSpecificationValidationPort {
  private static final Set<String> SUPPORTED_SCHEMES=Set.of("s3","rustfs");
  private final DocumentStorage storage;
  private final int maxBytes;
 
- public StoredOpenApiSpecificationValidator(DocumentStorage storage){
+ @Inject public StoredOpenApiSpecificationValidator(DocumentStorage storage){
   this(storage,10*1024*1024);
  }
  public StoredOpenApiSpecificationValidator(DocumentStorage storage,int maxBytes){
