@@ -61,7 +61,9 @@ public class PostgresAdvertisingAdServingStore implements AdvertisingAdServingSt
         "JOIN advertising_campaign ca ON ca.tenant_id=cc.tenant_id AND ca.campaign_id=cc.campaign_id "+
         "JOIN advertising_advertiser_account ad ON ad.tenant_id=ca.tenant_id AND ad.account_id=ca.advertiser_account_id "+
         "JOIN advertising_creative cr ON cr.tenant_id=cc.tenant_id AND cr.creative_id=cc.creative_id "+
-        "JOIN advertising_ad_placement pl ON pl.tenant_id=cc.tenant_id AND pl.placement_id=? "+
+        "JOIN advertising_ad_placement pl ON pl.tenant_id=cc.tenant_id AND pl.placement_id=? AND pl.placement_status='ENABLED' "+
+        "JOIN advertising_publisher_property pr ON pr.tenant_id=pl.tenant_id AND pr.property_id=pl.property_id AND pr.property_status='VERIFIED' "+
+        "JOIN advertising_publisher_account pu ON pu.tenant_id=pr.tenant_id AND pu.account_id=pr.publisher_account_id AND pu.account_status='ACTIVE' "+
         "WHERE cc.tenant_id=? AND ca.campaign_status='ACTIVE' AND ca.starts_at<=? "+
         "AND (ca.ends_at IS NULL OR ca.ends_at>?) AND ad.account_status='ACTIVE' "+
         "AND cr.creative_status='APPROVED' AND cr.creative_format=? AND upper(pl.format)=? "+
