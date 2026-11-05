@@ -16,6 +16,7 @@ import java.util.concurrent.CompletionStage;
  * measurement and billable-event qualification belong to M4.
  */
 public final class AdvertisingAdServingService {
+  static final int MAX_CANDIDATES_PER_DECISION=100;
   private final AdvertisingAdServingStore store;
   private final Clock clock;
 
@@ -29,6 +30,8 @@ public final class AdvertisingAdServingService {
     return store.findInventory(request.tenantId(),request.placementId()).thenCompose(found->{
       if(found.isEmpty()) return noFill(request,null,AdDecisionReason.PLACEMENT_NOT_FOUND,now);
       AdServingInventory inventory=found.get();
+      if(!inventory.placement().tenantId().equals(request.tenantId()))
+        return noFill(request,null,AdDecisionReason.INVENTORY_NOT_ELIGIBLE,now);
       if(inventory.placement().status()!=PlacementStatus.ENABLED ||
          inventory.property().status()!=PropertyStatus.VERIFIED ||
          inventory.publisher().status()!=AccountStatus.ACTIVE)
@@ -38,13 +41,14 @@ public final class AdvertisingAdServingService {
       if(!inventory.placement().format().equalsIgnoreCase(request.format()))
         return noFill(request,inventory,AdDecisionReason.FORMAT_MISMATCH,now);
 
-      return store.findEligibleCandidates(request.tenantId(),request.placementId(),request.format(),now)
+      return store.findEligibleCandidates(request.tenantId(),request.placementId(),request.format(),now,MAX_CANDIDATES_PER_DECISION)
         .thenCompose(candidates->{
           List<AdServingCandidate> eligible=candidates.stream()
             .filter(candidate->eligible(candidate,request,now))
             .sorted(Comparator.comparing((AdServingCandidate c)->c.campaign().createdAt())
               .thenComparing(c->c.campaign().id().value())
               .thenComparing(c->c.creative().id().value()))
+            .limit(MAX_CANDIDATES_PER_DECISION)
             .toList();
           if(eligible.isEmpty()) return noFill(request,inventory,AdDecisionReason.NO_ELIGIBLE_CANDIDATE,now);
           AdServingCandidate selected=eligible.get(0);

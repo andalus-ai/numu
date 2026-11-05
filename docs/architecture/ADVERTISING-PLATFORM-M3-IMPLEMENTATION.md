@@ -23,7 +23,7 @@ The serving service:
 4. Requires requested format to match the configured placement format.
 5. Loads candidates that have an explicit campaign-to-placement target, an active campaign within its time window, an active advertiser, an approved assigned creative and a matching format.
 6. Rechecks the key lifecycle and tenant invariants in the application layer.
-7. Selects deterministically by campaign creation time, campaign ID and creative ID. This is a transparent tie-breaker, not a bid ranking or auction.
+7. Reads at most 100 candidates per decision and selects deterministically by campaign creation time, campaign ID and creative ID. This is a bounded transparent tie-breaker, not a bid ranking or auction.
 8. Persists a decision record for both fill and no-fill outcomes before returning the result.
 
 A no-fill is a normal, auditable response rather than an exception. Reasons include unknown placement, ineligible inventory, property-origin mismatch, format mismatch and no eligible campaign/creative.
@@ -68,7 +68,7 @@ Tables:
 - `advertising_campaign_placement`: explicit tenant/advertiser/campaign/placement targeting, uniqueness and foreign keys.
 - `advertising_ad_decision`: append-only serving outcome audit for fills and no-fills.
 
-Indexes support placement-target candidate lookup and tenant/placement/time decision retrieval. Unknown placement identifiers are retained in no-fill decisions without a placement foreign key because the request may intentionally reference an unknown ID; all resolved property/campaign/creative references remain tenant-scoped and foreign-key constrained.
+Indexes support placement-target candidate lookup, active campaign/approved creative delivery, and tenant/placement/time decision retrieval. The candidate read is capped at 100 rows per decision. Unknown placement identifiers are retained in no-fill decisions without a placement foreign key because the request may intentionally reference an unknown ID. Filled decisions carry the advertiser reference and use composite foreign keys to prove that campaign, creative and placement-target ownership all match; resolved property references remain tenant-scoped and foreign-key constrained.
 
 The serving adapter uses a single joined candidate query with database-side status/time/format predicates and deterministic ordering. It rechecks placement, property and publisher eligibility in the query to reduce races between inventory lookup and candidate retrieval.
 
@@ -80,9 +80,10 @@ Application tests cover:
 - deterministic candidate selection;
 - campaign schedule-window and creative approval eligibility;
 - placement/property/publisher eligibility;
-- property-origin and format mismatch no-fills;
+- property-origin, format mismatch and credential-bearing URI rejection;
 - unknown placement no-fill;
-- durable-decision contract invocation.
+- durable-decision contract invocation;
+- cross-tenant candidate and campaign-target rejection.
 
 Campaign application tests cover explicit placement targeting and rejection of unverified publisher inventory.
 
@@ -90,7 +91,8 @@ PostgreSQL Testcontainers tests cover:
 - canonical inventory resolution;
 - candidates require explicit placement targeting;
 - targeted campaign is returned while an untargeted active campaign is not;
-- filled, no-eligible-candidate and unknown-placement no-fill audit persistence.
+- filled, no-eligible-candidate and unknown-placement no-fill audit persistence;
+- database rejection of forged cross-advertiser decision evidence.
 
 Tests are committed but **not yet executed** in this authoring session. Do not treat them as passing until the Advertising workflow runs.
 
@@ -107,6 +109,8 @@ M3 does not yet provide:
 - billing, publisher earnings, revenue share or payout (M5).
 
 A public endpoint must not accept a caller-supplied tenant as authority. It needs a publisher credential contract that resolves the placement and tenant, validates the origin, supports rotation/revocation, and enforces rate limits. Until that exists, this milestone exposes a trusted in-process application contract only.
+
+**Do not route live advertiser traffic to this foundation yet.** Campaign budget reservation, spend pacing, advertiser charge controls and billing integration are not implemented. The current selection engine proves eligibility and audit semantics; it is not an authorization to incur advertiser spend. Those controls must be implemented and tested before a production serving endpoint is enabled.
 
 The current deterministic ordering is intentionally a simple baseline. It is not a fairness guarantee and must not be represented as an auction. Budget-aware pacing and ranking require campaign budget/line semantics and a concurrency-safe reservation contract before they are introduced.
 

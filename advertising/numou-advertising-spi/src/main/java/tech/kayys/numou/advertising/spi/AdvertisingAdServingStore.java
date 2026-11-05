@@ -10,6 +10,6 @@ import java.util.concurrent.CompletionStage;
 public interface AdvertisingAdServingStore {
   CompletionStage<Optional<AdServingInventory>> findInventory(TenantId tenantId,AdPlacementId placementId);
   CompletionStage<List<AdServingCandidate>> findEligibleCandidates(TenantId tenantId,AdPlacementId placementId,
-                                                                    String format,Instant at);
+                                                                    String format,Instant at,int limit);
   CompletionStage<AdDecision> recordDecision(AdDecision decision);
 }

@@ -55,15 +55,19 @@ class PostgresAdvertisingAdServingStoreTest {
     assertEquals(property.id(),inventory.property().id());
     assertEquals(publisher.id(),inventory.publisher().id());
 
-    List<AdServingCandidate> candidates=serving.findEligibleCandidates(tenant,placement.id(),"IMAGE",now).toCompletableFuture().join();
+    List<AdServingCandidate> candidates=serving.findEligibleCandidates(tenant,placement.id(),"IMAGE",now,100).toCompletableFuture().join();
     assertEquals(1,candidates.size());
-    assertTrue(serving.findEligibleCandidates(new TenantId("tenant-other"),placement.id(),"IMAGE",now)
+    assertTrue(serving.findEligibleCandidates(new TenantId("tenant-other"),placement.id(),"IMAGE",now,100)
       .toCompletableFuture().join().isEmpty());
     assertEquals(targeted.creative.id(),candidates.get(0).creative().id());
     assertNotEquals(notTargeted.creative.id(),candidates.get(0).creative().id());
 
     AdDecision filled=AdDecision.filled(tenant,inventory,candidates.get(0),now);
     serving.recordDecision(filled).toCompletableFuture().join();
+    AdDecision forgedOwner=new AdDecision(java.util.UUID.randomUUID(),tenant,placement.id(),property.id(),
+      targeted.campaign.id(),notTargeted.campaign.advertiserId(),targeted.creative.id(),AdDecisionStatus.FILLED,
+      AdDecisionReason.SELECTED,now);
+    assertThrows(RuntimeException.class,()->serving.recordDecision(forgedOwner).toCompletableFuture().join());
     AdDecision noFill=AdDecision.noFill(tenant,placement.id(),property.id(),AdDecisionReason.NO_ELIGIBLE_CANDIDATE,now);
     serving.recordDecision(noFill).toCompletableFuture().join();
     AdDecision unknownPlacement=AdDecision.noFill(tenant,AdPlacementId.generate(),null,AdDecisionReason.PLACEMENT_NOT_FOUND,now);
