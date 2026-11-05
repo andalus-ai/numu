@@ -98,9 +98,12 @@ public final class ApplicationManifestValidator {
             if (!previous.kind().equals(declarationKind)) {
                 violations.add("Capability cannot be both required and optional: " + requirement.id());
             } else if (!previous.contractRange().equals(requirement.contractRange())) {
+                String firstRange = previous.contractRange().compareTo(requirement.contractRange()) <= 0
+                        ? previous.contractRange() : requirement.contractRange();
+                String secondRange = previous.contractRange().compareTo(requirement.contractRange()) <= 0
+                        ? requirement.contractRange() : previous.contractRange();
                 violations.add("Conflicting " + declarationKind + " capability contract ranges for "
-                        + requirement.id() + ": " + previous.contractRange() + " and "
-                        + requirement.contractRange());
+                        + requirement.id() + ": " + firstRange + " and " + secondRange);
             } else {
                 violations.add("Duplicate " + declarationKind + " capability requirement: "
                         + requirement.id());
