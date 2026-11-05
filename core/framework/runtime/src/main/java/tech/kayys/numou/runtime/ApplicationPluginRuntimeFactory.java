@@ -48,7 +48,7 @@ public final class ApplicationPluginRuntimeFactory implements CapabilityRuntimeF
             throw new ApplicationRuntimeException("Contract version mismatch for provider " + provider.providerId()
                     + ": registered " + registration.contractVersion() + " but resolved " + provider.contractVersion());
         }
-        return new PluginCapabilityRuntime(registration.plugin(),
+        return new PluginCapabilityRuntime(provider.providerId(), registration.plugin(),
                 new ApplicationPluginContext(registration.plugin().id(), registration.properties(), sharedServices));
     }
 
@@ -108,19 +108,21 @@ public final class ApplicationPluginRuntimeFactory implements CapabilityRuntimeF
     }
 
     private static final class PluginCapabilityRuntime implements CapabilityRuntime {
+        private final String providerId;
         private final NumouPlugin plugin;
         private final PluginContext context;
         private boolean initializationAttempted;
         private boolean stopped;
 
-        private PluginCapabilityRuntime(NumouPlugin plugin, PluginContext context) {
+        private PluginCapabilityRuntime(String providerId, NumouPlugin plugin, PluginContext context) {
+            this.providerId = providerId;
             this.plugin = plugin;
             this.context = context;
         }
 
         @Override
         public String providerId() {
-            return plugin.id();
+            return providerId;
         }
 
         @Override
