@@ -5,9 +5,10 @@ on:
     branches: [main]
     paths:
       - "core/framework/social-graph/**"
-      - "core/framework/cache/**"
+      - "core/framework/ecosystem/**"
       - "core/framework/pom.xml"
       - "security/social-graph-adapter/**"
+      - "security/security-adapter/**"
       - "security/security-application/**"
       - "security/security-domain/**"
       - "security/pom.xml"
@@ -15,13 +16,15 @@ on:
   push:
     branches: [main]
     paths:
+      - "security/security-adapter/**"
       - "core/framework/social-graph/**"
-      - "core/framework/cache/**"
-      - "core/framework/pom.xml"
+      - "core/framework/ecosystem/**"
+      - "core/framework/foundation/**"
       - "security/social-graph-adapter/**"
       - "security/security-application/**"
       - "security/security-domain/**"
       - "security/pom.xml"
+      - "core/framework/pom.xml"
       - ".github/workflows/social-graph.yml"
 
 permissions:
@@ -44,8 +47,16 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
-      - name: Install Social Graph and cache framework artifacts
-        run: mvn -B -ntp -f core/framework/pom.xml -pl social-graph,cache -am install
+      - name: Build and install Social Graph plus required framework artifacts
+        run: >-
+          mvn -B -ntp -f core/framework/pom.xml
+          -pl foundation/numou-foundation-domain,foundation/numou-foundation-testing,social-graph/social-graph-persistence-jdbc
+          -am install
+      - name: Install Social Graph, Ecosystem, and Security API prerequisites
+        run: >-
+          mvn -B -ntp -f core/framework/pom.xml
+          -pl :numou-social-graph-persistence-jdbc,:numou-ecosystem-persistence-jdbc,:numou-foundation-adapter,:numou-cache-api,:numou-cache-adapter,:numou-observability-application
+          -am install
       - name: Verify SecurityContext Social Graph adapter
         run: mvn -B -ntp -f security/pom.xml -pl social-graph-adapter -am verify
       - name: Upload Social Graph Maven test reports

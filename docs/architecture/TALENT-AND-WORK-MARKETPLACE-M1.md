@@ -44,7 +44,7 @@ The initial aggregate provides:
 - bounded headline, summary and location label;
 - private-by-default visibility (`PRIVATE`, `NETWORK`, `PUBLIC`);
 - publication lifecycle (`DRAFT`, `PUBLISHED`, `SUSPENDED`, `ARCHIVED`);
-- explicit transitions and domain events for creation, publication and visibility changes;
+- explicit transitions and privacy-safe domain events for creation, presentation changes, publication and visibility changes;
 - immutable subject and tenant identity after creation.
 
 The domain has no framework, transport, persistence or broker dependency. The only cross-capability domain dependency is the public Ecosystem Party reference contract.
@@ -77,6 +77,14 @@ Authorization is delegated to a mandatory policy port so host applications can e
 
 A deterministic in-memory repository/unit-of-work test adapter exercises tenant isolation, party existence, anonymous-context rejection, denied reads, denied writes and rejected unverified skill claims. It is test-only and is not represented as a production persistence adapter.
 
+### M1d-a — persistence-safe aggregate rehydration
+
+The domain aggregate now exposes an explicit `rehydrate(...)` factory for persistence adapters. It restores the full profile snapshot, including all five profile sections, lifecycle state, creation/update timestamps and the exact optimistic-lock version. Rehydration does not emit a creation event or replay lifecycle transitions. It reuses the aggregate's bounded collection and identity validation, rejects negative versions and invalid timestamp ordering, and enforces the archived/private visibility invariant.
+
+The application persistence port now separates `insert(...)` from `update(..., expectedVersion)`, preventing accidental update-as-upsert behavior. The application service captures the loaded version before mutation and passes it explicitly to the update port; a concrete adapter must include tenant, profile ID and expected version in its conditional update predicate and reject a zero-row update as an optimistic conflict. A real state change advances the aggregate version by exactly one; a no-op command may retain the expected version and must not manufacture an update event. The in-memory application test double exercises the stale-version rejection contract.
+
+This is still a domain/application contract only: no PostgreSQL schema, JDBC adapter or production transaction implementation is implied yet. A production adapter must append outbox events in the same database transaction as the aggregate write.
+
 ## 5. Security and privacy constraints
 
 - Public visibility does not bypass tenant, consent, moderation, block-list or privacy checks.
@@ -90,8 +98,8 @@ A deterministic in-memory repository/unit-of-work test adapter exercises tenant 
 
 1. M1a: profile identity, presentation and lifecycle domain.
 2. M1b: skills, experience, education, credential and portfolio references with explicit provenance and bounded immutable sections.
-3. M1c: application ports, tenant-scoped repository contract, command/query handlers, authorization policy and deterministic in-memory adapter for domain/application tests.
-4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency and integration tests.
+3. M1c: tenant-aware application ports, authorization boundary, immutable read model, transaction/event contract and in-memory application tests.
+4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency, idempotency and integration tests.
 5. M2: job vacancy aggregate, publication lifecycle, search criteria and employer authorization.
 6. M3: recruitment application aggregate and ATS pipeline.
 7. M4–M5: freelance and crowdsourcing engagement lifecycles.

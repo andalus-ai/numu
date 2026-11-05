@@ -23,6 +23,7 @@ These principles describe the intended architecture. Existing modules may still 
 - [Numou Application Platform — M4 tenant installation lifecycle](docs/architecture/NUMOU-APPLICATION-PLATFORM-M4-TENANT-INSTALLATION.md)
 - [Numou Application Platform — M5 PostgreSQL installation store and outbox](docs/architecture/NUMOU-APPLICATION-PLATFORM-M5-POSTGRES-OUTBOX.md)
 - [Numou Application Platform — M6 installation provisioning worker](docs/architecture/NUMOU-APPLICATION-PLATFORM-M6-PROVISIONING-WORKER.md)
+- [Numou Application Platform — M7 terminal failure reconciliation](docs/architecture/NUMOU-APPLICATION-PLATFORM-M7-TERMINAL-FAILURE-RECONCILIATION.md)
 - [Architecture decisions and plans](docs/architecture/)
 
 This repository contains multiple Maven reactor roots; do not assume a single root-level `pom.xml`. Use the relevant module's documented reactor and the repository CI workflow when building or testing changes.

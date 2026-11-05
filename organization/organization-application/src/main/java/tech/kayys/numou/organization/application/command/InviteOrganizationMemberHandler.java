@@ -36,12 +36,12 @@ public class InviteOrganizationMemberHandler {
             if (!organization.isActive()) {
                 throw new IllegalStateException("Cannot invite members to an inactive organization");
             }
-            return exists(command.userId()).thenCompose(exists -> {
+            return identityUserPort.exists(command.userId()).thenCompose(exists -> {
                 if (!exists) {
                     throw new IllegalArgumentException("Identity user not found");
                 }
-                return membershipRepository.findByOrganizationAndUser(
-                                command.organizationId(), command.userId())
+                return membershipRepository.findByTenantAndOrganizationAndUser(
+                                command.tenantId(), command.organizationId(), command.userId())
                         .thenCompose(existing -> {
                             if (existing.isPresent()) {
                                 throw new IllegalStateException("User already has an organization membership");
@@ -50,14 +50,10 @@ public class InviteOrganizationMemberHandler {
                                     OrganizationMembershipId.generate(),
                                     command.organizationId(),
                                     command.userId());
-                            return membershipRepository.save(membership)
+                            return membershipRepository.save(membership, command.tenantId())
                                     .thenApply(saved -> Result.success(saved.getId()));
                         });
             });
         });
-    }
-
-    private CompletionStage<Boolean> exists(UserId userId) {
-        return identityUserPort.exists(userId);
     }
 }
