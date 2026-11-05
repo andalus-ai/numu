@@ -4,10 +4,16 @@ import java.util.Objects;
 import java.util.UUID;
 
 /** Typed reference to a canonical History record; never embeds another aggregate. */
-public record HistoricalEntityReference(HistoricalEntityKind kind, UUID id) {
+public record HistoricalEntityReference(HistoricalEntityKind kind, UUID id) implements Comparable<HistoricalEntityReference> {
     public HistoricalEntityReference {
         Objects.requireNonNull(kind, "Entity kind is required");
         Objects.requireNonNull(id, "Entity ID is required");
+    }
+
+    @Override
+    public int compareTo(HistoricalEntityReference other) {
+        int kindOrder = kind.compareTo(other.kind);
+        return kindOrder != 0 ? kindOrder : id.compareTo(other.id);
     }
 
     public static HistoricalEntityReference person(HistoricalPersonId id) {
