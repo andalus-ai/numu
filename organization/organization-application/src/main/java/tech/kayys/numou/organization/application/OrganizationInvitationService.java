@@ -124,6 +124,39 @@ public final class OrganizationInvitationService {
         });
     }
 
+    /**
+     * Rotates the invitation bearer digest and atomically queues a newly encrypted
+     * delivery. Any older pending or leased delivery is superseded in that transaction.
+     */
+    public CompletionStage<QueuedInvitation> resendAndQueue(TenantId tenantId,
+            OrganizationInvitationId invitationId, UserId actorId) {
+        if (issuance == null || cipher == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Secure delivery composition is required"));
+        }
+        Objects.requireNonNull(tenantId);
+        Objects.requireNonNull(invitationId);
+        Objects.requireNonNull(actorId);
+        return repository.findByTenantAndId(tenantId, invitationId).thenCompose(found -> {
+            OrganizationInvitation invitation = found.orElseThrow(
+                    () -> new IllegalArgumentException("Invitation not found"));
+            return policy.requireCanInvite(tenantId, invitation.organizationId(), actorId)
+                    .thenCompose(authorized -> {
+                        Instant now = clock.instant();
+                        int expectedVersion = invitation.getVersion();
+                        GeneratedSecret generated = generateSecret();
+                        invitation.rotate(generated.digest(), now.plus(DEFAULT_LIFETIME), now);
+                        InvitationSecretCipherPort.EncryptedSecret encrypted =
+                                cipher.encrypt(tenantId, invitation.getId(), generated.plaintext());
+                        var delivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
+                                java.util.UUID.randomUUID(), tenantId, invitation.getId(),
+                                invitation.recipientEmail(), encrypted, now);
+                        return issuance.rotateAndPersist(invitation, delivery, tenantId, expectedVersion, now)
+                                .thenApply(ignored -> new QueuedInvitation(invitation.getId(), invitation.expiresAt(),
+                                        invitation.recipientEmail(), invitation.organizationId(), invitation.role()));
+                    });
+        });
+    }
+
     public CompletionStage<IssuedInvitation> resend(TenantId tenantId,
             OrganizationInvitationId invitationId, UserId actorId) {
         Objects.requireNonNull(tenantId);
