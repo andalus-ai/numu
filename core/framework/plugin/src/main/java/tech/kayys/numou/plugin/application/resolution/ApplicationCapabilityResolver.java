@@ -34,7 +34,38 @@ public final class ApplicationCapabilityResolver {
         for (String capability : new ArrayList<>(selected.keySet()))
             visit(capability, selected, index, state, path, order);
         unavailable.sort(String::compareTo);
-        return new CapabilityResolution(selected, order, unavailable);
+        CapabilityResolutionReport report = buildReport(manifest, selected, unavailable);
+        return new CapabilityResolution(selected, order, unavailable, report);
+    }
+
+    private static CapabilityResolutionReport buildReport(ApplicationManifest manifest,
+            Map<String, CapabilityProvider> selected, List<String> unavailable) {
+        List<CapabilityResolutionEdge> edges = new ArrayList<>();
+        manifest.requiredCapabilities().forEach(requirement ->
+                edges.add(edge(null, requirement, true, selected)));
+        manifest.optionalCapabilities().forEach(requirement ->
+                edges.add(edge(null, requirement, false, selected)));
+        selected.forEach((capabilityId, provider) -> provider.dependencies().forEach(dependency ->
+                edges.add(edge(capabilityId, dependency, true, selected))));
+        edges.sort(Comparator
+                .comparing(CapabilityResolutionEdge::sourceCapability,
+                        Comparator.nullsFirst(Comparator.naturalOrder()))
+                .thenComparing(CapabilityResolutionEdge::targetCapability)
+                .thenComparing(CapabilityResolutionEdge::contractRange)
+                .thenComparing(CapabilityResolutionEdge::required, Comparator.reverseOrder()));
+        return new CapabilityResolutionReport(new ArrayList<>(new TreeMap<>(selected).values()),
+                edges, unavailable, List.of());
+    }
+
+    private static CapabilityResolutionEdge edge(String sourceCapability, CapabilityRequirement requirement,
+            boolean required, Map<String, CapabilityProvider> selected) {
+        CapabilityProvider provider = selected.get(requirement.id());
+        return new CapabilityResolutionEdge(sourceCapability, requirement.id(), requirement.contractRange(),
+                required, provider == null
+                        ? CapabilityResolutionEdge.ResolutionStatus.UNAVAILABLE_OPTIONAL
+                        : CapabilityResolutionEdge.ResolutionStatus.RESOLVED,
+                provider == null ? null : provider.providerId(),
+                provider == null ? null : provider.contractVersion());
     }
 
     private static void validateProviderDependencies(Collection<CapabilityProvider> providers) {
