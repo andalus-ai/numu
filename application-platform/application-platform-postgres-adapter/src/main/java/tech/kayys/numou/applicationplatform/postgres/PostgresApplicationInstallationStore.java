@@ -1,6 +1,7 @@
 package tech.kayys.numou.applicationplatform.postgres;
 
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOutboxStore;
+import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationQueryPort;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationStore;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationTransitionStore;
 import tech.kayys.numou.applicationplatform.domain.installation.*;
@@ -23,7 +24,7 @@ import java.util.concurrent.CompletionStage;
  */
 public final class PostgresApplicationInstallationStore
         implements ApplicationInstallationStore, ApplicationInstallationTransitionStore,
-                   ApplicationInstallationOutboxStore {
+                   ApplicationInstallationOutboxStore, ApplicationInstallationQueryPort {
     private static final String SELECT_INSTALLATION = """
             SELECT id, tenant_id, application_id, package_version, package_digest, status,
                    revision, created_at, updated_at, created_by, updated_by, failure_code
@@ -95,6 +96,42 @@ public final class PostgresApplicationInstallationStore
             }
         } catch (SQLException failure) {
             return CompletableFuture.failedFuture(storageFailure("find installation", failure));
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
+        }
+    }
+
+    @Override
+    public CompletionStage<List<ApplicationInstallation>> findEnabled(TenantId tenantId) {
+        try {
+            Objects.requireNonNull(tenantId, "tenantId");
+            String sql = """
+                    SELECT id, tenant_id, application_id, package_version, package_digest, status,
+                           revision, created_at, updated_at, created_by, updated_by, failure_code
+                    FROM application_installations
+                    WHERE tenant_id=? AND status='ENABLED'
+                    ORDER BY application_id ASC
+                    """;
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    setTenant(connection, tenantId);
+                    List<ApplicationInstallation> installations = new ArrayList<>();
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statement.setObject(1, tenantId.value());
+                        try (ResultSet result = statement.executeQuery()) {
+                            while (result.next()) installations.add(readInstallation(result));
+                        }
+                    }
+                    connection.commit();
+                    return CompletableFuture.completedFuture(List.copyOf(installations));
+                } catch (SQLException | RuntimeException failure) {
+                    rollback(connection, failure);
+                    throw failure;
+                }
+            }
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("find enabled application installations", failure));
         } catch (RuntimeException failure) {
             return CompletableFuture.failedFuture(failure);
         }
@@ -246,25 +283,164 @@ public final class PostgresApplicationInstallationStore
                 || retryAt == null || now == null || retryAt.isBefore(now)
                 || maxAttempts < 1 || maxAttempts > 100)
             return CompletableFuture.failedFuture(new IllegalArgumentException("invalid failure code or retry limit"));
-        String sql = """
-                UPDATE application_installation_outbox
-                SET delivery_status=CASE WHEN attempts>=? THEN 'DEAD' ELSE 'PENDING' END,
-                    available_at=?, lease_owner=NULL, lease_token=NULL, lease_until=NULL,
-                    last_failure_code=?, version=version+1
-                WHERE tenant_id=? AND event_id=? AND delivery_status='LEASED'
-                  AND lease_owner=? AND lease_token=? AND lease_until>?
-                RETURNING delivery_status
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                setTenant(connection, tenantId);
+                String select = """
+                        SELECT attempts,installation_id,application_id,package_version,package_digest,correlation_id
+                        FROM application_installation_outbox
+                        WHERE tenant_id=? AND event_id=? AND delivery_status='LEASED'
+                          AND lease_owner=? AND lease_token=? AND lease_until>?
+                        FOR UPDATE
+                        """;
+                int attempts;
+                UUID installationId;
+                String applicationId;
+                String packageVersion;
+                String packageDigest;
+                String correlationId;
+                try (PreparedStatement statement = connection.prepareStatement(select)) {
+                    statement.setObject(1, tenantId.value());
+                    statement.setObject(2, eventId);
+                    statement.setString(3, workerId);
+                    statement.setObject(4, leaseToken);
+                    statement.setTimestamp(5, Timestamp.from(now));
+                    try (ResultSet result = statement.executeQuery()) {
+                        if (!result.next()) {
+                            connection.commit();
+                            return CompletableFuture.completedFuture(RetryOutcome.LEASE_LOST);
+                        }
+                        attempts = result.getInt(1);
+                        installationId = result.getObject(2, UUID.class);
+                        applicationId = result.getString(3);
+                        packageVersion = result.getString(4);
+                        packageDigest = result.getString(5);
+                        correlationId = result.getString(6);
+                    }
+                }
+
+                boolean dead = attempts >= maxAttempts;
+                String update = """
+                        UPDATE application_installation_outbox
+                        SET delivery_status=?,available_at=?,lease_owner=NULL,lease_token=NULL,lease_until=NULL,
+                            last_failure_code=?,version=version+1
+                        WHERE tenant_id=? AND event_id=? AND delivery_status='LEASED'
+                          AND lease_owner=? AND lease_token=? AND lease_until>?
+                        """;
+                try (PreparedStatement statement = connection.prepareStatement(update)) {
+                    statement.setString(1, dead ? "DEAD" : "PENDING");
+                    statement.setTimestamp(2, Timestamp.from(retryAt));
+                    statement.setString(3, stableFailureCode);
+                    statement.setObject(4, tenantId.value());
+                    statement.setObject(5, eventId);
+                    statement.setString(6, workerId);
+                    statement.setObject(7, leaseToken);
+                    statement.setTimestamp(8, Timestamp.from(now));
+                    if (statement.executeUpdate() != 1) {
+                        connection.rollback();
+                        return CompletableFuture.completedFuture(RetryOutcome.LEASE_LOST);
+                    }
+                }
+                if (dead) {
+                    markInstallationFailedAtomically(connection, tenantId, installationId, applicationId,
+                            packageVersion, packageDigest, correlationId, stableFailureCode, now);
+                }
+                connection.commit();
+                return CompletableFuture.completedFuture(dead ? RetryOutcome.DEAD_LETTERED : RetryOutcome.RESCHEDULED);
+            } catch (SQLException | RuntimeException failure) {
+                rollback(connection, failure);
+                throw failure;
+            }
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("retry installation outbox event", failure));
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
+        }
+    }
+
+    /**
+     * The terminal outbox transition and aggregate failure transition share the
+     * caller's transaction. A process crash can therefore never commit DEAD while
+     * leaving an active installation permanently stuck in PROVISIONING.
+     */
+    private static void markInstallationFailedAtomically(Connection connection, TenantId tenantId,
+            UUID installationId, String applicationId, String packageVersion, String packageDigest,
+            String correlationId, String failureCode, Instant now) throws SQLException {
+        String select = """
+                SELECT status,revision FROM application_installations
+                WHERE tenant_id=? AND id=? FOR UPDATE
                 """;
-        return fencedRetryUpdate("retry installation outbox event", tenantId, sql, statement -> {
-            statement.setInt(1, maxAttempts);
-            statement.setTimestamp(2, Timestamp.from(retryAt));
-            statement.setString(3, stableFailureCode);
+        String status;
+        long revision;
+        try (PreparedStatement statement = connection.prepareStatement(select)) {
+            statement.setObject(1, tenantId.value());
+            statement.setObject(2, installationId);
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) throw new SQLException("dead-letter installation aggregate is missing");
+                status = result.getString(1);
+                revision = result.getLong(2);
+            }
+        }
+        if (!Set.of("REQUESTED", "VALIDATING", "AWAITING_APPROVAL", "PROVISIONING").contains(status)) return;
+
+        String update = """
+                UPDATE application_installations
+                SET status='FAILED',revision=?,updated_at=?,updated_by='system:application-platform',failure_code=?
+                WHERE tenant_id=? AND id=? AND revision=? AND status=?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(update)) {
+            statement.setLong(1, revision + 1);
+            statement.setTimestamp(2, Timestamp.from(now));
+            statement.setString(3, failureCode);
             statement.setObject(4, tenantId.value());
-            statement.setObject(5, eventId);
-            statement.setString(6, workerId);
-            statement.setObject(7, leaseToken);
+            statement.setObject(5, installationId);
+            statement.setLong(6, revision);
+            statement.setString(7, status);
+            if (statement.executeUpdate() != 1) throw new SQLException("installation changed while reconciling dead letter");
+        }
+
+        UUID transitionId = UUID.randomUUID();
+        String transition = """
+                INSERT INTO application_installation_transitions
+                  (event_id,tenant_id,installation_id,application_id,from_status,to_status,revision,
+                   actor_id,correlation_id,occurred_at,reason_code)
+                VALUES (?,?,?,?,?,'FAILED',?,'system:application-platform',?,?,?)
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(transition)) {
+            statement.setObject(1, transitionId);
+            statement.setObject(2, tenantId.value());
+            statement.setObject(3, installationId);
+            statement.setString(4, applicationId);
+            statement.setString(5, status);
+            statement.setLong(6, revision + 1);
+            statement.setString(7, correlationId == null ? "" : correlationId);
             statement.setTimestamp(8, Timestamp.from(now));
-        });
+            statement.setString(9, failureCode);
+            statement.executeUpdate();
+        }
+
+        String outbox = """
+                INSERT INTO application_installation_outbox
+                  (event_id,tenant_id,installation_id,application_id,package_version,package_digest,
+                   event_type,to_status,revision,actor_id,correlation_id,reason_code,occurred_at,available_at)
+                VALUES (?,?,?,?,?,?,'APPLICATION_INSTALLATION_STATUS_CHANGED','FAILED',?,
+                        'system:application-platform',?,?,?,?)
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(outbox)) {
+            statement.setObject(1, transitionId);
+            statement.setObject(2, tenantId.value());
+            statement.setObject(3, installationId);
+            statement.setString(4, applicationId);
+            statement.setString(5, packageVersion);
+            statement.setString(6, packageDigest);
+            statement.setLong(7, revision + 1);
+            statement.setString(8, correlationId == null ? "" : correlationId);
+            statement.setString(9, failureCode);
+            statement.setTimestamp(10, Timestamp.from(now));
+            statement.setTimestamp(11, Timestamp.from(now));
+            statement.executeUpdate();
+        }
     }
 
     private CompletionStage<Boolean> fencedBooleanUpdate(String operation, TenantId tenantId, String sql,

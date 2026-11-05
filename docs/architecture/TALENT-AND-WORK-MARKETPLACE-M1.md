@@ -44,7 +44,7 @@ The initial aggregate provides:
 - bounded headline, summary and location label;
 - private-by-default visibility (`PRIVATE`, `NETWORK`, `PUBLIC`);
 - publication lifecycle (`DRAFT`, `PUBLISHED`, `SUSPENDED`, `ARCHIVED`);
-- explicit transitions and domain events for creation, publication and visibility changes;
+- explicit transitions and privacy-safe domain events for creation, presentation changes, publication and visibility changes;
 - immutable subject and tenant identity after creation.
 
 The domain has no framework, transport, persistence or broker dependency. The only cross-capability domain dependency is the public Ecosystem Party reference contract.
@@ -98,8 +98,8 @@ This is still a domain/application contract only: no PostgreSQL schema, JDBC ada
 
 1. M1a: profile identity, presentation and lifecycle domain.
 2. M1b: skills, experience, education, credential and portfolio references with explicit provenance and bounded immutable sections.
-3. M1c: application ports, tenant-scoped repository contract, command/query handlers, authorization policy and deterministic in-memory adapter for domain/application tests.
-4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency and integration tests.
+3. M1c: tenant-aware application ports, authorization boundary, immutable read model, transaction/event contract and in-memory application tests.
+4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency, idempotency and integration tests.
 5. M2: job vacancy aggregate, publication lifecycle, search criteria and employer authorization.
 6. M3: recruitment application aggregate and ATS pipeline.
 7. M4–M5: freelance and crowdsourcing engagement lifecycles.
