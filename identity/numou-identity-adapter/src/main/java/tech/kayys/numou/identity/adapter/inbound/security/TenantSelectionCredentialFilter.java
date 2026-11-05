@@ -29,17 +29,20 @@ public class TenantSelectionCredentialFilter implements ContainerRequestFilter {
                 || !"tenant_selection".equals(identity.getAttribute("token_use"))) {
             return;
         }
+        if (!isAllowedSelectionRequest(request.getMethod(), request.getUriInfo().getPath())) {
+            throw new WebApplicationException("Tenant-selection credential cannot access this resource", 403);
+        }
+    }
 
-        String path = request.getUriInfo().getPath();
+    static boolean isAllowedSelectionRequest(String method, String rawPath) {
+        if (method == null || rawPath == null) {
+            return false;
+        }
+        String path = rawPath;
         while (path.startsWith("/")) {
             path = path.substring(1);
         }
-        boolean tenantDiscovery = "GET".equalsIgnoreCase(request.getMethod())
-                && "api/v2/auth/tenants".equals(path);
-        boolean tenantExchange = "POST".equalsIgnoreCase(request.getMethod())
-                && "api/v2/auth/tenant-exchange".equals(path);
-        if (!tenantDiscovery && !tenantExchange) {
-            throw new WebApplicationException("Tenant-selection credential cannot access this resource", 403);
-        }
+        return ("GET".equalsIgnoreCase(method) && "api/v2/auth/tenants".equals(path))
+                || ("POST".equalsIgnoreCase(method) && "api/v2/auth/tenant-exchange".equals(path));
     }
 }
