@@ -163,4 +163,44 @@ class ApplicationCapabilityResolverTest {
                         + "which does not satisfy additional contract range ^2.0.0");
     }
 
+    @Test void preflightsDuplicateAndConflictingDependenciesAcrossProviders() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
+        var providers = List.of(
+                new CapabilityProvider("z-sales-provider", "numou.sales", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.party", "^1.0.0"),
+                                new CapabilityRequirement("numou.party", "^2.0.0"))),
+                new CapabilityProvider("a-inventory-provider", "numou.inventory", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.stock", "~1.4.0"),
+                                new CapabilityRequirement("numou.stock", "~1.4.0"))));
+
+        assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
+                .isInstanceOfSatisfying(CapabilityResolutionException.class, error -> {
+                    assertThat(error.diagnostics()).containsExactly(
+                            "Provider a-inventory-provider declares duplicate dependency numou.stock with range ~1.4.0",
+                            "Provider z-sales-provider declares conflicting dependency ranges for numou.party: ^1.0.0, ^2.0.0");
+                    assertThat(error.getMessage()).isEqualTo(String.join("; ", error.diagnostics()));
+                });
+    }
+
+    @Test void dependencyPreflightDiagnosticsAreIndependentOfProviderInputOrder() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
+        var first = new CapabilityProvider("first", "numou.sales", "1.0.0",
+                List.of(new CapabilityRequirement("numou.party", "^1.0.0"),
+                        new CapabilityRequirement("numou.party", "^2.0.0")));
+        var second = new CapabilityProvider("second", "numou.inventory", "1.0.0",
+                List.of(new CapabilityRequirement("numou.stock", "~1.4.0"),
+                        new CapabilityRequirement("numou.stock", "~1.4.0")));
+        var resolver = new ApplicationCapabilityResolver();
+
+        var forward = catchThrowable(() -> resolver.resolve(app, List.of(first, second)));
+        var reverse = catchThrowable(() -> resolver.resolve(app, List.of(second, first)));
+
+        assertThat(forward).isInstanceOf(CapabilityResolutionException.class);
+        assertThat(reverse).isInstanceOf(CapabilityResolutionException.class);
+        assertThat(((CapabilityResolutionException) reverse).diagnostics())
+                .containsExactlyElementsOf(((CapabilityResolutionException) forward).diagnostics());
+    }
+
 }
