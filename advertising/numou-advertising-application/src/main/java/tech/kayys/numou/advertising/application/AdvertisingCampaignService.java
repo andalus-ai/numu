@@ -82,7 +82,7 @@ public final class AdvertisingCampaignService {
             throw new IllegalArgumentException("campaign and creative must belong to the same advertiser");
           if(creative.status()!=CreativeStatus.APPROVED)
             throw new IllegalStateException("only approved creatives can be assigned");
-          return campaigns.assignCreative(new CampaignCreativeAssignment(tenant,campaignId,creativeId,clock.instant()));
+          return campaigns.assignCreative(new CampaignCreativeAssignment(tenant,campaign.advertiserId(),campaignId,creativeId,clock.instant()));
         });
       });
   }
