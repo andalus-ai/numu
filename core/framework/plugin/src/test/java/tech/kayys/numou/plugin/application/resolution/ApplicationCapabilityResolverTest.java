@@ -43,7 +43,7 @@ class ApplicationCapabilityResolverTest {
 
         assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
                 .isInstanceOf(CapabilityResolutionException.class)
-                .hasMessageContaining("Missing required capability provider: numou.party");
+                .hasMessageContaining("Missing required capability provider for numou.party matching contract range ^1.0.0");
     }
 
     @Test void rejectsAmbiguousProvidersAndDependencyCycles() {
@@ -125,4 +125,42 @@ class ApplicationCapabilityResolverTest {
                 .hasMessage("Invalid contract version for provider sales-provider: 1.0")
                 .hasCauseInstanceOf(IllegalArgumentException.class);
     }
+    @Test void providerDiagnosticsIncludeRequestedRangeAndStableCandidateDetails() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
+        var resolver = new ApplicationCapabilityResolver();
+        var candidates = List.of(
+                new CapabilityProvider("z-provider", "numou.sales", "1.2.0", List.of()),
+                new CapabilityProvider("a-provider", "numou.sales", "1.1.0", List.of()));
+
+        var failure = catchThrowable(() -> resolver.resolve(app, candidates));
+        assertThat(failure).isInstanceOf(CapabilityResolutionException.class)
+                .hasMessage("Expected exactly one compatible provider for numou.sales matching ^1.0.0 "
+                        + "but found 2: a-provider@1.1.0, z-provider@1.2.0");
+
+        var missingApp = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.inventory", "~3.2.0")), List.of(), Set.of(), List.of());
+        assertThatThrownBy(() -> resolver.resolve(missingApp, List.of()))
+                .isInstanceOf(CapabilityResolutionException.class)
+                .hasMessage("Missing required capability provider for numou.inventory matching contract range ~3.2.0");
+    }
+
+    @Test void conflictingTransitiveRequirementExplainsSelectedProviderVersion() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0"),
+                        new CapabilityRequirement("numou.inventory", "^1.0.0")),
+                List.of(), Set.of(), List.of());
+        var providers = List.of(
+                new CapabilityProvider("sales-provider", "numou.sales", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.party", "^1.0.0"))),
+                new CapabilityProvider("inventory-provider", "numou.inventory", "1.0.0",
+                        List.of(new CapabilityRequirement("numou.party", "^2.0.0"))),
+                new CapabilityProvider("party-v1-provider", "numou.party", "1.4.0", List.of()));
+
+        assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
+                .isInstanceOf(CapabilityResolutionException.class)
+                .hasMessage("Selected provider party-v1-provider supplies numou.party@1.4.0 "
+                        + "which does not satisfy additional contract range ^2.0.0");
+    }
+
 }
