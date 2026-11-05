@@ -16,6 +16,7 @@ import java.util.concurrent.CompletionStage;
  * measurement and billable-event qualification belong to M4.
  */
 public final class AdvertisingAdServingService {
+  static final int MAX_CANDIDATES_PER_DECISION=100;
   private final AdvertisingAdServingStore store;
   private final Clock clock;
 
@@ -38,7 +39,7 @@ public final class AdvertisingAdServingService {
       if(!inventory.placement().format().equalsIgnoreCase(request.format()))
         return noFill(request,inventory,AdDecisionReason.FORMAT_MISMATCH,now);
 
-      return store.findEligibleCandidates(request.tenantId(),request.placementId(),request.format(),now)
+      return store.findEligibleCandidates(request.tenantId(),request.placementId(),request.format(),now,MAX_CANDIDATES_PER_DECISION)
         .thenCompose(candidates->{
           List<AdServingCandidate> eligible=candidates.stream()
             .filter(candidate->eligible(candidate,request,now))
