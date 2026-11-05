@@ -203,4 +203,55 @@ class ApplicationCapabilityResolverTest {
                 .containsExactlyElementsOf(((CapabilityResolutionException) forward).diagnostics());
     }
 
+    @Test void resolutionReportIncludesSelectedProvidersAndDependencyEdges() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.sales", "^1.0.0")),
+                List.of(new CapabilityRequirement("numou.crm", "^2.0.0")), Set.of(), List.of());
+        var sales = new CapabilityProvider("sales-provider", "numou.sales", "1.1.0",
+                List.of(new CapabilityRequirement("numou.party", "^1.2.0")));
+        var party = new CapabilityProvider("party-provider", "numou.party", "1.3.0", List.of());
+
+        var result = new ApplicationCapabilityResolver().resolve(app, List.of(party, sales));
+        var report = result.report();
+
+        assertThat(report.selectedProviders()).extracting(CapabilityProvider::providerId)
+                .containsExactly("party-provider", "sales-provider");
+        assertThat(report.dependencyEdges()).containsExactly(
+                new CapabilityResolutionEdge(null, "numou.crm", "^2.0.0", false,
+                        CapabilityResolutionEdge.ResolutionStatus.UNAVAILABLE_OPTIONAL, null, null),
+                new CapabilityResolutionEdge(null, "numou.sales", "^1.0.0", true,
+                        CapabilityResolutionEdge.ResolutionStatus.RESOLVED, "sales-provider", "1.1.0"),
+                new CapabilityResolutionEdge("numou.sales", "numou.party", "^1.2.0", true,
+                        CapabilityResolutionEdge.ResolutionStatus.RESOLVED, "party-provider", "1.3.0"));
+        assertThat(report.unavailableOptionalCapabilities()).containsExactly("numou.crm");
+        assertThat(report.diagnostics()).isEmpty();
+    }
+
+    @Test void resolutionReportIsDeterministicAcrossProviderInputPermutations() {
+        var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
+                List.of(new CapabilityRequirement("numou.zeta", "^1.0.0"),
+                        new CapabilityRequirement("numou.alpha", "^1.0.0")),
+                List.of(new CapabilityRequirement("numou.optional", "^1.0.0")), Set.of(), List.of());
+        var alpha = new CapabilityProvider("alpha-provider", "numou.alpha", "1.0.0",
+                List.of(new CapabilityRequirement("numou.party", "^1.0.0")));
+        var zeta = new CapabilityProvider("zeta-provider", "numou.zeta", "1.0.0", List.of());
+        var party = new CapabilityProvider("party-provider", "numou.party", "1.0.0", List.of());
+        var resolver = new ApplicationCapabilityResolver();
+
+        var forward = resolver.resolve(app, List.of(alpha, zeta, party)).report();
+        var reverse = resolver.resolve(app, List.of(party, zeta, alpha)).report();
+
+        assertThat(reverse).isEqualTo(forward);
+    }
+
+    @Test void legacyCapabilityResolutionConstructorRemainsAvailable() {
+        var provider = new CapabilityProvider("sales-provider", "numou.sales", "1.0.0", List.of());
+        var resolution = new CapabilityResolution(java.util.Map.of("numou.sales", provider),
+                List.of(provider), List.of("numou.crm"));
+
+        assertThat(resolution.report().selectedProviders()).containsExactly(provider);
+        assertThat(resolution.report().dependencyEdges()).isEmpty();
+        assertThat(resolution.report().unavailableOptionalCapabilities()).containsExactly("numou.crm");
+    }
+
 }
