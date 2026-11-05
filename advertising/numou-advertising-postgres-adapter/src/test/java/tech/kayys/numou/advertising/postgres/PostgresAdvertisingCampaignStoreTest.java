@@ -47,7 +47,7 @@ class PostgresAdvertisingCampaignStoreTest {
     var creative=Creative.draft(CreativeId.generate(),tenantA,advertiser.id(),"Launch banner",CreativeFormat.IMAGE,
       "Headline","Body",java.net.URI.create("https://advertiser.example"),"docs/tenant-a/creative-1",now).submit().approve();
     campaignStore.saveCreative(creative).toCompletableFuture().join();
-    campaignStore.assignCreative(new CampaignCreativeAssignment(tenantA,campaign.id(),creative.id(),now)).toCompletableFuture().join();
+    campaignStore.assignCreative(new CampaignCreativeAssignment(tenantA,advertiser.id(),campaign.id(),creative.id(),now)).toCompletableFuture().join();
     var assigned=campaignStore.findAssignedCreatives(tenantA,campaign.id()).toCompletableFuture().join();
     assertEquals(1,assigned.size());
     assertEquals(creative.id(),assigned.get(0).id());
@@ -64,9 +64,12 @@ class PostgresAdvertisingCampaignStoreTest {
     campaignStore.saveCreative(creative).toCompletableFuture().join();
     var scheduled=campaign.schedule();
     campaignStore.saveCampaign(scheduled).toCompletableFuture().join();
-    assertThrows(RuntimeException.class,()->campaignStore.saveCampaign(campaign.pause()).toCompletableFuture().join());
+    var paused=scheduled.pause();
+    campaignStore.saveCampaign(paused).toCompletableFuture().join();
+    var stale=scheduled.activate(now);
+    assertThrows(RuntimeException.class,()->campaignStore.saveCampaign(stale).toCompletableFuture().join());
 
-    var crossTenant=new CampaignCreativeAssignment(tenantB,campaign.id(),creative.id(),now);
+    var crossTenant=new CampaignCreativeAssignment(tenantB,advertiser.id(),campaign.id(),creative.id(),now);
     assertThrows(RuntimeException.class,()->campaignStore.assignCreative(crossTenant).toCompletableFuture().join());
   }
 
