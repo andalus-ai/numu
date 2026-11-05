@@ -14,6 +14,12 @@ CREATE TABLE advertising_campaign_placement (
 );
 CREATE INDEX ix_advertising_campaign_placement_by_inventory
     ON advertising_campaign_placement (tenant_id,placement_id,campaign_id);
+CREATE INDEX ix_advertising_campaign_delivery
+    ON advertising_campaign (tenant_id,starts_at,ends_at,campaign_id)
+    WHERE campaign_status='ACTIVE';
+CREATE INDEX ix_advertising_creative_delivery
+    ON advertising_creative (tenant_id,creative_format,creative_id)
+    WHERE creative_status='APPROVED';
 
 ALTER TABLE advertising_ad_placement
   ADD CONSTRAINT uq_advertising_placement_property UNIQUE (tenant_id,placement_id,property_id);
