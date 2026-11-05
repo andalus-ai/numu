@@ -137,14 +137,16 @@ public final class DefaultApplicationRuntime implements ApplicationRuntime, Live
 
             // Start components in order
             for (RuntimeComponent comp : componentRegistry.components()) {
-                comp.start().await().atMost(registry.settings().startupTimeout());
+                // Register before start so rollback also attempts cleanup when start partially succeeds.
                 startedComponents.push(comp);
+                comp.start().await().atMost(registry.settings().startupTimeout());
             }
 
-            // Start workers
+            // Start workers after infrastructure components.
             for (ManagedWorker worker : workers) {
-                worker.start().await().atMost(registry.settings().startupTimeout());
+                // A failed start may still have acquired resources; stop is part of rollback.
                 startedWorkers.push(worker);
+                worker.start().await().atMost(registry.settings().startupTimeout());
             }
 
             // 3. RUNNING
