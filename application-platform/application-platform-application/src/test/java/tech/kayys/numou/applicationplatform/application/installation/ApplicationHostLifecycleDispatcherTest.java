@@ -91,7 +91,7 @@ class ApplicationHostLifecycleDispatcherTest {
         };
         ApplicationHostLifecycleDispatcher dispatcher = new ApplicationHostLifecycleDispatcher(
                 (id, version) -> CompletableFuture.failedFuture(new AssertionError("catalog must not be called")),
-                host);
+                (tenant, pkg) -> CompletableFuture.completedFuture(null), host);
 
         assertThat(dispatcher.dispatch(TENANT, event("SUSPENDED")).toCompletableFuture().join())
                 .isEqualTo(ApplicationHostLifecycleDispatcher.Outcome.DEACTIVATED);
