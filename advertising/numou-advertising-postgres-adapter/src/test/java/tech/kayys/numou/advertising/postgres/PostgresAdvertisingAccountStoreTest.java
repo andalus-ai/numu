@@ -34,6 +34,9 @@ class PostgresAdvertisingAccountStoreTest {
         tenantB=new TenantId("tenant-b");
         now=Instant.parse("2026-11-05T00:00:00Z");
         DataSource ds=dataSource();
+        try(Connection c=ds.getConnection(); Statement s=c.createStatement()) {
+            s.execute("DROP TABLE IF EXISTS advertising_ad_placement, advertising_publisher_property, advertising_publisher_account, advertising_advertiser_account CASCADE");
+        }
         try(Connection c=ds.getConnection(); Statement s=c.createStatement();
             InputStream migration=getClass().getResourceAsStream("/db/migration/V1__advertising_accounts_and_inventory.sql")) {
             assertNotNull(migration,"advertising schema migration must be packaged");
@@ -50,9 +53,8 @@ class PostgresAdvertisingAccountStoreTest {
         assertTrue(store.findAdvertiser(tenantA,advertiser.id()).toCompletableFuture().join().isPresent());
         assertTrue(store.findAdvertiser(tenantB,advertiser.id()).toCompletableFuture().join().isEmpty());
 
-        var publisher=PublisherAccount.register(AdvertisingAccountId.generate(),tenantA,new PartyReference("publisher-a"),"Publisher A",now).activate();
-        store.savePublisher(new PublisherAccount(publisher.id(),tenantA,publisher.party(),publisher.displayName(),
-            AccountStatus.PENDING,now,0)).toCompletableFuture().join();
+        var publisher=PublisherAccount.register(AdvertisingAccountId.generate(),tenantA,new PartyReference("publisher-a"),"Publisher A",now);
+        store.savePublisher(publisher).toCompletableFuture().join();
         assertTrue(store.findPublisher(tenantA,publisher.id()).toCompletableFuture().join().isPresent());
         assertTrue(store.findPublisher(tenantB,publisher.id()).toCompletableFuture().join().isEmpty());
     }
