@@ -35,6 +35,12 @@ class AdvertisingLifecycleTest {
     assertEquals(PlacementStatus.ENABLED,placement.enable().status());
   }
 
+  @Test void tenantAndPartyReferencesRespectStorageBounds() {
+    assertThrows(IllegalArgumentException.class,()->new TenantId("t".repeat(201)));
+    assertThrows(IllegalArgumentException.class,()->new PartyReference("p".repeat(256)));
+    assertEquals("tenant-a",new TenantId(" tenant-a ").value());
+  }
+
   @Test void propertyRejectsNonHttpUri() {
     assertThrows(IllegalArgumentException.class,()->PublisherProperty.register(PublisherPropertyId.generate(),
       tenant,AdvertisingAccountId.generate(),"Site",URI.create("ftp://publisher.example"),now));
