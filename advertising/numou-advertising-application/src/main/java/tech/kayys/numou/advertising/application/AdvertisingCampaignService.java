@@ -31,14 +31,19 @@ public final class AdvertisingCampaignService {
 
   public CompletionStage<Campaign> scheduleCampaign(TenantId tenant,CampaignId id) {
     return authorized(tenant,"campaign.manage").thenCompose(v->campaigns.findCampaign(tenant,id))
-      .thenCompose(found->campaigns.saveCampaign(found.orElseThrow(()->new IllegalArgumentException("campaign not found")).schedule()));
+      .thenCompose(found->{
+        Campaign campaign=found.orElseThrow(()->new IllegalArgumentException("campaign not found"));
+        return activeAdvertiser(tenant,campaign.advertiserId()).thenCompose(v->ensureReadyForDelivery(tenant,campaign))
+          .thenCompose(v->campaigns.saveCampaign(campaign.schedule()));
+      });
   }
 
   public CompletionStage<Campaign> activateCampaign(TenantId tenant,CampaignId id) {
     return authorized(tenant,"campaign.manage").thenCompose(v->campaigns.findCampaign(tenant,id))
       .thenCompose(found->{
         Campaign campaign=found.orElseThrow(()->new IllegalArgumentException("campaign not found"));
-        return activeAdvertiser(tenant,campaign.advertiserId()).thenCompose(v->campaigns.saveCampaign(campaign.activate(clock.instant())));
+        return activeAdvertiser(tenant,campaign.advertiserId()).thenCompose(v->ensureReadyForDelivery(tenant,campaign))
+          .thenCompose(v->campaigns.saveCampaign(campaign.activate(clock.instant())));
       });
   }
 
@@ -85,6 +90,15 @@ public final class AdvertisingCampaignService {
           return campaigns.assignCreative(new CampaignCreativeAssignment(tenant,campaign.advertiserId(),campaignId,creativeId,clock.instant()));
         });
       });
+  }
+
+  private CompletionStage<Void> ensureReadyForDelivery(TenantId tenant,Campaign campaign) {
+    return campaigns.findAssignedCreatives(tenant,campaign.id()).thenApply(assigned->{
+      if(assigned.isEmpty()) throw new IllegalStateException("campaign requires at least one approved creative");
+      if(assigned.stream().anyMatch(creative->creative.status()!=CreativeStatus.APPROVED))
+        throw new IllegalStateException("all assigned creatives must remain approved");
+      return null;
+    });
   }
 
   private CompletionStage<Void> activeAdvertiser(TenantId tenant,AdvertisingAccountId id) {
