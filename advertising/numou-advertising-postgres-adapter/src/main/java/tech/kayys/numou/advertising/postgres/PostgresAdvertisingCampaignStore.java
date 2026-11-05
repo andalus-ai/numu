@@ -102,6 +102,18 @@ public class PostgresAdvertisingCampaignStore implements AdvertisingCampaignStor
     });
   }
 
+  @Override public CompletionStage<CampaignPlacementTarget> assignPlacement(CampaignPlacementTarget target) {
+    return execute(()->{
+      String sql="INSERT INTO advertising_campaign_placement(tenant_id,advertiser_account_id,campaign_id,placement_id,assigned_at) VALUES(?,?,?,?,?)";
+      try(Connection db=dataSource.getConnection();PreparedStatement s=db.prepareStatement(sql)){
+        s.setString(1,target.tenantId().value());s.setObject(2,target.advertiserId().value());
+        s.setObject(3,target.campaignId().value());s.setObject(4,target.placementId().value());
+        s.setTimestamp(5,Timestamp.from(target.assignedAt()));
+        requireOne(s.executeUpdate(),"campaign placement targeting");return target;
+      }
+    });
+  }
+
   @Override public CompletionStage<List<Creative>> findAssignedCreatives(TenantId tenant,CampaignId campaignId) {
     return execute(()->{
       String sql="SELECT c.creative_id,c.advertiser_account_id,c.creative_name,c.creative_format,c.headline,c.body,c.destination_uri,c.document_reference,c.creative_status,c.review_note,c.created_at,c.version FROM advertising_creative c JOIN advertising_campaign_creative a ON a.tenant_id=c.tenant_id AND a.creative_id=c.creative_id WHERE a.tenant_id=? AND a.campaign_id=? ORDER BY a.assigned_at,c.creative_id";
