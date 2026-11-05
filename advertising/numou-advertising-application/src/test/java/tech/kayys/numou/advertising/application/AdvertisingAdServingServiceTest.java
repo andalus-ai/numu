@@ -109,7 +109,7 @@ class AdvertisingAdServingServiceTest {
     public CompletionStage<Optional<AdServingInventory>> findInventory(TenantId tenant,AdPlacementId id){
       return CompletableFuture.completedFuture(inventory);
     }
-    public CompletionStage<List<AdServingCandidate>> findEligibleCandidates(TenantId tenant,AdPlacementId id,String format,Instant at){
+    public CompletionStage<List<AdServingCandidate>> findEligibleCandidates(TenantId tenant,AdPlacementId id,String format,Instant at,int limit){
       return CompletableFuture.completedFuture(candidates);
     }
     public CompletionStage<AdDecision> recordDecision(AdDecision decision){
