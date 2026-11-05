@@ -31,9 +31,6 @@ public final class ApplicationHostLifecycleDispatcher {
     public CompletionStage<Outcome> dispatch(TenantId tenantId, ClaimedEvent event) {
         if (tenantId == null || event == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("tenant and event are required"));
-        if (!tenantId.equals(eventTenant(event, tenantId)))
-            return CompletableFuture.failedFuture(new SecurityException("Outbox event tenant mismatch"));
-
         if (ENABLED.equals(event.toStatus())) return activate(tenantId, event);
         if (SUSPENDED.equals(event.toStatus()) || UNINSTALLING.equals(event.toStatus())
                 || UNINSTALLED.equals(event.toStatus()) || FAILED.equals(event.toStatus()))
@@ -62,12 +59,6 @@ public final class ApplicationHostLifecycleDispatcher {
                 tenantId, event.installationId(), event.applicationId(), event.packageVersion(),
                 event.packageDigest(), event.eventId(), event.actorId(), event.correlationId(), event.toStatus());
         return host.deactivate(command).thenApply(ignored -> Outcome.DEACTIVATED);
-    }
-
-    private static TenantId eventTenant(ClaimedEvent event, TenantId claimedTenant) {
-        // The outbox row is claimed under this tenant's RLS scope. ClaimedEvent intentionally
-        // carries no second tenant field; the dispatcher never accepts a tenant from payload data.
-        return claimedTenant;
     }
 
     public enum Outcome { ACTIVATED, DEACTIVATED, IGNORED }
