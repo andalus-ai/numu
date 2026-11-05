@@ -110,6 +110,8 @@ M3 does not yet provide:
 
 A public endpoint must not accept a caller-supplied tenant as authority. It needs a publisher credential contract that resolves the placement and tenant, validates the origin, supports rotation/revocation, and enforces rate limits. Until that exists, this milestone exposes a trusted in-process application contract only.
 
+**Do not route live advertiser traffic to this foundation yet.** Campaign budget reservation, spend pacing, advertiser charge controls and billing integration are not implemented. The current selection engine proves eligibility and audit semantics; it is not an authorization to incur advertiser spend. Those controls must be implemented and tested before a production serving endpoint is enabled.
+
 The current deterministic ordering is intentionally a simple baseline. It is not a fairness guarantee and must not be represented as an auction. Budget-aware pacing and ranking require campaign budget/line semantics and a concurrency-safe reservation contract before they are introduced.
 
 ## 7. Next implementation slice
