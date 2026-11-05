@@ -35,6 +35,8 @@ Framework-free Java 21 domain module for dates that cannot be represented faithf
 - The parser currently accepts explicit year labels (for example, `44 BCE`, `2026 CE`,
   and `c. 1200 CE`). Month/day parsing and localized formatting require calendar adapters.
 - The shared `history/pom.xml` reactor includes chronology and historical events.
+- The module is a standalone Maven reactor at this path. It is not registered in a
+  repository-wide reactor because the repository has multiple reactor roots and no root POM.
 
 ## Build
 
@@ -46,5 +48,6 @@ mvn -f history/pom.xml test
 
 ## Next
 
-Add additional calendar families (for example, Hijri and Buddhist calendar adapters), explicit
-uncertainty intervals derived from claims/evidence, and persistence serialization contracts.
+Add additional calendar families (for example, Hijri and Buddhist calendar adapters) behind
+the same conversion port, explicit uncertainty intervals derived from claims/evidence, and
+persistent serialization contracts before integrating chronology with HistoricalEvent.

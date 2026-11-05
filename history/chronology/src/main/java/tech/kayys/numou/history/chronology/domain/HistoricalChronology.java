@@ -32,7 +32,10 @@ public final class HistoricalChronology {
                 new JulianCalendarDateConverter()));
     }
 
-    /** Compares the full intervals implied by each date's precision. */
+    /**
+     * Compares the full intervals implied by each date's precision.
+     * Empty means a calendar adapter is not registered or cannot normalize it.
+     */
     public Optional<TemporalRelation> compare(HistoricalDate left, HistoricalDate right) {
         Objects.requireNonNull(left, "Left date is required");
         Objects.requireNonNull(right, "Right date is required");
