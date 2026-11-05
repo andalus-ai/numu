@@ -11,7 +11,6 @@ CREATE TABLE sg_relationship (
     valid_until TIMESTAMPTZ,
     removed_at TIMESTAMPTZ,
     provenance VARCHAR(128) NOT NULL CHECK (length(trim(provenance)) > 0),
-    metadata_blob TEXT NOT NULL DEFAULT '',
     version INTEGER NOT NULL CHECK (version >= 0),
     PRIMARY KEY (tenant_id, relationship_id),
     CHECK (source_party_id <> target_party_id),
@@ -35,3 +34,15 @@ CREATE INDEX ix_sg_relationship_incoming
 CREATE INDEX ix_sg_relationship_effective
     ON sg_relationship (tenant_id, relationship_type, source_party_id, valid_from, valid_until)
     WHERE status = 'ACTIVE';
+
+CREATE TABLE sg_relationship_metadata (
+    tenant_id UUID NOT NULL,
+    relationship_id UUID NOT NULL,
+    metadata_key VARCHAR(64) NOT NULL CHECK (length(trim(metadata_key)) > 0),
+    metadata_value VARCHAR(512) NOT NULL,
+    PRIMARY KEY (tenant_id, relationship_id, metadata_key),
+    CONSTRAINT fk_sg_relationship_metadata
+        FOREIGN KEY (tenant_id, relationship_id)
+        REFERENCES sg_relationship (tenant_id, relationship_id)
+        ON DELETE CASCADE
+);
