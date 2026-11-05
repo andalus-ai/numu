@@ -15,7 +15,7 @@ Framework-free Java 21 domain module for dates that cannot be represented faithf
 - Normalizes exact and partial dates onto an integer absolute-day axis using Julian Day Number
   arithmetic. Conversion uses checked arithmetic; values outside the signed-long day axis fail
   rather than wrap.
-- Compares dates across registered calendars using inclusive precision bounds.
+- Compares dates and closed date ranges across registered calendars using inclusive precision bounds.
 
 ## Semantics and limitations
 
@@ -34,15 +34,16 @@ Framework-free Java 21 domain module for dates that cannot be represented faithf
   and Julian adapters correctly reject it.
 - The parser currently accepts explicit year labels (for example, `44 BCE`, `2026 CE`,
   and `c. 1200 CE`). Month/day parsing and localized formatting require calendar adapters.
+- The shared `history/pom.xml` reactor includes chronology and historical events.
 - The module is a standalone Maven reactor at this path. It is not registered in a
   repository-wide reactor because the repository has multiple reactor roots and no root POM.
 
 ## Build
 
-From this directory:
+From the repository root:
 
 ```bash
-mvn test
+mvn -f history/pom.xml test
 ```
 
 ## Next

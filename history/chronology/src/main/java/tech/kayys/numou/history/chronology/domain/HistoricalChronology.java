@@ -42,13 +42,32 @@ public final class HistoricalChronology {
         Optional<AbsoluteDayRange> leftBounds = bounds(left);
         Optional<AbsoluteDayRange> rightBounds = bounds(right);
         if (leftBounds.isEmpty() || rightBounds.isEmpty()) return Optional.empty();
+        return compareBounds(leftBounds.orElseThrow(), rightBounds.orElseThrow());
+    }
 
-        AbsoluteDayRange a = leftBounds.orElseThrow();
-        AbsoluteDayRange b = rightBounds.orElseThrow();
-        if (a.lastDay() < b.firstDay()) return Optional.of(TemporalRelation.BEFORE);
-        if (a.firstDay() > b.lastDay()) return Optional.of(TemporalRelation.AFTER);
-        if (a.equals(b)) return Optional.of(TemporalRelation.SAME);
-        return Optional.of(TemporalRelation.OVERLAPS);
+    /**
+     * Compares two closed historical ranges using the full precision bounds
+     * of their endpoints. Calendars may differ; missing adapters return empty.
+     */
+    public Optional<TemporalRelation> compare(HistoricalDateRange left, HistoricalDateRange right) {
+        Objects.requireNonNull(left, "Left date range is required");
+        Objects.requireNonNull(right, "Right date range is required");
+        Optional<AbsoluteDayRange> leftBounds = rangeBounds(left);
+        Optional<AbsoluteDayRange> rightBounds = rangeBounds(right);
+        if (leftBounds.isEmpty() || rightBounds.isEmpty()) return Optional.empty();
+        return compareBounds(leftBounds.orElseThrow(), rightBounds.orElseThrow());
+    }
+
+    /** Returns whether the inner range is fully contained by the outer range. */
+    public Optional<Boolean> contains(HistoricalDateRange outer, HistoricalDateRange inner) {
+        Objects.requireNonNull(outer, "Outer date range is required");
+        Objects.requireNonNull(inner, "Inner date range is required");
+        Optional<AbsoluteDayRange> outerBounds = rangeBounds(outer);
+        Optional<AbsoluteDayRange> innerBounds = rangeBounds(inner);
+        if (outerBounds.isEmpty() || innerBounds.isEmpty()) return Optional.empty();
+        AbsoluteDayRange a = outerBounds.orElseThrow();
+        AbsoluteDayRange b = innerBounds.orElseThrow();
+        return Optional.of(a.firstDay() <= b.firstDay() && a.lastDay() >= b.lastDay());
     }
 
     /**
@@ -74,5 +93,24 @@ public final class HistoricalChronology {
         Objects.requireNonNull(date, "Date is required");
         CalendarDateConverter converter = converters.get(date.calendarSystem());
         return converter == null ? Optional.empty() : converter.toAbsoluteDayBounds(date);
+    }
+
+    private Optional<AbsoluteDayRange> rangeBounds(HistoricalDateRange range) {
+        Optional<AbsoluteDayRange> start = bounds(range.from());
+        Optional<AbsoluteDayRange> end = bounds(range.through());
+        if (start.isEmpty() || end.isEmpty()) return Optional.empty();
+        long firstDay = start.orElseThrow().firstDay();
+        long lastDay = end.orElseThrow().lastDay();
+        if (firstDay > lastDay) {
+            throw new IllegalArgumentException("Historical date range resolves to an inverted absolute-day interval");
+        }
+        return Optional.of(new AbsoluteDayRange(firstDay, lastDay));
+    }
+
+    private static Optional<TemporalRelation> compareBounds(AbsoluteDayRange left, AbsoluteDayRange right) {
+        if (left.lastDay() < right.firstDay()) return Optional.of(TemporalRelation.BEFORE);
+        if (left.firstDay() > right.lastDay()) return Optional.of(TemporalRelation.AFTER);
+        if (left.equals(right)) return Optional.of(TemporalRelation.SAME);
+        return Optional.of(TemporalRelation.OVERLAPS);
     }
 }

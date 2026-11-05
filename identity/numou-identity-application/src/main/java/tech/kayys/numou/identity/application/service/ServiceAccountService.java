@@ -3,6 +3,7 @@ package tech.kayys.numou.identity.application.service;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.foundation.application.result.ApplicationError;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.time.DomainClock;
 import tech.kayys.numou.identity.application.dto.CreateServiceAccountRequest;
 import tech.kayys.numou.identity.application.dto.ServiceAccountResponse;
@@ -35,48 +36,34 @@ public class ServiceAccountService {
         this.clock = Objects.requireNonNull(clock);
     }
 
-    public Uni<ServiceAccountResponse> create(CreateServiceAccountRequest request) {
+    public Uni<ServiceAccountResponse> create(TenantId tenantId, CreateServiceAccountRequest request) {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
         Objects.requireNonNull(request, "request cannot be null");
         return unitOfWork.execute(() ->
-                serviceAccountRepository.existsByName(request.name())
+                serviceAccountRepository.existsByName(tenantId, request.name())
                         .chain(exists -> {
                             if (exists) {
                                 return Uni.createFrom().failure(ApplicationError.of(
                                         "SERVICE_ACCOUNT_EXISTS",
-                                        "A service account named '" + request.name() + "' already exists"
+                                        "A service account named '" + request.name() + "' already exists in this tenant"
                                 ).toException());
                             }
                             ServiceAccountId id = ServiceAccountId.newId();
                             UserId ownerId = request.ownerUserId() != null ? UserId.of(request.ownerUserId()) : null;
                             var sa = ServiceAccount.create(
-                                    id,
-                                    null,
-                                    request.name(),
-                                    request.description(),
-                                    ownerId,
-                                    clock.now()
-                            );
-                            return serviceAccountRepository.save(sa)
-                                    .chain(() -> outbox.append(null, sa.pullDomainEvents()))
+                                    id, tenantId, request.name(), request.description(), ownerId, clock.now());
+                            return serviceAccountRepository.save(tenantId, sa)
+                                    .chain(() -> outbox.append(tenantId.value(), sa.pullDomainEvents()))
                                     .replaceWith(ServiceAccountResponse.from(sa));
                         })
         );
     }
 
-    public Uni<ServiceAccountResponse> disable(UUID id) {
-        return disable(id, null);
-    }
-
-    /**
-     * Disables the service account, recording the acting principal in the audit metadata.
-     *
-     * @param id      service account id
-     * @param actorId authenticated actor; {@code null} keeps the previously recorded actor
-     */
-    public Uni<ServiceAccountResponse> disable(UUID id, UUID actorId) {
+    public Uni<ServiceAccountResponse> disable(TenantId tenantId, UUID id, UUID actorId) {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
         Objects.requireNonNull(id, "id cannot be null");
         return unitOfWork.execute(() ->
-                serviceAccountRepository.findById(ServiceAccountId.of(id))
+                serviceAccountRepository.findById(tenantId, ServiceAccountId.of(id))
                         .chain(optional -> {
                             if (optional.isEmpty()) {
                                 return Uni.createFrom().failure(ApplicationError.of(
@@ -85,15 +72,16 @@ public class ServiceAccountService {
                             }
                             var sa = optional.get();
                             sa.disable(actorId != null ? actorId.toString() : null, clock.now());
-                            return serviceAccountRepository.save(sa)
-                                    .chain(() -> outbox.append(null, sa.pullDomainEvents()))
+                            return serviceAccountRepository.save(tenantId, sa)
+                                    .chain(() -> outbox.append(tenantId.value(), sa.pullDomainEvents()))
                                     .replaceWith(ServiceAccountResponse.from(sa));
                         })
         );
     }
 
-    public Uni<List<ServiceAccountResponse>> listAll() {
-        return serviceAccountRepository.findAll()
+    public Uni<List<ServiceAccountResponse>> listAll(TenantId tenantId) {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        return serviceAccountRepository.findAll(tenantId)
                 .map(list -> list.stream().map(ServiceAccountResponse::from).toList());
     }
 }

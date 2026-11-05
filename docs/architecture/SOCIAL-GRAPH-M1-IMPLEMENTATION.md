@@ -2,7 +2,6 @@
 
 - **Status:** M1 trusted command facade and concrete Ecosystem identity/Party adapters are implemented on `feat/social-graph-m1-ecosystem-identity-adapters`; build, PostgreSQL CI and host-runtime authentication wiring remain pending
 - **Date:** 2026-11-04
-- **Branch:** `social-graph/m1-core-postgresql-mainline`
 - **Architecture:** [Social Graph Foundation](SOCIAL-GRAPH-FOUNDATION-ARCHITECTURE.md)
 - **Audit:** [M0 Repository Audit](SOCIAL-GRAPH-M0-REPOSITORY-AUDIT.md)
 
@@ -66,9 +65,9 @@ Tables:
 - `sg_command_idempotency`: tenant-scoped idempotency result key/fingerprint.
 - `sg_outbox`: durable event intent, schema version, aggregate version and delivery metadata.
 
-The partial unique index covers only `PENDING` and `ACTIVE` rows for a tenant and canonical unordered Party pair. Terminal historical records remain available without preventing a later new request. PostgreSQL documents partial unique indexes as a supported way to enforce uniqueness over a subset of rows: https://www.postgresql.org/docs/current/indexes-partial.html.
+The partial unique index covers only `PENDING` and `ACTIVE` rows for a tenant and canonical unordered Party pair. Terminal historical records remain available without preventing a later new request.
 
-The JDBC adapter executes the command callback and all persistence/outbox writes using one connection and commits once. Callback failures and commit failures trigger rollback. The outbox is durable but this milestone does not yet include a relay, broker integration, lease worker, or DLQ operations. Those should integrate with the shared reliability capability after its transaction and serialization contracts are verified.
+The JDBC adapter executes the command callback and all persistence/outbox writes using one connection and commits once. Callback failures and commit failures trigger rollback. The outbox is durable but this milestone does not yet include a relay, broker integration, lease worker, or DLQ operations.
 
 ## 5. Security and integration boundaries
 
@@ -83,9 +82,11 @@ The JDBC adapter executes the command callback and all persistence/outbox writes
 - The application contracts are reactive Mutiny ports; the JDBC adapter schedules blocking work on Mutiny's default worker pool.
 - No Neo4j driver or Cypher dependency exists in M1.
 
+The facade is a composition boundary, not a replacement for the host's authentication mechanism. The tenant and issuer/subject arguments are trusted only when populated by the host from verified security context.
+
 ## 6. Verification
 
-Tests present in the current source tree:
+Tests present in the source tree include:
 
 - `SocialConnectionLifecycleTest`
 - `SocialGraphServiceTest`
@@ -93,7 +94,7 @@ Tests present in the current source tree:
 - `EcosystemSocialGraphIdentityAdapterTest` (identity association, tenant/subject matching, active Party resolution and Party directory lifecycle)
 - `JdbcSocialGraphUnitOfWorkPostgresTest` (Testcontainers; includes migration, commit/rollback, uniqueness, optimistic concurrency, audit immutability, tenant-scoped lookup and UUID ordering checks)
 
-Expected build command from repository root:
+Expected CI command:
 
 ```bash
 mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am verify
