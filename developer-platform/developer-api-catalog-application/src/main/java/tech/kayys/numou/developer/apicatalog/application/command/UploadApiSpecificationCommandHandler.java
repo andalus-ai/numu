@@ -1,7 +1,6 @@
 package tech.kayys.numou.developer.apicatalog.application.command;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiCatalogAuthorizationPort;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiProductRepository;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiSpecificationArtifactStore;
