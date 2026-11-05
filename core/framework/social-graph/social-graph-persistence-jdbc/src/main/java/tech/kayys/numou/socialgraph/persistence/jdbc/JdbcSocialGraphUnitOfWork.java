@@ -9,6 +9,10 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionStatus;
+import tech.kayys.numou.socialgraph.domain.SocialRelationship;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipStatus;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipType;
 import tech.kayys.numou.socialgraph.spi.SocialGraphIdempotencyRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphOutboxEvent;
 import tech.kayys.numou.socialgraph.spi.SocialGraphTransaction;
@@ -22,6 +26,10 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Map;
+import java.util.TreeMap;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -75,6 +83,138 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
         private final Connection connection;
 
         private Transaction(Connection connection) { this.connection = connection; }
+
+        @Override
+        public Optional<SocialRelationship> findRelationship(TenantId tenantId, SocialRelationshipId id) {
+            String sql = "SELECT * FROM sg_relationship WHERE tenant_id = ? AND relationship_id = ?";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, tenantId.value());
+                ps.setObject(2, id.value());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? Optional.of(readRelationship(rs)) : Optional.empty();
+                }
+            } catch (SQLException e) { throw persistenceFailure("find social relationship", e); }
+        }
+
+        @Override
+        public Optional<SocialRelationship> findActiveRelationship(
+                TenantId tenantId, SocialRelationshipType type, PartyId source, PartyId target) {
+            String sql = "SELECT * FROM sg_relationship WHERE tenant_id = ? AND relationship_type = ? "
+                    + "AND source_party_id = ? AND target_party_id = ? AND status = 'ACTIVE' FOR UPDATE";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, tenantId.value());
+                ps.setString(2, type.name());
+                ps.setObject(3, source.value());
+                ps.setObject(4, target.value());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? Optional.of(readRelationship(rs)) : Optional.empty();
+                }
+            } catch (SQLException e) { throw persistenceFailure("find active social relationship", e); }
+        }
+
+        @Override
+        public void insertRelationship(SocialRelationship relationship) {
+            String sql = "INSERT INTO sg_relationship (tenant_id, relationship_id, relationship_type, "
+                    + "source_party_id, target_party_id, status, created_at, updated_at, valid_from, valid_until, "
+                    + "removed_at, provenance, metadata_blob, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, relationship.tenantId().value());
+                ps.setObject(2, relationship.id().value());
+                ps.setString(3, relationship.type().name());
+                ps.setObject(4, relationship.sourcePartyId().value());
+                ps.setObject(5, relationship.targetPartyId().value());
+                ps.setString(6, relationship.status().name());
+                ps.setTimestamp(7, Timestamp.from(relationship.createdAt()));
+                ps.setTimestamp(8, Timestamp.from(relationship.updatedAt()));
+                ps.setTimestamp(9, Timestamp.from(relationship.validFrom()));
+                ps.setTimestamp(10, relationship.validUntil() == null ? null : Timestamp.from(relationship.validUntil()));
+                ps.setTimestamp(11, relationship.removedAt() == null ? null : Timestamp.from(relationship.removedAt()));
+                ps.setString(12, relationship.provenance());
+                ps.setString(13, encodeMetadata(relationship.metadata()));
+                ps.setInt(14, relationship.version());
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                if ("23505".equals(e.getSQLState())) {
+                    throw new IllegalStateException("An active relationship of this type already exists for this Party pair", e);
+                }
+                throw persistenceFailure("insert social relationship", e);
+            }
+        }
+
+        @Override
+        public void updateRelationship(SocialRelationship relationship, int expectedVersion) {
+            String sql = "UPDATE sg_relationship SET status = ?, updated_at = ?, valid_from = ?, valid_until = ?, "
+                    + "removed_at = ?, provenance = ?, metadata_blob = ?, version = ? "
+                    + "WHERE tenant_id = ? AND relationship_id = ? AND version = ?";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setString(1, relationship.status().name());
+                ps.setTimestamp(2, Timestamp.from(relationship.updatedAt()));
+                ps.setTimestamp(3, Timestamp.from(relationship.validFrom()));
+                ps.setTimestamp(4, relationship.validUntil() == null ? null : Timestamp.from(relationship.validUntil()));
+                ps.setTimestamp(5, relationship.removedAt() == null ? null : Timestamp.from(relationship.removedAt()));
+                ps.setString(6, relationship.provenance());
+                ps.setString(7, encodeMetadata(relationship.metadata()));
+                ps.setInt(8, relationship.version());
+                ps.setObject(9, relationship.tenantId().value());
+                ps.setObject(10, relationship.id().value());
+                ps.setInt(11, expectedVersion);
+                if (ps.executeUpdate() != 1) {
+                    throw new SocialGraphOptimisticConflictException("Social relationship changed concurrently");
+                }
+            } catch (SQLException e) {
+                if ("23505".equals(e.getSQLState())) {
+                    throw new IllegalStateException("An active relationship of this type already exists for this Party pair", e);
+                }
+                throw persistenceFailure("update social relationship", e);
+            }
+        }
+
+        private static SocialRelationship readRelationship(ResultSet rs) throws SQLException {
+            Timestamp validUntil = rs.getTimestamp("valid_until");
+            Timestamp removedAt = rs.getTimestamp("removed_at");
+            return SocialRelationship.rehydrate(
+                    SocialRelationshipId.of(rs.getObject("relationship_id", UUID.class)),
+                    TenantId.of(rs.getObject("tenant_id", UUID.class)),
+                    SocialRelationshipType.valueOf(rs.getString("relationship_type")),
+                    new PartyId(rs.getObject("source_party_id", UUID.class)),
+                    new PartyId(rs.getObject("target_party_id", UUID.class)),
+                    SocialRelationshipStatus.valueOf(rs.getString("status")),
+                    rs.getTimestamp("created_at").toInstant(),
+                    rs.getTimestamp("updated_at").toInstant(),
+                    rs.getTimestamp("valid_from").toInstant(),
+                    validUntil == null ? null : validUntil.toInstant(),
+                    removedAt == null ? null : removedAt.toInstant(),
+                    rs.getString("provenance"),
+                    decodeMetadata(rs.getString("metadata_blob")),
+                    rs.getInt("version"));
+        }
+
+        // Stable, delimiter-safe encoding keeps the JDBC adapter dependency-free.
+        private static String encodeMetadata(Map<String, String> metadata) {
+            Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+            StringBuilder encoded = new StringBuilder();
+            new TreeMap<>(metadata).forEach((key, value) -> encoded
+                    .append(encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)))
+                    .append(':')
+                    .append(encoder.encodeToString(value.getBytes(StandardCharsets.UTF_8)))
+                    .append('\\n'));
+            return encoded.toString();
+        }
+
+        private static Map<String, String> decodeMetadata(String encoded) {
+            Map<String, String> metadata = new TreeMap<>();
+            if (encoded == null || encoded.isEmpty()) return Map.of();
+            Base64.Decoder decoder = Base64.getUrlDecoder();
+            for (String line : encoded.split("\\n")) {
+                if (line.isEmpty()) continue;
+                int separator = line.indexOf(':');
+                if (separator < 1) throw new IllegalStateException("Corrupt social relationship metadata");
+                String key = new String(decoder.decode(line.substring(0, separator)), StandardCharsets.UTF_8);
+                String value = new String(decoder.decode(line.substring(separator + 1)), StandardCharsets.UTF_8);
+                metadata.put(key, value);
+            }
+            return Map.copyOf(metadata);
+        }
 
         @Override
         public Optional<SocialConnection> findConnection(TenantId tenantId, SocialConnectionId id) {
