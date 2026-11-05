@@ -21,6 +21,11 @@ import java.util.function.Function;
  *
  * <p>Keep the underlying service behind the host composition boundary; expose
  * this facade to HTTP, messaging, and other untrusted input adapters.</p>
+ * <p>Only call this facade with tenant and issuer/subject values obtained from
+ * the host's verified security context. The facade resolves the subject to
+ * an active canonical Party before invoking the command service. Tenant
+ * membership and capability authorization are independently enforced by
+ * SocialGraphService.</p>
  */
 public final class SocialGraphCommandFacade {
     private final SocialGraphActorResolver actorResolver;
