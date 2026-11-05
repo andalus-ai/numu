@@ -28,6 +28,7 @@ Inactive, malformed, unknown, expired, revoked, rotated, mismatched and over-sco
 - The endpoint is under \`/internal\` and requires the dedicated \`oauth-introspect\` role via \`@RolesAllowed\`.
 - The deployment must additionally restrict network access to Iket and require mTLS between Iket and Identity. Application role authorization and mTLS are both required; do not expose this endpoint publicly.
 - The Iket service credential must be a workload identity issued for this role, not a developer user token.
+- Numou machine access tokens carry a `groups` claim derived from the OAuth scopes authorized on that credential. Quarkus OIDC and SmallRye JWT role mapping explicitly read `groups`, so `@RolesAllowed("oauth-introspect")` is granted only when the workload credential was provisioned with the `oauth-introspect` scope. Use a dedicated Iket OAuth client credential for this purpose.
 - Identity parses and cryptographically verifies the submitted JWT using the configured trusted public key and issuer, checks the configured resource audience, and then resolves the live credential record.
 - Tenant, application, client and scopes are taken from the verified JWT and authoritative credential row, never from caller headers.
 - The private signing key and Identity database remain inside Numou.

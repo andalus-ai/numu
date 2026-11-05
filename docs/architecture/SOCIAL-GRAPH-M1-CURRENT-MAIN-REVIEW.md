@@ -155,7 +155,7 @@ The current repository tree contains capability-specific privacy/retention behav
 ## 7. M1 acceptance gates and next work
 
 1. Run the dedicated Social Graph workflow / Maven command and record exact results; verify the Flyway migration and Testcontainers PostgreSQL tests execute (not silently skipped because Docker is unavailable).
-2. Wire the facade and Ecosystem adapters into an actual host using verified authentication context; provide and test a fail-closed tenant membership/capability authorization implementation.
+2. Integrate the new command facade into the actual host composition and test verified principal → tenant-scoped identity association → active Party → authorization → command end-to-end.
 3. Decide and document PostgreSQL RLS requirements for graph, audit, idempotency and outbox tables under actual application/worker roles.
 4. Add concurrency coverage for duplicate idempotency keys and active-pair races, and confirm retry/replay behavior.
 5. Define consent, visibility, block and deletion semantics before adding read/list/search or cross-tenant discovery.

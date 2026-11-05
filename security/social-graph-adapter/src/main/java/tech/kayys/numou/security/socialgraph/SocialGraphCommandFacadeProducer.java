@@ -7,7 +7,6 @@ import tech.kayys.numou.socialgraph.application.PartyDirectoryPort;
 import tech.kayys.numou.socialgraph.application.SocialGraphActorResolver;
 import tech.kayys.numou.socialgraph.application.SocialGraphAuthorizationPort;
 import tech.kayys.numou.socialgraph.application.SocialGraphCommandFacade;
-import tech.kayys.numou.socialgraph.application.SocialGraphService;
 import tech.kayys.numou.socialgraph.spi.SocialGraphUnitOfWork;
 
 import java.time.Clock;
@@ -33,8 +32,8 @@ public class SocialGraphCommandFacadeProducer {
     @Produces
     @ApplicationScoped
     public SocialGraphCommandInvoker socialGraphCommandInvoker() {
-        SocialGraphService service = new SocialGraphService(unitOfWork, parties, authorization, Clock.systemUTC());
-        SocialGraphCommandFacade facade = new SocialGraphCommandFacade(actors, service);
+        SocialGraphCommandFacade facade = SocialGraphCommandFacade.compose(
+                unitOfWork, parties, authorization, actors, Clock.systemUTC());
         return new SocialGraphCommandInvoker() {
             @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialConnection>
             requestConnection(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
