@@ -35,13 +35,16 @@ class VaultInvitationSecretCipherAdapterTest {
         @Override public EncryptedPayload encrypt(EncryptionScope scope, char[] plaintext) {
             lastScope = scope;
             byte[] bytes = new String(plaintext).getBytes(StandardCharsets.UTF_8);
+            for (int i = 0; i < bytes.length; i++) bytes[i] ^= 0x5A;
             return new EncryptedPayload("TEST-ENVELOPE", 1, "test-key", bytes);
         }
 
         @Override public char[] decrypt(EncryptionScope scope, String keyId, String algorithm,
                                         int formatVersion, byte[] ciphertext) {
             lastScope = scope;
-            return new String(ciphertext, StandardCharsets.UTF_8).toCharArray();
+            byte[] clear = ciphertext.clone();
+            for (int i = 0; i < clear.length; i++) clear[i] ^= 0x5A;
+            return new String(clear, StandardCharsets.UTF_8).toCharArray();
         }
     }
 }
