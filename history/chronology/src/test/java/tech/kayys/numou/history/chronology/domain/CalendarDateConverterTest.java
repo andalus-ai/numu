@@ -30,6 +30,29 @@ class CalendarDateConverterTest {
     }
 
     @Test
+    void absoluteDayCanBeConvertedBackIntoEitherCalendar() {
+        GregorianCalendarDateConverter gregorian = new GregorianCalendarDateConverter();
+        JulianCalendarDateConverter julian = new JulianCalendarDateConverter();
+        long absoluteDay = gregorian.toAbsoluteDay(
+                HistoricalDate.day(1582, 10, 15, GregorianCalendarDateConverter.ID)).orElseThrow();
+        assertEquals(HistoricalDate.day(1582, 10, 5, JulianCalendarDateConverter.ID),
+                julian.fromAbsoluteDay(absoluteDay));
+        assertEquals(HistoricalDate.day(1582, 10, 15, GregorianCalendarDateConverter.ID),
+                gregorian.fromAbsoluteDay(absoluteDay));
+    }
+
+    @Test
+    void chronologyConvertsExactDatesButDoesNotInventDatesForPartialPrecision() {
+        HistoricalChronology chronology = HistoricalChronology.standard();
+        HistoricalDate gregorian = HistoricalDate.day(1582, 10, 15, GregorianCalendarDateConverter.ID);
+        assertEquals(HistoricalDate.day(1582, 10, 5, JulianCalendarDateConverter.ID),
+                chronology.convert(gregorian, JulianCalendarDateConverter.ID).orElseThrow());
+        assertTrue(chronology.convert(
+                HistoricalDate.year(1582, GregorianCalendarDateConverter.ID),
+                JulianCalendarDateConverter.ID).isEmpty());
+    }
+
+    @Test
     void julianLeapYearRulesDifferFromGregorianAtCenturyBoundary() {
         JulianCalendarDateConverter julian = new JulianCalendarDateConverter();
         GregorianCalendarDateConverter gregorian = new GregorianCalendarDateConverter();
