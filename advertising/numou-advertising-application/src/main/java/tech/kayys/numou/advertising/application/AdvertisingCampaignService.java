@@ -52,6 +52,16 @@ public final class AdvertisingCampaignService {
       .thenCompose(found->campaigns.saveCampaign(found.orElseThrow(()->new IllegalArgumentException("campaign not found")).pause()));
   }
 
+  public CompletionStage<Campaign> completeCampaign(TenantId tenant,CampaignId id) {
+    return authorized(tenant,"campaign.manage").thenCompose(v->campaigns.findCampaign(tenant,id))
+      .thenCompose(found->campaigns.saveCampaign(found.orElseThrow(()->new IllegalArgumentException("campaign not found")).complete(clock.instant())));
+  }
+
+  public CompletionStage<Campaign> archiveCampaign(TenantId tenant,CampaignId id) {
+    return authorized(tenant,"campaign.manage").thenCompose(v->campaigns.findCampaign(tenant,id))
+      .thenCompose(found->campaigns.saveCampaign(found.orElseThrow(()->new IllegalArgumentException("campaign not found")).archive()));
+  }
+
   public CompletionStage<Creative> createCreative(TenantId tenant,AdvertisingAccountId advertiser,String name,
                                                     CreativeFormat format,String headline,String body,URI destination,
                                                     String documentReference) {
@@ -73,6 +83,11 @@ public final class AdvertisingCampaignService {
   public CompletionStage<Creative> rejectCreative(TenantId tenant,CreativeId id,String reason) {
     return authorized(tenant,"creative.review").thenCompose(v->campaigns.findCreative(tenant,id))
       .thenCompose(found->campaigns.saveCreative(found.orElseThrow(()->new IllegalArgumentException("creative not found")).reject(reason)));
+  }
+
+  public CompletionStage<Creative> archiveCreative(TenantId tenant,CreativeId id) {
+    return authorized(tenant,"creative.manage").thenCompose(v->campaigns.findCreative(tenant,id))
+      .thenCompose(found->campaigns.saveCreative(found.orElseThrow(()->new IllegalArgumentException("creative not found")).archive()));
   }
 
   public CompletionStage<CampaignCreativeAssignment> assignCreative(TenantId tenant,CampaignId campaignId,CreativeId creativeId) {
