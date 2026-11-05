@@ -40,7 +40,7 @@ class ApplicationHostLifecycleDispatcherTest {
                                 new tech.kayys.numou.plugin.application.manifest.ApplicationManifest(
                                         APP, VERSION, "test-publisher", "Inventory", java.util.List.of(),
                                         java.util.List.of(), java.util.Set.of(), java.util.List.of()), DIGEST))),
-                host);
+                (tenant, pkg) -> CompletableFuture.completedFuture(null), host);
 
         assertThat(dispatcher.dispatch(TENANT, event("ENABLED")).toCompletableFuture().join())
                 .isEqualTo(ApplicationHostLifecycleDispatcher.Outcome.ACTIVATED);
@@ -76,6 +76,7 @@ class ApplicationHostLifecycleDispatcherTest {
     void unrelatedTransitionsAreIgnored() {
         ApplicationHostLifecycleDispatcher dispatcher = new ApplicationHostLifecycleDispatcher(
                 (id, version) -> CompletableFuture.completedFuture(Optional.empty()),
+                (tenant, pkg) -> CompletableFuture.completedFuture(null),
                 new ApplicationHostCompositionPort() {
                     public java.util.concurrent.CompletionStage<Void> activate(ActivationCommand command) {
                         throw new AssertionError();
