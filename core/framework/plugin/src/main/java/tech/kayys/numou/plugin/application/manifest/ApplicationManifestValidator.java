@@ -46,9 +46,10 @@ public final class ApplicationManifestValidator {
                 requires.path("capabilities"), "requires.capabilities", violations);
         List<CapabilityRequirement> optional = requirements(
                 requires.path("optionalCapabilities"), "requires.optionalCapabilities", violations);
-        Map<String, CapabilityDeclaration> declarations = new TreeMap<>();
-        collectCapabilityDeclarations(required, "required", declarations, violations);
-        collectCapabilityDeclarations(optional, "optional", declarations, violations);
+        Map<String, List<CapabilityDeclaration>> declarations = new TreeMap<>();
+        collectCapabilityDeclarations(required, "required", declarations);
+        collectCapabilityDeclarations(optional, "optional", declarations);
+        validateCapabilityDeclarations(declarations, violations);
 
         Set<String> permissions = new TreeSet<>();
         root.path("permissions").forEach(p -> permissions.add(p.asText()));
@@ -87,28 +88,34 @@ public final class ApplicationManifestValidator {
     private static void collectCapabilityDeclarations(
             List<CapabilityRequirement> requirements,
             String declarationKind,
-            Map<String, CapabilityDeclaration> declarations,
-            List<String> violations) {
+            Map<String, List<CapabilityDeclaration>> declarations) {
         for (CapabilityRequirement requirement : requirements) {
-            CapabilityDeclaration previous = declarations.putIfAbsent(
-                    requirement.id(),
-                    new CapabilityDeclaration(declarationKind, requirement.contractRange()));
-            if (previous == null) continue;
-
-            if (!previous.kind().equals(declarationKind)) {
-                violations.add("Capability cannot be both required and optional: " + requirement.id());
-            } else if (!previous.contractRange().equals(requirement.contractRange())) {
-                String firstRange = previous.contractRange().compareTo(requirement.contractRange()) <= 0
-                        ? previous.contractRange() : requirement.contractRange();
-                String secondRange = previous.contractRange().compareTo(requirement.contractRange()) <= 0
-                        ? requirement.contractRange() : previous.contractRange();
-                violations.add("Conflicting " + declarationKind + " capability contract ranges for "
-                        + requirement.id() + ": " + firstRange + " and " + secondRange);
-            } else {
-                violations.add("Duplicate " + declarationKind + " capability requirement: "
-                        + requirement.id());
-            }
+            declarations.computeIfAbsent(requirement.id(), ignored -> new ArrayList<>())
+                    .add(new CapabilityDeclaration(declarationKind, requirement.contractRange()));
         }
+    }
+
+    private static void validateCapabilityDeclarations(
+            Map<String, List<CapabilityDeclaration>> declarations,
+            List<String> violations) {
+        declarations.forEach((id, entries) -> {
+            boolean required = entries.stream().anyMatch(entry -> entry.kind().equals("required"));
+            boolean optional = entries.stream().anyMatch(entry -> entry.kind().equals("optional"));
+            if (required && optional) {
+                violations.add("Capability cannot be both required and optional: " + id);
+                return;
+            }
+
+            TreeSet<String> ranges = new TreeSet<>();
+            entries.forEach(entry -> ranges.add(entry.contractRange()));
+            if (ranges.size() > 1) {
+                violations.add("Conflicting " + entries.get(0).kind()
+                        + " capability contract ranges for " + id + ": " + String.join(", ", ranges));
+            } else if (entries.size() > 1) {
+                violations.add("Duplicate " + entries.get(0).kind()
+                        + " capability requirement: " + id);
+            }
+        });
     }
 
     private record CapabilityDeclaration(String kind, String contractRange) {}
