@@ -16,8 +16,9 @@ public record Creative(CreativeId id, TenantId tenantId, AdvertisingAccountId ad
     headline=optionalText(headline,200,"headline");
     body=optionalText(body,2000,"body");
     if(destinationUri!=null && (!destinationUri.isAbsolute() || destinationUri.getHost()==null ||
-        !("http".equalsIgnoreCase(destinationUri.getScheme()) || "https".equalsIgnoreCase(destinationUri.getScheme()))))
-      throw new IllegalArgumentException("destination must be an absolute HTTP(S) URI");
+        !("http".equalsIgnoreCase(destinationUri.getScheme()) || "https".equalsIgnoreCase(destinationUri.getScheme())) ||
+        destinationUri.toString().length()>2048))
+      throw new IllegalArgumentException("destination must be an absolute HTTP(S) URI of at most 2048 characters");
     documentReference=optionalText(documentReference,512,"document reference");
     if(format!=CreativeFormat.TEXT && documentReference==null)
       throw new IllegalArgumentException("image, video and native creatives require a document reference");
