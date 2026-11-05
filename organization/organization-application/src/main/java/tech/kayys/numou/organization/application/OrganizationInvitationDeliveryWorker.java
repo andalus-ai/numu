@@ -59,6 +59,6 @@ public final class OrganizationInvitationDeliveryWorker {
     private CompletionStage<Void> deliver(OrganizationInvitationDeliveryOutboxPort.ClaimedDelivery item) {
         String secret = cipher.decrypt(item.tenantId(), item.invitationId(), item.secret());
         String url = publicBaseUri.toString() + "/invitations/accept?token=" + secret;
-        return provider.send(new InvitationEmailProvider.Email(item.recipientEmail(), url));
+        return provider.send(new InvitationEmailProvider.Email(item.deliveryId(), item.recipientEmail(), url));
     }
 }
