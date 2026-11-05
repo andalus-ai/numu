@@ -26,27 +26,32 @@ class SecurityContextSocialGraphAuthorizationAdapterTest {
     private final SocialGraphActor actor = new SocialGraphActor(tenant, PartyId.generate());
 
     @Test
-    void permitsRequestWithCreatePermission() {
+    void allowsRequestWithCreatePermission() {
         var adapter = adapter(context(tenant, Set.of(Permission.of("social-graph", "create"))));
         assertThatCode(() -> adapter.requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    void permitsLifecycleWithPerformPermission() {
-        var adapter = adapter(context(tenant, Set.of(Permission.of("social-graph", "perform"))));
-        assertThatCode(() -> adapter.requireAuthorized(actor, SocialGraphAuthorizationAction.MANAGE_CONNECTION))
+    void allowsLifecycleWithPerformPermissionAndRejectsCreateOnly() {
+        var manage = adapter(context(tenant, Set.of(Permission.of("social-graph", "perform"))));
+        assertThatCode(() -> manage.requireAuthorized(actor, SocialGraphAuthorizationAction.MANAGE_CONNECTION))
                 .doesNotThrowAnyException();
-    }
+        assertThatThrownBy(() -> manage.requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
+                .isInstanceOf(SocialGraphAccessDeniedException.class);
 
-    @Test
-    void deniesWrongPermissionForEachAction() {
         var createOnly = adapter(context(tenant, Set.of(Permission.of("social-graph", "create"))));
         assertThatThrownBy(() -> createOnly.requireAuthorized(actor, SocialGraphAuthorizationAction.MANAGE_CONNECTION))
                 .isInstanceOf(SocialGraphAccessDeniedException.class);
+    }
 
-        var performOnly = adapter(context(tenant, Set.of(Permission.of("social-graph", "perform"))));
-        assertThatThrownBy(() -> performOnly.requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
+    @Test
+    void deniesMissingContextAndCrossTenantContext() {
+        assertThatThrownBy(() -> adapter(null).requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
+                .isInstanceOf(SocialGraphAccessDeniedException.class);
+        assertThatThrownBy(() -> adapter(context(TenantId.generate(),
+                Set.of(Permission.of("social-graph", "create"))))
+                .requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
                 .isInstanceOf(SocialGraphAccessDeniedException.class);
     }
 
@@ -62,11 +67,7 @@ class SecurityContextSocialGraphAuthorizationAdapterTest {
         var context = new SecurityContext(principal, tenant,
                 AuthenticationInfo.authenticated(AuthenticationMethod.OIDC, Instant.now()),
                 Set.of(Permission.of("social-graph", "create")));
-        assertDenied(adapter(context));
-    }
-
-    private void assertDenied(SecurityContextSocialGraphAuthorizationAdapter adapter) {
-        assertThatThrownBy(() -> adapter.requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
+        assertThatThrownBy(() -> adapter(context).requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
                 .isInstanceOf(SocialGraphAccessDeniedException.class);
     }
 
@@ -76,11 +77,12 @@ class SecurityContextSocialGraphAuthorizationAdapterTest {
     }
 
     private SecurityContextSocialGraphAuthorizationAdapter adapter(SecurityContext context) {
-        return new SecurityContextSocialGraphAuthorizationAdapter(new SecurityContextProvider() {
+        SecurityContextProvider provider = new SecurityContextProvider() {
             @Override public Optional<SecurityContext> current() { return Optional.ofNullable(context); }
             @Override public SecurityContext require() {
                 return Optional.ofNullable(context).orElseThrow(SocialGraphAccessDeniedException::new);
             }
-        });
+        };
+        return new SecurityContextSocialGraphAuthorizationAdapter(provider);
     }
 }

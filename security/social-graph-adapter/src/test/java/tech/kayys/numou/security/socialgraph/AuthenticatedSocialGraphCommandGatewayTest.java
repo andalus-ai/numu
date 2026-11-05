@@ -32,7 +32,8 @@ class AuthenticatedSocialGraphCommandGatewayTest {
     void derivesTenantAndIdentityFromTrustedProviders() {
         AtomicBoolean invoked = new AtomicBoolean();
         SocialGraphCommandInvoker invoker = new NoOpInvoker() {
-            @Override public Uni<SocialConnection> acceptConnection(TenantId actualTenant, IdentitySubjectRef actualSubject,
+            @Override
+            public Uni<SocialConnection> acceptConnection(TenantId actualTenant, IdentitySubjectRef actualSubject,
                     SocialConnectionId id, String key) {
                 assertThat(actualTenant).isEqualTo(tenant);
                 assertThat(actualSubject).isEqualTo(subject);
@@ -40,20 +41,22 @@ class AuthenticatedSocialGraphCommandGatewayTest {
                 return Uni.createFrom().failure(new UnsupportedOperationException("test sentinel"));
             }
         };
-        var gateway = gateway(context(tenant), Optional.of(subject), invoker);
-        assertThatThrownBy(() -> gateway.acceptConnection(SocialConnectionId.generate(), "key")
-                .await().indefinitely()).isInstanceOf(UnsupportedOperationException.class);
+
+        assertThatThrownBy(() -> gateway(context(tenant), Optional.of(subject), invoker)
+                .acceptConnection(SocialConnectionId.generate(), "key-1").await().indefinitely())
+                .isInstanceOf(UnsupportedOperationException.class);
         assertThat(invoked).isTrue();
     }
 
     @Test
     void deniesMissingSecurityContextBeforeResolvingSubject() {
         AtomicBoolean subjectRead = new AtomicBoolean();
-        var gateway = gateway(null, () -> {
+        VerifiedIdentitySubjectProvider provider = () -> {
             subjectRead.set(true);
             return Optional.of(subject);
-        }, new NoOpInvoker());
-        assertDenied(gateway);
+        };
+
+        assertDenied(gateway(null, provider, new NoOpInvoker()));
         assertThat(subjectRead).isFalse();
     }
 
@@ -83,18 +86,17 @@ class AuthenticatedSocialGraphCommandGatewayTest {
     }
 
     private AuthenticatedSocialGraphCommandGateway gateway(
-            SecurityContext context, Optional<IdentitySubjectRef> subject, SocialGraphCommandInvoker invoker) {
-        return gateway(context, () -> subject, invoker);
+            SecurityContext context, Optional<IdentitySubjectRef> identity, SocialGraphCommandInvoker invoker) {
+        return gateway(context, () -> identity, invoker);
     }
 
     private AuthenticatedSocialGraphCommandGateway gateway(
-            SecurityContext context, VerifiedIdentitySubjectProvider subject, SocialGraphCommandInvoker invoker) {
-        return new AuthenticatedSocialGraphCommandGateway(new SecurityContextProvider() {
+            SecurityContext context, VerifiedIdentitySubjectProvider identity, SocialGraphCommandInvoker invoker) {
+        SecurityContextProvider contexts = new SecurityContextProvider() {
             @Override public Optional<SecurityContext> current() { return Optional.ofNullable(context); }
-            @Override public SecurityContext require() {
-                return Optional.ofNullable(context).orElseThrow(SocialGraphAccessDeniedException::new);
-            }
-        }, subject, invoker);
+            @Override public SecurityContext require() { return Optional.ofNullable(context).orElseThrow(); }
+        };
+        return new AuthenticatedSocialGraphCommandGateway(contexts, identity, invoker);
     }
 
     private static class NoOpInvoker implements SocialGraphCommandInvoker {
