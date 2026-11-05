@@ -35,6 +35,7 @@
         <module>cache</module>
         <module>plugin</module>
         <module>runtime</module>
+        <module>runtime-quarkus</module>
         <module>workflow</module>
         <module>scope</module>
         <module>planning</module>
