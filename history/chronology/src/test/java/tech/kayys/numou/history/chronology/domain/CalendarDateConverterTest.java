@@ -53,6 +53,28 @@ class CalendarDateConverterTest {
     }
 
     @Test
+    void negativeAstronomicalYearsRoundTripInBothCalendars() {
+        GregorianCalendarDateConverter gregorian = new GregorianCalendarDateConverter();
+        JulianCalendarDateConverter julian = new JulianCalendarDateConverter();
+        HistoricalDate gregorianBce = HistoricalDate.day(-43, 3, 15, GregorianCalendarDateConverter.ID);
+        HistoricalDate julianBce = HistoricalDate.day(-43, 3, 15, JulianCalendarDateConverter.ID);
+        assertEquals(gregorianBce, gregorian.fromAbsoluteDay(
+                gregorian.toAbsoluteDay(gregorianBce).orElseThrow()));
+        assertEquals(julianBce, julian.fromAbsoluteDay(
+                julian.toAbsoluteDay(julianBce).orElseThrow()));
+    }
+
+    @Test
+    void approximateFlagSurvivesExactCalendarConversion() {
+        HistoricalChronology chronology = HistoricalChronology.standard();
+        HistoricalDate approximate = HistoricalDate.day(1200, 6, 1, GregorianCalendarDateConverter.ID)
+                .asApproximate("c. 1 June 1200");
+        HistoricalDate converted = chronology.convert(approximate, JulianCalendarDateConverter.ID).orElseThrow();
+        assertTrue(converted.approximate());
+        assertEquals(JulianCalendarDateConverter.ID, converted.calendarSystem());
+    }
+
+    @Test
     void julianLeapYearRulesDifferFromGregorianAtCenturyBoundary() {
         JulianCalendarDateConverter julian = new JulianCalendarDateConverter();
         GregorianCalendarDateConverter gregorian = new GregorianCalendarDateConverter();
