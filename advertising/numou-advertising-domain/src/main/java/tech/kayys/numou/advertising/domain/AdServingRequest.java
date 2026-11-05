@@ -10,7 +10,7 @@ public record AdServingRequest(TenantId tenantId,AdPlacementId placementId,URI p
     Objects.requireNonNull(tenantId,"tenantId");
     Objects.requireNonNull(placementId,"placementId");
     Objects.requireNonNull(pageUri,"pageUri");
-    if(!pageUri.isAbsolute() || pageUri.getHost()==null || pageUri.getScheme()==null ||
+    if(!pageUri.isAbsolute() || pageUri.getHost()==null || pageUri.getUserInfo()!=null || pageUri.getScheme()==null ||
        !(pageUri.getScheme().equalsIgnoreCase("http") || pageUri.getScheme().equalsIgnoreCase("https")) ||
        pageUri.toString().length()>2048)
       throw new IllegalArgumentException("page URI must be an absolute HTTP(S) URI with a host and at most 2048 characters");
