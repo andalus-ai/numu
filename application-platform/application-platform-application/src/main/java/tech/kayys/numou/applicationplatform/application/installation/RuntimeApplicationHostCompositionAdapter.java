@@ -1,7 +1,6 @@
 package tech.kayys.numou.applicationplatform.application.installation;
 
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
-import tech.kayys.numou.plugin.api.Capability;
 import tech.kayys.numou.plugin.api.NumouPlugin;
 import tech.kayys.numou.plugin.api.PluginContext;
 import tech.kayys.numou.plugin.api.PluginState;
@@ -89,7 +88,7 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
                             if (initialized) {
                                 try { plugin.stop(); } catch (Throwable stopFailure) { failure.addSuppressed(stopFailure); }
                             }
-                            throw failure;
+                            throw propagate(failure);
                         }
                     }
                     active.put(key, new ActiveInstallation(command.applicationId(), started,
@@ -163,6 +162,12 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
             }
         }
         return failure;
+    }
+
+    private static RuntimeException propagate(Throwable failure) {
+        if (failure instanceof RuntimeException runtime) return runtime;
+        if (failure instanceof Error error) throw error;
+        return new IllegalStateException("Capability provider lifecycle failed", failure);
     }
 
     private static Throwable unwrap(Throwable failure) {
