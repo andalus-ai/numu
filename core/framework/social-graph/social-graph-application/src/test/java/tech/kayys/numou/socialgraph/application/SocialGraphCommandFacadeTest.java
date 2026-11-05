@@ -12,6 +12,7 @@ import tech.kayys.numou.socialgraph.spi.SocialGraphUnitOfWork;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
