@@ -96,7 +96,7 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
                         }
                     }
                     active.put(key, new ActiveInstallation(command.applicationId(), command.packageVersion(),
-                            command.packageDigest(), started, command.operationId()));
+                            command.packageDigest(), started));
                     return CompletableFuture.completedFuture(null);
                 } catch (Throwable failure) {
                     rollback(started, failure);
@@ -199,7 +199,7 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
         private final List<StartedProvider> providers;
 
         private ActiveInstallation(String applicationId, String packageVersion, String packageDigest,
-                List<StartedProvider> providers, UUID operationId) {
+                List<StartedProvider> providers) {
             this.applicationId = applicationId;
             this.packageVersion = packageVersion;
             this.packageDigest = packageDigest;
