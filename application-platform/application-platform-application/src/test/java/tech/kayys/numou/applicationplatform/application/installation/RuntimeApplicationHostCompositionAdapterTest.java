@@ -94,6 +94,34 @@ class RuntimeApplicationHostCompositionAdapterTest {
     }
 
     @Test
+    void packageUpgradeReplacesProvidersAndStaleDeactivationCannotStopNewRevision() {
+        List<String> lifecycle = new ArrayList<>();
+        var registry = new ApplicationCapabilityProviderRuntimeRegistry();
+        register(registry, provider("provider.orders", "orders", List.of()), tenant -> true,
+                () -> new FakePlugin("provider.orders", "orders", lifecycle, false));
+        var adapter = adapter(registry);
+        var installation = UUID.randomUUID();
+        var versionOne = activation(TENANT, installation,
+                manifest(List.of(new CapabilityRequirement("orders", "^1.0.0"))));
+        adapter.activate(versionOne).toCompletableFuture().join();
+
+        var versionTwoManifest = new ApplicationManifest(APP, "2.0.0", "test-publisher", "Orders",
+                List.of(new CapabilityRequirement("orders", "^1.0.0")), List.of(), Set.of(), List.of());
+        var versionTwo = activation(TENANT, installation, versionTwoManifest, "2.0.0");
+        adapter.activate(versionTwo).toCompletableFuture().join();
+
+        adapter.deactivate(deactivation(versionOne)).toCompletableFuture().join();
+        assertThat(lifecycle).containsExactly("start:provider.orders", "stop:provider.orders",
+                "start:provider.orders");
+        assertThat(adapter.health(TENANT, installation))
+                .isEqualTo(RuntimeApplicationHostCompositionAdapter.RuntimeHealth.READY);
+
+        adapter.deactivate(deactivation(versionTwo)).toCompletableFuture().join();
+        assertThat(lifecycle).containsExactly("start:provider.orders", "stop:provider.orders",
+                "start:provider.orders", "stop:provider.orders");
+    }
+
+    @Test
     void activationIsIdempotentAndInstancesAreScopedPerTenantInstallation() {
         AtomicInteger created = new AtomicInteger();
         var registry = new ApplicationCapabilityProviderRuntimeRegistry();
@@ -147,9 +175,14 @@ class RuntimeApplicationHostCompositionAdapterTest {
 
     private static ApplicationHostCompositionPort.ActivationCommand activation(
             TenantId tenant, UUID installation, ApplicationManifest manifest) {
+        return activation(tenant, installation, manifest, "1.0.0");
+    }
+
+    private static ApplicationHostCompositionPort.ActivationCommand activation(
+            TenantId tenant, UUID installation, ApplicationManifest manifest, String version) {
         var pkg = new ValidatedApplicationPackage(manifest, DIGEST);
         return new ApplicationHostCompositionPort.ActivationCommand(tenant, installation, APP,
-                "1.0.0", DIGEST, UUID.randomUUID(), "test-operator", "test-correlation", pkg);
+                version, DIGEST, UUID.randomUUID(), "test-operator", "test-correlation", pkg);
     }
 
     private static ApplicationHostCompositionPort.DeactivationCommand deactivation(
