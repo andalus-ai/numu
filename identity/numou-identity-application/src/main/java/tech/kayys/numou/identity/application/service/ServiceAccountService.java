@@ -53,7 +53,7 @@ public class ServiceAccountService {
                             var sa = ServiceAccount.create(
                                     id, tenantId, request.name(), request.description(), ownerId, clock.now());
                             return serviceAccountRepository.save(tenantId, sa)
-                                    .chain(() -> outbox.append(tenantId.value(), sa.pullDomainEvents()))
+                                    .chain(() -> outbox.append(tenantId, sa.pullDomainEvents()))
                                     .replaceWith(ServiceAccountResponse.from(sa));
                         })
         );
@@ -73,7 +73,7 @@ public class ServiceAccountService {
                             var sa = optional.get();
                             sa.disable(actorId != null ? actorId.toString() : null, clock.now());
                             return serviceAccountRepository.save(tenantId, sa)
-                                    .chain(() -> outbox.append(tenantId.value(), sa.pullDomainEvents()))
+                                    .chain(() -> outbox.append(tenantId, sa.pullDomainEvents()))
                                     .replaceWith(ServiceAccountResponse.from(sa));
                         })
         );
