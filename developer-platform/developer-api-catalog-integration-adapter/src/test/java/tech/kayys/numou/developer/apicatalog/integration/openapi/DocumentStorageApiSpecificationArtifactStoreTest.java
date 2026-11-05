@@ -22,7 +22,12 @@ class DocumentStorageApiSpecificationArtifactStoreTest {
         var adapter = new DocumentStorageApiSpecificationArtifactStore(storage);
         var tenant = TenantId.generate();
         byte[] bytes = "{\\"openapi\\":\\"3.1.0\\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        String digest = "e6b8c1f8c7b4b1c4b1e6e4d9d9b6c0e8f8b6a1d1f7c5a9a6b2c3d4e5f6071829";
+        String digest;
+        try {
+            digest = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
 
         var result = adapter.store(tenant, UUID.randomUUID().toString(), "1.2.3",
                 bytes, "application/json", digest).await().indefinitely();
@@ -44,7 +49,13 @@ class DocumentStorageApiSpecificationArtifactStoreTest {
             this.key = key;
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             content.transferTo(bytes);
-            return new StoredObjectMetadata(key, bytes.size(), contentType, sha256, Instant.now(), null);
+            String actual;
+            try {
+                actual = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()));
+            } catch (java.security.NoSuchAlgorithmException impossible) {
+                throw new IllegalStateException(impossible);
+            }
+            return new StoredObjectMetadata(key, bytes.size(), contentType, actual, Instant.now(), null);
         }
 
         @Override public Optional<StoredObject> get(StorageKey key) { return Optional.empty(); }
