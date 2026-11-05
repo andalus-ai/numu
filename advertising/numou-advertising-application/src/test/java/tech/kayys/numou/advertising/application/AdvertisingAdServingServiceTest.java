@@ -84,6 +84,7 @@ class AdvertisingAdServingServiceTest {
     AdServingInventory inventory=new AdServingInventory(placement,property,publisher);
     final Store store=new Store();
     final AdvertisingAdServingService service=new AdvertisingAdServingService(store,CLOCK);
+    Fixture(){store.inventory=Optional.of(inventory);}
     AdServingRequest request(String page,String format){return new AdServingRequest(TENANT,placement.id(),URI.create(page),format);}
     AdServingCandidate candidate(Instant created,String label) {
       AdvertisingAccountId advertiserId=AdvertisingAccountId.generate();
