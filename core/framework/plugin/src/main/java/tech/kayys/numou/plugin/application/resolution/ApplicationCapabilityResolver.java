@@ -9,14 +9,16 @@ public final class ApplicationCapabilityResolver {
         Objects.requireNonNull(manifest, "Application manifest is required");
         Objects.requireNonNull(available, "Provider collection is required");
         Map<String, List<CapabilityProvider>> index = new TreeMap<>();
+        List<CapabilityProvider> providerCatalog = new ArrayList<>(available.size());
         Set<String> providerIds = new HashSet<>();
         for (CapabilityProvider provider : available) {
             if (!providerIds.add(provider.providerId()))
                 throw new CapabilityResolutionException("Duplicate provider ID: " + provider.providerId());
             validateProviderVersion(provider);
+            providerCatalog.add(provider);
             index.computeIfAbsent(provider.capabilityId(), ignored -> new ArrayList<>()).add(provider);
         }
-        validateProviderDependencies(available);
+        validateProviderDependencies(providerCatalog);
         index.values().forEach(list -> list.sort(Comparator.comparing(CapabilityProvider::providerId)));
 
         Map<String, CapabilityProvider> selected = new TreeMap<>();
