@@ -42,6 +42,7 @@
         <!-- Shared business-facing capabilities used by Developer Platform adapters. -->
         <module>../../identity</module>
         <module>../../documents</module>
+        <module>../../advertising</module>
 
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
