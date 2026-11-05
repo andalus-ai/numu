@@ -1,6 +1,5 @@
 package tech.kayys.numou.identity.adapter.inbound.rest;
 
-import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -10,6 +9,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import tech.kayys.numou.identity.application.dto.AccessTokenResponse;
@@ -27,14 +27,14 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class TenantAuthResource {
-    private final SecurityIdentity identity;
+    private final JsonWebToken jwt;
     private final TenantSelectionLoginService login;
     private final TenantSelectionService tenants;
 
     @Inject
-    public TenantAuthResource(SecurityIdentity identity, TenantSelectionLoginService login,
+    public TenantAuthResource(JsonWebToken jwt, TenantSelectionLoginService login,
                               TenantSelectionService tenants) {
-        this.identity = identity;
+        this.jwt = jwt;
         this.login = login;
         this.tenants = tenants;
     }
@@ -64,19 +64,17 @@ public class TenantAuthResource {
     }
 
     private SelectionPrincipal requireSelectionPrincipal() {
-        if (identity.isAnonymous()) {
+        if (jwt == null || jwt.getSubject() == null || jwt.getSubject().isBlank()) {
             throw new WebApplicationException("Authentication required", 401);
         }
-        Object tokenUse = identity.getAttribute("token_use");
-        Object principalType = identity.getAttribute("principalType");
-        if (!"tenant_selection".equals(tokenUse) || !"USER".equals(principalType)) {
+        if (!"tenant_selection".equals(jwt.getClaim("token_use"))
+                || !"USER".equals(jwt.getClaim("principalType"))) {
             throw new WebApplicationException("Tenant-selection credential required", 403);
         }
         try {
-            UUID userId = UUID.fromString(identity.getPrincipal().getName());
-            Object upn = identity.getAttribute("upn");
-            String displayName = upn instanceof String value && !value.isBlank()
-                    ? value : identity.getPrincipal().getName();
+            UUID userId = UUID.fromString(jwt.getSubject());
+            String upn = jwt.getClaim("upn");
+            String displayName = upn != null && !upn.isBlank() ? upn : jwt.getSubject();
             return new SelectionPrincipal(userId, displayName);
         } catch (RuntimeException invalidSubject) {
             throw new WebApplicationException("Authenticated user identity is invalid", 401);
