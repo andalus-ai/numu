@@ -23,6 +23,26 @@ public final class JulianCalendarDateConverter implements CalendarDateConverter 
     }
 
     @Override
+    public HistoricalDate fromAbsoluteDay(long absoluteDay) {
+        BigInteger jdn = BigInteger.valueOf(absoluteDay);
+        BigInteger c = jdn.add(BigInteger.valueOf(32082));
+        BigInteger d = GregorianCalendarDateConverter.floorDivide(
+                BigInteger.valueOf(4).multiply(c).add(BigInteger.valueOf(3)), BigInteger.valueOf(1461));
+        BigInteger e = c.subtract(GregorianCalendarDateConverter.floorDivide(
+                BigInteger.valueOf(1461).multiply(d), BigInteger.valueOf(4)));
+        BigInteger m = GregorianCalendarDateConverter.floorDivide(
+                BigInteger.valueOf(5).multiply(e).add(BigInteger.valueOf(2)), BigInteger.valueOf(153));
+        BigInteger day = e.subtract(GregorianCalendarDateConverter.floorDivide(
+                BigInteger.valueOf(153).multiply(m).add(BigInteger.valueOf(2)), BigInteger.valueOf(5)))
+                .add(BigInteger.ONE);
+        BigInteger month = m.add(BigInteger.valueOf(3))
+                .subtract(BigInteger.valueOf(12).multiply(GregorianCalendarDateConverter.floorDivide(m, BigInteger.TEN)));
+        BigInteger year = d.subtract(BigInteger.valueOf(4800))
+                .add(GregorianCalendarDateConverter.floorDivide(m, BigInteger.TEN));
+        return HistoricalDate.day(year.longValueExact(), month.intValueExact(), day.intValueExact(), ID);
+    }
+
+    @Override
     public Optional<AbsoluteDayRange> toAbsoluteDayBounds(HistoricalDate date) {
         Objects.requireNonNull(date, "Date is required");
         requireCalendar(date);
