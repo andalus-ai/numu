@@ -20,7 +20,7 @@ class ApplicationPluginRuntimeFactoryTest {
         public String name() { return "ledger"; }
     }
 
-    static final class TestPlugin implements NumouPlugin {
+    static class TestPlugin implements NumouPlugin {
         private final String id;
         private final PluginManifest manifest;
         private final List<String> events;
