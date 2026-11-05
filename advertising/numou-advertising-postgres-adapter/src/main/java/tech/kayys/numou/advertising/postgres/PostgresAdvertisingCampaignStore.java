@@ -94,10 +94,10 @@ public class PostgresAdvertisingCampaignStore implements AdvertisingCampaignStor
 
   @Override public CompletionStage<CampaignCreativeAssignment> assignCreative(CampaignCreativeAssignment a) {
     return execute(()->{
-      String sql="INSERT INTO advertising_campaign_creative(tenant_id,campaign_id,creative_id,assigned_at) VALUES(?,?,?,?)";
+      String sql="INSERT INTO advertising_campaign_creative(tenant_id,advertiser_account_id,campaign_id,creative_id,assigned_at) VALUES(?,?,?,?,?)";
       try(Connection db=dataSource.getConnection();PreparedStatement s=db.prepareStatement(sql)){
-        s.setString(1,a.tenantId().value());s.setObject(2,a.campaignId().value());s.setObject(3,a.creativeId().value());
-        s.setTimestamp(4,Timestamp.from(a.assignedAt()));requireOne(s.executeUpdate(),"creative assignment");return a;
+        s.setString(1,a.tenantId().value());s.setObject(2,a.advertiserId().value());s.setObject(3,a.campaignId().value());
+        s.setObject(4,a.creativeId().value());s.setTimestamp(5,Timestamp.from(a.assignedAt()));requireOne(s.executeUpdate(),"creative assignment");return a;
       }
     });
   }
