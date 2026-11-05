@@ -19,6 +19,8 @@ public interface OrganizationMembershipRepository
     CompletionStage<Optional<OrganizationMembership>> findByOrganizationAndUser(
             OrganizationId organizationId, UserId userId);
 
+    CompletionStage<Boolean> existsByTenantAndId(TenantId tenantId, OrganizationMembershipId membershipId);
+
     CompletionStage<Optional<OrganizationMembership>> findByTenantAndId(
             TenantId tenantId, OrganizationMembershipId membershipId);
 

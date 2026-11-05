@@ -83,6 +83,22 @@ public final class OrganizationMembership extends AbstractAggregateRoot<Organiza
                 OrganizationMembershipStatus.PENDING, OrganizationMembershipStatus.SUSPENDED);
     }
 
+    /**
+     * Accepts a pending invitation only for the identity to which it was issued.
+     * The authenticated user ID must come from the verified security principal,
+     * never from an untrusted request field.
+     */
+    public void acceptInvitation(UserId authenticatedUserId) {
+        Objects.requireNonNull(authenticatedUserId, "authenticatedUserId cannot be null");
+        if (!userId.equals(authenticatedUserId)) {
+            throw new InvalidStateException("Invitation can only be accepted by its intended user");
+        }
+        if (status != OrganizationMembershipStatus.PENDING) {
+            throw new InvalidStateException("Only pending invitations can be accepted");
+        }
+        activate();
+    }
+
     public void suspend() {
         if (role == Role.OWNER) {
             throw new InvalidStateException("Organization ownership must be transferred before suspending its owner");

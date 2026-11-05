@@ -13,7 +13,7 @@ public final class ApplicationCapabilityResolver {
         for (CapabilityProvider provider : available) {
             if (!providerIds.add(provider.providerId()))
                 throw new CapabilityResolutionException("Duplicate provider ID: " + provider.providerId());
-            SemanticVersion.parse(provider.contractVersion());
+            validateProviderVersion(provider);
             index.computeIfAbsent(provider.capabilityId(), ignored -> new ArrayList<>()).add(provider);
         }
         index.values().forEach(list -> list.sort(Comparator.comparing(CapabilityProvider::providerId)));
@@ -34,24 +34,42 @@ public final class ApplicationCapabilityResolver {
         return new CapabilityResolution(selected, order, unavailable);
     }
 
+    private static void validateProviderVersion(CapabilityProvider provider) {
+        try {
+            SemanticVersion.parse(provider.contractVersion());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid contract version for provider " + provider.providerId()
+                    + ": " + provider.contractVersion(), e);
+        }
+    }
+
     private static void select(CapabilityRequirement requirement, Map<String, List<CapabilityProvider>> index,
             Map<String, CapabilityProvider> selected, boolean optional, List<String> unavailable) {
         VersionRange range = VersionRange.parse(requirement.contractRange());
         CapabilityProvider alreadySelected = selected.get(requirement.id());
         if (alreadySelected != null) {
             if (!range.includes(SemanticVersion.parse(alreadySelected.contractVersion())))
-                throw new CapabilityResolutionException("Conflicting contract ranges for capability " + requirement.id());
+                throw new CapabilityResolutionException("Selected provider " + alreadySelected.providerId()
+                        + " supplies " + requirement.id() + "@" + alreadySelected.contractVersion()
+                        + " which does not satisfy additional contract range " + requirement.contractRange());
             return;
         }
         List<CapabilityProvider> matches = index.getOrDefault(requirement.id(), List.of()).stream()
                 .filter(p -> range.includes(SemanticVersion.parse(p.contractVersion()))).toList();
         if (matches.isEmpty()) {
             if (optional) { unavailable.add(requirement.id()); return; }
-            throw new CapabilityResolutionException("Missing required capability provider: " + requirement.id());
+            throw new CapabilityResolutionException("Missing required capability provider for "
+                    + requirement.id() + " matching contract range " + requirement.contractRange());
         }
-        if (matches.size() != 1)
-            throw new CapabilityResolutionException("Expected exactly one compatible provider for " +
-                    requirement.id() + " but found " + matches.size());
+        if (matches.size() != 1) {
+            String candidates = matches.stream()
+                    .map(provider -> provider.providerId() + "@" + provider.contractVersion())
+                    .sorted()
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new CapabilityResolutionException("Expected exactly one compatible provider for "
+                    + requirement.id() + " matching " + requirement.contractRange()
+                    + " but found " + matches.size() + ": " + candidates);
+        }
         selected.put(requirement.id(), matches.get(0));
     }
 

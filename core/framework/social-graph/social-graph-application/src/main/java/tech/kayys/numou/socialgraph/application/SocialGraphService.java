@@ -22,13 +22,13 @@ import java.util.function.Function;
  * M1 reactive command application service. Actor and tenant context must be
  * resolved by the authenticated host boundary; request payloads cannot choose them.
  */
-public final class SocialGraphService {
+final class SocialGraphService {
     private final SocialGraphUnitOfWork unitOfWork;
     private final PartyDirectoryPort parties;
     private final SocialGraphAuthorizationPort authorization;
     private final Clock clock;
 
-    public SocialGraphService(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties,
+    SocialGraphService(SocialGraphUnitOfWork unitOfWork, PartyDirectoryPort parties,
             SocialGraphAuthorizationPort authorization, Clock clock) {
         this.unitOfWork = Objects.requireNonNull(unitOfWork, "unitOfWork cannot be null");
         this.parties = Objects.requireNonNull(parties, "parties cannot be null");
@@ -36,7 +36,7 @@ public final class SocialGraphService {
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
-    public Uni<SocialConnection> requestConnection(SocialGraphActor actor, PartyId recipient, String idempotencyKey) {
+    Uni<SocialConnection> requestConnection(SocialGraphActor actor, PartyId recipient, String idempotencyKey) {
         Objects.requireNonNull(actor, "actor cannot be null");
         Objects.requireNonNull(recipient, "recipient cannot be null");
         validateKey(idempotencyKey);
@@ -62,25 +62,25 @@ public final class SocialGraphService {
         });
     }
 
-    public Uni<SocialConnection> acceptConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+    Uni<SocialConnection> acceptConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
         return transition(actor, id, key, "accept",
                 (connection, now) -> connection.accept(actor.partyId(), now),
                 "social-graph.connection.accepted.v1");
     }
 
-    public Uni<SocialConnection> rejectConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+    Uni<SocialConnection> rejectConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
         return transition(actor, id, key, "reject",
                 (connection, now) -> connection.reject(actor.partyId(), now),
                 "social-graph.connection.rejected.v1");
     }
 
-    public Uni<SocialConnection> cancelConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+    Uni<SocialConnection> cancelConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
         return transition(actor, id, key, "cancel",
                 (connection, now) -> connection.cancel(actor.partyId(), now),
                 "social-graph.connection.cancelled.v1");
     }
 
-    public Uni<SocialConnection> removeConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
+    Uni<SocialConnection> removeConnection(SocialGraphActor actor, SocialConnectionId id, String key) {
         return transition(actor, id, key, "remove",
                 (connection, now) -> connection.remove(actor.partyId(), now),
                 "social-graph.connection.removed.v1");
