@@ -26,6 +26,7 @@ class AdvertisingAdServingServiceTest {
     assertEquals(AdDecisionReason.SELECTED,result.decision().reason());
     assertEquals(older.creative().id(),result.creative().orElseThrow().id());
     assertEquals(1,f.store.decisions.size());
+    assertEquals(100,f.store.requestedLimit);
     assertEquals(result.decision(),f.store.decisions.get(0));
   }
 
@@ -105,12 +106,13 @@ class AdvertisingAdServingServiceTest {
     Optional<AdServingInventory> inventory;
     List<AdServingCandidate> candidates=List.of();
     final List<AdDecision> decisions=new ArrayList<>();
+    int requestedLimit;
     Store(){ }
     public CompletionStage<Optional<AdServingInventory>> findInventory(TenantId tenant,AdPlacementId id){
       return CompletableFuture.completedFuture(inventory);
     }
     public CompletionStage<List<AdServingCandidate>> findEligibleCandidates(TenantId tenant,AdPlacementId id,String format,Instant at,int limit){
-      return CompletableFuture.completedFuture(candidates);
+      requestedLimit=limit;return CompletableFuture.completedFuture(candidates);
     }
     public CompletionStage<AdDecision> recordDecision(AdDecision decision){
       decisions.add(decision);return CompletableFuture.completedFuture(decision);
