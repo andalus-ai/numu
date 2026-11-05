@@ -129,6 +129,27 @@ class ApplicationPluginRuntimeFactoryTest {
     }
 
     @Test
+    void requiresPluginDependenciesToBeRepresentedInCapabilityDependencyGraph() {
+        List<String> events = new ArrayList<>();
+        TestPlugin ledger = new TestPlugin("ledger-plugin", "LEDGER", List.of(), events);
+        TestPlugin reporting = new TestPlugin("reporting-plugin", "REPORTING",
+                List.of(PluginDependency.required("ledger-plugin", "1.0.0")), events);
+        var factory = ApplicationPluginRuntimeFactory.builder()
+                .register("ledger-provider", "LEDGER", "1.0.0", ledger, Map.of())
+                .register("reporting-provider", "REPORTING", "1.0.0", reporting, Map.of())
+                .build();
+
+        assertThatThrownBy(() -> factory.create(provider("reporting-provider", "REPORTING")))
+                .isInstanceOf(ApplicationRuntimeException.class)
+                .hasMessageContaining("must also be declared as capability dependency");
+
+        var providerWithDependency = new CapabilityProvider("reporting-provider", "REPORTING", "1.0.0",
+                List.of(new tech.kayys.numou.plugin.application.manifest.CapabilityRequirement(
+                        "LEDGER", "^1.0.0")));
+        assertThat(factory.create(providerWithDependency).providerId()).isEqualTo("reporting-provider");
+    }
+
+    @Test
     void rejectsPluginsThatDoNotAdvertiseCapabilityAndDuplicatePluginRegistration() {
         TestPlugin ledger = new TestPlugin("ledger-plugin", "LEDGER", List.of(), new ArrayList<>());
         var builder = ApplicationPluginRuntimeFactory.builder()
