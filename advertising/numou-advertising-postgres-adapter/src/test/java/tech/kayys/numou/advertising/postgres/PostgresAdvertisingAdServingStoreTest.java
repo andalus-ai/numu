@@ -64,13 +64,16 @@ class PostgresAdvertisingAdServingStoreTest {
     serving.recordDecision(filled).toCompletableFuture().join();
     AdDecision noFill=AdDecision.noFill(tenant,placement.id(),property.id(),AdDecisionReason.NO_ELIGIBLE_CANDIDATE,now);
     serving.recordDecision(noFill).toCompletableFuture().join();
+    AdDecision unknownPlacement=AdDecision.noFill(tenant,AdPlacementId.generate(),null,AdDecisionReason.PLACEMENT_NOT_FOUND,now);
+    serving.recordDecision(unknownPlacement).toCompletableFuture().join();
 
     try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(
-      "SELECT decision_status,decision_reason FROM advertising_ad_decision WHERE tenant_id=? ORDER BY decision_status")){
+      "SELECT decision_status,decision_reason FROM advertising_ad_decision WHERE tenant_id=? ORDER BY decision_status,decision_reason")){
       s.setString(1,tenant.value());
       try(ResultSet r=s.executeQuery()){
         assertTrue(r.next());assertEquals("FILLED",r.getString(1));assertEquals("SELECTED",r.getString(2));
         assertTrue(r.next());assertEquals("NO_FILL",r.getString(1));assertEquals("NO_ELIGIBLE_CANDIDATE",r.getString(2));
+        assertTrue(r.next());assertEquals("NO_FILL",r.getString(1));assertEquals("PLACEMENT_NOT_FOUND",r.getString(2));
         assertFalse(r.next());
       }
     }
