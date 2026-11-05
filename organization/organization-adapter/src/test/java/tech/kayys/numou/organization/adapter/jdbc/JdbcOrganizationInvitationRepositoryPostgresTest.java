@@ -8,6 +8,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.identity.domain.user.UserId;
 import tech.kayys.numou.organization.domain.*;
+import tech.kayys.numou.organization.application.InvitationSecretCipherPort;
+import tech.kayys.numou.organization.application.OrganizationInvitationDeliveryOutboxPort;
 
 import javax.sql.DataSource;
 import java.io.InputStream;
@@ -115,9 +117,79 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
         assertEquals(1, stored.getVersion());
     }
 
+    @Test
+    void issuancePersistsInvitationAndEncryptedDeliveryAtomically() throws Exception {
+        var repository = repository();
+        var tenant = TenantId.generate();
+        var now = Instant.now();
+        var invitation = OrganizationInvitation.issue(OrganizationInvitationId.generate(), tenant,
+                OrganizationId.generate(), "queued@example.com", OrganizationMembership.Role.DEVELOPER,
+                UserId.newId(), "f".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
+        var deliveryId = java.util.UUID.randomUUID();
+        var encrypted = new InvitationSecretCipherPort.EncryptedSecret("TEST", 1, "key-1",
+                java.util.UUID.randomUUID().toString(), invitation.getId().value().toString(), new byte[]{1, 2, 3});
+        var delivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
+                deliveryId, tenant, invitation.getId(), invitation.recipientEmail(), encrypted, now);
+
+        repository.persist(invitation, delivery, tenant).toCompletableFuture().join();
+
+        assertTrue(repository.findByTenantAndId(tenant, invitation.getId()).toCompletableFuture().join().isPresent());
+        try (Connection c = dataSource().getConnection();
+             var s = c.prepareStatement("SELECT secret_ciphertext FROM organization_invitation_delivery_outbox "
+                     + "WHERE tenant_id=? AND invitation_id=?")) {
+            s.setObject(1, tenant.value());
+            s.setObject(2, invitation.getId().value());
+            try (var rs = s.executeQuery()) {
+                assertTrue(rs.next());
+                assertArrayEquals(new byte[]{1, 2, 3}, rs.getBytes(1));
+            }
+        }
+
+        var duplicateInvitation = OrganizationInvitation.issue(OrganizationInvitationId.generate(), tenant,
+                OrganizationId.generate(), "rollback@example.com", OrganizationMembership.Role.VIEWER,
+                UserId.newId(), "g".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
+        var duplicateDelivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
+                deliveryId, tenant, duplicateInvitation.getId(), duplicateInvitation.recipientEmail(),
+                encrypted, now);
+        assertThrows(RuntimeException.class, () -> repository.persist(
+                duplicateInvitation, duplicateDelivery, tenant).toCompletableFuture().join());
+        assertTrue(repository.findByTenantAndId(tenant, duplicateInvitation.getId())
+                .toCompletableFuture().join().isEmpty(), "invitation insert must roll back with outbox failure");
+    }
+
+    @Test
+    void outboxClaimsAreTenantScopedAndStaleLeaseTokensCannotComplete() throws Exception {
+        var repository = repository();
+        var tenant = TenantId.generate();
+        var now = Instant.now();
+        var invitation = OrganizationInvitation.issue(OrganizationInvitationId.generate(), tenant,
+                OrganizationId.generate(), "worker@example.com", OrganizationMembership.Role.DEVELOPER,
+                UserId.newId(), "h".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
+        var encrypted = new InvitationSecretCipherPort.EncryptedSecret("TEST", 1, "key-1",
+                java.util.UUID.randomUUID().toString(), invitation.getId().value().toString(), new byte[]{4, 5});
+        var delivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
+                java.util.UUID.randomUUID(), tenant, invitation.getId(), invitation.recipientEmail(), encrypted, now);
+        repository.persist(invitation, delivery, tenant).toCompletableFuture().join();
+
+        var outbox = new JdbcOrganizationInvitationDeliveryOutbox(dataSource(), Runnable::run);
+        var claimed = outbox.claim(now, now.plusSeconds(30), 10).toCompletableFuture().join();
+        assertEquals(1, claimed.size());
+        var item = claimed.get(0);
+        assertEquals(tenant, item.tenantId());
+        assertEquals(1, item.attempts());
+        assertFalse(outbox.markSent(item.deliveryId(), TenantId.generate(), item.leaseToken(), now)
+                .toCompletableFuture().join());
+        assertFalse(outbox.markSent(item.deliveryId(), tenant, java.util.UUID.randomUUID(), now)
+                .toCompletableFuture().join());
+        assertTrue(outbox.retry(item.deliveryId(), tenant, item.leaseToken(), now.plusSeconds(5), "EMAIL_PROVIDER_FAILED")
+                .toCompletableFuture().join());
+        assertTrue(outbox.claim(now.plusSeconds(6), now.plusSeconds(36), 10).toCompletableFuture().join().size() == 1);
+    }
+
     private JdbcOrganizationInvitationRepository repository() throws Exception {
         DataSource source = dataSource();
         try (Connection connection = source.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS organization_invitation_delivery_outbox CASCADE");
             statement.execute("DROP TABLE IF EXISTS organization_invitations CASCADE");
             statement.execute("DROP TABLE IF EXISTS organization_memberships CASCADE");
             try (InputStream membershipMigration = getClass().getClassLoader()
@@ -129,6 +201,11 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
                     .getResourceAsStream("db/migration/V4__organization_invitations.sql")) {
                 assertNotNull(input);
                 statement.execute(new String(input.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            try (InputStream outboxMigration = getClass().getClassLoader()
+                    .getResourceAsStream("db/migration/V5__organization_invitation_delivery_outbox.sql")) {
+                assertNotNull(outboxMigration);
+                statement.execute(new String(outboxMigration.readAllBytes(), StandardCharsets.UTF_8));
             }
         }
         return new JdbcOrganizationInvitationRepository(source, Runnable::run);
