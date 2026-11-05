@@ -91,7 +91,8 @@ PostgreSQL Testcontainers tests cover:
 - canonical inventory resolution;
 - candidates require explicit placement targeting;
 - targeted campaign is returned while an untargeted active campaign is not;
-- filled, no-eligible-candidate and unknown-placement no-fill audit persistence.
+- filled, no-eligible-candidate and unknown-placement no-fill audit persistence;
+- database rejection of forged cross-advertiser decision evidence.
 
 Tests are committed but **not yet executed** in this authoring session. Do not treat them as passing until the Advertising workflow runs.
 
