@@ -37,8 +37,7 @@ public final class JulianCalendarDateConverter implements CalendarDateConverter 
     }
 
     static long toDayNumber(long year, int month, int day) {
-        GregorianCalendarDateConverter.validateDate(year, month, day);
-        if (month < 1 || month > 12 || day > daysInMonth(year, month)) {
+        if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
             throw new IllegalArgumentException("Invalid Julian date");
         }
         BigInteger y = BigInteger.valueOf(year);
