@@ -31,7 +31,7 @@ class ApplicationCapabilityResolverTest {
 
         assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, providers))
                 .isInstanceOf(CapabilityResolutionException.class)
-                .hasMessageContaining("Conflicting contract ranges for capability numou.party");
+                .hasMessage("Selected provider party-v1 supplies numou.party@1.2.0 which does not satisfy additional contract range ^2.0.0");
     }
 
     @Test void rejectsMissingTransitiveRequiredCapability() {
