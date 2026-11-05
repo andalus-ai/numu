@@ -21,6 +21,7 @@ CREATE TABLE advertising_ad_decision (
     placement_id UUID NULL,
     property_id UUID NULL,
     campaign_id UUID NULL,
+    advertiser_account_id UUID NULL,
     creative_id UUID NULL,
     decision_status VARCHAR(16) NOT NULL CHECK (decision_status IN ('FILLED','NO_FILL')),
     decision_reason VARCHAR(40) NOT NULL CHECK (decision_reason IN (
@@ -33,17 +34,20 @@ CREATE TABLE advertising_ad_decision (
     CONSTRAINT fk_advertising_decision_property
       FOREIGN KEY (tenant_id,property_id)
       REFERENCES advertising_publisher_property (tenant_id,property_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_advertising_decision_campaign
-      FOREIGN KEY (tenant_id,campaign_id)
-      REFERENCES advertising_campaign (tenant_id,campaign_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_advertising_decision_creative
-      FOREIGN KEY (tenant_id,creative_id)
-      REFERENCES advertising_creative (tenant_id,creative_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_advertising_decision_campaign_owner
+      FOREIGN KEY (tenant_id,campaign_id,advertiser_account_id)
+      REFERENCES advertising_campaign (tenant_id,campaign_id,advertiser_account_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_advertising_decision_creative_owner
+      FOREIGN KEY (tenant_id,creative_id,advertiser_account_id)
+      REFERENCES advertising_creative (tenant_id,creative_id,advertiser_account_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_advertising_decision_campaign_placement
+      FOREIGN KEY (tenant_id,campaign_id,placement_id)
+      REFERENCES advertising_campaign_placement (tenant_id,campaign_id,placement_id) ON DELETE RESTRICT,
     CONSTRAINT ck_advertising_decision_outcome CHECK (
       (decision_status='FILLED' AND placement_id IS NOT NULL AND property_id IS NOT NULL
-        AND campaign_id IS NOT NULL AND creative_id IS NOT NULL AND decision_reason='SELECTED')
+        AND campaign_id IS NOT NULL AND advertiser_account_id IS NOT NULL AND creative_id IS NOT NULL AND decision_reason='SELECTED')
       OR
-      (decision_status='NO_FILL' AND campaign_id IS NULL AND creative_id IS NULL AND decision_reason<>'SELECTED')
+      (decision_status='NO_FILL' AND campaign_id IS NULL AND advertiser_account_id IS NULL AND creative_id IS NULL AND decision_reason<>'SELECTED')
     )
 );
 CREATE INDEX ix_advertising_decision_tenant_placement_time
