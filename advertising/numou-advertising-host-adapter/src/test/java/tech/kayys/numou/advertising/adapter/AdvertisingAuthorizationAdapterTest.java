@@ -3,7 +3,6 @@ package tech.kayys.numou.advertising.adapter;
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.advertising.domain.TenantId;
-import tech.kayys.numou.foundation.domain.tenant.TenantId as FoundationTenantId;
 import tech.kayys.numou.identity.application.port.MembershipManagementPort;
 import tech.kayys.numou.security.adapter.CurrentSecurity;
 import tech.kayys.numou.security.application.context.SecurityContext;
