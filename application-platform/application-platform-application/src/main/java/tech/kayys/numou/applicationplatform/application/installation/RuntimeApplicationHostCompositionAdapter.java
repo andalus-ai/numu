@@ -91,8 +91,8 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
                             throw propagate(failure);
                         }
                     }
-                    active.put(key, new ActiveInstallation(command.applicationId(), started,
-                            command.operationId()));
+                    active.put(key, new ActiveInstallation(command.applicationId(), command.packageVersion(),
+                            command.packageDigest(), started, command.operationId()));
                     return CompletableFuture.completedFuture(null);
                 } catch (Throwable failure) {
                     rollback(started, failure);
@@ -114,6 +114,10 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
             if (!installation.applicationId.equals(command.applicationId())) {
                 return CompletableFuture.failedFuture(new SecurityException(
                         "Deactivation application does not match active installation"));
+            }
+            if (!installation.packageVersion.equals(command.packageVersion())
+                    || !installation.packageDigest.equals(command.packageDigest())) {
+                return CompletableFuture.completedFuture(null);
             }
             Throwable failure = stopReverse(installation.providers);
             if (failure == null) {
@@ -186,11 +190,16 @@ public final class RuntimeApplicationHostCompositionAdapter implements Applicati
 
     private static final class ActiveInstallation {
         private final String applicationId;
+        private final String packageVersion;
+        private final String packageDigest;
         private final List<StartedProvider> providers;
         private final java.util.Set<UUID> operationIds = ConcurrentHashMap.newKeySet();
 
-        private ActiveInstallation(String applicationId, List<StartedProvider> providers, UUID operationId) {
+        private ActiveInstallation(String applicationId, String packageVersion, String packageDigest,
+                List<StartedProvider> providers, UUID operationId) {
             this.applicationId = applicationId;
+            this.packageVersion = packageVersion;
+            this.packageDigest = packageDigest;
             this.providers = List.copyOf(providers);
             this.operationIds.add(operationId);
         }
