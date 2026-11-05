@@ -48,12 +48,37 @@ public final class ApplicationPluginRuntimeFactory implements CapabilityRuntimeF
             throw new ApplicationRuntimeException("Contract version mismatch for provider " + provider.providerId()
                     + ": registered " + registration.contractVersion() + " but resolved " + provider.contractVersion());
         }
+        validatePluginDependencies(provider, registration);
         return new PluginCapabilityRuntime(provider.providerId(), registration.plugin(),
                 new ApplicationPluginContext(registration.plugin().id(), registration.properties(), sharedServices));
     }
 
     public Set<String> providerIds() {
         return registrations.keySet();
+    }
+
+    private void validatePluginDependencies(CapabilityProvider provider, Registration registration) {
+        for (tech.kayys.numou.plugin.api.PluginDependency dependency
+                : registration.plugin().manifest().dependencies()) {
+            Registration dependencyRegistration = registrations.values().stream()
+                    .filter(candidate -> candidate.plugin().id().equals(dependency.pluginId()))
+                    .findFirst().orElse(null);
+            if (dependencyRegistration == null) {
+                if (!dependency.optional()) {
+                    throw new ApplicationRuntimeException("Required plugin dependency "
+                            + dependency.pluginId() + " for " + registration.plugin().id()
+                            + " is not registered in this application");
+                }
+                continue;
+            }
+            boolean declaredInCapabilityGraph = provider.dependencies().stream()
+                    .anyMatch(required -> required.id().equals(dependencyRegistration.capabilityId()));
+            if (!declaredInCapabilityGraph) {
+                throw new ApplicationRuntimeException("Plugin dependency "
+                        + dependency.pluginId() + " must also be declared as capability dependency "
+                        + dependencyRegistration.capabilityId() + " for provider " + provider.providerId());
+            }
+        }
     }
 
     public static final class Builder {
