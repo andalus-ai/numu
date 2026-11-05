@@ -63,9 +63,9 @@ public final class HistoricalChronology {
         CalendarDateConverter targetConverter = converters.get(targetCalendar);
         if (sourceConverter == null || targetConverter == null) return Optional.empty();
         if (source.calendarSystem().equals(targetCalendar)) return Optional.of(source);
-        Optional<java.util.OptionalLong> absoluteDay = Optional.of(sourceConverter.toAbsoluteDay(source));
-        if (absoluteDay.orElseThrow().isEmpty()) return Optional.empty();
-        HistoricalDate converted = targetConverter.fromAbsoluteDay(absoluteDay.orElseThrow().getAsLong());
+        java.util.OptionalLong absoluteDay = sourceConverter.toAbsoluteDay(source);
+        if (absoluteDay.isEmpty()) return Optional.empty();
+        HistoricalDate converted = targetConverter.fromAbsoluteDay(absoluteDay.getAsLong());
         if (!source.approximate()) return Optional.of(converted);
         return Optional.of(converted.asApproximate(""));
     }
