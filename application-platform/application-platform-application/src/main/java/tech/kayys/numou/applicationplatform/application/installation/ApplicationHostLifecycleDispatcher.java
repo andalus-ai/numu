@@ -21,10 +21,12 @@ public final class ApplicationHostLifecycleDispatcher {
 
     private final ApplicationPackageCatalogPort catalog;
     private final ApplicationHostCompositionPort host;
+    private final ApplicationCapabilityCompatibilityPort compatibility;
 
     public ApplicationHostLifecycleDispatcher(ApplicationPackageCatalogPort catalog,
-            ApplicationHostCompositionPort host) {
+            ApplicationCapabilityCompatibilityPort compatibility, ApplicationHostCompositionPort host) {
         this.catalog = Objects.requireNonNull(catalog, "catalog");
+        this.compatibility = Objects.requireNonNull(compatibility, "compatibility");
         this.host = Objects.requireNonNull(host, "host");
     }
 
@@ -50,7 +52,9 @@ public final class ApplicationHostLifecycleDispatcher {
                     var command = new ApplicationHostCompositionPort.ActivationCommand(
                             tenantId, event.installationId(), event.applicationId(), event.packageVersion(),
                             event.packageDigest(), event.eventId(), event.actorId(), event.correlationId(), pkg);
-                    return host.activate(command).thenApply(ignored -> Outcome.ACTIVATED);
+                    return compatibility.assertCompatible(tenantId, pkg)
+                            .thenCompose(ignored -> host.activate(command))
+                            .thenApply(ignored -> Outcome.ACTIVATED);
                 });
     }
 

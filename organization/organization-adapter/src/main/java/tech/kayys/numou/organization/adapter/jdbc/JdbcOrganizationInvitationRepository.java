@@ -5,6 +5,8 @@ import tech.kayys.numou.identity.domain.user.UserId;
 import tech.kayys.numou.organization.domain.*;
 import tech.kayys.numou.organization.spi.OrganizationInvitationRepository;
 import tech.kayys.numou.organization.application.OrganizationInvitationAcceptancePort;
+import tech.kayys.numou.organization.application.OrganizationInvitationIssuancePort;
+import tech.kayys.numou.organization.application.OrganizationInvitationDeliveryOutboxPort;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -12,7 +14,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 
-public final class JdbcOrganizationInvitationRepository implements OrganizationInvitationRepository, OrganizationInvitationAcceptancePort {
+public final class JdbcOrganizationInvitationRepository implements OrganizationInvitationRepository, OrganizationInvitationAcceptancePort, OrganizationInvitationIssuancePort {
     private static final String COLUMNS = "invitation_id, tenant_id, organization_id, recipient_email, role, "
             + "invited_by, token_hash, expires_at, status, accepted_by, accepted_at, revoked_at, "
             + "created_at, updated_at, version";
@@ -67,6 +69,57 @@ public final class JdbcOrganizationInvitationRepository implements OrganizationI
                     s.setObject(2, organizationId.value());
                     s.setString(3, normalizedEmail);
                 });
+    }
+
+    /** Inserts invitation and encrypted delivery intent in one database transaction. */
+    @Override
+    public CompletionStage<Void> persist(OrganizationInvitation invitation,
+            OrganizationInvitationDeliveryOutboxPort.DeliveryMessage delivery, TenantId tenantId) {
+        Objects.requireNonNull(invitation);
+        Objects.requireNonNull(delivery);
+        Objects.requireNonNull(tenantId);
+        if (!invitation.tenantId().equals(tenantId) || !delivery.tenantId().equals(tenantId)
+                || !invitation.getId().equals(delivery.invitationId())
+                || !invitation.recipientEmail().equals(delivery.recipientEmail())) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Invitation delivery scope mismatch"));
+        }
+        return CompletableFuture.runAsync(() -> {
+            try (Connection c = dataSource.getConnection()) {
+                c.setAutoCommit(false);
+                try {
+                    insert(c, invitation, tenantId);
+                    var secret = delivery.secret();
+                    String sql = "INSERT INTO organization_invitation_delivery_outbox "
+                            + "(delivery_id, tenant_id, invitation_id, recipient_email, encryption_algorithm, "
+                            + "encryption_format_version, encryption_key_id, vault_id, secret_id, secret_ciphertext, "
+                            + "status, attempts, available_at, created_at, updated_at) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, ?, ?)";
+                    try (PreparedStatement s = c.prepareStatement(sql)) {
+                        s.setObject(1, delivery.deliveryId());
+                        s.setObject(2, tenantId.value());
+                        s.setObject(3, invitation.getId().value());
+                        s.setString(4, delivery.recipientEmail());
+                        s.setString(5, secret.algorithm());
+                        s.setInt(6, secret.formatVersion());
+                        s.setString(7, secret.keyId());
+                        s.setObject(8, UUID.fromString(secret.vaultId()));
+                        s.setObject(9, UUID.fromString(secret.secretId()));
+                        s.setBytes(10, secret.ciphertext());
+                        s.setTimestamp(11, Timestamp.from(delivery.createdAt()));
+                        s.setTimestamp(12, Timestamp.from(delivery.createdAt()));
+                        s.setTimestamp(13, Timestamp.from(delivery.createdAt()));
+                        s.executeUpdate();
+                    }
+                    c.commit();
+                } catch (SQLException | RuntimeException e) {
+                    try { c.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                    if (e instanceof RuntimeException runtime) throw runtime;
+                    throw new IllegalStateException("Unable to atomically issue invitation", e);
+                }
+            } catch (SQLException e) {
+                throw new IllegalStateException("Unable to open invitation issuance transaction", e);
+            }
+        }, jdbcExecutor);
     }
 
     @Override
