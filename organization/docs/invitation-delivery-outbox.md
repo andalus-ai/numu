@@ -12,6 +12,6 @@ The outbox stores the recipient address and an authenticated-encryption envelope
 
 - Use the delivery-enabled `OrganizationInvitationService` constructor and call `issueAndQueue`; this returns invitation metadata, not the bearer secret.
 - The legacy `issue` and `resend` methods still return the one-time secret to a trusted host integration for source compatibility. They must not be exposed directly by an untrusted API.
-- A transactional resend operation that rotates the invitation digest and replaces the queued encrypted delivery intent is still required before secure resend is available.
+- Secure resend is implemented by `OrganizationInvitationService.resendAndQueue`: it rotates the invitation digest, supersedes older pending or leased sends, and appends a new encrypted delivery in one transaction. Migration V6 permits multiple delivery attempts per invitation.
 - Runtime/API wiring, provider implementation, host scheduler, key provisioning, and an operational dead-letter replay interface remain composition/release work.
 - The V5 migration must run after V4 through the deployment's migration runner; the Organization adapter does not itself run migrations.
