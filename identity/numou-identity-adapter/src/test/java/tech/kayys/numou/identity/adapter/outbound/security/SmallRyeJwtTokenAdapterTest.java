@@ -32,4 +32,12 @@ class SmallRyeJwtTokenAdapterTest {
         assertThrows(IllegalArgumentException.class,
                 () -> SmallRyeJwtTokenAdapter.requirePrincipalType(" USER "));
     }
+
+    @Test
+    void rejectsTenantSelectionCredentialsFromBusinessTokenVerification() {
+        assertThrows(IllegalArgumentException.class,
+                () -> SmallRyeJwtTokenAdapter.rejectTenantSelectionCredential("tenant_selection"));
+        SmallRyeJwtTokenAdapter.rejectTenantSelectionCredential("access");
+        SmallRyeJwtTokenAdapter.rejectTenantSelectionCredential(null);
+    }
 }
