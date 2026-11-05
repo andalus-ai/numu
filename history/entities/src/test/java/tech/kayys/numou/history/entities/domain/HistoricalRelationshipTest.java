@@ -33,7 +33,7 @@ class HistoricalRelationshipTest {
         var event = HistoricalEntityReference.event(tech.kayys.numou.history.events.domain.HistoricalEventId.generate());
         var person = HistoricalEntityReference.person(HistoricalPersonId.generate());
         assertThrows(IllegalArgumentException.class, () -> HistoricalRelationship.create(event, person,
-                HistoricalRelationshipKindCode.of("member-of"), null, "", now, vocabulary));
+                HistoricalRelationshipKindCode.of("founded"), null, "", now, vocabulary));
     }
 
     @Test void symmetricRelationshipsHaveOneCanonicalEndpointOrder() {
