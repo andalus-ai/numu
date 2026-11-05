@@ -71,7 +71,11 @@ public final class AdvertisingAccountService {
         return store.findProperty(tenant,placement.propertyId()).thenCompose(property->{
           PublisherProperty p=property.orElseThrow(()->new IllegalArgumentException("publisher property not found"));
           if(p.status()!=PropertyStatus.VERIFIED) throw new IllegalStateException("publisher property must be verified");
-          return store.savePlacement(placement.enable());
+          return store.findPublisher(tenant,p.publisherId()).thenCompose(publisher->{
+            PublisherAccount account=publisher.orElseThrow(()->new IllegalArgumentException("publisher account not found"));
+            if(account.status()!=AccountStatus.ACTIVE) throw new IllegalStateException("publisher account must be active");
+            return store.savePlacement(placement.enable());
+          });
         });
       });
   }
