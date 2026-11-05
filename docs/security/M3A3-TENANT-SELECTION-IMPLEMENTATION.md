@@ -15,7 +15,7 @@
 3. `GET /api/v2/auth/tenants` returns tenant IDs from Identity's existing `tenant_memberships` records, filtered to active memberships and active users, in deterministic order.
 4. `POST /api/v2/auth/tenant-exchange` accepts a selected tenant ID as a request, rechecks active membership server-side, then issues a tenant-bound human access JWT.
 5. The access JWT includes `tenant_id`, `token_use=access`, a bounded lifetime, and the compatibility claim `numou_tenant_id` while the existing identity guard still defaults to that older claim.
-6. `TenantSelectionCredentialFilter` rejects a tenant-selection JWT on every JAX-RS route except the exact tenant discovery and exchange endpoints. The generic `TokenVerifierPort` adapter also rejects `token_use=tenant_selection`, preventing the Identity gRPC `resolvePrincipal` path from treating it as a business credential.
+6. `TenantSelectionCredentialFilter` rejects a tenant-selection JWT on every JAX-RS route except the exact tenant discovery and exchange endpoints. The generic `TokenVerifierPort` adapter also rejects `token_use=tenant_selection`, preventing the Identity gRPC `resolvePrincipal` path from treating it as a business credential. Tenant-bound JWT verification extracts `tenant_id` (falling back to the compatibility alias) and the additive gRPC response field returns it to callers.
 
 ## Ownership and data
 
@@ -36,7 +36,7 @@
 
 ## Required verification
 
-- Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup.
+- Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup; tenant claim parsing and tenant context propagation through gRPC response.
 - Adapter integration test added: PostgreSQL query returns only active memberships for active users, sorted deterministically.
 - JWT tests: selection and access tokens have distinct `token_use`, audiences, claims, and bounded lifetimes.
 - Request-level tests: route allowlist unit tests cover JAX-RS restrictions; generic JWT-verifier unit tests cover rejection by the Identity token-verification/gRPC principal-resolution path. Full Quarkus request tests remain required.
