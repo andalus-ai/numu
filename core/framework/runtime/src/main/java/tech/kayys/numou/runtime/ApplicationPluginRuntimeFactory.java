@@ -74,6 +74,16 @@ public final class ApplicationPluginRuntimeFactory implements CapabilityRuntimeF
                 }
                 continue;
             }
+            tech.kayys.numou.plugin.application.manifest.VersionRange pluginVersionRange =
+                    tech.kayys.numou.plugin.application.manifest.VersionRange.parse(dependency.versionRequirement());
+            tech.kayys.numou.plugin.application.manifest.SemanticVersion dependencyVersion =
+                    tech.kayys.numou.plugin.application.manifest.SemanticVersion.parse(
+                            dependencyRegistration.plugin().version());
+            if (!pluginVersionRange.includes(dependencyVersion)) {
+                throw new ApplicationRuntimeException("Plugin dependency version mismatch for "
+                        + dependency.pluginId() + ": required " + dependency.versionRequirement()
+                        + " but registered " + dependencyRegistration.plugin().version());
+            }
             boolean declaredInCapabilityGraph = provider.dependencies().stream()
                     .anyMatch(required -> required.id().equals(dependencyRegistration.capabilityId()));
             if (!declaredInCapabilityGraph) {
