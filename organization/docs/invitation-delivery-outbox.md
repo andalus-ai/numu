@@ -15,3 +15,6 @@ The outbox stores the recipient address and an authenticated-encryption envelope
 - A transactional resend operation that rotates the invitation digest and replaces the queued encrypted delivery intent is still required before secure resend is available.
 - Runtime/API wiring, provider implementation, host scheduler, key provisioning, and an operational dead-letter replay interface remain composition/release work.
 - The V5 migration must run after V4 through the deployment's migration runner; the Organization adapter does not itself run migrations.
+
+
+Before sending, the worker reloads the invitation under its tenant scope and verifies that it is still pending, unexpired, and that the decrypted secret digest matches the invitation's current digest. Stale, expired, or superseded queue entries are dead-lettered without calling the email provider. Provider requests carry the delivery ID as an idempotency key; adapters should honor it to reduce duplicate sends after lease expiry or ambiguous network outcomes.
