@@ -100,7 +100,8 @@ class AuthCheckServiceImplTest {
                 raw -> {
                     if ("valid_jwt".equals(raw)) {
                         return Uni.createFrom().item(new TokenVerifierPort.VerifiedToken(
-                                "USER", UUID.fromString("11111111-1111-1111-1111-111111111111"), "Alice Developer"
+                                "USER", UUID.fromString("11111111-1111-1111-1111-111111111111"), "Alice Developer",
+                                UUID.fromString("22222222-2222-2222-2222-222222222222")
                         ));
                     }
                     return Uni.createFrom().failure(new IllegalArgumentException("invalid token"));
@@ -221,6 +222,7 @@ class AuthCheckServiceImplTest {
         assertEquals(PrincipalType.USER, response.getPrincipalType());
         assertEquals("11111111-1111-1111-1111-111111111111", response.getPrincipalId());
         assertEquals("Alice Developer", response.getDisplayName());
+        assertEquals("22222222-2222-2222-2222-222222222222", response.getTenantId());
     }
 
     static class StubScopedRoleAssignmentRepository implements ScopedRoleAssignmentRepository {
