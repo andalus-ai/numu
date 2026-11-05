@@ -82,15 +82,30 @@ class ApplicationManifestValidatorTest {
     }
 
     @Test void sortsSemanticManifestViolationsDeterministically() {
-        String invalid = valid()
+        String forward = valid()
                 .replace("\"permissions\":[\"commerce.pos.operate\"]",
                         "\"permissions\":[\"unknown.z\",\"unknown.a\"]")
                 .replace("\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}]",
                         "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"},"
                                 + "{\"id\":\"numou.party\",\"contractRange\":\"^2.0.0\"}]");
-        assertThatThrownBy(() -> validator().validate(invalid, Set.of()))
-                .isInstanceOfSatisfying(ManifestValidationException.class, error ->
-                        assertThat(error.violations()).isSorted());
+        String reverse = forward.replace(
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"},"
+                        + "{\"id\":\"numou.party\",\"contractRange\":\"^2.0.0\"}]",
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^2.0.0\"},"
+                        + "{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}]");
+
+        assertThat(violations(forward)).containsExactlyElementsOf(violations(reverse))
+                .isSorted();
+    }
+
+    private java.util.List<String> violations(String manifest) {
+        try {
+            validator().validate(manifest, Set.of());
+            fail("Expected manifest validation to fail");
+            return java.util.List.of();
+        } catch (ManifestValidationException error) {
+            return error.violations();
+        }
     }
 
 }
