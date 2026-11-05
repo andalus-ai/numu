@@ -67,7 +67,8 @@ class ApplicationRuntimeHostTest {
         assertThat(host.state()).isEqualTo(ApplicationRuntimeState.FAILED);
         assertThat(host.activeProviderIds()).isEmpty();
         assertThat(events).containsExactly(
-                "start:party-provider", "start:ledger-provider", "stop:party-provider");
+                "start:party-provider", "start:ledger-provider",
+                "stop:ledger-provider", "stop:party-provider");
     }
 
     @Test
