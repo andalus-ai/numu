@@ -148,4 +148,27 @@ class HistoricalEntitiesTest {
         assertThrows(IllegalArgumentException.class, () ->
                 HistoricalEntityTemporalPolicy.assertPlaceAssertionsWithinExistence(place, chronology));
     }
+
+    @Test
+    void validatesAffiliationAgainstKnownPersonLifespan() {
+        HistoricalChronology chronology = HistoricalChronology.standard();
+        HistoricalPerson person = HistoricalPerson.create("Ruler", List.of(),
+                HistoricalDate.year(1200, GregorianCalendarDateConverter.ID),
+                HistoricalDate.year(1300, GregorianCalendarDateConverter.ID), "", T0);
+        HistoricalAffiliation valid = new HistoricalAffiliation(
+                person.id(), HistoricalCollectiveId.generate(), "ruler",
+                new HistoricalDateRange(
+                        HistoricalDate.year(1200, GregorianCalendarDateConverter.ID),
+                        HistoricalDate.year(1290, GregorianCalendarDateConverter.ID)));
+        HistoricalAffiliation invalid = new HistoricalAffiliation(
+                person.id(), valid.collectiveId(), "ruler",
+                new HistoricalDateRange(
+                        HistoricalDate.year(1100, GregorianCalendarDateConverter.ID),
+                        HistoricalDate.year(1250, GregorianCalendarDateConverter.ID)));
+
+        assertDoesNotThrow(() -> HistoricalEntityTemporalPolicy.assertAffiliationWithinKnownLifespan(
+                valid, person, chronology));
+        assertThrows(IllegalArgumentException.class, () ->
+                HistoricalEntityTemporalPolicy.assertAffiliationWithinKnownLifespan(invalid, person, chronology));
+    }
 }
