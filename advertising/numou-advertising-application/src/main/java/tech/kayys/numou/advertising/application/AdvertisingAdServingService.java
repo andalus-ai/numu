@@ -30,6 +30,8 @@ public final class AdvertisingAdServingService {
     return store.findInventory(request.tenantId(),request.placementId()).thenCompose(found->{
       if(found.isEmpty()) return noFill(request,null,AdDecisionReason.PLACEMENT_NOT_FOUND,now);
       AdServingInventory inventory=found.get();
+      if(!inventory.placement().tenantId().equals(request.tenantId()))
+        return noFill(request,null,AdDecisionReason.INVENTORY_NOT_ELIGIBLE,now);
       if(inventory.placement().status()!=PlacementStatus.ENABLED ||
          inventory.property().status()!=PropertyStatus.VERIFIED ||
          inventory.publisher().status()!=AccountStatus.ACTIVE)
