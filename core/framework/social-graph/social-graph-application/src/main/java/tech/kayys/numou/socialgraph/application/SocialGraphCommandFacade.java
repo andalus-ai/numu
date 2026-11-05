@@ -6,9 +6,11 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.spi.SocialGraphUnitOfWork;
+
+import java.time.Clock;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -22,10 +24,30 @@ import java.util.function.Function;
  *
  * <p>Keep the underlying service behind the host composition boundary; expose
  * this facade to HTTP, messaging, and other untrusted input adapters.</p>
+ * <p>Only call this facade with tenant and issuer/subject values obtained from
+ * the host's verified security context. The facade resolves the subject to
+ * an active canonical Party before invoking the command service. Tenant
+ * membership and capability authorization are independently enforced by
+ * SocialGraphService.</p>
  */
 public final class SocialGraphCommandFacade {
     private final SocialGraphActorResolver actorResolver;
     private final SocialGraphService service;
+
+    /**
+     * Creates the application facade while keeping the command service package-private.
+     * Infrastructure hosts compose through this factory rather than depending on
+     * the service implementation or weakening its visibility.
+     */
+    public static SocialGraphCommandFacade compose(
+            SocialGraphUnitOfWork unitOfWork,
+            PartyDirectoryPort parties,
+            SocialGraphAuthorizationPort authorization,
+            SocialGraphActorResolver actorResolver,
+            Clock clock) {
+        SocialGraphService service = new SocialGraphService(unitOfWork, parties, authorization, clock);
+        return new SocialGraphCommandFacade(actorResolver, service);
+    }
 
     public SocialGraphCommandFacade(SocialGraphActorResolver actorResolver, SocialGraphService service) {
         this.actorResolver = Objects.requireNonNull(actorResolver, "actorResolver cannot be null");

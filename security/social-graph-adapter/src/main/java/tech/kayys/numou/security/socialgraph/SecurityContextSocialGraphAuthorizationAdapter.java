@@ -31,25 +31,18 @@ public class SecurityContextSocialGraphAuthorizationAdapter implements SocialGra
 
     @Override
     public void requireAuthorized(SocialGraphActor actor, SocialGraphAuthorizationAction action) {
-        if (actor == null || action == null) {
-            throw new SocialGraphAccessDeniedException();
-        }
-
+        if (actor == null || action == null) throw new SocialGraphAccessDeniedException();
         var current = securityContexts.current();
         SecurityContext context = current == null ? null : current.orElse(null);
-        if (context == null
-                || !context.authenticated()
-                || !actor.tenantId().equals(context.tenantId())
-                || !context.tenantMember()
-                || !context.hasPermission(permissionFor(action))) {
-            throw new SocialGraphAccessDeniedException();
-        }
-    }
-
-    private static Permission permissionFor(SocialGraphAuthorizationAction action) {
-        return switch (action) {
+        Permission required = switch (action) {
             case REQUEST_CONNECTION -> REQUEST_CONNECTION;
             case MANAGE_CONNECTION -> MANAGE_CONNECTION;
         };
+        if (context == null || !context.authenticated()
+                || !actor.tenantId().equals(context.tenantId())
+                || !context.tenantMember()
+                || !context.hasPermission(required)) {
+            throw new SocialGraphAccessDeniedException();
+        }
     }
 }

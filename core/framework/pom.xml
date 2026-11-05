@@ -34,10 +34,17 @@
         <module>reliability</module>
         <module>cache</module>
         <module>plugin</module>
+        <module>runtime</module>
+        <module>runtime-quarkus</module>
         <module>workflow</module>
         <module>scope</module>
         <module>planning</module>
         <module>aggregate</module>
+
+        <!-- Shared business-facing capabilities used by Developer Platform adapters. -->
+        <module>../../identity</module>
+        <module>../../documents</module>
+        <module>../../advertising</module>
 
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>

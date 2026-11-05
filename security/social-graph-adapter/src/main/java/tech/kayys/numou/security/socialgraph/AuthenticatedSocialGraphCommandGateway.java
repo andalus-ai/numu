@@ -49,7 +49,8 @@ public class AuthenticatedSocialGraphCommandGateway {
     }
 
     private Uni<SocialConnection> withTrustedIdentity(TrustedCommand command) {
-        SecurityContext context = currentContext();
+        Optional<SecurityContext> current = securityContexts.current();
+        SecurityContext context = current == null ? null : current.orElse(null);
         if (context == null || !context.authenticated() || !context.tenantMember()) return denied();
         Optional<IdentitySubjectRef> subject = identitySubjects.current();
         if (subject == null || subject.isEmpty()) return denied();

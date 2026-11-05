@@ -16,5 +16,22 @@
     <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.7.7</version><scope>test</scope></dependency>
     <!-- Exposes packaged db/migration resources to composed Quarkus hosts; hosts opt in to migrate-at-start. -->
     <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-flyway</artifactId></dependency>
+    <!-- Flyway 10+ ships PostgreSQL support as a separate database module. -->
+    <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId></dependency>
   </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>3.2.7</version>
+                <executions>
+                    <execution>
+                        <id>make-jandex-index</id>
+                        <goals><goal>jandex</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
