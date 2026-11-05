@@ -73,7 +73,7 @@ class ApplicationRuntimeBootstrapTest {
         assertThatThrownBy(bootstrap::start).isInstanceOf(ApplicationRuntimeException.class);
         assertThat(bootstrap.health().readiness()).isEqualTo(RuntimeReadiness.FAILED);
         assertThat(bootstrap.health().ready()).isFalse();
-        assertThat(bootstrap.health().failure()).contains("Failed to start application runtime");
+        assertThat(bootstrap.health().failure()).isEqualTo("ApplicationRuntimeException");
     }
 
     @Test
