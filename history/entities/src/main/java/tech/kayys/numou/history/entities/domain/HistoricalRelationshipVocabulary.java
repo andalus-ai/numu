@@ -26,6 +26,10 @@ public final class HistoricalRelationshipVocabulary {
                 if (inverse == null || !definition.code().equals(inverse.inverseCode())) {
                     throw new IllegalArgumentException("Inverse relationship definitions must be registered reciprocally");
                 }
+                if (!definition.subjectKinds().equals(inverse.objectKinds())
+                        || !definition.objectKinds().equals(inverse.subjectKinds())) {
+                    throw new IllegalArgumentException("Inverse relationship endpoint kinds must be reversed");
+                }
                 if (definition.direction() != HistoricalRelationshipDefinition.Direction.DIRECTED
                         || inverse.direction() != HistoricalRelationshipDefinition.Direction.DIRECTED) {
                     throw new IllegalArgumentException("Inverse relationships must both be directed");
@@ -52,9 +56,6 @@ public final class HistoricalRelationshipVocabulary {
                 directed("founded", peopleCollectives, collectives, false, null),
                 directed("successor-of", collectives, collectives, false, "predecessor-of"),
                 directed("predecessor-of", collectives, collectives, false, "successor-of"),
-                directed("member-of", peopleCollectives, collectives, false, null),
-                directed("participated-in", peopleCollectives, EnumSet.of(HistoricalEntityKind.EVENT), false, null),
-                directed("occurred-at", EnumSet.of(HistoricalEntityKind.EVENT), EnumSet.of(HistoricalEntityKind.PLACE), false, null),
                 directed("located-in", collectivePlace, EnumSet.of(HistoricalEntityKind.PLACE), false, null),
                 symmetric("allied-with", collectives),
                 symmetric("traded-with", collectives),
