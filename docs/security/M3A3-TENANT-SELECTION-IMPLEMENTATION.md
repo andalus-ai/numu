@@ -37,7 +37,7 @@
 ## Required verification
 
 - Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup.
-- Adapter integration test: PostgreSQL query returns only active memberships for active users, sorted deterministically.
+- Adapter integration test added: PostgreSQL query returns only active memberships for active users, sorted deterministically.
 - JWT tests: selection and access tokens have distinct `token_use`, audiences, claims, and bounded lifetimes.
 - Request-level tests: selection tokens cannot access ordinary business APIs; malformed/expired/wrong-purpose credentials are rejected.
 - CI must run against the exact PR head. No local build or CI success is claimed until evidence is available.
