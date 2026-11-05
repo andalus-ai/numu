@@ -15,6 +15,8 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
     private static final String PRINCIPAL_TYPE = "USER";
     private static final String TENANT_SELECTION_USE = "tenant_selection";
     private static final String ACCESS_USE = "access";
+    private static final long SELECTION_LIFETIME_SECONDS = 300;
+    private static final long ACCESS_LIFETIME_SECONDS = 900;
 
     @ConfigProperty(name = "smallrye.jwt.new-token.issuer")
     String issuer;
@@ -26,18 +28,9 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
     @ConfigProperty(name = "numou.oauth.access-token.audience")
     String accessAudience;
 
-    @ConfigProperty(name = "numou.identity.tenant-selection.lifespan-seconds", defaultValue = "300")
-    long selectionLifetimeSeconds;
-
-    @ConfigProperty(name = "numou.identity.tenant-access.lifespan-seconds", defaultValue = "900")
-    long accessLifetimeSeconds;
-
     @Override
     public String issueTenantSelectionToken(UUID principalId, String displayName) {
         requirePrincipal(principalId, displayName);
-        if (selectionLifetimeSeconds < 60 || selectionLifetimeSeconds > 600) {
-            throw new IllegalStateException("Tenant selection token lifetime must be between 60 and 600 seconds");
-        }
         return Jwt.issuer(issuer)
                 .subject(principalId.toString())
                 .upn(displayName)
@@ -45,7 +38,7 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
                 .claim("principalType", PRINCIPAL_TYPE)
                 .claim("token_use", TENANT_SELECTION_USE)
                 .groups(Set.of())
-                .expiresIn(Duration.ofSeconds(selectionLifetimeSeconds))
+                .expiresIn(Duration.ofSeconds(SELECTION_LIFETIME_SECONDS))
                 .sign();
     }
 
@@ -54,9 +47,6 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
         requirePrincipal(principalId, displayName);
         if (tenantId == null) {
             throw new IllegalArgumentException("tenantId is required");
-        }
-        if (accessLifetimeSeconds < 60 || accessLifetimeSeconds > 900) {
-            throw new IllegalStateException("Tenant access token lifetime must be between 60 and 900 seconds");
         }
         String canonicalTenant = tenantId.toString();
         return Jwt.issuer(issuer)
@@ -70,7 +60,7 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
                 .claim("token_use", ACCESS_USE)
                 .claim("jti", UUID.randomUUID().toString())
                 .groups(Set.of())
-                .expiresIn(Duration.ofSeconds(accessLifetimeSeconds))
+                .expiresIn(Duration.ofSeconds(ACCESS_LIFETIME_SECONDS))
                 .sign();
     }
 
