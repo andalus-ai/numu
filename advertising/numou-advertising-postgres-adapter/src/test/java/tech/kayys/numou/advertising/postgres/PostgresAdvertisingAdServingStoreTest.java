@@ -55,9 +55,9 @@ class PostgresAdvertisingAdServingStoreTest {
     assertEquals(property.id(),inventory.property().id());
     assertEquals(publisher.id(),inventory.publisher().id());
 
-    List<AdServingCandidate> candidates=serving.findEligibleCandidates(tenant,placement.id(),"IMAGE",now).toCompletableFuture().join();
+    List<AdServingCandidate> candidates=serving.findEligibleCandidates(tenant,placement.id(),"IMAGE",now,100).toCompletableFuture().join();
     assertEquals(1,candidates.size());
-    assertTrue(serving.findEligibleCandidates(new TenantId("tenant-other"),placement.id(),"IMAGE",now)
+    assertTrue(serving.findEligibleCandidates(new TenantId("tenant-other"),placement.id(),"IMAGE",now,100)
       .toCompletableFuture().join().isEmpty());
     assertEquals(targeted.creative.id(),candidates.get(0).creative().id());
     assertNotEquals(notTargeted.creative.id(),candidates.get(0).creative().id());
