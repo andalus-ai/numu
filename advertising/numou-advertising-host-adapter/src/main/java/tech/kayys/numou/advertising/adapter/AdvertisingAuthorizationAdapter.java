@@ -5,7 +5,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.advertising.application.AdvertisingAuthorizationPort;
 import tech.kayys.numou.advertising.domain.TenantId;
-import tech.kayys.numou.foundation.domain.tenant.TenantId as FoundationTenantId;
 import tech.kayys.numou.identity.application.port.MembershipManagementPort;
 import tech.kayys.numou.identity.domain.user.UserId;
 import tech.kayys.numou.security.adapter.CurrentSecurity;
@@ -54,7 +53,7 @@ public class AdvertisingAuthorizationAdapter implements AdvertisingAuthorization
     if(!tenantUuid.equals(context.tenantId())) {
       return java.util.concurrent.CompletableFuture.completedFuture(false);
     }
-    FoundationTenantId trustedTenant=FoundationTenantId.of(tenantUuid);
+    tech.kayys.numou.foundation.domain.tenant.TenantId trustedTenant=tech.kayys.numou.foundation.domain.tenant.TenantId.of(tenantUuid);
     if(!context.principal().isMemberOf(trustedTenant)) {
       return java.util.concurrent.CompletableFuture.completedFuture(false);
     }
