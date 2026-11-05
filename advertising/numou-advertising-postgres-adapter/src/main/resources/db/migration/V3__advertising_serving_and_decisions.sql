@@ -29,9 +29,7 @@ CREATE TABLE advertising_ad_decision (
     )),
     decided_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (tenant_id,decision_id),
-    CONSTRAINT fk_advertising_decision_placement
-      FOREIGN KEY (tenant_id,placement_id)
-      REFERENCES advertising_ad_placement (tenant_id,placement_id) ON DELETE RESTRICT,
+    -- placement_id is retained as the requested opaque identifier even for unknown-placement no-fill decisions.
     CONSTRAINT fk_advertising_decision_property
       FOREIGN KEY (tenant_id,property_id)
       REFERENCES advertising_publisher_property (tenant_id,property_id) ON DELETE RESTRICT,
