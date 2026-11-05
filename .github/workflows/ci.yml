@@ -53,7 +53,7 @@ jobs:
       - name: Build and install Identity contracts
         run: mvn -B -ntp -f identity/pom.xml -pl numou-identity-domain,numou-identity-application -am install
       - name: Build and install Vault encryption contracts
-        run: mvn -B -ntp -f security/pom.xml -pl security-vault-spi -am install -DskipTests
+        run: mvn -B -ntp -f security/pom.xml -pl security-vault-spi -am install -Dmaven.test.skip=true
       - name: Verify Organization and invitation lifecycle
         run: mvn -B -ntp -f organization/pom.xml verify
       - name: Upload Organization Maven test reports
