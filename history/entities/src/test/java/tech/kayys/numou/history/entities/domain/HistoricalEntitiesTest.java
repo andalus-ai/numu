@@ -95,4 +95,57 @@ class HistoricalEntitiesTest {
         assertThrows(IllegalArgumentException.class, () -> HistoricalPerson.create(
                 "Gajah Mada", List.of("gajah mada"), null, null, "", T0));
     }
+
+    @Test
+    void validatesBiographicalOrderUsingCalendarAwareComparison() {
+        HistoricalChronology chronology = HistoricalChronology.standard();
+        HistoricalPerson reversed = HistoricalPerson.create("Person", List.of(),
+                HistoricalDate.year(1200, GregorianCalendarDateConverter.ID),
+                HistoricalDate.year(1100, GregorianCalendarDateConverter.ID), "", T0);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> HistoricalEntityTemporalPolicy.assertBirthNotAfterDeath(reversed, chronology));
+    }
+
+    @Test
+    void validatesAffiliationWithinCollectiveActiveRange() {
+        HistoricalChronology chronology = HistoricalChronology.standard();
+        HistoricalCollective collective = HistoricalCollective.create("Majapahit", List.of(),
+                HistoricalEntityKindCode.of("empire"), PERIOD, null, "", T0);
+        HistoricalAffiliation valid = new HistoricalAffiliation(
+                HistoricalPersonId.generate(), collective.id(), "ruler",
+                new HistoricalDateRange(
+                        HistoricalDate.year(1290, GregorianCalendarDateConverter.ID),
+                        HistoricalDate.year(1300, GregorianCalendarDateConverter.ID)));
+        HistoricalAffiliation invalid = new HistoricalAffiliation(
+                HistoricalPersonId.generate(), collective.id(), "ruler",
+                new HistoricalDateRange(
+                        HistoricalDate.year(1290, GregorianCalendarDateConverter.ID),
+                        HistoricalDate.year(1400, GregorianCalendarDateConverter.ID)));
+
+        assertDoesNotThrow(() -> HistoricalEntityTemporalPolicy.assertAffiliationWithinCollective(
+                valid, collective, chronology));
+        assertThrows(IllegalArgumentException.class, () ->
+                HistoricalEntityTemporalPolicy.assertAffiliationWithinCollective(invalid, collective, chronology));
+    }
+
+    @Test
+    void validatesPlaceNameAndLocationAssertionsAgainstExistenceRange() {
+        HistoricalChronology chronology = HistoricalChronology.standard();
+        HistoricalPlace place = HistoricalPlace.create(
+                HistoricalPlaceKindCode.of("settlement"),
+                List.of(new HistoricalPlaceName("Old name", "id",
+                        new HistoricalDateRange(
+                                HistoricalDate.year(800, GregorianCalendarDateConverter.ID),
+                                HistoricalDate.year(900, GregorianCalendarDateConverter.ID)), true)),
+                List.of(new HistoricalPlaceLocation(new GeoPoint(-7.0, 110.0),
+                        HistoricalPlacePrecision.APPROXIMATE_LOCATION,
+                        new HistoricalDateRange(
+                                HistoricalDate.year(850, GregorianCalendarDateConverter.ID),
+                                HistoricalDate.year(950, GregorianCalendarDateConverter.ID)), "")),
+                PERIOD, null, T0);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                HistoricalEntityTemporalPolicy.assertPlaceAssertionsWithinExistence(place, chronology));
+    }
 }
