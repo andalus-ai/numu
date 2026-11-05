@@ -11,4 +11,5 @@ public interface AdvertisingCampaignStore {
   CompletionStage<Optional<Creative>> findCreative(TenantId tenantId,CreativeId id);
   CompletionStage<CampaignCreativeAssignment> assignCreative(CampaignCreativeAssignment assignment);
   CompletionStage<List<Creative>> findAssignedCreatives(TenantId tenantId,CampaignId campaignId);
+  CompletionStage<CampaignPlacementTarget> assignPlacement(CampaignPlacementTarget target);
 }
