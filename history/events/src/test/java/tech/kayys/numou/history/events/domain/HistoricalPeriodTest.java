@@ -76,4 +76,34 @@ class HistoricalPeriodTest {
         assertEquals(Optional.of(TemporalRelation.SAME),
                 HistoricalEventPeriodRelation.relate(event, period, CHRONOLOGY));
     }
+
+    @Test
+    void chronologyComparesOverlappingRangesWithoutInventingCausality() {
+        HistoricalDateRange first = new HistoricalDateRange(
+                HistoricalDate.year(1000, GregorianCalendarDateConverter.ID),
+                HistoricalDate.year(1100, GregorianCalendarDateConverter.ID));
+        HistoricalDateRange second = new HistoricalDateRange(
+                HistoricalDate.year(1050, GregorianCalendarDateConverter.ID),
+                HistoricalDate.year(1150, GregorianCalendarDateConverter.ID));
+
+        assertEquals(Optional.of(TemporalRelation.OVERLAPS), CHRONOLOGY.compare(first, second));
+        assertEquals(Optional.of(true), CHRONOLOGY.contains(
+                new HistoricalDateRange(
+                        HistoricalDate.year(900, GregorianCalendarDateConverter.ID),
+                        HistoricalDate.year(1200, GregorianCalendarDateConverter.ID)),
+                first));
+    }
+
+    @Test
+    void chronologyReturnsUnavailableForUnregisteredCalendarRanges() {
+        CalendarSystemId unsupported = CalendarSystemId.of("hijri");
+        HistoricalDateRange unknown = new HistoricalDateRange(
+                HistoricalDate.year(1200, unsupported), HistoricalDate.year(1250, unsupported));
+        HistoricalDateRange known = new HistoricalDateRange(
+                HistoricalDate.year(1200, GregorianCalendarDateConverter.ID),
+                HistoricalDate.year(1250, GregorianCalendarDateConverter.ID));
+
+        assertTrue(CHRONOLOGY.compare(unknown, known).isEmpty());
+        assertTrue(CHRONOLOGY.contains(known, unknown).isEmpty());
+    }
 }
