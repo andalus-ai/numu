@@ -1,7 +1,7 @@
 # Advertising Platform — M3 Ad Serving and Decisioning
 
 - **Milestone:** M3 foundation (eligibility, placement targeting, decision audit)
-- **Branch:** `feat/advertising-m3-ad-serving`
+- **Branch:** `feat/advertising-m3-ad-serving-milestone`
 - **Base:** current `main` after M0, M1, M2 and M1 host-integration merges
 - **Status:** Implementation and tests committed to a feature branch; Maven and Testcontainers execution pending.
 - **Owner:** Advertising capability

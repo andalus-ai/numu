@@ -53,7 +53,12 @@ class AdvertisingAdServingServiceTest {
     Campaign expiredCampaign=new Campaign(expired.campaign().id(),TENANT,expired.campaign().advertiserId(),
       expired.campaign().name(),expired.campaign().objective(),NOW.minusSeconds(1000),NOW.minusSeconds(1),
       CampaignStatus.ACTIVE,expired.campaign().createdAt(),expired.campaign().version());
-    f.store.candidates=List.of(new AdServingCandidate(expiredCampaign,expired.advertiser(),expired.creative()));
+    AdServingCandidate unreviewed=f.candidate(NOW.minusSeconds(90),"unreviewed");
+    Creative draftCreative=new Creative(unreviewed.creative().id(),TENANT,unreviewed.advertiser().id(),
+      unreviewed.creative().name(),CreativeFormat.IMAGE,"Headline","Body",
+      URI.create("https://advertiser.example"),"document-unreviewed",CreativeStatus.DRAFT,null,NOW.minusSeconds(90),0);
+    f.store.candidates=List.of(new AdServingCandidate(expiredCampaign,expired.advertiser(),expired.creative()),
+      new AdServingCandidate(unreviewed.campaign(),unreviewed.advertiser(),draftCreative));
     var result=f.service.serve(f.request("https://publisher.example/page","IMAGE")).toCompletableFuture().join();
     assertEquals(AdDecisionStatus.NO_FILL,result.decision().status());
     assertEquals(AdDecisionReason.NO_ELIGIBLE_CANDIDATE,result.decision().reason());

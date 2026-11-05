@@ -98,6 +98,18 @@ class AdvertisingCampaignServiceTest {
     AdPlacement placement=AdPlacement.define(AdPlacementId.generate(),TENANT,property.id(),"top","IMAGE",CLOCK.instant()).enable();
     accounts.savePlacement(placement).toCompletableFuture().join();
     assertThrows(CompletionException.class,()->service.targetCampaignToPlacement(TENANT,campaign.id(),placement.id()).toCompletableFuture().join());
+
+    AdvertisingAccountId suspendedPublisherId=AdvertisingAccountId.generate();
+    accounts.savePublisher(PublisherAccount.register(suspendedPublisherId,TENANT,new PartyReference("publisher-suspended"),
+      "Suspended publisher",CLOCK.instant()).activate().suspend()).toCompletableFuture().join();
+    PublisherProperty verifiedProperty=PublisherProperty.register(PublisherPropertyId.generate(),TENANT,suspendedPublisherId,
+      "Suspended publisher site",URI.create("https://suspended.example"),CLOCK.instant()).verify();
+    accounts.saveProperty(verifiedProperty).toCompletableFuture().join();
+    AdPlacement suspendedPlacement=AdPlacement.define(AdPlacementId.generate(),TENANT,verifiedProperty.id(),
+      "top","IMAGE",CLOCK.instant()).enable();
+    accounts.savePlacement(suspendedPlacement).toCompletableFuture().join();
+    assertThrows(CompletionException.class,()->service.targetCampaignToPlacement(TENANT,campaign.id(),
+      suspendedPlacement.id()).toCompletableFuture().join());
   }
 
   @Test void authorizationIsCheckedBeforeCampaignCreation() {
