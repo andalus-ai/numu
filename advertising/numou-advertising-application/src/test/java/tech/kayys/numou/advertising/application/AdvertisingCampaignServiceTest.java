@@ -28,6 +28,7 @@ class AdvertisingCampaignServiceTest {
     Campaign campaign=service.createCampaign(TENANT,advertiserId,"Campaign",CampaignObjective.SALES,
       CLOCK.instant(),CLOCK.instant().plusSeconds(3600)).toCompletableFuture().join();
     assertEquals(CampaignStatus.DRAFT,campaign.status());
+    assertThrows(CompletionException.class,()->service.scheduleCampaign(TENANT,campaign.id()).toCompletableFuture().join());
 
     Creative creative=service.createCreative(TENANT,advertiserId,"Creative",CreativeFormat.TEXT,
       "Headline","Body",URI.create("https://advertiser.example"),null).toCompletableFuture().join();
@@ -37,6 +38,16 @@ class AdvertisingCampaignServiceTest {
     creative=service.approveCreative(TENANT,creative.id()).toCompletableFuture().join();
     assertEquals(CreativeStatus.APPROVED,creative.status());
     assertEquals(creative.id(),service.assignCreative(TENANT,campaign.id(),creative.id()).toCompletableFuture().join().creativeId());
+
+    AdvertisingAccountId otherAdvertiserId=AdvertisingAccountId.generate();
+    accounts.saveAdvertiser(AdvertiserAccount.register(otherAdvertiserId,TENANT,new PartyReference("party-b"),
+      "Other advertiser",CLOCK.instant()).activate()).toCompletableFuture().join();
+    Creative otherCreative=service.createCreative(TENANT,otherAdvertiserId,"Other creative",CreativeFormat.TEXT,
+      "Headline","Body",URI.create("https://other-advertiser.example"),null).toCompletableFuture().join();
+    otherCreative=service.submitCreative(TENANT,otherCreative.id()).toCompletableFuture().join();
+    otherCreative=service.approveCreative(TENANT,otherCreative.id()).toCompletableFuture().join();
+    CreativeId otherCreativeId=otherCreative.id();
+    assertThrows(CompletionException.class,()->service.assignCreative(TENANT,campaign.id(),otherCreativeId).toCompletableFuture().join());
 
     Campaign scheduled=service.scheduleCampaign(TENANT,campaign.id()).toCompletableFuture().join();
     assertEquals(CampaignStatus.SCHEDULED,scheduled.status());
