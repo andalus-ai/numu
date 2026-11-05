@@ -59,6 +59,21 @@ class OrganizationInvitationDeliveryWorkerTest {
         assertNull(fixture.outbox.deadLetterCode);
     }
 
+    @Test
+    void providerFailureSchedulesRetryInsteadOfMarkingSent() throws Exception {
+        var fixture = fixture("current-secret", "current-secret", NOW.plusSeconds(3600));
+        var worker = new OrganizationInvitationDeliveryWorker(fixture.outbox, fixture.repository,
+                fixture.cipher, email -> CompletableFuture.failedFuture(new IllegalStateException("provider down")),
+                Clock.fixed(NOW, ZoneOffset.UTC), URI.create("https://portal.example.test"),
+                java.time.Duration.ofMinutes(2));
+
+        worker.runBatch(10).toCompletableFuture().join();
+
+        assertEquals(0, fixture.outbox.sentCount);
+        assertEquals("EMAIL_PROVIDER_FAILED", fixture.outbox.retryCode);
+        assertNotNull(fixture.outbox.retryAt);
+    }
+
     private static OrganizationInvitationDeliveryWorker worker(Fixture f,
             List<InvitationEmailProvider.Email> sends) {
         return new OrganizationInvitationDeliveryWorker(f.outbox, f.repository, f.cipher,
@@ -121,7 +136,7 @@ class OrganizationInvitationDeliveryWorkerTest {
     private static final class SingleClaimOutbox implements OrganizationInvitationDeliveryOutboxPort {
         private final ClaimedDelivery claimed;
         private int sentCount;
-        private String deadLetterCode;
+        private String deadLetterCode;\n        private String retryCode;\n        private Instant retryAt;
         private SingleClaimOutbox(ClaimedDelivery claimed) { this.claimed = claimed; }
         public CompletionStage<Void> enqueue(DeliveryMessage message) { return CompletableFuture.completedFuture(null); }
         public CompletionStage<List<ClaimedDelivery>> claim(Instant now, Instant leaseUntil, int limit) {
