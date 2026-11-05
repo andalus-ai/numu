@@ -19,7 +19,7 @@ class HistoricalRelationshipTest {
     @Test void createsTypedTimeBoundedRelationship() {
         var subject = HistoricalEntityReference.person(HistoricalPersonId.generate());
         var object = HistoricalEntityReference.collective(HistoricalCollectiveId.generate());
-        var range = new HistoricalDateRange(HistoricalDate.year(1000, CalendarSystemId.JULIAN),
+        var range = new HistoricalDateRange(HistoricalDate.year(1000, CalendarSystemId.of("julian")),
                 HistoricalDate.year(1100, CalendarSystemId.JULIAN));
         var relation = HistoricalRelationship.create(subject, object,
                 HistoricalRelationshipKindCode.of("member-of"), range, "Member of court", now, vocabulary);
@@ -62,11 +62,11 @@ class HistoricalRelationshipTest {
     }
 
     @Test void revisionsPreserveIdentityAndAdvanceMonotonically() {
-        var a = HistoricalEntityReference.collective(HistoricalCollectiveId.generate());
-        var b = HistoricalEntityReference.collective(HistoricalCollectiveId.generate());
+        var a = HistoricalEntityReference.collective(HistoricalCollectiveId.of(new UUID(0, 1)));
+        var b = HistoricalEntityReference.collective(HistoricalCollectiveId.of(new UUID(0, 2)));
         var relation = HistoricalRelationship.create(a, b, HistoricalRelationshipKindCode.of("allied-with"),
                 null, "", now, vocabulary);
-        var revised = relation.revise(b, a, HistoricalRelationshipKindCode.of("allied-with"),
+        var revised = relation.revise(a, b, HistoricalRelationshipKindCode.of("allied-with"),
                 null, "Alliance recorded differently", now.plusSeconds(1), vocabulary);
         assertEquals(relation.id(), revised.id());
         assertEquals(2, revised.revision());
