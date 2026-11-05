@@ -5,5 +5,5 @@
   <artifactId>numou-advertising-modules</artifactId><packaging>pom</packaging>
   <name>Numou Advertising Capability</name>
   <description>Deployment-neutral advertiser, publisher and advertising inventory capability.</description>
-  <modules><module>numou-advertising-domain</module><module>numou-advertising-spi</module><module>numou-advertising-application</module></modules>
+  <modules><module>numou-advertising-domain</module><module>numou-advertising-spi</module><module>numou-advertising-application</module><module>numou-advertising-postgres-adapter</module></modules>
 </project>
