@@ -40,6 +40,9 @@ The control plane requests and reconciles application lifecycle operations. A ru
 ### Runtime and ecosystem constraints
 
 - `core/framework/pom.xml` targets Java 21 and contains the framework plugin and workflow reactors.
+- `core/framework/foundation/numou-foundation-application` already contains an in-process `ApplicationRuntime` lifecycle foundation: `ApplicationRuntimeBuilder`, `ApplicationCompositionRoot`, `ApplicationModule`, `RuntimeComponent`, `ManagedWorker`, `DefaultApplicationRuntime`, startup checks, readiness/liveness contracts and graceful-shutdown primitives. This is existing runtime infrastructure and must be extended/reused rather than replaced with a second Runtime Kernel.
+- `ApplicationRuntimeBuilder` assembles explicit in-process components/workers and `DefaultApplicationRuntime` validates, starts, rolls back and stops them. It is not yet an application-package host: no implementation of `ApplicationCompositionRoot` was found in the repository tree, and there is no verified bridge from the validated application manifest/capability resolution to a selected runtime component graph or standalone executable bootstrap.
+- The current lifecycle implementation has hardening gaps relevant to production hosting: `DefaultApplicationComponentRegistry` silently replaces duplicate component IDs; `ApplicationRuntimeBuilder` creates a `RuntimeHealth` supplier that always reports healthy; `DefaultApplicationRuntime` suppresses component/worker cleanup failures during startup rollback and shutdown; and shutdown can report `STOPPED` even when one or more stop operations failed. These are source-level findings, not claims about every downstream adapter.
 - The M2 Gamelan audit records that current Gamelan Maven artifacts target Java 25. Directly loading them into the Java 21 Numou framework is not a safe assumption. The accepted integration direction is remote-first until compatibility and publication policy are explicitly resolved.
 - Existing Gamelan integration documentation warns that Numou's class named `GamelanWorkflowEngineAdapter` is an in-memory DAG implementation, not a production Gamelan integration. Do not treat it as the runtime workflow engine.
 - Existing worker lifecycle abstractions and observability/reliability capabilities should be inspected and reused; do not create parallel schedulers or worker frameworks.
@@ -113,12 +116,12 @@ M1 should be a focused, independently testable runtime-host milestone, not an at
 
 Proposed M1 scope:
 
-- Inspect and select the existing host composition/bootstrap owner before adding modules.
-- Define a small versioned `ApplicationRuntimeDescriptor` / `RuntimeProfile` contract that consumes the already validated application manifest without duplicating its schema or validator.
-- Define explicit host ports for capability provider resolution, adapter assembly, configuration, lifecycle, health and runtime state reporting.
-- Implement a Java 21-compatible host bootstrap that composes a small allowlisted set of existing capability providers.
+- Extend `ApplicationRuntimeBuilder` / `DefaultApplicationRuntime` and the existing `ApplicationCompositionRoot` seam; do not create a second lifecycle state machine or a parallel `ManagedWorker`/`RuntimeComponent` contract.
+- Inspect actual consumers and implement the smallest Java 21 host bootstrap/composition root that can assemble an explicit, allowlisted component set. Keep application manifest validation and dependency resolution in `core/framework/plugin`.
+- Add a host-side binding from the already validated capability resolution to concrete in-process component factories. Keep that binding local to the host composition; do not turn it into a second global capability registry.
+- Make duplicate component/module registration fail deterministically; ensure runtime health/readiness reflects lifecycle state; preserve cleanup failures from startup rollback and shutdown.
 - Make startup and shutdown deterministic; fail startup on missing/incompatible required providers; keep optional providers optional.
-- Add tests proving minimal composition does not pull unrelated business capabilities, that provider selection is deterministic, and that failed startup cleans up already-started components.
+- Add tests proving minimal composition does not pull unrelated business capabilities, provider selection is deterministic, and failed startup cleans up already-started components while retaining cleanup failure evidence.
 - Add a minimal executable proof using a deliberately small sample composition. Do not claim a production Accounting or ERP product yet.
 - Keep tenant installation orchestration in `application-platform`; keep executable plugin lifecycle in `core/framework/plugin`.
 
