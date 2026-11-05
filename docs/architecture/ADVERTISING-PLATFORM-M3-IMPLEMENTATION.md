@@ -23,7 +23,7 @@ The serving service:
 4. Requires requested format to match the configured placement format.
 5. Loads candidates that have an explicit campaign-to-placement target, an active campaign within its time window, an active advertiser, an approved assigned creative and a matching format.
 6. Rechecks the key lifecycle and tenant invariants in the application layer.
-7. Selects deterministically by campaign creation time, campaign ID and creative ID. This is a transparent tie-breaker, not a bid ranking or auction.
+7. Reads at most 100 candidates per decision and selects deterministically by campaign creation time, campaign ID and creative ID. This is a bounded transparent tie-breaker, not a bid ranking or auction.
 8. Persists a decision record for both fill and no-fill outcomes before returning the result.
 
 A no-fill is a normal, auditable response rather than an exception. Reasons include unknown placement, ineligible inventory, property-origin mismatch, format mismatch and no eligible campaign/creative.
@@ -68,7 +68,7 @@ Tables:
 - `advertising_campaign_placement`: explicit tenant/advertiser/campaign/placement targeting, uniqueness and foreign keys.
 - `advertising_ad_decision`: append-only serving outcome audit for fills and no-fills.
 
-Indexes support placement-target candidate lookup and tenant/placement/time decision retrieval. Unknown placement identifiers are retained in no-fill decisions without a placement foreign key because the request may intentionally reference an unknown ID. Filled decisions carry the advertiser reference and use composite foreign keys to prove that campaign, creative and placement-target ownership all match; resolved property references remain tenant-scoped and foreign-key constrained.
+Indexes support placement-target candidate lookup, active campaign/approved creative delivery, and tenant/placement/time decision retrieval. The candidate read is capped at 100 rows per decision. Unknown placement identifiers are retained in no-fill decisions without a placement foreign key because the request may intentionally reference an unknown ID. Filled decisions carry the advertiser reference and use composite foreign keys to prove that campaign, creative and placement-target ownership all match; resolved property references remain tenant-scoped and foreign-key constrained.
 
 The serving adapter uses a single joined candidate query with database-side status/time/format predicates and deterministic ordering. It rechecks placement, property and publisher eligibility in the query to reduce races between inventory lookup and candidate retrieval.
 
