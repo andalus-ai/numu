@@ -49,7 +49,7 @@ public class PostgresAdvertisingAdServingStore implements AdvertisingAdServingSt
   }
 
   @Override public CompletionStage<List<AdServingCandidate>> findEligibleCandidates(TenantId tenant,AdPlacementId placementId,
-                                                                                     String format,Instant at) {
+                                                                                     String format,Instant at,int limit) {
     return execute(()->{
       String sql="SELECT ca.campaign_id,ca.advertiser_account_id,ca.campaign_name,ca.objective,ca.starts_at,ca.ends_at,"+
         "ca.campaign_status,ca.created_at,ca.version,"+
@@ -67,10 +67,10 @@ public class PostgresAdvertisingAdServingStore implements AdvertisingAdServingSt
         "WHERE cc.tenant_id=? AND ca.campaign_status='ACTIVE' AND ca.starts_at<=? "+
         "AND (ca.ends_at IS NULL OR ca.ends_at>?) AND ad.account_status='ACTIVE' "+
         "AND cr.creative_status='APPROVED' AND cr.creative_format=? AND upper(pl.format)=? "+
-        "ORDER BY ca.created_at,ca.campaign_id,cr.creative_id";
+        "ORDER BY ca.created_at,ca.campaign_id,cr.creative_id LIMIT ?";
       try(Connection c=dataSource.getConnection();PreparedStatement s=c.prepareStatement(sql)){
         s.setObject(1,placementId.value());s.setObject(2,placementId.value());s.setString(3,tenant.value());s.setTimestamp(4,Timestamp.from(at));
-        s.setTimestamp(5,Timestamp.from(at));s.setString(6,format.toUpperCase(Locale.ROOT));s.setString(7,format.toUpperCase(Locale.ROOT));
+        s.setTimestamp(5,Timestamp.from(at));s.setString(6,format.toUpperCase(Locale.ROOT));s.setString(7,format.toUpperCase(Locale.ROOT));s.setInt(8,Math.max(1,Math.min(limit,100)));
         try(ResultSet r=s.executeQuery()){
           List<AdServingCandidate> result=new ArrayList<>();
           while(r.next()){
