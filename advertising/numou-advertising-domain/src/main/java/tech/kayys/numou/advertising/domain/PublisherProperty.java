@@ -10,7 +10,7 @@ public record PublisherProperty(PublisherPropertyId id,TenantId tenantId,Adverti
     Objects.requireNonNull(canonicalUri); Objects.requireNonNull(status); Objects.requireNonNull(createdAt);
     name=AdvertiserAccount.required(name,"property name");
     String scheme=canonicalUri.getScheme();
-    if(!canonicalUri.isAbsolute() || canonicalUri.getHost()==null || !(scheme.equalsIgnoreCase("https")||scheme.equalsIgnoreCase("http")))
+    if(!canonicalUri.isAbsolute() || canonicalUri.getHost()==null || scheme==null || !(scheme.equalsIgnoreCase("https")||scheme.equalsIgnoreCase("http")) )
       throw new IllegalArgumentException("property URI must be an absolute HTTP(S) URI with a host");
     if(canonicalUri.toString().length()>2048) throw new IllegalArgumentException("property URI exceeds 2048 characters");
     if(version<0) throw new IllegalArgumentException("version cannot be negative");
