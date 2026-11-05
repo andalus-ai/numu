@@ -45,6 +45,7 @@ class ApplicationHostLifecycleDispatcherTest {
         assertThat(dispatcher.dispatch(TENANT, event("ENABLED")).toCompletableFuture().join())
                 .isEqualTo(ApplicationHostLifecycleDispatcher.Outcome.ACTIVATED);
         assertThat(activated).hasValue(1);
+        assertThat(activated.get()).isEqualTo(1);
     }
 
     @Test
@@ -68,6 +69,7 @@ class ApplicationHostLifecycleDispatcherTest {
         assertThat(dispatcher.dispatch(TENANT, event("SUSPENDED")).toCompletableFuture().join())
                 .isEqualTo(ApplicationHostLifecycleDispatcher.Outcome.DEACTIVATED);
         assertThat(deactivated).hasValue(1);
+        assertThat(deactivated.get()).isEqualTo(1);
     }
 
     @Test
