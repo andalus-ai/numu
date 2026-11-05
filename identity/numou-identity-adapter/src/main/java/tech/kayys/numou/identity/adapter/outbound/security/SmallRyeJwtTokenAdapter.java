@@ -44,6 +44,7 @@ public class SmallRyeJwtTokenAdapter implements TokenIssuerPort, TokenVerifierPo
         return Uni.createFrom().item(() -> {
             try {
                 JsonWebToken jwt = jwtParser.parse(rawToken);
+                rejectTenantSelectionCredential(jwt.getClaim("token_use"));
                 String principalType = requirePrincipalType(jwt.getClaim("principalType"));
                 UUID principalId = UUID.fromString(jwt.getSubject());
                 String displayName = jwt.getClaim("upn");
@@ -54,6 +55,12 @@ public class SmallRyeJwtTokenAdapter implements TokenIssuerPort, TokenVerifierPo
                 throw ApplicationError.of("INVALID_TOKEN", "Token could not be verified").toException();
             }
         });
+    }
+
+    static void rejectTenantSelectionCredential(String tokenUse) {
+        if ("tenant_selection".equals(tokenUse)) {
+            throw new IllegalArgumentException("Tenant-selection credentials are not business access tokens");
+        }
     }
 
     static String requirePrincipalType(String principalType) {
