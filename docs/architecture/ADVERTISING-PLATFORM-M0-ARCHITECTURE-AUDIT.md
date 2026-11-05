@@ -379,3 +379,35 @@ This section records source-level inspection on the repository's current `main` 
 - [ ] Finalize M1 artifact list and dependency direction based on the verified contracts.
 
 M0 remains partially complete until the unchecked evidence gates are resolved or explicitly deferred with a reason. No build/test/CI success is claimed by this source audit.
+
+
+### Additional Billing and Organization contract verification
+
+| Capability | Source inspected | Verified behavior | Advertising consequence |
+|---|---|---|---|
+| Finance Billing | `finance/billing/core/numou-billing-application/.../BillingService.java` | Public API is centered on billing schedules, cycle processing, retries, dunning and history. | It is suitable for recurring advertiser billing only if the Advertising commercial model requires a recurring schedule and its tenant/idempotency guarantees are verified. It is not yet a proven one-off finalized-usage invoice API for CPM/CPC spend. |
+| Finance Billing ports | `.../port/InvoicePort.java`, `.../port/PaymentPort.java` | Invoice port generates and reads invoice details using customer ID and Money; payment port processes tokenized payments/refunds. These ports do not themselves show explicit tenant scope or idempotency keys in their signatures. | Do not call these lower-level ports directly from Advertising. An adapter must be backed by an authorized, tenant-scoped, idempotent public application contract. The current payment port is not a replacement for the separate PaymentApplicationPort contract. |
+| Organization | `organization/organization-spi/.../OrganizationPartyAssociationRepository.java`, `OrganizationRepository.java` | Organization has repository-level persistence contracts and a Party association history; PartyId is a first-class reference. | This is useful evidence for stable organization/party references, but these are persistence SPI contracts, not a consumer-facing Organization application API. Advertising must not depend directly on these repository interfaces. A public lookup/reference-validation contract still needs to be located or designed with the owning capability. |
+
+### M0 integration decision refined
+
+- **Advertiser charging:** finalized Advertising billable evidence should first be accumulated into a versioned billing statement/charge batch owned by Advertising. A future Finance adapter should submit an authorized, idempotent billing request through a suitable Billing application contract. Current Billing schedule APIs alone do not prove this use case is supported.
+- **Recurring contracts:** if an advertiser purchases a recurring sponsorship/subscription, Finance Billing's schedule lifecycle may be a fit, subject to contract and policy verification.
+- **One-off/usage-based billing:** do not build on Billing's lower-level InvoicePort or PaymentPort directly. A public one-off billing contract with tenant authorization, idempotency, currency/tax handling, and reconciliation semantics must be verified or added in Finance as a separate approved milestone.
+- **Organization/Party:** store opaque `organizationId` and/or `partyId` references only after confirming the canonical ID type and a supported application-level lookup/authorization route. Do not import Organization repository SPI into Advertising.
+- **Wallet/publisher payouts:** no direct wallet repository dependency. The absence of a generic payout application contract remains an explicit M5 integration gap, not a reason to create an Advertising wallet.
+
+### Updated M0 evidence checklist
+
+- [x] Read repository contributor/agent rules and architecture ownership contracts.
+- [x] Inspect relevant aggregator POMs.
+- [x] Verify source-level Payment, Identity authorization, Accounting, Wallet SPI, Documents storage, Event dispatch, Marketplace authorization/checkout, Promotion boundaries.
+- [x] Inspect Billing public application API and its lower-level invoice/payment ports.
+- [x] Inspect Organization/Party association persistence contracts.
+- [ ] Locate or agree an Organization/Party consumer-facing lookup contract.
+- [ ] Verify tenant/idempotency guarantees on Billing and Accounting commands and identify the supported usage-billing integration.
+- [ ] Inspect full active reactor dependency graph and runtime wiring for selected integrations.
+- [ ] Establish reproducible Maven build/CI baseline for the exact reactors selected for M1.
+- [ ] Finalize M1 artifact list and dependency direction based on the verified contracts.
+
+M0 remains partially complete. The source audit confirms several useful integration contracts, while also showing that Billing usage invoicing and generic Wallet payouts are not yet proven. No build/test/CI success is claimed by this source audit.
