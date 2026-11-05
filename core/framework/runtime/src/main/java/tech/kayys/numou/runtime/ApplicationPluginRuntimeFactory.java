@@ -60,6 +60,9 @@ public final class ApplicationPluginRuntimeFactory implements CapabilityRuntimeF
     private void validatePluginDependencies(CapabilityProvider provider, Registration registration) {
         for (tech.kayys.numou.plugin.api.PluginDependency dependency
                 : registration.plugin().manifest().dependencies()) {
+            if (dependency.optional()) {
+                continue;
+            }
             Registration dependencyRegistration = registrations.values().stream()
                     .filter(candidate -> candidate.plugin().id().equals(dependency.pluginId()))
                     .findFirst().orElse(null);
