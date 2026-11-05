@@ -12,12 +12,6 @@ import tech.kayys.numou.accounting.receivables.application.InvoiceService;
 import tech.kayys.numou.accounting.receivables.application.PaymentService;
 import tech.kayys.numou.accounting.receivables.repository.InvoiceRepository;
 import tech.kayys.numou.accounting.receivables.repository.PaymentRepository;
-import tech.kayys.numou.budget.adapter.memory.InMemoryActualRepository;
-import tech.kayys.numou.budget.adapter.memory.InMemoryBudgetRepository;
-import tech.kayys.numou.budget.adapter.memory.InMemoryBudgetStore;
-import tech.kayys.numou.budget.adapter.memory.InMemoryCommitmentRepository;
-import tech.kayys.numou.budget.application.BudgetService;
-import tech.kayys.numou.budget.application.BudgetingService;
 import tech.kayys.numou.accounting.application.compliance.ComplianceRulePipeline;
 import tech.kayys.numou.accounting.application.cost.CostAccountingService;
 import tech.kayys.numou.accounting.application.cqrs.*;
@@ -34,9 +28,6 @@ import tech.kayys.numou.accounting.application.port.AccountRepository;
 import tech.kayys.numou.accounting.application.port.FiscalPeriodRepository;
 import tech.kayys.numou.accounting.application.port.FixedAssetRepository;
 import tech.kayys.numou.accounting.application.port.JournalEntryRepository;
-import tech.kayys.numou.project.adapter.memory.InMemoryProjectFinanceStore;
-import tech.kayys.numou.project.adapter.memory.InMemoryProjectRepository;
-import tech.kayys.numou.project.application.project.ProjectFinanceService;
 import tech.kayys.numou.accounting.application.projection.ProjectionRegistry;
 import tech.kayys.numou.accounting.application.projection.TrialBalanceProjection;
 import tech.kayys.numou.accounting.application.rule.DeclarativeRuleEngine;
@@ -59,8 +50,6 @@ import tech.kayys.numou.accounting.application.audit.InternalAuditService;
 import tech.kayys.numou.accounting.consolidation.*;
 import tech.kayys.numou.accounting.payables.infrastructure.InMemoryVendorInvoiceRepository;
 import tech.kayys.numou.accounting.receivables.infrastructure.InMemoryCustomerInvoiceRepository;
-import tech.kayys.numou.inventory.adapter.memory.InMemoryInventoryRepository;
-import tech.kayys.numou.inventory.application.InventoryService;
 
 @ApplicationScoped
 public class AccountingServiceProducer {
@@ -263,36 +252,8 @@ public class AccountingServiceProducer {
 
     @Produces
     @ApplicationScoped
-    public InventoryService inventoryService() {
-        return new InventoryService(new InMemoryInventoryRepository());
-    }
-
-    @Produces
-    @ApplicationScoped
-    public BudgetService budgetService() {
-        return new BudgetService(new InMemoryBudgetStore());
-    }
-
-    @Produces
-    @ApplicationScoped
-    public BudgetingService budgetingService() {
-        return new BudgetingService(new InMemoryBudgetRepository(),
-                new InMemoryCommitmentRepository(), new InMemoryActualRepository());
-    }
-
-    @Produces
-    @ApplicationScoped
     public CostAccountingService costAccountingService() {
         return new CostAccountingService();
-    }
-
-    @Produces
-    @ApplicationScoped
-    public ProjectFinanceService projectFinanceService() {
-        return new ProjectFinanceService(
-                new InMemoryProjectRepository(),
-                new InMemoryProjectFinanceStore()
-        );
     }
 
     @Produces

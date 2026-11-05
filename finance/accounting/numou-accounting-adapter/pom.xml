@@ -21,36 +21,6 @@
         </dependency>
         <dependency>
             <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-project-application</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-project-adapter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-budget-application</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-budget-adapter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-inventory-application</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-inventory-adapter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-accounting-consolidation</artifactId>
             <version>${project.version}</version>
         </dependency>
