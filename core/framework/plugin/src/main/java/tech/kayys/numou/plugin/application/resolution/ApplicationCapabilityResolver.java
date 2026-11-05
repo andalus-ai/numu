@@ -13,7 +13,7 @@ public final class ApplicationCapabilityResolver {
         for (CapabilityProvider provider : available) {
             if (!providerIds.add(provider.providerId()))
                 throw new CapabilityResolutionException("Duplicate provider ID: " + provider.providerId());
-            SemanticVersion.parse(provider.contractVersion());
+            validateProviderVersion(provider);
             index.computeIfAbsent(provider.capabilityId(), ignored -> new ArrayList<>()).add(provider);
         }
         index.values().forEach(list -> list.sort(Comparator.comparing(CapabilityProvider::providerId)));
@@ -32,6 +32,15 @@ public final class ApplicationCapabilityResolver {
             visit(capability, selected, index, state, path, order);
         unavailable.sort(String::compareTo);
         return new CapabilityResolution(selected, order, unavailable);
+    }
+
+    private static void validateProviderVersion(CapabilityProvider provider) {
+        try {
+            SemanticVersion.parse(provider.contractVersion());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid contract version for provider " + provider.providerId()
+                    + ": " + provider.contractVersion(), e);
+        }
     }
 
     private static void select(CapabilityRequirement requirement, Map<String, List<CapabilityProvider>> index,

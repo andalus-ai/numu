@@ -115,13 +115,14 @@ class ApplicationCapabilityResolverTest {
                 .hasMessage("Duplicate provider ID: shared-provider-id");
     }
 
-    @Test void rejectsProviderWithInvalidContractVersion() {
+    @Test void rejectsProviderWithInvalidContractVersionAndIdentifiesProvider() {
         var app = new ApplicationManifest("com.example.app", "1.0.0", "com.example", "Example",
                 List.of(new CapabilityRequirement("numou.sales", "^1.0.0")), List.of(), Set.of(), List.of());
         var provider = new CapabilityProvider("sales-provider", "numou.sales", "1.0", List.of());
 
         assertThatThrownBy(() -> new ApplicationCapabilityResolver().resolve(app, List.of(provider)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid SemVer 2.0.0 version: 1.0");
+                .hasMessage("Invalid contract version for provider sales-provider: 1.0")
+                .hasCauseInstanceOf(IllegalArgumentException.class);
     }
 }
