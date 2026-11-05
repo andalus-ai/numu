@@ -6,7 +6,6 @@ import tech.kayys.numou.organization.domain.OrganizationInvitationId;
 import tech.kayys.numou.security.vault.spi.SecretEncryptionPort;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,7 +40,7 @@ class VaultInvitationSecretCipherAdapterTest {
 
         @Override public char[] decrypt(EncryptionScope scope, String keyId, String algorithm,
                                         int formatVersion, byte[] ciphertext) {
-            lastScope = scope;
+            if (!scope.equals(lastScope)) throw new SecurityException("Encryption scope mismatch");
             byte[] clear = ciphertext.clone();
             for (int i = 0; i < clear.length; i++) clear[i] ^= 0x5A;
             return new String(clear, StandardCharsets.UTF_8).toCharArray();
