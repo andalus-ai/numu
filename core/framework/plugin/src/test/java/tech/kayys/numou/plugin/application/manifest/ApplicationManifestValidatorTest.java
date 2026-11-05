@@ -37,4 +37,75 @@ class ApplicationManifestValidatorTest {
         assertThatThrownBy(() -> validator().validate(invalid, Set.of("commerce.pos.operate")))
             .isInstanceOf(ManifestValidationException.class).hasMessageContaining("not declared");
     }
+
+    @Test void reportsInvalidSemVerCapabilityRangesAsManifestViolations() {
+        String invalid = valid()
+                .replace("\"contractRange\":\"^1.0.0\"", "\"contractRange\":\"^1.0.0-01\"")
+                .replace("\"requires\":{", "\"requires\":{\"optionalCapabilities\":[{\"id\":\"numou.crm\",\"contractRange\":\"~1.0.0-02\"}],");
+        assertThatThrownBy(() -> validator().validate(invalid, Set.of("commerce.pos.operate")))
+                .isInstanceOfSatisfying(ManifestValidationException.class, error ->
+                        assertThat(error.violations())
+                                .anySatisfy(v -> assertThat(v).contains(
+                                        "requires.capabilities[0].contractRange",
+                                        "Invalid SemVer prerelease identifier: 01"))
+                                .anySatisfy(v -> assertThat(v).contains(
+                                        "requires.optionalCapabilities[0].contractRange",
+                                        "Invalid SemVer prerelease identifier: 02")));
+    }
+    @Test void distinguishesDuplicateAndConflictingCapabilityDeclarations() {
+        String duplicate = valid().replace(
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}]",
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"},"
+                        + "{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}]");
+        assertThatThrownBy(() -> validator().validate(duplicate, Set.of("commerce.pos.operate")))
+                .isInstanceOfSatisfying(ManifestValidationException.class, error ->
+                        assertThat(error.violations()).contains(
+                                "Duplicate required capability requirement: numou.party"));
+
+        String conflict = valid().replace(
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}]",
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"},"
+                        + "{\"id\":\"numou.party\",\"contractRange\":\"^2.0.0\"}]");
+        assertThatThrownBy(() -> validator().validate(conflict, Set.of("commerce.pos.operate")))
+                .isInstanceOfSatisfying(ManifestValidationException.class, error ->
+                        assertThat(error.violations()).contains(
+                                "Conflicting required capability contract ranges for numou.party: ^1.0.0 and ^2.0.0"));
+    }
+
+    @Test void rejectsCapabilityDeclaredAsBothRequiredAndOptional() {
+        String invalid = valid().replace("\"requires\":{",
+                "\"requires\":{\"optionalCapabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}],");
+        assertThatThrownBy(() -> validator().validate(invalid, Set.of("commerce.pos.operate")))
+                .isInstanceOfSatisfying(ManifestValidationException.class, error ->
+                        assertThat(error.violations()).contains(
+                                "Capability cannot be both required and optional: numou.party"));
+    }
+
+    @Test void sortsSemanticManifestViolationsDeterministically() {
+        String forward = valid()
+                .replace("\"permissions\":[\"commerce.pos.operate\"]",
+                        "\"permissions\":[\"unknown.z\",\"unknown.a\"]")
+                .replace("\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}]",
+                        "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"},"
+                                + "{\"id\":\"numou.party\",\"contractRange\":\"^2.0.0\"}]");
+        String reverse = forward.replace(
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"},"
+                        + "{\"id\":\"numou.party\",\"contractRange\":\"^2.0.0\"}]",
+                "\"capabilities\":[{\"id\":\"numou.party\",\"contractRange\":\"^2.0.0\"},"
+                        + "{\"id\":\"numou.party\",\"contractRange\":\"^1.0.0\"}]");
+
+        assertThat(violations(forward)).containsExactlyElementsOf(violations(reverse))
+                .isSorted();
+    }
+
+    private java.util.List<String> violations(String manifest) {
+        try {
+            validator().validate(manifest, Set.of());
+            fail("Expected manifest validation to fail");
+            return java.util.List.of();
+        } catch (ManifestValidationException error) {
+            return error.violations();
+        }
+    }
+
 }

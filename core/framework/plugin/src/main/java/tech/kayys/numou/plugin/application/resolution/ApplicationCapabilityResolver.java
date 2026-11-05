@@ -9,13 +9,16 @@ public final class ApplicationCapabilityResolver {
         Objects.requireNonNull(manifest, "Application manifest is required");
         Objects.requireNonNull(available, "Provider collection is required");
         Map<String, List<CapabilityProvider>> index = new TreeMap<>();
+        List<CapabilityProvider> providerCatalog = new ArrayList<>(available.size());
         Set<String> providerIds = new HashSet<>();
         for (CapabilityProvider provider : available) {
             if (!providerIds.add(provider.providerId()))
                 throw new CapabilityResolutionException("Duplicate provider ID: " + provider.providerId());
             validateProviderVersion(provider);
+            providerCatalog.add(provider);
             index.computeIfAbsent(provider.capabilityId(), ignored -> new ArrayList<>()).add(provider);
         }
+        validateProviderDependencies(providerCatalog);
         index.values().forEach(list -> list.sort(Comparator.comparing(CapabilityProvider::providerId)));
 
         Map<String, CapabilityProvider> selected = new TreeMap<>();
@@ -34,6 +37,31 @@ public final class ApplicationCapabilityResolver {
         return new CapabilityResolution(selected, order, unavailable);
     }
 
+    private static void validateProviderDependencies(Collection<CapabilityProvider> providers) {
+        List<String> diagnostics = new ArrayList<>();
+        providers.stream().sorted(Comparator.comparing(CapabilityProvider::providerId)).forEach(provider -> {
+            Map<String, List<String>> rangesByCapability = new TreeMap<>();
+            provider.dependencies().forEach(dependency -> rangesByCapability
+                    .computeIfAbsent(dependency.id(), ignored -> new ArrayList<>())
+                    .add(dependency.contractRange()));
+            rangesByCapability.forEach((capabilityId, ranges) -> {
+                if (ranges.size() > 1) {
+                    TreeSet<String> distinctRanges = new TreeSet<>(ranges);
+                    if (distinctRanges.size() > 1) {
+                        diagnostics.add("Provider " + provider.providerId()
+                                + " declares conflicting dependency ranges for " + capabilityId
+                                + ": " + String.join(", ", distinctRanges));
+                    } else {
+                        diagnostics.add("Provider " + provider.providerId()
+                                + " declares duplicate dependency " + capabilityId
+                                + " with range " + ranges.get(0));
+                    }
+                }
+            });
+        });
+        if (!diagnostics.isEmpty()) throw new CapabilityResolutionException(diagnostics);
+    }
+
     private static void validateProviderVersion(CapabilityProvider provider) {
         try {
             SemanticVersion.parse(provider.contractVersion());
@@ -49,18 +77,27 @@ public final class ApplicationCapabilityResolver {
         CapabilityProvider alreadySelected = selected.get(requirement.id());
         if (alreadySelected != null) {
             if (!range.includes(SemanticVersion.parse(alreadySelected.contractVersion())))
-                throw new CapabilityResolutionException("Conflicting contract ranges for capability " + requirement.id());
+                throw new CapabilityResolutionException("Selected provider " + alreadySelected.providerId()
+                        + " supplies " + requirement.id() + "@" + alreadySelected.contractVersion()
+                        + " which does not satisfy additional contract range " + requirement.contractRange());
             return;
         }
         List<CapabilityProvider> matches = index.getOrDefault(requirement.id(), List.of()).stream()
                 .filter(p -> range.includes(SemanticVersion.parse(p.contractVersion()))).toList();
         if (matches.isEmpty()) {
             if (optional) { unavailable.add(requirement.id()); return; }
-            throw new CapabilityResolutionException("Missing required capability provider: " + requirement.id());
+            throw new CapabilityResolutionException("Missing required capability provider for "
+                    + requirement.id() + " matching contract range " + requirement.contractRange());
         }
-        if (matches.size() != 1)
-            throw new CapabilityResolutionException("Expected exactly one compatible provider for " +
-                    requirement.id() + " but found " + matches.size());
+        if (matches.size() != 1) {
+            String candidates = matches.stream()
+                    .map(provider -> provider.providerId() + "@" + provider.contractVersion())
+                    .sorted()
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new CapabilityResolutionException("Expected exactly one compatible provider for "
+                    + requirement.id() + " matching " + requirement.contractRange()
+                    + " but found " + matches.size() + ": " + candidates);
+        }
         selected.put(requirement.id(), matches.get(0));
     }
 
