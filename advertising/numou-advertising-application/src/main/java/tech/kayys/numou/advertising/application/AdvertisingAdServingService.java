@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Low-latency eligibility and selection use case. It does not create billable impressions:
+ * Serving eligibility and selection use case. It does not create billable impressions:
  * measurement and billable-event qualification belong to M4.
  */
 public final class AdvertisingAdServingService {
