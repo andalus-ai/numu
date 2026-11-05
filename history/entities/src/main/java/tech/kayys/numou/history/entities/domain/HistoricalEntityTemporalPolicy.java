@@ -47,6 +47,41 @@ public final class HistoricalEntityTemporalPolicy {
         }
     }
 
+    /**
+     * Checks a person's known lifespan against an affiliation interval.
+     * Overlapping precision is retained as uncertainty; only a definite
+     * before-birth or after-death relationship is rejected.
+     */
+    public static void assertAffiliationWithinKnownLifespan(
+            HistoricalAffiliation affiliation,
+            HistoricalPerson person,
+            HistoricalChronology chronology) {
+        Objects.requireNonNull(affiliation, "Affiliation is required");
+        Objects.requireNonNull(person, "Person is required");
+        Objects.requireNonNull(chronology, "Chronology is required");
+        if (!person.id().equals(affiliation.personId())) {
+            throw new IllegalArgumentException("Affiliation must reference the supplied person");
+        }
+        if (person.birthDate() != null) {
+            TemporalRelation startsAgainstBirth = chronology.compare(
+                    affiliation.validDuring().from(), person.birthDate())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Cannot validate affiliation start: calendar adapter is unavailable"));
+            if (startsAgainstBirth == TemporalRelation.BEFORE) {
+                throw new IllegalArgumentException("Affiliation cannot begin before the person's known birth date");
+            }
+        }
+        if (person.deathDate() != null) {
+            TemporalRelation endsAgainstDeath = chronology.compare(
+                    affiliation.validDuring().through(), person.deathDate())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Cannot validate affiliation end: calendar adapter is unavailable"));
+            if (endsAgainstDeath == TemporalRelation.AFTER) {
+                throw new IllegalArgumentException("Affiliation cannot end after the person's known death date");
+            }
+        }
+    }
+
     /** Ensures each explicitly dated place assertion fits within a known existence interval. */
     public static void assertPlaceAssertionsWithinExistence(
             HistoricalPlace place, HistoricalChronology chronology) {
