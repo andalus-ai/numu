@@ -46,12 +46,9 @@ public final class ApplicationManifestValidator {
                 requires.path("capabilities"), "requires.capabilities", violations);
         List<CapabilityRequirement> optional = requirements(
                 requires.path("optionalCapabilities"), "requires.optionalCapabilities", violations);
-        Set<String> capabilityIds = new HashSet<>();
-        for (CapabilityRequirement r : required)
-            if (!capabilityIds.add(r.id())) violations.add("Duplicate capability requirement: " + r.id());
-        for (CapabilityRequirement r : optional)
-            if (!capabilityIds.add(r.id()))
-                violations.add("Capability cannot be duplicated or both required and optional: " + r.id());
+        Map<String, CapabilityDeclaration> declarations = new TreeMap<>();
+        collectCapabilityDeclarations(required, "required", declarations, violations);
+        collectCapabilityDeclarations(optional, "optional", declarations, violations);
 
         Set<String> permissions = new TreeSet<>();
         root.path("permissions").forEach(p -> permissions.add(p.asText()));
@@ -77,11 +74,41 @@ public final class ApplicationManifestValidator {
             if (!URI.create(website).isAbsolute()) violations.add("metadata.website must be an absolute URI");
         } catch (IllegalArgumentException e) { violations.add("metadata.website must be a valid URI"); }
 
-        if (!violations.isEmpty()) throw new ManifestValidationException(violations);
+        if (!violations.isEmpty()) {
+            violations.sort(String::compareTo);
+            throw new ManifestValidationException(violations);
+        }
         return new ApplicationManifest(metadata.path("id").asText(), metadata.path("version").asText(),
                 metadata.path("publisher").asText(), metadata.path("displayName").asText(),
                 required, optional, permissions, navigation);
     }
+
+
+    private static void collectCapabilityDeclarations(
+            List<CapabilityRequirement> requirements,
+            String declarationKind,
+            Map<String, CapabilityDeclaration> declarations,
+            List<String> violations) {
+        for (CapabilityRequirement requirement : requirements) {
+            CapabilityDeclaration previous = declarations.putIfAbsent(
+                    requirement.id(),
+                    new CapabilityDeclaration(declarationKind, requirement.contractRange()));
+            if (previous == null) continue;
+
+            if (!previous.kind().equals(declarationKind)) {
+                violations.add("Capability cannot be both required and optional: " + requirement.id());
+            } else if (!previous.contractRange().equals(requirement.contractRange())) {
+                violations.add("Conflicting " + declarationKind + " capability contract ranges for "
+                        + requirement.id() + ": " + previous.contractRange() + " and "
+                        + requirement.contractRange());
+            } else {
+                violations.add("Duplicate " + declarationKind + " capability requirement: "
+                        + requirement.id());
+            }
+        }
+    }
+
+    private record CapabilityDeclaration(String kind, String contractRange) {}
 
     private static List<CapabilityRequirement> requirements(
             JsonNode array, String field, List<String> violations) {
