@@ -13,6 +13,7 @@
     <modules>
         <module>chronology</module>
         <module>events</module>
+        <module>entities</module>
     </modules>
 
     <properties>

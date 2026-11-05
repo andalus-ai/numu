@@ -1,7 +1,7 @@
 # Numou History
 
-Historical knowledge foundation for chronology, events, periods, evidence, geography, media,
-and reusable timeline projections.
+Historical knowledge foundation for chronology, events, people, collectives, places, evidence,
+media, and reusable timeline projections.
 
 ## Current modules
 
@@ -9,21 +9,24 @@ and reusable timeline projections.
   adapters, and calendar-aware range comparison.
 - `events`: canonical historical event and period domain models, lifecycle, nested-period
   validation, and event-period temporal relations.
+- `entities`: historical people, civilizations/cultures/polities/institutions, places,
+  time-bounded names and location assertions, affiliations, and event links.
 
 ## Architecture
 
-A historical event is recorded once. Global, regional, civilization, biography, political,
-economic, scientific, religious, military, cultural, and comparative timelines are projections
-over canonical records, not separate event stores.
+An event, person, collective, or place is recorded once. Global, regional, civilization,
+biography, political, economic, scientific, religious, military, cultural, and comparative
+timelines are projections over canonical records, not separate entity stores.
 
 Historical valid time is distinct from record time and publication time. Calendar identity and
-partial-date precision are preserved. The generic Event envelope/outbox is an integration
-mechanism and is not a second owner of historical facts.
+partial-date precision are preserved. Geo's `GeoPoint` is reused for coordinates; History owns
+the historical meaning and temporal validity of location assertions.
 
 ## Build
 
 ```bash
-mvn -f history/pom.xml test
+mvn -B -ntp -f geo/pom.xml install
+mvn -B -ntp -f history/pom.xml verify
 ```
 
 The history reactor is intentionally isolated from the repository's other Maven reactor roots.
