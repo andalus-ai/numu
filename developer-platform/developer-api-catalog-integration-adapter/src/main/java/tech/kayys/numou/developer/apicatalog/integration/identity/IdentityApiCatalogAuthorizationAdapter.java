@@ -1,6 +1,8 @@
 package tech.kayys.numou.developer.apicatalog.integration.identity;
 
 import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiCatalogAuthorizationPort;
 import tech.kayys.numou.foundation.application.context.ExecutionContext;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
@@ -17,13 +19,14 @@ import java.util.Objects;
  * Bridges catalog authorization to Numou Identity's tenant membership, RBAC and ABAC services.
  * The authenticated principal must match the actor captured in the trusted execution context.
  */
+@ApplicationScoped
 public final class IdentityApiCatalogAuthorizationAdapter implements ApiCatalogAuthorizationPort {
  private static final String RESOURCE="developer.api-catalog";
  private final CurrentPrincipalPort principals;
  private final TenantMembershipPort memberships;
  private final ResourceAuthorizationService authorization;
 
- public IdentityApiCatalogAuthorizationAdapter(CurrentPrincipalPort principals,TenantMembershipPort memberships,
+ @Inject public IdentityApiCatalogAuthorizationAdapter(CurrentPrincipalPort principals,TenantMembershipPort memberships,
                                                 ResourceAuthorizationService authorization){
   this.principals=Objects.requireNonNull(principals,"principals cannot be null");
   this.memberships=Objects.requireNonNull(memberships,"memberships cannot be null");
