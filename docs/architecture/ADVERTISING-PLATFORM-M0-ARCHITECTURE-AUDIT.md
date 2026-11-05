@@ -328,3 +328,54 @@ Before marking M0 fully complete:
 Proceed with a distinct `advertising` capability, initially focused on direct-sold and publisher-network advertising. Keep programmatic exchange as a later extension. Advertising owns campaign delivery and the evidence that makes an advertising event billable; Finance owns invoices, payment execution, wallet movements, and accounting journals; Commerce owns products, offers, marketplace transactions, and generic promotion rules; Documents owns binary storage; Event owns durable business-event infrastructure.
 
 This is an architecture baseline, not implementation completion. M1 must begin only after the source-level contract and build-baseline evidence gates are satisfied.
+
+
+## 15. Source-level contract verification — follow-up audit
+
+This section records source-level inspection on the repository's current `main` branch. It refines the initial POM-level assumptions above. It is not a substitute for build or runtime integration tests.
+
+### Verified public contracts
+
+| Capability | Source inspected | Verified contract behavior | Advertising integration consequence |
+|---|---|---|---|
+| Payment | `finance/payment/numou-payment-api/.../PaymentApplicationPort.java`, `CreatePaymentObligation.java` | `createOrGet` uses tenant-scoped idempotency; `find` requires tenant ID; refund is a distinct operation; payment command requires caller reference, positive amount and explicit ISO-4217 currency | Advertising can request advertiser payment obligations and query/refund through this API when a payment flow is required. It must treat timeout as indeterminate and reconcile, not assume failure. Payment status is not an invoice or accounting posting. |
+| Identity | `identity/numou-identity-application/.../AuthorizationPort.java`, `CurrentPrincipalPort.java`, `TenantMembershipPort.java` | Trusted principal resolution, tenant membership, and tenant-scoped authorization requirement ports exist | Advertising application commands should receive trusted principal/tenant context and authorize at application boundary. Do not accept actor/tenant claims from SDK payload as authority. |
+| Accounting | `finance/accounting/numou-accounting-application/.../AccountingCommandService.java`, `InvoiceService.java` | Existing command services cover invoice creation, payment recording, journal posting, and invoice lifecycle/query operations | Potential accounting integration exists, but command DTO semantics and idempotency/tenant guarantees must be inspected before choosing it for Advertising. Do not use Accounting invoice APIs as a substitute for Finance Billing without a deliberate ownership decision. |
+| Wallet | `finance/wallet/numou-wallet-spi/.../WalletRepository.java`, `LedgerRepository.java` | Wallet persistence ports are versioned; ledger append and lookup are tenant-scoped and replay-safe by entry ID/reference | This is not yet evidence of a generic publisher payout contract. The current artifacts are named/described as Mobility wallet. Do not couple Advertising directly to Wallet domain/repository. Define a narrow payout orchestration adapter only after a supported shared application contract is established. |
+| Documents | `documents/numou-document-storage-spi/.../DocumentStorage.java` | Provider-neutral binary storage port supports put/get/head/delete and explicitly says storage key is not authorization | Advertising owns creative metadata and review. A creative asset reference must be tenant-bound and authorized before storage access; storage key alone is never authorization. |
+| Events | `core/framework/event/event-application/.../EventDispatchService.java` | Domain events are translated to public business events and wrapped in envelopes with tenant, participant, actor and correlation metadata; publisher port handles delivery | Use this for selected business lifecycle events. It is not proof of a high-volume impression/click ingestion system, nor does the inspected dispatcher itself expose an Advertising event idempotency contract. Measurement needs a separate validated ingestion/deduplication design. |
+| Marketplace | `commerce/marketplace/numou-marketplace-application/.../MarketplaceOrderAuthorization.java`, checkout ports/services | Marketplace has explicit authorization and checkout payment ports; its order workflow has idempotent creation/recovery services | Sponsored marketplace placements should reference marketplace-owned listings/sellers by stable IDs. Advertising must not read marketplace tables or create a second listing/order lifecycle. |
+| Commerce Promotion | `commerce/promotion/pom.xml` and promotion module description | Promotion evaluates rules/conditions/actions/stacking over a priced cart | Keep ad campaign delivery, impression/click charging and publisher share outside Promotion. Promotion may remain an optional presentation or checkout integration, not the Ad Campaign engine. |
+
+### Contract gaps and cautions
+
+1. **Party/Organization public contracts are not yet verified at source level.** The M1 account model should use opaque references, but the exact canonical identifier type and validation/lookup port must be confirmed before implementation.
+2. **Finance Billing application ports and command DTOs are not yet verified.** The Billing aggregator has core/extensions and is the intended billing owner, but the exact consumer-facing API and idempotency/tenant semantics remain a gate.
+3. **Accounting and Billing are not interchangeable.** Accounting currently exposes invoice-oriented APIs as well; the integration choice must be made after comparing Finance Billing's active invoice contract and accounting recognition/posting responsibilities.
+4. **Wallet is not yet proven as a generic publisher payout facility.** Its inspected SPI is repository-oriented and its metadata is Mobility-specific. Advertising must not directly depend on those repository interfaces.
+5. **EventDispatchService is a business event dispatch abstraction, not a raw analytics ingestion API.** Do not push every ad impression through it by default.
+6. **No end-to-end adapter composition was verified.** Public Java types exist, but runtime CDI wiring, module dependencies, security adapters, and deployment profiles still need inspection.
+7. **No Maven build or CI baseline was run.** Source inspection alone does not establish that the referenced reactors compile together or that a new Advertising reactor can be composed cleanly.
+
+### Updated M1 design constraints
+
+- Use Payment's `PaymentApplicationPort` only behind an Advertising-owned application port/adapter. Preserve tenant-scoped idempotency and indeterminate timeout semantics.
+- Use Identity's trusted principal, tenant membership, and authorization ports (or the host's established equivalent) at application boundaries. SDK publisher credentials require a separate narrowly scoped service identity/property authorization flow.
+- Use Documents' `DocumentStorage` behind an Advertising creative-asset application port; persist only opaque asset/storage references plus Advertising-owned metadata and checksum/version state.
+- Publish only meaningful business lifecycle/finalization events through Event's translator/envelope/publisher flow. Design measurement ingestion separately.
+- Keep Billing, Accounting, Payment, and Wallet as separate integration boundaries. M1 must not introduce billing/payout dependencies before the campaign and inventory contracts need them.
+- Keep Marketplace and Promotion optional integrations; neither is required for the core advertiser/publisher/inventory model.
+- Keep Party/Organization references opaque until the authoritative Party API is verified.
+
+### M0 evidence checklist update
+
+- [x] Read repository contributor/agent rules and architecture ownership contracts.
+- [x] Inspect relevant aggregator POMs.
+- [x] Verify source-level Payment, Identity authorization, Accounting, Wallet SPI, Documents storage, Event dispatch, Marketplace authorization/checkout, and Promotion boundaries.
+- [ ] Verify Party/Organization public contracts and canonical IDs.
+- [ ] Verify Finance Billing public application contract and distinguish it from Accounting invoice APIs.
+- [ ] Inspect full active reactor dependency graph and runtime wiring for selected integrations.
+- [ ] Establish reproducible Maven build/CI baseline for the exact reactors selected for M1.
+- [ ] Finalize M1 artifact list and dependency direction based on the verified contracts.
+
+M0 remains partially complete until the unchecked evidence gates are resolved or explicitly deferred with a reason. No build/test/CI success is claimed by this source audit.
