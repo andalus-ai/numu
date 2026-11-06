@@ -15,5 +15,6 @@
     <description>Contextual attendee profiles linked to canonical Ecosystem Party identities.</description>
     <modules>
         <module>attendee-domain</module>
+        <module>attendee-application</module>
     </modules>
 </project>
