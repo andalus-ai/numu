@@ -110,6 +110,28 @@ public class ApiCatalogResource {
                         result.contentLength(), result.contentType()));
     }
 
+    @GET
+    @Path("/{productId}/versions/{version}/specification")
+    @Produces({"application/yaml", "application/x-yaml", "text/yaml", MediaType.APPLICATION_JSON})
+    @Operation(summary = "Download an authorized, integrity-verified OpenAPI specification artifact")
+    public Uni<Response> downloadSpecification(@PathParam("productId") UUID productId,
+                                                @PathParam("version") String version) {
+        return getSpecificationArtifact.handle(new GetApiSpecificationArtifactQuery(productId, version))
+                .map(artifact -> {
+                    String mediaType = switch (artifact.contentType()) {
+                        case "application/yaml", "application/x-yaml", "text/yaml", MediaType.APPLICATION_JSON ->
+                                artifact.contentType();
+                        default -> throw new InternalServerErrorException("Stored OpenAPI artifact has an unsupported media type");
+                    };
+                    return Response.ok(artifact.content(), mediaType)
+                            .header("ETag", "\"" + artifact.sha256() + "\"")
+                            .header("X-Content-SHA256", artifact.sha256())
+                            .header("Cache-Control", "private, no-store")
+                            .header("X-Content-Type-Options", "nosniff")
+                            .build();
+                });
+    }
+
     @POST
     @Path("/{productId}/versions")
     @Operation(summary = "Register a draft API version referencing a validated artifact")
