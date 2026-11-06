@@ -14,10 +14,8 @@ import tech.kayys.numou.accounting.application.service.AccountingComplianceEngin
 import tech.kayys.numou.accounting.domain.event.AccountingEvent;
 import tech.kayys.numou.accounting.domain.identifier.AccountId;
 import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
-import tech.kayys.numou.accounting.domain.ledger.LedgerId;
 import tech.kayys.numou.accounting.domain.model.Account;
 import tech.kayys.numou.accounting.domain.model.JournalEntry;
-import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
 
@@ -28,7 +26,6 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class PostJournalEntryHandler implements CommandHandler<PostJournalEntryCommand, JournalEntryId> {
-
     private final JournalEntryRepository journalEntryRepository;
     private final AccountRepository accountRepository;
     private final FiscalPeriodRepository fiscalPeriodRepository;
@@ -37,15 +34,10 @@ public class PostJournalEntryHandler implements CommandHandler<PostJournalEntryC
     private final AccountingComplianceEngine complianceEngine;
     private final ComplianceRulePipeline rulePipeline;
 
-    public PostJournalEntryHandler(
-            JournalEntryRepository journalEntryRepository,
-            AccountRepository accountRepository,
-            FiscalPeriodRepository fiscalPeriodRepository,
-            OutboxRepository outboxRepository,
-            ProjectionRegistry projectionRegistry,
-            AccountingComplianceEngine complianceEngine,
-            ComplianceRulePipeline rulePipeline
-    ) {
+    public PostJournalEntryHandler(JournalEntryRepository journalEntryRepository, AccountRepository accountRepository,
+            FiscalPeriodRepository fiscalPeriodRepository, OutboxRepository outboxRepository,
+            ProjectionRegistry projectionRegistry, AccountingComplianceEngine complianceEngine,
+            ComplianceRulePipeline rulePipeline) {
         this.journalEntryRepository = Objects.requireNonNull(journalEntryRepository);
         this.accountRepository = Objects.requireNonNull(accountRepository);
         this.fiscalPeriodRepository = Objects.requireNonNull(fiscalPeriodRepository);
@@ -57,77 +49,62 @@ public class PostJournalEntryHandler implements CommandHandler<PostJournalEntryC
 
     @Override
     public Uni<JournalEntryId> handle(PostJournalEntryCommand command) {
-        JournalEntryId entryId = command.journalEntryId() != null 
-                ? command.journalEntryId() 
-                : JournalEntryId.generate();
-
-        JournalEntry entry = new JournalEntry(
-                entryId,
-                TenantRef.defaultTenant(),
-                LedgerId.primary(),
-                command.referenceNumber() != null ? command.referenceNumber() : "JE-" + UUID.randomUUID().toString().substring(0, 8),
-                Instant.now(),
-                command.description()
-        );
+        JournalEntryId entryId = command.journalEntryId() != null ? command.journalEntryId() : JournalEntryId.generate();
+        JournalEntry entry = new JournalEntry(entryId, command.tenantId(), command.ledgerId(),
+                command.referenceNumber() != null ? command.referenceNumber()
+                        : "JE-" + UUID.randomUUID().toString().substring(0, 8),
+                Instant.now(), command.description());
 
         for (PostJournalEntryCommand.JournalLineCommand lineCmd : command.lines()) {
-            AccountId accId = AccountId.of(lineCmd.accountId());
-            Money amt = Money.of(new java.math.BigDecimal(lineCmd.amount()), lineCmd.currencyCode());
-            Money debit = "DEBIT".equalsIgnoreCase(lineCmd.type()) ? amt : Money.zero(lineCmd.currencyCode());
-            Money credit = "CREDIT".equalsIgnoreCase(lineCmd.type()) ? amt : Money.zero(lineCmd.currencyCode());
-            entry.addLine(accId, debit, credit, lineCmd.description());
+            AccountId accountId = AccountId.of(lineCmd.accountId());
+            Money amount = Money.of(new java.math.BigDecimal(lineCmd.amount()), lineCmd.currencyCode());
+            Money debit = "DEBIT".equalsIgnoreCase(lineCmd.type()) ? amount : Money.zero(lineCmd.currencyCode());
+            Money credit = "CREDIT".equalsIgnoreCase(lineCmd.type()) ? amount : Money.zero(lineCmd.currencyCode());
+            entry.addLine(accountId, debit, credit, lineCmd.description());
         }
 
-        // Compliance & rule validation
         complianceEngine.validateJournalEntry(entry);
         rulePipeline.execute(entry, complianceEngine.getConfiguration());
         entry.post(command.postedBy() != null ? command.postedBy() : "system");
-
         LocalDate txDate = LocalDate.ofInstant(entry.getEntryDate(), ZoneOffset.UTC);
 
-        return fiscalPeriodRepository.findActivePeriod(txDate)
-                .chain(optPeriod -> {
-                    if (optPeriod.isPresent() && !optPeriod.get().isOpen() && complianceEngine.getConfiguration().strictPeriodLocking()) {
-                        return Uni.createFrom().failure(new IllegalStateException(
-                                "Cannot post entry into closed or locked fiscal period: " + optPeriod.get().getPeriodName()));
+        return fiscalPeriodRepository.findActivePeriod(txDate).chain(optPeriod -> {
+            if (optPeriod.isPresent() && !optPeriod.get().isOpen()
+                    && complianceEngine.getConfiguration().strictPeriodLocking()) {
+                return Uni.createFrom().failure(new IllegalStateException(
+                        "Cannot post entry into closed or locked fiscal period: " + optPeriod.get().getPeriodName()));
+            }
+
+            Uni<Void> applyLines = Uni.createFrom().voidItem();
+            for (JournalEntry.JournalLine line : entry.getLines()) {
+                applyLines = applyLines.chain(() -> accountRepository
+                        .findById(command.tenantId(), command.ledgerId(), line.accountId())
+                        .chain(optAccount -> {
+                            if (optAccount.isEmpty()) {
+                                return Uni.createFrom().failure(new IllegalArgumentException(
+                                        "Account not found in tenant/ledger scope: " + line.accountId()));
+                            }
+                            Account account = optAccount.get();
+                            complianceEngine.validateAccount(account);
+                            if (line.debit().isPositive()) account.debit(line.debit());
+                            if (line.credit().isPositive()) account.credit(line.credit());
+                            return accountRepository.save(account);
+                        }));
+            }
+
+            return applyLines.chain(() -> journalEntryRepository.save(entry)).chain(() -> {
+                Uni<Void> eventChain = Uni.createFrom().voidItem();
+                for (DomainEvent event : entry.pullDomainEvents()) {
+                    if (event instanceof AccountingEvent accountingEvent) {
+                        OutboxEvent outbox = OutboxEvent.of("JournalEntry", entryId.value().toString(),
+                                accountingEvent.eventType(), accountingEvent.tenantId(),
+                                accountingEvent.ledgerId(), accountingEvent.toString());
+                        eventChain = eventChain.chain(() -> outboxRepository.save(outbox))
+                                .chain(() -> projectionRegistry.publishToProjections(accountingEvent));
                     }
-
-                    Uni<Void> applyLines = Uni.createFrom().voidItem();
-                    for (JournalEntry.JournalLine line : entry.getLines()) {
-                        applyLines = applyLines.chain(() -> accountRepository.findById(line.accountId())
-                                .chain(optAcc -> {
-                                    if (optAcc.isEmpty()) {
-                                        return Uni.createFrom().failure(new IllegalArgumentException("Account not found: " + line.accountId()));
-                                    }
-                                    Account acc = optAcc.get();
-                                    complianceEngine.validateAccount(acc);
-
-                                    if (line.debit().isPositive()) {
-                                        acc.debit(line.debit());
-                                    }
-                                    if (line.credit().isPositive()) {
-                                        acc.credit(line.credit());
-                                    }
-                                    return accountRepository.save(acc);
-                                }));
-                    }
-
-                    // Save entry + outbox events + publish to read projections
-                    return applyLines
-                            .chain(() -> journalEntryRepository.save(entry))
-                            .chain(() -> {
-                                Uni<Void> eventChain = Uni.createFrom().voidItem();
-                                for (DomainEvent ev : entry.pullDomainEvents()) {
-                                    if (ev instanceof AccountingEvent accEv) {
-                                        OutboxEvent outbox = OutboxEvent.of("JournalEntry", entryId.value().toString(), accEv.eventType(), accEv.tenantId(), accEv.ledgerId(), accEv.toString());
-                                        eventChain = eventChain
-                                                .chain(() -> outboxRepository.save(outbox))
-                                                .chain(() -> projectionRegistry.publishToProjections(accEv));
-                                    }
-                                }
-                                return eventChain;
-                            })
-                            .map(v -> entryId);
-                });
+                }
+                return eventChain;
+            }).map(ignored -> entryId);
+        });
     }
 }
