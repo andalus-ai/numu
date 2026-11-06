@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Durable graph-projection events are created in the same transaction as each
 -- relationship revision. A committed revision can therefore never be invisible
 -- to downstream projection workers.
@@ -66,7 +68,7 @@ CREATE TRIGGER historical_relationship_projection_outbox_immutable
 -- The trigger executes in the same PostgreSQL transaction as the revision insert.
 -- Its deterministic event key makes replay and duplicate-trigger protection explicit.
 CREATE FUNCTION enqueue_historical_relationship_projection_event()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $
 BEGIN
     INSERT INTO historical_relationship_projection_outbox (
         event_id, event_key, event_type, schema_version, tenant_id,
@@ -111,7 +113,3 @@ CREATE TRIGGER historical_relationship_revision_projection_outbox
     AFTER INSERT ON historical_relationship_revision
     FOR EACH ROW EXECUTE FUNCTION enqueue_historical_relationship_projection_event();
 
--- gen_random_uuid() is provided by pgcrypto on older PostgreSQL installations.
--- PostgreSQL 13+ also exposes it through core; retain the explicit extension for
--- consistent behavior on supported installations.
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
