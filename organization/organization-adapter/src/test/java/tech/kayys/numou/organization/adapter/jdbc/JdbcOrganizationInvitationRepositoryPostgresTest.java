@@ -147,7 +147,7 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
 
         var duplicateInvitation = OrganizationInvitation.issue(OrganizationInvitationId.generate(), tenant,
                 OrganizationId.generate(), "rollback@example.com", OrganizationMembership.Role.VIEWER,
-                UserId.newId(), "g".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
+                UserId.newId(), "0".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
         var duplicateDelivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
                 deliveryId, tenant, duplicateInvitation.getId(), duplicateInvitation.recipientEmail(),
                 encrypted, now);
@@ -164,7 +164,7 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
         var now = Instant.now();
         var invitation = OrganizationInvitation.issue(OrganizationInvitationId.generate(), tenant,
                 OrganizationId.generate(), "worker@example.com", OrganizationMembership.Role.DEVELOPER,
-                UserId.newId(), "h".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
+                UserId.newId(), "1".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
         var encrypted = new InvitationSecretCipherPort.EncryptedSecret("TEST", 1, "key-1",
                 java.util.UUID.randomUUID().toString(), invitation.getId().value().toString(), new byte[]{4, 5});
         var delivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
@@ -193,7 +193,7 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
         var now = Instant.now();
         var invitation = OrganizationInvitation.issue(OrganizationInvitationId.generate(), tenant,
                 OrganizationId.generate(), "resend@example.com", OrganizationMembership.Role.DEVELOPER,
-                UserId.newId(), "i".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
+                UserId.newId(), "2".repeat(64), now.plus(7, ChronoUnit.DAYS), now);
         var vaultId = java.util.UUID.randomUUID().toString();
         var firstSecret = new InvitationSecretCipherPort.EncryptedSecret("TEST", 1, "key-1",
                 vaultId, invitation.getId().value().toString(), new byte[]{1});
@@ -207,7 +207,7 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
                 .toCompletableFuture().join().orElseThrow();
         int expectedVersion = rotated.getVersion();
         Instant resentAt = now.plusSeconds(1);
-        rotated.rotate("j".repeat(64), resentAt.plus(7, ChronoUnit.DAYS), resentAt);
+        rotated.rotate("3".repeat(64), resentAt.plus(7, ChronoUnit.DAYS), resentAt);
         var secondSecret = new InvitationSecretCipherPort.EncryptedSecret("TEST", 1, "key-1",
                 vaultId, invitation.getId().value().toString(), new byte[]{2});
         var secondDelivery = new OrganizationInvitationDeliveryOutboxPort.DeliveryMessage(
@@ -217,7 +217,7 @@ class JdbcOrganizationInvitationRepositoryPostgresTest {
         repository.rotateAndPersist(rotated, secondDelivery, tenant, expectedVersion, resentAt)
                 .toCompletableFuture().join();
 
-        assertEquals("j".repeat(64), repository.findByTenantAndId(tenant, invitation.getId())
+        assertEquals("3".repeat(64), repository.findByTenantAndId(tenant, invitation.getId())
                 .toCompletableFuture().join().orElseThrow().tokenHash());
         assertFalse(outbox.markSent(leased.deliveryId(), tenant, leased.leaseToken(), resentAt)
                 .toCompletableFuture().join(), "superseded worker must lose its lease fence");
