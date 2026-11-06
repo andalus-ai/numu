@@ -146,3 +146,16 @@ mvn -f core/framework/pom.xml -pl :numou-social-graph-persistence-jdbc,:numou-ec
 mvn -f security/pom.xml -pl social-graph-adapter -am verify
 ```
 
+
+## M2 relationship lifecycle foundation
+
+M2 introduces a separate directed-edge model for `FOLLOW`, `BLOCK`, and `MUTE`. It does not overload the bilateral `SocialConnection` approval state machine. The initial domain contract provides:
+
+- Stable built-in relationship types; tenant-defined type registration is not yet part of the contract.
+- Canonical source/target Party references and tenant ownership.
+- Explicit creation provenance and bounded immutable metadata.
+- Optional validity windows using inclusive `validFrom` and exclusive `validUntil` semantics.
+- Versioned ACTIVE/REMOVED lifecycle with source-Party-owned removal.
+- No persistence, command gateway, public discovery, feed, or graph traversal is exposed by this domain-only increment. Those require subsequent application/persistence work and the agreed privacy/consent policy.
+
+A BLOCK edge is stored with its actor as source. Any future interaction/discovery policy must evaluate a block in either direction; callers must not infer that a directed storage representation makes block enforcement directional.
