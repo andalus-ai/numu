@@ -17,6 +17,7 @@
         <module>graph-spi</module>
         <module>graph-application</module>
         <module>graph-postgres-adapter</module>
+        <module>graph-neo4j-adapter</module>
     </modules>
 
     <properties>
