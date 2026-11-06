@@ -37,6 +37,8 @@ class SecurityContextSocialGraphAuthorizationAdapterTest {
         var manage = adapter(context(tenant, Set.of(Permission.of("social-graph", "perform"))));
         assertThatCode(() -> manage.requireAuthorized(actor, SocialGraphAuthorizationAction.MANAGE_CONNECTION))
                 .doesNotThrowAnyException();
+        assertThatCode(() -> manage.requireAuthorized(actor, SocialGraphAuthorizationAction.MANAGE_RELATIONSHIP))
+                .doesNotThrowAnyException();
         assertThatThrownBy(() -> manage.requireAuthorized(actor, SocialGraphAuthorizationAction.REQUEST_CONNECTION))
                 .isInstanceOf(SocialGraphAccessDeniedException.class);
 

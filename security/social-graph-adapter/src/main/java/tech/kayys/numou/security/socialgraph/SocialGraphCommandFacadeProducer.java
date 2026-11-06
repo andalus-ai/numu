@@ -65,6 +65,42 @@ public class SocialGraphCommandFacadeProducer {
                     tech.kayys.numou.socialgraph.domain.SocialConnectionId id, String key) {
                 return facade.removeConnection(tenant, subject, id, key);
             }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialRelationship>
+            follow(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.ecosystem.domain.party.PartyId target, String key) {
+                return facade.follow(tenant, subject, target, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialRelationship>
+            unfollow(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.ecosystem.domain.party.PartyId target, String key) {
+                return facade.unfollow(tenant, subject, target, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialRelationship>
+            block(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.ecosystem.domain.party.PartyId target, String key) {
+                return facade.block(tenant, subject, target, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialRelationship>
+            unblock(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.ecosystem.domain.party.PartyId target, String key) {
+                return facade.unblock(tenant, subject, target, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialRelationship>
+            mute(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.ecosystem.domain.party.PartyId target, String key) {
+                return facade.mute(tenant, subject, target, key);
+            }
+            @Override public io.smallrye.mutiny.Uni<tech.kayys.numou.socialgraph.domain.SocialRelationship>
+            unmute(tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                    tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject,
+                    tech.kayys.numou.ecosystem.domain.party.PartyId target, String key) {
+                return facade.unmute(tenant, subject, target, key);
+            }
         };
     }
 }
