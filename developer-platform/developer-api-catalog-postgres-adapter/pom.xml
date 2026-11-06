@@ -7,7 +7,6 @@
  <name>Numou Developer API Catalog - PostgreSQL Adapter</name>
  <dependencies>
   <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-developer-api-catalog-application</artifactId><version>${project.version}</version></dependency>
-  <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-event-domain</artifactId><version>${project.version}</version></dependency>
   <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
   <dependency><groupId>com.fasterxml.jackson.datatype</groupId><artifactId>jackson-datatype-jsr310</artifactId></dependency>
   <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId></dependency>

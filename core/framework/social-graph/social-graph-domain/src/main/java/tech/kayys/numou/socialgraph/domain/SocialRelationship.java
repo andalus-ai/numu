@@ -72,6 +72,7 @@ public final class SocialRelationship {
         if (version < 0) {
             throw new IllegalArgumentException("version cannot be negative");
         }
+        this.version = version;
         if (updatedAt.isBefore(createdAt)) {
             throw new IllegalArgumentException("updatedAt precedes createdAt");
         }
