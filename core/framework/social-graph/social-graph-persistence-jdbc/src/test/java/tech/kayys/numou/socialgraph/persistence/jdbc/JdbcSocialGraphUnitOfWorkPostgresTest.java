@@ -98,7 +98,7 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
             tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, actor,
                     "RELATIONSHIP", relationship.id().value(), 0,
                     "social-graph.relationship.follow.v1", 1, now,
-                    "{\\"relationshipId\\":\\"" + relationship.id() + "\\"}"));
+                    "{\"relationshipId\":\"" + relationship.id() + "\"}"));
             return null;
         }).await().indefinitely();
 
