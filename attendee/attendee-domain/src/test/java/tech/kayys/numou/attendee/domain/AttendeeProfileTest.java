@@ -82,6 +82,18 @@ class AttendeeProfileTest {
     }
 
     @Test
+    void normalizesTimestampsToPostgresMicrosecondPrecision() {
+        var precise = Instant.parse("2026-11-05T00:00:00.123456789Z");
+        var profile = AttendeeProfile.create(UUID.randomUUID(), TenantId.generate(),
+                PartyId.generate(), "EVENT_GUEST", "Guest", null, null, precise);
+
+        assertEquals(Instant.parse("2026-11-05T00:00:00.123456Z"), profile.createdAt());
+        assertEquals(profile.createdAt(), profile.updatedAt());
+        var changed = profile.activate(Instant.parse("2026-11-05T00:00:01.987654321Z"));
+        assertEquals(Instant.parse("2026-11-05T00:00:01.987654Z"), changed.updatedAt());
+    }
+
+    @Test
     void enforcesTextLengthsBeforePersistence() {
         assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
                 UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
