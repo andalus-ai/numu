@@ -66,7 +66,9 @@ and OAuth token issuers. Identity itself verifies incoming JWTs against the
 same JWKS file via mp.jwt.verify.publickey.location, so older tokens remain
 verifiable while their public keys are retained. All Identity instances
 participating in a rolling rotation must share a JWKS document containing the
-active public key for each live signer.
+active public key for each live signer. SmallRye loads this local verification
+set as part of the runtime configuration; restart/roll Identity instances
+after changing the mounted JWKS file so their JWT parsers use the new set.
 
 ## Rotation procedure
 
@@ -79,18 +81,21 @@ safe to reuse.
 2. Add the new public key to the deployment-managed JWKS document while keeping
    the old public key. Publish the file atomically; never expose private JWK
    members.
-3. Roll Identity with the new private/public key pair and matching
+3. Roll/restart Identity instances so each local JWT parser loads the expanded
+   JWKS. Keep the old signer active until the new public key is available to
+   every verifier.
+4. Roll Identity with the new private/public key pair and matching
    IDENTITY_JWT_SIGNING_KEY_ID. Each Identity instance verifies that its active
    public key is present in the published JWKS before serving the document.
    During a rolling deployment, the shared JWKS must contain both old and new
    public keys so either instance can publish valid metadata.
-4. Verify newly issued tokens carry the new kid, validate with the new public
+5. Verify newly issued tokens carry the new kid, validate with the new public
    key, and are rejected by a verifier that trusts only the retired key.
-5. Keep the old public key in JWKS until the maximum lifetime of tokens signed
+6. Keep the old public key in JWKS until the maximum lifetime of tokens signed
    with it plus the verifier cache/rollout overlap has elapsed. Then remove it
    atomically. Iket refreshes the key set on an unknown kid and periodically
    according to its configured cache TTL.
-6. Revoke or invalidate sessions/tokens signed by a compromised key where the
+7. Revoke or invalidate sessions/tokens signed by a compromised key where the
    deployment token/session model permits it. Reduce token lifetime during
    migration if operationally appropriate. Record rotation and verifier
    rollout evidence in the security change log.
