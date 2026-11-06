@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 public class SmallRyeOAuthAccessTokenIssuer implements OAuthAccessTokenIssuerPort {
     @ConfigProperty(name = "smallrye.jwt.new-token.issuer") String issuer;
     @ConfigProperty(name = "numou.oauth.access-token.audience") String audience;
-    @ConfigProperty(name = "numou.oauth.access-token.signing-key-id") String signingKeyId;
+    @ConfigProperty(name = "numou.identity.jwt.signing-key-id") String signingKeyId;
     @ConfigProperty(name = "numou.oauth.access-token.lifespan-seconds", defaultValue = "300") long lifespanSeconds;
 
     @Override

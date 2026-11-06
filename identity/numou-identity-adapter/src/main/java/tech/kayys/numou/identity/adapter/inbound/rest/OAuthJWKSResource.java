@@ -17,6 +17,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import java.net.URL;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.interfaces.RSAPublicKey;
@@ -28,11 +29,11 @@ import java.util.HexFormat;
 import java.util.Set;
 
 /**
- * Publishes the public signing-key set used by OAuth machine access tokens.
+ * Publishes the public signing-key set used by all Identity-issued JWTs.
  *
  * The mounted JWKS file is deployment-managed so old and new public keys can
- * overlap during rotation. The active key must match the verifier public key
- * configured for this Identity instance before the document is served.
+ * overlap during rotation. The active key must match the configured active public key for this Identity
+ * instance before the document is served.
  */
 @Startup
 @ApplicationScoped
@@ -51,8 +52,8 @@ public class OAuthJWKSResource {
     @Inject
     public OAuthJWKSResource(
             @ConfigProperty(name = "numou.oauth.access-token.jwks.location") String jwksLocation,
-            @ConfigProperty(name = "numou.oauth.access-token.signing-key-id") String activeKeyId,
-            @ConfigProperty(name = "mp.jwt.verify.publickey.location") String publicKeyLocation) {
+            @ConfigProperty(name = "numou.identity.jwt.signing-key-id") String activeKeyId,
+            @ConfigProperty(name = "numou.identity.jwt.active-public-key.location") String publicKeyLocation) {
         this.jwksLocation = jwksLocation;
         this.activeKeyId = activeKeyId;
         this.publicKeyLocation = publicKeyLocation;
@@ -61,13 +62,13 @@ public class OAuthJWKSResource {
     @PostConstruct
     void validateMountedKeySetAtStartup() {
         try {
-            java.nio.file.Path jwksFile = java.nio.file.Path.of(jwksLocation);
+            java.nio.file.Path jwksFile = resolveConfiguredFile(jwksLocation);
             long fileSize = Files.size(jwksFile);
             if (fileSize == 0 || fileSize > MAX_JWKS_BYTES) {
                 throw new IOException("JWKS file size is outside supported bounds");
             }
             validateJwks(Files.readAllBytes(jwksFile), activeKeyId,
-                    readActivePublicKey(java.nio.file.Path.of(publicKeyLocation)));
+                    readActivePublicKey(resolveConfiguredFile(publicKeyLocation)));
         } catch (Exception invalidConfiguration) {
             throw new IllegalStateException("OAuth JWKS configuration is invalid", invalidConfiguration);
         }
@@ -177,6 +178,21 @@ public class OAuthJWKSResource {
         } catch (IllegalArgumentException | java.security.GeneralSecurityException invalid) {
             throw new IOException("JWKS contains an invalid RSA public key", invalid);
         }
+    }
+
+    private static java.nio.file.Path resolveConfiguredFile(String location) throws Exception {
+        if (location == null || location.isBlank()) {
+            throw new IOException("JWKS file location is required");
+        }
+        if (location.startsWith("classpath:")) {
+            String resourceName = location.substring("classpath:".length());
+            URL resource = Thread.currentThread().getContextClassLoader().getResource(resourceName);
+            if (resource == null || !"file".equals(resource.getProtocol())) {
+                throw new IOException("Configured classpath JWKS resource is unavailable");
+            }
+            return java.nio.file.Path.of(resource.toURI());
+        }
+        return java.nio.file.Path.of(location);
     }
 
     private static RSAPublicKey readActivePublicKey(java.nio.file.Path path) throws Exception {

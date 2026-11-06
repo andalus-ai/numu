@@ -28,6 +28,9 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
     @ConfigProperty(name = "numou.oauth.access-token.audience")
     String accessAudience;
 
+    @ConfigProperty(name = "numou.identity.jwt.signing-key-id")
+    String signingKeyId;
+
     @Override
     public String issueTenantSelectionToken(UUID principalId, String displayName) {
         requirePrincipal(principalId, displayName);
@@ -39,7 +42,7 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
                 .claim("token_use", TENANT_SELECTION_USE)
                 .groups(Set.of())
                 .expiresIn(Duration.ofSeconds(SELECTION_LIFETIME_SECONDS))
-                .sign();
+                .jws().keyId(requireSigningKeyId()).sign();
     }
 
     @Override
@@ -61,7 +64,14 @@ public class TenantJwtTokenIssuerAdapter implements TenantTokenIssuerPort {
                 .claim("jti", UUID.randomUUID().toString())
                 .groups(Set.of())
                 .expiresIn(Duration.ofSeconds(ACCESS_LIFETIME_SECONDS))
-                .sign();
+                .jws().keyId(requireSigningKeyId()).sign();
+    }
+
+    private String requireSigningKeyId() {
+        if (signingKeyId == null || signingKeyId.isBlank() || signingKeyId.length() > 128) {
+            throw new IllegalStateException("Identity JWT signing key ID must be configured");
+        }
+        return signingKeyId;
     }
 
     private static void requirePrincipal(UUID principalId, String displayName) {

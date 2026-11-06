@@ -27,16 +27,22 @@ public class SmallRyeJwtTokenAdapter implements TokenIssuerPort, TokenVerifierPo
     @ConfigProperty(name = "smallrye.jwt.new-token.lifespan", defaultValue = "900")
     long lifespanSeconds;
 
+    @ConfigProperty(name = "numou.identity.jwt.signing-key-id")
+    String signingKeyId;
+
     @Override
     public String issueToken(UUID principalId, String principalType, String displayName) {
         String verifiedPrincipalType = requirePrincipalType(principalType);
+        if (signingKeyId == null || signingKeyId.isBlank() || signingKeyId.length() > 128) {
+            throw new IllegalStateException("Identity JWT signing key ID must be configured");
+        }
         return Jwt.issuer(issuer)
                 .subject(principalId.toString())
                 .upn(displayName)
                 .claim("principalType", verifiedPrincipalType)
                 .groups(Set.of())
                 .expiresIn(Duration.ofSeconds(lifespanSeconds))
-                .sign();
+                .jws().keyId(signingKeyId).sign();
     }
 
     @Override
