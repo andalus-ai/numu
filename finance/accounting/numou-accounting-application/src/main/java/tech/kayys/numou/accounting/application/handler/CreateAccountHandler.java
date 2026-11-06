@@ -27,18 +27,34 @@ public class CreateAccountHandler implements CommandHandler<CreateAccountCommand
 
     @Override
     public Uni<AccountId> handle(CreateAccountCommand command) {
-        AccountId id = AccountId.generate();
+        Objects.requireNonNull(command, "command");
         TenantRef tenantId = command.tenantId() != null ? command.tenantId() : TenantRef.defaultTenant();
         LedgerId ledgerId = command.ledgerId() != null ? command.ledgerId() : LedgerId.primary();
-        Currency cur = Currency.of(command.currencyCode() != null ? command.currencyCode() : "USD");
 
-        Account account = new Account(id, tenantId, ledgerId, command.accountNumber(), command.name(), command.accountType(), cur);
+        return accountRepository.findByAccountNumber(tenantId, ledgerId, command.accountNumber())
+                .chain(existing -> {
+                    if (existing.isPresent()) {
+                        return Uni.createFrom().failure(new IllegalStateException(
+                                "Account number already exists in the requested tenant and ledger"));
+                    }
+                    return create(command, tenantId, ledgerId);
+                });
+    }
+
+    private Uni<AccountId> create(CreateAccountCommand command, TenantRef tenantId, LedgerId ledgerId) {
+        AccountId id = AccountId.generate();
+        Currency currency = Currency.of(command.currencyCode() != null ? command.currencyCode() : "USD");
+
+        Account account = new Account(id, tenantId, ledgerId, command.accountNumber(),
+                command.name(), command.accountType(), currency);
         if (command.description() != null) {
             account.setDescription(command.description());
         }
 
-        AccountCreated event = AccountCreated.of(tenantId, ledgerId, id, command.accountNumber(), command.name(), command.accountType(), null, null);
-        OutboxEvent outbox = OutboxEvent.of("Account", id.value().toString(), event.eventType(), tenantId, ledgerId, event.toString());
+        AccountCreated event = AccountCreated.of(tenantId, ledgerId, id, command.accountNumber(),
+                command.name(), command.accountType(), null, null);
+        OutboxEvent outbox = OutboxEvent.of("Account", id.value().toString(),
+                event.eventType(), tenantId, ledgerId, event.toString());
 
         return accountRepository.save(account)
                 .chain(() -> outboxRepository.save(outbox))
