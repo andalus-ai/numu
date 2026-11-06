@@ -63,7 +63,13 @@ public final class HistoricalProjectionRebuildService {
             if (!Objects.equals(tenantId, event.tenantId())) {
                 throw new IllegalStateException("rebuild page crossed tenant scope");
             }
-            projection.project(asClaimedEvent(event));
+            try {
+                projection.project(asClaimedEvent(event));
+            } catch (RuntimeException failure) {
+                throw failure;
+            } catch (Exception failure) {
+                throw new IllegalStateException("Unable to project historical relationship event " + event.eventKey(), failure);
+            }
             nextCursor = Math.max(nextCursor, event.sequence());
         }
         if (!store.advance(tenantId, runId, run.cursorSequence(), nextCursor, clock.instant())) {
