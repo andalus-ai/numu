@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 -- Durable graph-projection events are created in the same transaction as each
 -- relationship revision. A committed revision can therefore never be invisible
 -- to downstream projection workers.
