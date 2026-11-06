@@ -2,6 +2,7 @@ package tech.kayys.numou.attendee.application.command;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.attendee.application.port.AttendeeAuthorizationPort;
+import tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContextProvider;
 import tech.kayys.numou.attendee.domain.AttendeeProfile;
@@ -20,7 +21,7 @@ public final class CreateAttendeeProfileHandler implements
         CommandHandler<CreateAttendeeProfileCommand, Result<CreateAttendeeProfileResult>> {
 
     private final AttendeeProfileRepository profiles;
-    private final tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort partyAccess;
+    private final AttendeePartyAccessPort partyAccess;
     private final AttendeeTenantContextProvider tenantContext;
     private final AttendeeAuthorizationPort authorization;
     private final UnitOfWork unitOfWork;
@@ -28,7 +29,7 @@ public final class CreateAttendeeProfileHandler implements
 
     public CreateAttendeeProfileHandler(
             AttendeeProfileRepository profiles,
-            tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort partyAccess,
+            AttendeePartyAccessPort partyAccess,
             AttendeeTenantContextProvider tenantContext,
             AttendeeAuthorizationPort authorization,
             UnitOfWork unitOfWork,
