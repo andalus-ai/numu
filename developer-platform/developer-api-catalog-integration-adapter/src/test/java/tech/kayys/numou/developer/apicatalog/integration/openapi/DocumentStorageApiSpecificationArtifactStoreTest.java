@@ -42,6 +42,11 @@ class DocumentStorageApiSpecificationArtifactStoreTest {
         assertThat(downloaded.sha256()).isEqualTo(digest);
         assertThat(downloaded.contentType()).isEqualTo("text/yaml");
         assertThat(downloaded.contentLength()).isEqualTo(bytes.length);
+
+        var anotherTenant = TenantId.generate();
+        assertThatThrownBy(() -> adapter.retrieve(anotherTenant, uploaded.artifactReference(), digest)
+                .await().indefinitely())
+                .hasMessageContaining("does not exist for provider tenant");
     }
 
     @Test
