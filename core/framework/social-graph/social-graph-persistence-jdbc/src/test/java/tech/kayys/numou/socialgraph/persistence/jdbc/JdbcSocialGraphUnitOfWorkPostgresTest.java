@@ -10,6 +10,9 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationship;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipType;
 import tech.kayys.numou.socialgraph.spi.SocialGraphIdempotencyRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphOutboxEvent;
 
@@ -27,6 +30,75 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class JdbcSocialGraphUnitOfWorkPostgresTest {
     @Container
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    @Test
+    void persistsRelationshipsWithTenantIsolationAndOptimisticRemoval() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        TenantId otherTenant = TenantId.generate();
+        PartyId source = PartyId.generate();
+        PartyId target = PartyId.generate();
+        Instant now = Instant.parse("2026-11-05T00:00:00Z");
+        SocialRelationship relationship = SocialRelationship.create(
+                SocialRelationshipId.generate(), tenant, SocialRelationshipType.FOLLOW,
+                source, target, now, now, null, "manual", java.util.Map.of("channel", "community", "campaign", "m2"));
+
+        uow.execute(tx -> { tx.insertRelationship(relationship); return null; }).await().indefinitely();
+
+        assertThat(uow.execute(tx -> tx.findRelationship(tenant, relationship.id())).await().indefinitely())
+                .hasValueSatisfying(found -> {
+                    assertThat(found.id()).isEqualTo(relationship.id());
+                    assertThat(found.metadata()).containsAllEntriesOf(relationship.metadata());
+                    assertThat(found.provenance()).isEqualTo("manual");
+                });
+        assertThat(uow.execute(tx -> tx.findRelationship(otherTenant, relationship.id())).await().indefinitely())
+                .isEmpty();
+        assertThat(uow.execute(tx -> tx.findActiveRelationship(
+                tenant, SocialRelationshipType.FOLLOW, source, target)).await().indefinitely())
+                .hasValueSatisfying(found -> assertThat(found.id()).isEqualTo(relationship.id()));
+
+        SocialRelationship removed = relationship.remove(source, now.plusSeconds(30));
+        uow.execute(tx -> { tx.updateRelationship(removed, relationship.version()); return null; })
+                .await().indefinitely();
+
+        assertThat(uow.execute(tx -> tx.findRelationship(tenant, relationship.id())).await().indefinitely())
+                .hasValueSatisfying(found -> {
+                    assertThat(found.status()).isEqualTo(removed.status());
+                    assertThat(found.version()).isEqualTo(1);
+                    assertThat(found.removedAt()).isEqualTo(removed.removedAt());
+                });
+        assertThat(uow.execute(tx -> tx.findActiveRelationship(
+                tenant, SocialRelationshipType.FOLLOW, source, target)).await().indefinitely())
+                .isEmpty();
+    }
+
+    @Test
+    void activeDirectedRelationshipUniquenessIsTenantScopedAndTypeScoped() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId source = PartyId.generate();
+        PartyId target = PartyId.generate();
+        Instant now = Instant.parse("2026-11-05T00:00:00Z");
+        SocialRelationship first = SocialRelationship.create(SocialRelationshipId.generate(), tenant,
+                SocialRelationshipType.FOLLOW, source, target, now, now, null, "manual", java.util.Map.of());
+        SocialRelationship duplicate = SocialRelationship.create(SocialRelationshipId.generate(), tenant,
+                SocialRelationshipType.FOLLOW, source, target, now, now, null, "manual", java.util.Map.of());
+        SocialRelationship reverse = SocialRelationship.create(SocialRelationshipId.generate(), tenant,
+                SocialRelationshipType.FOLLOW, target, source, now, now, null, "manual", java.util.Map.of());
+        SocialRelationship block = SocialRelationship.create(SocialRelationshipId.generate(), tenant,
+                SocialRelationshipType.BLOCK, source, target, now, now, null, "manual", java.util.Map.of());
+
+        uow.execute(tx -> { tx.insertRelationship(first); return null; }).await().indefinitely();
+        assertThatThrownBy(() -> uow.execute(tx -> { tx.insertRelationship(duplicate); return null; }).await().indefinitely())
+                .isInstanceOf(IllegalStateException.class);
+        uow.execute(tx -> { tx.insertRelationship(reverse); tx.insertRelationship(block); return null; })
+                .await().indefinitely();
+        assertThat(count(dataSource, "sg_relationship")).isEqualTo(3);
+    }
 
     @Test
     void commitsConnectionIdempotencyAndOutboxAtomically() throws Exception {

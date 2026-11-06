@@ -48,6 +48,31 @@ class GeneralLedgerAndReportingServiceTest {
 
         accountRepository = new AccountRepository() {
             @Override
+            public Uni<Optional<Account>> findById(
+                    tech.kayys.numou.accounting.domain.multitenancy.TenantRef tenantId,
+                    tech.kayys.numou.accounting.domain.ledger.LedgerId ledgerId,
+                    AccountId id) {
+                return Uni.createFrom().item(Optional.ofNullable(accountStore.get(id))
+                        .filter(a -> a.tenantId().equals(tenantId) && a.ledgerId().equals(ledgerId)));
+            }
+            @Override
+            public Uni<Optional<Account>> findByAccountNumber(
+                    tech.kayys.numou.accounting.domain.multitenancy.TenantRef tenantId,
+                    tech.kayys.numou.accounting.domain.ledger.LedgerId ledgerId,
+                    String num) {
+                return Uni.createFrom().item(accountStore.values().stream()
+                        .filter(a -> a.tenantId().equals(tenantId) && a.ledgerId().equals(ledgerId))
+                        .filter(a -> a.getAccountNumber().equalsIgnoreCase(num)).findFirst());
+            }
+            @Override
+            public Uni<List<Account>> findAll(
+                    tech.kayys.numou.accounting.domain.multitenancy.TenantRef tenantId,
+                    tech.kayys.numou.accounting.domain.ledger.LedgerId ledgerId) {
+                return Uni.createFrom().item(accountStore.values().stream()
+                        .filter(a -> a.tenantId().equals(tenantId) && a.ledgerId().equals(ledgerId)).toList());
+            }
+            @Override
+            @Deprecated(forRemoval = true)
             public Uni<Optional<Account>> findById(AccountId id) {
                 return Uni.createFrom().item(Optional.ofNullable(accountStore.get(id)));
             }

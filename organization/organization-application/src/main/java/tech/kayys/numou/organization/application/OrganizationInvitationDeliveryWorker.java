@@ -84,7 +84,8 @@ public final class OrganizationInvitationDeliveryWorker {
             if (maybe.isEmpty()) return CompletableFuture.completedFuture(false);
             OrganizationInvitation invitation = maybe.get();
             Instant now = clock.instant();
-            if (invitation.status() != OrganizationInvitationStatus.PENDING || !invitation.expiresAt().isAfter(now))
+            if (invitation.status() != OrganizationInvitationStatus.PENDING || !invitation.expiresAt().isAfter(now)
+                    || !invitation.recipientEmail().equals(item.recipientEmail()))
                 return CompletableFuture.completedFuture(false);
 
             String secret = cipher.decrypt(item.tenantId(), item.invitationId(), item.secret());

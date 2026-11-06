@@ -13,6 +13,10 @@
     <modules>
         <module>chronology</module>
         <module>events</module>
+        <module>entities</module>
+        <module>graph-spi</module>
+        <module>graph-application</module>
+        <module>graph-postgres-adapter</module>
     </modules>
 
     <properties>
