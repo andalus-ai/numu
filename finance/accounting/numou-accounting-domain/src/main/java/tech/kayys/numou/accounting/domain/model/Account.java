@@ -52,6 +52,48 @@ public final class Account extends AbstractAggregateRoot<AccountId> implements T
         this(id, TenantRef.defaultTenant(), LedgerId.primary(), accountNumber, name, accountType, currency);
     }
 
+    /**
+     * Reconstitutes an account from its durable representation.
+     *
+     * <p>This factory is intentionally the only persistence-facing path for restoring mutable
+     * account state. It keeps tenant and ledger ownership explicit and avoids adapters mutating
+     * fields through reflection or bypassing the aggregate constructor.
+     */
+    public static Account reconstitute(
+            AccountId id,
+            TenantRef tenantId,
+            LedgerId ledgerId,
+            String accountNumber,
+            String name,
+            String description,
+            AccountType accountType,
+            AccountStatus status,
+            Money currentBalance,
+            AccountId parentAccountId,
+            boolean active,
+            boolean shariaCompliant
+    ) {
+        Objects.requireNonNull(currentBalance, "currentBalance cannot be null");
+        Objects.requireNonNull(status, "status cannot be null");
+
+        Account account = new Account(
+                id,
+                tenantId,
+                ledgerId,
+                accountNumber,
+                name,
+                accountType,
+                currentBalance.currency()
+        );
+        account.description = description;
+        account.status = status;
+        account.currentBalance = currentBalance;
+        account.parentAccountId = parentAccountId;
+        account.active = active;
+        account.shariaCompliant = shariaCompliant;
+        return account;
+    }
+
     @Override
     public AccountId id() { return id; }
     public AccountId getId() { return id; }
