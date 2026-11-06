@@ -5,6 +5,8 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.postgresql.util.PSQLException;
+import tech.kayys.numou.attendee.application.error.AttendeeProfileAlreadyExistsException;
+import tech.kayys.numou.attendee.application.error.AttendeeProfileOptimisticLockException;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
 import tech.kayys.numou.attendee.domain.AttendeeProfile;
 import tech.kayys.numou.attendee.domain.AttendeeProfileStatus;
@@ -216,15 +218,4 @@ public class JdbcAttendeeProfileRepository implements AttendeeProfileRepository 
         void bind(PreparedStatement statement) throws SQLException;
     }
 
-    public static final class AttendeeProfileAlreadyExistsException extends RuntimeException {
-        public AttendeeProfileAlreadyExistsException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    public static final class AttendeeProfileOptimisticLockException extends RuntimeException {
-        public AttendeeProfileOptimisticLockException(String message) {
-            super(message);
-        }
-    }
 }
