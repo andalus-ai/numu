@@ -33,4 +33,4 @@ The adapter migration is `db/migration/attendee/V1__attendee_profiles.sql`. The 
 
 ## Verification
 
-PostgreSQL Testcontainers integration tests cover persistence/rehydration, tenant isolation, cross-tenant independence, database uniqueness and optimistic revision conflicts. Tests are configured to be skipped when Docker is unavailable. Maven build and CI status must still be checked before treating this milestone as verified.
+PostgreSQL Testcontainers integration tests cover persistence/rehydration, tenant isolation, cross-tenant independence, duplicate rejection under concurrent creation, and optimistic revision conflicts. Tests are configured to be skipped when Docker is unavailable. Maven build and CI status must still be checked before treating this milestone as verified.
