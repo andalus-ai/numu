@@ -127,6 +127,43 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
     }
 
     /**
+     * Puts back the cycles that were stored for this schedule (see {@link #restoreProgress}).
+     */
+    public void restoreCycles(List<BillingCycle> stored) {
+        billingCycles.clear();
+        stored.stream().sorted(java.util.Comparator.comparingInt(BillingCycle::getCycleNumber))
+            .forEach(billingCycles::add);
+    }
+
+    /**
+     * Starts a retry of a failed cycle: the one given, or the latest failed one when none is given. The schedule
+     * must still be active (it stops after too many failed payments), and the cycle is billed again against the
+     * invoice it already has; no new invoice is made.
+     */
+    public BillingCycle beginRetry(Integer cycleNumber) {
+        if (status != BillingStatus.ACTIVE) {
+            throw new IllegalStateException("Cannot retry billing in status: " + status);
+        }
+        BillingCycle cycle;
+        if (cycleNumber != null) {
+            cycle = billingCycles.stream().filter(c -> c.cycleNumber == cycleNumber).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Cycle not found: " + cycleNumber));
+        } else {
+            cycle = billingCycles.stream().filter(c -> c.status == BillingCycleStatus.FAILED)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new IllegalStateException("No failed billing cycle to retry"));
+        }
+        if (cycle.status != BillingCycleStatus.FAILED) {
+            throw new IllegalStateException("Only a failed cycle can be retried; cycle " + cycle.cycleNumber
+                + " is " + cycle.status);
+        }
+        cycle.markRetry();
+        setUpdatedAt(Instant.now());
+        incrementVersion();
+        return cycle;
+    }
+
+    /**
      * Pauses the billing schedule.
      */
     public void pause() {
@@ -459,6 +496,23 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
         public String getErrorMessage() { return errorMessage; }
         public Instant getProcessedAt() { return processedAt; }
         public Instant getCompletedAt() { return completedAt; }
+
+        /** Rebuilds a stored cycle. */
+        public static BillingCycle restore(int cycleNumber, Instant billingDate, Money amount, String currencyCode,
+                                           String invoiceId, BillingCycleStatus status, String transactionId,
+                                           String errorMessage, Instant processedAt, Instant completedAt) {
+            BillingCycle c = new BillingCycle(cycleNumber, billingDate, amount, currencyCode, invoiceId, status);
+            c.transactionId = transactionId;
+            c.errorMessage = errorMessage;
+            c.processedAt = processedAt;
+            c.completedAt = completedAt;
+            return c;
+        }
+
+        public void markRetry() {
+            this.status = BillingCycleStatus.RETRY;
+            this.completedAt = null;
+        }
 
         public void markSuccess(String transactionId) {
             this.status = BillingCycleStatus.SUCCESS;
