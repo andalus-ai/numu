@@ -1,6 +1,7 @@
 package tech.kayys.numou.accounting.interfaces.repository;
 
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.accounting.application.port.AccountRepository;
@@ -75,7 +76,7 @@ public final class PostgresAccountRepository implements AccountRepository {
                     statement.setString(1, tenantId.value());
                     statement.setString(2, ledgerId.value());
                     statement.setString(3, id.value().toString());
-                }));
+                })).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     @Override
@@ -91,7 +92,7 @@ public final class PostgresAccountRepository implements AccountRepository {
                     statement.setString(1, tenantId.value());
                     statement.setString(2, ledgerId.value());
                     statement.setString(3, accountNumber);
-                }));
+                })).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     @Override
@@ -111,7 +112,7 @@ public final class PostgresAccountRepository implements AccountRepository {
             } catch (SQLException exception) {
                 throw storageFailure("list accounts", tenantId, ledgerId, exception);
             }
-        });
+        }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     @Override
@@ -164,7 +165,7 @@ public final class PostgresAccountRepository implements AccountRepository {
             } catch (SQLException exception) {
                 throw storageFailure("save account " + account.id(), account.tenantId(), account.ledgerId(), exception);
             }
-        });
+        }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     private Optional<Account> queryOne(String sql, StatementBinder binder) {
