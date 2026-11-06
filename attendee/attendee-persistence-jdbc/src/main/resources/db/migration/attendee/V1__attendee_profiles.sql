@@ -14,6 +14,10 @@ CREATE TABLE attendee_profile (
     revision BIGINT NOT NULL DEFAULT 0 CHECK (revision >= 0),
     CONSTRAINT uq_attendee_profile_tenant_party_kind
         UNIQUE (tenant_id, party_id, profile_kind),
+    CONSTRAINT ck_attendee_profile_preferred_name
+        CHECK (preferred_name IS NULL OR length(btrim(preferred_name)) > 0),
+    CONSTRAINT ck_attendee_profile_preferred_language
+        CHECK (preferred_language IS NULL OR length(btrim(preferred_language)) > 0),
     CONSTRAINT ck_attendee_profile_updated_at
         CHECK (updated_at >= created_at)
 );
