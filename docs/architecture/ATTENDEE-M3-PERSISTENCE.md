@@ -29,7 +29,7 @@ The application pre-check is for a friendly expected outcome only. It is not the
 
 ## Migration
 
-The adapter migration is `db/migration/V1__attendee_profiles.sql`. The migration assumes the shared application database migration runner discovers this adapter's migration location. Deployment composition must configure a single migration strategy and avoid running the same migration twice if multiple modules expose the same location.
+The adapter migration is `db/migration/attendee/V1__attendee_profiles.sql`. The attendee-specific location avoids version collisions with other capability adapters that also publish a `V1` migration. Deployment composition must add `classpath:db/migration/attendee` to its Flyway locations (alongside the other selected capability locations) and configure one migration runner per database.
 
 ## Verification
 
