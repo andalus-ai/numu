@@ -17,6 +17,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import java.net.URL;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.interfaces.RSAPublicKey;
@@ -61,13 +62,13 @@ public class OAuthJWKSResource {
     @PostConstruct
     void validateMountedKeySetAtStartup() {
         try {
-            java.nio.file.Path jwksFile = java.nio.file.Path.of(jwksLocation);
+            java.nio.file.Path jwksFile = resolveConfiguredFile(jwksLocation);
             long fileSize = Files.size(jwksFile);
             if (fileSize == 0 || fileSize > MAX_JWKS_BYTES) {
                 throw new IOException("JWKS file size is outside supported bounds");
             }
             validateJwks(Files.readAllBytes(jwksFile), activeKeyId,
-                    readActivePublicKey(java.nio.file.Path.of(publicKeyLocation)));
+                    readActivePublicKey(resolveConfiguredFile(publicKeyLocation)));
         } catch (Exception invalidConfiguration) {
             throw new IllegalStateException("OAuth JWKS configuration is invalid", invalidConfiguration);
         }
@@ -177,6 +178,21 @@ public class OAuthJWKSResource {
         } catch (IllegalArgumentException | java.security.GeneralSecurityException invalid) {
             throw new IOException("JWKS contains an invalid RSA public key", invalid);
         }
+    }
+
+    private static java.nio.file.Path resolveConfiguredFile(String location) throws Exception {
+        if (location == null || location.isBlank()) {
+            throw new IOException("JWKS file location is required");
+        }
+        if (location.startsWith("classpath:")) {
+            String resourceName = location.substring("classpath:".length());
+            URL resource = Thread.currentThread().getContextClassLoader().getResource(resourceName);
+            if (resource == null || !"file".equals(resource.getProtocol())) {
+                throw new IOException("Configured classpath JWKS resource is unavailable");
+            }
+            return java.nio.file.Path.of(resource.toURI());
+        }
+        return java.nio.file.Path.of(location);
     }
 
     private static RSAPublicKey readActivePublicKey(java.nio.file.Path path) throws Exception {
