@@ -19,20 +19,24 @@ M3 already has specialized contracts for person-to-collective affiliation and ev
 
 ## Persistence and graph providers
 
-M4 now includes a tenant-aware graph SPI, an authorization-aware application service, and a JDBC PostgreSQL adapter.
+M4 includes a tenant-aware graph SPI, an authorization-aware application service, and a JDBC PostgreSQL adapter.
 
 - PostgreSQL is the authoritative relationship store. Relationship revisions are append-only; optimistic compare-and-append uses an advisory transaction lock and a unique relationship/revision key.
 - Tenant-private research is stored with a tenant UUID. Shared public-corpus rows use a null tenant UUID and are readable by tenants but cannot be inserted by the ordinary application role.
 - Forced row-level security limits reads to shared public rows plus the current tenant's rows. Tenant context is transaction-local and must be supplied from authenticated server-side context.
 - Application authorization is resource-level and must authorize the relationship and both endpoint references before exposing or changing data.
-- The PostgreSQL adapter has no Neo4j or broker dependency. A future Neo4j projection must be rebuildable, idempotent, revision-aware, and disposable without data loss.
+- Migration V2 creates a durable projection outbox. A PostgreSQL trigger emits one versioned event for every relationship revision in the same transaction; rollback removes both records.
+- Event identity is unique by relationship ID and revision. Event content, tenant scope, schema version and payload are immutable; only delivery metadata is mutable.
+- The outbox payload carries typed endpoints, relationship vocabulary code, tenant scope, revision and the original historical validity expression/precision. It intentionally excludes free-text descriptions and source evidence.
+- The outbox is provider-neutral. Neo4j remains an optional disposable projection and is not authoritative storage.
 
 The request-facing application service writes tenant-private research only. Shared-corpus ingestion remains a separate privileged workflow with editorial authorization; it must not be exposed through the ordinary tenant write path.
 
 ## Deferred
 
+- Outbox claim/lease worker, bounded retry/backoff, dead-letter recovery, projection checkpoints and operational metrics.
+- Idempotent Neo4j (or alternative graph provider) projection adapter, rebuild and reconciliation.
 - M5 source claims, citations, evidence, conflicting assertions, and verification.
-- Durable event/outbox projection, rebuild cursors, dead-letter handling, and operational metrics.
 - Graph query APIs, traversal limits, pagination, and protection against unbounded traversals.
 - Shared-corpus ingestion workflow and editorial authorization.
 - Controlled vocabulary governance and localization.
