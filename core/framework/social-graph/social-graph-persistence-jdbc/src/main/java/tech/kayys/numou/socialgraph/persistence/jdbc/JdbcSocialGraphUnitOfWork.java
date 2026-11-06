@@ -15,6 +15,8 @@ import tech.kayys.numou.socialgraph.domain.SocialRelationshipStatus;
 import tech.kayys.numou.socialgraph.domain.SocialRelationshipType;
 import tech.kayys.numou.socialgraph.spi.SocialGraphIdempotencyRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphOutboxEvent;
+import tech.kayys.numou.socialgraph.spi.SocialRelationshipIdempotencyRecord;
+import tech.kayys.numou.socialgraph.spi.SocialRelationshipAuditRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphTransaction;
 import tech.kayys.numou.socialgraph.spi.SocialGraphUnitOfWork;
 
@@ -306,6 +308,55 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
         }
 
         @Override
+        public Optional<SocialRelationshipIdempotencyRecord> findRelationshipIdempotency(TenantId tenantId, String key) {
+            String sql = "SELECT command_fingerprint, relationship_id, created_at "
+                    + "FROM sg_relationship_command_idempotency WHERE tenant_id = ? AND idempotency_key = ?";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, tenantId.value());
+                ps.setString(2, key);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return Optional.empty();
+                    return Optional.of(new SocialRelationshipIdempotencyRecord(tenantId, key,
+                            rs.getString("command_fingerprint"),
+                            SocialRelationshipId.of(rs.getObject("relationship_id", UUID.class)),
+                            rs.getTimestamp("created_at").toInstant()));
+                }
+            } catch (SQLException e) { throw persistenceFailure("find relationship idempotency record", e); }
+        }
+
+        @Override
+        public void saveRelationshipIdempotency(SocialRelationshipIdempotencyRecord record) {
+            String sql = "INSERT INTO sg_relationship_command_idempotency "
+                    + "(tenant_id, idempotency_key, command_fingerprint, relationship_id, created_at) "
+                    + "VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, record.tenantId().value());
+                ps.setString(2, record.key());
+                ps.setString(3, record.fingerprint());
+                ps.setObject(4, record.relationshipId().value());
+                ps.setTimestamp(5, Timestamp.from(record.createdAt()));
+                ps.executeUpdate();
+            } catch (SQLException e) { throw persistenceFailure("save relationship idempotency record", e); }
+        }
+
+        @Override
+        public void appendRelationshipAudit(SocialRelationshipAuditRecord record) {
+            String sql = "INSERT INTO sg_relationship_audit "
+                    + "(audit_id, tenant_id, relationship_id, actor_party_id, action, idempotency_key, occurred_at) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setObject(1, record.auditId());
+                ps.setObject(2, record.tenantId().value());
+                ps.setObject(3, record.relationshipId().value());
+                ps.setObject(4, record.actorPartyId().value());
+                ps.setString(5, record.action());
+                ps.setString(6, record.idempotencyKey());
+                ps.setTimestamp(7, Timestamp.from(record.occurredAt()));
+                ps.executeUpdate();
+            } catch (SQLException e) { throw persistenceFailure("append relationship audit record", e); }
+        }
+
+        @Override
         public Optional<SocialGraphIdempotencyRecord> findIdempotency(TenantId tenantId, String key) {
             String sql = "SELECT command_fingerprint, connection_id, created_at FROM sg_command_idempotency "
                     + "WHERE tenant_id = ? AND idempotency_key = ?";
@@ -356,18 +407,19 @@ public class JdbcSocialGraphUnitOfWork implements SocialGraphUnitOfWork {
 
         @Override
         public void appendOutbox(SocialGraphOutboxEvent event) {
-            String sql = "INSERT INTO sg_outbox (event_id, tenant_id, actor_party_id, aggregate_id, aggregate_version, event_type, "
-                    + "schema_version, occurred_at, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))";
+            String sql = "INSERT INTO sg_outbox (event_id, tenant_id, actor_party_id, aggregate_type, aggregate_id, aggregate_version, event_type, "
+                    + "schema_version, occurred_at, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setObject(1, event.eventId());
                 ps.setObject(2, event.tenantId().value());
                 ps.setObject(3, event.actorPartyId().value());
-                ps.setObject(4, event.aggregateId().value());
-                ps.setInt(5, event.aggregateVersion());
-                ps.setString(6, event.eventType());
-                ps.setInt(7, event.schemaVersion());
-                ps.setTimestamp(8, Timestamp.from(event.occurredAt()));
-                ps.setString(9, event.payloadJson());
+                ps.setString(4, event.aggregateType());
+                ps.setObject(5, event.aggregateId());
+                ps.setInt(6, event.aggregateVersion());
+                ps.setString(7, event.eventType());
+                ps.setInt(8, event.schemaVersion());
+                ps.setTimestamp(9, Timestamp.from(event.occurredAt()));
+                ps.setString(10, event.payloadJson());
                 ps.executeUpdate();
             } catch (SQLException e) { throw persistenceFailure("append social graph outbox event", e); }
         }
