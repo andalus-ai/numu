@@ -46,7 +46,6 @@ class IdentityJwtKeyIdTest {
                 "test-client", tenantId, applicationId, Set.of("workspace.read"), 1L));
     }
 
-
     @Test
     void tenantSelectionAndAccessTokensHaveDistinctClaimsAndBoundedLifetimes() throws Exception {
         UUID principalId = UUID.randomUUID();
@@ -69,7 +68,7 @@ class IdentityJwtKeyIdTest {
         assertEquals("USER", access.getClaim("principalType"));
         assertEquals(tenantId.toString(), access.getClaim("tenant_id"));
         assertEquals(tenantId.toString(), access.getClaim("numou_tenant_id"));
-        assertTrue(access.getAudience().contains("numou-identity-api"));
+        assertTrue(access.getAudience().contains("numou-api"));
         assertTrue(access.getExpirationTime() > access.getIssuedAtTime());
         assertTrue(access.getExpirationTime() - access.getIssuedAtTime() <= 900);
     }
