@@ -6,7 +6,7 @@ import tech.kayys.numou.attendee.application.port.AttendeeAuthorizationPort;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContext;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContextProvider;
-import tech.kayys.numou.ecosystem.application.port.PartyLookupPort;
+import tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
@@ -28,8 +28,13 @@ class CreateAttendeeProfileHandlerTest {
     void derivesTenantAndActorFromTrustedContextAndRejectsUnknownParty() {
         var authorizationCalled = new AtomicBoolean();
         var repositoryCalled = new AtomicBoolean();
-        var partyLookup = (PartyLookupPort) partyId ->
-                Uni.createFrom().item(Optional.empty());
+        var partyAccessCalled = new AtomicBoolean();
+        var partyAccess = (AttendeePartyAccessPort) (tenantId, actorId, partyId) -> {
+            partyAccessCalled.set(true);
+            assertEquals(trustedTenant, tenantId);
+            assertEquals(trustedActor, actorId);
+            return Uni.createFrom().voidItem();
+        };
         var repository = new AttendeeProfileRepository() {
             @Override
             public Uni<tech.kayys.numou.attendee.domain.AttendeeProfile> save(
@@ -61,7 +66,7 @@ class CreateAttendeeProfileHandlerTest {
             return Uni.createFrom().voidItem();
         };
 
-        var handler = new CreateAttendeeProfileHandler(repository, partyLookup, context,
+        var handler = new CreateAttendeeProfileHandler(repository, partyAccess, context,
                 authorization, directUnitOfWork(), Clock.fixed(
                 Instant.parse("2026-11-06T00:00:00Z"), ZoneOffset.UTC));
 
@@ -71,28 +76,29 @@ class CreateAttendeeProfileHandlerTest {
         assertTrue(result.isFailure());
         assertEquals("ATTENDEE_PARTY_NOT_FOUND", result.failureError().orElseThrow().code());
         assertTrue(authorizationCalled.get());
+        assertTrue(partyAccessCalled.get());
         assertFalse(repositoryCalled.get());
     }
 
     @Test
     void authorizationFailureStopsBeforePartyLookup() {
-        var partyLookupCalled = new AtomicBoolean();
-        var partyLookup = (PartyLookupPort) partyId -> {
-            partyLookupCalled.set(true);
-            return Uni.createFrom().item(Optional.empty());
+        var partyAccessCalled = new AtomicBoolean();
+        var partyAccess = (AttendeePartyAccessPort) (tenantId, actorId, partyId) -> {
+            partyAccessCalled.set(true);
+            return Uni.createFrom().voidItem();
         };
         var repository = new NoopRepository();
         var authorization = (AttendeeAuthorizationPort) request ->
                 Uni.createFrom().failure(new SecurityException("forbidden"));
 
-        var handler = new CreateAttendeeProfileHandler(repository, partyLookup,
+        var handler = new CreateAttendeeProfileHandler(repository, partyAccess,
                 () -> new AttendeeTenantContext(trustedTenant, trustedActor),
                 authorization, directUnitOfWork(), Clock.systemUTC());
 
         assertThrows(SecurityException.class, () -> handler.handle(
                 new CreateAttendeeProfileCommand(UUID.randomUUID(), "EVENT_GUEST",
                         "Guest", null, null)).await().indefinitely());
-        assertFalse(partyLookupCalled.get());
+        assertFalse(partyAccessCalled.get());
     }
 
     private static UnitOfWork directUnitOfWork() {
