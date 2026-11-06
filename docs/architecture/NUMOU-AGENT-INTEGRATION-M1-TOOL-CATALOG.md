@@ -29,7 +29,7 @@ Provide a transport-neutral application contract for discovering Numou operation
 
 1. Application, tenant and actor identifiers are mandatory.
 2. Identity is not accepted from tool input.
-3. The catalog is scoped by application ID and selected capabilities.
+3. The catalog is scoped by application ID, tenant ID and selected capabilities.
 4. The authorization port filters every descriptor for discovery and description.
 5. Write and administrative tools cannot be described without an approval requirement.
 6. The invocation path must repeat authorization and enforce tenant/resource scope in the owning application service.
@@ -49,7 +49,7 @@ The accounting `TransactionPort` inspected during M1 only provides transaction l
 - Discovery is deterministic.
 - Missing tenant/actor context is rejected.
 - Mutating/admin descriptors require approval metadata.
-- Application capability selection filters catalog providers.
+- Tenant-scoped application capability selection filters catalog providers.
 - Description cannot reveal a tool hidden by discovery authorization.
 - Capability listing contains only authorized, selected capabilities and is stable.
 - Subsequent transport tests must prove cross-tenant calls fail closed and execution authorization is repeated.
