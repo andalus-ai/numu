@@ -10,7 +10,11 @@ media, and reusable timeline projections.
 - `events`: canonical historical event and period domain models, lifecycle, nested-period
   validation, and event-period temporal relations.
 - `entities`: historical people, civilizations/cultures/polities/institutions, places,
-  time-bounded names and location assertions, affiliations, and event links.
+  time-bounded names and location assertions, affiliations, event links, and typed graph relationships.
+- `graph-spi`: tenant-aware relationship persistence contract.
+- `graph-application`: trusted-tenant, resource-authorized relationship use cases.
+- `graph-postgres-adapter`: append-only PostgreSQL relationship revisions, RLS isolation,
+  indexed endpoint lookups, and transactional projection event capture.
 
 ## Architecture
 
@@ -30,3 +34,6 @@ mvn -B -ntp -f history/pom.xml verify
 ```
 
 The history reactor is intentionally isolated from the repository's other Maven reactor roots.
+The PostgreSQL adapter integration tests use Testcontainers; they are skipped when Docker is
+unavailable and run in the History CI workflow. Migration V2 verifies event capture and
+transaction rollback behavior when the integration suite runs.

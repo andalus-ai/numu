@@ -1,0 +1,48 @@
+name: History Capability CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "history/**"
+      - "geo/**"
+      - "core/framework/**"
+      - ".github/workflows/history-postgres.yml"
+  push:
+    branches: [main]
+    paths:
+      - "history/**"
+      - "geo/**"
+      - "core/framework/**"
+      - ".github/workflows/history-postgres.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: history-capability-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  history-postgres:
+    name: History Maven and PostgreSQL verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install Geo domain prerequisite
+        run: mvn -B -ntp -f geo/pom.xml install
+      - name: Verify History reactors and PostgreSQL integration tests
+        run: mvn -B -ntp -f history/pom.xml verify
+      - name: Upload History Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-maven-test-reports
+          path: history/**/target/surefire-reports/**
+          if-no-files-found: warn
+          retention-days: 7
