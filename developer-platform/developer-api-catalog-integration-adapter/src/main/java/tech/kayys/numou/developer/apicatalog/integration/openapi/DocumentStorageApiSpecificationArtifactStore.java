@@ -78,7 +78,10 @@ public final class DocumentStorageApiSpecificationArtifactStore implements ApiSp
                             || metadata.contentLength() < 1 || metadata.contentLength() > 10 * 1024 * 1024) {
                         throw new IllegalStateException("Stored artifact metadata does not match requested tenant key");
                     }
-                    byte[] bytes;\n                    try (java.io.InputStream input = stored.content()) {\n                        bytes = input.readNBytes(10 * 1024 * 1024 + 1);\n                    }
+                    byte[] bytes;
+                    try (java.io.InputStream input = stored.content()) {
+                        bytes = input.readNBytes(10 * 1024 * 1024 + 1);
+                    }
                     if (bytes.length > 10 * 1024 * 1024 || bytes.length != metadata.contentLength()) {
                         throw new IllegalStateException("Stored artifact length is invalid");
                     }
