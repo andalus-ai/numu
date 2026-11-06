@@ -1,12 +1,15 @@
 package tech.kayys.numou.agent.application;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /**
- * Projects capability-owned tool contributions into the selected application's catalog.
- * The selection port must be backed by the validated application composition, not user input.
+ * Projects host-registered capability tool providers through the selected,
+ * tenant-scoped application composition. This adapter does not own the
+ * application composition or provider lifecycle.
  */
 public final class CapabilityAwareAgentToolCatalogAdapter implements AgentToolCatalogPort {
     private final ApplicationCapabilitySelectionPort selection;
@@ -20,39 +23,38 @@ public final class CapabilityAwareAgentToolCatalogAdapter implements AgentToolCa
     }
 
     @Override
-    public List<AgentToolDescriptor> findEnabledTools(String applicationId) {
+    public List<AgentToolDescriptor> findEnabledTools(String applicationId, String tenantId) {
         if (applicationId == null || applicationId.isBlank()) {
             throw new IllegalArgumentException("applicationId is required");
         }
-        Set<String> enabled = Set.copyOf(
-                Objects.requireNonNull(selection.enabledCapabilityIds(applicationId),
-                        "enabled capability IDs"));
-        return providers.stream()
-                .filter(Objects::nonNull)
-                .filter(provider -> enabled.contains(requiredCapabilityId(provider)))
-                .flatMap(provider -> validatedTools(provider).stream())
-                .toList();
-    }
-
-    private String requiredCapabilityId(AgentToolProvider provider) {
-        String capabilityId = provider.capabilityId();
-        if (capabilityId == null || capabilityId.isBlank()) {
-            throw new IllegalStateException("Agent tool provider must declare a capability ID");
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalArgumentException("tenantId is required");
         }
-        return capabilityId;
+        Set<String> enabled = Set.copyOf(Objects.requireNonNull(
+                selection.findEnabledCapabilityIds(applicationId, tenantId), "enabled capabilities"));
+        List<AgentToolDescriptor> result = new ArrayList<>();
+        providers.stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(AgentToolProvider::capabilityId))
+                .filter(provider -> enabled.contains(required(provider.capabilityId(), "provider capabilityId")))
+                .forEach(provider -> {
+                    List<AgentToolDescriptor> descriptors = Objects.requireNonNull(
+                            provider.tools(), "provider tools");
+                    descriptors.stream().filter(Objects::nonNull).forEach(descriptor -> {
+                        if (!provider.capabilityId().equals(descriptor.capabilityId())) {
+                            throw new IllegalStateException("Tool capability does not match its provider: "
+                                    + descriptor.toolId());
+                        }
+                        result.add(descriptor);
+                    });
+                });
+        return result.stream().sorted(Comparator.comparing(AgentToolDescriptor::toolId)).toList();
     }
 
-    private List<AgentToolDescriptor> validatedTools(AgentToolProvider provider) {
-        String capabilityId = requiredCapabilityId(provider);
-        return Objects.requireNonNull(provider.tools(), "provider tools").stream()
-                .map(tool -> {
-                    Objects.requireNonNull(tool, "tool descriptor");
-                    if (!capabilityId.equals(tool.capabilityId())) {
-                        throw new IllegalStateException(
-                                "Tool " + tool.toolId() + " is not owned by provider capability " + capabilityId);
-                    }
-                    return tool;
-                })
-                .toList();
+    private static String required(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(field + " is required");
+        }
+        return value;
     }
 }
