@@ -1,11 +1,9 @@
 package tech.kayys.numou.agent.application;
 
 import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -15,16 +13,16 @@ class DescribeAgentToolServiceTest {
 
     @Test
     void describesOnlyToolsVisibleThroughAuthorizedDiscovery() {
-        AgentToolDescriptor visible = tool(
-                "numou.workforce.profile.get", "workforce", "workforce.read");
-        AgentToolDescriptor hidden = tool(
-                "numou.workforce.profile.update", "workforce", "workforce.write");
+        AgentToolDescriptor visible = tool("numou.workforce.profile.get", "workforce", "workforce.read");
+        AgentToolDescriptor hidden = tool("numou.workforce.profile.update", "workforce", "workforce.write");
         DiscoverAgentToolsService discovery = new DiscoverAgentToolsService(
-                applicationId -> List.of(visible, hidden),
+                (applicationId, tenantId) -> {
+                    assertThat(applicationId).isEqualTo("workforce-app");
+                    assertThat(tenantId).isEqualTo("tenant-1");
+                    return List.of(visible, hidden);
+                },
                 (context, descriptor) -> context.permissions().contains(descriptor.requiredPermission()));
-
         DescribeAgentToolService service = new DescribeAgentToolService(discovery);
-
         assertThat(service.describe(CONTEXT, visible.toolId())).contains(visible);
         assertThat(service.describe(CONTEXT, hidden.toolId())).isEmpty();
     }
@@ -32,8 +30,7 @@ class DescribeAgentToolServiceTest {
     @Test
     void rejectsBlankToolId() {
         DiscoverAgentToolsService discovery = new DiscoverAgentToolsService(
-                applicationId -> List.of(), (context, descriptor) -> true);
-
+                (applicationId, tenantId) -> List.of(), (context, descriptor) -> true);
         assertThatThrownBy(() -> new DescribeAgentToolService(discovery).describe(CONTEXT, " "))
                 .isInstanceOf(IllegalArgumentException.class);
     }
