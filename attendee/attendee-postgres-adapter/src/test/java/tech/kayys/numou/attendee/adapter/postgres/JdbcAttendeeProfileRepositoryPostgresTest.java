@@ -154,7 +154,7 @@ class JdbcAttendeeProfileRepositoryPostgresTest {
     }
 
     private void migrateAttendee() throws Exception {
-        String resource = "db/migration/V1__attendee_profiles.sql";
+        String resource = "db/migration/V20261106_01__attendee_profiles.sql";
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {
             assertNotNull(input, "Missing migration resource " + resource);
             String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
