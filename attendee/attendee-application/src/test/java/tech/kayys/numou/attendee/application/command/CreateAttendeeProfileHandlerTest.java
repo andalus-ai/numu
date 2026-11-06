@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.attendee.application.port.AttendeeAuthorizationPort;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
+import tech.kayys.numou.attendee.application.port.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContext;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContextProvider;
 import tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort;
