@@ -22,6 +22,9 @@ public interface SocialGraphTransaction {
     Optional<SocialConnection> findOpenConnection(TenantId tenantId, PartyId first, PartyId second);
     void insertConnection(SocialConnection connection);
     void updateConnection(SocialConnection connection, int expectedVersion);
+    Optional<SocialRelationshipIdempotencyRecord> findRelationshipIdempotency(TenantId tenantId, String key);
+    void saveRelationshipIdempotency(SocialRelationshipIdempotencyRecord record);
+    void appendRelationshipAudit(SocialRelationshipAuditRecord record);
     Optional<SocialGraphIdempotencyRecord> findIdempotency(TenantId tenantId, String key);
     void saveIdempotency(SocialGraphIdempotencyRecord record);
     void appendOutbox(SocialGraphOutboxEvent event);
