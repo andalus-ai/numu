@@ -28,11 +28,11 @@ import java.util.HexFormat;
 import java.util.Set;
 
 /**
- * Publishes the public signing-key set used by OAuth machine access tokens.
+ * Publishes the public signing-key set used by all Identity-issued JWTs.
  *
  * The mounted JWKS file is deployment-managed so old and new public keys can
- * overlap during rotation. The active key must match the verifier public key
- * configured for this Identity instance before the document is served.
+ * overlap during rotation. The active key must match the configured active public key for this Identity
+ * instance before the document is served.
  */
 @Startup
 @ApplicationScoped
