@@ -380,3 +380,51 @@ This pass traced the journal domain model, posting/reversal handlers, fiscal-per
 - The existence of SQL migrations and JDBC dependencies is not evidence that the corresponding production repository adapters are wired.
 - No Maven build or test command was run as part of this source-only trace; no CI result is claimed.
 - Next: inspect the payment lifecycle and its durable idempotency/outbox/provider recovery; then trace POS-to-payment and POS-to-inventory/accounting handoffs. After those traces, define a single Accounting hardening milestone with transaction, migration, recovery and concurrency acceptance tests.
+
+## 14. M0.3 source trace — Payment and POS handoff (2026-11-06)
+
+This pass traced the neutral Payment application API, PostgreSQL adapter, refund/provider-outcome handling, outbox relay, and POS checkout integration. It also inspected the older entity-oriented PaymentService so the two payment paths are not conflated.
+
+### Payment capability: verified strengths
+
+| Area | Evidence | What is demonstrated |
+|---|---|---|
+| Tenant-scoped payment obligation | `finance/payment/numou-payment-postgres-adapter/.../PostgresPaymentApplicationAdapter.java`; `V1__payment_obligations_and_outbox.sql` | Payment ID and idempotency uniqueness are tenant scoped; reads and mutations include tenant predicates; tenant authorization is invoked |
+| Durable idempotency | Same adapter; `PaymentRequestFingerprint.java` | `createOrGet` fingerprints the request, uses a tenant/idempotency unique constraint, and rejects reuse with a different request |
+| Atomic obligation + outbox | Same adapter | The adapter explicitly opens a JDBC transaction and commits/rolls back obligation and outbox changes together |
+| Verified provider outcomes | Same adapter; `V3__verified_payment_outcome_inbox.sql` | Provider events are deduplicated by tenant/provider/event ID; amount, currency and provider reference are checked; allowed transitions are explicit; late success after failure/cancellation/expiry emits a reconciliation-required event |
+| Refund safety | Same adapter | Payment row is locked; refund idempotency is fingerprinted; refund totals include requested/pending/succeeded/unknown amounts; refund request and outbox event share one transaction |
+| Reliable event delivery | `PaymentOutboxRelay.java`; `PostgresPaymentOutboxRelayStore.java`; `V2__payment_outbox_leases_and_dead_letters.sql` | Bounded claims use `FOR UPDATE SKIP LOCKED`; lease tokens fence stale workers; retries are delayed; exhausted events become terminal |
+| Integration evidence | `PostgresPaymentApplicationAdapterTest.java`; `PostgresPaymentOutboxRelayStoreTest.java` | Testcontainers PostgreSQL tests cover idempotency, verified outcomes, concurrency, tenant behavior, lease fencing and terminal delivery behavior (tests are present; this audit did not execute them) |
+
+### POS-to-Payment and checkout: verified strengths
+
+1. `PaymentCapabilityCheckoutAdapter` maps POS requests to the neutral `PaymentApplicationPort`, rather than creating a second payment ledger or provider model.
+2. The POS checkout application port is deliberately narrow. It carries tenant, idempotency key, checkout reference, amount and currency.
+3. `CheckoutOrchestrationService` obtains its payable amount from the trusted pricing port and validates the returned payment's tenant, amount and currency.
+4. The checkout lifecycle is a retryable saga. Its documented behavior keeps stock reserved for UNKNOWN/PENDING payment outcomes rather than releasing inventory on timeout.
+5. `PostgresCheckoutRepository` scopes reads and writes by tenant and uses optimistic version checks on updates.
+6. `PostgresSaleCommandIdempotency` stores request fingerprints and results and describes reservation, sale mutation and result persistence as one JTA transaction. `SaleCommandService` requires a nonblank key and fingerprints operation parameters.
+
+### Gaps and architectural risks
+
+| Priority | Finding | Evidence and impact |
+|---|---|---|
+| P1 | Two payment application surfaces coexist and need explicit composition/ownership documentation | The older `PaymentService` / Panache `PaymentRepository` entity flow coexists with the neutral `PaymentApplicationPort` / `PostgresPaymentApplicationAdapter` obligation flow. POS uses the latter. The older repository queries by payment ID, invoice, customer email and status without tenant arguments in the inspected contract. Determine which API is legacy, which runtime exposes each, and whether any customer-facing path still relies on the older unscoped model before consolidating or retiring it. |
+| P1 | Provider execution is intentionally separate, but operational ownership and reconciliation must be completed at composition level | The PostgreSQL adapter records obligations/refunds and verified provider outcomes; its documentation explicitly delegates provider execution and provider-state transitions to separate workers/adapters. Verify production provider worker registration, credential isolation, webhook authentication, scheduling, alerting and manual reconciliation procedures before assigning production maturity. |
+| P1 | POS checkout saga spans independent capability transactions | The checkout orchestrator coordinates stock reservation, payment obligation creation and checkout-state updates through ports. This is correctly a saga boundary, not a distributed database transaction. Verify compensation/recovery behavior for every crash point, including reservation success before checkout persistence, payment creation before payment ID persistence, late success and duplicate provider callbacks. |
+| P2 | POS checkout persistence and sale-command idempotency use different transaction mechanisms | Checkout session repository uses its own JDBC connection and optimistic versioning; sale command idempotency uses a JTA transaction around its supplier. Keep these boundaries explicit and test cross-capability crash recovery rather than assuming they are atomic together. |
+
+### Architecture interpretation
+
+- The neutral Payment capability is a strong reusable foundation for POS, billing, commerce and other consumers: consumers use a stable application port; Payment owns obligation/refund state, tenant authorization, idempotency, provider outcome validation and its outbox.
+- Keep payment provider execution and external delivery outside the domain model. The outbox is at-least-once, so consumers must be idempotent.
+- Do not let POS write Payment tables or own provider-specific lifecycle semantics.
+- The legacy entity-oriented PaymentService should be treated as a separate compatibility surface until its runtime consumers and migration path are verified; do not merge its model into the neutral obligation API by assumption.
+- Checkout should remain a saga with explicit UNKNOWN/PENDING/late-success handling and observable compensation/recovery, not a cross-capability shared transaction.
+
+### Verification limits and next actions
+
+- Source and PostgreSQL Testcontainers test files were inspected, but no Maven build or test command was executed in this pass.
+- Provider adapter implementations, runtime worker wiring, webhook security, production scheduling and end-to-end POS crash-recovery tests remain to be verified.
+- Next source trace: inventory stock reservation/commit/release and accounting posting handoffs; then inspect CRM/workforce workflows and map all findings into a single prioritized M0.6 backlog.
