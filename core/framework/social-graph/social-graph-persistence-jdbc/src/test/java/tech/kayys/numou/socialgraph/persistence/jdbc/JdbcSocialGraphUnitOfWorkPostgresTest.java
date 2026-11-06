@@ -15,6 +15,8 @@ import tech.kayys.numou.socialgraph.domain.SocialRelationshipId;
 import tech.kayys.numou.socialgraph.domain.SocialRelationshipType;
 import tech.kayys.numou.socialgraph.spi.SocialGraphIdempotencyRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphOutboxEvent;
+import tech.kayys.numou.socialgraph.spi.SocialRelationshipIdempotencyRecord;
+import tech.kayys.numou.socialgraph.spi.SocialRelationshipAuditRecord;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -72,6 +74,42 @@ class JdbcSocialGraphUnitOfWorkPostgresTest {
         assertThat(uow.execute(tx -> tx.findActiveRelationship(
                 tenant, SocialRelationshipType.FOLLOW, source, target)).await().indefinitely())
                 .isEmpty();
+    }
+
+    @Test
+    void commitsRelationshipIdempotencyAuditAndTypedOutboxAtomically() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        JdbcSocialGraphUnitOfWork uow = new JdbcSocialGraphUnitOfWork(dataSource);
+        TenantId tenant = TenantId.generate();
+        PartyId actor = PartyId.generate();
+        PartyId target = PartyId.generate();
+        Instant now = Instant.parse("2026-11-06T00:00:00Z");
+        SocialRelationship relationship = SocialRelationship.create(
+                SocialRelationshipId.generate(), tenant, SocialRelationshipType.FOLLOW,
+                actor, target, now, now, null, "manual", java.util.Map.of());
+
+        uow.execute(tx -> {
+            tx.insertRelationship(relationship);
+            tx.saveRelationshipIdempotency(new SocialRelationshipIdempotencyRecord(
+                    tenant, "follow-key", "FOLLOW:" + actor + ":" + target, relationship.id(), now));
+            tx.appendRelationshipAudit(new SocialRelationshipAuditRecord(
+                    UUID.randomUUID(), tenant, relationship.id(), actor, "FOLLOW", "follow-key", now));
+            tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), tenant, actor,
+                    "RELATIONSHIP", relationship.id().value(), 0,
+                    "social-graph.relationship.follow.v1", 1, now,
+                    "{\\"relationshipId\\":\\"" + relationship.id() + "\\"}"));
+            return null;
+        }).await().indefinitely();
+
+        assertThat(uow.execute(tx -> tx.findRelationship(tenant, relationship.id()))
+                .await().indefinitely()).isPresent();
+        assertThat(uow.execute(tx -> tx.findRelationshipIdempotency(tenant, "follow-key"))
+                .await().indefinitely()).contains(new SocialRelationshipIdempotencyRecord(
+                        tenant, "follow-key", "FOLLOW:" + actor + ":" + target, relationship.id(), now));
+        assertThat(count(dataSource, "sg_relationship_audit")).isEqualTo(1);
+        assertThat(count(dataSource, "sg_outbox")).isEqualTo(1);
+        assertThat(count(dataSource, "sg_relationship_command_idempotency")).isEqualTo(1);
     }
 
     @Test
