@@ -57,11 +57,16 @@ public class OAuthJWKSResource {
     @Produces("application/jwk-set+json")
     public Response jwks(@HeaderParam(HttpHeaders.IF_NONE_MATCH) String ifNoneMatch) {
         try {
-            byte[] document = Files.readAllBytes(java.nio.file.Path.of(jwksLocation));
+            java.nio.file.Path jwksFile = java.nio.file.Path.of(jwksLocation);
+            long fileSize = Files.size(jwksFile);
+            if (fileSize == 0 || fileSize > MAX_JWKS_BYTES) {
+                return unavailable();
+            }
+            byte[] document = Files.readAllBytes(jwksFile);
             if (document.length == 0 || document.length > MAX_JWKS_BYTES) {
                 return unavailable();
             }
-            RSAPublicKey activePublicKey = readActivePublicKey(FilePath.of(publicKeyLocation));
+            RSAPublicKey activePublicKey = readActivePublicKey(java.nio.file.Path.of(publicKeyLocation));
             validateJwks(document, activeKeyId, activePublicKey);
 
             String etag = "\"" + HexFormat.of().formatHex(
@@ -92,6 +97,17 @@ public class OAuthJWKSResource {
         Set<String> seenKids = new HashSet<>();
         boolean activeKeyFound = false;
         for (JsonNode key : keys) {
+            if (!key.isObject()) {
+                throw new IOException("JWKS keys must be JSON objects");
+            }
+            // Check every JWK before filtering by key type/use: the endpoint
+            // returns the original document, so no private member may appear
+            // even on a key that is not eligible for RS256 verification.
+            for (String privateMember : PRIVATE_JWK_MEMBERS) {
+                if (key.has(privateMember)) {
+                    throw new IOException("JWKS must not expose private key material");
+                }
+            }
             if (!"RSA".equals(key.path("kty").asText())) {
                 continue;
             }
@@ -101,11 +117,6 @@ public class OAuthJWKSResource {
             if (!"sig".equals(use) || !"RS256".equals(alg)
                     || (operations != null && (!operations.isArray() || !contains(operations, "verify")))) {
                 continue;
-            }
-            for (String privateMember : PRIVATE_JWK_MEMBERS) {
-                if (key.has(privateMember)) {
-                    throw new IOException("JWKS must not expose private key material");
-                }
             }
 
             String kid = key.path("kid").asText();
