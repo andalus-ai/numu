@@ -93,19 +93,19 @@ public class JdbcAttendeeProfileRepository implements AttendeeProfileRepository 
                 }
                 connection.commit();
                 return profile;
-            } catch (SQLException | RuntimeException failure) {
-                rollback(connection, failure);
-                if (failure instanceof SQLException sql) {
-                    if (isProfileUniqueViolation(sql)) {
-                        throw new AttendeeProfileAlreadyExistsException(
-                                "An attendee profile already exists for this Party and profile kind", sql);
-                    }
-                    if ("23503".equals(sql.getSQLState())) {
-                        throw new IllegalArgumentException(
-                                "The referenced canonical Party does not exist", sql);
-                    }
-                    throw persistenceFailure("save attendee profile", sql);
+            } catch (SQLException sql) {
+                rollback(connection, sql);
+                if (isProfileUniqueViolation(sql)) {
+                    throw new AttendeeProfileAlreadyExistsException(
+                            "An attendee profile already exists for this Party and profile kind", sql);
                 }
+                if ("23503".equals(sql.getSQLState())) {
+                    throw new IllegalArgumentException(
+                            "The referenced canonical Party does not exist", sql);
+                }
+                throw persistenceFailure("save attendee profile", sql);
+            } catch (RuntimeException failure) {
+                rollback(connection, failure);
                 throw failure;
             }
         } catch (SQLException e) {
