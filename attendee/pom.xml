@@ -16,5 +16,6 @@
     <modules>
         <module>attendee-domain</module>
         <module>attendee-application</module>
+        <module>attendee-postgres-adapter</module>
     </modules>
 </project>
