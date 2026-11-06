@@ -51,8 +51,8 @@ public class OAuthJWKSResource {
     @Inject
     public OAuthJWKSResource(
             @ConfigProperty(name = "numou.oauth.access-token.jwks.location") String jwksLocation,
-            @ConfigProperty(name = "numou.oauth.access-token.signing-key-id") String activeKeyId,
-            @ConfigProperty(name = "mp.jwt.verify.publickey.location") String publicKeyLocation) {
+            @ConfigProperty(name = "numou.identity.jwt.signing-key-id") String activeKeyId,
+            @ConfigProperty(name = "numou.identity.jwt.active-public-key.location") String publicKeyLocation) {
         this.jwksLocation = jwksLocation;
         this.activeKeyId = activeKeyId;
         this.publicKeyLocation = publicKeyLocation;
