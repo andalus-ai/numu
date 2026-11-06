@@ -15,6 +15,7 @@ import tech.kayys.numou.security.domain.identifier.PrincipalId;
 import tech.kayys.numou.socialgraph.application.SocialGraphAccessDeniedException;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationship;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -105,5 +106,11 @@ class AuthenticatedSocialGraphCommandGatewayTest {
         @Override public Uni<SocialConnection> rejectConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
         @Override public Uni<SocialConnection> cancelConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
         @Override public Uni<SocialConnection> removeConnection(TenantId t, IdentitySubjectRef s, SocialConnectionId id, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialRelationship> follow(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialRelationship> unfollow(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialRelationship> block(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialRelationship> unblock(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialRelationship> mute(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
+        @Override public Uni<SocialRelationship> unmute(TenantId t, IdentitySubjectRef s, PartyId p, String k) { return Uni.createFrom().nullItem(); }
     }
 }
