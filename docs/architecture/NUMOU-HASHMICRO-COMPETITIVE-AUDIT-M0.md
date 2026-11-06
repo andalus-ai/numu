@@ -337,3 +337,46 @@ These are module-boundary observations only. The next source-level audit must in
 7. Workforce and construction: one representative end-to-end workflow each, including policy and financial integration.
 
 No source-level workflow completeness or current CI pass is asserted by this topology update.
+
+## 13. M0.3 source trace — Accounting (2026-11-06)
+
+This pass traced the journal domain model, posting/reversal handlers, fiscal-period and close services, persistence ports, adapter wiring, and selected tests/migrations on current `main`. It is an implementation trace, not a production-readiness certification.
+
+### Verified implemented behavior
+
+| Area | Evidence | What is demonstrated |
+|---|---|---|
+| Journal lifecycle | `numou-accounting-domain/.../domain/model/JournalEntry.java` | Draft, pending approval, approved, posted and reversed states; maker/checker metadata; non-empty and balanced-entry checks; storno reversal construction |
+| Balance precision | `numou-accounting-domain/.../JournalEntryBalanceTest.java` | Numeric comparison avoids scale-sensitive BigDecimal equality; unbalanced entries are rejected |
+| Tenant/ledger journal lookup | `numou-accounting-application/.../port/JournalEntryRepository.java`; `numou-accounting-adapter/.../InMemoryJournalEntryRepository.java` | Scoped lookup methods exist; in-memory implementation filters by both tenant and ledger; a scope test covers tenant and ledger separation |
+| Journal schema | `numou-accounting-adapter/src/main/resources/db/migration/V2__journal_entry_tables.sql`; `V14__general_ledger_tenant_ledger_scope.sql` | Tenant and ledger columns, scoped account uniqueness, journal-line tenant/ledger columns, composite foreign keys, and supporting indexes |
+| Event durability shape | `.../V3__transactional_outbox.sql` | Outbox table stores tenant and ledger context and has an unprocessed-event index |
+| Reversal orchestration | `numou-accounting-application/.../ReverseJournalEntryHandler.java` | Loads original journal by tenant/ledger, creates and posts a reversal, marks original reversed, and reverses account movements |
+| Close workflow behavior | `numou-accounting-application/.../FinancialCloseServiceTest.java` | Unit test covers task completion, validation, approval, lock and rejection of posting through the lock engine |
+
+### Material gaps and risks requiring remediation
+
+| Priority | Finding | Evidence and impact |
+|---|---|---|
+| P0 | Journal posting is not shown to be atomic across ledger mutation, journal persistence and outbox persistence | `PostJournalEntryHandler.handle` saves each changed account, then the journal, then outbox events and projections. The handler has no visible transaction boundary. The adapter module exposes in-memory account, journal and outbox repositories as application-scoped beans; the inspected source tree did not expose a PostgreSQL journal/account/outbox repository implementation. A failure between these steps can leave partial accounting state unless a higher composition boundary supplies a transaction (not evidenced in this trace). |
+| P0 | Fiscal-period lookup is not tenant/ledger scoped | `FiscalPeriodRepository.findActivePeriod(LocalDate)` accepts only a date; `InMemoryFiscalPeriodRepository` returns the first matching period. `PostJournalEntryHandler` uses this lookup for strict-period checks. This cannot reliably distinguish different tenants' or ledgers' fiscal calendars. |
+| P0 | Financial-close state and period locks are process-local | `FinancialCloseService` stores cycles in a `ConcurrentHashMap`; `PeriodLockEngine` stores locks in a process-local set. `AccountingServiceProducer` wires these implementations directly. Restart, horizontal scaling or deployment across multiple instances can lose or disagree on close/lock state. |
+| P1 | The accounting `IdempotencyGuard` is process-local and not demonstrated on journal command execution | `IdempotencyGuard` uses a `ConcurrentHashMap` set. The producer exposes it as a bean, but the inspected `PostJournalEntryHandler` and `CommandBus` registration do not use it. The `processed_command` migration creates a table with a globally unique `request_id`, but the inspected path does not establish tenant-scoped reservation, payload fingerprint validation, durable result replay or atomic coupling to journal posting. |
+| P1 | Posting handler account updates and journal writes need concurrency protection | The handler loads and saves account aggregates one line at a time. The inspected path does not show optimistic version checks or a single database transaction protecting concurrent postings to the same account. |
+| P1 | Reversal outbox aggregate identity needs review | `ReverseJournalEntryHandler` drains events raised by the original aggregate but writes each outbox row with the reversal ID as aggregate ID. Verify the intended event aggregate identity and ensure original/reversal events are not misattributed. |
+
+### Architectural interpretation
+
+1. Do not add another accounting or ledger capability. The existing Accounting capability owns journal, account, fiscal-period, posting, reversal and close invariants.
+2. Preserve the current domain/application contracts where sound, but make the production adapter path durable and transactionally consistent.
+3. Fiscal periods and close cycles must carry explicit tenant and ledger scope at their owning domain/application boundary; a date-only global lookup is insufficient for a multi-tenant, multi-ledger platform.
+4. Journal command idempotency must be durable, scoped, fingerprinted and coupled to the same transaction as ledger mutations and outbox writes. The POS implementation provides an existing repository pattern worth evaluating, but its schema/identity semantics should not be copied blindly.
+5. Close/period locks need durable persistence and cross-instance enforcement. The posting path must consult the same authoritative lock state that close operations mutate.
+6. Keep projection publication and external side effects behind reliable post-commit/outbox processing; a projection failure must not make an already committed journal appear unposted or encourage unsafe retries.
+
+### M0.3 verification limits and next actions
+
+- The inspected tests demonstrate selected domain, scope and close-service behavior; they do not demonstrate PostgreSQL-backed journal posting, atomic rollback, concurrent posting, durable close recovery or multi-instance lock enforcement.
+- The existence of SQL migrations and JDBC dependencies is not evidence that the corresponding production repository adapters are wired.
+- No Maven build or test command was run as part of this source-only trace; no CI result is claimed.
+- Next: inspect the payment lifecycle and its durable idempotency/outbox/provider recovery; then trace POS-to-payment and POS-to-inventory/accounting handoffs. After those traces, define a single Accounting hardening milestone with transaction, migration, recovery and concurrency acceptance tests.
