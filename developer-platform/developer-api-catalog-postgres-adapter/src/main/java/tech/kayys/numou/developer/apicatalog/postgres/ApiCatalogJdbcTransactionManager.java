@@ -71,7 +71,7 @@ public final class ApiCatalogJdbcTransactionManager implements UnitOfWork {
  private static void commit(Transaction tx){try{tx.connection.commit();}catch(SQLException e){throw translate(e);}}
  private static void rollback(Transaction tx,Throwable original){try{tx.connection.rollback();}catch(SQLException e){original.addSuppressed(e);}}
  private void cleanup(Transaction tx){current.remove();try{tx.connection.close();}catch(SQLException e){throw new IllegalStateException("Unable to close API catalog transaction",e);}}
- private static IllegalStateException translate(SQLException e){
+ private static RuntimeException translate(SQLException e){
   if("40001".equals(e.getSQLState()))return new PostgresApiProductRepository.OptimisticLockException("Concurrent API catalog update; reload and retry",e);
   return new IllegalStateException("API catalog PostgreSQL transaction failed",e);
  }
