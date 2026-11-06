@@ -32,6 +32,11 @@ public class ApiCatalogHandlerProducers {
     }
 
     @Produces @ApplicationScoped
+    GetApiSpecificationArtifactQueryHandler getSpecificationArtifact() {
+        return new GetApiSpecificationArtifactQueryHandler(repository, authorization, executionContext, specificationArtifacts);
+    }
+
+    @Produces @ApplicationScoped
     GetApiProductQueryHandler getProduct() {
         return new GetApiProductQueryHandler(repository, authorization, executionContext);
     }
