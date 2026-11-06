@@ -14,7 +14,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
-import java.nio.file.Path as FilePath;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.interfaces.RSAPublicKey;
@@ -58,7 +57,7 @@ public class OAuthJWKSResource {
     @Produces("application/jwk-set+json")
     public Response jwks(@HeaderParam(HttpHeaders.IF_NONE_MATCH) String ifNoneMatch) {
         try {
-            byte[] document = Files.readAllBytes(FilePath.of(jwksLocation));
+            byte[] document = Files.readAllBytes(java.nio.file.Path.of(jwksLocation));
             if (document.length == 0 || document.length > MAX_JWKS_BYTES) {
                 return unavailable();
             }
@@ -149,7 +148,7 @@ public class OAuthJWKSResource {
         }
     }
 
-    private static RSAPublicKey readActivePublicKey(FilePath path) throws Exception {
+    private static RSAPublicKey readActivePublicKey(java.nio.file.Path path) throws Exception {
         String pem = Files.readString(path);
         String encoded = pem.replace("-----BEGIN PUBLIC KEY-----", "")
                 .replace("-----END PUBLIC KEY-----", "").replaceAll("\\s", "");
