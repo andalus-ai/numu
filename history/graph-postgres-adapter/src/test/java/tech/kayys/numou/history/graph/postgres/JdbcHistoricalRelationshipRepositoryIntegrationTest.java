@@ -150,13 +150,22 @@ class JdbcHistoricalRelationshipRepositoryIntegrationTest {
             }
             connection.rollback();
         }
-        try (Connection connection = adminDataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "SELECT count(*) FROM historical_relationship_projection_outbox WHERE aggregate_id = ?")) {
-            statement.setObject(1, rolledBack.id().value());
-            try (var rows = statement.executeQuery()) {
-                rows.next();
-                assertEquals(0, rows.getLong(1), "rollback must remove both revision and outbox event");
+        try (Connection connection = adminDataSource.getConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT count(*) FROM historical_relationship_revision WHERE relationship_id = ?")) {
+                statement.setObject(1, rolledBack.id().value());
+                try (var rows = statement.executeQuery()) {
+                    rows.next();
+                    assertEquals(0, rows.getLong(1), "rollback must remove the relationship revision");
+                }
+            }
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT count(*) FROM historical_relationship_projection_outbox WHERE aggregate_id = ?")) {
+                statement.setObject(1, rolledBack.id().value());
+                try (var rows = statement.executeQuery()) {
+                    rows.next();
+                    assertEquals(0, rows.getLong(1), "rollback must remove the projection event");
+                }
             }
         }
     }
