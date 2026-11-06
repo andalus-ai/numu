@@ -25,7 +25,7 @@ class CreateAttendeeProfileHandlerTest {
     private final UUID trustedActor = UUID.randomUUID();
 
     @Test
-    void derivesTenantAndActorFromTrustedContextAndRejectsUnknownParty() {
+    void derivesTenantAndActorFromTrustedContextAndRequiresPartyAccessBeforePersistence() {
         var authorizationCalled = new AtomicBoolean();
         var repositoryCalled = new AtomicBoolean();
         var partyAccessCalled = new AtomicBoolean();
@@ -33,28 +33,7 @@ class CreateAttendeeProfileHandlerTest {
             partyAccessCalled.set(true);
             assertEquals(trustedTenant, tenantId);
             assertEquals(trustedActor, actorId);
-            return Uni.createFrom().voidItem();
-        };
-        var repository = new AttendeeProfileRepository() {
-            @Override
-            public Uni<tech.kayys.numou.attendee.domain.AttendeeProfile> save(
-                    tech.kayys.numou.attendee.domain.AttendeeProfile profile) {
-                repositoryCalled.set(true);
-                return Uni.createFrom().item(profile);
-            }
-
-            @Override
-            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantAndId(
-                    TenantId tenantId, UUID profileId) {
-                return Uni.createFrom().item(Optional.empty());
-            }
-
-            @Override
-            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantPartyAndKind(
-                    TenantId tenantId, UUID partyId, String profileKind) {
-                assertEquals(trustedTenant, tenantId);
-                return Uni.createFrom().item(Optional.empty());
-            }
+            return Uni.createFrom().failure(new SecurityException("party is not accessible"));
         };
         var context = (AttendeeTenantContextProvider) () ->
                 new AttendeeTenantContext(trustedTenant, trustedActor);
@@ -65,16 +44,32 @@ class CreateAttendeeProfileHandlerTest {
             assertEquals(AttendeeAuthorizationPort.Action.CREATE_PROFILE, request.action());
             return Uni.createFrom().voidItem();
         };
+        var trackingRepository = new AttendeeProfileRepository() {
+            @Override
+            public Uni<tech.kayys.numou.attendee.domain.AttendeeProfile> save(
+                    tech.kayys.numou.attendee.domain.AttendeeProfile profile) {
+                repositoryCalled.set(true);
+                return Uni.createFrom().item(profile);
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantAndId(
+                    TenantId tenantId, UUID profileId) {
+                return Uni.createFrom().item(Optional.empty());
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantPartyAndKind(
+                    TenantId tenantId, UUID partyId, String profileKind) {
+                repositoryCalled.set(true);
+                return Uni.createFrom().item(Optional.empty());
+            }
+        };
 
-        var handler = new CreateAttendeeProfileHandler(repository, partyAccess, context,
+        var handler = new CreateAttendeeProfileHandler(trackingRepository, partyAccess, context,
                 authorization, directUnitOfWork(), Clock.fixed(
                 Instant.parse("2026-11-06T00:00:00Z"), ZoneOffset.UTC));
 
-        var result = handler.handle(new CreateAttendeeProfileCommand(
-                UUID.randomUUID(), "EVENT_GUEST", "Guest", null, "id-ID")).await().indefinitely();
-
-        assertTrue(result.isFailure());
-        assertEquals("ATTENDEE_PARTY_NOT_FOUND", result.failureError().orElseThrow().code());
+        assertThrows(SecurityException.class, () -> handler.handle(new CreateAttendeeProfileCommand(
+                UUID.randomUUID(), "EVENT_GUEST", "Guest", null, "id-ID")).await().indefinitely());
         assertTrue(authorizationCalled.get());
         assertTrue(partyAccessCalled.get());
         assertFalse(repositoryCalled.get());
