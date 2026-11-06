@@ -68,6 +68,20 @@ class AttendeeProfileTest {
                 null, null, AttendeeProfileStatus.PENDING, NOW, NOW.minusSeconds(1), 0));
     }
 
+
+    @Test
+    void rejectsTextLengthsThatExceedThePersistenceContract() {
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "K".repeat(81), "Guest", null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT", "G".repeat(241), null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT", "Guest", null, "x".repeat(36), NOW));
+    }
+
     @Test
     void presentationUpdatesPreserveIdentityAndAdvanceRevision() {
         var original = pending();
