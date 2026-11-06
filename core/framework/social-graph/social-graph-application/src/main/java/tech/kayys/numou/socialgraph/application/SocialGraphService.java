@@ -174,12 +174,12 @@ final class SocialGraphService {
     private static void appendRelationshipEvent(SocialGraphTransaction tx, SocialRelationship relationship,
             PartyId actorPartyId, String action, Instant occurredAt) {
         String eventName = action.toLowerCase(java.util.Locale.ROOT);
-        String payload = "{\\"relationshipId\\":\\"" + relationship.id()
-                + "\\",\\"relationshipType\\":\\"" + relationship.type().name()
-                + "\\",\\"sourcePartyId\\":\\"" + relationship.sourcePartyId()
-                + "\\",\\"targetPartyId\\":\\"" + relationship.targetPartyId()
-                + "\\",\\"status\\":\\"" + relationship.status().name()
-                + "\\",\\"aggregateVersion\\":" + relationship.version() + "}";
+        String payload = "{\"relationshipId\":\"" + relationship.id()
+                + "\",\"relationshipType\":\"" + relationship.type().name()
+                + "\",\"sourcePartyId\":\"" + relationship.sourcePartyId()
+                + "\",\"targetPartyId\":\"" + relationship.targetPartyId()
+                + "\",\"status\":\"" + relationship.status().name()
+                + "\",\"aggregateVersion\":" + relationship.version() + "}";
         tx.appendOutbox(new SocialGraphOutboxEvent(UUID.randomUUID(), relationship.tenantId(),
                 actorPartyId, "RELATIONSHIP", relationship.id().value(), relationship.version(),
                 "social-graph.relationship." + eventName + ".v1", 1, occurredAt, payload));
