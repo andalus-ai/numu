@@ -20,6 +20,8 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -74,6 +76,38 @@ class JdbcAttendeeProfileRepositoryPostgresTest {
                 .await().indefinitely().isPresent());
         assertTrue(repository.findByTenantPartyAndKind(tenantB, partyId, "EVENT_GUEST")
                 .await().indefinitely().isPresent());
+    }
+
+
+    @Test
+    void concurrentCreateRequestsAreSerializedByDatabaseUniqueness() throws Exception {
+        UUID partyId = createParty();
+        TenantId tenantId = TenantId.generate();
+        var start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> attemptCreate(start, tenantId, partyId));
+            var second = executor.submit(() -> attemptCreate(start, tenantId, partyId));
+            start.countDown();
+
+            int created = (first.get() ? 1 : 0) + (second.get() ? 1 : 0);
+            assertEquals(1, created, "exactly one concurrent create must win");
+            assertTrue(repository.findByTenantPartyAndKind(tenantId, partyId, "EVENT_GUEST")
+                    .await().indefinitely().isPresent());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private boolean attemptCreate(CountDownLatch start, TenantId tenantId, UUID partyId)
+            throws InterruptedException {
+        start.await();
+        try {
+            repository.save(profile(tenantId, partyId, "EVENT_GUEST")).await().indefinitely();
+            return true;
+        } catch (AttendeeProfileAlreadyExistsException expected) {
+            return false;
+        }
     }
 
     @Test
