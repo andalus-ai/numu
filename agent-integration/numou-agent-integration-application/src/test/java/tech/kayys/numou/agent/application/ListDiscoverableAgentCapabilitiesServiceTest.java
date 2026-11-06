@@ -1,11 +1,9 @@
 package tech.kayys.numou.agent.application;
 
 import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ListDiscoverableAgentCapabilitiesServiceTest {
@@ -18,11 +16,13 @@ class ListDiscoverableAgentCapabilitiesServiceTest {
                 tool("numou.finance.transactions.list", "finance", "finance.read"),
                 tool("numou.workforce.profile.get", "workforce", "workforce.read"),
                 tool("numou.payroll.run", "payroll", "payroll.write"));
-
         DiscoverAgentToolsService discovery = new DiscoverAgentToolsService(
-                applicationId -> tools,
+                (applicationId, tenantId) -> {
+                    assertThat(applicationId).isEqualTo("erp-app");
+                    assertThat(tenantId).isEqualTo("tenant-9");
+                    return tools;
+                },
                 (caller, descriptor) -> caller.permissions().contains(descriptor.requiredPermission()));
-
         assertThat(new ListDiscoverableAgentCapabilitiesService(discovery).list(context))
                 .containsExactly("finance", "workforce");
     }
