@@ -76,7 +76,7 @@ class CreateAttendeeProfileHandlerTest {
     }
 
     @Test
-    void authorizationFailureStopsBeforePartyLookup() {
+    void authorizationFailureStopsBeforePartyAccess() {
         var partyAccessCalled = new AtomicBoolean();
         var partyAccess = (AttendeePartyAccessPort) (tenantId, actorId, partyId) -> {
             partyAccessCalled.set(true);
@@ -94,6 +94,56 @@ class CreateAttendeeProfileHandlerTest {
                 new CreateAttendeeProfileCommand(UUID.randomUUID(), "EVENT_GUEST",
                         "Guest", null, null)).await().indefinitely());
         assertFalse(partyAccessCalled.get());
+    }
+
+
+    @Test
+    void createsPendingProfileUsingTrustedTenantAndCanonicalPartyReference() {
+        var partyId = UUID.randomUUID();
+        var saved = new java.util.concurrent.atomic.AtomicReference<tech.kayys.numou.attendee.domain.AttendeeProfile>();
+        var repository = new AttendeeProfileRepository() {
+            @Override
+            public Uni<tech.kayys.numou.attendee.domain.AttendeeProfile> save(
+                    tech.kayys.numou.attendee.domain.AttendeeProfile profile) {
+                saved.set(profile);
+                return Uni.createFrom().item(profile);
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantAndId(
+                    TenantId tenantId, UUID profileId) {
+                return Uni.createFrom().item(Optional.empty());
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantPartyAndKind(
+                    TenantId tenantId, UUID requestedPartyId, String profileKind) {
+                assertEquals(trustedTenant, tenantId);
+                assertEquals(partyId, requestedPartyId);
+                assertEquals("EVENT_GUEST", profileKind);
+                return Uni.createFrom().item(Optional.empty());
+            }
+        };
+        var partyAccess = (AttendeePartyAccessPort) (tenantId, actorId, requestedPartyId) -> {
+            assertEquals(trustedTenant, tenantId);
+            assertEquals(trustedActor, actorId);
+            assertEquals(partyId, requestedPartyId.value());
+            return Uni.createFrom().voidItem();
+        };
+        var handler = new CreateAttendeeProfileHandler(repository, partyAccess,
+                () -> new AttendeeTenantContext(trustedTenant, trustedActor),
+                request -> Uni.createFrom().voidItem(), directUnitOfWork(),
+                Clock.fixed(Instant.parse("2026-11-06T00:00:00Z"), ZoneOffset.UTC));
+
+        var result = handler.handle(new CreateAttendeeProfileCommand(
+                partyId, "EVENT_GUEST", "Guest", "Preferred", "id-ID")).await().indefinitely();
+
+        assertTrue(result.isSuccess());
+        assertNotNull(saved.get());
+        assertEquals(trustedTenant, saved.get().tenantId());
+        assertEquals(partyId, saved.get().partyId().value());
+        assertEquals("Guest", saved.get().displayName());
+        assertEquals("Preferred", saved.get().preferredName());
+        assertEquals("id-ID", saved.get().preferredLanguage());
+        assertEquals(0, result.orElseThrow().revision());
     }
 
     private static UnitOfWork directUnitOfWork() {
