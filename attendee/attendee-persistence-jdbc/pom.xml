@@ -19,6 +19,16 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-ecosystem-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-foundation</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
