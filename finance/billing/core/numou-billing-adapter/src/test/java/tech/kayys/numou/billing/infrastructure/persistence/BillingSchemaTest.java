@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Table;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import tech.kayys.numou.billing.infrastructure.persistence.entity.BillingCycleEntity;
 import tech.kayys.numou.billing.infrastructure.persistence.entity.BillingScheduleEntity;
 import tech.kayys.numou.billing.infrastructure.persistence.entity.UsageRecordEntity;
 
@@ -23,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIfEnvironmentVariable(named = "BILLING_PG_URL", matches = ".+")
 class BillingSchemaTest {
 
-    static final List<String> MIGRATIONS = List.of("V1__billing_schema.sql");
+    static final List<String> MIGRATIONS = List.of("V1__billing_schema.sql", "V2__billing_cycles.sql");
 
     static Set<String> mappedColumns(Class<?> entity) {
         Set<String> columns = new TreeSet<>();
@@ -54,7 +55,7 @@ class BillingSchemaTest {
                         st.execute(new String(in.readAllBytes(), StandardCharsets.UTF_8));
                     }
                 }
-                for (Class<?> entity : List.of(BillingScheduleEntity.class, UsageRecordEntity.class)) {
+                for (Class<?> entity : List.of(BillingScheduleEntity.class, UsageRecordEntity.class, BillingCycleEntity.class)) {
                     String table = entity.getAnnotation(Table.class).name();
                     Set<String> mapped = mappedColumns(entity);
                     Set<String> existing = new TreeSet<>();
