@@ -153,9 +153,12 @@ class SocialGraphServiceTest {
         assertThatThrownBy(() -> service.unblock(
                 new SocialGraphActor(tenant, recipient), requester, "wrong-actor").await().indefinitely())
                 .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> service.block(
-                new SocialGraphActor(TenantId.generate(), requester), recipient, "other-tenant-key")
-                .await().indefinitely()).isInstanceOf(IllegalStateException.class);
+        TenantId otherTenant = TenantId.generate();
+        SocialRelationship otherTenantBlock = service.block(
+                new SocialGraphActor(otherTenant, requester), recipient, "other-tenant-key")
+                .await().indefinitely();
+        assertThat(otherTenantBlock.tenantId()).isEqualTo(otherTenant);
+        assertThat(otherTenantBlock.id()).isNotEqualTo(block.id());
     }
 
     @Test
