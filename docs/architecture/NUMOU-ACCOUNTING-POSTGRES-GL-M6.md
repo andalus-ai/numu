@@ -1,7 +1,7 @@
 # M6 — General Ledger PostgreSQL schema hardening
 
 **Branch:** `runtime/m6-accounting-postgres-gl`  
-**Status:** Schema migration added; repository implementation and integration verification remain follow-up work.
+**Status:** Schema migration and scoped account-query contract groundwork added; PostgreSQL repository implementation and integration verification remain follow-up work.
 
 ## Why this migration
 
@@ -21,9 +21,15 @@ The existing account domain aggregate is scoped by both `TenantRef` and `LedgerI
 
 The IDR backfill is a compatibility default for existing rows, not a claim that all historical balances were denominated in IDR. Before production migration, operators must confirm the currency of existing account data or replace the default in a tenant-specific migration. The migration intentionally does not rewrite monetary balances.
 
+## Scoped account-query groundwork
+
+The application port now exposes explicit tenant + ledger variants for account lookup by ID, lookup by account number, and listing. The in-memory adapter filters on both values, and the account REST read endpoints require both selectors. A focused adapter test covers cross-tenant and cross-ledger isolation.
+
+The old unscoped methods remain temporarily, marked deprecated, because existing application services and command handlers still call them. They are compatibility-only and must be migrated before the PostgreSQL implementation can become the default. The REST query parameters are selectors, not proof of authorization: the runtime must derive or authorize the tenant and ledger against the authenticated principal before exposing these endpoints in a production deployment. This tranche does not claim to complete authorization.
+
 ## Remaining M6 work
 
-1. Implement PostgreSQL AccountRepository with mandatory verified tenant scope and explicit ledger scope.
+1. Migrate all remaining unscoped AccountRepository callers, then remove the deprecated methods; implement PostgreSQL AccountRepository against the scoped contract.
 2. Implement JournalEntryRepository with atomic header + line persistence and full lifecycle reconstitution.
 3. Implement FiscalPeriodRepository with tenant/ledger ownership (the current FiscalPeriod aggregate does not yet carry those fields; resolve that domain boundary before writing its adapter).
 4. Implement outbox persistence in the same transaction as journal posting; do not claim atomic posting until the command transaction boundary is explicit.
