@@ -162,6 +162,27 @@ class SocialGraphServiceTest {
     }
 
     @Test
+    void relationshipCommandsRequireDedicatedPermission() {
+        var requested = new java.util.ArrayList<SocialGraphAuthorizationAction>();
+        SocialGraphService secured = new SocialGraphService(
+                uow, party -> Uni.createFrom().item(true),
+                (actor, action) -> requested.add(action),
+                Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
+
+        secured.follow(new SocialGraphActor(tenant, requester), recipient, "secured-follow")
+                .await().indefinitely();
+        assertThat(requested).containsExactly(SocialGraphAuthorizationAction.MANAGE_RELATIONSHIP);
+
+        SocialGraphService denied = new SocialGraphService(
+                uow, party -> Uni.createFrom().item(true),
+                (actor, action) -> { throw new SocialGraphAccessDeniedException(); },
+                Clock.fixed(Instant.parse("2026-11-04T00:00:00Z"), ZoneOffset.UTC));
+        assertThatThrownBy(() -> denied.mute(
+                new SocialGraphActor(tenant, requester), PartyId.generate(), "denied-mute")
+                .await().indefinitely()).isInstanceOf(SocialGraphAccessDeniedException.class);
+    }
+
+    @Test
     void relationshipIdempotencyKeyCannotBeReusedForAnotherCommand() {
         service.follow(new SocialGraphActor(tenant, requester), recipient, "relationship-shared")
                 .await().indefinitely();
