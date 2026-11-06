@@ -1,0 +1,11 @@
+package tech.kayys.numou.history.graph.application;
+import org.junit.jupiter.api.Test;import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore;import java.time.*;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+class HistoricalRelationshipProjectionDispatcherTest {
+ static final Instant NOW=Instant.parse("2026-01-01T00:00:00Z");
+ @Test void successUsesLeaseToken(){UUID token=UUID.randomUUID();Fake f=new Fake(event(token,1));var d=dispatcher(f,e->{});assertEquals(1,d.dispatch(5).published());assertEquals(token,f.token);}
+ @Test void failuresRetryThenDeadLetter(){Fake retry=new Fake(event(UUID.randomUUID(),1));assertEquals(1,dispatcher(retry,e->{throw new IllegalStateException("temporary");}).dispatch(5).scheduledForRetry());assertEquals(NOW.plusSeconds(2),retry.at);
+ Fake dead=new Fake(event(UUID.randomUUID(),4));assertEquals(1,dispatcher(dead,e->{throw new IllegalStateException("permanent");}).dispatch(5).deadLettered());}
+ static HistoricalRelationshipProjectionDispatcher dispatcher(Fake f,HistoricalRelationshipProjectionPort p){return new HistoricalRelationshipProjectionDispatcher(f,p,new HistoricalProjectionRetryPolicy(4,Duration.ofSeconds(2),Duration.ofSeconds(10)),Clock.fixed(NOW,ZoneOffset.UTC),"test-worker",Duration.ofSeconds(30));}
+ static HistoricalProjectionOutboxStore.ClaimedProjectionEvent event(UUID t,int n){return new HistoricalProjectionOutboxStore.ClaimedProjectionEvent(UUID.randomUUID(),"key","type",1,UUID.randomUUID(),UUID.randomUUID(),1,"{}",NOW,n,n,t,NOW.plusSeconds(30));}
+ static class Fake implements HistoricalProjectionOutboxStore{List<ClaimedProjectionEvent> events;UUID token;Instant at;Fake(ClaimedProjectionEvent e){events=List.of(e);}public List<ClaimedProjectionEvent> claimDue(String w,Instant n,Instant u,int l){return events;}public boolean markPublished(UUID id,UUID t,Instant n){token=t;return true;}public boolean scheduleRetry(UUID id,UUID t,Instant a,String e,Instant n){at=a;return true;}public boolean markDead(UUID id,UUID t,String e,Instant n){return true;}public List<DeadProjectionEvent> listDead(int l){return List.of();}public boolean requeueDead(UUID id,UUID a,Instant n){return true;}}
+}
