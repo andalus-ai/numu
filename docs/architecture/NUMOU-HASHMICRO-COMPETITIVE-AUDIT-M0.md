@@ -222,3 +222,69 @@ The following aggregator POMs were fetched from `main` on 2026-11-05. This is a 
 - Build an evidence-backed duplicate-model and reverse-dependency register.
 
 The sampled POMs are structural evidence only. No build, test, CI, runtime, or end-to-end workflow result is claimed by this update.
+
+
+## 11. M0.2 repository-wide topology and CI inventory — verified
+
+A recursive Git tree was fetched from `main` on 2026-11-06. GitHub reported `truncated=false`.
+
+| Measure | Verified result |
+|---|---:|
+| Git tree entries | 15,044 |
+| Maven POM files | 482 |
+| Top-level reactor POMs | 44 |
+| GitHub Actions workflow YAML files | 15 |
+
+The 44 top-level reactor POMs are: advertising, application-platform, asset, attendee, automotive-parts-purchasing, automotive-parts, budget, commerce, common, construction, core, corporate, crm, developer-platform, document, documents, education, events, finance, geo, history, hospitality, identity, logistics, mobility, notification, organization, product, project, quantity, queue-management, reservation, restaurant, scheduling, security, supply, support, survey, talent, tenancy, transport, vehicle-service, workforce and workspace. Each has a corresponding `pom.xml` one directory below the repository root.
+
+These are discovery-level aggregator candidates, not proof that each is an independent standalone reactor. Nested aggregators, module declarations, parent relationships and relative paths still need to be resolved.
+
+### Workflow catalog
+
+| Workflow | Verified scope from definition |
+|---|---|
+| `ci.yml` | Topology/dependency boundary checks; organization invitation, queue, wallet PostgreSQL, framework/logistics verification jobs |
+| `application-platform.yml` | Plugin manifest/resolver, tenant installation lifecycle, PostgreSQL installation store/outbox |
+| `crm-postgres.yml` | Migration order, tenant relationship constraints, ownership proposals and function privileges |
+| `payment-capability.yml` | Payment reactor verification |
+| `runtime-platform.yml` | Application runtime lifecycle tests |
+| `reliability-postgres-integration.yml` | Reliability adapter tests |
+| `advertising-capability.yml` | Advertising capability workflow |
+| `developer-platform.yml` | Developer platform workflow |
+| `events-ticketing.yml` | Events/ticketing workflow |
+| `history-postgres.yml` | Historical timeline PostgreSQL workflow |
+| `mobility-driver-location-postgres.yml` | Driver-location PostgreSQL workflow |
+| `notification-capability.yml` | Notification capability workflow |
+| `social-graph.yml` | Social graph workflow |
+| `transport-domain.yml` | Transport domain workflow |
+| `workspace-web-client.yml` | Workspace web-client workflow |
+
+The central CI workflow installs independent framework contracts and selected capability artifacts before consumer reactors. It also isolates some failures so other verification jobs can continue and upload reports. Workflow definitions do not prove that a recent run passed; run/job status and reports must be inspected independently.
+
+### CI coverage implication
+
+Numou has both broad CI and path-filtered capability workflows. A change may trigger one or both depending on paths and events. The audit must record the exact workflow trigger, reactor command, run, job outcome and report rather than count a workflow file as test evidence.
+
+## 12. M0.3 initial source-structure findings
+
+Directory inspection confirms:
+
+- Accounting has domain, application and adapter modules plus consolidation, governance, local-integration, payables, receivables, treasury and accounting capability extensions.
+- Payment separates API, core, gateway, merchant, method, PostgreSQL adapter, REST and gRPC concerns, plus processors.
+- POS has domain, application and adapter modules.
+- Inventory has domain, SPI, application and adapter modules.
+- Workspace REST is separate from workspace domain/application and persistence modules.
+
+These findings prove structural decomposition only, not end-to-end completeness. Concrete commands, ports, invariants, migrations, authorization and tests remain to be inspected.
+
+### M0.3 source-tracing targets
+
+1. Accounting: journal lifecycle, posting, reversal, period close, AP/AR and reconciliation.
+2. Payment: intent/attempt/settlement/refund, outbox/replay and provider integration.
+3. POS: cart/checkout/receipt/return and inventory/payment/accounting handoffs.
+4. Inventory: stock ledger, reservations, transfers, counts and valuation.
+5. CRM: tenant-local relationships, ownership and customer lifecycle.
+6. Workspace: tenant-scoped APIs, authorization-before-navigation and revision integrity.
+7. Workforce and construction: representative end-to-end workflows, including policy and financial integration.
+
+No source-level workflow completeness or current CI pass is asserted by this update.
