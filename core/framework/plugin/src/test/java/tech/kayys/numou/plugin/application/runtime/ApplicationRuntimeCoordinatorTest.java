@@ -142,4 +142,17 @@ class ApplicationRuntimeCoordinatorTest {
                 .hasMessageContaining("party-provider");
         assertThat(events).containsExactly("init:runtime.party.impl", "stop:runtime.party.impl");
     }
+
+    @Test
+    void rejectsOneRuntimeInstanceBoundToMultipleProvidersBeforeLifecycle() {
+        List<String> events = new ArrayList<>();
+        TestPlugin shared = new TestPlugin("runtime.shared.impl", "numou.party", "1.2.0", events, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+
+        assertThatThrownBy(() -> new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", shared, "accounting-provider", shared)))
+                .isInstanceOf(ApplicationRuntimeException.class)
+                .hasMessageContaining("Runtime plugin instance is bound to more than one provider");
+        assertThat(events).isEmpty();
+    }
 }
