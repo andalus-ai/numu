@@ -80,4 +80,18 @@ class AttendeeProfileTest {
         assertEquals("id-ID", changed.preferredLanguage());
         assertEquals(1, changed.revision());
     }
+
+    @Test
+    void enforcesTextLengthsBeforePersistence() {
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "K".repeat(81), "Guest", null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT_GUEST", "G".repeat(241), null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT_GUEST", "Guest", null, "l".repeat(36), NOW));
+    }
+
 }
