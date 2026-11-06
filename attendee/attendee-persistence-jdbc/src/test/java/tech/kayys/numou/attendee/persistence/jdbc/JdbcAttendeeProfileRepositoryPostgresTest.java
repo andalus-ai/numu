@@ -19,6 +19,8 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -124,6 +126,54 @@ class JdbcAttendeeProfileRepositoryPostgresTest {
         assertEquals(1, reloaded.revision());
     }
 
+
+    @Test
+    void concurrentCreatesAreSerializedByDatabaseUniqueness() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        var repository = new JdbcAttendeeProfileRepository(dataSource);
+        var tenantId = TenantId.generate();
+        var partyId = PartyId.generate();
+        var createdAt = Instant.parse("2026-11-06T00:00:00Z");
+        var first = AttendeeProfile.create(UUID.randomUUID(), tenantId, partyId,
+                "EVENT_GUEST", "First", null, null, createdAt);
+        var second = AttendeeProfile.create(UUID.randomUUID(), tenantId, partyId,
+                "EVENT_GUEST", "Second", null, null, createdAt);
+        var gate = new CountDownLatch(1);
+
+        var firstWrite = CompletableFuture.supplyAsync(() -> {
+            awaitGate(gate);
+            return saveOrConflict(repository, first);
+        });
+        var secondWrite = CompletableFuture.supplyAsync(() -> {
+            awaitGate(gate);
+            return saveOrConflict(repository, second);
+        });
+        gate.countDown();
+
+        int committed = (firstWrite.join() ? 1 : 0) + (secondWrite.join() ? 1 : 0);
+        assertEquals(1, committed);
+    }
+
+    private static void awaitGate(CountDownLatch gate) {
+        try {
+            gate.await();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while starting concurrent repository writes", interrupted);
+        }
+    }
+
+    private static boolean saveOrConflict(
+            JdbcAttendeeProfileRepository repository, AttendeeProfile profile) {
+        try {
+            repository.save(profile).await().indefinitely();
+            return true;
+        } catch (AttendeeProfileAlreadyExistsException expected) {
+            return false;
+        }
+    }
+
     private DataSource dataSource() {
         PGSimpleDataSource source = new PGSimpleDataSource();
         source.setURL(POSTGRES.getJdbcUrl());
@@ -133,7 +183,7 @@ class JdbcAttendeeProfileRepositoryPostgresTest {
     }
 
     private void migrate(DataSource dataSource) throws Exception {
-        String resource = "db/migration/V1__attendee_profiles.sql";
+        String resource = "db/migration/attendee/V1__attendee_profiles.sql";
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {
             assertNotNull(input, "Missing migration resource " + resource);
             String sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
