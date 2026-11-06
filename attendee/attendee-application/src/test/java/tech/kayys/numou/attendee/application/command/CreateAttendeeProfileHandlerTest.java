@@ -146,6 +146,42 @@ class CreateAttendeeProfileHandlerTest {
         assertEquals(0, result.orElseThrow().revision());
     }
 
+
+    @Test
+    void mapsConcurrentUniqueConstraintConflictToStableApplicationError() {
+        var tenantId = trustedTenant;
+        var partyId = UUID.randomUUID();
+        var repository = new AttendeeProfileRepository() {
+            @Override
+            public Uni<tech.kayys.numou.attendee.domain.AttendeeProfile> save(
+                    tech.kayys.numou.attendee.domain.AttendeeProfile profile) {
+                return Uni.createFrom().failure(
+                        new AttendeeProfileAlreadyExistsException("duplicate", null));
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantAndId(
+                    TenantId tenantId, UUID profileId) {
+                return Uni.createFrom().item(Optional.empty());
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantPartyAndKind(
+                    TenantId requestedTenant, UUID requestedParty, String profileKind) {
+                return Uni.createFrom().item(Optional.empty());
+            }
+        };
+        var handler = new CreateAttendeeProfileHandler(repository,
+                (tenant, actor, party) -> Uni.createFrom().voidItem(),
+                () -> new AttendeeTenantContext(tenantId, trustedActor),
+                request -> Uni.createFrom().voidItem(), directUnitOfWork(), Clock.systemUTC());
+
+        var result = handler.handle(new CreateAttendeeProfileCommand(
+                partyId, "EVENT_GUEST", "Guest", null, null)).await().indefinitely();
+
+        assertTrue(result.isFailure());
+        assertEquals("ATTENDEE_PROFILE_ALREADY_EXISTS",
+                result.failureError().orElseThrow().code());
+    }
+
     private static UnitOfWork directUnitOfWork() {
         return new UnitOfWork() {
             @Override
