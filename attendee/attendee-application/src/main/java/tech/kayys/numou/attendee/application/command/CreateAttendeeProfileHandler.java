@@ -66,7 +66,7 @@ public final class CreateAttendeeProfileHandler implements
                                             command.preferredName(), command.preferredLanguage(),
                                             clock.instant());
                                     return profiles.save(profile).map(saved ->
-                                            Result.success(new CreateAttendeeProfileResult(
+                                            Result.<CreateAttendeeProfileResult>success(new CreateAttendeeProfileResult(
                                                     saved.id(), saved.status(), saved.revision())));
                                 })));
     }
