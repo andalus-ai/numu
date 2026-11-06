@@ -19,6 +19,7 @@ public class ApiCatalogHandlerProducers {
     @Inject UnitOfWork unitOfWork;
     @Inject EventPublisher events;
     @Inject ApiSpecificationValidationPort specificationValidation;
+    @Inject ApiSpecificationArtifactStore specificationArtifacts;
 
     @Produces @ApplicationScoped
     CreateApiProductCommandHandler createProduct() {
@@ -43,6 +44,11 @@ public class ApiCatalogHandlerProducers {
     @Produces @ApplicationScoped
     PublishApiVersionCommandHandler publishVersion() {
         return new PublishApiVersionCommandHandler(repository, authorization, executionContext, unitOfWork, events, specificationValidation);
+    }
+
+    @Produces @ApplicationScoped
+    UploadApiSpecificationCommandHandler uploadSpecification() {
+        return new UploadApiSpecificationCommandHandler(repository, authorization, executionContext, specificationArtifacts);
     }
 
     @Produces @ApplicationScoped
