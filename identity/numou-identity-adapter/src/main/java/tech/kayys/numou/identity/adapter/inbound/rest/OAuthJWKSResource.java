@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
@@ -47,6 +48,7 @@ public class OAuthJWKSResource {
     private final String activeKeyId;
     private final String publicKeyLocation;
 
+    @Inject
     public OAuthJWKSResource(
             @ConfigProperty(name = "numou.oauth.access-token.jwks.location") String jwksLocation,
             @ConfigProperty(name = "numou.oauth.access-token.signing-key-id") String activeKeyId,
