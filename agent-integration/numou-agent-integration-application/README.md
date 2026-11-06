@@ -8,7 +8,7 @@ M1 implements:
 - Verified caller context (`AgentExecutionContext`).
 - Versioned, declarative tool metadata (`AgentToolDescriptor`).
 - Capability-owned tool provider and application capability-selection ports.
-- Capability-aware catalog adapter that filters providers by the application's selected capability set.
+- Capability-aware catalog adapter that filters providers by the tenant's selected application capability set.
 - Authorization-filtered, deterministic tool discovery.
 - Authorized tool description and discoverable capability listing.
 - Unit tests for capability filtering, authorization, deterministic ordering, caller context and approval metadata.
