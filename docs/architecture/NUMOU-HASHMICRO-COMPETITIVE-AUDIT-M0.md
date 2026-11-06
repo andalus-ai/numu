@@ -428,3 +428,35 @@ This pass traced the neutral Payment application API, PostgreSQL adapter, refund
 - Source and PostgreSQL Testcontainers test files were inspected, but no Maven build or test command was executed in this pass.
 - Provider adapter implementations, runtime worker wiring, webhook security, production scheduling and end-to-end POS crash-recovery tests remain to be verified.
 - Next source trace: inventory stock reservation/commit/release and accounting posting handoffs; then inspect CRM/workforce workflows and map all findings into a single prioritized M0.6 backlog.
+
+## 15. M0.3 source trace — Inventory and POS stock boundary (2026-11-06)
+
+### Verified Inventory capability behavior
+
+| Area | Evidence | What is demonstrated |
+|---|---|---|
+| Explicit tenant boundary | `TenantScopedInventoryService`; `TenantInventoryRepositoryProvider`; `PostgresTenantInventoryRepositoryProvider` | Application operations require tenant context; provider returns tenant-bound repository instances; PostgreSQL adapter also includes tenant predicates |
+| Durable stock ledger | `PostgresInventoryRepository`; `V1__inventory_ledger_and_reservations.sql` | Tenant-scoped items, warehouses, stock movements, reservations, stock locks and command receipts |
+| Atomic availability checks | `PostgresInventoryRepository` | Stock lock rows serialize competing writes; availability is checked and movement/reservation is persisted within adapter-managed JDBC transactions |
+| Idempotent commands | Same adapter and migration | Movement, issue, transfer and reservation commands persist payload fingerprints and result references; replay with a different payload is rejected |
+| Reservation lifecycle | `InventoryReservation.java`; `PostgresInventoryRepository.postReservedIssue` | ACTIVE reservations can be committed/released/expired; reserved issue checks scope, status, expiry, item, warehouse and quantity, then writes movement and commits reservation in one transaction |
+| Concurrency tests | `PostgresInventoryRepositoryTest.java` | Testcontainers tests cover tenant isolation, reservation replay/conflicting payloads and competing reservations against limited stock |
+
+### POS handoff observation
+
+- POS defines a tenant-scoped `CheckoutInventoryPort` with idempotent reserve, commit and release semantics.
+- `CheckoutOrchestrationService` uses that port as part of its retryable checkout saga; the checkout service does not write Inventory tables directly.
+- The repository tree inspection found the POS port and the Inventory provider/adapter, but did not identify a concrete class implementing `CheckoutInventoryPort` in the POS source paths inspected. A composition adapter may exist elsewhere or be supplied by a runtime; its registration and behavior remain unverified.
+- Until that composition is traced, do not claim the POS-to-Inventory integration is end-to-end complete. The correct design remains a narrow adapter from POS checkout operations to tenant-scoped Inventory reservation/commit/release APIs, with stable idempotency keys and compensation.
+
+### Prioritized findings
+
+| Priority | Finding | Action |
+|---|---|---|
+| P1 | POS-to-Inventory adapter/composition is not yet evidenced | Locate or implement the composition-owned adapter; verify CDI/runtime registration and contract tests. Keep Inventory as the owner of stock reservation and movement invariants. |
+| P1 | Checkout saga recovery needs cross-capability crash-point tests | Test reserve succeeds but checkout update fails; payment obligation succeeds but checkout attachment fails; payment remains UNKNOWN; late success after cancellation; duplicate commit/release; reservation expiry during recovery. |
+| P2 | Legacy non-idempotent Inventory SPI methods remain alongside idempotent overloads | Keep for compatibility only where required; new commerce/fulfillment consumers should use idempotent APIs. Add architecture or contract checks preventing accidental use of legacy operations in new integrations. |
+
+### M0.3 coverage note
+
+The Inventory PostgreSQL adapter and its Testcontainers tests provide stronger evidence for durable stock reservation and oversell prevention than directory structure alone. The remaining risk is integration composition and saga recovery across POS, Payment and Inventory—not a need for a second inventory or stock-reservation model.
