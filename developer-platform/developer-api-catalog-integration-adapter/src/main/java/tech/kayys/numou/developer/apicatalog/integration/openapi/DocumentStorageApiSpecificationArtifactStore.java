@@ -57,11 +57,10 @@ public final class DocumentStorageApiSpecificationArtifactStore implements ApiSp
         try {
             java.net.URI uri = java.net.URI.create(artifactReference);
             String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(java.util.Locale.ROOT);
-            if (!(scheme.equals("s3") || scheme.equals("rustfs")) || uri.getHost() == null
-                    || uri.getHost().isBlank() || uri.getUserInfo() != null || uri.getQuery() != null
-                    || uri.getFragment() != null || uri.getPort() != -1 || uri.getRawPath() == null
-                    || uri.getRawPath().length() < 2 || uri.getRawPath().contains("%2f")
-                    || uri.getRawPath().contains("%2F")) {
+            if (!(scheme.equals("s3") || scheme.equals("rustfs")) || !"api-catalog".equals(uri.getHost())
+                    || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
+                    || uri.getPort() != -1 || uri.getRawPath() == null
+                    || !uri.getRawPath().matches("/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/[a-fA-F0-9]{64}\\.openapi")) {
                 throw new IllegalArgumentException("Unsupported or unsafe artifact reference");
             }
             key = new StorageKey(tenant.value().toString(), uri.getHost() + uri.getRawPath());
@@ -79,7 +78,7 @@ public final class DocumentStorageApiSpecificationArtifactStore implements ApiSp
                             || metadata.contentLength() < 1 || metadata.contentLength() > 10 * 1024 * 1024) {
                         throw new IllegalStateException("Stored artifact metadata does not match requested tenant key");
                     }
-                    byte[] bytes = stored.content().readNBytes(10 * 1024 * 1024 + 1);
+                    byte[] bytes;\n                    try (java.io.InputStream input = stored.content()) {\n                        bytes = input.readNBytes(10 * 1024 * 1024 + 1);\n                    }
                     if (bytes.length > 10 * 1024 * 1024 || bytes.length != metadata.contentLength()) {
                         throw new IllegalStateException("Stored artifact length is invalid");
                     }
