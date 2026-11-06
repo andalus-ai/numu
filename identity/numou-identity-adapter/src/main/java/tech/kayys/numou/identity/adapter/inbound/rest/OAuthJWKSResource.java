@@ -2,6 +2,8 @@ package tech.kayys.numou.identity.adapter.inbound.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.runtime.Startup;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
@@ -31,6 +33,7 @@ import java.util.Set;
  * overlap during rotation. The active key must match the verifier public key
  * configured for this Identity instance before the document is served.
  */
+@Startup
 @ApplicationScoped
 @Path("/.well-known/jwks.json")
 public class OAuthJWKSResource {
@@ -51,6 +54,21 @@ public class OAuthJWKSResource {
         this.jwksLocation = jwksLocation;
         this.activeKeyId = activeKeyId;
         this.publicKeyLocation = publicKeyLocation;
+    }
+
+    @PostConstruct
+    void validateMountedKeySetAtStartup() {
+        try {
+            java.nio.file.Path jwksFile = java.nio.file.Path.of(jwksLocation);
+            long fileSize = Files.size(jwksFile);
+            if (fileSize == 0 || fileSize > MAX_JWKS_BYTES) {
+                throw new IOException("JWKS file size is outside supported bounds");
+            }
+            validateJwks(Files.readAllBytes(jwksFile), activeKeyId,
+                    readActivePublicKey(java.nio.file.Path.of(publicKeyLocation)));
+        } catch (Exception invalidConfiguration) {
+            throw new IllegalStateException("OAuth JWKS configuration is invalid", invalidConfiguration);
+        }
     }
 
     @GET
