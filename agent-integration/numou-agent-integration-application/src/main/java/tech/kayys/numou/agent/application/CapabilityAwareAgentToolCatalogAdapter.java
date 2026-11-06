@@ -29,9 +29,30 @@ public final class CapabilityAwareAgentToolCatalogAdapter implements AgentToolCa
                         "enabled capability IDs"));
         return providers.stream()
                 .filter(Objects::nonNull)
-                .filter(provider -> enabled.contains(provider.capabilityId()))
-                .flatMap(provider -> Objects.requireNonNull(provider.tools(), "provider tools").stream())
-                .filter(Objects::nonNull)
+                .filter(provider -> enabled.contains(requiredCapabilityId(provider)))
+                .flatMap(provider -> validatedTools(provider).stream())
+                .toList();
+    }
+
+    private String requiredCapabilityId(AgentToolProvider provider) {
+        String capabilityId = provider.capabilityId();
+        if (capabilityId == null || capabilityId.isBlank()) {
+            throw new IllegalStateException("Agent tool provider must declare a capability ID");
+        }
+        return capabilityId;
+    }
+
+    private List<AgentToolDescriptor> validatedTools(AgentToolProvider provider) {
+        String capabilityId = requiredCapabilityId(provider);
+        return Objects.requireNonNull(provider.tools(), "provider tools").stream()
+                .map(tool -> {
+                    Objects.requireNonNull(tool, "tool descriptor");
+                    if (!capabilityId.equals(tool.capabilityId())) {
+                        throw new IllegalStateException(
+                                "Tool " + tool.toolId() + " is not owned by provider capability " + capabilityId);
+                    }
+                    return tool;
+                })
                 .toList();
     }
 }
