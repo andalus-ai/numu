@@ -14,11 +14,6 @@
     <description>Application-neutral contracts and use cases for authorized agent tool discovery.</description>
     <dependencies>
         <dependency>
-            <groupId>tech.kayys.numou</groupId>
-            <artifactId>numou-plugin</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
