@@ -124,6 +124,10 @@ class SocialGraphServiceTest {
         @Override
         public <T> Uni<T> execute(java.util.function.Function<SocialGraphTransaction, T> work) {
             return Uni.createFrom().item(() -> work.apply(new SocialGraphTransaction() {
+                @Override public Optional<tech.kayys.numou.socialgraph.domain.SocialRelationship> findRelationship(TenantId tenant, tech.kayys.numou.socialgraph.domain.SocialRelationshipId id) { return Optional.empty(); }
+                @Override public Optional<tech.kayys.numou.socialgraph.domain.SocialRelationship> findActiveRelationship(TenantId tenant, tech.kayys.numou.socialgraph.domain.SocialRelationshipType type, PartyId source, PartyId target) { return Optional.empty(); }
+                @Override public void insertRelationship(tech.kayys.numou.socialgraph.domain.SocialRelationship relationship) { throw new UnsupportedOperationException(); }
+                @Override public void updateRelationship(tech.kayys.numou.socialgraph.domain.SocialRelationship relationship, int expectedVersion) { throw new UnsupportedOperationException(); }
                 @Override public Optional<SocialConnection> findConnection(TenantId tenant, SocialConnectionId id) {
                     return Optional.ofNullable(connections.get(id)).filter(c -> c.tenantId().equals(tenant));
                 }
