@@ -1,0 +1,26 @@
+name: Runtime Platform Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "core/framework/foundation/numou-foundation-application/**"
+      - ".github/workflows/runtime-platform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-lifecycle:
+    name: Application Runtime lifecycle tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Verify Application Runtime lifecycle
+        run: mvn -B -ntp -f core/framework/pom.xml -pl foundation/numou-foundation-application -am test

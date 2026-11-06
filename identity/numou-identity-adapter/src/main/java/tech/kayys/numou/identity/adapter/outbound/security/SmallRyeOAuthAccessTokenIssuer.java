@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 public class SmallRyeOAuthAccessTokenIssuer implements OAuthAccessTokenIssuerPort {
     @ConfigProperty(name = "smallrye.jwt.new-token.issuer") String issuer;
     @ConfigProperty(name = "numou.oauth.access-token.audience") String audience;
+    @ConfigProperty(name = "numou.identity.jwt.signing-key-id") String signingKeyId;
     @ConfigProperty(name = "numou.oauth.access-token.lifespan-seconds", defaultValue = "300") long lifespanSeconds;
 
     @Override
@@ -20,12 +21,17 @@ public class SmallRyeOAuthAccessTokenIssuer implements OAuthAccessTokenIssuerPor
                                          Set<String> scopes, long credentialVersion) {
         if (lifespanSeconds < 30 || lifespanSeconds > 900)
             throw new IllegalStateException("OAuth client token lifetime must be between 30 and 900 seconds");
+        if (signingKeyId == null || signingKeyId.isBlank() || signingKeyId.length() > 128)
+            throw new IllegalStateException("OAuth access-token signing key ID must be configured");
         String scope = scopes.stream().sorted().collect(Collectors.joining(" "));
         return Jwt.issuer(issuer).subject(clientId).audience(audience)
                 .claim("client_id", clientId).claim("tenant_id", tenantId.toString())
                 .claim("application_id", applicationId.toString()).claim("scope", scope)
+                // Quarkus @RolesAllowed consumes the standard groups claim. Each
+                // group is derived only from scopes authorized on this credential.
+                .claim("groups", Set.copyOf(scopes))
                 .claim("credential_version", credentialVersion).claim("token_use", "access")
                 .claim("jti", UUID.randomUUID().toString())
-                .expiresIn(Duration.ofSeconds(lifespanSeconds)).sign();
+                .expiresIn(Duration.ofSeconds(lifespanSeconds)).jws().keyId(signingKeyId).sign();
     }
 }

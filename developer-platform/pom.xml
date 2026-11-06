@@ -21,5 +21,6 @@
     <module>developer-api-catalog-application</module>
     <module>developer-api-catalog-postgres-adapter</module>
     <module>developer-api-catalog-integration-adapter</module>
+    <module>developer-api-catalog-rest-adapter</module>
   </modules>
 </project>

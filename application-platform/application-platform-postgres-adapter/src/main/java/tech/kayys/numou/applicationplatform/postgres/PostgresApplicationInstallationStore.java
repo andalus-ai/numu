@@ -1,6 +1,7 @@
 package tech.kayys.numou.applicationplatform.postgres;
 
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOutboxStore;
+import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationQueryPort;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationStore;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationTransitionStore;
 import tech.kayys.numou.applicationplatform.domain.installation.*;
@@ -23,7 +24,7 @@ import java.util.concurrent.CompletionStage;
  */
 public final class PostgresApplicationInstallationStore
         implements ApplicationInstallationStore, ApplicationInstallationTransitionStore,
-                   ApplicationInstallationOutboxStore {
+                   ApplicationInstallationOutboxStore, ApplicationInstallationQueryPort {
     private static final String SELECT_INSTALLATION = """
             SELECT id, tenant_id, application_id, package_version, package_digest, status,
                    revision, created_at, updated_at, created_by, updated_by, failure_code
@@ -95,6 +96,42 @@ public final class PostgresApplicationInstallationStore
             }
         } catch (SQLException failure) {
             return CompletableFuture.failedFuture(storageFailure("find installation", failure));
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
+        }
+    }
+
+    @Override
+    public CompletionStage<List<ApplicationInstallation>> findEnabled(TenantId tenantId) {
+        try {
+            Objects.requireNonNull(tenantId, "tenantId");
+            String sql = """
+                    SELECT id, tenant_id, application_id, package_version, package_digest, status,
+                           revision, created_at, updated_at, created_by, updated_by, failure_code
+                    FROM application_installations
+                    WHERE tenant_id=? AND status='ENABLED'
+                    ORDER BY application_id ASC
+                    """;
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    setTenant(connection, tenantId);
+                    List<ApplicationInstallation> installations = new ArrayList<>();
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statement.setObject(1, tenantId.value());
+                        try (ResultSet result = statement.executeQuery()) {
+                            while (result.next()) installations.add(readInstallation(result));
+                        }
+                    }
+                    connection.commit();
+                    return CompletableFuture.completedFuture(List.copyOf(installations));
+                } catch (SQLException | RuntimeException failure) {
+                    rollback(connection, failure);
+                    throw failure;
+                }
+            }
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("find enabled application installations", failure));
         } catch (RuntimeException failure) {
             return CompletableFuture.failedFuture(failure);
         }
