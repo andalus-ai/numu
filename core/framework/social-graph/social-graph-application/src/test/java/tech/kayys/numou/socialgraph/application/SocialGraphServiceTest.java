@@ -6,6 +6,12 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationship;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipStatus;
+import tech.kayys.numou.socialgraph.domain.SocialRelationshipType;
+import tech.kayys.numou.socialgraph.spi.SocialRelationshipIdempotencyRecord;
+import tech.kayys.numou.socialgraph.spi.SocialRelationshipAuditRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphIdempotencyRecord;
 import tech.kayys.numou.socialgraph.spi.SocialGraphOutboxEvent;
 import tech.kayys.numou.socialgraph.spi.SocialGraphTransaction;
@@ -115,8 +121,57 @@ class SocialGraphServiceTest {
         assertThat(uow.idempotency).isEmpty();
     }
 
+    @Test
+    void directedRelationshipCommandsAreIdempotentAndAudited() {
+        SocialGraphActor actor = new SocialGraphActor(tenant, requester);
+        SocialRelationship followed = service.follow(actor, recipient, "follow-1").await().indefinitely();
+        SocialRelationship replay = service.follow(actor, recipient, "follow-1").await().indefinitely();
+
+        assertThat(replay.id()).isEqualTo(followed.id());
+        assertThat(followed.type()).isEqualTo(SocialRelationshipType.FOLLOW);
+        assertThat(uow.relationships).hasSize(1);
+        assertThat(uow.events).hasSize(1);
+        assertThat(uow.relationshipAudits).hasSize(1);
+        assertThat(uow.relationshipIdempotency).hasSize(1);
+
+        SocialRelationship removed = service.unfollow(actor, recipient, "unfollow-1").await().indefinitely();
+        assertThat(removed.status()).isEqualTo(SocialRelationshipStatus.REMOVED);
+        assertThat(removed.version()).isEqualTo(1);
+        assertThat(uow.relationshipAudits).hasSize(2);
+        assertThat(uow.events).hasSize(2);
+    }
+
+    @Test
+    void relationshipCommandsAreTenantAndActorScopedAndTypesRemainDistinct() {
+        SocialGraphActor actor = new SocialGraphActor(tenant, requester);
+        SocialRelationship block = service.block(actor, recipient, "block-1").await().indefinitely();
+        SocialRelationship mute = service.mute(actor, recipient, "mute-1").await().indefinitely();
+
+        assertThat(block.type()).isEqualTo(SocialRelationshipType.BLOCK);
+        assertThat(mute.type()).isEqualTo(SocialRelationshipType.MUTE);
+        assertThat(block.id()).isNotEqualTo(mute.id());
+        assertThatThrownBy(() -> service.unblock(
+                new SocialGraphActor(tenant, recipient), requester, "wrong-actor").await().indefinitely())
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.block(
+                new SocialGraphActor(TenantId.generate(), requester), recipient, "other-tenant-key")
+                .await().indefinitely()).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void relationshipIdempotencyKeyCannotBeReusedForAnotherCommand() {
+        service.follow(new SocialGraphActor(tenant, requester), recipient, "relationship-shared")
+                .await().indefinitely();
+        assertThatThrownBy(() -> service.block(
+                new SocialGraphActor(tenant, requester), recipient, "relationship-shared")
+                .await().indefinitely()).isInstanceOf(IllegalStateException.class);
+    }
+
     private static final class MemoryUnitOfWork implements SocialGraphUnitOfWork {
         private final Map<SocialConnectionId, SocialConnection> connections = new HashMap<>();
+        private final Map<SocialRelationshipId, SocialRelationship> relationships = new HashMap<>();
+        private final Map<String, SocialRelationshipIdempotencyRecord> relationshipIdempotency = new HashMap<>();
+        private final java.util.List<SocialRelationshipAuditRecord> relationshipAudits = new java.util.ArrayList<>();
         private final Map<String, SocialGraphIdempotencyRecord> idempotency = new HashMap<>();
         private final Map<UUID, SocialGraphOutboxEvent> events = new HashMap<>();
         private final java.util.List<tech.kayys.numou.socialgraph.spi.SocialGraphAuditRecord> audits = new java.util.ArrayList<>();
@@ -124,10 +179,36 @@ class SocialGraphServiceTest {
         @Override
         public <T> Uni<T> execute(java.util.function.Function<SocialGraphTransaction, T> work) {
             return Uni.createFrom().item(() -> work.apply(new SocialGraphTransaction() {
-                @Override public Optional<tech.kayys.numou.socialgraph.domain.SocialRelationship> findRelationship(TenantId tenant, tech.kayys.numou.socialgraph.domain.SocialRelationshipId id) { return Optional.empty(); }
-                @Override public Optional<tech.kayys.numou.socialgraph.domain.SocialRelationship> findActiveRelationship(TenantId tenant, tech.kayys.numou.socialgraph.domain.SocialRelationshipType type, PartyId source, PartyId target) { return Optional.empty(); }
-                @Override public void insertRelationship(tech.kayys.numou.socialgraph.domain.SocialRelationship relationship) { throw new UnsupportedOperationException(); }
-                @Override public void updateRelationship(tech.kayys.numou.socialgraph.domain.SocialRelationship relationship, int expectedVersion) { throw new UnsupportedOperationException(); }
+                @Override public Optional<SocialRelationship> findRelationship(TenantId tenant, SocialRelationshipId id) {
+                    return Optional.ofNullable(relationships.get(id)).filter(r -> r.tenantId().equals(tenant));
+                }
+                @Override public Optional<SocialRelationship> findActiveRelationship(TenantId tenant, SocialRelationshipType type, PartyId source, PartyId target) {
+                    return relationships.values().stream().filter(r -> r.tenantId().equals(tenant))
+                            .filter(r -> r.type() == type && r.sourcePartyId().equals(source)
+                                    && r.targetPartyId().equals(target) && r.status() == SocialRelationshipStatus.ACTIVE)
+                            .findFirst();
+                }
+                @Override public void insertRelationship(SocialRelationship relationship) {
+                    if (findActiveRelationship(relationship.tenantId(), relationship.type(),
+                            relationship.sourcePartyId(), relationship.targetPartyId()).isPresent())
+                        throw new IllegalStateException("duplicate active relationship");
+                    relationships.put(relationship.id(), relationship);
+                }
+                @Override public void updateRelationship(SocialRelationship relationship, int expectedVersion) {
+                    SocialRelationship current = relationships.get(relationship.id());
+                    if (current == null || current.version() != expectedVersion)
+                        throw new IllegalStateException("relationship version conflict");
+                    relationships.put(relationship.id(), relationship);
+                }
+                @Override public Optional<SocialRelationshipIdempotencyRecord> findRelationshipIdempotency(TenantId tenant, String key) {
+                    return Optional.ofNullable(relationshipIdempotency.get(tenant + ":" + key));
+                }
+                @Override public void saveRelationshipIdempotency(SocialRelationshipIdempotencyRecord record) {
+                    relationshipIdempotency.put(record.tenantId() + ":" + record.key(), record);
+                }
+                @Override public void appendRelationshipAudit(SocialRelationshipAuditRecord record) {
+                    relationshipAudits.add(record);
+                }
                 @Override public Optional<SocialConnection> findConnection(TenantId tenant, SocialConnectionId id) {
                     return Optional.ofNullable(connections.get(id)).filter(c -> c.tenantId().equals(tenant));
                 }
