@@ -59,6 +59,7 @@ public class ApiCatalogResource {
     @Inject DeprecateApiVersionCommandHandler deprecateVersion;
     @Inject RetireApiVersionCommandHandler retireVersion;
     @Inject UploadApiSpecificationCommandHandler uploadSpecification;
+    @Inject GetApiSpecificationArtifactQueryHandler getSpecificationArtifact;
 
     @POST
     @Operation(summary = "Register an API product for the authenticated provider tenant")
