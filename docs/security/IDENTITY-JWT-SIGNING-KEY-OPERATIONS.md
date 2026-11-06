@@ -12,9 +12,9 @@ Configure these properties through the runtime environment:
   key, mounted read-only from the deployment secret manager (for example, a
   Vault Agent-rendered file).
 - `IDENTITY_JWT_PUBLIC_KEY_LOCATION`: filesystem path to the matching active public
-  key. This key is used to verify tokens issued by this Identity instance.
+  key. This key is checked against the active JWK in the published set; it is not the verifier key-set location.
 - `IDENTITY_JWT_SIGNING_KEY_ID`: stable, non-secret `kid` value stamped into newly
-  issued OAuth machine access tokens.
+  issued Identity JWTs, including user, tenant-selection, tenant-access, and OAuth machine access tokens.
 - `IDENTITY_JWT_JWKS_LOCATION`: filesystem path to a deployment-managed public
   JWK Set JSON document. It contains the active public key and any previous
   public keys retained during the rotation overlap.
@@ -61,9 +61,12 @@ previous public keys during the rotation overlap:
 }
 ```
 
-The active kid is stamped into machine access tokens by the OAuth token
-issuer. All Identity instances participating in a rolling rotation must share
-a JWKS document containing the active public key for each live signer.
+The active kid is stamped into every Identity-issued JWT by the user, tenant,
+and OAuth token issuers. Identity itself verifies incoming JWTs against the
+same JWKS file via mp.jwt.verify.publickey.location, so older tokens remain
+verifiable while their public keys are retained. All Identity instances
+participating in a rolling rotation must share a JWKS document containing the
+active public key for each live signer.
 
 ## Rotation procedure
 
