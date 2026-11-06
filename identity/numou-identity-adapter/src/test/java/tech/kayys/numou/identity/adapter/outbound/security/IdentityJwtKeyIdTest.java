@@ -8,7 +8,6 @@ import io.smallrye.jwt.auth.principal.JWTParser;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Set;
 import java.util.UUID;
