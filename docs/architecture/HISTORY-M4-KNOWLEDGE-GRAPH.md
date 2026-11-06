@@ -17,12 +17,20 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Application authorization validates relationship access and both endpoint references.
 - Migration V2 writes one versioned projection event per relationship revision in the same transaction as the revision insert.
 - Migration V3 adds SKIP LOCKED batch claims, expiring fenced leases, separate lifetime/retry-window counters, and actor-attributed dead-letter replay audit.
-- Delivery uses at-least-once semantics with lease-token fencing, bounded exponential retry, and audited dead-letter replay.
 - Neo4j is an optional projection adapter only. It stores typed entity nodes and revisioned relationship nodes, scopes private projections by tenant, and ignores duplicate or stale revisions.
 - PostgreSQL remains authoritative; Neo4j is disposable and rebuildable.
+- Migration V4 adds a monotonic outbox sequence and durable rebuild checkpoints. A rebuild captures a high-water mark while holding a PostgreSQL SHARE table lock, so transactions that append later events cannot fall below the captured boundary.
+- Rebuild pages are keyset-paginated and tenant/public-scope isolated. A checkpoint advances only after every event in its page has been projected; replaying a page after interruption is safe because the Neo4j adapter is revision-idempotent.
+- Rebuild orchestration is an explicit application service; scheduling, authorization of maintenance operations, and runtime wiring remain host responsibilities.
+
+## Operational limits
+- Rebuild replays all retained outbox revisions through the captured high-water mark. It does not delete Neo4j nodes or relationships that have no corresponding canonical outbox event; destructive stale-node cleanup requires a separately staged generation/swap protocol and is intentionally not part of this replay operation.
+- Outbox retention must preserve all events required for a full rebuild. Do not purge projection events unless an independently verified canonical snapshot/rebuild source is introduced.
+- Concurrent rebuild workers may read the same page. Provider idempotency makes duplicate projection safe; checkpoint compare-and-set permits only one worker to advance the cursor.
 
 ## Deferred
-- Full projection rebuild/checkpoint orchestration and reconciliation.
+- Staged generation rebuild and atomic active-generation swap for destructive orphan cleanup.
+- Automated drift reports comparing canonical PostgreSQL state with Neo4j metadata.
 - M5 source claims, citations, evidence, conflicting assertions, and verification.
 - Graph query APIs, traversal limits, pagination, and bounded traversal protection.
 - Shared-corpus ingestion workflow and editorial authorization.
