@@ -6,6 +6,8 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tech.kayys.numou.attendee.application.error.AttendeeProfileAlreadyExistsException;
+import tech.kayys.numou.attendee.application.error.AttendeeProfileOptimisticLockException;
 import tech.kayys.numou.attendee.domain.AttendeeProfile;
 import tech.kayys.numou.attendee.domain.AttendeeProfileStatus;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
@@ -63,7 +65,7 @@ class JdbcAttendeeProfileRepositoryPostgresTest {
         TenantId tenantB = TenantId.generate();
 
         repository.save(profile(tenantA, partyId, "EVENT_GUEST")).await().indefinitely();
-        assertThrows(JdbcAttendeeProfileRepository.AttendeeProfileAlreadyExistsException.class,
+        assertThrows(AttendeeProfileAlreadyExistsException.class,
                 () -> repository.save(profile(tenantA, partyId, "EVENT_GUEST"))
                         .await().indefinitely());
 
@@ -88,7 +90,7 @@ class JdbcAttendeeProfileRepositoryPostgresTest {
 
         AttendeeProfile activated = first.activate(Instant.parse("2026-11-06T11:00:00Z"));
         repository.save(activated).await().indefinitely();
-        assertThrows(JdbcAttendeeProfileRepository.AttendeeProfileOptimisticLockException.class,
+        assertThrows(AttendeeProfileOptimisticLockException.class,
                 () -> repository.save(stale.activate(Instant.parse("2026-11-06T11:01:00Z")))
                         .await().indefinitely());
 
