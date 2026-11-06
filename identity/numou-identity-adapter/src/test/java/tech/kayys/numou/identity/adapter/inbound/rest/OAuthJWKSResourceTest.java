@@ -3,6 +3,9 @@ package tech.kayys.numou.identity.adapter.inbound.rest;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HexFormat;
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -11,6 +14,8 @@ import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class OAuthJWKSResourceTest {
 
@@ -72,6 +77,47 @@ class OAuthJWKSResourceTest {
         many.append("]}");
         assertThrows(IOException.class, () -> OAuthJWKSResource.validateJwks(
                 many.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), "key-active", active));
+    }
+
+    @Test
+    void servesValidatedJwksWithEtagAndConditionalGet() throws Exception {
+        RSAPublicKey active = generatePublicKey();
+        byte[] document = jwks(jwk("key-active", active));
+        Path directory = Files.createTempDirectory("identity-jwks-test");
+        Path jwksFile = directory.resolve("jwks.json");
+        Path publicKeyFile = directory.resolve("active-public.pem");
+        Files.write(jwksFile, document);
+        String pem = "-----BEGIN PUBLIC KEY-----\\n"
+                + Base64.getMimeEncoder(64, new byte[]{'\\n'}).encodeToString(active.getEncoded())
+                + "\\n-----END PUBLIC KEY-----\\n";
+        Files.writeString(publicKeyFile, pem);
+
+        OAuthJWKSResource resource = new OAuthJWKSResource(
+                jwksFile.toString(), "key-active", publicKeyFile.toString());
+        var response = resource.jwks(null);
+        assertEquals(200, response.getStatus());
+        assertArrayEquals(document, (byte[]) response.getEntity());
+        String etag = (String) response.getHeaderString("ETag");
+        org.junit.jupiter.api.Assertions.assertNotNull(etag);
+        assertEquals(304, resource.jwks(etag).getStatus());
+    }
+
+    @Test
+    void returnsUnavailableWhenMountedJwksDoesNotMatchActiveSigner() throws Exception {
+        RSAPublicKey active = generatePublicKey();
+        RSAPublicKey other = generatePublicKey();
+        Path directory = Files.createTempDirectory("identity-jwks-mismatch");
+        Path jwksFile = directory.resolve("jwks.json");
+        Path publicKeyFile = directory.resolve("active-public.pem");
+        Files.write(jwksFile, jwks(jwk("different-kid", other)));
+        String pem = "-----BEGIN PUBLIC KEY-----\\n"
+                + Base64.getMimeEncoder(64, new byte[]{'\\n'}).encodeToString(active.getEncoded())
+                + "\\n-----END PUBLIC KEY-----\\n";
+        Files.writeString(publicKeyFile, pem);
+
+        OAuthJWKSResource resource = new OAuthJWKSResource(
+                jwksFile.toString(), "key-active", publicKeyFile.toString());
+        assertEquals(503, resource.jwks(null).getStatus());
     }
 
     private static RSAPublicKey generatePublicKey() throws Exception {
