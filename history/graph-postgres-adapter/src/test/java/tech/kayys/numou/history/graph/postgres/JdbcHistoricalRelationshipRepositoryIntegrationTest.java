@@ -108,6 +108,59 @@ class JdbcHistoricalRelationshipRepositoryIntegrationTest {
         });
     }
 
+    @Test
+    void relationshipRevisionAndProjectionOutboxCommitAndRollbackTogether() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        HistoricalEntityReference subject = HistoricalEntityReference.person(HistoricalPersonId.generate());
+        HistoricalEntityReference object = HistoricalEntityReference.collective(HistoricalCollectiveId.generate());
+        HistoricalRelationship committed = relation(subject, object, "projection event");
+        assertTrue(repository().saveTenantScoped(tenant, committed, 0));
+
+        try (Connection connection = adminDataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     SELECT event_type, schema_version, tenant_id, aggregate_revision,
+                            payload->>'relationshipKind', payload->'subject'->>'kind'
+                       FROM historical_relationship_projection_outbox
+                      WHERE aggregate_id = ?
+                     """)) {
+            statement.setObject(1, committed.id().value());
+            try (var rows = statement.executeQuery()) {
+                assertTrue(rows.next());
+                assertEquals("history.relationship.revision-appended", rows.getString(1));
+                assertEquals(1, rows.getInt(2));
+                assertEquals(tenant, rows.getObject(3, UUID.class));
+                assertEquals(1, rows.getLong(4));
+                assertEquals("founded", rows.getString(5));
+                assertEquals("PERSON", rows.getString(6));
+                assertFalse(rows.next(), "one outbox event must exist for one aggregate revision");
+            }
+        }
+
+        HistoricalRelationship rolledBack = relation(subject, object, "must not escape rollback");
+        try (Connection connection = adminDataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            insertShared(connection, rolledBack);
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT count(*) FROM historical_relationship_projection_outbox WHERE aggregate_id = ?")) {
+                statement.setObject(1, rolledBack.id().value());
+                try (var rows = statement.executeQuery()) {
+                    rows.next();
+                    assertEquals(1, rows.getLong(1), "trigger writes the event in the same open transaction");
+                }
+            }
+            connection.rollback();
+        }
+        try (Connection connection = adminDataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT count(*) FROM historical_relationship_projection_outbox WHERE aggregate_id = ?")) {
+            statement.setObject(1, rolledBack.id().value());
+            try (var rows = statement.executeQuery()) {
+                rows.next();
+                assertEquals(0, rows.getLong(1), "rollback must remove both revision and outbox event");
+            }
+        }
+    }
+
     private static HistoricalRelationshipRepository repository() {
         return new JdbcHistoricalRelationshipRepository(appDataSource, VOCABULARY);
     }
@@ -173,6 +226,12 @@ class JdbcHistoricalRelationshipRepositoryIntegrationTest {
     }
 
     private static void insertShared(HistoricalRelationship relationship, DataSource source) throws Exception {
+        try (Connection connection = source.getConnection()) {
+            insertShared(connection, relationship);
+        }
+    }
+
+    private static void insertShared(Connection connection, HistoricalRelationship relationship) throws Exception {
         String sql = """
                 INSERT INTO historical_relationship_revision (
                     relationship_id, revision, tenant_id, subject_kind, subject_id, object_kind, object_id,
@@ -182,8 +241,7 @@ class JdbcHistoricalRelationshipRepositoryIntegrationTest {
                     valid_through_approximate, valid_through_expression, description, recorded_at, updated_at
                 ) VALUES (?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
-        try (Connection connection = source.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             var from = relationship.validDuring().from();
             var through = relationship.validDuring().through();
             statement.setObject(1, relationship.id().value());
