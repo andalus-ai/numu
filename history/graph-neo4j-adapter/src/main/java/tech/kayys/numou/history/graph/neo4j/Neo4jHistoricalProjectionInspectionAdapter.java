@@ -22,15 +22,15 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
 
     @Override
     public Optional<ProjectedRelationship> find(UUID tenantId, UUID relationshipId) {
-        String scope = scope(tenantId);
         String query = """
             MATCH (r:HistoricalRelationship {scopeKey:$scope, relationshipId:$id})
             RETURN r.relationshipId AS id, r.revision AS revision, r.eventKey AS eventKey,
                    r.relationshipKind AS relationshipKind, r.subjectKind AS subjectKind,
-                   r.subjectId AS subjectId, r.objectKind AS objectKind, r.objectId AS objectId
+                   r.subjectId AS subjectId, r.objectKind AS objectKind, r.objectId AS objectId,
+                   r.payloadHash AS payloadHash
             """;
         try (Session s = driver.session(SessionConfig.forDatabase(database))) {
-            var cursor = s.run(query, Values.parameters("scope", scope, "id", relationshipId.toString()));
+            var cursor = s.run(query, Values.parameters("scope", scope(tenantId), "id", relationshipId.toString()));
             if (!cursor.hasNext()) return Optional.empty();
             return Optional.of(map(cursor.single()));
         }
@@ -44,7 +44,8 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
             WHERE $after IS NULL OR r.relationshipId > $after
             RETURN r.relationshipId AS id, r.revision AS revision, r.eventKey AS eventKey,
                    r.relationshipKind AS relationshipKind, r.subjectKind AS subjectKind,
-                   r.subjectId AS subjectId, r.objectKind AS objectKind, r.objectId AS objectId
+                   r.subjectId AS subjectId, r.objectKind AS objectKind, r.objectId AS objectId,
+                   r.payloadHash AS payloadHash
             ORDER BY r.relationshipId
             LIMIT $limit
             """;
@@ -58,11 +59,12 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
     }
 
     private static ProjectedRelationship map(Record r) {
+        Value hash = r.get("payloadHash");
         return new ProjectedRelationship(UUID.fromString(r.get("id").asString()),
                 r.get("revision").asLong(), r.get("eventKey").asString(),
                 r.get("relationshipKind").asString(), r.get("subjectKind").asString(),
                 r.get("subjectId").asString(), r.get("objectKind").asString(),
-                r.get("objectId").asString());
+                r.get("objectId").asString(), hash.isNull() ? null : hash.asString());
     }
 
     private static String scope(UUID tenantId) {

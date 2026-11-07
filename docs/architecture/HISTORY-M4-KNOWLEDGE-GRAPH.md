@@ -1,4 +1,5 @@
 # History M4 — Typed Historical Knowledge Graph Domain
+
 ## Scope
 M4 adds a provider-neutral relationship model to the existing History entities domain. It does not introduce a second copy of people, collectives, places, or events.
 
@@ -17,14 +18,14 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Application authorization validates relationship access and both endpoint references.
 - Migration V2 writes one versioned projection event per relationship revision in the same transaction as the revision insert.
 - Migration V3 adds SKIP LOCKED batch claims, expiring fenced leases, separate lifetime/retry-window counters, and actor-attributed dead-letter replay audit.
-- Neo4j is an optional projection adapter only. It stores typed entity nodes and revisioned relationship nodes, scopes private projections by tenant, and ignores duplicate or stale revisions.
+- Neo4j is an optional projection adapter only. It stores typed entity nodes and revisioned relationship nodes, scopes private projections by tenant, and ignores stale revisions.
 - PostgreSQL remains authoritative; Neo4j is disposable and rebuildable.
 - Migration V4 adds a monotonic outbox sequence and durable rebuild checkpoints. A rebuild captures a high-water mark while holding a PostgreSQL SHARE table lock, so transactions that append later events cannot fall below the captured boundary.
 - Rebuild pages are keyset-paginated and tenant/public-scope isolated. A checkpoint advances only after every event in its page has been projected; replaying a page after interruption is safe because the Neo4j adapter is revision-idempotent.
-- Reconciliation reads the latest retained canonical event per relationship and compares its revision, event key, and SHA-256 payload fingerprint with the scoped Neo4j record. It also scans graph relationship IDs to report orphaned projections.
-- Missing, stale, and same-revision divergent graph rows can be repaired by replaying the exact immutable PostgreSQL event. A graph revision newer than PostgreSQL is reported as divergent and is never overwritten automatically.
-- Reconciliation is bounded by keyset pages and is read-only unless the caller explicitly enables repair. The host must authorize maintenance operations and supply the scheduler/runtime wiring.
-- The Neo4j projection adapter stores a payload fingerprint; same-revision replay can refresh an older projection that predates the fingerprint.
+- HistoricalProjectionAuditStore exposes bounded latest-canonical-event pages and exact latest-event lookup. HistoricalProjectionInspectionPort exposes bounded graph inspection without making Neo4j a dependency of the application layer.
+- Reconciliation compares the latest PostgreSQL event with the scoped Neo4j revision, event key, relationship kind, endpoint identities, and SHA-256 payload fingerprint. It also reports graph relationships with no canonical PostgreSQL relationship.
+- Missing, stale, and same-revision divergent graph records can be repaired by replaying the exact immutable canonical event. A graph revision newer than PostgreSQL is reported as divergent and is never overwritten automatically.
+- Reconciliation is bounded by keyset pages and read-only unless the caller explicitly enables repair. The host must authorize maintenance operations and provide scheduler/runtime wiring.
 
 ## Operational limits
 - Rebuild replays all retained outbox revisions through the captured high-water mark. It does not delete Neo4j nodes or relationships that have no corresponding canonical outbox event; reconciliation reports such records as orphaned but does not delete them.
