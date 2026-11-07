@@ -43,6 +43,9 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertTrue(repository.revise(tenant,revised,1));
   assertFalse(repository.revise(tenant,revised,1));
   assertEquals(2,repository.find(tenant,source.id()).orElseThrow().revision());
+  var archived=revised.archive(now.plusSeconds(3));
+  assertTrue(repository.revise(tenant,archived,2));
+  assertEquals(HistoricalSourceStatus.ARCHIVED,repository.find(tenant,source.id()).orElseThrow().status());
   var claim=HistoricalClaim.create(HistoricalClaimId.generate(),"EVENT","event-45","An event occurred.",now);
   assertTrue(repository.createClaim(tenant,claim));
   var evidence=ClaimEvidence.create(claim.id(),source.id(),EvidenceRelation.SUPPORTS,
