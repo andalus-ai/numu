@@ -58,7 +58,7 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
         return List.copyOf(result);
     }
 
-    private static ProjectedRelationship map(Record r) {
+    private static ProjectedRelationship map(org.neo4j.driver.Record r) {
         Value hash = r.get("payloadHash");
         return new ProjectedRelationship(UUID.fromString(r.get("id").asString()),
                 r.get("revision").asLong(), r.get("eventKey").asString(),
