@@ -24,7 +24,8 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
       var s=c.createStatement()) {
    s.execute("CREATE ROLE history_app LOGIN PASSWORD 'history-password' NOSUPERUSER NOBYPASSRLS");
    s.execute("GRANT USAGE ON SCHEMA public TO history_app");
-   s.execute("GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO history_app");
+   s.execute("GRANT SELECT, INSERT, UPDATE ON historical_source TO history_app");
+   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence TO history_app");
   }
   appDataSource=new PGSimpleDataSource(); appDataSource.setURL(POSTGRES.getJdbcUrl());
   appDataSource.setUser("history_app"); appDataSource.setPassword("history-password");
