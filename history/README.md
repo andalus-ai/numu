@@ -9,6 +9,7 @@ Historical knowledge foundation for chronology, events, people, collectives, pla
 - graph-application: trusted-tenant relationship use cases and lease-aware projection dispatcher/worker.
 - graph-postgres-adapter: authoritative append-only PostgreSQL relationship revisions, RLS isolation, transactional projection event capture, and fenced outbox delivery.
 - graph-neo4j-adapter: optional, disposable Neo4j projection for graph traversal; never the system of record.
+- source: tenant-scoped historical source catalog, immutable source revisions, claim registry, precise evidence locators, and contradictory/supporting evidence links. PostgreSQL is authoritative; source binaries remain in the shared document capability.
 
 ## Architecture
 An event, person, collective, or place is recorded once. Global, regional, civilization, biography, political, economic, scientific, religious, military, cultural, and comparative timelines are projections over canonical records, not separate entity stores.
