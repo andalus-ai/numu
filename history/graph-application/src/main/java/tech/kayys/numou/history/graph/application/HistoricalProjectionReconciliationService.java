@@ -9,20 +9,48 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Bounded, read-only drift audit. It never mutates canonical records or the graph.
- * Callers must supply tenant scope from a trusted maintenance/tenant context.
+ * Bounded, read-only drift audit. Scope is derived from trusted context and
+ * every public-corpus audit requires an explicit privileged authorization.
  */
 public final class HistoricalProjectionReconciliationService {
     private final HistoricalProjectionAuditStore canonical;
     private final HistoricalProjectionInspectionPort projection;
+    private final HistoricalRelationshipTenantContext tenantContext;
+    private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
 
     public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
-                                                       HistoricalProjectionInspectionPort projection) {
+                                                       HistoricalProjectionInspectionPort projection,
+                                                       HistoricalRelationshipTenantContext tenantContext,
+                                                       HistoricalProjectionMaintenanceAuthorizationPort authorization) {
         this.canonical = Objects.requireNonNull(canonical, "canonical");
         this.projection = Objects.requireNonNull(projection, "projection");
+        this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
+        this.authorization = Objects.requireNonNull(authorization, "authorization");
     }
 
-    public AuditPage auditCanonicalPage(UUID tenantId, String afterRelationshipId, int limit) {
+    public AuditPage auditTenantCanonicalPage(String afterRelationshipId, int limit) {
+        UUID tenantId = requireTenant();
+        authorization.requireCanAuditTenant(tenantId);
+        return auditCanonicalPage(tenantId, afterRelationshipId, limit);
+    }
+
+    public AuditPage auditPublicCanonicalPage(String afterRelationshipId, int limit) {
+        authorization.requireCanAuditPublicCorpus();
+        return auditCanonicalPage(null, afterRelationshipId, limit);
+    }
+
+    public AuditPage auditTenantOrphanPage(String afterRelationshipId, int limit) {
+        UUID tenantId = requireTenant();
+        authorization.requireCanAuditTenant(tenantId);
+        return auditOrphanPage(tenantId, afterRelationshipId, limit);
+    }
+
+    public AuditPage auditPublicOrphanPage(String afterRelationshipId, int limit) {
+        authorization.requireCanAuditPublicCorpus();
+        return auditOrphanPage(null, afterRelationshipId, limit);
+    }
+
+    private AuditPage auditCanonicalPage(UUID tenantId, String afterRelationshipId, int limit) {
         requireLimit(limit);
         List<CanonicalRelationship> source = canonical.nextLatestPage(tenantId, afterRelationshipId, limit);
         List<Finding> findings = new ArrayList<>();
@@ -43,8 +71,7 @@ public final class HistoricalProjectionReconciliationService {
         return new AuditPage(List.copyOf(findings), source.size(), next, source.size() < limit);
     }
 
-    /** Finds graph records that have no canonical event in this exact scope. */
-    public AuditPage auditOrphanPage(UUID tenantId, String afterRelationshipId, int limit) {
+    private AuditPage auditOrphanPage(UUID tenantId, String afterRelationshipId, int limit) {
         requireLimit(limit);
         List<HistoricalProjectionInspectionPort.ProjectedRelationship> graph =
                 projection.nextPage(tenantId, afterRelationshipId, limit);
@@ -58,6 +85,11 @@ public final class HistoricalProjectionReconciliationService {
         String next = graph.isEmpty() ? afterRelationshipId
                 : graph.get(graph.size() - 1).relationshipId().toString();
         return new AuditPage(List.copyOf(findings), graph.size(), next, graph.size() < limit);
+    }
+
+    private UUID requireTenant() {
+        return Objects.requireNonNull(tenantContext.requireTenantId(),
+                "authenticated tenant context did not provide a tenant ID");
     }
 
     private static Drift classify(CanonicalRelationship expected,
