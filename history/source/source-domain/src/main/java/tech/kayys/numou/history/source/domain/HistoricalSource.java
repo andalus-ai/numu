@@ -15,7 +15,7 @@ public record HistoricalSource(
   Objects.requireNonNull(id, "source id"); Objects.requireNonNull(kind, "source kind");
   title = required(title, "title"); subtitle = optional(subtitle); description = optional(description);
   canonicalUri = validateUri(canonicalUri); publisher = optional(publisher);
-  publicationDateText = optional(publicationDateText); languageTag = validateLanguage(languageTag);
+  publicationDateText = optional(publicationDateText);\n  if (publicationDateText != null && publicationDateText.length() > 1000) throw new IllegalArgumentException("publicationDateText exceeds 1000 characters");\n  languageTag = validateLanguage(languageTag);
   Objects.requireNonNull(createdAt, "createdAt"); Objects.requireNonNull(updatedAt, "updatedAt");
   if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt cannot precede createdAt");
   if (revision < 1) throw new IllegalArgumentException("revision must be positive");
@@ -60,7 +60,7 @@ public record HistoricalSource(
  }
  private static String validateLanguage(String value) {
   String v=optional(value); if(v==null) return null;
-  Locale locale=Locale.forLanguageTag(v);
+  if(v.length()>64) throw new IllegalArgumentException("languageTag exceeds 64 characters");\n  Locale locale=Locale.forLanguageTag(v);
   if(locale.getLanguage().isBlank() || !locale.toLanguageTag().equalsIgnoreCase(v))
    throw new IllegalArgumentException("languageTag must be a valid BCP 47 language tag");
   return locale.toLanguageTag();
