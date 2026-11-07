@@ -21,7 +21,7 @@ class HistoricalSourceServiceTest {
  private static class AllowAll implements HistoricalSourceAuthorizationPort {
   public void requireCanRegisterSource(UUID t){} public void requireCanReadSource(UUID t,HistoricalSourceId i){}
   public void requireCanReviseSource(UUID t,HistoricalSourceId i){} public void requireCanCreateClaim(UUID t){}
-  public void requireCanReadClaim(UUID t,HistoricalClaimId i){} public void requireCanAttachEvidence(UUID t,HistoricalClaimId c,HistoricalSourceId s){}
+  public void requireCanReadClaim(UUID t,HistoricalClaimId i){} public void requireCanReferenceSubject(UUID t,String k,String i){} public void requireCanAttachEvidence(UUID t,HistoricalClaimId c,HistoricalSourceId s){}
  }
  private static class InMemoryRepository implements HistoricalSourceRepository {
   final Map<UUID,Map<UUID,HistoricalSource>> sources=new HashMap<>(); final Map<UUID,Map<UUID,HistoricalClaim>> claims=new HashMap<>();
