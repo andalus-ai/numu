@@ -21,21 +21,20 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - PostgreSQL remains authoritative; Neo4j is disposable and rebuildable.
 - Migration V4 adds a monotonic outbox sequence and durable rebuild checkpoints. A rebuild captures a high-water mark while holding a PostgreSQL SHARE table lock, so transactions that append later events cannot fall below the captured boundary.
 - Rebuild pages are keyset-paginated and tenant/public-scope isolated. A checkpoint advances only after every event in its page has been projected; replaying a page after interruption is safe because the Neo4j adapter is revision-idempotent.
-- Rebuild orchestration is an explicit application service; scheduling, authorization of maintenance operations, and runtime wiring remain host responsibilities.
-- Reconciliation is a bounded, read-only audit over latest canonical outbox revisions and the Neo4j projection. It detects missing, stale, ahead, divergent, and orphaned relationship nodes without changing either store. Canonical and graph scans use keyset pagination and an explicit public/tenant scope.
+- Reconciliation reads the latest retained canonical event per relationship and compares its revision, event key, and SHA-256 payload fingerprint with the scoped Neo4j record. It also scans graph relationship IDs to report orphaned projections.
+- Missing, stale, and same-revision divergent graph rows can be repaired by replaying the exact immutable PostgreSQL event. A graph revision newer than PostgreSQL is reported as divergent and is never overwritten automatically.
+- Reconciliation is bounded by keyset pages and is read-only unless the caller explicitly enables repair. The host must authorize maintenance operations and supply the scheduler/runtime wiring.
+- The Neo4j projection adapter stores a payload fingerprint; same-revision replay can refresh an older projection that predates the fingerprint.
 
 ## Operational limits
-- Rebuild replays all retained outbox revisions through the captured high-water mark. It does not delete Neo4j nodes or relationships that have no corresponding canonical outbox event; destructive stale-node cleanup requires a separately staged generation/swap protocol and is intentionally not part of this replay operation.
-- Reconciliation compares latest outbox revision payload metadata with projected relationship metadata. It does not verify all endpoint node properties, dangling edges, or historical relationship content not represented in the projection metadata.
-- Reconciliation's canonical scan reads the exact requested tenant scope. Public and tenant-private projections must be audited independently.
+- Rebuild replays all retained outbox revisions through the captured high-water mark. It does not delete Neo4j nodes or relationships that have no corresponding canonical outbox event; reconciliation reports such records as orphaned but does not delete them.
 - Outbox retention must preserve all events required for a full rebuild. Do not purge projection events unless an independently verified canonical snapshot/rebuild source is introduced.
-- Rebuild and reconciliation APIs are maintenance primitives; host wiring must authenticate the operator and derive tenant scope from trusted context before invoking them.
+- Concurrent rebuild workers may read the same page. Provider idempotency makes duplicate projection safe; checkpoint compare-and-set permits only one worker to advance the cursor.
+- Reconciliation does not perform destructive orphan cleanup or active-generation swaps. Those operations require a separately staged graph generation, complete validation, and an atomic activation protocol.
 
 ## Deferred
-- Automated repair orchestration and repair audit records.
 - Staged generation rebuild and atomic active-generation swap for destructive orphan cleanup.
-- Metrics for projection lag, audit drift, and repair outcomes.
-- M5 source claims, citations, evidence, conflicting assertions, and verification.
 - Graph query APIs, traversal limits, pagination, and bounded traversal protection.
+- M5 source claims, citations, evidence, conflicting assertions, and verification.
 - Shared-corpus ingestion workflow and editorial authorization.
 - Controlled vocabulary governance and localization.

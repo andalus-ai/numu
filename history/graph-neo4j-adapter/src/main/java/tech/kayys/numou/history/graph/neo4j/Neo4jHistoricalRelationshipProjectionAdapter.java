@@ -7,6 +7,9 @@ import tech.kayys.numou.history.graph.application.HistoricalRelationshipProjecti
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 
 import java.util.*;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
  * Optional Neo4j projection. PostgreSQL outbox events are the only input;
@@ -19,10 +22,11 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
         MERGE (r:HistoricalRelationship {scopeKey: $scopeKey, relationshipId: $relationshipId})
         ON CREATE SET r.revision = 0, r.lockVersion = 0
         SET r.lockVersion = r.lockVersion + 1
-        WITH r, r.revision < $revision AS apply
+        WITH r, (r.revision < $revision OR (r.revision = $revision AND coalesce(r.payloadHash, '') <> $payloadHash)) AS apply
         FOREACH (_ IN CASE WHEN apply THEN [1] ELSE [] END |
           SET r.revision = $revision,
               r.eventKey = $eventKey,
+              r.payloadHash = $payloadHash,
               r.relationshipKind = $relationshipKind,
               r.description = $description,
               r.validityJson = $validityJson,
@@ -91,6 +95,7 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
         params.put("relationshipId", relationshipId);
         params.put("revision", event.aggregateRevision());
         params.put("eventKey", event.eventKey());
+        params.put("payloadHash", sha256(event.payload()));
         params.put("relationshipKind", relationshipKind);
         params.put("description", payload.path("description").isTextual() ? payload.path("description").asText() : null);
         params.put("validityJson", validityJson);
@@ -107,6 +112,15 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
                 }
                 return null;
             });
+        }
+    }
+
+    private static String sha256(String payload) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(payload.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
         }
     }
 

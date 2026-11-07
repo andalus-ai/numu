@@ -1,65 +1,75 @@
 package tech.kayys.numou.history.graph.application;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionReconciliationStore;
+import java.time.Instant;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HistoricalProjectionReconciliationServiceTest {
-    private static final UUID TENANT = UUID.randomUUID();
-    private static final UUID ID = UUID.randomUUID();
+    private static final UUID TENANT = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static final Instant NOW = Instant.parse("2026-11-07T00:00:00Z");
 
-    @Test void classifiesMissingStaleAheadAndDivergent() {
-        FakeCanonical canonical = new FakeCanonical();
-        FakeGraph graph = new FakeGraph();
-        canonical.values.put(ID, canonical(ID, 4, "event-4", "person-a"));
-        graph.values.put(ID, projected(ID, 3, "event-3", "person-a"));
-        var service = new HistoricalProjectionReconciliationService(canonical, graph);
-        var page = service.auditCanonicalPage(TENANT, null, 20);
-        assertEquals(HistoricalProjectionReconciliationService.Drift.STALE, page.findings().getFirst().drift());
-
-        graph.values.put(ID, projected(ID, 5, "event-5", "person-a"));
-        assertEquals(HistoricalProjectionReconciliationService.Drift.AHEAD,
-                service.auditCanonicalPage(TENANT, null, 20).findings().getFirst().drift());
-
-        graph.values.put(ID, projected(ID, 4, "event-4", "person-other"));
-        assertEquals(HistoricalProjectionReconciliationService.Drift.DIVERGENT,
-                service.auditCanonicalPage(TENANT, null, 20).findings().getFirst().drift());
-
-        graph.values.clear();
-        assertEquals(HistoricalProjectionReconciliationService.Drift.MISSING,
-                service.auditCanonicalPage(TENANT, null, 20).findings().getFirst().drift());
+    @Test void reportsMissingStaleDivergentAndOrphanedAndRepairsReplayableRows() throws Exception {
+        UUID missing = UUID.randomUUID(), stale = UUID.randomUUID(), divergent = UUID.randomUUID(), orphan = UUID.randomUUID();
+        var events = List.of(event(missing, 1), event(stale, 3), event(divergent, 2));
+        FakeCanonical canonical = new FakeCanonical(events, Set.of(missing, stale, divergent));
+        FakeProjection projection = new FakeProjection();
+        projection.states.put(stale, new HistoricalProjectionReconciliationPort.ProjectionState(1, "old", "old-hash"));
+        projection.states.put(divergent, new HistoricalProjectionReconciliationPort.ProjectionState(2, "wrong-key", "wrong-hash"));
+        projection.ids.addAll(List.of(missing, stale, divergent, orphan));
+        List<ClaimedProjectionEvent> repaired = new ArrayList<>();
+        var service = new HistoricalProjectionReconciliationService(canonical, projection, repaired::add);
+        var report = service.reconcile(TENANT, 2, true);
+        assertEquals(3, report.canonicalChecked());
+        assertEquals(1, report.missing());
+        assertEquals(1, report.stale());
+        assertEquals(1, report.divergent());
+        assertEquals(1, report.orphaned());
+        assertEquals(3, report.repaired());
+        assertEquals(Set.of(missing, stale, divergent), new HashSet<>(repaired.stream().map(ClaimedProjectionEvent::aggregateId).toList()));
     }
 
-    @Test void detectsOrphanedGraphRecord() {
-        FakeCanonical canonical = new FakeCanonical();
-        FakeGraph graph = new FakeGraph();
-        graph.values.put(ID, projected(ID, 1, "orphan", "person-a"));
-        var page = new HistoricalProjectionReconciliationService(canonical, graph)
-                .auditOrphanPage(TENANT, null, 20);
-        assertEquals(HistoricalProjectionReconciliationService.Drift.ORPHAN, page.findings().getFirst().drift());
+    @Test void newerGraphRevisionIsReportedButNeverOverwritten() throws Exception {
+        UUID id = UUID.randomUUID();
+        var event = event(id, 1);
+        FakeCanonical canonical = new FakeCanonical(List.of(event), Set.of(id));
+        FakeProjection projection = new FakeProjection();
+        projection.states.put(id, new HistoricalProjectionReconciliationPort.ProjectionState(2, "newer", "hash"));
+        List<ClaimedProjectionEvent> repaired = new ArrayList<>();
+        var report = new HistoricalProjectionReconciliationService(canonical, projection, repaired::add)
+                .reconcile(TENANT, 10, true);
+        assertEquals(1, report.divergent());
+        assertTrue(repaired.isEmpty());
     }
 
-    private static HistoricalProjectionAuditStore.CanonicalRelationship canonical(UUID id,long rev,String key,String sid) {
-        return new HistoricalProjectionAuditStore.CanonicalRelationship(id,rev,key,"founded","PERSON",sid,"COLLECTIVE","group","{}");
+    private static ClaimedProjectionEvent event(UUID id, long revision) {
+        String payload = "{\"relationshipId\":\"" + id + "\",\"revision\":" + revision + "}";
+        return new ClaimedProjectionEvent(UUID.randomUUID(), "event-" + id + "-" + revision,
+                "history.relationship.revision-appended", 1, TENANT, id, revision, payload,
+                NOW, 0, 0, UUID.randomUUID(), NOW);
     }
-    private static HistoricalProjectionInspectionPort.ProjectedRelationship projected(UUID id,long rev,String key,String sid) {
-        return new HistoricalProjectionInspectionPort.ProjectedRelationship(id,rev,key,"founded","PERSON",sid,"COLLECTIVE","group");
-    }
-    private static final class FakeCanonical implements HistoricalProjectionAuditStore {
-        Map<UUID,CanonicalRelationship> values=new HashMap<>();
-        public List<CanonicalRelationship> nextLatestPage(UUID tenant,String after,int limit) {
-            return values.values().stream().sorted(Comparator.comparing(v->v.relationshipId().toString()))
-                    .filter(v->after==null||v.relationshipId().toString().compareTo(after)>0).limit(limit).toList();
+
+    private static final class FakeCanonical implements HistoricalProjectionReconciliationStore {
+        private final List<ClaimedProjectionEvent> events;
+        private final Set<UUID> ids;
+        FakeCanonical(List<ClaimedProjectionEvent> events, Set<UUID> ids) {
+            this.events=events.stream().sorted(Comparator.comparing(ClaimedProjectionEvent::aggregateId)).toList();
+            this.ids=ids;
         }
-        public Optional<CanonicalRelationship> findLatest(UUID tenant,UUID id){return Optional.ofNullable(values.get(id));}
+        public List<ClaimedProjectionEvent> latestPage(UUID tenant, UUID after, int limit) {
+            return events.stream().filter(e -> after == null || e.aggregateId().compareTo(after)>0).limit(limit).toList();
+        }
+        public boolean exists(UUID tenant, UUID id) { return ids.contains(id); }
     }
-    private static final class FakeGraph implements HistoricalProjectionInspectionPort {
-        Map<UUID,ProjectedRelationship> values=new HashMap<>();
-        public Optional<ProjectedRelationship> find(UUID tenant,UUID id){return Optional.ofNullable(values.get(id));}
-        public List<ProjectedRelationship> nextPage(UUID tenant,String after,int limit) {
-            return values.values().stream().sorted(Comparator.comparing(v->v.relationshipId().toString()))
-                    .filter(v->after==null||v.relationshipId().toString().compareTo(after)>0).limit(limit).toList();
+
+    private static final class FakeProjection implements HistoricalProjectionReconciliationPort {
+        private final Map<UUID, ProjectionState> states = new HashMap<>();
+        private final List<UUID> ids = new ArrayList<>();
+        public Optional<ProjectionState> find(UUID tenant, UUID id) { return Optional.ofNullable(states.get(id)); }
+        public List<UUID> listRelationshipIds(UUID tenant, UUID after, int limit) {
+            return ids.stream().filter(id -> after == null || id.compareTo(after)>0).sorted().limit(limit).toList();
         }
     }
 }
