@@ -12,6 +12,7 @@ CREATE TABLE historical_source_revision (
  source_id uuid NOT NULL,
  revision bigint NOT NULL CHECK (revision > 0),
  kind varchar(40) NOT NULL,
+ status varchar(16) NOT NULL CHECK (status IN ('ACTIVE','ARCHIVED')),
  title varchar(1000) NOT NULL,
  subtitle varchar(4000),
  description varchar(4000),
