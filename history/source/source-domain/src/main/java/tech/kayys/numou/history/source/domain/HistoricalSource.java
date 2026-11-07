@@ -59,7 +59,9 @@ public record HistoricalSource(
   String scheme=uri.getScheme();
   if(!uri.isAbsolute() || scheme==null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https") || scheme.equalsIgnoreCase("urn") || scheme.equalsIgnoreCase("doi")))
    throw new IllegalArgumentException("canonical URI must use http, https, urn or doi");
-  return uri.toASCIIString();
+  String ascii=uri.toASCIIString();
+  if(ascii.length()>2000) throw new IllegalArgumentException("canonical URI exceeds 2000 ASCII characters");
+  return ascii;
  }
  private static String validateLanguage(String value) {
   String v=optional(value); if(v==null) return null;
