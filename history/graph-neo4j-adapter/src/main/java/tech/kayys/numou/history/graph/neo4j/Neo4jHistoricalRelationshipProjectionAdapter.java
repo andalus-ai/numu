@@ -22,7 +22,10 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
         MERGE (r:HistoricalRelationship {scopeKey: $scopeKey, relationshipId: $relationshipId})
         ON CREATE SET r.revision = 0, r.lockVersion = 0
         SET r.lockVersion = r.lockVersion + 1
-        WITH r, (r.revision < $revision OR (r.revision = $revision AND (coalesce(r.payloadHash, '') <> $payloadHash OR coalesce(r.eventKey, '') <> $eventKey))) AS apply
+        WITH r, (r.revision < $revision OR (r.revision = $revision AND (coalesce(r.payloadHash, '') <> $payloadHash OR coalesce(r.eventKey, '') <> $eventKey OR
+             coalesce(r.relationshipKind, '') <> $relationshipKind OR coalesce(r.subjectKind, '') <> $subjectKind OR
+             coalesce(r.subjectId, '') <> $subjectId OR coalesce(r.objectKind, '') <> $objectKind OR
+             coalesce(r.objectId, '') <> $objectId))) AS apply
         FOREACH (_ IN CASE WHEN apply THEN [1] ELSE [] END |
           SET r.revision = $revision,
               r.eventKey = $eventKey,
