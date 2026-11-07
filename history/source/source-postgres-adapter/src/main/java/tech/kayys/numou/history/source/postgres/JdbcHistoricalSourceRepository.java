@@ -84,7 +84,7 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
   try(Connection c=dataSource.getConnection()){
    c.setAutoCommit(false);c.setReadOnly(readOnly);
    try(PreparedStatement p=c.prepareStatement("select set_config('numou.tenant_id', ?, true)")){p.setString(1,tenant.toString());p.execute();}
-   try{T result=work.run(c);c.commit();return result;}catch(SQLException e){c.rollback();if("23505".equals(e.getSQLState()))return null;throw e;}
+   try{T result=work.run(c);c.commit();return result;}catch(SQLException e){c.rollback();if("23505".equals(e.getSQLState()))return (T) Boolean.FALSE;throw e;}
   }catch(SQLException e){throw new IllegalStateException("Historical source persistence failed",e);}
  }
 }
