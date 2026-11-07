@@ -6,7 +6,8 @@ public interface HistoricalSourceAuthorizationPort {
  void requireCanRegisterSource(UUID tenantId);
  void requireCanReadSource(UUID tenantId, HistoricalSourceId sourceId);
  void requireCanReviseSource(UUID tenantId, HistoricalSourceId sourceId);
- void requireCanCreateClaim(UUID tenantId);\n void requireCanReferenceSubject(UUID tenantId, String subjectKind, String subjectId);
+ void requireCanCreateClaim(UUID tenantId);
+ void requireCanReferenceSubject(UUID tenantId, String subjectKind, String subjectId);
  void requireCanReadClaim(UUID tenantId, HistoricalClaimId claimId);
  void requireCanAttachEvidence(UUID tenantId, HistoricalClaimId claimId, HistoricalSourceId sourceId);
 }
