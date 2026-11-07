@@ -32,7 +32,7 @@ public final class HistoricalSourceService {
  }
  public List<HistoricalSource> list(int limit) {
   var tenant=requireTenant(); validateLimit(limit);
-  return List.copyOf(repository.list(tenant,limit));
+  var sources=repository.list(tenant,limit);\n  sources.forEach(source->authorization.requireCanReadSource(tenant,source.id()));\n  return List.copyOf(sources);
  }
  public HistoricalSource revise(HistoricalSourceId id,long expectedRevision,HistoricalSourceKind kind,String title,
    String subtitle,String description,String canonicalUri,String publisher,String publicationDateText,String languageTag) {
@@ -54,7 +54,7 @@ public final class HistoricalSourceService {
  }
  public HistoricalClaim createClaim(String subjectKind,String subjectId,String statement) {
   var tenant=requireTenant(); authorization.requireCanCreateClaim(tenant);
-  var claim=HistoricalClaim.create(HistoricalClaimId.generate(),subjectKind,subjectId,statement,clock.instant());
+  authorization.requireCanReferenceSubject(tenant,subjectKind,subjectId);\n  var claim=HistoricalClaim.create(HistoricalClaimId.generate(),subjectKind,subjectId,statement,clock.instant());
   if(!repository.createClaim(tenant,claim)) throw new HistoricalSourceConflictException("Claim identity already exists");
   return claim;
  }
@@ -76,7 +76,7 @@ public final class HistoricalSourceService {
   var tenant=requireTenant(); Objects.requireNonNull(claimId); validateLimit(limit);
   authorization.requireCanReadClaim(tenant,claimId);
   if(repository.findClaim(tenant,claimId).isEmpty()) return List.of();
-  return List.copyOf(repository.listEvidence(tenant,claimId,limit));
+  var items=repository.listEvidence(tenant,claimId,limit);\n  items.forEach(item->authorization.requireCanReadSource(tenant,item.sourceId()));\n  return List.copyOf(items);
  }
  private java.util.UUID requireTenant() { return Objects.requireNonNull(tenantContext.requireTenantId(),"trusted tenant context is required"); }
  private static void validateLimit(int limit) { if(limit<1||limit>200) throw new IllegalArgumentException("limit must be between 1 and 200"); }
