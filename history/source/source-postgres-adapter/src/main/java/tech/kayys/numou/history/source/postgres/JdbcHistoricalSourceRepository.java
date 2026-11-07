@@ -31,7 +31,7 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
  @Override public List<HistoricalSource> list(UUID tenant,int limit) {
   Objects.requireNonNull(tenant);if(limit<1||limit>200)throw new IllegalArgumentException("limit must be between 1 and 200");
   return read(tenant,c->{
-   String sql="select r.source_id,r.kind,r.title,r.subtitle,r.description,r.canonical_uri,r.publisher,r.publication_date_text,r.language_tag,r.created_at,r.updated_at,r.revision,s.status from historical_source s join historical_source_revision r on r.tenant_id=s.tenant_id and r.source_id=s.source_id and r.revision=s.current_revision where s.tenant_id=? order by s.updated_at desc,s.source_id limit ?";
+   String sql="select r.source_id,r.kind,r.title,r.subtitle,r.description,r.canonical_uri,r.publisher,r.publication_date_text,r.language_tag,r.created_at,r.updated_at,r.revision,r.status from historical_source s join historical_source_revision r on r.tenant_id=s.tenant_id and r.source_id=s.source_id and r.revision=s.current_revision where s.tenant_id=? order by s.updated_at desc,s.source_id limit ?";
    try(PreparedStatement p=c.prepareStatement(sql)){p.setObject(1,tenant);p.setInt(2,limit);try(ResultSet rs=p.executeQuery()){List<HistoricalSource> out=new ArrayList<>();while(rs.next())out.add(mapSource(rs));return List.copyOf(out);}}
   });
  }
