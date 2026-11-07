@@ -24,7 +24,7 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
  @Override public Optional<HistoricalSource> find(UUID tenant,HistoricalSourceId id) {
   Objects.requireNonNull(tenant);Objects.requireNonNull(id);
   return read(tenant,c->{
-   String sql="select r.source_id,r.kind,r.title,r.subtitle,r.description,r.canonical_uri,r.publisher,r.publication_date_text,r.language_tag,r.created_at,r.updated_at,r.revision,s.status from historical_source s join historical_source_revision r on r.tenant_id=s.tenant_id and r.source_id=s.source_id and r.revision=s.current_revision where s.tenant_id=? and s.source_id=?";
+   String sql="select r.source_id,r.kind,r.title,r.subtitle,r.description,r.canonical_uri,r.publisher,r.publication_date_text,r.language_tag,r.created_at,r.updated_at,r.revision,r.status from historical_source s join historical_source_revision r on r.tenant_id=s.tenant_id and r.source_id=s.source_id and r.revision=s.current_revision where s.tenant_id=? and s.source_id=?";
    try(PreparedStatement p=c.prepareStatement(sql)){p.setObject(1,tenant);p.setObject(2,id.value());try(ResultSet rs=p.executeQuery()){return rs.next()?Optional.of(mapSource(rs)):Optional.empty();}}
   });
  }
@@ -70,8 +70,8 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
   }});
  }
  private static void insertRevision(Connection c,UUID tenant,HistoricalSource s)throws SQLException{
-  try(PreparedStatement p=c.prepareStatement("insert into historical_source_revision(tenant_id,source_id,revision,kind,title,subtitle,description,canonical_uri,publisher,publication_date_text,language_tag,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?)")){
-   p.setObject(1,tenant);p.setObject(2,s.id().value());p.setLong(3,s.revision());p.setString(4,s.kind().name());p.setString(5,s.title());p.setString(6,s.subtitle());p.setString(7,s.description());p.setString(8,s.canonicalUri());p.setString(9,s.publisher());p.setString(10,s.publicationDateText());p.setString(11,s.languageTag());p.setTimestamp(12,Timestamp.from(s.createdAt()));p.setTimestamp(13,Timestamp.from(s.updatedAt()));p.executeUpdate();
+  try(PreparedStatement p=c.prepareStatement("insert into historical_source_revision(tenant_id,source_id,revision,kind,status,title,subtitle,description,canonical_uri,publisher,publication_date_text,language_tag,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")){
+   p.setObject(1,tenant);p.setObject(2,s.id().value());p.setLong(3,s.revision());p.setString(4,s.kind().name());p.setString(5,s.status().name());p.setString(6,s.title());p.setString(7,s.subtitle());p.setString(8,s.description());p.setString(9,s.canonicalUri());p.setString(10,s.publisher());p.setString(11,s.publicationDateText());p.setString(12,s.languageTag());p.setTimestamp(13,Timestamp.from(s.createdAt()));p.setTimestamp(14,Timestamp.from(s.updatedAt()));p.executeUpdate();
   }
  }
  private static HistoricalSource mapSource(ResultSet rs)throws SQLException{
