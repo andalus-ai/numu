@@ -41,7 +41,7 @@ public final class HistoricalProjectionReconciliationService {
                 if (!Objects.equals(tenantId, event.tenantId())) {
                     throw new IllegalStateException("canonical page crossed tenant scope");
                 }
-                if (previous != null && id.compareTo(previous) <= 0) {
+                if (previous != null && id.toString().compareTo(previous.toString()) <= 0) {
                     throw new IllegalStateException("canonical page is not strictly ordered");
                 }
                 checked++;

@@ -64,11 +64,11 @@ class HistoricalProjectionReconciliationServiceTest {
     private static final class FakeCanonical implements HistoricalProjectionReconciliationStore {
         final List<ClaimedProjectionEvent> events; final Set<UUID> ids;
         FakeCanonical(List<ClaimedProjectionEvent> events,Set<UUID> ids){
-            this.events=events.stream().sorted(Comparator.comparing(ClaimedProjectionEvent::aggregateId)).toList();
+            this.events=events.stream().sorted(Comparator.comparing(e -> e.aggregateId().toString())).toList();
             this.ids=ids;
         }
         public List<ClaimedProjectionEvent> latestPage(UUID tenant,UUID after,int limit){
-            return events.stream().filter(e->after==null||e.aggregateId().compareTo(after)>0).limit(limit).toList();
+            return events.stream().filter(e->after==null||e.aggregateId().toString().compareTo(after.toString())>0).limit(limit).toList();
         }
         public boolean exists(UUID tenant,UUID id){return ids.contains(id);}
     }
@@ -76,7 +76,7 @@ class HistoricalProjectionReconciliationServiceTest {
         final Map<UUID,ProjectionState> states=new HashMap<>(); final List<UUID> ids=new ArrayList<>();
         public Optional<ProjectionState> find(UUID tenant,UUID id){return Optional.ofNullable(states.get(id));}
         public List<UUID> listRelationshipIds(UUID tenant,UUID after,int limit){
-            return ids.stream().filter(id->after==null||id.compareTo(after)>0).sorted().limit(limit).toList();
+            return ids.stream().filter(id->after==null||id.toString().compareTo(after.toString())>0).sorted().limit(limit).toList();
         }
     }
 }
