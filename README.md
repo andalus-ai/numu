@@ -15,6 +15,7 @@ These principles describe the intended architecture. Existing modules may still 
 ## Start here
 
 - [Contributor and AI agent instructions](AGENTS.md)
+- [Numou vs HashMicro — Competitive Audit M0 baseline](docs/architecture/NUMOU-HASHMICRO-COMPETITIVE-AUDIT-M0.md)
 - [ADR-003: Reusable capability modules across deployment topologies](docs/architecture/ADR-003-reusable-capability-modules.md)
 - [Domain capability ownership matrix](docs/architecture/DOMAIN-CAPABILITY-MATRIX.md)
 - [Numou Application Platform — M1 foundation and capability architecture audit](docs/architecture/NUMOU-APPLICATION-PLATFORM-M1-FOUNDATION.md)

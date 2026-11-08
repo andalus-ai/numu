@@ -34,10 +34,18 @@
         <module>reliability</module>
         <module>cache</module>
         <module>plugin</module>
+        <module>runtime</module>
+        <module>runtime-quarkus</module>
         <module>workflow</module>
         <module>scope</module>
         <module>planning</module>
         <module>aggregate</module>
+
+        <!-- Shared business-facing capabilities used by Developer Platform adapters. -->
+        <module>../../identity</module>
+        <module>../../documents</module>
+        <module>../../advertising</module>
+        <module>../../attendee</module>
 
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
@@ -184,6 +192,22 @@
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-ecosystem-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-persistence-jdbc</artifactId>
+                <artifactId>numou-attendee-postgres-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

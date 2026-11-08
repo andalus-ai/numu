@@ -189,6 +189,7 @@ public class AuthCheckServiceImpl implements AuthCheckService {
                             .setPrincipalType(fromDomainString(principal.principalType()))
                             .setPrincipalId(principal.principalId().toString())
                             .setDisplayName(principal.displayName() != null ? principal.displayName() : "")
+                            .setTenantId(principal.tenantId() != null ? principal.tenantId().toString() : "")
                             .build();
                 })
                 .onFailure().recoverWithItem(() -> {
