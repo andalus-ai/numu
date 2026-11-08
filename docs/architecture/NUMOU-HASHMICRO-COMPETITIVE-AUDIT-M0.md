@@ -338,125 +338,119 @@ These are module-boundary observations only. The next source-level audit must in
 
 No source-level workflow completeness or current CI pass is asserted by this topology update.
 
-## 13. M0.3 source trace — Accounting (2026-11-06)
+## 13. M0.3 source-tracing update — Accounting, Payment and POS
 
-This pass traced the journal domain model, posting/reversal handlers, fiscal-period and close services, persistence ports, adapter wiring, and selected tests/migrations on current `main`. It is an implementation trace, not a production-readiness certification.
+Source files and tests were fetched from the current `main` tree on 2026-11-06. This is a focused code review, not a completed integration-test run. The evidence below distinguishes implemented contracts from gaps visible in the inspected composition.
 
-### Verified implemented behavior
+### 13.1 Accounting — broad domain model, persistence/composition gap
 
-| Area | Evidence | What is demonstrated |
-|---|---|---|
-| Journal lifecycle | `numou-accounting-domain/.../domain/model/JournalEntry.java` | Draft, pending approval, approved, posted and reversed states; maker/checker metadata; non-empty and balanced-entry checks; storno reversal construction |
-| Balance precision | `numou-accounting-domain/.../JournalEntryBalanceTest.java` | Numeric comparison avoids scale-sensitive BigDecimal equality; unbalanced entries are rejected |
-| Tenant/ledger journal lookup | `numou-accounting-application/.../port/JournalEntryRepository.java`; `numou-accounting-adapter/.../InMemoryJournalEntryRepository.java` | Scoped lookup methods exist; in-memory implementation filters by both tenant and ledger; a scope test covers tenant and ledger separation |
-| Journal schema | `numou-accounting-adapter/src/main/resources/db/migration/V2__journal_entry_tables.sql`; `V14__general_ledger_tenant_ledger_scope.sql` | Tenant and ledger columns, scoped account uniqueness, journal-line tenant/ledger columns, composite foreign keys, and supporting indexes |
-| Event durability shape | `.../V3__transactional_outbox.sql` | Outbox table stores tenant and ledger context and has an unprocessed-event index |
-| Reversal orchestration | `numou-accounting-application/.../ReverseJournalEntryHandler.java` | Loads original journal by tenant/ledger, creates and posts a reversal, marks original reversed, and reverses account movements |
-| Close workflow behavior | `numou-accounting-application/.../FinancialCloseServiceTest.java` | Unit test covers task completion, validation, approval, lock and rejection of posting through the lock engine |
+**Verified implementation evidence**
 
-### Material gaps and risks requiring remediation
+- `JournalEntry` enforces non-empty, non-zero, balanced double-entry journals and supports draft, pending approval, approved, posted and reversed lifecycle states:
+  - `finance/accounting/numou-accounting-domain/src/main/java/tech/kayys/numou/accounting/domain/model/JournalEntry.java`
+- Command handlers exist for posting, approval and reversal:
+  - `finance/accounting/numou-accounting-application/src/main/java/tech/kayys/numou/accounting/application/handler/PostJournalEntryHandler.java`
+  - `.../ApproveJournalEntryHandler.java`
+  - `.../ReverseJournalEntryHandler.java`
+- Fiscal period and financial close services exist; AP/AR services and REST resources are present.
+- PostgreSQL migrations define journal entries, journal lines, outbox, AP/AR, processed commands, audit records, receivables repository support and tenant/ledger-scoped GL schema:
+  - `finance/accounting/numou-accounting-adapter/src/main/resources/db/migration/V1__init_accounting_schema.sql` through `V14__general_ledger_tenant_ledger_scope.sql`.
+- The adapter configures PostgreSQL and Flyway migration at startup in `finance/accounting/numou-accounting-adapter/src/main/resources/application.properties`.
 
-| Priority | Finding | Evidence and impact |
-|---|---|---|
-| P0 | Journal posting is not shown to be atomic across ledger mutation, journal persistence and outbox persistence | `PostJournalEntryHandler.handle` saves each changed account, then the journal, then outbox events and projections. The handler has no visible transaction boundary. The adapter module exposes in-memory account, journal and outbox repositories as application-scoped beans; the inspected source tree did not expose a PostgreSQL journal/account/outbox repository implementation. A failure between these steps can leave partial accounting state unless a higher composition boundary supplies a transaction (not evidenced in this trace). |
-| P0 | Fiscal-period lookup is not tenant/ledger scoped | `FiscalPeriodRepository.findActivePeriod(LocalDate)` accepts only a date; `InMemoryFiscalPeriodRepository` returns the first matching period. `PostJournalEntryHandler` uses this lookup for strict-period checks. This cannot reliably distinguish different tenants' or ledgers' fiscal calendars. |
-| P0 | Financial-close state and period locks are process-local | `FinancialCloseService` stores cycles in a `ConcurrentHashMap`; `PeriodLockEngine` stores locks in a process-local set. `AccountingServiceProducer` wires these implementations directly. Restart, horizontal scaling or deployment across multiple instances can lose or disagree on close/lock state. |
-| P1 | The accounting `IdempotencyGuard` is process-local and not demonstrated on journal command execution | `IdempotencyGuard` uses a `ConcurrentHashMap` set. The producer exposes it as a bean, but the inspected `PostJournalEntryHandler` and `CommandBus` registration do not use it. The `processed_command` migration creates a table with a globally unique `request_id`, but the inspected path does not establish tenant-scoped reservation, payload fingerprint validation, durable result replay or atomic coupling to journal posting. |
-| P1 | Posting handler account updates and journal writes need concurrency protection | The handler loads and saves account aggregates one line at a time. The inspected path does not show optimistic version checks or a single database transaction protecting concurrent postings to the same account. |
-| P1 | Reversal outbox aggregate identity needs review | `ReverseJournalEntryHandler` drains events raised by the original aggregate but writes each outbox row with the reversal ID as aggregate ID. Verify the intended event aggregate identity and ensure original/reversal events are not misattributed. |
+**Material gap found in the inspected runtime wiring**
 
-### Architectural interpretation
+- The adapter source tree contains `InMemoryAccountRepository`, `InMemoryJournalEntryRepository`, `InMemoryFiscalPeriodRepository` and `InMemoryOutboxRepository` as the implementations of the core GL ports. The inspected adapter tree did not contain PostgreSQL implementations of `AccountRepository`, `JournalEntryRepository`, `FiscalPeriodRepository` or `OutboxRepository`.
+- `AccountingServiceProducer` injects those ports into the command/query buses and services; the in-memory implementations are CDI application-scoped beans. Thus the existence of GL PostgreSQL migrations must not be mistaken for durable GL repository wiring.
+- `JournalEntryResource.listEntries()` and `getEntry(id)` call unscoped repository methods. Tenant/ledger-scoped repository methods exist, but these read endpoints do not use them in the inspected resource.
+- `PostJournalEntryHandler` updates account aggregates one line at a time, then saves the journal and outbox events through separate ports. No accounting unit-of-work/transaction boundary is visible in the handler or those port contracts. Failure between these steps can therefore leave partial effects unless an outer transaction/composition guarantee is supplied; none was established by this source pass.
+- `FiscalPeriodService.performYearEndClosing` uses deprecated unscoped `accountRepository.findAll()`, constructs a default-tenant/primary-ledger journal, and the inspected method does not persist updated account balances or emit outbox/projection events. This requires a tenant/ledger-aware redesign or removal from tenant-facing use.
 
-1. Do not add another accounting or ledger capability. The existing Accounting capability owns journal, account, fiscal-period, posting, reversal and close invariants.
-2. Preserve the current domain/application contracts where sound, but make the production adapter path durable and transactionally consistent.
-3. Fiscal periods and close cycles must carry explicit tenant and ledger scope at their owning domain/application boundary; a date-only global lookup is insufficient for a multi-tenant, multi-ledger platform.
-4. Journal command idempotency must be durable, scoped, fingerprinted and coupled to the same transaction as ledger mutations and outbox writes. The POS implementation provides an existing repository pattern worth evaluating, but its schema/identity semantics should not be copied blindly.
-5. Close/period locks need durable persistence and cross-instance enforcement. The posting path must consult the same authoritative lock state that close operations mutate.
-6. Keep projection publication and external side effects behind reliable post-commit/outbox processing; a projection failure must not make an already committed journal appear unposted or encourage unsafe retries.
+**Audit disposition:** Accounting has substantial domain and workflow code, but the inspected general-ledger runtime must be treated as **not yet production-evidenced**. Durable tenant/ledger-scoped GL persistence, atomic posting/reversal, tenant-scoped read APIs, and tenant-aware year-end close are priority gaps to resolve before relying on this service as a financial system of record.
 
-### M0.3 verification limits and next actions
+### 13.2 Payment — a stronger durable capability boundary
 
-- The inspected tests demonstrate selected domain, scope and close-service behavior; they do not demonstrate PostgreSQL-backed journal posting, atomic rollback, concurrent posting, durable close recovery or multi-instance lock enforcement.
-- The existence of SQL migrations and JDBC dependencies is not evidence that the corresponding production repository adapters are wired.
-- No Maven build or test command was run as part of this source-only trace; no CI result is claimed.
-- Next: inspect the payment lifecycle and its durable idempotency/outbox/provider recovery; then trace POS-to-payment and POS-to-inventory/accounting handoffs. After those traces, define a single Accounting hardening milestone with transaction, migration, recovery and concurrency acceptance tests.
+**Verified implementation evidence**
 
-## 14. M0.3 source trace — Payment and POS handoff (2026-11-06)
+- The public `PaymentApplicationPort` exposes create-or-get, tenant-scoped find, refund request and idempotency conflict/rejection semantics.
+- `PostgresPaymentApplicationAdapter` performs payment-obligation creation, idempotency fingerprint checks and outbox insertion in one JDBC transaction. It authorizes the tenant before mutation.
+- Database uniqueness on `(tenant_id, idempotency_key)` prevents duplicate obligations; a reused key with a different request fingerprint is rejected.
+- Payment migrations include durable obligations/outbox, outbox leases/dead letters and a verified provider-outcome inbox with uniqueness on `(tenant_id, provider_name, provider_event_id)` and a tenant/payment foreign key.
+- `PostgresPaymentOutboxRelayStore` uses bounded batch claims, `FOR UPDATE SKIP LOCKED`, leases, lease tokens, retry metadata and terminal failure state.
+- PostgreSQL adapter tests use Testcontainers and cover migration setup, concurrency/idempotency and persistence behavior; a separate outbox relay store test suite exists.
+- Gateway adapters include Midtrans and Xendit; provider-specific modules include bank transfer and QRIS implementations.
 
-This pass traced the neutral Payment application API, PostgreSQL adapter, refund/provider-outcome handling, outbox relay, and POS checkout integration. It also inspected the older entity-oriented PaymentService so the two payment paths are not conflated.
+**Audit limitations / follow-up**
 
-### Payment capability: verified strengths
+- The modern payment obligation API and the older `PaymentService`/gateway/entity stack coexist. The audit has not yet proven that all legacy REST endpoints and processors delegate to the neutral obligation contract rather than creating a parallel payment lifecycle.
+- Provider callback authentication/signature verification, replay behavior, settlement reconciliation and refund completion must be traced end-to-end before assigning a production maturity score.
+- The inspected Testcontainers tests are evidence of intended PostgreSQL verification, not evidence that the latest CI run passed.
 
-| Area | Evidence | What is demonstrated |
-|---|---|---|
-| Tenant-scoped payment obligation | `finance/payment/numou-payment-postgres-adapter/.../PostgresPaymentApplicationAdapter.java`; `V1__payment_obligations_and_outbox.sql` | Payment ID and idempotency uniqueness are tenant scoped; reads and mutations include tenant predicates; tenant authorization is invoked |
-| Durable idempotency | Same adapter; `PaymentRequestFingerprint.java` | `createOrGet` fingerprints the request, uses a tenant/idempotency unique constraint, and rejects reuse with a different request |
-| Atomic obligation + outbox | Same adapter | The adapter explicitly opens a JDBC transaction and commits/rolls back obligation and outbox changes together |
-| Verified provider outcomes | Same adapter; `V3__verified_payment_outcome_inbox.sql` | Provider events are deduplicated by tenant/provider/event ID; amount, currency and provider reference are checked; allowed transitions are explicit; late success after failure/cancellation/expiry emits a reconciliation-required event |
-| Refund safety | Same adapter | Payment row is locked; refund idempotency is fingerprinted; refund totals include requested/pending/succeeded/unknown amounts; refund request and outbox event share one transaction |
-| Reliable event delivery | `PaymentOutboxRelay.java`; `PostgresPaymentOutboxRelayStore.java`; `V2__payment_outbox_leases_and_dead_letters.sql` | Bounded claims use `FOR UPDATE SKIP LOCKED`; lease tokens fence stale workers; retries are delayed; exhausted events become terminal |
-| Integration evidence | `PostgresPaymentApplicationAdapterTest.java`; `PostgresPaymentOutboxRelayStoreTest.java` | Testcontainers PostgreSQL tests cover idempotency, verified outcomes, concurrency, tenant behavior, lease fencing and terminal delivery behavior (tests are present; this audit did not execute them) |
+**Audit disposition:** The neutral payment obligation/outbox boundary is materially more mature in durable persistence design than the inspected GL path. Continue with callback verification, refund lifecycle, provider settlement and consumer integration tests; do not replace this capability with a new POS-specific payment model.
 
-### POS-to-Payment and checkout: verified strengths
+### 13.3 POS — explicit orchestration and retry design
 
-1. `PaymentCapabilityCheckoutAdapter` maps POS requests to the neutral `PaymentApplicationPort`, rather than creating a second payment ledger or provider model.
-2. The POS checkout application port is deliberately narrow. It carries tenant, idempotency key, checkout reference, amount and currency.
-3. `CheckoutOrchestrationService` obtains its payable amount from the trusted pricing port and validates the returned payment's tenant, amount and currency.
-4. The checkout lifecycle is a retryable saga. Its documented behavior keeps stock reserved for UNKNOWN/PENDING payment outcomes rather than releasing inventory on timeout.
-5. `PostgresCheckoutRepository` scopes reads and writes by tenant and uses optimistic version checks on updates.
-6. `PostgresSaleCommandIdempotency` stores request fingerprints and results and describes reservation, sale mutation and result persistence as one JTA transaction. `SaleCommandService` requires a nonblank key and fingerprints operation parameters.
+**Verified implementation evidence**
 
-### Gaps and architectural risks
+- POS separates domain, application and adapter modules. Domain includes `Sale`, `CheckoutSession`, `Register` and `RegisterShift`.
+- `SaleCommandService` enforces tenant-scoped sale loading, open-shift access, optimistic version checks and command idempotency with a SHA-256 request fingerprint. Lifecycle events are appended through a POS outbox port.
+- `PostgresSaleCommandIdempotency` stores reservation, sale mutation and completed result in a JTA transaction; it rejects reuse of a key for a different operation/fingerprint and detects incomplete records.
+- `CheckoutOrchestrationService` uses a persisted sale and trusted pricing quote, reserves inventory, creates/reuses a shared Payment capability obligation, verifies tenant/amount/currency and reconciles payment state. Unknown/pending payments do not release stock; failed/cancelled/expired payments release the reservation; successful payment commits stock.
+- `PaymentCapabilityCheckoutAdapter` maps POS payment operations to the shared `PaymentApplicationPort`, rather than defining a second payment obligation store.
+- PostgreSQL checkout persistence is tenant-scoped and uses optimistic version updates. POS migrations include checkout sessions, outbox delivery leases, consumer inbox and outbox operations.
+- Unit tests cover checkout retry/idempotency, quote currency mismatch, stock commit only after successful payment, unknown payment safety, failed-payment release and bounded recovery. PostgreSQL persistence tests also exist.
 
-| Priority | Finding | Evidence and impact |
-|---|---|---|
-| P1 | Two payment application surfaces coexist and need explicit composition/ownership documentation | The older `PaymentService` / Panache `PaymentRepository` entity flow coexists with the neutral `PaymentApplicationPort` / `PostgresPaymentApplicationAdapter` obligation flow. POS uses the latter. The older repository queries by payment ID, invoice, customer email and status without tenant arguments in the inspected contract. Determine which API is legacy, which runtime exposes each, and whether any customer-facing path still relies on the older unscoped model before consolidating or retiring it. |
-| P1 | Provider execution is intentionally separate, but operational ownership and reconciliation must be completed at composition level | The PostgreSQL adapter records obligations/refunds and verified provider outcomes; its documentation explicitly delegates provider execution and provider-state transitions to separate workers/adapters. Verify production provider worker registration, credential isolation, webhook authentication, scheduling, alerting and manual reconciliation procedures before assigning production maturity. |
-| P1 | POS checkout saga spans independent capability transactions | The checkout orchestrator coordinates stock reservation, payment obligation creation and checkout-state updates through ports. This is correctly a saga boundary, not a distributed database transaction. Verify compensation/recovery behavior for every crash point, including reservation success before checkout persistence, payment creation before payment ID persistence, late success and duplicate provider callbacks. |
-| P2 | POS checkout persistence and sale-command idempotency use different transaction mechanisms | Checkout session repository uses its own JDBC connection and optimistic versioning; sale command idempotency uses a JTA transaction around its supplier. Keep these boundaries explicit and test cross-capability crash recovery rather than assuming they are atomic together. |
+**Audit limitations / follow-up**
 
-### Architecture interpretation
+- The checkout saga coordinates separate capability calls; the audit must still verify crash-window recovery when inventory reservation/commit/release succeeds but the following checkout-state write fails.
+- The inspected checkout service has explicit payment/inventory ports, but a complete sale-to-accounting posting, receipt/return/refund and settlement-reconciliation journey was not established in this pass.
+- The POS PostgreSQL checkout repository uses tenant-scoped reads and optimistic version checks; branch/register/shift authorization and access-control behavior need a separate endpoint-to-policy trace.
+- No latest CI or production deployment evidence was queried for these tests.
 
-- The neutral Payment capability is a strong reusable foundation for POS, billing, commerce and other consumers: consumers use a stable application port; Payment owns obligation/refund state, tenant authorization, idempotency, provider outcome validation and its outbox.
-- Keep payment provider execution and external delivery outside the domain model. The outbox is at-least-once, so consumers must be idempotent.
-- Do not let POS write Payment tables or own provider-specific lifecycle semantics.
-- The legacy entity-oriented PaymentService should be treated as a separate compatibility surface until its runtime consumers and migration path are verified; do not merge its model into the neutral obligation API by assumption.
-- Checkout should remain a saga with explicit UNKNOWN/PENDING/late-success handling and observable compensation/recovery, not a cross-capability shared transaction.
+**Audit disposition:** POS already has a credible capability-composition pattern and useful recovery tests. Prioritize saga crash-window tests and full accounting/returns/settlement handoffs rather than building a parallel POS or payment foundation.
 
-### Verification limits and next actions
+### 13.4 Cross-capability priority register
 
-- Source and PostgreSQL Testcontainers test files were inspected, but no Maven build or test command was executed in this pass.
-- Provider adapter implementations, runtime worker wiring, webhook security, production scheduling and end-to-end POS crash-recovery tests remain to be verified.
-- Next source trace: inventory stock reservation/commit/release and accounting posting handoffs; then inspect CRM/workforce workflows and map all findings into a single prioritized M0.6 backlog.
+| Priority | Finding | Owning capability | Required next evidence / action |
+|---|---|---|---|
+| P0 | Core GL ports are wired to in-memory repositories despite PostgreSQL schema migrations | Accounting | Implement and wire durable tenant/ledger-scoped GL repositories; add PostgreSQL integration tests |
+| P0 | Journal posting/reversal has no visible atomic unit-of-work spanning account balances, journal state and outbox | Accounting | Introduce a transaction-owning application port/use-case boundary; test rollback on each injected failure point |
+| P0 | Journal list/get resource methods use unscoped repository methods | Accounting | Require authenticated tenant/ledger context and scoped repository calls; add cross-tenant negative tests |
+| P0 | Year-end close uses unscoped account lookup and default tenant/ledger journal construction | Accounting | Make close command explicitly tenant/ledger scoped and persist journal, balances and events atomically |
+| P1 | Payment has both neutral obligation and legacy payment processing stacks | Payment | Trace all entry points and document migration/ownership; ensure one authoritative lifecycle per use case |
+| P1 | POS saga crash-window coverage is not established | POS + Inventory | Add fault-injection tests around reserve/commit/release and checkout persistence; verify idempotent recovery |
+| P1 | End-to-end POS settlement/returns/accounting handoff is not established | POS + Payment + Accounting | Add one integration scenario from sale through settlement, ledger posting and refund/reversal |
 
-## 15. M0.3 source trace — Inventory and POS stock boundary (2026-11-06)
+### 13.5 Scope and maturity decision
 
-### Verified Inventory capability behavior
+This update is source evidence for the inspected paths only. It does not claim that the three capabilities are fully audited, that the listed gaps are the only gaps, or that any build/CI workflow passed. No numeric maturity score is assigned until the relevant persistence, authorization, integration and failure-recovery tests are run and reviewed.
 
-| Area | Evidence | What is demonstrated |
-|---|---|---|
-| Explicit tenant boundary | `TenantScopedInventoryService`; `TenantInventoryRepositoryProvider`; `PostgresTenantInventoryRepositoryProvider` | Application operations require tenant context; provider returns tenant-bound repository instances; PostgreSQL adapter also includes tenant predicates |
-| Durable stock ledger | `PostgresInventoryRepository`; `V1__inventory_ledger_and_reservations.sql` | Tenant-scoped items, warehouses, stock movements, reservations, stock locks and command receipts |
-| Atomic availability checks | `PostgresInventoryRepository` | Stock lock rows serialize competing writes; availability is checked and movement/reservation is persisted within adapter-managed JDBC transactions |
-| Idempotent commands | Same adapter and migration | Movement, issue, transfer and reservation commands persist payload fingerprints and result references; replay with a different payload is rejected |
-| Reservation lifecycle | `InventoryReservation.java`; `PostgresInventoryRepository.postReservedIssue` | ACTIVE reservations can be committed/released/expired; reserved issue checks scope, status, expiry, item, warehouse and quantity, then writes movement and commits reservation in one transaction |
-| Concurrency tests | `PostgresInventoryRepositoryTest.java` | Testcontainers tests cover tenant isolation, reservation replay/conflicting payloads and competing reservations against limited stock |
+## 14. M0.3.1 implementation slice — durable PostgreSQL chart of accounts
 
-### POS handoff observation
+**Branch:** `numou/accounting-gl-postgres-account-repository`
 
-- POS defines a tenant-scoped `CheckoutInventoryPort` with idempotent reserve, commit and release semantics.
-- `CheckoutOrchestrationService` uses that port as part of its retryable checkout saga; the checkout service does not write Inventory tables directly.
-- The repository tree inspection found the POS port and the Inventory provider/adapter, but did not identify a concrete class implementing `CheckoutInventoryPort` in the POS source paths inspected. A composition adapter may exist elsewhere or be supplied by a runtime; its registration and behavior remain unverified.
-- Until that composition is traced, do not claim the POS-to-Inventory integration is end-to-end complete. The correct design remains a narrow adapter from POS checkout operations to tenant-scoped Inventory reservation/commit/release APIs, with stable idempotency keys and compensation.
+This slice implements the first durable GL repository, without claiming the full general ledger persistence milestone is complete.
 
-### Prioritized findings
+### Implemented
 
-| Priority | Finding | Action |
-|---|---|---|
-| P1 | POS-to-Inventory adapter/composition is not yet evidenced | Locate or implement the composition-owned adapter; verify CDI/runtime registration and contract tests. Keep Inventory as the owner of stock reservation and movement invariants. |
-| P1 | Checkout saga recovery needs cross-capability crash-point tests | Test reserve succeeds but checkout update fails; payment obligation succeeds but checkout attachment fails; payment remains UNKNOWN; late success after cancellation; duplicate commit/release; reservation expiry during recovery. |
-| P2 | Legacy non-idempotent Inventory SPI methods remain alongside idempotent overloads | Keep for compatibility only where required; new commerce/fulfillment consumers should use idempotent APIs. Add architecture or contract checks preventing accidental use of legacy operations in new integrations. |
+- Added `PostgresAccountRepository` implementing the existing `AccountRepository` application port.
+- Reads by ID, account number and list are tenant-and-ledger constrained in SQL, not filtered after loading.
+- Reconstitution preserves account type/status, currency and balance, parent account, active flag and Shariah-compliance flag.
+- Writes use a single PostgreSQL upsert. The conflict update is permitted only when the stored tenant and ledger match the incoming aggregate; an account ID cannot be moved across scopes.
+- Legacy unscoped compatibility methods fail closed in the PostgreSQL adapter.
+- JDBC work is scheduled on Mutiny's worker pool rather than blocking the reactive request/event-loop thread.
+- Marked `InMemoryAccountRepository` as a Quarkus `@DefaultBean`, allowing the durable PostgreSQL implementation to take precedence in CDI composition while retaining the in-memory fallback for tests or compositions without a durable adapter.
+- Added Testcontainers PostgreSQL coverage for aggregate round-trip, tenant/ledger isolation, cross-scope ID reassignment rejection and unscoped method rejection.
 
-### M0.3 coverage note
+### Remaining in M0.3.1
 
-The Inventory PostgreSQL adapter and its Testcontainers tests provide stronger evidence for durable stock reservation and oversell prevention than directory structure alone. The remaining risk is integration composition and saga recovery across POS, Payment and Inventory—not a need for a second inventory or stock-reservation model.
+- PostgreSQL journal-entry persistence and aggregate reconstitution.
+- Tenant/ledger-aware fiscal-period persistence and query contracts.
+- Durable accounting outbox persistence and relay/lease behavior.
+- A transaction-owning application boundary spanning account updates, journal persistence and outbox writes.
+- Runtime-level CDI verification proving the intended adapters are selected together.
+- Tenant-context-derived REST scope and cross-tenant authorization tests.
+- Year-end close correction and rollback/failure-injection coverage.
+
+### Verification status
+
+The source and test files are committed, but no Maven build or Testcontainers run is claimed in this update. The integration test is configured to skip when Docker is unavailable. Run the accounting reactor from `finance/accounting` after installing the shared framework artifacts required by the repository's multi-reactor build.
