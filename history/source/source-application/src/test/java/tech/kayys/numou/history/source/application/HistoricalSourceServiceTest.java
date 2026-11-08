@@ -15,7 +15,7 @@ class HistoricalSourceServiceTest {
   assertEquals(source.id(),evidence.sourceId()); assertEquals(1,service.listEvidence(claim.id(),10).size());
  }
  @Test void assessmentsRequireMethodologyAndKeepEditorialReviewAsSeparateHistory() {
-  var repo=new InMemoryRepository(); var service=new HistoricalSourceService(repo,UUID::randomUUID,new AllowAll(),Clock.systemUTC());
+  var repo=new InMemoryRepository(); var tenant=UUID.randomUUID(); var service=new HistoricalSourceService(repo,()->tenant,new AllowAll(),Clock.systemUTC());
   var source=service.register(HistoricalSourceKind.MANUSCRIPT,"Chronicle",null,null,null,null,null,"id");
   var assessment=service.assessSource(source.id(),SourceAssessmentDimension.INDEPENDENCE,
    SourceAssessmentConclusion.UNCERTAIN,"Two accounts derive from the same earlier text.","source-criticism","1.0","actor:researcher");
