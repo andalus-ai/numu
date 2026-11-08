@@ -19,18 +19,13 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class ReverseJournalEntryHandler implements CommandHandler<ReverseJournalEntryCommand, JournalEntryId> {
-
     private final JournalEntryRepository journalEntryRepository;
     private final AccountRepository accountRepository;
     private final OutboxRepository outboxRepository;
     private final ProjectionRegistry projectionRegistry;
 
-    public ReverseJournalEntryHandler(
-            JournalEntryRepository journalEntryRepository,
-            AccountRepository accountRepository,
-            OutboxRepository outboxRepository,
-            ProjectionRegistry projectionRegistry
-    ) {
+    public ReverseJournalEntryHandler(JournalEntryRepository journalEntryRepository, AccountRepository accountRepository,
+            OutboxRepository outboxRepository, ProjectionRegistry projectionRegistry) {
         this.journalEntryRepository = Objects.requireNonNull(journalEntryRepository);
         this.accountRepository = Objects.requireNonNull(accountRepository);
         this.outboxRepository = Objects.requireNonNull(outboxRepository);
@@ -39,50 +34,54 @@ public class ReverseJournalEntryHandler implements CommandHandler<ReverseJournal
 
     @Override
     public Uni<JournalEntryId> handle(ReverseJournalEntryCommand command) {
-        return journalEntryRepository.findById(command.journalEntryId())
-                .chain(opt -> {
-                    if (opt.isEmpty()) {
-                        return Uni.createFrom().failure(new IllegalArgumentException("Journal entry not found"));
+        return journalEntryRepository.findById(command.tenantId(), command.ledgerId(), command.journalEntryId())
+                .chain(optional -> {
+                    if (optional.isEmpty()) {
+                        return Uni.createFrom().failure(new IllegalArgumentException(
+                                "Journal entry not found in tenant/ledger scope"));
                     }
-                    JournalEntry orig = opt.get();
-                    JournalEntryId revId = JournalEntryId.generate();
-                    String revNum = "REV-" + orig.getEntryNumber() + "-" + UUID.randomUUID().toString().substring(0, 4);
-
-                    JournalEntry reversal = orig.createStornoReversal(revId, revNum, Instant.now(), command.reversedBy(), command.reason());
+                    JournalEntry original = optional.get();
+                    JournalEntryId reversalId = JournalEntryId.generate();
+                    String reversalNumber = "REV-" + original.getEntryNumber() + "-"
+                            + UUID.randomUUID().toString().substring(0, 4);
+                    Instant now = Instant.now();
+                    JournalEntry reversal = original.createStornoReversal(reversalId, reversalNumber, now,
+                            command.reversedBy(), command.reason());
                     reversal.post(command.reversedBy());
-                    orig.markReversed(revId, Instant.now(), command.reversedBy());
+                    original.markReversed(reversalId, now, command.reversedBy());
 
-                    Uni<Void> mutate = Uni.createFrom().voidItem();
+                    Uni<Void> mutateAccounts = Uni.createFrom().voidItem();
                     for (JournalEntry.JournalLine line : reversal.getLines()) {
-                        mutate = mutate.chain(() -> accountRepository.findById(line.accountId())
-                                .chain(optAcc -> {
-                                    if (optAcc.isEmpty()) return Uni.createFrom().voidItem();
-                                    Account acc = optAcc.get();
-                                    if (line.debit().isPositive()) {
-                                        acc.debit(line.debit());
+                        mutateAccounts = mutateAccounts.chain(() -> accountRepository
+                                .findById(command.tenantId(), command.ledgerId(), line.accountId())
+                                .chain(optionalAccount -> {
+                                    if (optionalAccount.isEmpty()) {
+                                        return Uni.createFrom().failure(new IllegalStateException(
+                                                "Reversal account missing from tenant/ledger scope: " + line.accountId()));
                                     }
-                                    if (line.credit().isPositive()) {
-                                        acc.credit(line.credit());
-                                    }
-                                    return accountRepository.save(acc);
+                                    Account account = optionalAccount.get();
+                                    if (line.debit().isPositive()) account.debit(line.debit());
+                                    if (line.credit().isPositive()) account.credit(line.credit());
+                                    return accountRepository.save(account);
                                 }));
                     }
 
-                    return mutate
-                            .chain(() -> journalEntryRepository.save(orig))
+                    return mutateAccounts.chain(() -> journalEntryRepository.save(original))
                             .chain(() -> journalEntryRepository.save(reversal))
                             .chain(() -> {
-                                Uni<Void> evChain = Uni.createFrom().voidItem();
-                                for (DomainEvent ev : orig.pullDomainEvents()) {
-                                    if (ev instanceof AccountingEvent accEv) {
-                                        evChain = evChain
-                                                .chain(() -> outboxRepository.save(OutboxEvent.of("JournalEntry", revId.value().toString(), accEv.eventType(), accEv.tenantId(), accEv.ledgerId(), accEv.toString())))
-                                                .chain(() -> projectionRegistry.publishToProjections(accEv));
+                                Uni<Void> eventChain = Uni.createFrom().voidItem();
+                                for (DomainEvent event : original.pullDomainEvents()) {
+                                    if (event instanceof AccountingEvent accountingEvent) {
+                                        eventChain = eventChain
+                                                .chain(() -> outboxRepository.save(OutboxEvent.of("JournalEntry",
+                                                        reversalId.value().toString(), accountingEvent.eventType(),
+                                                        accountingEvent.tenantId(), accountingEvent.ledgerId(),
+                                                        accountingEvent.toString())))
+                                                .chain(() -> projectionRegistry.publishToProjections(accountingEvent));
                                     }
                                 }
-                                return evChain;
-                            })
-                            .map(v -> revId);
+                                return eventChain;
+                            }).map(ignored -> reversalId);
                 });
     }
 }

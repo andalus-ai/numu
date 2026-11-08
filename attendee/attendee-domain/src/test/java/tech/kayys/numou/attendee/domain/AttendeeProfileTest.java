@@ -68,6 +68,20 @@ class AttendeeProfileTest {
                 null, null, AttendeeProfileStatus.PENDING, NOW, NOW.minusSeconds(1), 0));
     }
 
+
+    @Test
+    void rejectsTextLengthsThatExceedThePersistenceContract() {
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "K".repeat(81), "Guest", null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT", "G".repeat(241), null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT", "Guest", null, "x".repeat(36), NOW));
+    }
+
     @Test
     void presentationUpdatesPreserveIdentityAndAdvanceRevision() {
         var original = pending();
@@ -80,4 +94,30 @@ class AttendeeProfileTest {
         assertEquals("id-ID", changed.preferredLanguage());
         assertEquals(1, changed.revision());
     }
+
+    @Test
+    void normalizesTimestampsToPostgresMicrosecondPrecision() {
+        var precise = Instant.parse("2026-11-05T00:00:00.123456789Z");
+        var profile = AttendeeProfile.create(UUID.randomUUID(), TenantId.generate(),
+                PartyId.generate(), "EVENT_GUEST", "Guest", null, null, precise);
+
+        assertEquals(Instant.parse("2026-11-05T00:00:00.123456Z"), profile.createdAt());
+        assertEquals(profile.createdAt(), profile.updatedAt());
+        var changed = profile.activate(Instant.parse("2026-11-05T00:00:01.987654321Z"));
+        assertEquals(Instant.parse("2026-11-05T00:00:01.987654Z"), changed.updatedAt());
+    }
+
+    @Test
+    void enforcesTextLengthsBeforePersistence() {
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "K".repeat(81), "Guest", null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT_GUEST", "G".repeat(241), null, null, NOW));
+        assertThrows(IllegalArgumentException.class, () -> AttendeeProfile.create(
+                UUID.randomUUID(), TenantId.generate(), PartyId.generate(),
+                "EVENT_GUEST", "Guest", null, "l".repeat(36), NOW));
+    }
+
 }

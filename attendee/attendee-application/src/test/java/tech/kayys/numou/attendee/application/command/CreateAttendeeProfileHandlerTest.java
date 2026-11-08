@@ -2,8 +2,10 @@ package tech.kayys.numou.attendee.application.command;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
+import tech.kayys.numou.attendee.application.error.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeAuthorizationPort;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
+import tech.kayys.numou.attendee.application.port.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContext;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContextProvider;
 import tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort;
@@ -144,6 +146,40 @@ class CreateAttendeeProfileHandlerTest {
         assertEquals("Preferred", saved.get().preferredName());
         assertEquals("id-ID", saved.get().preferredLanguage());
         assertEquals(0, result.orElseThrow().revision());
+    }
+
+
+    @Test
+    void translatesConcurrentDatabaseUniquenessConflictToStableApplicationError() {
+        var repository = new AttendeeProfileRepository() {
+            @Override
+            public Uni<tech.kayys.numou.attendee.domain.AttendeeProfile> save(
+                    tech.kayys.numou.attendee.domain.AttendeeProfile profile) {
+                return Uni.createFrom().failure(new AttendeeProfileAlreadyExistsException(
+                        "duplicate", new IllegalStateException("unique constraint")));
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantAndId(
+                    TenantId tenantId, UUID profileId) {
+                return Uni.createFrom().item(Optional.empty());
+            }
+            @Override
+            public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantPartyAndKind(
+                    TenantId requestedTenant, UUID requestedParty, String profileKind) {
+                return Uni.createFrom().item(Optional.empty());
+            }
+        };
+        var handler = new CreateAttendeeProfileHandler(repository,
+                (tenantId, actorId, partyId) -> Uni.createFrom().voidItem(),
+                () -> new AttendeeTenantContext(trustedTenant, trustedActor),
+                request -> Uni.createFrom().voidItem(), directUnitOfWork(), Clock.systemUTC());
+
+        var result = handler.handle(new CreateAttendeeProfileCommand(
+                UUID.randomUUID(), "EVENT_GUEST", "Guest", null, null)).await().indefinitely();
+
+        assertTrue(result.isFailure());
+        assertEquals("ATTENDEE_PROFILE_ALREADY_EXISTS",
+                result.failureError().orElseThrow().code());
     }
 
     private static UnitOfWork directUnitOfWork() {

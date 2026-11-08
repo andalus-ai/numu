@@ -67,4 +67,4 @@ The GitHub contents API confirms commits were created on `feat/attendee-particip
 
 ## Follow-on implementation
 
-The M1 domain baseline is followed by the M2 application layer documented in [ATTENDEE-M2-APPLICATION.md](ATTENDEE-M2-APPLICATION.md). M2 adds tenant-aware create/read use cases, trusted actor context, authorization and Party-reference access contracts. M3 is responsible for concrete persistence, database uniqueness, optimistic concurrency and adapter integration.
+The M1 domain baseline is followed by the M2 application layer documented in [ATTENDEE-M2-APPLICATION.md](ATTENDEE-M2-APPLICATION.md) and the M3 PostgreSQL adapter documented in [ATTENDEE-M3-PERSISTENCE.md](ATTENDEE-M3-PERSISTENCE.md). M2 adds tenant-aware create/read use cases, trusted actor context, authorization and Party-reference access contracts. M3 adds tenant-scoped JDBC persistence, database uniqueness and optimistic revision checks.
