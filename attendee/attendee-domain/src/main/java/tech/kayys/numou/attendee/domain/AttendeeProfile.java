@@ -4,6 +4,7 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -40,6 +41,11 @@ public record AttendeeProfile(
         Objects.requireNonNull(status, "status cannot be null");
         Objects.requireNonNull(createdAt, "createdAt cannot be null");
         Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
+        // PostgreSQL TIMESTAMPTZ stores microsecond precision. Normalize at the
+        // domain boundary so in-memory revisions round-trip without false
+        // immutable-createdAt conflicts after persistence.
+        createdAt = createdAt.truncatedTo(ChronoUnit.MICROS);
+        updatedAt = updatedAt.truncatedTo(ChronoUnit.MICROS);
         if (updatedAt.isBefore(createdAt)) {
             throw new IllegalArgumentException("updatedAt cannot be before createdAt");
         }

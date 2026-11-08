@@ -2,6 +2,7 @@ package tech.kayys.numou.accounting.interfaces.repository;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.arc.DefaultBean;
 import tech.kayys.numou.accounting.application.port.AccountRepository;
 import tech.kayys.numou.accounting.domain.identifier.AccountId;
 import tech.kayys.numou.accounting.domain.ledger.LedgerId;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @ApplicationScoped
+@DefaultBean
 public class InMemoryAccountRepository implements AccountRepository {
     private final Map<AccountId, Account> store = new ConcurrentHashMap<>();
 

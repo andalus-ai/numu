@@ -16,6 +16,12 @@ import java.util.UUID;
  */
 public interface AttendeeProfileRepository {
 
+    /**
+     * Inserts revision-zero profiles or updates an existing profile by exactly
+     * one revision. Implementations must reject duplicate tenant/Party/kind
+     * identities with AttendeeProfileAlreadyExistsException and stale updates
+     * with AttendeeProfileOptimisticLockException.
+     */
     Uni<AttendeeProfile> save(AttendeeProfile profile);
 
     Uni<Optional<AttendeeProfile>> findByTenantAndId(TenantId tenantId, UUID profileId);

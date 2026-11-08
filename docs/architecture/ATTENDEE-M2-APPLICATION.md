@@ -21,6 +21,15 @@ Create authorization and Party-reference authorization are separate checks. The 
 
 The attendee capability references `PartyId`; it does not create or mutate Party. Registration, attendance, branch assignment, geo position, media, coverage and policy evaluation remain outside this application slice.
 
+## Persistence contract implemented in M3
+
+The PostgreSQL adapter enforces a unique constraint on (tenant_id, party_id, profile_kind). The application pre-check improves error quality but is not a concurrency guarantee. A database uniqueness violation is translated to the stable ATTENDEE_PROFILE_ALREADY_EXISTS application error.
+
+Profile reads use both tenant and profile ID. The adapter never loads by profile ID alone and filters in application memory. See [ATTENDEE-M3-PERSISTENCE.md](ATTENDEE-M3-PERSISTENCE.md) for schema, migration and revision semantics.
+
+## Verification
+
+M2 application tests and M3 PostgreSQL Testcontainers tests have been added. They have not been executed in this environment; do not treat these milestones as CI-verified until the framework reactor runs the new module tests.
 ## Persistence and concurrency
 
 M3 supplies the PostgreSQL adapter, schema uniqueness constraint, tenant-scoped SQL and optimistic revision checks. The application pre-check improves error quality but is not a concurrency guarantee; PostgreSQL uniqueness is authoritative. See [ATTENDEE-M3-POSTGRES-PERSISTENCE.md](ATTENDEE-M3-POSTGRES-PERSISTENCE.md).

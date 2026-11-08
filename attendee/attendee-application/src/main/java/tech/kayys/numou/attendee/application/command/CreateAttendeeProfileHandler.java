@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.attendee.application.error.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeAuthorizationPort;
 import tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort;
+import tech.kayys.numou.attendee.application.port.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContextProvider;
 import tech.kayys.numou.attendee.domain.AttendeeProfile;

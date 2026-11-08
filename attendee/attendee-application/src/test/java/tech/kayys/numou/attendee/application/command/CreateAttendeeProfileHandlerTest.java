@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.attendee.application.error.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeAuthorizationPort;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
+import tech.kayys.numou.attendee.application.port.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContext;
 import tech.kayys.numou.attendee.application.port.AttendeeTenantContextProvider;
 import tech.kayys.numou.attendee.application.port.AttendeePartyAccessPort;
@@ -164,7 +165,7 @@ class CreateAttendeeProfileHandlerTest {
             }
             @Override
             public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantPartyAndKind(
-                    TenantId tenantId, UUID partyId, String profileKind) {
+                    TenantId requestedTenant, UUID requestedParty, String profileKind) {
                 return Uni.createFrom().item(Optional.empty());
             }
         };
