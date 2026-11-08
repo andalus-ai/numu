@@ -11,5 +11,5 @@ public interface HistoricalProjectionInspectionPort {
 
     record ProjectedRelationship(UUID relationshipId, long revision, String eventKey,
                                  String relationshipKind, String subjectKind, String subjectId,
-                                 String objectKind, String objectId) {}
+                                 String objectKind, String objectId, String payloadHash) {}
 }

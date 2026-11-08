@@ -18,27 +18,25 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Application authorization validates relationship access and both endpoint references.
 - Migration V2 writes one versioned projection event per relationship revision in the same transaction as the revision insert.
 - Migration V3 adds SKIP LOCKED batch claims, expiring fenced leases, separate lifetime/retry-window counters, and actor-attributed dead-letter replay audit.
-- Delivery uses at-least-once semantics with lease-token fencing, bounded exponential retry, and audited dead-letter replay.
-- Neo4j is an optional projection adapter only. It stores typed entity nodes and revisioned relationship nodes, scopes private projections by tenant, and ignores duplicate or stale revisions.
+- Neo4j is an optional projection adapter only. It stores typed entity nodes and revisioned relationship nodes, scopes private projections by tenant, and ignores stale revisions.
 - PostgreSQL remains authoritative; Neo4j is disposable and rebuildable.
 - Migration V4 adds a monotonic outbox sequence and durable rebuild checkpoints. A rebuild captures a high-water mark while holding a PostgreSQL SHARE table lock, so transactions that append later events cannot fall below the captured boundary.
 - Rebuild pages are keyset-paginated and tenant/public-scope isolated. A checkpoint advances only after every event in its page has been projected; replaying a page after interruption is safe because the Neo4j adapter is revision-idempotent.
-- Reconciliation is a bounded, read-only audit over latest canonical outbox revisions and Neo4j projection metadata. It detects missing, stale, ahead, divergent, and orphaned relationship nodes without changing either store.
-- Canonical and graph scans use keyset pagination and an explicit public/tenant scope. Public and tenant-private projections must be audited independently.
-- Rebuild and reconciliation are maintenance primitives; host wiring must authenticate the operator and derive tenant scope from trusted context before invoking them.
+- HistoricalProjectionAuditStore exposes bounded latest-canonical-event pages and exact latest-event lookup. HistoricalProjectionInspectionPort exposes bounded graph inspection without making Neo4j a dependency of the application layer.
+- Reconciliation compares the latest PostgreSQL event with the scoped Neo4j revision, event key, relationship kind, endpoint identities, and SHA-256 payload fingerprint. It also reports graph relationships with no canonical PostgreSQL relationship.
+- Missing, stale, and same-revision divergent graph records can be repaired by replaying the exact immutable canonical event. A graph revision newer than PostgreSQL is reported as divergent and is never overwritten automatically.
+- Reconciliation is bounded by keyset pages and read-only unless the caller explicitly enables repair. The host must authorize maintenance operations and provide scheduler/runtime wiring.
 
 ## Operational limits
-- Rebuild replays all retained outbox revisions through the captured high-water mark. It does not delete Neo4j nodes or relationships that have no corresponding canonical outbox event; destructive stale-node cleanup requires a separately staged generation/swap protocol.
-- Reconciliation compares latest outbox revision payload metadata with projected relationship metadata. It does not yet verify endpoint-node properties, dangling edges, or all historical content.
+- Rebuild replays all retained outbox revisions through the captured high-water mark. It does not delete Neo4j nodes or relationships that have no corresponding canonical outbox event; reconciliation reports such records as orphaned but does not delete them.
 - Outbox retention must preserve all events required for a full rebuild. Do not purge projection events unless an independently verified canonical snapshot/rebuild source is introduced.
-- Reconciliation is diagnostic only in this milestone. Automated repair must use canonical replay, carry actor/audit context, and avoid mutating PostgreSQL history.
+- Concurrent rebuild workers may read the same page. Provider idempotency makes duplicate projection safe; checkpoint compare-and-set permits only one worker to advance the cursor.
+- Reconciliation does not perform destructive orphan cleanup or active-generation swaps. Those operations require a separately staged graph generation, complete validation, and an atomic activation protocol.
 
 ## Deferred
-- Automated repair orchestration and repair audit records.
 - Staged generation rebuild and atomic active-generation swap for destructive orphan cleanup.
-- Metrics for projection lag, audit drift, and repair outcomes.
-- M5 source claims, citations, evidence, conflicting assertions, and verification.
 - Graph query APIs, traversal limits, pagination, and bounded traversal protection.
+- M5 source claims, citations, evidence, conflicting assertions, and verification.
 - Shared-corpus ingestion workflow and editorial authorization.
 - Controlled vocabulary governance and localization.
 

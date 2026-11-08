@@ -1,121 +1,89 @@
 package tech.kayys.numou.history.graph.application;
 
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore.CanonicalRelationship;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionReconciliationStore;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore.CanonicalRelationship;
-
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * Bounded, read-only drift audit. Scope is derived from trusted context and
- * every public-corpus audit requires an explicit privileged authorization.
- */
+/** Compares the current graph projection with canonical PostgreSQL outbox events. */
 public final class HistoricalProjectionReconciliationService {
     private final HistoricalProjectionAuditStore canonical;
     private final HistoricalProjectionInspectionPort projection;
-    private final HistoricalRelationshipTenantContext tenantContext;
-    private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
-
+    private final HistoricalRelationshipProjectionPort replayPort;
     public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
-                                                       HistoricalProjectionInspectionPort projection,
-                                                       HistoricalRelationshipTenantContext tenantContext,
-                                                       HistoricalProjectionMaintenanceAuthorizationPort authorization) {
+            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort) {
         this.canonical = Objects.requireNonNull(canonical, "canonical");
         this.projection = Objects.requireNonNull(projection, "projection");
-        this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
-        this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.replayPort = Objects.requireNonNull(replayPort, "replayPort");
     }
 
-    public AuditPage auditTenantCanonicalPage(String afterRelationshipId, int limit) {
-        UUID tenantId = requireTenant();
-        authorization.requireCanAuditTenant(tenantId);
-        return auditCanonicalPage(tenantId, afterRelationshipId, limit);
-    }
-
-    public AuditPage auditPublicCanonicalPage(String afterRelationshipId, int limit) {
-        authorization.requireCanAuditPublicCorpus();
-        return auditCanonicalPage(null, afterRelationshipId, limit);
-    }
-
-    public AuditPage auditTenantOrphanPage(String afterRelationshipId, int limit) {
-        UUID tenantId = requireTenant();
-        authorization.requireCanAuditTenant(tenantId);
-        return auditOrphanPage(tenantId, afterRelationshipId, limit);
-    }
-
-    public AuditPage auditPublicOrphanPage(String afterRelationshipId, int limit) {
-        authorization.requireCanAuditPublicCorpus();
-        return auditOrphanPage(null, afterRelationshipId, limit);
-    }
-
-    private AuditPage auditCanonicalPage(UUID tenantId, String afterRelationshipId, int limit) {
-        requireLimit(limit);
-        List<CanonicalRelationship> source = canonical.nextLatestPage(tenantId, afterRelationshipId, limit);
-        List<Finding> findings = new ArrayList<>();
-        for (CanonicalRelationship expected : source) {
-            var actual = projection.find(tenantId, expected.relationshipId());
-            if (actual.isEmpty()) {
-                findings.add(new Finding(expected.relationshipId(), Drift.MISSING, 0, expected.revision()));
-                continue;
+    public ReconciliationReport reconcile(UUID tenantId, int pageSize, boolean repair) throws Exception {
+        if (pageSize < 1 || pageSize > 200) throw new IllegalArgumentException("pageSize must be 1..200");
+        long checked=0, missing=0, stale=0, divergent=0, orphaned=0, repaired=0;
+        String cursor=null;
+        while (true) {
+            List<CanonicalRelationship> page=canonical.nextLatestPage(tenantId,cursor,pageSize);
+            if(page.isEmpty()) break;
+            for(CanonicalRelationship event:page) {
+                checked++;
+                var graph=projection.find(tenantId,event.relationshipId());
+                String hash=sha256(event.payload());
+                if(graph.isEmpty()) {
+                    missing++;
+                    if(repair){replayPort.project(toProjectionEvent(event));repaired++;}
+                } else {
+                    var actual=graph.get();
+                    if(actual.revision()<event.revision()) {
+                        stale++;
+                        if(repair){replayPort.project(toProjectionEvent(event));repaired++;}
+                    } else if(actual.revision()>event.revision()) {
+                        divergent++;
+                    } else if(!event.eventKey().equals(actual.eventKey())
+                            || !event.relationshipKind().equals(actual.relationshipKind())
+                            || !event.subjectKind().equals(actual.subjectKind())
+                            || !event.subjectId().equals(actual.subjectId())
+                            || !event.objectKind().equals(actual.objectKind())
+                            || !event.objectId().equals(actual.objectId())
+                            || !hash.equals(actual.payloadHash())) {
+                        divergent++;
+                        if(repair){replayPort.project(toProjectionEvent(event));repaired++;}
+                    }
+                }
+                cursor=event.relationshipId().toString();
             }
-            var value = actual.get();
-            Drift drift = classify(expected, value);
-            if (drift != Drift.HEALTHY) {
-                findings.add(new Finding(expected.relationshipId(), drift, value.revision(), expected.revision()));
-            }
+            if(page.size()<pageSize) break;
         }
-        String next = source.isEmpty() ? afterRelationshipId
-                : source.get(source.size() - 1).relationshipId().toString();
-        return new AuditPage(List.copyOf(findings), source.size(), next, source.size() < limit);
-    }
-
-    private AuditPage auditOrphanPage(UUID tenantId, String afterRelationshipId, int limit) {
-        requireLimit(limit);
-        List<HistoricalProjectionInspectionPort.ProjectedRelationship> graph =
-                projection.nextPage(tenantId, afterRelationshipId, limit);
-        List<Finding> findings = new ArrayList<>();
-        for (var actual : graph) {
-            if (canonical.findLatest(tenantId, actual.relationshipId()).isEmpty()) {
-                findings.add(new Finding(actual.relationshipId(), Drift.ORPHAN,
-                        actual.revision(), 0));
+        String graphCursor=null;
+        while(true) {
+            List<HistoricalProjectionInspectionPort.ProjectedRelationship> page=
+                    projection.nextPage(tenantId,graphCursor,pageSize);
+            if(page.isEmpty()) break;
+            for(var row:page) {
+                if(canonical.findLatest(tenantId,row.relationshipId()).isEmpty()) orphaned++;
+                graphCursor=row.relationshipId().toString();
             }
+            if(page.size()<pageSize) break;
         }
-        String next = graph.isEmpty() ? afterRelationshipId
-                : graph.get(graph.size() - 1).relationshipId().toString();
-        return new AuditPage(List.copyOf(findings), graph.size(), next, graph.size() < limit);
+        return new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
     }
 
-    private UUID requireTenant() {
-        return Objects.requireNonNull(tenantContext.requireTenantId(),
-                "authenticated tenant context did not provide a tenant ID");
+    private static ClaimedProjectionEvent toProjectionEvent(CanonicalRelationship e) {
+        UUID token=UUID.nameUUIDFromBytes(e.eventKey().getBytes(StandardCharsets.UTF_8));
+        return new ClaimedProjectionEvent(e.eventId(),e.eventKey(),e.eventType(),e.schemaVersion(),e.tenantId(),
+                e.relationshipId(),e.revision(),e.payload(),e.occurredAt(),0,0,token,java.time.Instant.MAX);
     }
-
-    private static Drift classify(CanonicalRelationship expected,
-                                  HistoricalProjectionInspectionPort.ProjectedRelationship actual) {
-        if (actual.revision() < expected.revision()) return Drift.STALE;
-        if (actual.revision() > expected.revision()) return Drift.AHEAD;
-        boolean same = Objects.equals(expected.eventKey(), actual.eventKey())
-                && Objects.equals(expected.relationshipKind(), actual.relationshipKind())
-                && Objects.equals(expected.subjectKind(), actual.subjectKind())
-                && Objects.equals(expected.subjectId(), actual.subjectId())
-                && Objects.equals(expected.objectKind(), actual.objectKind())
-                && Objects.equals(expected.objectId(), actual.objectId());
-        return same ? Drift.HEALTHY : Drift.DIVERGENT;
+    private static String sha256(String value) {
+        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
+        catch(NoSuchAlgorithmException impossible){throw new IllegalStateException("SHA-256 is unavailable",impossible);}
     }
-
-    private static void requireLimit(int limit) {
-        if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
+    public record ReconciliationReport(UUID tenantId,long canonicalChecked,long missing,long stale,
+            long divergent,long orphaned,long repaired) {
+        public boolean clean(){return missing==0&&stale==0&&divergent==0&&orphaned==0;}
     }
-
-    public enum Drift { HEALTHY, MISSING, STALE, AHEAD, DIVERGENT, ORPHAN }
-    public record Finding(UUID relationshipId, Drift drift, long projectedRevision, long canonicalRevision) {}
-    public record AuditPage(List<Finding> findings, int scanned, String nextCursor, boolean endOfScan) {}
 }

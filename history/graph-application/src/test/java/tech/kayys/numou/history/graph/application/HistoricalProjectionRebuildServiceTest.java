@@ -19,9 +19,12 @@ class HistoricalProjectionRebuildServiceTest {
         store.events = List.of(event(1), event(2));
         List<String> projected = new ArrayList<>();
         HistoricalRelationshipProjectionPort port = e -> projected.add(e.eventKey());
-        var service = service(store, port);
-        var run = service.startTenantRebuild();
-        var progress = service.resumeTenantPage(run.runId());
+        var service = new HistoricalProjectionRebuildService(store, port,
+                Clock.fixed(NOW, ZoneOffset.UTC), 2);
+
+        var run = service.start(TENANT);
+        var progress = service.resumeOnePage(TENANT, run.runId());
+
         assertEquals(2, progress.projectedEvents());
         assertEquals(2, progress.run().cursorSequence());
         assertEquals(List.of("event-1", "event-2"), projected);
@@ -35,31 +38,22 @@ class HistoricalProjectionRebuildServiceTest {
             calls[0]++;
             if (calls[0] == 2) throw new IllegalStateException("temporary provider failure");
         };
-        var service = service(store, port);
-        var run = service.startTenantRebuild();
-        assertThrows(IllegalStateException.class, () -> service.resumeTenantPage(run.runId()));
+        var service = new HistoricalProjectionRebuildService(store, port,
+                Clock.fixed(NOW, ZoneOffset.UTC), 2);
+        var run = service.start(TENANT);
+
+        assertThrows(IllegalStateException.class, () -> service.resumeOnePage(TENANT, run.runId()));
         assertEquals(0, store.cursor);
     }
 
     @Test void completedRunIsIdempotent() {
         FakeStore store = new FakeStore();
         store.events = List.of(event(1));
-        var service = service(store, e -> {});
-        var run = service.startTenantRebuild();
-        assertFalse(service.resumeTenantPage(run.runId()).completed());
-        assertTrue(service.resumeTenantPage(run.runId()).completed());
-        assertTrue(service.resumeTenantPage(run.runId()).completed());
-    }
-
-    private static HistoricalProjectionRebuildService service(FakeStore store, HistoricalRelationshipProjectionPort port) {
-        var auth = new HistoricalProjectionMaintenanceAuthorizationPort() {
-            public void requireCanRebuildTenant(UUID id) { assertEquals(TENANT, id); }
-            public void requireCanRebuildPublicCorpus() {}
-            public void requireCanAuditTenant(UUID id) {}
-            public void requireCanAuditPublicCorpus() {}
-        };
-        return new HistoricalProjectionRebuildService(store, port, () -> TENANT, auth,
-                Clock.fixed(NOW, ZoneOffset.UTC), 2);
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, Clock.fixed(NOW, ZoneOffset.UTC), 1);
+        var run = service.start(TENANT);
+        assertFalse(service.resumeOnePage(TENANT, run.runId()).completed());
+        assertTrue(service.resumeOnePage(TENANT, run.runId()).completed());
+        assertTrue(service.resumeOnePage(TENANT, run.runId()).completed());
     }
 
     private static ReplayEvent event(long sequence) {

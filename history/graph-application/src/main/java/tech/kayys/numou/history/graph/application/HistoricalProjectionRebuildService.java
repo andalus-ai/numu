@@ -14,7 +14,7 @@ import java.util.UUID;
 
 /**
  * Resumable, bounded replay of one public or tenant-private projection scope.
- * Scope is resolved/authorized server-side; callers cannot nominate another tenant.
+ * A page cursor advances only after every event in that page has been projected.
  */
 public final class HistoricalProjectionRebuildService {
     private final HistoricalProjectionRebuildStore store;
@@ -26,44 +26,28 @@ public final class HistoricalProjectionRebuildService {
 
     public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
                                               HistoricalRelationshipProjectionPort projection,
-                                              HistoricalRelationshipTenantContext tenantContext,
-                                              HistoricalProjectionMaintenanceAuthorizationPort authorization,
                                               Clock clock, int pageSize) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
-        this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
-        this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.clock = Objects.requireNonNull(clock, "clock");
         if (pageSize < 1 || pageSize > 500) throw new IllegalArgumentException("pageSize must be 1..500");
         this.pageSize = pageSize;
     }
 
-    public RebuildRun startTenantRebuild() {
-        UUID tenantId = requireTenant();
-        authorization.requireCanRebuildTenant(tenantId);
+    public RebuildRun start(UUID tenantId) {
         return store.start(tenantId, clock.instant());
     }
 
-    public RebuildRun startPublicCorpusRebuild() {
-        authorization.requireCanRebuildPublicCorpus();
-        return store.start(null, clock.instant());
-    }
-
-    public RebuildProgress resumeTenantPage(UUID runId) {
-        UUID tenantId = requireTenant();
-        authorization.requireCanRebuildTenant(tenantId);
-        return resume(tenantId, runId);
-    }
-
-    public RebuildProgress resumePublicCorpusPage(UUID runId) {
-        authorization.requireCanRebuildPublicCorpus();
-        return resume(null, runId);
-    }
-
-    private RebuildProgress resume(UUID tenantId, UUID runId) {
-        RebuildRun run = store.find(tenantId, Objects.requireNonNull(runId, "runId"))
+    /**
+     * Processes at most one page. Call repeatedly with the same run ID to resume.
+     * Replaying a page after a crash is safe because providers reject stale revisions.
+     */
+    public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
+        RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
-        if (run.status() == RebuildRun.Status.COMPLETED) return new RebuildProgress(run, 0, true);
+        if (run.status() == RebuildRun.Status.COMPLETED) {
+            return new RebuildProgress(run, 0, true);
+        }
 
         List<ReplayEvent> page = store.nextPage(tenantId, runId, pageSize);
         if (page.isEmpty()) {
@@ -72,7 +56,8 @@ public final class HistoricalProjectionRebuildService {
                         .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
                 return new RebuildProgress(latest, 0, latest.status() == RebuildRun.Status.COMPLETED);
             }
-            return new RebuildProgress(store.find(tenantId, runId).orElseThrow(), 0, true);
+            RebuildRun completed = store.find(tenantId, runId).orElseThrow();
+            return new RebuildProgress(completed, 0, true);
         }
 
         long nextCursor = run.cursorSequence();
@@ -94,12 +79,8 @@ public final class HistoricalProjectionRebuildService {
                     .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
             return new RebuildProgress(latest, page.size(), latest.status() == RebuildRun.Status.COMPLETED);
         }
-        return new RebuildProgress(store.find(tenantId, runId).orElseThrow(), page.size(), false);
-    }
-
-    private UUID requireTenant() {
-        return Objects.requireNonNull(tenantContext.requireTenantId(),
-                "authenticated tenant context did not provide a tenant ID");
+        RebuildRun advanced = store.find(tenantId, runId).orElseThrow();
+        return new RebuildProgress(advanced, page.size(), false);
     }
 
     private static ClaimedProjectionEvent asClaimedEvent(ReplayEvent event) {
