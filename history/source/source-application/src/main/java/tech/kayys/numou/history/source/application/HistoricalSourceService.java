@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /** Tenant-authorized source catalog, claim registry and evidence association use cases. */
 public final class HistoricalSourceService {
