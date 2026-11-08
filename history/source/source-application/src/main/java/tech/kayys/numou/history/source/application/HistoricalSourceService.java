@@ -83,6 +83,38 @@ public final class HistoricalSourceService {
   items.forEach(item->authorization.requireCanReadSource(tenant,item.sourceId()));
   return List.copyOf(items);
  }
+ public SourceAssessment assessSource(HistoricalSourceId sourceId, SourceAssessmentDimension dimension,
+   SourceAssessmentConclusion conclusion, String rationale, String methodologyId, String methodologyVersion, String assessorRef) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId);
+  authorization.requireCanAssessSource(tenant,sourceId,assessorRef);
+  if(repository.find(tenant,sourceId).isEmpty()) throw new IllegalArgumentException("Historical source not found");
+  var assessment=SourceAssessment.create(sourceId,dimension,conclusion,rationale,methodologyId,methodologyVersion,assessorRef,clock.instant());
+  if(!repository.appendAssessment(tenant,assessment)) throw new HistoricalSourceConflictException("Assessment could not be appended");
+  return assessment;
+ }
+ public List<SourceAssessment> listAssessments(HistoricalSourceId sourceId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); validateLimit(limit);
+  authorization.requireCanReadSource(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) return List.of();
+  return List.copyOf(repository.listAssessments(tenant,sourceId,limit));
+ }
+ public SourceAssessmentReview reviewAssessment(HistoricalSourceId sourceId, UUID assessmentId,
+   SourceAssessmentReviewDecision decision,String rationale,String reviewerRef) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); Objects.requireNonNull(assessmentId);
+  authorization.requireCanReviewSourceAssessment(tenant,sourceId,assessmentId,reviewerRef);
+  var assessment=repository.findAssessment(tenant,assessmentId).orElseThrow(()->new IllegalArgumentException("Source assessment not found"));
+  if(!assessment.sourceId().equals(sourceId)) throw new IllegalArgumentException("Assessment does not belong to source");
+  var review=SourceAssessmentReview.create(assessmentId,decision,rationale,reviewerRef,clock.instant());
+  if(!repository.appendAssessmentReview(tenant,review)) throw new HistoricalSourceConflictException("Review could not be appended");
+  return review;
+ }
+ public List<SourceAssessmentReview> listAssessmentReviews(HistoricalSourceId sourceId,UUID assessmentId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); Objects.requireNonNull(assessmentId); validateLimit(limit);
+  authorization.requireCanReadSource(tenant,sourceId);
+  var assessment=repository.findAssessment(tenant,assessmentId);
+  if(assessment.isEmpty() || !assessment.get().sourceId().equals(sourceId)) return List.of();
+  return List.copyOf(repository.listAssessmentReviews(tenant,assessmentId,limit));
+ }
  private java.util.UUID requireTenant() { return Objects.requireNonNull(tenantContext.requireTenantId(),"trusted tenant context is required"); }
  private static void validateLimit(int limit) { if(limit<1||limit>200) throw new IllegalArgumentException("limit must be between 1 and 200"); }
 }
