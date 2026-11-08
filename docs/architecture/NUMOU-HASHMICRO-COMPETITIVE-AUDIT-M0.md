@@ -226,114 +226,65 @@ The sampled POMs are structural evidence only. No build, test, CI, runtime, or e
 
 ## 11. M0.2 repository-wide topology and CI inventory — verified
 
-A recursive Git tree was fetched from `main` on 2026-11-06. GitHub reported `truncated=false` for the tree response.
+A recursive Git tree was fetched from `main` on 2026-11-06. GitHub reported `truncated=false`.
 
-### Repository topology counts
+| Measure | Verified result |
+|---|---:|
+| Git tree entries | 15,044 |
+| Maven POM files | 482 |
+| Top-level reactor POMs | 44 |
+| GitHub Actions workflow YAML files | 15 |
 
-| Measure | Verified result | Interpretation |
-|---|---:|---|
-| Git tree entries | 15,044 | Complete recursive tree response for this fetch |
-| Maven POM files | 482 | Includes parent, aggregator, leaf and nested module POMs; not 482 independent reactors |
-| Top-level reactor POMs | 44 | POMs at repository root or one directory below it |
-| GitHub Actions workflow YAML files | 15 | Workflows under `.github/workflows/` |
+The 44 top-level reactor POMs are: advertising, application-platform, asset, attendee, automotive-parts-purchasing, automotive-parts, budget, commerce, common, construction, core, corporate, crm, developer-platform, document, documents, education, events, finance, geo, history, hospitality, identity, logistics, mobility, notification, organization, product, project, quantity, queue-management, reservation, restaurant, scheduling, security, supply, support, survey, talent, tenancy, transport, vehicle-service, workforce and workspace. Each has a corresponding `pom.xml` one directory below the repository root.
 
-The 44 top-level reactor POM paths are:
+These are discovery-level aggregator candidates, not proof that each is an independent standalone reactor. Nested aggregators, module declarations, parent relationships and relative paths still need to be resolved.
 
-```text
-advertising/pom.xml
-application-platform/pom.xml
-asset/pom.xml
-attendee/pom.xml
-automotive-parts-purchasing/pom.xml
-automotive-parts/pom.xml
-budget/pom.xml
-commerce/pom.xml
-common/pom.xml
-construction/pom.xml
-core/pom.xml
-corporate/pom.xml
-crm/pom.xml
-developer-platform/pom.xml
-document/pom.xml
-documents/pom.xml
-education/pom.xml
-events/pom.xml
-finance/pom.xml
-geo/pom.xml
-history/pom.xml
-hospitality/pom.xml
-identity/pom.xml
-logistics/pom.xml
-mobility/pom.xml
-notification/pom.xml
-organization/pom.xml
-product/pom.xml
-project/pom.xml
-quantity/pom.xml
-queue-management/pom.xml
-reservation/pom.xml
-restaurant/pom.xml
-scheduling/pom.xml
-security/pom.xml
-supply/pom.xml
-support/pom.xml
-survey/pom.xml
-talent/pom.xml
-tenancy/pom.xml
-transport/pom.xml
-vehicle-service/pom.xml
-workforce/pom.xml
-workspace/pom.xml
-```
+### Workflow catalog
 
-This is a repository-level discovery list, not proof that every POM is a standalone build entry point. Nested aggregators and parent relationships still need to be resolved from each POM's `<modules>`, `<parent>` and `relativePath` declarations.
-
-### Verified workflow catalog
-
-| Workflow | Scope observed in workflow definition |
+| Workflow | Verified scope from definition |
 |---|---|
-| `ci.yml` | Module topology and dependency-boundary verifiers; organization invitation, queue, wallet PostgreSQL, framework/logistics verification jobs |
-| `application-platform.yml` | Framework plugin manifest/resolver; tenant installation lifecycle; PostgreSQL installation store/outbox |
-| `crm-postgres.yml` | CRM migration ordering, tenant relationship constraints, ownership proposal and function privilege checks |
+| `ci.yml` | Topology/dependency boundary checks; organization invitation, queue, wallet PostgreSQL, framework/logistics verification jobs |
+| `application-platform.yml` | Plugin manifest/resolver, tenant installation lifecycle, PostgreSQL installation store/outbox |
+| `crm-postgres.yml` | Migration order, tenant relationship constraints, ownership proposals and function privileges |
 | `payment-capability.yml` | Payment reactor verification |
-| `runtime-platform.yml` | Application runtime lifecycle tests in foundation application module |
+| `runtime-platform.yml` | Application runtime lifecycle tests |
 | `reliability-postgres-integration.yml` | Reliability adapter tests |
-| `developer-platform.yml` | Developer platform verification (detailed job mapping remains to inspect) |
-| `advertising-capability.yml` | Advertising capability verification (detailed job mapping remains to inspect) |
-| `events-ticketing.yml` | Events/ticketing verification (detailed job mapping remains to inspect) |
-| `history-postgres.yml` | Historical timeline PostgreSQL verification (detailed job mapping remains to inspect) |
-| `mobility-driver-location-postgres.yml` | Driver-location PostgreSQL verification (detailed job mapping remains to inspect) |
-| `notification-capability.yml` | Notification capability verification (detailed job mapping remains to inspect) |
-| `social-graph.yml` | Social graph verification (detailed job mapping remains to inspect) |
-| `transport-domain.yml` | Transport domain verification (detailed job mapping remains to inspect) |
-| `workspace-web-client.yml` | Workspace web-client verification (detailed job mapping remains to inspect) |
+| `advertising-capability.yml` | Advertising capability workflow |
+| `developer-platform.yml` | Developer platform workflow |
+| `events-ticketing.yml` | Events/ticketing workflow |
+| `history-postgres.yml` | Historical timeline PostgreSQL workflow |
+| `mobility-driver-location-postgres.yml` | Driver-location PostgreSQL workflow |
+| `notification-capability.yml` | Notification capability workflow |
+| `social-graph.yml` | Social graph workflow |
+| `transport-domain.yml` | Transport domain workflow |
+| `workspace-web-client.yml` | Workspace web-client workflow |
 
-The central CI workflow explicitly installs independent framework contracts and selected capability artifacts before invoking consumer reactors. It also deliberately isolates some failures so independent verification jobs can still run and upload their reports. This is a useful pattern, but the final job outcome and all per-reactor results must be inspected before declaring the whole pipeline green.
+The central CI workflow installs independent framework contracts and selected capability artifacts before consumer reactors. It also isolates some failures so other verification jobs can continue and upload reports. Workflow definitions do not prove that a recent run passed; run/job status and reports must be inspected independently.
 
-### Important CI coverage observation
+### CI coverage implication
 
-The repository has both broad CI and path-filtered capability workflows. A change to a business capability may therefore be verified by a dedicated workflow, central CI, or both depending on the changed paths and trigger. The competitive audit must not equate the existence of a workflow file with a recent successful run. Each workflow's latest relevant run, job outcome, and test reports must be verified separately.
+Numou has both broad CI and path-filtered capability workflows. A change may trigger one or both depending on paths and events. The audit must record the exact workflow trigger, reactor command, run, job outcome and report rather than count a workflow file as test evidence.
 
-## 12. M0.3 initial source structure findings
+## 12. M0.3 initial source-structure findings
 
-Directory inspection of the accounting, payment, POS, inventory and workspace areas confirms these structural decompositions:
+Directory inspection confirms:
 
-- Accounting includes domain, application and adapter modules plus separate consolidation, governance, local-integration, payables, receivables, treasury and capability extension modules.
-- Payment separates API, core, gateway, merchant, method, PostgreSQL adapter, REST and gRPC concerns, with additional processor modules.
-- POS has separate domain, application and adapter modules.
-- Inventory has separate domain, SPI, application and adapter modules.
-- Workspace REST adapter is a separate module from workspace domain/application and persistence modules.
+- Accounting has domain, application and adapter modules plus consolidation, governance, local-integration, payables, receivables, treasury and accounting capability extensions.
+- Payment separates API, core, gateway, merchant, method, PostgreSQL adapter, REST and gRPC concerns, plus processors.
+- POS has domain, application and adapter modules.
+- Inventory has domain, SPI, application and adapter modules.
+- Workspace REST is separate from workspace domain/application and persistence modules.
 
-These are module-boundary observations only. The next source-level audit must inspect concrete commands, ports, invariants, migrations, authorization and tests before assigning maturity scores or declaring workflows complete.
+These findings prove structural decomposition only, not end-to-end completeness. Concrete commands, ports, invariants, migrations, authorization and tests remain to be inspected.
 
-### M0.3 next source-tracing targets
+### M0.3 source-tracing targets
 
-1. Accounting: journal lifecycle, posting, reversal, period close, AP/AR and reconciliation contracts.
-2. Payment: payment intent/attempt/settlement/refund lifecycle, outbox/replay and provider integration.
-3. POS: cart/checkout/receipt/return lifecycle and inventory/payment/accounting handoffs.
-4. Inventory: stock ledger, reservations, transfers, counts and valuation invariants.
+1. Accounting: journal lifecycle, posting, reversal, period close, AP/AR and reconciliation.
+2. Payment: intent/attempt/settlement/refund, outbox/replay and provider integration.
+3. POS: cart/checkout/receipt/return and inventory/payment/accounting handoffs.
+4. Inventory: stock ledger, reservations, transfers, counts and valuation.
 5. CRM: tenant-local relationships, ownership and customer lifecycle.
-6. Workspace: tenant-scoped list/read/write APIs, authorization-before-navigation and revision integrity.
-7. Workforce and construction: one representative end-to-end workflow each, including policy and financial integration.
+6. Workspace: tenant-scoped APIs, authorization-before-navigation and revision integrity.
+7. Workforce and construction: representative end-to-end workflows, including policy and financial integration.
 
-No source-level workflow completeness or current CI pass is asserted by this topology update.
+No source-level workflow completeness or current CI pass is asserted by this update.

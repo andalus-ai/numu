@@ -4,6 +4,7 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -33,13 +34,18 @@ public record AttendeeProfile(
         Objects.requireNonNull(id, "id cannot be null");
         Objects.requireNonNull(tenantId, "tenantId cannot be null");
         Objects.requireNonNull(partyId, "partyId cannot be null");
-        profileKind = requireText(profileKind, "profileKind");
-        displayName = requireText(displayName, "displayName");
-        preferredName = optionalText(preferredName);
-        preferredLanguage = optionalText(preferredLanguage);
+        profileKind = requireText(profileKind, "profileKind", 80);
+        displayName = requireText(displayName, "displayName", 240);
+        preferredName = optionalText(preferredName, "preferredName", 240);
+        preferredLanguage = optionalText(preferredLanguage, "preferredLanguage", 35);
         Objects.requireNonNull(status, "status cannot be null");
         Objects.requireNonNull(createdAt, "createdAt cannot be null");
         Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
+        // PostgreSQL TIMESTAMPTZ stores microsecond precision. Normalize at the
+        // domain boundary so in-memory revisions round-trip without false
+        // immutable-createdAt conflicts after persistence.
+        createdAt = createdAt.truncatedTo(ChronoUnit.MICROS);
+        updatedAt = updatedAt.truncatedTo(ChronoUnit.MICROS);
         if (updatedAt.isBefore(createdAt)) {
             throw new IllegalArgumentException("updatedAt cannot be before createdAt");
         }
@@ -105,14 +111,25 @@ public record AttendeeProfile(
                 nextPreferredName, nextPreferredLanguage, nextStatus, createdAt, now, revision + 1);
     }
 
-    private static String requireText(String value, String field) {
+    private static String requireText(String value, String field, int maxLength) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " is required");
         }
-        return value.trim();
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
+        }
+        return normalized;
     }
 
-    private static String optionalText(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+    private static String optionalText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
+        }
+        return normalized;
     }
 }

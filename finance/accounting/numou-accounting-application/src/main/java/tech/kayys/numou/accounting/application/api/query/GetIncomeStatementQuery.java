@@ -14,6 +14,8 @@ public record GetIncomeStatementQuery(
         ReportPeriod period
 ) implements Query<IncomeStatement> {
     public GetIncomeStatementQuery {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        Objects.requireNonNull(ledgerId, "ledgerId cannot be null");
         Objects.requireNonNull(period, "period cannot be null");
     }
 }
