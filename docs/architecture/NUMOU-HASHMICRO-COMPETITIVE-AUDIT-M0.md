@@ -423,3 +423,34 @@ Source files and tests were fetched from the current `main` tree on 2026-11-06. 
 ### 13.5 Scope and maturity decision
 
 This update is source evidence for the inspected paths only. It does not claim that the three capabilities are fully audited, that the listed gaps are the only gaps, or that any build/CI workflow passed. No numeric maturity score is assigned until the relevant persistence, authorization, integration and failure-recovery tests are run and reviewed.
+
+## 14. M0.3.1 implementation slice — durable PostgreSQL chart of accounts
+
+**Branch:** `numou/accounting-gl-postgres-account-repository`
+
+This slice implements the first durable GL repository, without claiming the full general ledger persistence milestone is complete.
+
+### Implemented
+
+- Added `PostgresAccountRepository` implementing the existing `AccountRepository` application port.
+- Reads by ID, account number and list are tenant-and-ledger constrained in SQL, not filtered after loading.
+- Reconstitution preserves account type/status, currency and balance, parent account, active flag and Shariah-compliance flag.
+- Writes use a single PostgreSQL upsert. The conflict update is permitted only when the stored tenant and ledger match the incoming aggregate; an account ID cannot be moved across scopes.
+- Legacy unscoped compatibility methods fail closed in the PostgreSQL adapter.
+- JDBC work is scheduled on Mutiny's worker pool rather than blocking the reactive request/event-loop thread.
+- Marked `InMemoryAccountRepository` as a Quarkus `@DefaultBean`, allowing the durable PostgreSQL implementation to take precedence in CDI composition while retaining the in-memory fallback for tests or compositions without a durable adapter.
+- Added Testcontainers PostgreSQL coverage for aggregate round-trip, tenant/ledger isolation, cross-scope ID reassignment rejection and unscoped method rejection.
+
+### Remaining in M0.3.1
+
+- PostgreSQL journal-entry persistence and aggregate reconstitution.
+- Tenant/ledger-aware fiscal-period persistence and query contracts.
+- Durable accounting outbox persistence and relay/lease behavior.
+- A transaction-owning application boundary spanning account updates, journal persistence and outbox writes.
+- Runtime-level CDI verification proving the intended adapters are selected together.
+- Tenant-context-derived REST scope and cross-tenant authorization tests.
+- Year-end close correction and rollback/failure-injection coverage.
+
+### Verification status
+
+The source and test files are committed, but no Maven build or Testcontainers run is claimed in this update. The integration test is configured to skip when Docker is unavailable. Run the accounting reactor from `finance/accounting` after installing the shared framework artifacts required by the repository's multi-reactor build.

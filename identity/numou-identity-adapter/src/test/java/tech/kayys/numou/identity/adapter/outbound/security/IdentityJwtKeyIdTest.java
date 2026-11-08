@@ -14,6 +14,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 class IdentityJwtKeyIdTest {
@@ -42,6 +44,33 @@ class IdentityJwtKeyIdTest {
         assertKidAndVerify(tenantTokenIssuer.issueTenantAccessToken(principalId, "Test User", tenantId));
         assertKidAndVerify(oauthTokenIssuer.issueClientAccessToken(
                 "test-client", tenantId, applicationId, Set.of("workspace.read"), 1L));
+    }
+
+    @Test
+    void tenantSelectionAndAccessTokensHaveDistinctClaimsAndBoundedLifetimes() throws Exception {
+        UUID principalId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        JWTCallerPrincipal selection = jwtParser.parse(
+                tenantTokenIssuer.issueTenantSelectionToken(principalId, "Test User"));
+        JWTCallerPrincipal access = jwtParser.parse(
+                tenantTokenIssuer.issueTenantAccessToken(principalId, "Test User", tenantId));
+
+        assertEquals("tenant_selection", selection.getClaim("token_use"));
+        assertEquals("USER", selection.getClaim("principalType"));
+        assertNull(selection.getClaim("tenant_id"));
+        assertNull(selection.getClaim("numou_tenant_id"));
+        assertTrue(selection.getAudience().contains("numou-identity-tenant-selection"));
+        assertTrue(selection.getExpirationTime() > selection.getIssuedAtTime());
+        assertTrue(selection.getExpirationTime() - selection.getIssuedAtTime() <= 300);
+
+        assertEquals("access", access.getClaim("token_use"));
+        assertEquals("USER", access.getClaim("principalType"));
+        assertEquals(tenantId.toString(), access.getClaim("tenant_id"));
+        assertEquals(tenantId.toString(), access.getClaim("numou_tenant_id"));
+        assertTrue(access.getAudience().contains("numou-api"));
+        assertTrue(access.getExpirationTime() > access.getIssuedAtTime());
+        assertTrue(access.getExpirationTime() - access.getIssuedAtTime() <= 900);
     }
 
     private void assertKidAndVerify(String token) throws Exception {

@@ -65,10 +65,6 @@ The new attendee capability aggregator is included in `core/framework/pom.xml`. 
 
 The GitHub contents API confirms commits were created on `feat/attendee-participant-m1-domain`. It does not execute Maven. No compile, test, or CI success is claimed here; CI must verify the framework reactor and its dependent modules.
 
-## Next M1 work
+## Follow-on implementation
 
-1. Add application ports and commands only after confirming existing command, tenant context, authorization and idempotency conventions.
-2. Add tenant-scoped persistence and optimistic locking through the selected adapter boundary.
-3. Add API transport only after authorization and field-visibility rules are wired.
-4. Add durable outbox publication only when the existing event/outbox contract is integrated.
-5. Update capability matrix and API/event compatibility docs.
+The M1 domain baseline is followed by the M2 application layer documented in [ATTENDEE-M2-APPLICATION.md](ATTENDEE-M2-APPLICATION.md) and the M3 PostgreSQL adapter documented in [ATTENDEE-M3-PERSISTENCE.md](ATTENDEE-M3-PERSISTENCE.md). M2 adds tenant-aware create/read use cases, trusted actor context, authorization and Party-reference access contracts. M3 adds tenant-scoped JDBC persistence, database uniqueness and optimistic revision checks.
