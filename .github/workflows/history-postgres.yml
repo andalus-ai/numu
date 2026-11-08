@@ -24,8 +24,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  history-postgres:
-    name: History Maven and PostgreSQL verification
+  history-capabilities:
+    name: History Maven, PostgreSQL, and Neo4j verification
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -34,9 +34,11 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - name: Install shared framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install Geo domain prerequisite
         run: mvn -B -ntp -f geo/pom.xml install
-      - name: Verify History reactors and PostgreSQL integration tests
+      - name: Verify History reactors and PostgreSQL and Neo4j integration tests
         run: mvn -B -ntp -f history/pom.xml verify
       - name: Upload History Maven test reports
         if: always()

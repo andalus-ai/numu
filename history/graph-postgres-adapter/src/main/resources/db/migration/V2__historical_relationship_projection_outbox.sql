@@ -66,7 +66,7 @@ CREATE TRIGGER historical_relationship_projection_outbox_immutable
 -- The trigger executes in the same PostgreSQL transaction as the revision insert.
 -- Its deterministic event key makes replay and duplicate-trigger protection explicit.
 CREATE FUNCTION enqueue_historical_relationship_projection_event()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 BEGIN
     INSERT INTO historical_relationship_projection_outbox (
         event_id, event_key, event_type, schema_version, tenant_id,
@@ -86,6 +86,7 @@ BEGIN
             'subject', jsonb_build_object('kind', NEW.subject_kind, 'id', NEW.subject_id),
             'object', jsonb_build_object('kind', NEW.object_kind, 'id', NEW.object_id),
             'relationshipKind', NEW.relationship_kind,
+            'description', NEW.description,
             'validity', CASE WHEN NEW.validity_calendar IS NULL THEN NULL ELSE jsonb_build_object(
                 'calendar', NEW.validity_calendar,
                 'from', jsonb_build_object(
