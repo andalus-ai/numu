@@ -15,26 +15,29 @@ import java.util.UUID;
 /**
  * Resumable, bounded replay of one public or tenant-private projection scope.
  * A page cursor advances only after every event in that page has been projected.
+ * Every operation is authorized against the requested maintenance scope.
  */
 public final class HistoricalProjectionRebuildService {
     private final HistoricalProjectionRebuildStore store;
     private final HistoricalRelationshipProjectionPort projection;
-    private final HistoricalRelationshipTenantContext tenantContext;
     private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
     private final Clock clock;
     private final int pageSize;
 
     public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
                                               HistoricalRelationshipProjectionPort projection,
+                                              HistoricalProjectionMaintenanceAuthorizationPort authorization,
                                               Clock clock, int pageSize) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
+        this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.clock = Objects.requireNonNull(clock, "clock");
         if (pageSize < 1 || pageSize > 500) throw new IllegalArgumentException("pageSize must be 1..500");
         this.pageSize = pageSize;
     }
 
     public RebuildRun start(UUID tenantId) {
+        requireCanRebuild(tenantId);
         return store.start(tenantId, clock.instant());
     }
 
@@ -43,6 +46,8 @@ public final class HistoricalProjectionRebuildService {
      * Replaying a page after a crash is safe because providers reject stale revisions.
      */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
+        Objects.requireNonNull(runId, "runId");
+        requireCanRebuild(tenantId);
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
         if (run.status() == RebuildRun.Status.COMPLETED) {
@@ -81,6 +86,11 @@ public final class HistoricalProjectionRebuildService {
         }
         RebuildRun advanced = store.find(tenantId, runId).orElseThrow();
         return new RebuildProgress(advanced, page.size(), false);
+    }
+
+    private void requireCanRebuild(UUID tenantId) {
+        if (tenantId == null) authorization.requireCanRebuildPublicCorpus();
+        else authorization.requireCanRebuildTenant(tenantId);
     }
 
     private static ClaimedProjectionEvent asClaimedEvent(ReplayEvent event) {

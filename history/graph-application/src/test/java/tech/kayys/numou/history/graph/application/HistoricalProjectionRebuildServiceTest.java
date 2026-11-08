@@ -18,13 +18,10 @@ class HistoricalProjectionRebuildServiceTest {
         FakeStore store = new FakeStore();
         store.events = List.of(event(1), event(2));
         List<String> projected = new ArrayList<>();
-        HistoricalRelationshipProjectionPort port = e -> projected.add(e.eventKey());
-        var service = new HistoricalProjectionRebuildService(store, port,
-                Clock.fixed(NOW, ZoneOffset.UTC), 2);
-
+        var service = new HistoricalProjectionRebuildService(store, e -> projected.add(e.eventKey()),
+                allowAll(), Clock.fixed(NOW, ZoneOffset.UTC), 2);
         var run = service.start(TENANT);
         var progress = service.resumeOnePage(TENANT, run.runId());
-
         assertEquals(2, progress.projectedEvents());
         assertEquals(2, progress.run().cursorSequence());
         assertEquals(List.of("event-1", "event-2"), projected);
@@ -34,14 +31,11 @@ class HistoricalProjectionRebuildServiceTest {
         FakeStore store = new FakeStore();
         store.events = List.of(event(1), event(2));
         int[] calls = {0};
-        HistoricalRelationshipProjectionPort port = e -> {
+        var service = new HistoricalProjectionRebuildService(store, e -> {
             calls[0]++;
             if (calls[0] == 2) throw new IllegalStateException("temporary provider failure");
-        };
-        var service = new HistoricalProjectionRebuildService(store, port,
-                Clock.fixed(NOW, ZoneOffset.UTC), 2);
+        }, allowAll(), Clock.fixed(NOW, ZoneOffset.UTC), 2);
         var run = service.start(TENANT);
-
         assertThrows(IllegalStateException.class, () -> service.resumeOnePage(TENANT, run.runId()));
         assertEquals(0, store.cursor);
     }
@@ -49,24 +43,58 @@ class HistoricalProjectionRebuildServiceTest {
     @Test void completedRunIsIdempotent() {
         FakeStore store = new FakeStore();
         store.events = List.of(event(1));
-        var service = new HistoricalProjectionRebuildService(store, e -> {}, Clock.fixed(NOW, ZoneOffset.UTC), 1);
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, allowAll(),
+                Clock.fixed(NOW, ZoneOffset.UTC), 1);
         var run = service.start(TENANT);
         assertFalse(service.resumeOnePage(TENANT, run.runId()).completed());
         assertTrue(service.resumeOnePage(TENANT, run.runId()).completed());
         assertTrue(service.resumeOnePage(TENANT, run.runId()).completed());
     }
 
+    @Test void tenantRebuildAuthorizationPrecedesStoreAccess() {
+        FakeStore store = new FakeStore();
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, denyRebuild(),
+                Clock.fixed(NOW, ZoneOffset.UTC), 1);
+        assertThrows(SecurityException.class, () -> service.start(TENANT));
+        assertEquals(0, store.startCalls);
+    }
+
+    @Test void publicRebuildUsesSeparatePermission() {
+        FakeStore store = new FakeStore();
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, denyRebuild(),
+                Clock.fixed(NOW, ZoneOffset.UTC), 1);
+        assertThrows(SecurityException.class, () -> service.start(null));
+        assertEquals(0, store.startCalls);
+    }
+
+    private static HistoricalProjectionMaintenanceAuthorizationPort allowAll() {
+        return new HistoricalProjectionMaintenanceAuthorizationPort() {
+            public void requireCanRebuildTenant(UUID id) {}
+            public void requireCanRebuildPublicCorpus() {}
+            public void requireCanAuditTenant(UUID id) {}
+            public void requireCanAuditPublicCorpus() {}
+        };
+    }
+    private static HistoricalProjectionMaintenanceAuthorizationPort denyRebuild() {
+        return new HistoricalProjectionMaintenanceAuthorizationPort() {
+            public void requireCanRebuildTenant(UUID id) { throw new SecurityException("denied"); }
+            public void requireCanRebuildPublicCorpus() { throw new SecurityException("denied"); }
+            public void requireCanAuditTenant(UUID id) {}
+            public void requireCanAuditPublicCorpus() {}
+        };
+    }
     private static ReplayEvent event(long sequence) {
         return new ReplayEvent(sequence, UUID.randomUUID(), "event-" + sequence,
                 "history.relationship.revision-appended", 1, TENANT, UUID.randomUUID(),
                 sequence, "{}", NOW);
     }
-
     private static final class FakeStore implements HistoricalProjectionRebuildStore {
         private List<ReplayEvent> events = List.of();
         private long cursor;
         private RebuildRun run;
+        int startCalls;
         public RebuildRun start(UUID tenant, Instant now) {
+            startCalls++;
             run = new RebuildRun(UUID.randomUUID(), tenant, events.size(), 0,
                     RebuildRun.Status.RUNNING, now, now);
             return run;
