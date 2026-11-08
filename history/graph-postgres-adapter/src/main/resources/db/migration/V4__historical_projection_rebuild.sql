@@ -1,0 +1,43 @@
+-- A monotonic sequence gives rebuild jobs a stable keyset cursor.
+-- Existing outbox events are backfilled automatically by the identity column.
+ALTER TABLE historical_relationship_projection_outbox
+    ADD COLUMN projection_sequence BIGINT GENERATED ALWAYS AS IDENTITY;
+
+CREATE UNIQUE INDEX historical_relationship_projection_sequence_idx
+    ON historical_relationship_projection_outbox (projection_sequence);
+CREATE INDEX historical_relationship_projection_scope_sequence_idx
+    ON historical_relationship_projection_outbox (tenant_id, projection_sequence);
+
+CREATE FUNCTION reject_historical_projection_sequence_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.projection_sequence IS DISTINCT FROM OLD.projection_sequence THEN
+        RAISE EXCEPTION 'historical relationship projection sequence is immutable';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER historical_relationship_projection_sequence_immutable
+    BEFORE UPDATE OF projection_sequence ON historical_relationship_projection_outbox
+    FOR EACH ROW EXECUTE FUNCTION reject_historical_projection_sequence_mutation();
+
+CREATE TABLE historical_relationship_projection_rebuild_run (
+    run_id UUID PRIMARY KEY,
+    tenant_id UUID NULL,
+    high_water_sequence BIGINT NOT NULL CHECK (high_water_sequence >= 0),
+    cursor_sequence BIGINT NOT NULL DEFAULT 0 CHECK (cursor_sequence >= 0),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('RUNNING', 'COMPLETED')),
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ NULL,
+    CHECK (cursor_sequence <= high_water_sequence),
+    CHECK ((status = 'COMPLETED') = (completed_at IS NOT NULL)),
+    CHECK (updated_at >= created_at)
+);
+
+CREATE INDEX historical_relationship_projection_rebuild_scope_idx
+    ON historical_relationship_projection_rebuild_run (tenant_id, status, created_at DESC);
+
+COMMENT ON TABLE historical_relationship_projection_rebuild_run IS
+    'Operational checkpoints for replaying immutable historical relationship projection events. Restrict writes to trusted maintenance/runtime roles.';
