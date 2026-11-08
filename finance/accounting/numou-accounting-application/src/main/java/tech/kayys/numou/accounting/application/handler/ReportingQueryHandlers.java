@@ -17,7 +17,7 @@ public class ReportingQueryHandlers {
         }
         @Override
         public Uni<TrialBalance> handle(GetTrialBalanceQuery query) {
-            return reportingService.generateTrialBalance(query.asOfDate());
+            return reportingService.generateTrialBalance(query.tenantId(), query.ledgerId(), query.asOfDate());
         }
     }
 
@@ -28,7 +28,7 @@ public class ReportingQueryHandlers {
         }
         @Override
         public Uni<BalanceSheet> handle(GetBalanceSheetQuery query) {
-            return reportingService.generateBalanceSheet(query.asOfDate());
+            return reportingService.generateBalanceSheet(query.tenantId(), query.ledgerId(), query.asOfDate());
         }
     }
 
@@ -39,7 +39,7 @@ public class ReportingQueryHandlers {
         }
         @Override
         public Uni<IncomeStatement> handle(GetIncomeStatementQuery query) {
-            return reportingService.generateIncomeStatement(query.period());
+            return reportingService.generateIncomeStatement(query.tenantId(), query.ledgerId(), query.period());
         }
     }
 

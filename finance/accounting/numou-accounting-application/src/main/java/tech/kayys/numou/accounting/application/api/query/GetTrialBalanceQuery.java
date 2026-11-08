@@ -14,6 +14,8 @@ public record GetTrialBalanceQuery(
         LocalDate asOfDate
 ) implements Query<TrialBalance> {
     public GetTrialBalanceQuery {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        Objects.requireNonNull(ledgerId, "ledgerId cannot be null");
         Objects.requireNonNull(asOfDate, "asOfDate cannot be null");
     }
 }
