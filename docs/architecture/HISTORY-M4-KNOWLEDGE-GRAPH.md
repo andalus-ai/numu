@@ -27,3 +27,15 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Graph query APIs, traversal limits, pagination, and bounded traversal protection.
 - Shared-corpus ingestion workflow and editorial authorization.
 - Controlled vocabulary governance and localization.
+
+
+## Projection reconciliation (M4 follow-up)
+- The reconciliation application service compares the latest retained PostgreSQL outbox event for each relationship with the scoped Neo4j relationship projection.
+- Comparison checks aggregate revision, immutable event key, and SHA-256 of the canonical JSON payload.
+- Reports distinguish missing, stale, same-revision divergent, newer-than-source divergent, and orphaned graph records.
+- Repair is opt-in and replays the exact canonical outbox event. It never synthesizes relationship content.
+- A Neo4j revision newer than the canonical source is reported but never overwritten automatically.
+- Both canonical and graph scans use bounded keyset pages (maximum 500) and enforce strict cursor ordering and tenant-scope consistency.
+- Orphaned nodes are reported only. Destructive cleanup requires a staged generation rebuild and explicit activation protocol.
+- The host is responsible for authenticating and authorizing maintenance access before invoking reconciliation. The read ports do not replace application-level maintenance authorization.
+- PostgreSQL outbox retention must preserve the latest event for every relationship; purging canonical history would make the comparison incomplete.
