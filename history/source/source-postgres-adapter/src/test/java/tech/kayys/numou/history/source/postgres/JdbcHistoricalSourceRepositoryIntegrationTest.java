@@ -64,6 +64,13 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertEquals(review,repository.listAssessmentReviews(tenant,assessment.id(),20).get(0));
   assertTrue(repository.listAssessments(otherTenant,source.id(),20).isEmpty());
   assertTrue(repository.listAssessmentReviews(otherTenant,assessment.id(),20).isEmpty());
+  assertTrue(repository.findAssessment(otherTenant,assessment.id()).isEmpty());
+  assertThrows(java.sql.SQLException.class,()->{
+   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
+       var statement=connection.prepareStatement("update historical_source_assessment set rationale=? where tenant_id=? and assessment_id=?")) {
+    statement.setString(1,"rewritten assessment"); statement.setObject(2,tenant); statement.setObject(3,assessment.id()); statement.executeUpdate();
+   }
+  });
  }
  @Test void duplicateSourceRegistrationReturnsConflictInsteadOfOverwriting() {
   UUID tenant=UUID.randomUUID(); Instant now=Instant.parse("2026-11-07T00:00:00Z");
