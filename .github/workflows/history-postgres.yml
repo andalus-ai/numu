@@ -34,6 +34,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - name: Install shared framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install Geo domain prerequisite
         run: mvn -B -ntp -f geo/pom.xml install
       - name: Verify History reactors and PostgreSQL and Neo4j integration tests
