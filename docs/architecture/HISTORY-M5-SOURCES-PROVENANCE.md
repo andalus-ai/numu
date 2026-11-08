@@ -70,8 +70,6 @@ The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suit
 
 - independent source editions, contributor/author records, archive holdings and catalog identifiers (next M5.3 increment);
 - source ingestion, OCR/transcription, content extraction and shared document-store integration;
-- editorial source assessments (authenticity, reliability, independence, corroboration and uncertainty) with explicit assessment methodology;
-- actor-attributed source review and approval workflow;
 - source-to-source citation graph and claim/evidence graph projection;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
 - REST/GraphQL APIs, search indexing, ranking and discovery;
