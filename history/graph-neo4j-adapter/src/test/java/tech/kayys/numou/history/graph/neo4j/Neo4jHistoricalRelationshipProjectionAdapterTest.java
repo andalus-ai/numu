@@ -71,6 +71,11 @@ class Neo4jHistoricalRelationshipProjectionAdapterTest {
         var visible = inspection.find(tenant, relationship).orElseThrow();
         assertEquals(2, visible.revision());
         assertEquals("staged-person", visible.subjectId());
+
+        adapter.project(event(relationship, 3, tenant, "PERSON", "active-person", "COLLECTIVE", "active-group"));
+        assertEquals(3, inspection.find(tenant, relationship).orElseThrow().revision());
+        assertThrows(IllegalStateException.class, () -> adapter.projectIntoGeneration(
+                event(relationship, 4, tenant, "PERSON", "late-replay", "COLLECTIVE", "late-group"), generation));
     }
 
     private static ClaimedProjectionEvent event(UUID id, long revision, UUID tenant, String sk, String sid, String ok, String oid) {
