@@ -9,11 +9,11 @@ Historical knowledge foundation for chronology, events, people, collectives, pla
 - graph-application: trusted-tenant relationship use cases and lease-aware projection dispatcher/worker.
 - graph-postgres-adapter: authoritative append-only PostgreSQL relationship revisions, RLS isolation, transactional projection event capture, and fenced outbox delivery.
 - graph-neo4j-adapter: optional, disposable Neo4j projection for graph traversal; never the system of record.
-- source: tenant-scoped historical source catalog, immutable source revisions, claim registry, precise evidence locators, contradictory/supporting evidence links, qualitative methodology-bound source assessments, append-only editorial review decisions, bibliographic editions, contributor attributions, archival holdings, and institution-scoped catalog identifiers, and directed source-to-source citation/provenance relationships. PostgreSQL is authoritative; source binaries remain in the shared document capability.
+- source: tenant-scoped historical source catalog, immutable source revisions, claim registry, precise evidence locators, contradictory/supporting evidence links, qualitative methodology-bound source assessments, append-only editorial review decisions, bibliographic editions, contributor attributions, archival holdings, institution-scoped catalog identifiers, directed source-to-source citation/provenance relationships, and bounded authorization-aware citation graph discovery. PostgreSQL is authoritative; source binaries remain in the shared document capability.
 
 - source/source-domain: framework-neutral source, claim, and evidence models with immutable revisions and precise evidence locators.
 - source/source-spi: tenant-aware source/provenance persistence contract.
-- source/source-application: trusted-tenant, authorization-aware source catalog and claim/evidence use cases.
+- source/source-application: trusted-tenant, authorization-aware source catalog, claim/evidence use cases, and bounded breadth-first citation graph read projections.
 - source/source-postgres-adapter: authoritative PostgreSQL persistence with forced RLS and append-only revision/evidence records.
 
 M5 architecture and explicit deferrals: [HISTORY-M5-SOURCES-PROVENANCE.md](../docs/architecture/HISTORY-M5-SOURCES-PROVENANCE.md).
