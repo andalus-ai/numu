@@ -26,7 +26,7 @@ class HistoricalProjectionGenerationServiceTest {
             public void requireCanAuditTenant(UUID tenant) {}
             public void requireCanAuditPublicCorpus() {}
         };
-        var service = new HistoricalProjectionGenerationService(store, auth, clock());
+        var service = new HistoricalProjectionGenerationService(store, auth, passingValidation(), clock());
         assertThrows(SecurityException.class, () -> service.create(UUID.randomUUID()));
         assertTrue(store.generations.isEmpty());
     }
@@ -70,7 +70,12 @@ class HistoricalProjectionGenerationServiceTest {
             public void requireCanAuditTenant(UUID tenant) {}
             public void requireCanAuditPublicCorpus() {}
         };
-        return new HistoricalProjectionGenerationService(store, auth, clock());
+        return new HistoricalProjectionGenerationService(store, auth, passingValidation(), clock());
+    }
+
+    private static HistoricalProjectionGenerationValidationPort passingValidation() {
+        return (tenant, generation) -> new HistoricalProjectionGenerationValidationPort.ValidationResult(
+                true, 0, 0, 0, 0, 0, 0, "test validation passed");
     }
 
     private static Clock clock() { return Clock.fixed(NOW, ZoneOffset.UTC); }
