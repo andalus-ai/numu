@@ -2,7 +2,7 @@
 
 ## Status
 
-M5.2 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
+M5.3 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
 
 ## Ownership and boundaries
 
@@ -47,9 +47,9 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
-- Forced row-level security protects source heads, immutable source revisions, claims, evidence associations, assessments, and editorial reviews.
+- Forced row-level security protects source heads, immutable source revisions, claims, evidence associations, assessments, editorial reviews, contributors, editions, holdings and catalogue identifiers.
 - Composite tenant foreign keys prevent evidence from linking a claim or source owned by another tenant.
-- Source revisions, claims, evidence, assessments, and editorial reviews are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
+- Source revisions, claims, evidence, assessments, editorial reviews, contributor attributions, editions, holdings and catalogue identifiers are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
 - Revision advancement and source revision insertion occur in one transaction.
 - Evidence insertion relies on tenant-scoped foreign keys to ensure both the claim and source exist in the same tenant.
 
@@ -68,7 +68,7 @@ The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suit
 
 ## Deliberately deferred
 
-- independent source editions, contributor/author records, archive holdings and catalog identifiers (next M5.3 increment);
+
 - source ingestion, OCR/transcription, content extraction and shared document-store integration;
 - source-to-source citation graph and claim/evidence graph projection;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
