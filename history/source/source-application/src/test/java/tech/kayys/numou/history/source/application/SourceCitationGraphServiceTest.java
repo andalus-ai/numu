@@ -72,6 +72,16 @@ class SourceCitationGraphServiceTest {
     }
 
     @Test
+    void tenantContextCannotReadAnotherTenantsSources() {
+        HistoricalSource source = source("Tenant A source");
+        SourceCitationGraphService otherTenantService =
+            new SourceCitationGraphService(repository, UUID::randomUUID, authorization);
+
+        assertThrows(IllegalArgumentException.class,
+            () -> otherTenantService.explore(source.id(), 1, 10, 10));
+    }
+
+    @Test
     void rejectsUnboundedTraversalRequestsBeforeRepositoryAccess() {
         assertThrows(IllegalArgumentException.class, () -> service.explore(HistoricalSourceId.generate(), 4, 10, 10));
         assertThrows(IllegalArgumentException.class, () -> service.explore(HistoricalSourceId.generate(), 1, 101, 10));
