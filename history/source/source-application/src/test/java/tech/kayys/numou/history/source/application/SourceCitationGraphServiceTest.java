@@ -41,7 +41,7 @@ class SourceCitationGraphServiceTest {
         assertEquals(1, distance(graph, b.id()));
         assertEquals(1, distance(graph, c.id()));
         assertEquals(2, distance(graph, d.id()));
-        assertFalse(graph.truncated());
+        assertTrue(graph.truncated()); // D -> E exists beyond the requested depth.
         assertTrue(graph.relationships().stream().anyMatch(r -> r.sourceId().equals(c.id()) && r.relatedSourceId().equals(a.id())));
         assertTrue(graph.nodes().stream().noneMatch(n -> n.source().id().equals(e.id())));
     }
