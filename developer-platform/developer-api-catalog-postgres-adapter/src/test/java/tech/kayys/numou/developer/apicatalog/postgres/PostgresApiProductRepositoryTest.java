@@ -38,7 +38,7 @@ class PostgresApiProductRepositoryTest {
    s.execute("CREATE ROLE api_catalog_runtime NOLOGIN NOBYPASSRLS");
    s.execute("CREATE TABLE platform_outbox (entry_id uuid PRIMARY KEY,event_id uuid NOT NULL UNIQUE,tenant_id uuid,event_type text NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL,available_at timestamptz NOT NULL,attempts integer NOT NULL DEFAULT 0,locked_until timestamptz,published_at timestamptz,last_error text)");
    s.execute("GRANT USAGE ON SCHEMA public TO api_catalog_runtime");
-   s.execute("GRANT SELECT,INSERT,UPDATE ON developer_api_products,developer_api_versions,developer_api_scopes TO api_catalog_runtime");
+   s.execute("GRANT SELECT,INSERT,UPDATE ON developer_api_products,developer_api_versions,developer_api_scopes,developer_api_artifacts TO api_catalog_runtime");
    s.execute("GRANT SELECT,INSERT ON platform_outbox TO api_catalog_runtime");
   }
   runtime=new RoleDataSource(owner);
@@ -61,6 +61,7 @@ class PostgresApiProductRepositoryTest {
   var published=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
   assertThat(published.status()).isEqualTo(ApiProductStatus.ACTIVE);
   assertThat(published.versions().get("1.0.0").status()).isEqualTo(ApiVersionStatus.PUBLISHED);
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("PUBLISHED");
  }
 
  @Test void enforcesTenantIsolationAndTenantScopedSlugUniqueness(){
@@ -105,6 +106,16 @@ class PostgresApiProductRepositoryTest {
     .hasMessageContaining("force rollback");
   assertThat(repository.findById(tenant,rolledBack.id()).await().indefinitely()).isEmpty();
   assertThat(outboxCount(tenant)).isEqualTo(1);
+ }
+
+ private String artifactState(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection();PreparedStatement s=c.prepareStatement("""
+   SELECT lifecycle_state FROM developer_api_artifacts
+   WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+   """)){
+   s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
+   try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new AssertionError("artifact lifecycle row missing");return rs.getString(1);}
+  }catch(SQLException e){throw new IllegalStateException(e);}
  }
  private long outboxCount(TenantId tenant){
   try(Connection c=runtime.getConnection();PreparedStatement s=c.prepareStatement("SELECT count(*) FROM platform_outbox WHERE tenant_id=?")){
