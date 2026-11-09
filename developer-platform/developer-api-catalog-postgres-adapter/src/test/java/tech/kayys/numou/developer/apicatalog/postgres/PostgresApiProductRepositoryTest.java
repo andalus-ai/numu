@@ -92,6 +92,78 @@ class PostgresApiProductRepositoryTest {
  }
 
 
+ @Test void claimsOnlyExpiredAbandonedArtifactsAndTombstonesAfterIdempotentDeletion(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"cleanup-ready");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",NOW.minusSeconds(60));
+
+  var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
+  var leases=cleanup.claimDue(tenant,"cleanup-worker:unique-token",NOW,NOW.plusSeconds(90),10,5).await().indefinitely();
+  assertThat(leases).hasSize(1);
+  assertThat(leases.get(0).artifactReference()).isEqualTo("rustfs://api-specs/orders.yaml");
+  assertThat(cleanup.isLeaseCurrent(tenant,leases.get(0),"cleanup-worker:unique-token",NOW,5).await().indefinitely()).isTrue();
+
+  cleanup.markDeleted(tenant,leases.get(0),"cleanup-worker:unique-token",NOW.plusSeconds(1)).await().indefinitely();
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("DELETED");
+  assertThat(cleanup.claimDue(tenant,"another-worker",NOW.plusSeconds(2),NOW.plusSeconds(92),10,5)
+    .await().indefinitely()).isEmpty();
+ }
+
+ @Test void cleanupFailureUsesBoundedAttemptsAndReleasesTheLease(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"cleanup-retry");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",NOW.minusSeconds(60));
+
+  var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
+  var lease=cleanup.claimDue(tenant,"cleanup-worker:retry-token",NOW,NOW.plusSeconds(90),1,1)
+    .await().indefinitely().get(0);
+  cleanup.recordFailure(tenant,lease,"cleanup-worker:retry-token","StorageUnavailable",
+    NOW.plusSeconds(5),1).await().indefinitely();
+
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("ABANDONED");
+  try(Connection connection=runtime.getConnection()){
+   try(PreparedStatement context=connection.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement query=connection.prepareStatement("""
+    SELECT cleanup_attempts,cleanup_last_error_code,cleanup_lease_owner
+    FROM developer_api_artifacts WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+    """)){
+    query.setObject(1,tenant.value());query.setObject(2,product.id().value());query.setString(3,"1.0.0");
+    try(ResultSet rows=query.executeQuery()){
+     assertThat(rows.next()).isTrue();assertThat(rows.getInt(1)).isEqualTo(1);
+     assertThat(rows.getString(2)).isEqualTo("StorageUnavailable");assertThat(rows.getString(3)).isNull();
+    }
+   }
+  }catch(SQLException failure){throw new IllegalStateException(failure);}
+  assertThat(cleanup.claimDue(tenant,"cleanup-worker:retry-token-2",NOW.plusSeconds(10),
+    NOW.plusSeconds(100),1,1).await().indefinitely()).isEmpty();
+ }
+
+ private void markArtifactAbandoned(TenantId tenant,UUID productId,String version,Instant retentionUntil){
+  try(Connection connection=runtime.getConnection()){
+   connection.setAutoCommit(false);
+   try(PreparedStatement context=connection.prepareStatement("SELECT set_config('numou.tenant_id',?,true)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement update=connection.prepareStatement("""
+    UPDATE developer_api_artifacts SET lifecycle_state='ABANDONED',retention_until=?,next_cleanup_at=?
+    WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+    """)){
+    update.setTimestamp(1,Timestamp.from(retentionUntil));update.setTimestamp(2,Timestamp.from(retentionUntil));
+    update.setObject(3,tenant.value());update.setObject(4,productId);update.setString(5,version);
+    assertThat(update.executeUpdate()).isEqualTo(1);
+   }
+   connection.commit();
+  }catch(SQLException failure){throw new IllegalStateException(failure);}
+ }
+
  @Test void commitsCatalogStateAndOutboxEventAtomically(){
   TenantId tenant=TenantId.generate();
   var context=new ExecutionContext(tenant,null,null,ActorId.of("developer-user"),"trace-api-catalog",null,NOW,null,null,null);
