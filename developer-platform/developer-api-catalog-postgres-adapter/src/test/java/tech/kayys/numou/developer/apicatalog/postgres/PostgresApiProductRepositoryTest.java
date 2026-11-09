@@ -98,17 +98,18 @@ class PostgresApiProductRepositoryTest {
   var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
   aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
   repository.save(tenant,aggregate,1).await().indefinitely();
-  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",NOW.minusSeconds(60));
+  Instant cleanupNow=Instant.now();
+  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",cleanupNow.minusSeconds(60));
 
   var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
-  var leases=cleanup.claimDue(tenant,"cleanup-worker:unique-token",NOW,NOW.plusSeconds(90),10,5).await().indefinitely();
+  var leases=cleanup.claimDue(tenant,"cleanup-worker:unique-token",cleanupNow,cleanupNow.plusSeconds(90),10,5).await().indefinitely();
   assertThat(leases).hasSize(1);
   assertThat(leases.get(0).artifactReference()).isEqualTo("rustfs://api-specs/orders.yaml");
-  assertThat(cleanup.isLeaseCurrent(tenant,leases.get(0),"cleanup-worker:unique-token",NOW,5).await().indefinitely()).isTrue();
+  assertThat(cleanup.isLeaseCurrent(tenant,leases.get(0),"cleanup-worker:unique-token",cleanupNow,5).await().indefinitely()).isTrue();
 
-  cleanup.markDeleted(tenant,leases.get(0),"cleanup-worker:unique-token",NOW.plusSeconds(1)).await().indefinitely();
+  cleanup.markDeleted(tenant,leases.get(0),"cleanup-worker:unique-token",cleanupNow.plusSeconds(1)).await().indefinitely();
   assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("DELETED");
-  assertThat(cleanup.claimDue(tenant,"another-worker",NOW.plusSeconds(2),NOW.plusSeconds(92),10,5)
+  assertThat(cleanup.claimDue(tenant,"another-worker",cleanupNow.plusSeconds(2),cleanupNow.plusSeconds(92),10,5)
     .await().indefinitely()).isEmpty();
  }
 
@@ -118,13 +119,14 @@ class PostgresApiProductRepositoryTest {
   var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
   aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
   repository.save(tenant,aggregate,1).await().indefinitely();
-  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",NOW.minusSeconds(60));
+  Instant cleanupNow=Instant.now();
+  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",cleanupNow.minusSeconds(60));
 
   var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
-  var lease=cleanup.claimDue(tenant,"cleanup-worker:retry-token",NOW,NOW.plusSeconds(90),1,1)
+  var lease=cleanup.claimDue(tenant,"cleanup-worker:retry-token",cleanupNow,cleanupNow.plusSeconds(90),1,1)
     .await().indefinitely().get(0);
   cleanup.recordFailure(tenant,lease,"cleanup-worker:retry-token","StorageUnavailable",
-    NOW.plusSeconds(5),1).await().indefinitely();
+    cleanupNow.plusSeconds(5),1).await().indefinitely();
 
   assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("ABANDONED");
   try(Connection connection=runtime.getConnection()){
@@ -142,8 +144,8 @@ class PostgresApiProductRepositoryTest {
     }
    }
   }catch(SQLException failure){throw new IllegalStateException(failure);}
-  assertThat(cleanup.claimDue(tenant,"cleanup-worker:retry-token-2",NOW.plusSeconds(10),
-    NOW.plusSeconds(100),1,1).await().indefinitely()).isEmpty();
+  assertThat(cleanup.claimDue(tenant,"cleanup-worker:retry-token-2",cleanupNow.plusSeconds(10),
+    cleanupNow.plusSeconds(100),1,1).await().indefinitely()).isEmpty();
  }
 
  private void markArtifactAbandoned(TenantId tenant,UUID productId,String version,Instant retentionUntil){
