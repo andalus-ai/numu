@@ -155,8 +155,8 @@ public final class HistoricalSourceService {
  }
  public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(HistoricalSourceId sourceId,UUID holdingId,int limit) {
   var tenant=requireTenant(); Objects.requireNonNull(sourceId); Objects.requireNonNull(holdingId); validateLimit(limit); authorization.requireCanReadSourceBibliography(tenant,sourceId);
-  boolean belongs=repository.listHoldings(tenant,sourceId,200).stream().anyMatch(h->h.id().equals(holdingId)); if(!belongs) return List.of();
-  return List.copyOf(repository.listCatalogIdentifiers(tenant,holdingId,limit));
+  if(repository.find(tenant,sourceId).isEmpty()) return List.of();
+  return List.copyOf(repository.listCatalogIdentifiers(tenant,sourceId,holdingId,limit));
  }
  private java.util.UUID requireTenant() { return Objects.requireNonNull(tenantContext.requireTenantId(),"trusted tenant context is required"); }
  private static void validateLimit(int limit) { if(limit<1||limit>200) throw new IllegalArgumentException("limit must be between 1 and 200"); }
