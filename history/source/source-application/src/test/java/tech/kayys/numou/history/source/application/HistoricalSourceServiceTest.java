@@ -25,6 +25,21 @@ class HistoricalSourceServiceTest {
   assertEquals(1,service.listAssessments(source.id(),10).size());
   assertEquals(1,service.listAssessmentReviews(source.id(),assessment.id(),10).size());
  }
+ @Test void editionsContributorsAndHoldingsRemainAttachedToTheirSource() {
+  var repo=new InMemoryRepository(); var tenant=UUID.randomUUID();
+  var service=new HistoricalSourceService(repo,()->tenant,new AllowAll(),Clock.systemUTC());
+  var source=service.register(HistoricalSourceKind.MANUSCRIPT,"Chronicle",null,null,null,null,"c. 1200 CE","id");
+  var contributor=service.addContributor(source.id(),"Anonymous author",null,SourceContributorRole.AUTHOR,0,"Attribution debated");
+  var edition=service.addEdition(source.id(),"Critical edition","Archive Press","Jakarta","c. 1920","id-ID","ISBN 978-1",null,null);
+  var holding=service.addHolding(source.id(),"institution:archive","National Archive","Central Repository","Colonial Records","COL/17",ArchivalHoldingType.PHYSICAL,null,"Appointment required",null);
+  var catalog=service.addCatalogIdentifier(source.id(),holding.id(),"SHELF_MARK","COL/17","National Archive");
+  assertEquals(contributor,service.listContributors(source.id(),10).get(0));
+  assertEquals(edition,service.listEditions(source.id(),10).get(0));
+  assertEquals(holding,service.listHoldings(source.id(),10).get(0));
+  assertEquals(catalog,service.listCatalogIdentifiers(source.id(),holding.id(),10).get(0));
+  assertTrue(service.listCatalogIdentifiers(source.id(),UUID.randomUUID(),10).isEmpty());
+  assertThrows(IllegalArgumentException.class,()->service.addCatalogIdentifier(source.id(),UUID.randomUUID(),"SHELF_MARK","wrong","Archive"));
+ }
  @Test void invalidLimitRejectedBeforeRepositoryAccess() {
   var service=new HistoricalSourceService(new InMemoryRepository(),UUID::randomUUID,new AllowAll(),Clock.systemUTC());
   assertThrows(IllegalArgumentException.class,()->service.list(201));
