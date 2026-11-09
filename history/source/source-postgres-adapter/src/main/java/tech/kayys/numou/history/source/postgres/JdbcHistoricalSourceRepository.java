@@ -132,6 +132,12 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
    p.setObject(1,tenant);p.setObject(2,sourceId.value());p.setInt(3,limit);try(ResultSet rs=p.executeQuery()){List<ArchivalHolding> out=new ArrayList<>();while(rs.next())out.add(new ArchivalHolding(rs.getObject(1,UUID.class),new HistoricalSourceId(rs.getObject(2,UUID.class)),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7),ArchivalHoldingType.valueOf(rs.getString(8)),rs.getString(9),rs.getString(10),rs.getString(11),rs.getTimestamp(12).toInstant()));return List.copyOf(out);}
   }});
  }
+ @Override public Optional<ArchivalHolding> findHolding(UUID tenant,HistoricalSourceId sourceId,UUID holdingId) {
+  Objects.requireNonNull(sourceId);Objects.requireNonNull(holdingId);
+  return read(tenant,c->{try(PreparedStatement p=c.prepareStatement("select holding_id,source_id,institution_ref,institution_name,repository_name,collection_name,shelfmark,holding_type,catalog_uri,access_conditions,notes,recorded_at from historical_archival_holding where tenant_id=? and source_id=? and holding_id=?")){
+   p.setObject(1,tenant);p.setObject(2,sourceId.value());p.setObject(3,holdingId);try(ResultSet rs=p.executeQuery()){return rs.next()?Optional.of(new ArchivalHolding(rs.getObject(1,UUID.class),new HistoricalSourceId(rs.getObject(2,UUID.class)),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7),ArchivalHoldingType.valueOf(rs.getString(8)),rs.getString(9),rs.getString(10),rs.getString(11),rs.getTimestamp(12).toInstant())):Optional.empty();}
+  }});
+ }
  @Override public boolean appendCatalogIdentifier(UUID tenant,ArchivalCatalogIdentifier x) {
   Objects.requireNonNull(tenant);Objects.requireNonNull(x);
   return write(tenant,c->{try(PreparedStatement p=c.prepareStatement("insert into historical_archival_catalog_identifier(tenant_id,identifier_id,holding_id,scheme,identifier_value,assigning_authority,recorded_at) values (?,?,?,?,?,?,?)")){
