@@ -132,7 +132,7 @@ public class PostgresAdvertisingAccountStore implements AdvertisingAccountStore 
     @Override public CompletionStage<AdvertisingPage<AdvertiserAccount>> listAdvertisers(TenantId tenant, AdvertisingPageRequest page) {
         return execute(() -> queryPage(tenant,page,
             "SELECT account_id,party_reference,display_name,account_status,created_at,version FROM advertising_advertiser_account WHERE tenant_id=? ORDER BY created_at DESC,account_id ASC",
-            "SELECT COUNT(*) FROM advertising_advertiser_account WHERE tenant_id=?",
+            "SELECT COUNT(*) FROM advertising_advertiser_account WHERE tenant_id=?",1,
             s -> s.setString(1,tenant.value()),
             r -> new AdvertiserAccount(new AdvertisingAccountId(r.getObject(1,UUID.class)),tenant,
                 new PartyReference(r.getString(2)),r.getString(3),AccountStatus.valueOf(r.getString(4)),
@@ -142,7 +142,7 @@ public class PostgresAdvertisingAccountStore implements AdvertisingAccountStore 
     @Override public CompletionStage<AdvertisingPage<PublisherAccount>> listPublishers(TenantId tenant, AdvertisingPageRequest page) {
         return execute(() -> queryPage(tenant,page,
             "SELECT account_id,party_reference,display_name,account_status,created_at,version FROM advertising_publisher_account WHERE tenant_id=? ORDER BY created_at DESC,account_id ASC",
-            "SELECT COUNT(*) FROM advertising_publisher_account WHERE tenant_id=?",
+            "SELECT COUNT(*) FROM advertising_publisher_account WHERE tenant_id=?",1,
             s -> s.setString(1,tenant.value()),
             r -> new PublisherAccount(new AdvertisingAccountId(r.getObject(1,UUID.class)),tenant,
                 new PartyReference(r.getString(2)),r.getString(3),AccountStatus.valueOf(r.getString(4)),
@@ -152,7 +152,7 @@ public class PostgresAdvertisingAccountStore implements AdvertisingAccountStore 
     @Override public CompletionStage<AdvertisingPage<PublisherProperty>> listProperties(TenantId tenant, AdvertisingAccountId publisherId, AdvertisingPageRequest page) {
         return execute(() -> queryPage(tenant,page,
             "SELECT property_id,publisher_account_id,property_name,canonical_uri,property_status,created_at,version FROM advertising_publisher_property WHERE tenant_id=? AND publisher_account_id=? ORDER BY created_at DESC,property_id ASC",
-            "SELECT COUNT(*) FROM advertising_publisher_property WHERE tenant_id=? AND publisher_account_id=?",
+            "SELECT COUNT(*) FROM advertising_publisher_property WHERE tenant_id=? AND publisher_account_id=?",2,
             s -> { s.setString(1,tenant.value()); s.setObject(2,publisherId.value()); },
             r -> new PublisherProperty(new PublisherPropertyId(r.getObject(1,UUID.class)),tenant,
                 new AdvertisingAccountId(r.getObject(2,UUID.class)),r.getString(3),URI.create(r.getString(4)),
@@ -162,7 +162,7 @@ public class PostgresAdvertisingAccountStore implements AdvertisingAccountStore 
     @Override public CompletionStage<AdvertisingPage<AdPlacement>> listPlacements(TenantId tenant, PublisherPropertyId propertyId, AdvertisingPageRequest page) {
         return execute(() -> queryPage(tenant,page,
             "SELECT placement_id,property_id,placement_code,format,placement_status,created_at,version FROM advertising_ad_placement WHERE tenant_id=? AND property_id=? ORDER BY created_at DESC,placement_id ASC",
-            "SELECT COUNT(*) FROM advertising_ad_placement WHERE tenant_id=? AND property_id=?",
+            "SELECT COUNT(*) FROM advertising_ad_placement WHERE tenant_id=? AND property_id=?",2,
             s -> { s.setString(1,tenant.value()); s.setObject(2,propertyId.value()); },
             r -> new AdPlacement(new AdPlacementId(r.getObject(1,UUID.class)),tenant,
                 new PublisherPropertyId(r.getObject(2,UUID.class)),r.getString(3),r.getString(4),
@@ -170,7 +170,7 @@ public class PostgresAdvertisingAccountStore implements AdvertisingAccountStore 
     }
 
     private <T> AdvertisingPage<T> queryPage(TenantId tenant, AdvertisingPageRequest page,
-            String selectSql, String countSql, SqlBinder binder, RowMapper<T> mapper) throws SQLException {
+            String selectSql, String countSql, int filterParameterCount, SqlBinder binder, RowMapper<T> mapper) throws SQLException {
         try (Connection c=dataSource.getConnection(); PreparedStatement count=c.prepareStatement(countSql)) {
             binder.bind(count);
             long total;
@@ -178,8 +178,8 @@ public class PostgresAdvertisingAccountStore implements AdvertisingAccountStore 
             List<T> items=new ArrayList<>();
             try (PreparedStatement select=c.prepareStatement(selectSql)) {
                 binder.bind(select);
-                select.setInt(2,page.size());
-                select.setInt(3,page.offset());
+                select.setInt(filterParameterCount+1,page.size());
+                select.setInt(filterParameterCount+2,page.offset());
                 try (ResultSet rows=select.executeQuery()) {
                     while(rows.next()) items.add(mapper.map(rows));
                 }
