@@ -53,11 +53,14 @@ BEGIN
  IF OLD.lifecycle_state='DELETED' AND NEW.lifecycle_state<>'DELETED' THEN
   RAISE EXCEPTION 'Deleted API artifact tombstones are immutable';
  END IF;
- IF NEW.lifecycle_state='DELETE_PENDING' AND OLD.lifecycle_state NOT IN ('ABANDONED','DELETE_PENDING') THEN
-  RAISE EXCEPTION 'Only abandoned artifacts may enter cleanup';
- END IF;
- IF NEW.lifecycle_state='DELETED' AND OLD.lifecycle_state<>'DELETE_PENDING' THEN
-  RAISE EXCEPTION 'Only cleanup-claimed artifacts may be marked deleted';
+ IF NOT (
+   (OLD.lifecycle_state='REGISTERED' AND NEW.lifecycle_state IN ('REGISTERED','PUBLISHED','ABANDONED'))
+   OR (OLD.lifecycle_state='PUBLISHED' AND NEW.lifecycle_state='PUBLISHED')
+   OR (OLD.lifecycle_state='ABANDONED' AND NEW.lifecycle_state IN ('ABANDONED','DELETE_PENDING'))
+   OR (OLD.lifecycle_state='DELETE_PENDING' AND NEW.lifecycle_state IN ('DELETE_PENDING','ABANDONED','DELETED'))
+   OR (OLD.lifecycle_state='DELETED' AND NEW.lifecycle_state='DELETED')
+ ) THEN
+  RAISE EXCEPTION 'Invalid API artifact lifecycle transition';
  END IF;
  IF NEW.legal_hold AND NEW.lifecycle_state IN ('DELETE_PENDING','DELETED') THEN
   RAISE EXCEPTION 'Artifacts under legal hold cannot be deleted';
@@ -69,9 +72,13 @@ END; $$;
 CREATE TRIGGER trg_developer_api_artifact_lifecycle_guard
  BEFORE UPDATE OR DELETE ON developer_api_artifacts
  FOR EACH ROW EXECUTE FUNCTION guard_developer_api_artifact_lifecycle();
+CREATE FUNCTION reject_developer_api_artifact_truncate() RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+ RAISE EXCEPTION 'API artifact lifecycle registry cannot be truncated';
+END; $;
 CREATE TRIGGER trg_developer_api_artifact_no_truncate
  BEFORE TRUNCATE ON developer_api_artifacts
- FOR EACH STATEMENT EXECUTE FUNCTION guard_developer_api_artifact_lifecycle();
+ FOR EACH STATEMENT EXECUTE FUNCTION reject_developer_api_artifact_truncate();
 
 ALTER TABLE developer_api_artifacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE developer_api_artifacts FORCE ROW LEVEL SECURITY;
