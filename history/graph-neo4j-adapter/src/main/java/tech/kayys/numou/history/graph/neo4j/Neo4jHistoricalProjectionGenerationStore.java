@@ -90,6 +90,8 @@ public final class Neo4jHistoricalProjectionGenerationStore implements Historica
             MATCH (next:HistoricalProjectionGeneration {scopeKey:$scope, generationId:$nextId})
             WHERE next.status IN ['READY','RETAINED']
             MERGE (active:HistoricalProjectionActiveGeneration {scopeKey:$scope})
+            ON CREATE SET active.lockVersion=0
+            SET active.lockVersion=coalesce(active.lockVersion,0)+1
             WITH next, active
             WHERE ($expectedId IS NULL AND active.generationId IS NULL)
                OR active.generationId = $expectedId
