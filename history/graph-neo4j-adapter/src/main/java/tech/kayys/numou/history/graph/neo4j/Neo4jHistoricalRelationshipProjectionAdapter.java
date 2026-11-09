@@ -28,7 +28,7 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Gener
         })
         WITH a, collect(active.generationId) AS activeIds
         OPTIONAL MATCH (building:HistoricalProjectionGeneration {
-            scopeKey:$baseScope, status:'BUILDING'
+            scopeKey:$baseScope, status IN ['BUILDING','READY']
         })
         RETURN activeIds[0] AS activeGenerationId,
                collect(building.generationId) AS buildingGenerationIds
