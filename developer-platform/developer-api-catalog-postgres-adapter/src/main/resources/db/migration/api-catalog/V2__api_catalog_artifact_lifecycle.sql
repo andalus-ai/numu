@@ -62,8 +62,18 @@ BEGIN
  ) THEN
   RAISE EXCEPTION 'Invalid API artifact lifecycle transition';
  END IF;
- IF NEW.legal_hold AND NEW.lifecycle_state IN ('DELETE_PENDING','DELETED') THEN
+ IF (OLD.legal_hold OR NEW.legal_hold) AND NEW.lifecycle_state IN ('DELETE_PENDING','DELETED') THEN
   RAISE EXCEPTION 'Artifacts under legal hold cannot be deleted';
+ END IF;
+ IF NEW.lifecycle_state='DELETE_PENDING' AND OLD.lifecycle_state<>'DELETE_PENDING'
+    AND (NEW.retention_until IS NULL OR NEW.retention_until>now()
+      OR NEW.next_cleanup_at IS NULL OR NEW.next_cleanup_at>now()
+      OR NEW.cleanup_lease_owner IS NULL OR NEW.cleanup_lease_until IS NULL
+      OR NEW.cleanup_lease_until<=now()) THEN
+  RAISE EXCEPTION 'Artifact cleanup requires expired retention and an active cleanup lease';
+ END IF;
+ IF NEW.lifecycle_state='DELETED' AND (OLD.cleanup_lease_owner IS NULL OR OLD.cleanup_lease_until<=now()) THEN
+  RAISE EXCEPTION 'Artifact deletion requires an active cleanup lease';
  END IF;
  NEW.updated_at=now();
  RETURN NEW;
