@@ -29,8 +29,8 @@ public final class Neo4jHistoricalProjectionGenerationStore implements Historica
         Objects.requireNonNull(generationId, "generationId");
         Objects.requireNonNull(now, "now");
         String query = """
-            MERGE (g:HistoricalProjectionGeneration {scopeKey:$scope, generationId:$id})
-            ON CREATE SET g.status='BUILDING', g.createdAt=$now, g.updatedAt=$now
+            CREATE (g:HistoricalProjectionGeneration {scopeKey:$scope, generationId:$id,
+                status:'BUILDING', createdAt:$now, updatedAt:$now})
             RETURN g.generationId AS id, g.status AS status, g.createdAt AS createdAt, g.updatedAt AS updatedAt
             """;
         try (Session s = driver.session(SessionConfig.forDatabase(database))) {
