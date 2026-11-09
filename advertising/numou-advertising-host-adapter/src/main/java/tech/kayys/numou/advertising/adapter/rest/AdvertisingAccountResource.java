@@ -12,7 +12,9 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import tech.kayys.numou.advertising.application.AdvertisingAccountService;
-import tech.kayys.numou.advertising.domain.*;\nimport tech.kayys.numou.advertising.spi.AdvertisingPage;\nimport tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
+import tech.kayys.numou.advertising.domain.*;
+import tech.kayys.numou.advertising.spi.AdvertisingPage;
+import tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
 import tech.kayys.numou.security.adapter.CurrentSecurity;
 
 import java.net.URI;
