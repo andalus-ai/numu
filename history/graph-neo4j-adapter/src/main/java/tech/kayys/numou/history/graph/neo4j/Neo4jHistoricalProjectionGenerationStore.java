@@ -98,7 +98,9 @@ public final class Neo4jHistoricalProjectionGenerationStore implements Historica
             OPTIONAL MATCH (old:HistoricalProjectionGeneration {
                 scopeKey:$scope, generationId:active.generationId, status:'ACTIVE'
             })
-            SET old.status='RETAINED', old.updatedAt=$now
+            FOREACH (_ IN CASE WHEN old IS NULL THEN [] ELSE [1] END |
+                SET old.status='RETAINED', old.updatedAt=$now
+            )
             SET next.status='ACTIVE', next.updatedAt=$now,
                 active.generationId=next.generationId, active.updatedAt=$now
             RETURN count(next) AS changed
