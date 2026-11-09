@@ -25,7 +25,7 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
    s.execute("CREATE ROLE history_app LOGIN PASSWORD 'history-password' NOSUPERUSER NOBYPASSRLS");
    s.execute("GRANT USAGE ON SCHEMA public TO history_app");
    s.execute("GRANT SELECT, INSERT, UPDATE ON historical_source TO history_app");
-   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review TO history_app");
+   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review, historical_source_contributor, historical_source_edition, historical_archival_holding, historical_archival_catalog_identifier TO history_app");
   }
   appDataSource=new PGSimpleDataSource(); appDataSource.setURL(POSTGRES.getJdbcUrl());
   appDataSource.setUser("history_app"); appDataSource.setPassword("history-password");
@@ -65,6 +65,22 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertTrue(repository.listAssessments(otherTenant,source.id(),20).isEmpty());
   assertTrue(repository.listAssessmentReviews(otherTenant,assessment.id(),20).isEmpty());
   assertTrue(repository.findAssessment(otherTenant,assessment.id()).isEmpty());
+  var contributor=SourceContributor.create(source.id(),"Anonymous chronicler",null,SourceContributorRole.AUTHOR,0,"Attribution uncertain");
+  assertTrue(repository.appendContributor(tenant,contributor));
+  assertEquals(contributor,repository.listContributors(tenant,source.id(),20).get(0));
+  var edition=SourceEdition.create(source.id(),"Critical edition, volume I","Archive Press","Jakarta","c. 1920","id-ID","ISBN 978-1","https://example.org/edition/1",null,now.plusSeconds(6));
+  assertTrue(repository.appendEdition(tenant,edition));
+  assertEquals(edition,repository.listEditions(tenant,source.id(),20).get(0));
+  var holding=ArchivalHolding.create(source.id(),"institution:national-archive","National Archive","Central Repository","Colonial Records","COL/1945/17",ArchivalHoldingType.PHYSICAL,"https://archive.example/catalog/17","Appointment required",null,now.plusSeconds(7));
+  assertTrue(repository.appendHolding(tenant,holding));
+  assertEquals(holding,repository.listHoldings(tenant,source.id(),20).get(0));
+  var catalog=ArchivalCatalogIdentifier.create(holding.id(),"LOCAL_SHELF_MARK","COL/1945/17","National Archive",now.plusSeconds(8));
+  assertTrue(repository.appendCatalogIdentifier(tenant,catalog));
+  assertEquals(catalog,repository.listCatalogIdentifiers(tenant,holding.id(),20).get(0));
+  assertTrue(repository.listEditions(otherTenant,source.id(),20).isEmpty());
+  assertTrue(repository.listHoldings(otherTenant,source.id(),20).isEmpty());
+  assertTrue(repository.listContributors(otherTenant,source.id(),20).isEmpty());
+  assertTrue(repository.listCatalogIdentifiers(otherTenant,holding.id(),20).isEmpty());
   assertThrows(java.sql.SQLException.class,()->{
    try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
        var statement=connection.prepareStatement("update historical_source_assessment set rationale=? where tenant_id=? and assessment_id=?")) {
