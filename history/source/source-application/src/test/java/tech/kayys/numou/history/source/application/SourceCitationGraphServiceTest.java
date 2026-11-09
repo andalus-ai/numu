@@ -28,19 +28,22 @@ class SourceCitationGraphServiceTest {
         HistoricalSource d = source("D");
         link(a, b, SourceRelationshipType.CITES);
         link(c, a, SourceRelationshipType.TRANSLATES);
+        HistoricalSource e = source("E");
         link(b, c, SourceRelationshipType.DERIVES_FROM);
         link(c, d, SourceRelationshipType.RESPONDS_TO);
+        link(d, e, SourceRelationshipType.CITES);
 
         SourceCitationGraph graph = service.explore(a.id(), 2, 10, 10);
 
-        assertEquals(3, graph.nodes().size());
-        assertEquals(3, graph.relationships().size());
+        assertEquals(4, graph.nodes().size());
+        assertEquals(4, graph.relationships().size());
         assertEquals(0, distance(graph, a.id()));
         assertEquals(1, distance(graph, b.id()));
         assertEquals(1, distance(graph, c.id()));
+        assertEquals(2, distance(graph, d.id()));
         assertFalse(graph.truncated());
         assertTrue(graph.relationships().stream().anyMatch(r -> r.sourceId().equals(c.id()) && r.relatedSourceId().equals(a.id())));
-        assertTrue(graph.nodes().stream().noneMatch(n -> n.source().id().equals(d.id())));
+        assertTrue(graph.nodes().stream().noneMatch(n -> n.source().id().equals(e.id())));
     }
 
     @Test
