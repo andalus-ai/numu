@@ -73,9 +73,9 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
-- Forced row-level security protects source heads, immutable source revisions, claims, evidence associations, assessments, editorial reviews, contributors, editions, holdings and catalogue identifiers.
+- Forced row-level security protects source heads, immutable source revisions, claims, evidence associations, assessments, editorial reviews, contributors, editions, holdings, catalogue identifiers and source relationships.
 - Composite tenant foreign keys prevent evidence from linking a claim or source owned by another tenant.
-- Source revisions, claims, evidence, assessments, editorial reviews, contributor attributions, editions, holdings and catalogue identifiers are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
+- Source revisions, claims, evidence, assessments, editorial reviews, contributor attributions, editions, holdings, catalogue identifiers and source relationships are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
 - Revision advancement and source revision insertion occur in one transaction.
 - Evidence insertion relies on tenant-scoped foreign keys to ensure both the claim and source exist in the same tenant.
 
@@ -90,7 +90,7 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalog identifiers, directed source relationships and append-only enforcement.
+The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalog identifiers, directed source relationships, bounded citation graph traversal, tenant/authorization isolation and append-only enforcement.
 
 ## Deliberately deferred
 
