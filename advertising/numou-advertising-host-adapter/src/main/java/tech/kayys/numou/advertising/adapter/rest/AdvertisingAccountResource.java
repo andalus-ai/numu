@@ -160,7 +160,7 @@ public class AdvertisingAccountResource {
     @Operation(summary="List publisher accounts for the authenticated tenant")
     public CompletionStage<Response> listPublishers(@QueryParam("page") @DefaultValue("0") int page,
                                                      @QueryParam("size") @DefaultValue("20") int size) {
-        return accounts.listPublishers(tenant(),new AdvertisingPageRequest(page,size))
+        return accounts.listPublishers(tenant(),pageRequest(page,size))
                 .thenApply(result -> Response.ok(page(result,p -> new AccountResponse(p.id().value(),p.displayName(),p.status().name(),p.version()))).build())
                 .exceptionally(this::failure);
     }
@@ -181,7 +181,7 @@ public class AdvertisingAccountResource {
     public CompletionStage<Response> listProperties(@PathParam("publisherId") UUID publisherId,
                                                      @QueryParam("page") @DefaultValue("0") int page,
                                                      @QueryParam("size") @DefaultValue("20") int size) {
-        return accounts.listProperties(tenant(),new AdvertisingAccountId(publisherId),new AdvertisingPageRequest(page,size))
+        return accounts.listProperties(tenant(),new AdvertisingAccountId(publisherId),pageRequest(page,size))
                 .thenApply(result -> Response.ok(page(result,p -> new PropertyResponse(p.id().value(),p.publisherId().value(),p.name(),p.canonicalUri().toString(),p.status().name(),p.version()))).build())
                 .exceptionally(this::failure);
     }
@@ -202,7 +202,7 @@ public class AdvertisingAccountResource {
     public CompletionStage<Response> listPlacements(@PathParam("propertyId") UUID propertyId,
                                                      @QueryParam("page") @DefaultValue("0") int page,
                                                      @QueryParam("size") @DefaultValue("20") int size) {
-        return accounts.listPlacements(tenant(),new PublisherPropertyId(propertyId),new AdvertisingPageRequest(page,size))
+        return accounts.listPlacements(tenant(),new PublisherPropertyId(propertyId),pageRequest(page,size))
                 .thenApply(result -> Response.ok(page(result,p -> new PlacementResponse(p.id().value(),p.propertyId().value(),p.code(),p.format(),p.status().name(),p.version()))).build())
                 .exceptionally(this::failure);
     }
@@ -223,7 +223,7 @@ public class AdvertisingAccountResource {
     }
 
     private static AdvertisingPageRequest pageRequest(int page,int size) {
-        try { return new AdvertisingPageRequest(page,size); }
+        try { return pageRequest(page,size); }
         catch (IllegalArgumentException invalid) { throw new BadRequestException(invalid.getMessage(),invalid); }
     }
 
