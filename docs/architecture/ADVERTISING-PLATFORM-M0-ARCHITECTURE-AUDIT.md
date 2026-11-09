@@ -411,3 +411,36 @@ M0 remains partially complete until the unchecked evidence gates are resolved or
 - [ ] Finalize M1 artifact list and dependency direction based on the verified contracts.
 
 M0 remains partially complete. The source audit confirms several useful integration contracts, while also showing that Billing usage invoicing and generic Wallet payouts are not yet proven. No build/test/CI success is claimed by this source audit.
+
+
+## 15. Follow-up contract and packaging verification (2026-11-10)
+
+A second pass inspected additional exact reactor and child POMs. These findings refine the integration decisions above.
+
+| Contract/package evidence | Verified fact | Advertising consequence |
+|---|---|---|
+| `finance/billing/pom.xml` and `finance/billing/core/pom.xml` | Billing is a nested reactor: `finance-billing` -> `numou-billing-services` -> domain/application/adapter/pricing/dunning | Correct Maven coordinates and paths must follow the nested reactor. The earlier shorthand path `finance/billing/numou-billing-application` is not valid. |
+| `finance/billing/core/numou-billing-application/pom.xml` | Billing application describes CQRS commands, queries, and ports; depends on billing domain and foundation application, with CDI APIs | Advertising should integrate at the Billing application boundary, but exact use-case/port types still require Java source inspection. |
+| `finance/payment/numou-payment-api/pom.xml` | Payment API is explicitly described as a framework-neutral consumer contract for payment execution and refunds; its POM has no runtime framework dependency | This is the preferred Payment dependency for advertiser collection/publisher payout orchestration. Do not depend on Payment Core or gateway implementation. Exact request/result and idempotency semantics remain to be inspected. |
+| `finance/wallet/numou-wallet-domain/pom.xml`, `numou-wallet-application/pom.xml`, `numou-wallet-spi/pom.xml` | Artifacts are explicitly named/described as Mobility wallet; wallet domain depends on aggregate kernel and foundation; application depends on domain/SPI and Mutiny | Do not yet treat Wallet as a generic platform-wide publisher payout ledger. Verify whether its public contract is sufficiently generic; otherwise Advertising should orchestrate payout through Payment and Finance contracts without modeling wallet balances itself. Any shared-wallet generalization is a separate Finance milestone. |
+| `core/framework/event/event-domain/pom.xml` | Domain describes transport-neutral `BusinessEvent`, `EventEnvelope`, `EventMetadata`, `EventVersion`, `EventId`, `CorrelationId`, and `CausationId` | Advertising business lifecycle events should use this envelope/identity/versioning contract rather than inventing a parallel event envelope. |
+| `core/framework/event/event-application/pom.xml` | Application orchestrates envelope construction, event store/publisher ports, subscription registration and dispatch | Use the event application boundary for finalized business events; do not make raw ad impressions synchronous business-bus writes. |
+| `core/framework/event/event-spi/pom.xml` | SPI names `EventPublisherPort`, `EventSubscriberPort`, `EventStorePort`, and `EventSerializerPort` | Event infrastructure is broker-neutral; adapter selection remains runtime composition. |
+| `documents/pom.xml` and `documents/numou-document-storage-spi/pom.xml` | Documents reactor contains provider-neutral storage SPI plus local, S3, and config modules; storage SPI POM is framework-neutral | Reuse binary storage for creative assets. Advertising still owns creative metadata, approval/version, destination, and serving eligibility. |
+| `identity/numou-identity-application/pom.xml` | Identity application describes CQRS use cases and owns UserRepository/PasswordHasher ports; it depends on identity domain and foundation application | This inspected Identity module is user identity, not proof of complete tenant/organization authorization semantics. Do not infer publisher/advertiser tenant ownership from user identity alone. |
+| `commerce/marketplace/numou-marketplace-application/pom.xml` | Marketplace application depends on Marketplace domain and Payment API | Marketplace integration can be contract-based, but this POM alone does not prove an ad inventory or promoted-listing API exists. |
+| `commerce/promotion/numou-promotion-application/pom.xml` | Promotion application depends on Foundation Application, Promotion Domain, Promotion SPI and Mutiny; described as stateless discount resolution | Confirms Promotion is cart/discount resolution, not the Advertising campaign or ad-decision owner. |
+
+### Corrected integration confidence
+
+- **High confidence at POM boundary:** Event envelope/application/SPI layering; Documents storage SPI; Payment API as the consumer-facing framework-neutral payment contract; Billing as a CQRS application capability; Promotion as discount resolution.
+- **Candidate only:** Wallet integration. Current module naming and description are Mobility-specific; generic publisher wallet reuse is not established.
+- **Not established by inspected POMs:** tenant/organization authorization contract, Party/Organization reference type, advertiser invoice creation use case, payment idempotency contract, creative malware scanning/moderation, Marketplace sponsored inventory contract, and raw event ingestion guarantees.
+
+### Remaining source-level blocker
+
+The GitHub source retrieval/search available during this pass exposed file fetches and POMs but did not provide a repository directory listing; attempted code searches for guessed Java symbols returned no matches. Therefore no Java API/class names are asserted beyond names explicitly documented in POM descriptions. Before M1 creates dependencies, retrieve the exact Java source files (or a source archive/worktree) and verify public types, package names, tenant context, authorization, transaction, and idempotency behavior.
+
+### M0 status after follow-up
+
+The capability ownership and package-level integration map are now more precise. M0 is still **not fully accepted** because source-level contract verification and a reproducible Maven/CI baseline have not been performed. The Advertising module must not yet add dependencies against guessed artifact names or assumed generic Wallet behavior.
