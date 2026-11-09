@@ -26,5 +26,5 @@ public interface HistoricalSourceRepository {
  boolean appendHolding(UUID tenantId, ArchivalHolding holding);
  List<ArchivalHolding> listHoldings(UUID tenantId, HistoricalSourceId sourceId, int limit);
  boolean appendCatalogIdentifier(UUID tenantId, ArchivalCatalogIdentifier identifier);
- List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID tenantId, UUID holdingId, int limit);
+ List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID tenantId, HistoricalSourceId sourceId, UUID holdingId, int limit);
 }
