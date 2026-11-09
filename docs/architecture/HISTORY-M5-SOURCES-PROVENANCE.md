@@ -44,6 +44,14 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - Editorial decisions (accept, request changes, reject) are separate immutable review records. A later review never overwrites the assessment or earlier editorial decisions.
 - PostgreSQL enforces tenant-scoped foreign keys, forced RLS, and append-only triggers for both assessment and review tables.
 
+## Editions, contributors and archival holdings
+
+- A source remains the intellectual/work-level record. A `SourceEdition` is a distinct publication or manifestation with its own designation, publisher, place, date expression, language, identifier and optional canonical URI. Publication dates remain text so approximate expressions are not silently normalized.
+- `SourceContributor` records source-specific attribution and role (author, editor, translator, compiler, oral informant, etc.). It stores a display name plus an optional external authority reference; History does not own canonical person identity. Attribution notes preserve uncertainty.
+- `ArchivalHolding` records a particular institutional custody/catalogue instance, including institution reference/name, repository, collection, shelfmark, holding type, access conditions and optional catalogue URI.
+- `ArchivalCatalogIdentifier` is scoped to a holding and assigning scheme/authority. Identifiers are not assumed globally unique across institutions.
+- These records are append-only, tenant-scoped and independently addressable. Catalogue identifier reads are scoped to both source and holding; a holding lookup is likewise source-scoped.
+
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
@@ -64,7 +72,7 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, and immutable editorial review records.
+The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalog identifiers and append-only enforcement.
 
 ## Deliberately deferred
 
