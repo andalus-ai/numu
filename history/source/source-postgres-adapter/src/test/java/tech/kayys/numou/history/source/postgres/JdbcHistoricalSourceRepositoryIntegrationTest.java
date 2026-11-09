@@ -74,6 +74,8 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   var holding=ArchivalHolding.create(source.id(),"institution:national-archive","National Archive","Central Repository","Colonial Records","COL/1945/17",ArchivalHoldingType.PHYSICAL,"https://archive.example/catalog/17","Appointment required",null,now.plusSeconds(7));
   assertTrue(repository.appendHolding(tenant,holding));
   assertEquals(holding,repository.listHoldings(tenant,source.id(),20).get(0));
+  assertEquals(holding,repository.findHolding(tenant,source.id(),holding.id()).orElseThrow());
+  assertTrue(repository.findHolding(tenant,HistoricalSourceId.generate(),holding.id()).isEmpty());
   var catalog=ArchivalCatalogIdentifier.create(holding.id(),"LOCAL_SHELF_MARK","COL/1945/17","National Archive",now.plusSeconds(8));
   assertTrue(repository.appendCatalogIdentifier(tenant,catalog));
   assertEquals(catalog,repository.listCatalogIdentifiers(tenant,source.id(),holding.id(),20).get(0));
@@ -82,6 +84,12 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertTrue(repository.listContributors(otherTenant,source.id(),20).isEmpty());
   assertTrue(repository.listCatalogIdentifiers(otherTenant,source.id(),holding.id(),20).isEmpty());
   assertTrue(repository.listCatalogIdentifiers(tenant,HistoricalSourceId.generate(),holding.id(),20).isEmpty());
+  assertThrows(java.sql.SQLException.class,()->{
+   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
+       var statement=connection.prepareStatement("update historical_archival_holding set shelfmark=? where tenant_id=? and holding_id=?")) {
+    statement.setString(1,"REWRITTEN"); statement.setObject(2,tenant); statement.setObject(3,holding.id()); statement.executeUpdate();
+   }
+  });
   assertThrows(java.sql.SQLException.class,()->{
    try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
        var statement=connection.prepareStatement("update historical_source_assessment set rationale=? where tenant_id=? and assessment_id=?")) {
