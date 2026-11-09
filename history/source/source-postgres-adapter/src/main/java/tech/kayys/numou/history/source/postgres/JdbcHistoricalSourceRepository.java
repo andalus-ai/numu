@@ -149,6 +149,28 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
    p.setObject(1,tenant);p.setObject(2,sourceId.value());p.setObject(3,holdingId);p.setInt(4,limit);try(ResultSet rs=p.executeQuery()){List<ArchivalCatalogIdentifier> out=new ArrayList<>();while(rs.next())out.add(new ArchivalCatalogIdentifier(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getString(3),rs.getString(4),rs.getString(5),rs.getTimestamp(6).toInstant()));return List.copyOf(out);}
   }});
  }
+ @Override public boolean appendSourceRelationship(UUID tenant,SourceRelationship x) {
+  Objects.requireNonNull(tenant);Objects.requireNonNull(x);
+  return write(tenant,c->{try(PreparedStatement p=c.prepareStatement("insert into historical_source_relationship(tenant_id,relationship_id,source_id,related_source_id,relation,locator_type,locator,note,recorded_at) values (?,?,?,?,?,?,?,?,?)")){
+   p.setObject(1,tenant);p.setObject(2,x.id());p.setObject(3,x.sourceId().value());p.setObject(4,x.relatedSourceId().value());p.setString(5,x.relation().name());p.setString(6,x.locatorType()==null?null:x.locatorType().name());p.setString(7,x.locator());p.setString(8,x.note());p.setTimestamp(9,Timestamp.from(x.recordedAt()));p.executeUpdate();return true;
+  }},false);
+ }
+ @Override public List<SourceRelationship> listOutgoingSourceRelationships(UUID tenant,HistoricalSourceId sourceId,int limit) {
+  return listSourceRelationships(tenant,sourceId,limit,true);
+ }
+ @Override public List<SourceRelationship> listIncomingSourceRelationships(UUID tenant,HistoricalSourceId sourceId,int limit) {
+  return listSourceRelationships(tenant,sourceId,limit,false);
+ }
+ private List<SourceRelationship> listSourceRelationships(UUID tenant,HistoricalSourceId sourceId,int limit,boolean outgoing) {
+  Objects.requireNonNull(sourceId);checkLimit(limit);
+  String sql=outgoing
+   ?"select relationship_id,source_id,related_source_id,relation,locator_type,locator,note,recorded_at from historical_source_relationship where tenant_id=? and source_id=? order by recorded_at,relationship_id limit ?"
+   :"select relationship_id,source_id,related_source_id,relation,locator_type,locator,note,recorded_at from historical_source_relationship where tenant_id=? and related_source_id=? order by recorded_at,relationship_id limit ?";
+  return read(tenant,c->{try(PreparedStatement p=c.prepareStatement(sql)){
+   p.setObject(1,tenant);p.setObject(2,sourceId.value());p.setInt(3,limit);
+   try(ResultSet rs=p.executeQuery()){List<SourceRelationship> out=new ArrayList<>();while(rs.next())out.add(new SourceRelationship(rs.getObject(1,UUID.class),new HistoricalSourceId(rs.getObject(2,UUID.class)),new HistoricalSourceId(rs.getObject(3,UUID.class)),SourceRelationshipType.valueOf(rs.getString(4)),rs.getString(5)==null?null:EvidenceLocatorType.valueOf(rs.getString(5)),rs.getString(6),rs.getString(7),rs.getTimestamp(8).toInstant()));return List.copyOf(out);}
+  }});
+ }
  private static void checkLimit(int limit){if(limit<1||limit>200)throw new IllegalArgumentException("limit must be between 1 and 200");}
  private static SourceAssessment mapAssessment(ResultSet rs)throws SQLException {
   return new SourceAssessment(rs.getObject(1,UUID.class),new HistoricalSourceId(rs.getObject(2,UUID.class)),SourceAssessmentDimension.valueOf(rs.getString(3)),SourceAssessmentConclusion.valueOf(rs.getString(4)),rs.getString(5),rs.getString(6),rs.getString(7),rs.getString(8),rs.getTimestamp(9).toInstant());
