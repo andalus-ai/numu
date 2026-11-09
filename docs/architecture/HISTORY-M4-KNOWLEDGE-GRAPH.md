@@ -38,7 +38,7 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Reconciliation does not perform destructive orphan cleanup or active-generation swaps. Those operations require a separately staged graph generation, complete validation, and an atomic activation protocol.
 
 ## Deferred
-- Staged generation rebuild and atomic active-generation swap for destructive orphan cleanup.
+- Generation-targeted projection writes, active-generation reads, high-water/tail catch-up, and end-to-end staged rebuild orchestration.
 - Graph query APIs, traversal limits, pagination, and bounded traversal protection.
 - M5 source claims, citations, evidence, conflicting assertions, and verification.
 - Shared-corpus ingestion workflow and editorial authorization.
