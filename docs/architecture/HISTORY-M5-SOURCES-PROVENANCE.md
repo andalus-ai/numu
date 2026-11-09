@@ -2,7 +2,7 @@
 
 ## Status
 
-M5.4 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
+M5.5 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
 
 ## Ownership and boundaries
 
@@ -61,6 +61,15 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - Self-links are rejected. Both source endpoints must exist in the same tenant. Outgoing and incoming queries are separate, bounded, tenant-scoped and authorization-checked for both endpoints.
 - Relationship records are append-only; no citation graph is treated as a truth score or canonical event/person/place graph.
 
+## Citation graph projection and discovery
+
+- The application layer exposes an on-demand, immutable citation graph read model derived from source records and directed source relationships.
+- Traversal is breadth-first across both incoming and outgoing links. Each node records its shortest hop distance from the requested root; relationship direction and original relation type are preserved.
+- Requests are bounded to depth 0–3, at most 100 nodes and at most 200 relationships. The result reports whether a configured bound truncated traversal. A request cannot override these safety ceilings.
+- Every discovered source is authorized through the host bibliography-read policy before its metadata is included. Repository reads remain tenant-scoped; graph traversal never crosses tenant boundaries.
+- The projection is not persisted and does not introduce graph write authority, a second source of truth, a universal reliability score, or an inference that connected sources are independent corroboration. PostgreSQL remains authoritative.
+- The existing optional Neo4j adapter for canonical historical-entity relationships is not coupled to this source graph read model. A future disposable graph projection may be introduced only with explicit rebuild, authorization, and consistency contracts.
+
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
@@ -87,9 +96,9 @@ The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suit
 
 
 - source ingestion, OCR/transcription, content extraction and shared document-store integration;
-- graph projections, citation discovery and cross-source independence analysis;
+- durable/asynchronous source graph projections, full-text indexing, and cross-source independence analysis;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
-- REST/GraphQL APIs, search indexing, ranking and discovery;
+- REST/GraphQL APIs, full-text search indexing, ranking and corpus-scale discovery;
 - cross-tenant sharing or public-source visibility policies.
 
 These should be separate M5 increments. In particular, no universal numeric reliability score should be introduced without a documented, explainable assessment model.
