@@ -149,7 +149,7 @@ public final class HistoricalSourceService {
  }
  public ArchivalCatalogIdentifier addCatalogIdentifier(HistoricalSourceId sourceId,UUID holdingId,String scheme,String value,String authority) {
   var tenant=requireTenant(); Objects.requireNonNull(sourceId); Objects.requireNonNull(holdingId); authorization.requireCanManageSourceBibliography(tenant,sourceId);
-  var holding=repository.listHoldings(tenant,sourceId,200).stream().filter(h->h.id().equals(holdingId)).findFirst().orElseThrow(()->new IllegalArgumentException("Archival holding not found for source"));
+  var holding=repository.findHolding(tenant,sourceId,holdingId).orElseThrow(()->new IllegalArgumentException("Archival holding not found for source"));
   var identifier=ArchivalCatalogIdentifier.create(holding.id(),scheme,value,authority,clock.instant());
   if(!repository.appendCatalogIdentifier(tenant,identifier)) throw new HistoricalSourceConflictException("Catalog identifier could not be appended"); return identifier;
  }
