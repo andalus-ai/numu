@@ -49,6 +49,23 @@ class HistoricalProjectionGenerationServiceTest {
         assertEquals(first.generationId(), service.active(null).orElseThrow().generationId());
     }
 
+    @Test void failedValidationCannotMarkGenerationReady() {
+        FakeStore store = new FakeStore();
+        var auth = new HistoricalProjectionMaintenanceAuthorizationPort() {
+            public void requireCanRebuildTenant(UUID tenant) {}
+            public void requireCanRebuildPublicCorpus() {}
+            public void requireCanAuditTenant(UUID tenant) {}
+            public void requireCanAuditPublicCorpus() {}
+        };
+        var validation = (HistoricalProjectionGenerationValidationPort) (tenant, generation) ->
+                new HistoricalProjectionGenerationValidationPort.ValidationResult(
+                        true, 4, 3, 1, 0, 0, 0, "one canonical relationship missing");
+        var service = new HistoricalProjectionGenerationService(store, auth, validation, clock());
+        Generation candidate = service.create(null);
+        assertThrows(IllegalStateException.class, () -> service.markValidatedReady(null, candidate.generationId()));
+        assertEquals(Status.BUILDING, store.find(null, candidate.generationId()).orElseThrow().status());
+    }
+
     @Test void staleActivationCannotReplaceConcurrentActiveGeneration() {
         FakeStore store = new FakeStore();
         var service = service(store);
