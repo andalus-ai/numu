@@ -33,7 +33,7 @@ public final class HistoricalProjectionGenerationValidator implements Historical
             return new ValidationResult(true, report.canonicalChecked(), projected,
                     report.missing(), report.stale(), report.divergent(), report.orphaned(),
                     "full canonical-to-generation reconciliation completed");
-        } catch (RuntimeException | java.lang.Exception failure) {
+        } catch (Exception failure) {
             return new ValidationResult(false, 0, 0, 0, 0, 0, 0,
                     "generation validation could not complete: " + failure.getClass().getSimpleName());
         }
