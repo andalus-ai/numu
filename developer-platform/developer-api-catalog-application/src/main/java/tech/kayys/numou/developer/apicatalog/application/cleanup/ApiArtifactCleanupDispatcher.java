@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * One-tenant cleanup dispatch. Hosts should create one worker per authorized tenant;
@@ -30,13 +31,14 @@ public final class ApiArtifactCleanupDispatcher {
                                      Duration leaseDuration, int batchSize, int maximumAttempts) {
         Objects.requireNonNull(tenant, "tenant cannot be null");
         Objects.requireNonNull(now, "now cannot be null");
-        if (workerId == null || workerId.isBlank() || workerId.length() > 160
+        if (workerId == null || workerId.isBlank() || workerId.length() > 120
                 || leaseDuration == null || leaseDuration.isNegative() || leaseDuration.isZero()
                 || batchSize < 1 || batchSize > 200 || maximumAttempts < 1) {
             return Uni.createFrom().failure(new IllegalArgumentException("Invalid API artifact cleanup worker configuration"));
         }
-        return repository.claimDue(tenant, workerId, now, now.plus(leaseDuration), batchSize, maximumAttempts)
-                .chain(leases -> process(tenant, workerId, now, maximumAttempts, leases, 0));
+        String leaseOwner = workerId.trim() + ":" + UUID.randomUUID();
+        return repository.claimDue(tenant, leaseOwner, now, now.plus(leaseDuration), batchSize, maximumAttempts)
+                .chain(leases -> process(tenant, leaseOwner, now, maximumAttempts, leases, 0));
     }
 
     private Uni<Integer> process(TenantId tenant, String workerId, Instant now, int maximumAttempts,
