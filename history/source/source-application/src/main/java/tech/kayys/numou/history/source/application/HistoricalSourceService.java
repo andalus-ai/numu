@@ -116,6 +116,48 @@ public final class HistoricalSourceService {
   if(assessment.isEmpty() || !assessment.get().sourceId().equals(sourceId)) return List.of();
   return List.copyOf(repository.listAssessmentReviews(tenant,assessmentId,limit));
  }
+ public SourceContributor addContributor(HistoricalSourceId sourceId,String displayName,String authorityRef,SourceContributorRole role,int sequence,String note) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); authorization.requireCanManageSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) throw new IllegalArgumentException("Historical source not found");
+  var contributor=SourceContributor.create(sourceId,displayName,authorityRef,role,sequence,note);
+  if(!repository.appendContributor(tenant,contributor)) throw new HistoricalSourceConflictException("Contributor attribution could not be appended");
+  return contributor;
+ }
+ public List<SourceContributor> listContributors(HistoricalSourceId sourceId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); validateLimit(limit); authorization.requireCanReadSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) return List.of(); return List.copyOf(repository.listContributors(tenant,sourceId,limit));
+ }
+ public SourceEdition addEdition(HistoricalSourceId sourceId,String designation,String publisher,String place,String date,String language,String identifier,String uri,String notes) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); authorization.requireCanManageSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) throw new IllegalArgumentException("Historical source not found");
+  var edition=SourceEdition.create(sourceId,designation,publisher,place,date,language,identifier,uri,notes,clock.instant());
+  if(!repository.appendEdition(tenant,edition)) throw new HistoricalSourceConflictException("Source edition could not be appended"); return edition;
+ }
+ public List<SourceEdition> listEditions(HistoricalSourceId sourceId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); validateLimit(limit); authorization.requireCanReadSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) return List.of(); return List.copyOf(repository.listEditions(tenant,sourceId,limit));
+ }
+ public ArchivalHolding addHolding(HistoricalSourceId sourceId,String institutionRef,String institutionName,String repositoryName,String collectionName,String shelfmark,ArchivalHoldingType type,String catalogUri,String accessConditions,String notes) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); authorization.requireCanManageSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) throw new IllegalArgumentException("Historical source not found");
+  var holding=ArchivalHolding.create(sourceId,institutionRef,institutionName,repositoryName,collectionName,shelfmark,type,catalogUri,accessConditions,notes,clock.instant());
+  if(!repository.appendHolding(tenant,holding)) throw new HistoricalSourceConflictException("Archival holding could not be appended"); return holding;
+ }
+ public List<ArchivalHolding> listHoldings(HistoricalSourceId sourceId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); validateLimit(limit); authorization.requireCanReadSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) return List.of(); return List.copyOf(repository.listHoldings(tenant,sourceId,limit));
+ }
+ public ArchivalCatalogIdentifier addCatalogIdentifier(HistoricalSourceId sourceId,UUID holdingId,String scheme,String value,String authority) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); Objects.requireNonNull(holdingId); authorization.requireCanManageSourceBibliography(tenant,sourceId);
+  var holding=repository.listHoldings(tenant,sourceId,200).stream().filter(h->h.id().equals(holdingId)).findFirst().orElseThrow(()->new IllegalArgumentException("Archival holding not found for source"));
+  var identifier=ArchivalCatalogIdentifier.create(holding.id(),scheme,value,authority,clock.instant());
+  if(!repository.appendCatalogIdentifier(tenant,identifier)) throw new HistoricalSourceConflictException("Catalog identifier could not be appended"); return identifier;
+ }
+ public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(HistoricalSourceId sourceId,UUID holdingId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); Objects.requireNonNull(holdingId); validateLimit(limit); authorization.requireCanReadSourceBibliography(tenant,sourceId);
+  boolean belongs=repository.listHoldings(tenant,sourceId,200).stream().anyMatch(h->h.id().equals(holdingId)); if(!belongs) return List.of();
+  return List.copyOf(repository.listCatalogIdentifiers(tenant,holdingId,limit));
+ }
  private java.util.UUID requireTenant() { return Objects.requireNonNull(tenantContext.requireTenantId(),"trusted tenant context is required"); }
  private static void validateLimit(int limit) { if(limit<1||limit>200) throw new IllegalArgumentException("limit must be between 1 and 200"); }
 }
