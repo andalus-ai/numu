@@ -57,6 +57,6 @@ class HistoricalSourceServiceTest {
   public boolean appendHolding(UUID t,ArchivalHolding x){holdings.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
   public List<ArchivalHolding> listHoldings(UUID t,HistoricalSourceId s,int n){return holdings.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
   public boolean appendCatalogIdentifier(UUID t,ArchivalCatalogIdentifier x){identifiers.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
-  public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID t,UUID h,int n){return identifiers.getOrDefault(t,List.of()).stream().filter(x->x.holdingId().equals(h)).limit(n).toList();}
+  public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID t,HistoricalSourceId s,UUID h,int n){return identifiers.getOrDefault(t,List.of()).stream().filter(x->x.holdingId().equals(h)).filter(x->holdings.getOrDefault(t,List.of()).stream().anyMatch(v->v.id().equals(h)&&v.sourceId().equals(s))).limit(n).toList();}
  }
 }
