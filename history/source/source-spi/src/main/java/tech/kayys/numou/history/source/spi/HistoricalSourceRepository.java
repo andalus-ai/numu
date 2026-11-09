@@ -19,4 +19,12 @@ public interface HistoricalSourceRepository {
  Optional<SourceAssessment> findAssessment(UUID tenantId, UUID assessmentId);
  boolean appendAssessmentReview(UUID tenantId, SourceAssessmentReview review);
  List<SourceAssessmentReview> listAssessmentReviews(UUID tenantId, UUID assessmentId, int limit);
+ boolean appendContributor(UUID tenantId, SourceContributor contributor);
+ List<SourceContributor> listContributors(UUID tenantId, HistoricalSourceId sourceId, int limit);
+ boolean appendEdition(UUID tenantId, SourceEdition edition);
+ List<SourceEdition> listEditions(UUID tenantId, HistoricalSourceId sourceId, int limit);
+ boolean appendHolding(UUID tenantId, ArchivalHolding holding);
+ List<ArchivalHolding> listHoldings(UUID tenantId, HistoricalSourceId sourceId, int limit);
+ boolean appendCatalogIdentifier(UUID tenantId, ArchivalCatalogIdentifier identifier);
+ List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID tenantId, UUID holdingId, int limit);
 }
