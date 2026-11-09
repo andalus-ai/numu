@@ -19,8 +19,6 @@ import java.util.UUID;
 public final class HistoricalProjectionRebuildService {
     private final HistoricalProjectionRebuildStore store;
     private final HistoricalRelationshipProjectionPort projection;
-    private final HistoricalRelationshipTenantContext tenantContext;
-    private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
     private final Clock clock;
     private final int pageSize;
 
