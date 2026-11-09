@@ -23,6 +23,71 @@ public final class HistoricalProjectionReconciliationService {
         this.replayPort = Objects.requireNonNull(replayPort, "replayPort");
     }
 
+    /** Reconciles a staging generation without changing or reading the active projection. */
+    public ReconciliationReport reconcileGeneration(UUID tenantId, UUID generationId,
+            int pageSize, boolean repair) throws Exception {
+        Objects.requireNonNull(generationId, "generationId");
+        if (!(projection instanceof GenerationTargetedHistoricalProjectionInspectionPort)) {
+            throw new IllegalStateException("inspection provider does not support generation-targeted reads");
+        }
+        if (repair && !(replayPort instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+            throw new IllegalStateException("projection provider does not support generation-targeted repair");
+        }
+        if (pageSize < 1 || pageSize > 200) throw new IllegalArgumentException("pageSize must be 1..200");
+        var inspector = (GenerationTargetedHistoricalProjectionInspectionPort) projection;
+        long checked=0, missing=0, stale=0, divergent=0, orphaned=0, repaired=0;
+        String cursor=null;
+        while (true) {
+            List<CanonicalRelationship> page=canonical.nextLatestPage(tenantId,cursor,pageSize);
+            if(page.isEmpty()) break;
+            for(CanonicalRelationship event:page) {
+                checked++;
+                var graph=inspector.findInGeneration(tenantId,generationId,event.relationshipId());
+                String hash=sha256(event.payload());
+                if(graph.isEmpty()) {
+                    missing++;
+                    if(repair){projectIntoGeneration(event,generationId);repaired++;}
+                } else {
+                    var actual=graph.get();
+                    if(actual.revision()<event.revision()) {
+                        stale++;
+                        if(repair){projectIntoGeneration(event,generationId);repaired++;}
+                    } else if(actual.revision()>event.revision()) {
+                        divergent++;
+                    } else if(!event.eventKey().equals(actual.eventKey())
+                            || !event.relationshipKind().equals(actual.relationshipKind())
+                            || !event.subjectKind().equals(actual.subjectKind())
+                            || !event.subjectId().equals(actual.subjectId())
+                            || !event.objectKind().equals(actual.objectKind())
+                            || !event.objectId().equals(actual.objectId())
+                            || !hash.equals(actual.payloadHash())) {
+                        divergent++;
+                        if(repair){projectIntoGeneration(event,generationId);repaired++;}
+                    }
+                }
+                cursor=event.relationshipId().toString();
+            }
+            if(page.size()<pageSize) break;
+        }
+        String graphCursor=null;
+        while(true) {
+            List<HistoricalProjectionInspectionPort.ProjectedRelationship> page=
+                    inspector.nextPageInGeneration(tenantId,generationId,graphCursor,pageSize);
+            if(page.isEmpty()) break;
+            for(var row:page) {
+                if(canonical.findLatest(tenantId,row.relationshipId()).isEmpty()) orphaned++;
+                graphCursor=row.relationshipId().toString();
+            }
+            if(page.size()<pageSize) break;
+        }
+        return new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
+    }
+
+    private void projectIntoGeneration(CanonicalRelationship event, UUID generationId) throws Exception {
+        ((GenerationTargetedHistoricalRelationshipProjectionPort) replayPort)
+                .projectIntoGeneration(toProjectionEvent(event), generationId);
+    }
+
     public ReconciliationReport reconcile(UUID tenantId, int pageSize, boolean repair) throws Exception {
         if (pageSize < 1 || pageSize > 200) throw new IllegalArgumentException("pageSize must be 1..200");
         long checked=0, missing=0, stale=0, divergent=0, orphaned=0, repaired=0;
