@@ -32,6 +32,11 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Gener
         RETURN activeIds[0] AS activeGenerationId,
                collect(building.generationId) AS buildingGenerationIds
         """;
+    private static final String GENERATION_WRITABLE = """
+        MATCH (g:HistoricalProjectionGeneration {scopeKey:$baseScope, generationId:$generationId})
+        WHERE g.status IN ['BUILDING','READY']
+        RETURN count(g) AS writable
+        """;
     private static final String ADVANCE = """
         MERGE (r:HistoricalRelationship {scopeKey: $scopeKey, relationshipId: $relationshipId})
         ON CREATE SET r.revision = 0, r.lockVersion = 0
@@ -135,6 +140,12 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Gener
             session.executeWrite(tx -> {
                 List<String> targetScopes = new ArrayList<>();
                 if (generationId != null) {
+                    String baseScope = event.tenantId() == null ? "public" : event.tenantId().toString();
+                    tx.run(TARGET_SCOPES, Map.of("baseScope", baseScope)).consume();
+                    long writable = tx.run(GENERATION_WRITABLE, Values.parameters(
+                            "baseScope", baseScope, "generationId", generationId.toString()))
+                            .single().get("writable").asLong();
+                    if (writable != 1) throw new IllegalStateException("staging generation is not writable");
                     targetScopes.add(scopeKey);
                 } else {
                     var targets = tx.run(TARGET_SCOPES, Map.of("baseScope", scopeKey)).single();
