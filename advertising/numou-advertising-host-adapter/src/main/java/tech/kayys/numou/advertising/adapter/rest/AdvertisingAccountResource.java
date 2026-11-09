@@ -140,7 +140,7 @@ public class AdvertisingAccountResource {
     @Operation(summary="List advertiser accounts for the authenticated tenant")
     public CompletionStage<Response> listAdvertisers(@QueryParam("page") @DefaultValue("0") int page,
                                                       @QueryParam("size") @DefaultValue("20") int size) {
-        return accounts.listAdvertisers(tenant(),new AdvertisingPageRequest(page,size))
+        return accounts.listAdvertisers(tenant(),pageRequest(page,size))
                 .thenApply(result -> Response.ok(page(result,a -> new AccountResponse(a.id().value(),a.displayName(),a.status().name(),a.version()))).build())
                 .exceptionally(this::failure);
     }
@@ -220,6 +220,11 @@ public class AdvertisingAccountResource {
     private static <T,R> PageResponse<R> page(AdvertisingPage<T> result,java.util.function.Function<T,R> mapper) {
         return new PageResponse<>(result.items().stream().map(mapper).toList(),result.totalElements(),
                 result.page(),result.size(),result.totalPages(),result.hasNext(),result.hasPrevious());
+    }
+
+    private static AdvertisingPageRequest pageRequest(int page,int size) {
+        try { return new AdvertisingPageRequest(page,size); }
+        catch (IllegalArgumentException invalid) { throw new BadRequestException(invalid.getMessage(),invalid); }
     }
 
     private TenantId tenant() {
