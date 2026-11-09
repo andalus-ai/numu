@@ -10,7 +10,7 @@ import java.util.UUID;
 /** Authorized, read-only collection and publication of projection health metrics. */
 public final class HistoricalProjectionObservabilityService {
     private final HistoricalProjectionOperationalStore store;
-    private final HistoricalProjectionTenantContext tenantContext;
+    private final HistoricalRelationshipTenantContext tenantContext;
     private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
     private final HistoricalProjectionMetricsPort metrics;
     private final Clock clock;
