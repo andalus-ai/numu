@@ -3,7 +3,7 @@ package tech.kayys.numou.history.graph.neo4j;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.neo4j.driver.*;
-import tech.kayys.numou.history.graph.application.HistoricalRelationshipProjectionPort;
+import tech.kayys.numou.history.graph.application.GenerationTargetedHistoricalRelationshipProjectionPort;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 
 import java.util.*;
@@ -15,7 +15,7 @@ import java.security.NoSuchAlgorithmException;
  * Optional Neo4j projection. PostgreSQL outbox events are the only input;
  * Neo4j records are disposable and can be rebuilt from the authoritative store.
  */
-public final class Neo4jHistoricalRelationshipProjectionAdapter implements HistoricalRelationshipProjectionPort {
+public final class Neo4jHistoricalRelationshipProjectionAdapter implements GenerationTargetedHistoricalRelationshipProjectionPort {
     public static final String EVENT_TYPE = "history.relationship.revision-appended";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
     private static final String ADVANCE = """
@@ -71,6 +71,16 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
 
     @Override
     public void project(ClaimedProjectionEvent event) {
+        projectInternal(event, null);
+    }
+
+    @Override
+    public void projectIntoGeneration(ClaimedProjectionEvent event, UUID generationId) {
+        Objects.requireNonNull(generationId, "generationId");
+        projectInternal(event, generationId);
+    }
+
+    private void projectInternal(ClaimedProjectionEvent event, UUID generationId) {
         Objects.requireNonNull(event, "event");
         if (!EVENT_TYPE.equals(event.eventType())) throw new IllegalArgumentException("Unsupported projection event type: " + event.eventType());
         if (event.schemaVersion() != SUPPORTED_SCHEMA_VERSION) throw new IllegalArgumentException("Unsupported projection schema version: " + event.schemaVersion());
@@ -92,6 +102,7 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
         String objectId = requiredText(object, "id");
         String relationshipKind = requiredText(payload, "relationshipKind");
         String scopeKey = event.tenantId() == null ? "public" : event.tenantId().toString();
+        if (generationId != null) scopeKey = scopeKey + "::" + generationId;
         String validityJson = payload.hasNonNull("validity") ? payload.get("validity").toString() : null;
         Map<String,Object> params = new HashMap<>();
         params.put("scopeKey", scopeKey);
