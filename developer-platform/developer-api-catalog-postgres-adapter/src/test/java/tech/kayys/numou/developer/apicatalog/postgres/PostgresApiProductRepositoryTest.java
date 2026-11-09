@@ -63,6 +63,7 @@ class PostgresApiProductRepositoryTest {
   assertThat(published.status()).isEqualTo(ApiProductStatus.ACTIVE);
   assertThat(published.versions().get("1.0.0").status()).isEqualTo(ApiVersionStatus.PUBLISHED);
   assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("PUBLISHED");
+  assertPublishedArtifactCannotBeScheduledForDeletion(tenant,product.id().value(),"1.0.0");
  }
 
  @Test void enforcesTenantIsolationAndTenantScopedSlugUniqueness(){
@@ -109,6 +110,24 @@ class PostgresApiProductRepositoryTest {
   assertThat(outboxCount(tenant)).isEqualTo(1);
  }
 
+
+ private void assertPublishedArtifactCannotBeScheduledForDeletion(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection()){
+   c.setAutoCommit(false);
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,true)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   assertThatThrownBy(()->{
+    try(PreparedStatement s=c.prepareStatement("""
+     UPDATE developer_api_artifacts SET lifecycle_state='DELETE_PENDING'
+     WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+     """)){
+     s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);s.executeUpdate();
+    }
+   }).isInstanceOf(SQLException.class).hasMessageContaining("Published API artifacts are protected");
+   c.rollback();
+  }catch(SQLException e){throw new IllegalStateException(e);}
+ }
  private String artifactState(TenantId tenant,UUID productId,String version){
   try(Connection c=runtime.getConnection()){
    try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
