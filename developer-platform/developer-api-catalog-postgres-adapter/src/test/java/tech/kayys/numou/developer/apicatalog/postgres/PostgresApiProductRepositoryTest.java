@@ -53,6 +53,7 @@ class PostgresApiProductRepositoryTest {
   assertThat(loaded.pullDomainEvents()).isEmpty();
   loaded.addVersion(version("1.0.0"),NOW.plusSeconds(1));
   repository.save(tenant,loaded,1).await().indefinitely();
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("REGISTERED");
   var withVersion=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
   assertThat(withVersion.versions()).containsKey("1.0.0");
   assertThat(withVersion.versions().get("1.0.0").scopes()).containsKey("orders.read");
@@ -109,12 +110,17 @@ class PostgresApiProductRepositoryTest {
  }
 
  private String artifactState(TenantId tenant,UUID productId,String version){
-  try(Connection c=runtime.getConnection();PreparedStatement s=c.prepareStatement("""
-   SELECT lifecycle_state FROM developer_api_artifacts
-   WHERE provider_tenant_id=? AND product_id=? AND api_version=?
-   """)){
-   s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
-   try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new AssertionError("artifact lifecycle row missing");return rs.getString(1);}
+  try(Connection c=runtime.getConnection()){
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement s=c.prepareStatement("""
+    SELECT lifecycle_state FROM developer_api_artifacts
+    WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+    """)){
+    s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
+    try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new AssertionError("artifact lifecycle row missing");return rs.getString(1);}
+   }
   }catch(SQLException e){throw new IllegalStateException(e);}
  }
  private long outboxCount(TenantId tenant){
