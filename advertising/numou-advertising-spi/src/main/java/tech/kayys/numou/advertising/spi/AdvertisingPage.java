@@ -12,9 +12,9 @@ public record AdvertisingPage<T>(List<T> items, long totalElements, int page, in
 
     public int totalPages() {
         if (totalElements == 0) return 0;
-        return (int) Math.min(Integer.MAX_VALUE, (totalElements + size - 1) / size);
+        return (int) Math.min(Integer.MAX_VALUE, ((totalElements - 1) / size) + 1);
     }
 
-    public boolean hasNext() { return page + 1 < totalPages(); }
+    public boolean hasNext() { return (long) page + 1 < totalPages(); }
     public boolean hasPrevious() { return page > 0 && totalElements > 0; }
 }
