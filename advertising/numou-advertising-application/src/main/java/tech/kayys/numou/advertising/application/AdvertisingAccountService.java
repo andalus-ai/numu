@@ -1,7 +1,9 @@
 package tech.kayys.numou.advertising.application;
 
 import tech.kayys.numou.advertising.domain.*;
-import tech.kayys.numou.advertising.spi.AdvertisingAccountStore;\nimport tech.kayys.numou.advertising.spi.AdvertisingPage;\nimport tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
+import tech.kayys.numou.advertising.spi.AdvertisingAccountStore;
+import tech.kayys.numou.advertising.spi.AdvertisingPage;
+import tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.concurrent.*;
