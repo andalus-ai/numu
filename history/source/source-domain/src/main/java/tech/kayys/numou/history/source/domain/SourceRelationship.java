@@ -7,7 +7,8 @@ public record SourceRelationship(UUID id,HistoricalSourceId sourceId,HistoricalS
   Objects.requireNonNull(id);Objects.requireNonNull(sourceId);Objects.requireNonNull(relatedSourceId);
   if(sourceId.equals(relatedSourceId))throw new IllegalArgumentException("a source cannot relate to itself");
   Objects.requireNonNull(relation);Objects.requireNonNull(recordedAt);
-  if((locatorType==null)!=(locator==null||locator.isBlank()))throw new IllegalArgumentException("locator type and locator must be supplied together");
+  if(locator==null||locator.isBlank())locator=null;
+  if((locatorType==null)!=(locator==null))throw new IllegalArgumentException("locator type and locator must be supplied together");
   if(locator!=null){locator=locator.trim();if(locator.length()>1000)throw new IllegalArgumentException("locator exceeds 1000 characters");}
   note=optional(note,4000);
  }
