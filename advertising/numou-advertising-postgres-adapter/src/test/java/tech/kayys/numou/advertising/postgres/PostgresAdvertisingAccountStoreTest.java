@@ -60,6 +60,38 @@ class PostgresAdvertisingAccountStoreTest {
     }
 
     @Test
+    void paginatedQueriesAreTenantScopedAndReturnStableMetadata() {
+        var advertiserOne=AdvertiserAccount.register(AdvertisingAccountId.generate(),tenantA,new PartyReference("party-page-1"),"Advertiser 1",now);
+        var advertiserTwo=AdvertiserAccount.register(AdvertisingAccountId.generate(),tenantA,new PartyReference("party-page-2"),"Advertiser 2",now);
+        var foreignAdvertiser=AdvertiserAccount.register(AdvertisingAccountId.generate(),tenantB,new PartyReference("party-page-b"),"Foreign",now);
+        store.saveAdvertiser(advertiserOne).toCompletableFuture().join();
+        store.saveAdvertiser(advertiserTwo).toCompletableFuture().join();
+        store.saveAdvertiser(foreignAdvertiser).toCompletableFuture().join();
+
+        var advertisers=store.listAdvertisers(tenantA,new AdvertisingPageRequest(0,1)).toCompletableFuture().join();
+        assertEquals(2,advertisers.totalElements());
+        assertEquals(1,advertisers.items().size());
+        assertEquals(2,advertisers.totalPages());
+        assertTrue(advertisers.hasNext());
+        assertFalse(advertisers.hasPrevious());
+        assertEquals(1,store.listAdvertisers(tenantA,new AdvertisingPageRequest(1,1)).toCompletableFuture().join().items().size());
+        assertEquals(0,store.listAdvertisers(tenantB,new AdvertisingPageRequest(0,10)).toCompletableFuture().join().totalElements());
+
+        var publisher=PublisherAccount.register(AdvertisingAccountId.generate(),tenantA,new PartyReference("publisher-page"),"Publisher",now);
+        store.savePublisher(publisher).toCompletableFuture().join();
+        var property=PublisherProperty.register(PublisherPropertyId.generate(),tenantA,publisher.id(),"Site",URI.create("https://page.example"),now);
+        store.saveProperty(property).toCompletableFuture().join();
+        var placement=AdPlacement.define(AdPlacementId.generate(),tenantA,property.id(),"hero","display",now);
+        store.savePlacement(placement).toCompletableFuture().join();
+
+        assertEquals(1,store.listPublishers(tenantA,new AdvertisingPageRequest(0,10)).toCompletableFuture().join().totalElements());
+        assertEquals(1,store.listProperties(tenantA,publisher.id(),new AdvertisingPageRequest(0,10)).toCompletableFuture().join().totalElements());
+        assertEquals(1,store.listPlacements(tenantA,property.id(),new AdvertisingPageRequest(0,10)).toCompletableFuture().join().totalElements());
+        assertEquals(0,store.listProperties(tenantB,publisher.id(),new AdvertisingPageRequest(0,10)).toCompletableFuture().join().totalElements());
+        assertEquals(0,store.listPlacements(tenantB,property.id(),new AdvertisingPageRequest(0,10)).toCompletableFuture().join().totalElements());
+    }
+
+    @Test
     void updatesUseOptimisticVersionAndRejectStaleWriters() {
         var pending=AdvertiserAccount.register(AdvertisingAccountId.generate(),tenantA,new PartyReference("party-version"),"Versioned",now);
         store.saveAdvertiser(pending).toCompletableFuture().join();
