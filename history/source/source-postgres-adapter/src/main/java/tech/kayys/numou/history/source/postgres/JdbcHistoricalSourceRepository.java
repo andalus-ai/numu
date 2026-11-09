@@ -138,9 +138,9 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
    p.setObject(1,tenant);p.setObject(2,x.id());p.setObject(3,x.holdingId());p.setString(4,x.scheme());p.setString(5,x.value());p.setString(6,x.assigningAuthority());p.setTimestamp(7,Timestamp.from(x.recordedAt()));p.executeUpdate();return true;
   }},false);
  }
- @Override public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID tenant,UUID holdingId,int limit) {
-  checkLimit(limit);return read(tenant,c->{try(PreparedStatement p=c.prepareStatement("select identifier_id,holding_id,scheme,identifier_value,assigning_authority,recorded_at from historical_archival_catalog_identifier where tenant_id=? and holding_id=? order by recorded_at,identifier_id limit ?")){
-   p.setObject(1,tenant);p.setObject(2,holdingId);p.setInt(3,limit);try(ResultSet rs=p.executeQuery()){List<ArchivalCatalogIdentifier> out=new ArrayList<>();while(rs.next())out.add(new ArchivalCatalogIdentifier(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getString(3),rs.getString(4),rs.getString(5),rs.getTimestamp(6).toInstant()));return List.copyOf(out);}
+ @Override public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID tenant,HistoricalSourceId sourceId,UUID holdingId,int limit) {
+  Objects.requireNonNull(sourceId);Objects.requireNonNull(holdingId);checkLimit(limit);return read(tenant,c->{try(PreparedStatement p=c.prepareStatement("select i.identifier_id,i.holding_id,i.scheme,i.identifier_value,i.assigning_authority,i.recorded_at from historical_archival_catalog_identifier i join historical_archival_holding h on h.tenant_id=i.tenant_id and h.holding_id=i.holding_id where i.tenant_id=? and h.source_id=? and i.holding_id=? order by i.recorded_at,i.identifier_id limit ?")){
+   p.setObject(1,tenant);p.setObject(2,sourceId.value());p.setObject(3,holdingId);p.setInt(4,limit);try(ResultSet rs=p.executeQuery()){List<ArchivalCatalogIdentifier> out=new ArrayList<>();while(rs.next())out.add(new ArchivalCatalogIdentifier(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getString(3),rs.getString(4),rs.getString(5),rs.getTimestamp(6).toInstant()));return List.copyOf(out);}
   }});
  }
  private static void checkLimit(int limit){if(limit<1||limit>200)throw new IllegalArgumentException("limit must be between 1 and 200");}
