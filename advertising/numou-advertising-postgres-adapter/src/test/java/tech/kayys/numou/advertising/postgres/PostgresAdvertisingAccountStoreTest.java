@@ -4,7 +4,8 @@ import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import tech.kayys.numou.advertising.domain.*;\nimport tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
+import tech.kayys.numou.advertising.domain.*;
+import tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
 
 import javax.sql.DataSource;
 import org.postgresql.ds.PGSimpleDataSource;
