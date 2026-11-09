@@ -62,7 +62,10 @@ public final class SourceCitationGraphService {
 
         while (!frontier.isEmpty()) {
             Traversal current = frontier.removeFirst();
-            if (current.distance() >= maxDepth) continue;
+            if (current.distance() >= maxDepth) {
+                truncated |= hasUnexpandedRelationships(tenantId, current.sourceId(), relationships);
+                continue;
+            }
 
             int remaining = maxRelationships - relationships.size();
             if (remaining <= 0) {
@@ -79,13 +82,15 @@ public final class SourceCitationGraphService {
             truncated |= addRelationships(tenantId, current, outgoing, maxNodes, maxRelationships,
                 nodes, relationships, frontier);
             if (relationships.size() >= maxRelationships) {
-                truncated = truncated || !frontier.isEmpty() || outgoing.size() >= queryLimit || incoming.size() >= queryLimit;
+                truncated |= hasUnseen(outgoing, relationships) || hasUnseen(incoming, relationships)
+                    || !frontier.isEmpty() || outgoing.size() >= queryLimit || incoming.size() >= queryLimit;
                 break;
             }
             truncated |= addRelationships(tenantId, current, incoming, maxNodes, maxRelationships,
                 nodes, relationships, frontier);
             if (relationships.size() >= maxRelationships) {
-                truncated = truncated || !frontier.isEmpty() || outgoing.size() >= queryLimit || incoming.size() >= queryLimit;
+                truncated |= hasUnseen(outgoing, relationships) || hasUnseen(incoming, relationships)
+                    || !frontier.isEmpty() || outgoing.size() >= queryLimit || incoming.size() >= queryLimit;
                 break;
             }
         }
@@ -124,6 +129,37 @@ public final class SourceCitationGraphService {
             relationships.put(relationship.id(), relationship);
         }
         return truncated;
+    }
+
+    private boolean hasUnexpandedRelationships(
+        UUID tenantId,
+        HistoricalSourceId sourceId,
+        Map<UUID, SourceRelationship> included
+    ) {
+        List<SourceRelationship> outgoing =
+            repository.listOutgoingSourceRelationships(tenantId, sourceId, REPOSITORY_LIMIT);
+        List<SourceRelationship> incoming =
+            repository.listIncomingSourceRelationships(tenantId, sourceId, REPOSITORY_LIMIT);
+        for (SourceRelationship relationship : outgoing) {
+            if (!included.containsKey(relationship.id())) {
+                authorization.requireCanReadSourceBibliography(tenantId, relationship.relatedSourceId());
+                return true;
+            }
+        }
+        for (SourceRelationship relationship : incoming) {
+            if (!included.containsKey(relationship.id())) {
+                authorization.requireCanReadSourceBibliography(tenantId, relationship.sourceId());
+                return true;
+            }
+        }
+        return outgoing.size() >= REPOSITORY_LIMIT || incoming.size() >= REPOSITORY_LIMIT;
+    }
+
+    private static boolean hasUnseen(
+        List<SourceRelationship> candidates,
+        Map<UUID, SourceRelationship> included
+    ) {
+        return candidates.stream().anyMatch(relationship -> !included.containsKey(relationship.id()));
     }
 
     private HistoricalSource loadReadableSource(UUID tenantId, HistoricalSourceId sourceId) {
