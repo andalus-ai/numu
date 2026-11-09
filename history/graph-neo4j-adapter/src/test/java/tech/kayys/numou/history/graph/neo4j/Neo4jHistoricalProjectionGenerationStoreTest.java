@@ -47,6 +47,24 @@ class Neo4jHistoricalProjectionGenerationStoreTest {
         assertEquals(Status.RETAINED, store.find(tenant, second.generationId()).orElseThrow().status());
     }
 
+    @Test void onlyOneConcurrentCandidateCanWinTheSameActivePointer() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        Instant now = Instant.parse("2026-11-10T00:00:00Z");
+        Generation first = store.create(tenant, UUID.randomUUID(), now);
+        Generation second = store.create(tenant, UUID.randomUUID(), now);
+        assertTrue(store.markReady(tenant, first.generationId(), now));
+        assertTrue(store.markReady(tenant, second.generationId(), now));
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var a = pool.submit(() -> store.activate(tenant, first.generationId(), null, now.plusSeconds(1)));
+            var b = pool.submit(() -> store.activate(tenant, second.generationId(), null, now.plusSeconds(1)));
+            assertNotEquals(a.get(), b.get());
+            assertTrue(store.active(tenant).isPresent());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     @Test void publicAndTenantGenerationPointersAreIsolated() {
         Instant now = Instant.parse("2026-11-09T07:00:00Z");
         UUID tenant = UUID.randomUUID();
