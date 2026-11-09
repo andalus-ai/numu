@@ -59,7 +59,7 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
             """;
         List<ProjectedRelationship> result = new ArrayList<>();
         try (Session s = driver.session(SessionConfig.forDatabase(database))) {
-            var cursor = s.run(query, Values.parameters("scope", scope(tenantId),
+            var cursor = s.run(query, Values.parameters("scope", activeScope(tenantId),
                     "after", afterRelationshipId, "limit", limit));
             while (cursor.hasNext()) result.add(map(cursor.next()));
         }
