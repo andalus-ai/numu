@@ -225,7 +225,7 @@ public class AdvertisingAccountResource {
     }
 
     private static AdvertisingPageRequest pageRequest(int page,int size) {
-        try { return pageRequest(page,size); }
+        try { return new AdvertisingPageRequest(page,size); }
         catch (IllegalArgumentException invalid) { throw new BadRequestException(invalid.getMessage(),invalid); }
     }
 
