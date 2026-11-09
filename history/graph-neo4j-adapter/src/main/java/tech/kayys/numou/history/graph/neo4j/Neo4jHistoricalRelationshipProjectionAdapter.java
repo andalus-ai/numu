@@ -145,8 +145,8 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Gener
                     } else {
                         targetScopes.add(scopeKey + "::" + activeGeneration.asString());
                     }
-                    for (Value building : targets.get("buildingGenerationIds").values()) {
-                        targetScopes.add(scopeKey + "::" + building.asString());
+                    for (String building : targets.get("buildingGenerationIds").asList(Value::asString)) {
+                        targetScopes.add(scopeKey + "::" + building);
                     }
                 }
                 for (String targetScope : new LinkedHashSet<>(targetScopes)) {
