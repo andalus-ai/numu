@@ -66,7 +66,8 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - The application layer exposes an on-demand, immutable citation graph read model derived from source records and directed source relationships.
 - Traversal is breadth-first across both incoming and outgoing links. Each node records its shortest hop distance from the requested root; relationship direction and original relation type are preserved.
 - Requests are bounded to depth 0–3, at most 100 nodes and at most 200 relationships. The result reports whether a configured bound truncated traversal. A request cannot override these safety ceilings.
-- Every discovered source is authorized through the host bibliography-read policy before its metadata is included. Repository reads remain tenant-scoped; graph traversal never crosses tenant boundaries.
+- Graph values reject duplicate node/relationship identities, missing relationship endpoints, and nodes whose hop distance exceeds the requested depth.
+- Every discovered source is authorized through the host bibliography-read policy before its metadata is included. Repository results are checked to ensure each relationship is incident to the source being expanded. Repository reads remain tenant-scoped; graph traversal never crosses tenant boundaries.
 - The projection is not persisted and does not introduce graph write authority, a second source of truth, a universal reliability score, or an inference that connected sources are independent corroboration. PostgreSQL remains authoritative.
 - The existing optional Neo4j adapter for canonical historical-entity relationships is not coupled to this source graph read model. A future disposable graph projection may be introduced only with explicit rebuild, authorization, and consistency contracts.
 
@@ -90,10 +91,9 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalog identifiers, directed source relationships, bounded citation graph traversal, tenant/authorization isolation and append-only enforcement.
+The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test verifies database-level tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalogue identifiers, directed source relationships and append-only enforcement. The source application unit tests separately verify citation graph breadth-first traversal, cycle deduplication, depth/node/relationship bounds, truncation reporting, tenant scoping, per-source authorization, malformed repository relationship rejection and graph value invariants. These are separate test boundaries; the database integration test does not claim to execute the application graph service.
 
 ## Deliberately deferred
-
 
 - source ingestion, OCR/transcription, content extraction and shared document-store integration;
 - durable/asynchronous source graph projections, full-text indexing, and cross-source independence analysis;
