@@ -52,6 +52,10 @@ class Neo4jHistoricalRelationshipProjectionAdapterTest {
         var generations = new Neo4jHistoricalProjectionGenerationStore(driver, "neo4j");
         var candidate = generations.create(tenant, generation, Instant.parse("2026-11-10T00:00:00Z"));
         adapter.project(event(relationship, 1, tenant, "PERSON", "legacy-person", "COLLECTIVE", "legacy-group"));
+        try (Session session = driver.session()) {
+            assertEquals(1, session.run("MATCH (r:HistoricalRelationship {scopeKey:$scope, relationshipId:$id, revision:1}) RETURN count(r) AS n",
+                    Values.parameters("scope", tenant + "::" + generation, "id", relationship.toString())).single().get("n").asLong());
+        }
         adapter.projectIntoGeneration(event(relationship, 2, tenant, "PERSON", "staged-person", "COLLECTIVE", "staged-group"), generation);
 
         try (Session session = driver.session()) {
