@@ -72,10 +72,10 @@ END; $$;
 CREATE TRIGGER trg_developer_api_artifact_lifecycle_guard
  BEFORE UPDATE OR DELETE ON developer_api_artifacts
  FOR EACH ROW EXECUTE FUNCTION guard_developer_api_artifact_lifecycle();
-CREATE FUNCTION reject_developer_api_artifact_truncate() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE FUNCTION reject_developer_api_artifact_truncate() RETURNS trigger LANGUAGE plpgsql AS $body$
 BEGIN
  RAISE EXCEPTION 'API artifact lifecycle registry cannot be truncated';
-END; $;
+END; $body$;
 CREATE TRIGGER trg_developer_api_artifact_no_truncate
  BEFORE TRUNCATE ON developer_api_artifacts
  FOR EACH STATEMENT EXECUTE FUNCTION reject_developer_api_artifact_truncate();
