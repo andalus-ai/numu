@@ -2,6 +2,7 @@ package tech.kayys.numou.history.graph.neo4j;
 
 import org.neo4j.driver.*;
 import tech.kayys.numou.history.graph.application.HistoricalProjectionInspectionPort;
+import tech.kayys.numou.history.graph.application.GenerationTargetedHistoricalProjectionInspectionPort;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationStore;
 
 import java.util.ArrayList;
@@ -11,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** Read-only, keyset-paginated inspection of one public or tenant graph scope. */
-public final class Neo4jHistoricalProjectionInspectionAdapter implements HistoricalProjectionInspectionPort {
+public final class Neo4jHistoricalProjectionInspectionAdapter implements GenerationTargetedHistoricalProjectionInspectionPort {
     private final Driver driver;
     private final String database;
     private final HistoricalProjectionGenerationStore generations;
@@ -30,6 +31,16 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
 
     @Override
     public Optional<ProjectedRelationship> find(UUID tenantId, UUID relationshipId) {
+        return findAtScope(activeScope(tenantId), relationshipId);
+    }
+
+    @Override
+    public Optional<ProjectedRelationship> findInGeneration(UUID tenantId, UUID generationId, UUID relationshipId) {
+        Objects.requireNonNull(generationId, "generationId");
+        return findAtScope(baseScope(tenantId) + "::" + generationId, relationshipId);
+    }
+
+    private Optional<ProjectedRelationship> findAtScope(String scope, UUID relationshipId) {
         String query = """
             MATCH (r:HistoricalRelationship {scopeKey:$scope, relationshipId:$id})
             RETURN r.relationshipId AS id, r.revision AS revision, r.eventKey AS eventKey,
@@ -38,7 +49,7 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
                    r.payloadHash AS payloadHash
             """;
         try (Session s = driver.session(SessionConfig.forDatabase(database))) {
-            var cursor = s.run(query, Values.parameters("scope", activeScope(tenantId), "id", relationshipId.toString()));
+            var cursor = s.run(query, Values.parameters("scope", scope, "id", relationshipId.toString()));
             if (!cursor.hasNext()) return Optional.empty();
             return Optional.of(map(cursor.single()));
         }
@@ -46,6 +57,17 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
 
     @Override
     public List<ProjectedRelationship> nextPage(UUID tenantId, String afterRelationshipId, int limit) {
+        return nextPageAtScope(activeScope(tenantId), afterRelationshipId, limit);
+    }
+
+    @Override
+    public List<ProjectedRelationship> nextPageInGeneration(UUID tenantId, UUID generationId,
+            String afterRelationshipId, int limit) {
+        Objects.requireNonNull(generationId, "generationId");
+        return nextPageAtScope(baseScope(tenantId) + "::" + generationId, afterRelationshipId, limit);
+    }
+
+    private List<ProjectedRelationship> nextPageAtScope(String scope, String afterRelationshipId, int limit) {
         if (limit < 1 || limit > 200) throw new IllegalArgumentException("limit must be between 1 and 200");
         String query = """
             MATCH (r:HistoricalRelationship {scopeKey:$scope})
@@ -76,10 +98,14 @@ public final class Neo4jHistoricalProjectionInspectionAdapter implements Histori
     }
 
     private String activeScope(UUID tenantId) {
-        String scope = tenantId == null ? "public" : tenantId.toString();
+        String scope = baseScope(tenantId);
         if (generations == null) return scope;
         return generations.active(tenantId)
                 .map(generation -> scope + "::" + generation.generationId())
                 .orElse(scope);
+    }
+
+    private static String baseScope(UUID tenantId) {
+        return tenantId == null ? "public" : tenantId.toString();
     }
 }
