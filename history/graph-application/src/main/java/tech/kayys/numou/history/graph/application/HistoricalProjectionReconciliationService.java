@@ -3,6 +3,7 @@ package tech.kayys.numou.history.graph.application;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore.CanonicalRelationship;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -11,26 +12,42 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Compares the current graph projection with canonical PostgreSQL outbox events. */
+/**
+ * Bounded, scope-authorized comparison of the disposable graph projection
+ * against the canonical PostgreSQL event history.
+ */
 public final class HistoricalProjectionReconciliationService {
     private final HistoricalProjectionAuditStore canonical;
     private final HistoricalProjectionInspectionPort projection;
     private final HistoricalRelationshipProjectionPort replayPort;
+    private final HistoricalRelationshipTenantContext tenantContext;
+    private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
+
     public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
-            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort) {
+            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization) {
         this.canonical = Objects.requireNonNull(canonical, "canonical");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.replayPort = Objects.requireNonNull(replayPort, "replayPort");
+        this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
+        this.authorization = Objects.requireNonNull(authorization, "authorization");
     }
 
     public ReconciliationReport reconcile(UUID tenantId, int pageSize, boolean repair) throws Exception {
         if (pageSize < 1 || pageSize > 200) throw new IllegalArgumentException("pageSize must be 1..200");
+        authorizeScope(tenantId, repair);
+
         long checked=0, missing=0, stale=0, divergent=0, orphaned=0, repaired=0;
         String cursor=null;
         while (true) {
             List<CanonicalRelationship> page=canonical.nextLatestPage(tenantId,cursor,pageSize);
             if(page.isEmpty()) break;
+            String previous=cursor;
             for(CanonicalRelationship event:page) {
+                String current=event.relationshipId().toString();
+                if(previous!=null && current.compareTo(previous)<=0)
+                    throw new IllegalStateException("canonical reconciliation page is not strictly ordered");
                 checked++;
                 var graph=projection.find(tenantId,event.relationshipId());
                 String hash=sha256(event.payload());
@@ -55,7 +72,8 @@ public final class HistoricalProjectionReconciliationService {
                         if(repair){replayPort.project(toProjectionEvent(event));repaired++;}
                     }
                 }
-                cursor=event.relationshipId().toString();
+                cursor=current;
+                previous=current;
             }
             if(page.size()<pageSize) break;
         }
@@ -64,13 +82,32 @@ public final class HistoricalProjectionReconciliationService {
             List<HistoricalProjectionInspectionPort.ProjectedRelationship> page=
                     projection.nextPage(tenantId,graphCursor,pageSize);
             if(page.isEmpty()) break;
+            String previous=graphCursor;
             for(var row:page) {
+                String current=row.relationshipId().toString();
+                if(previous!=null && current.compareTo(previous)<=0)
+                    throw new IllegalStateException("graph reconciliation page is not strictly ordered");
                 if(canonical.findLatest(tenantId,row.relationshipId()).isEmpty()) orphaned++;
-                graphCursor=row.relationshipId().toString();
+                graphCursor=current;
+                previous=current;
             }
             if(page.size()<pageSize) break;
         }
         return new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
+    }
+
+    private void authorizeScope(UUID tenantId, boolean repair) {
+        if (tenantId == null) {
+            authorization.requireCanAuditPublicCorpus();
+            if (repair) authorization.requireCanRebuildPublicCorpus();
+            return;
+        }
+        UUID trustedTenant = Objects.requireNonNull(tenantContext.requireTenantId(),
+                "trusted tenant context must provide a tenant");
+        if (!trustedTenant.equals(tenantId))
+            throw new SecurityException("requested audit scope differs from authenticated tenant");
+        authorization.requireCanAuditTenant(trustedTenant);
+        if (repair) authorization.requireCanRebuildTenant(trustedTenant);
     }
 
     private static ClaimedProjectionEvent toProjectionEvent(CanonicalRelationship e) {
