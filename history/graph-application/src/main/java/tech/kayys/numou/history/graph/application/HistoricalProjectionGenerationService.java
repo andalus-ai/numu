@@ -15,12 +15,15 @@ import java.util.UUID;
 public final class HistoricalProjectionGenerationService {
     private final HistoricalProjectionGenerationStore store;
     private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
+    private final HistoricalProjectionGenerationValidationPort validation;
     private final Clock clock;
 
     public HistoricalProjectionGenerationService(HistoricalProjectionGenerationStore store,
-            HistoricalProjectionMaintenanceAuthorizationPort authorization, Clock clock) {
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            HistoricalProjectionGenerationValidationPort validation, Clock clock) {
         this.store = Objects.requireNonNull(store, "store");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.validation = Objects.requireNonNull(validation, "validation");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -31,6 +34,10 @@ public final class HistoricalProjectionGenerationService {
 
     public Generation markValidatedReady(UUID tenantId, UUID generationId) {
         authorize(tenantId);
+        var result = validation.validate(tenantId, generationId);
+        if (!result.passed()) {
+            throw new IllegalStateException("generation validation failed: " + result.detail());
+        }
         if (!store.markReady(tenantId, generationId, clock.instant())) {
             throw new IllegalStateException("generation is missing or is not BUILDING");
         }
