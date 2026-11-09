@@ -18,6 +18,21 @@ import java.security.NoSuchAlgorithmException;
 public final class Neo4jHistoricalRelationshipProjectionAdapter implements GenerationTargetedHistoricalRelationshipProjectionPort {
     public static final String EVENT_TYPE = "history.relationship.revision-appended";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
+    private static final String TARGET_SCOPES = """
+        MERGE (a:HistoricalProjectionActiveGeneration {scopeKey:$baseScope})
+        ON CREATE SET a.lockVersion=0
+        SET a.lockVersion=coalesce(a.lockVersion,0)+1
+        WITH a
+        OPTIONAL MATCH (active:HistoricalProjectionGeneration {
+            scopeKey:$baseScope, generationId:a.generationId, status:'ACTIVE'
+        })
+        WITH a, collect(active.generationId) AS activeIds
+        OPTIONAL MATCH (building:HistoricalProjectionGeneration {
+            scopeKey:$baseScope, status:'BUILDING'
+        })
+        RETURN activeIds[0] AS activeGenerationId,
+               collect(building.generationId) AS buildingGenerationIds
+        """;
     private static final String ADVANCE = """
         MERGE (r:HistoricalRelationship {scopeKey: $scopeKey, relationshipId: $relationshipId})
         ON CREATE SET r.revision = 0, r.lockVersion = 0
@@ -119,10 +134,29 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Gener
 
         try (Session session = driver.session(SessionConfig.forDatabase(database))) {
             session.executeWrite(tx -> {
-                boolean advanced = tx.run(ADVANCE, params).single().get("apply").asBoolean();
-                if (advanced) {
-                    tx.run(REMOVE_ENDPOINTS, params).consume();
-                    tx.run(LINK_ENDPOINTS, params).consume();
+                List<String> targetScopes = new ArrayList<>();
+                if (generationId != null) {
+                    targetScopes.add(scopeKey);
+                } else {
+                    var targets = tx.run(TARGET_SCOPES, Map.of("baseScope", scopeKey)).single();
+                    Value activeGeneration = targets.get("activeGenerationId");
+                    if (activeGeneration.isNull()) {
+                        targetScopes.add(scopeKey);
+                    } else {
+                        targetScopes.add(scopeKey + "::" + activeGeneration.asString());
+                    }
+                    for (Value building : targets.get("buildingGenerationIds").values()) {
+                        targetScopes.add(scopeKey + "::" + building.asString());
+                    }
+                }
+                for (String targetScope : new LinkedHashSet<>(targetScopes)) {
+                    Map<String,Object> targetParams = new HashMap<>(params);
+                    targetParams.put("scopeKey", targetScope);
+                    boolean advanced = tx.run(ADVANCE, targetParams).single().get("apply").asBoolean();
+                    if (advanced) {
+                        tx.run(REMOVE_ENDPOINTS, targetParams).consume();
+                        tx.run(LINK_ENDPOINTS, targetParams).consume();
+                    }
                 }
                 return null;
             });
