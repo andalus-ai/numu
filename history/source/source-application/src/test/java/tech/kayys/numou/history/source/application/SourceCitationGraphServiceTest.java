@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.history.source.domain.*;
 import tech.kayys.numou.history.source.spi.HistoricalSourceRepository;
 
-import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.util.*;
 
@@ -15,6 +14,7 @@ class SourceCitationGraphServiceTest {
     private final Map<UUID, HistoricalSource> sources = new HashMap<>();
     private final List<SourceRelationship> relationships = new ArrayList<>();
     private final Set<HistoricalSourceId> denied = new HashSet<>();
+    private boolean injectUnrelatedRelationship;
     private final HistoricalSourceAuthorizationPort authorization = new AllowListedAuthorization(denied);
     private final HistoricalSourceRepository repository = repositoryProxy();
     private final SourceCitationGraphService service =
@@ -41,7 +41,7 @@ class SourceCitationGraphServiceTest {
         assertEquals(1, distance(graph, b.id()));
         assertEquals(1, distance(graph, c.id()));
         assertEquals(2, distance(graph, d.id()));
-        assertTrue(graph.truncated()); // D -> E exists beyond the requested depth.
+        assertTrue(graph.truncated());
         assertTrue(graph.relationships().stream().anyMatch(r -> r.sourceId().equals(c.id()) && r.relatedSourceId().equals(a.id())));
         assertTrue(graph.nodes().stream().noneMatch(n -> n.source().id().equals(e.id())));
     }
@@ -58,6 +58,19 @@ class SourceCitationGraphServiceTest {
 
         assertEquals(2, graph.nodes().size());
         assertEquals(1, graph.relationships().size());
+        assertTrue(graph.truncated());
+    }
+
+    @Test
+    void depthZeroReturnsOnlyRootAndSignalsAvailableLinks() {
+        HistoricalSource a = source("A");
+        HistoricalSource b = source("B");
+        link(a, b, SourceRelationshipType.CITES);
+
+        SourceCitationGraph graph = service.explore(a.id(), 0, 10, 10);
+
+        assertEquals(1, graph.nodes().size());
+        assertTrue(graph.relationships().isEmpty());
         assertTrue(graph.truncated());
     }
 
@@ -79,6 +92,35 @@ class SourceCitationGraphServiceTest {
 
         assertThrows(IllegalArgumentException.class,
             () -> otherTenantService.explore(source.id(), 1, 10, 10));
+    }
+
+    @Test
+    void rejectsRepositoryRelationshipsThatDoNotTouchTheExpandedSource() {
+        HistoricalSource a = source("A");
+        HistoricalSource b = source("B");
+        HistoricalSource c = source("C");
+        link(b, c, SourceRelationshipType.CITES);
+        injectUnrelatedRelationship = true;
+
+        assertThrows(IllegalStateException.class, () -> service.explore(a.id(), 1, 10, 10));
+    }
+
+    @Test
+    void graphValueRejectsDuplicateNodesAndRelationshipsAndOutOfRangeDistances() {
+        HistoricalSource a = source("A");
+        HistoricalSource b = source("B");
+        SourceCitationGraphNode root = new SourceCitationGraphNode(a, 0);
+        SourceCitationGraphNode child = new SourceCitationGraphNode(b, 1);
+        SourceRelationship link = SourceRelationship.create(a.id(), b.id(), SourceRelationshipType.CITES,
+            null, null, null, Instant.parse("2026-11-09T00:00:01Z"));
+
+        assertThrows(IllegalArgumentException.class,
+            () -> new SourceCitationGraph(a.id(), 1, List.of(root, root), List.of(), false));
+        assertThrows(IllegalArgumentException.class,
+            () -> new SourceCitationGraph(a.id(), 1, List.of(root, child),
+                List.of(link, link), false));
+        assertThrows(IllegalArgumentException.class,
+            () -> new SourceCitationGraph(a.id(), 0, List.of(root, child), List.of(), false));
     }
 
     @Test
@@ -106,7 +148,7 @@ class SourceCitationGraphServiceTest {
     }
 
     private HistoricalSourceRepository repositoryProxy() {
-        return (HistoricalSourceRepository) Proxy.newProxyInstance(
+        return (HistoricalSourceRepository) java.lang.reflect.Proxy.newProxyInstance(
             HistoricalSourceRepository.class.getClassLoader(),
             new Class<?>[]{HistoricalSourceRepository.class},
             (proxy, method, args) -> {
@@ -121,11 +163,17 @@ class SourceCitationGraphServiceTest {
                     HistoricalSourceId id = (HistoricalSourceId) args[1];
                     int limit = (int) args[2];
                     if (!tenant.equals(tenantId)) return List.of();
-                    return relationships.stream()
+                    List<SourceRelationship> matches = new ArrayList<>(relationships.stream()
                         .filter(r -> name.equals("listOutgoingSourceRelationships")
                             ? r.sourceId().equals(id) : r.relatedSourceId().equals(id))
                         .sorted(Comparator.comparing(SourceRelationship::recordedAt).thenComparing(SourceRelationship::id))
-                        .limit(limit).toList();
+                        .limit(limit).toList());
+                    if (injectUnrelatedRelationship) {
+                        relationships.stream()
+                            .filter(r -> !r.sourceId().equals(id) && !r.relatedSourceId().equals(id))
+                            .findFirst().ifPresent(matches::add);
+                    }
+                    return List.copyOf(matches);
                 }
                 if (name.equals("toString")) return "SourceCitationGraphRepositoryProxy";
                 if (name.equals("hashCode")) return System.identityHashCode(proxy);

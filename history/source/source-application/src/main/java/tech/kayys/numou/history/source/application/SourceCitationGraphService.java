@@ -36,10 +36,7 @@ public final class SourceCitationGraphService {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
     }
 
-    /**
-     * Explores incoming and outgoing relationships using breadth-first traversal.
-     * Bounds are deliberately conservative to prevent unbounded graph expansion.
-     */
+    /** Explores incoming and outgoing relationships using bounded breadth-first traversal. */
     public SourceCitationGraph explore(
         HistoricalSourceId rootSourceId,
         int maxDepth,
@@ -111,11 +108,10 @@ public final class SourceCitationGraphService {
     ) {
         boolean truncated = false;
         for (SourceRelationship relationship : candidates) {
+            HistoricalSourceId counterpart = counterpartFor(current.sourceId(), relationship);
             if (relationships.containsKey(relationship.id())) continue;
             if (relationships.size() >= maxRelationships) return true;
 
-            HistoricalSourceId counterpart = relationship.sourceId().equals(current.sourceId())
-                ? relationship.relatedSourceId() : relationship.sourceId();
             if (!nodes.containsKey(counterpart)) {
                 if (nodes.size() >= maxNodes) {
                     truncated = true;
@@ -141,18 +137,30 @@ public final class SourceCitationGraphService {
         List<SourceRelationship> incoming =
             repository.listIncomingSourceRelationships(tenantId, sourceId, REPOSITORY_LIMIT);
         for (SourceRelationship relationship : outgoing) {
+            HistoricalSourceId counterpart = counterpartFor(sourceId, relationship);
             if (!included.containsKey(relationship.id())) {
-                authorization.requireCanReadSourceBibliography(tenantId, relationship.relatedSourceId());
+                authorization.requireCanReadSourceBibliography(tenantId, counterpart);
                 return true;
             }
         }
         for (SourceRelationship relationship : incoming) {
+            HistoricalSourceId counterpart = counterpartFor(sourceId, relationship);
             if (!included.containsKey(relationship.id())) {
-                authorization.requireCanReadSourceBibliography(tenantId, relationship.sourceId());
+                authorization.requireCanReadSourceBibliography(tenantId, counterpart);
                 return true;
             }
         }
         return outgoing.size() >= REPOSITORY_LIMIT || incoming.size() >= REPOSITORY_LIMIT;
+    }
+
+    private static HistoricalSourceId counterpartFor(
+        HistoricalSourceId currentSourceId,
+        SourceRelationship relationship
+    ) {
+        Objects.requireNonNull(relationship, "repository returned a null source relationship");
+        if (relationship.sourceId().equals(currentSourceId)) return relationship.relatedSourceId();
+        if (relationship.relatedSourceId().equals(currentSourceId)) return relationship.sourceId();
+        throw new IllegalStateException("source repository returned a relationship unrelated to the requested source");
     }
 
     private static boolean hasUnseen(
