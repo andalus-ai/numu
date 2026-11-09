@@ -101,7 +101,6 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   });
   assertThrows(java.sql.SQLException.class,()->{
    try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
-   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
        var statement=connection.prepareStatement("update historical_archival_holding set shelfmark=? where tenant_id=? and holding_id=?")) {
     statement.setString(1,"REWRITTEN"); statement.setObject(2,tenant); statement.setObject(3,holding.id()); statement.executeUpdate();
    }
