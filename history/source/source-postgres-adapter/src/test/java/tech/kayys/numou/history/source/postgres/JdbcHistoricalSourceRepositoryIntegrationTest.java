@@ -76,11 +76,12 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertEquals(holding,repository.listHoldings(tenant,source.id(),20).get(0));
   var catalog=ArchivalCatalogIdentifier.create(holding.id(),"LOCAL_SHELF_MARK","COL/1945/17","National Archive",now.plusSeconds(8));
   assertTrue(repository.appendCatalogIdentifier(tenant,catalog));
-  assertEquals(catalog,repository.listCatalogIdentifiers(tenant,holding.id(),20).get(0));
+  assertEquals(catalog,repository.listCatalogIdentifiers(tenant,source.id(),holding.id(),20).get(0));
   assertTrue(repository.listEditions(otherTenant,source.id(),20).isEmpty());
   assertTrue(repository.listHoldings(otherTenant,source.id(),20).isEmpty());
   assertTrue(repository.listContributors(otherTenant,source.id(),20).isEmpty());
-  assertTrue(repository.listCatalogIdentifiers(otherTenant,holding.id(),20).isEmpty());
+  assertTrue(repository.listCatalogIdentifiers(otherTenant,source.id(),holding.id(),20).isEmpty());
+  assertTrue(repository.listCatalogIdentifiers(tenant,HistoricalSourceId.generate(),holding.id(),20).isEmpty());
   assertThrows(java.sql.SQLException.class,()->{
    try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
        var statement=connection.prepareStatement("update historical_source_assessment set rationale=? where tenant_id=? and assessment_id=?")) {
