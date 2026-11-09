@@ -43,6 +43,13 @@ public final class JdbcHistoricalProjectionOperationalStore implements Historica
              WHERE tenant_id IS NOT DISTINCT FROM ?
             """;
         try(Connection c=source.getConnection()) {
+            c.setAutoCommit(false);
+            if (tenantId != null) {
+                try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")) {
+                    scope.setString(1,tenantId.toString());
+                    scope.execute();
+                }
+            }
             long pending,leased,dead,oldestPending,maxUnpublished,running,remaining,oldestRebuild;
             try(PreparedStatement s=c.prepareStatement(outbox)) {
                 s.setTimestamp(1,Timestamp.from(now)); s.setTimestamp(2,Timestamp.from(now));
@@ -61,6 +68,7 @@ public final class JdbcHistoricalProjectionOperationalStore implements Historica
                     running=r.getLong("running"); remaining=r.getLong("remaining"); oldestRebuild=r.getLong("oldest_age");
                 }
             }
+            c.commit();
             return new OperationalSnapshot(tenantId,pending,leased,dead,oldestPending,maxUnpublished,
                     running,remaining,oldestRebuild,now);
         } catch(SQLException e) {
