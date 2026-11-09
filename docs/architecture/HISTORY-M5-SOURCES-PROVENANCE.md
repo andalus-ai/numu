@@ -2,7 +2,7 @@
 
 ## Status
 
-M5.3 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
+M5.4 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
 
 ## Ownership and boundaries
 
@@ -52,6 +52,15 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - `ArchivalCatalogIdentifier` is scoped to a holding and assigning scheme/authority. Identifiers are not assumed globally unique across institutions.
 - These records are append-only, tenant-scoped and independently addressable. Catalogue identifier reads are scoped to both source and holding; a holding lookup is likewise source-scoped.
 
+## Source-to-source relationships
+
+- Source relationships are directed and preserve the direction from the citing/deriving source to the related source.
+- Supported relation types include citation, translation, editing, derivation, reproduction, response, contradiction, supersession and general relation.
+- An optional locator (type and value supplied together) and explanatory note preserve where and why the relationship is asserted.
+- These links are bibliographic/provenance relationships between source records. They do not replace `ClaimEvidence`, which connects one source to one historical claim.
+- Self-links are rejected. Both source endpoints must exist in the same tenant. Outgoing and incoming queries are separate, bounded, tenant-scoped and authorization-checked for both endpoints.
+- Relationship records are append-only; no citation graph is treated as a truth score or canonical event/person/place graph.
+
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
@@ -72,13 +81,13 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalog identifiers and append-only enforcement.
+The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalog identifiers, directed source relationships and append-only enforcement.
 
 ## Deliberately deferred
 
 
 - source ingestion, OCR/transcription, content extraction and shared document-store integration;
-- source-to-source citation graph and claim/evidence graph projection;
+- graph projections, citation discovery and cross-source independence analysis;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
 - REST/GraphQL APIs, search indexing, ranking and discovery;
 - cross-tenant sharing or public-source visibility policies.
