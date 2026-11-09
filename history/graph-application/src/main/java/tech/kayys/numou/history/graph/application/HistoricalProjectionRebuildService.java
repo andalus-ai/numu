@@ -43,6 +43,19 @@ public final class HistoricalProjectionRebuildService {
      * Replaying a page after a crash is safe because providers reject stale revisions.
      */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
+        return resumeOnePageInternal(tenantId, runId, null);
+    }
+
+    /** Replays one page into an isolated staging generation, leaving active data untouched. */
+    public RebuildProgress resumeOnePage(UUID tenantId, UUID runId, UUID generationId) {
+        Objects.requireNonNull(generationId, "generationId");
+        if (!(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+            throw new IllegalStateException("projection provider does not support generation-targeted replay");
+        }
+        return resumeOnePageInternal(tenantId, runId, generationId);
+    }
+
+    private RebuildProgress resumeOnePageInternal(UUID tenantId, UUID runId, UUID generationId) {
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
         if (run.status() == RebuildRun.Status.COMPLETED) {
@@ -66,7 +79,13 @@ public final class HistoricalProjectionRebuildService {
                 throw new IllegalStateException("rebuild page crossed tenant scope");
             }
             try {
-                projection.project(asClaimedEvent(event));
+                ClaimedProjectionEvent claimed = asClaimedEvent(event);
+                if (generationId == null) {
+                    projection.project(claimed);
+                } else {
+                    ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
+                            .projectIntoGeneration(claimed, generationId);
+                }
             } catch (RuntimeException failure) {
                 throw failure;
             } catch (Exception failure) {
