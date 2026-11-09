@@ -32,11 +32,11 @@ class HistoricalSourceServiceTest {
  private static class AllowAll implements HistoricalSourceAuthorizationPort {
   public void requireCanRegisterSource(UUID t){} public void requireCanReadSource(UUID t,HistoricalSourceId i){}
   public void requireCanReviseSource(UUID t,HistoricalSourceId i){} public void requireCanCreateClaim(UUID t){}
-  public void requireCanReadClaim(UUID t,HistoricalClaimId i){} public void requireCanReferenceSubject(UUID t,String k,String i){} public void requireCanAttachEvidence(UUID t,HistoricalClaimId c,HistoricalSourceId s){} public void requireCanAssessSource(UUID t,HistoricalSourceId s,String a){} public void requireCanReviewSourceAssessment(UUID t,HistoricalSourceId s,UUID a,String r){}
+  public void requireCanReadClaim(UUID t,HistoricalClaimId i){} public void requireCanReferenceSubject(UUID t,String k,String i){} public void requireCanAttachEvidence(UUID t,HistoricalClaimId c,HistoricalSourceId s){} public void requireCanAssessSource(UUID t,HistoricalSourceId s,String a){} public void requireCanReviewSourceAssessment(UUID t,HistoricalSourceId s,UUID a,String r){} public void requireCanManageSourceBibliography(UUID t,HistoricalSourceId s){} public void requireCanReadSourceBibliography(UUID t,HistoricalSourceId s){}
  }
  private static class InMemoryRepository implements HistoricalSourceRepository {
   final Map<UUID,Map<UUID,HistoricalSource>> sources=new HashMap<>(); final Map<UUID,Map<UUID,HistoricalClaim>> claims=new HashMap<>();
-  final Map<UUID,List<ClaimEvidence>> evidence=new HashMap<>(); final Map<UUID,List<SourceAssessment>> assessments=new HashMap<>(); final Map<UUID,List<SourceAssessmentReview>> reviews=new HashMap<>();
+  final Map<UUID,List<ClaimEvidence>> evidence=new HashMap<>(); final Map<UUID,List<SourceAssessment>> assessments=new HashMap<>(); final Map<UUID,List<SourceAssessmentReview>> reviews=new HashMap<>(); final Map<UUID,List<SourceContributor>> contributors=new HashMap<>(); final Map<UUID,List<SourceEdition>> editions=new HashMap<>(); final Map<UUID,List<ArchivalHolding>> holdings=new HashMap<>(); final Map<UUID,List<ArchivalCatalogIdentifier>> identifiers=new HashMap<>();
   public boolean register(UUID t,HistoricalSource s){return sources.computeIfAbsent(t,k->new HashMap<>()).putIfAbsent(s.id().value(),s)==null;}
   public Optional<HistoricalSource> find(UUID t,HistoricalSourceId i){return Optional.ofNullable(sources.getOrDefault(t,Map.of()).get(i.value()));}
   public List<HistoricalSource> list(UUID t,int n){return sources.getOrDefault(t,Map.of()).values().stream().limit(n).toList();}
@@ -50,5 +50,13 @@ class HistoricalSourceServiceTest {
   public Optional<SourceAssessment> findAssessment(UUID t,UUID id){return assessments.getOrDefault(t,List.of()).stream().filter(a->a.id().equals(id)).findFirst();}
   public boolean appendAssessmentReview(UUID t,SourceAssessmentReview r){reviews.computeIfAbsent(t,k->new ArrayList<>()).add(r);return true;}
   public List<SourceAssessmentReview> listAssessmentReviews(UUID t,UUID id,int n){return reviews.getOrDefault(t,List.of()).stream().filter(r->r.assessmentId().equals(id)).limit(n).toList();}
+  public boolean appendContributor(UUID t,SourceContributor x){contributors.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<SourceContributor> listContributors(UUID t,HistoricalSourceId s,int n){return contributors.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
+  public boolean appendEdition(UUID t,SourceEdition x){editions.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<SourceEdition> listEditions(UUID t,HistoricalSourceId s,int n){return editions.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
+  public boolean appendHolding(UUID t,ArchivalHolding x){holdings.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<ArchivalHolding> listHoldings(UUID t,HistoricalSourceId s,int n){return holdings.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
+  public boolean appendCatalogIdentifier(UUID t,ArchivalCatalogIdentifier x){identifiers.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID t,UUID h,int n){return identifiers.getOrDefault(t,List.of()).stream().filter(x->x.holdingId().equals(h)).limit(n).toList();}
  }
 }
