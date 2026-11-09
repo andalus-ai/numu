@@ -25,7 +25,7 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
    s.execute("CREATE ROLE history_app LOGIN PASSWORD 'history-password' NOSUPERUSER NOBYPASSRLS");
    s.execute("GRANT USAGE ON SCHEMA public TO history_app");
    s.execute("GRANT SELECT, INSERT, UPDATE ON historical_source TO history_app");
-   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review, historical_source_contributor, historical_source_edition, historical_archival_holding, historical_archival_catalog_identifier TO history_app");
+   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review, historical_source_contributor, historical_source_edition, historical_archival_holding, historical_archival_catalog_identifier, historical_source_relationship TO history_app");
   }
   appDataSource=new PGSimpleDataSource(); appDataSource.setURL(POSTGRES.getJdbcUrl());
   appDataSource.setUser("history_app"); appDataSource.setPassword("history-password");
@@ -84,7 +84,23 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertTrue(repository.listContributors(otherTenant,source.id(),20).isEmpty());
   assertTrue(repository.listCatalogIdentifiers(otherTenant,source.id(),holding.id(),20).isEmpty());
   assertTrue(repository.listCatalogIdentifiers(tenant,HistoricalSourceId.generate(),holding.id(),20).isEmpty());
+  var relatedSource=HistoricalSource.register(HistoricalSourceId.generate(),HistoricalSourceKind.BOOK,"Related book",null,null,null,null,null,null,now.plusSeconds(9));
+  assertTrue(repository.register(tenant,relatedSource));
+  var relationship=SourceRelationship.create(source.id(),relatedSource.id(),SourceRelationshipType.CITES,EvidenceLocatorType.PAGE,"p. 17","Cited in footnote 4",now.plusSeconds(10));
+  assertTrue(repository.appendSourceRelationship(tenant,relationship));
+  assertEquals(relationship,repository.listOutgoingSourceRelationships(tenant,source.id(),20).get(0));
+  assertEquals(relationship,repository.listIncomingSourceRelationships(tenant,relatedSource.id(),20).get(0));
+  assertTrue(repository.listOutgoingSourceRelationships(otherTenant,source.id(),20).isEmpty());
+  assertTrue(repository.listIncomingSourceRelationships(otherTenant,relatedSource.id(),20).isEmpty());
+  assertTrue(repository.listOutgoingSourceRelationships(tenant,relatedSource.id(),20).isEmpty());
   assertThrows(java.sql.SQLException.class,()->{
+   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
+       var statement=connection.prepareStatement("update historical_source_relationship set note=? where tenant_id=? and relationship_id=?")) {
+    statement.setString(1,"rewritten"); statement.setObject(2,tenant); statement.setObject(3,relationship.id()); statement.executeUpdate();
+   }
+  });
+  assertThrows(java.sql.SQLException.class,()->{
+   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
    try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
        var statement=connection.prepareStatement("update historical_archival_holding set shelfmark=? where tenant_id=? and holding_id=?")) {
     statement.setString(1,"REWRITTEN"); statement.setObject(2,tenant); statement.setObject(3,holding.id()); statement.executeUpdate();
