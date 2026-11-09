@@ -93,6 +93,10 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertTrue(repository.listOutgoingSourceRelationships(otherTenant,source.id(),20).isEmpty());
   assertTrue(repository.listIncomingSourceRelationships(otherTenant,relatedSource.id(),20).isEmpty());
   assertTrue(repository.listOutgoingSourceRelationships(tenant,relatedSource.id(),20).isEmpty());
+  var foreignTenantSource=HistoricalSource.register(HistoricalSourceId.generate(),HistoricalSourceKind.BOOK,"Other tenant source",null,null,null,null,null,null,now.plusSeconds(11));
+  assertTrue(repository.register(otherTenant,foreignTenantSource));
+  var crossTenantLink=SourceRelationship.create(source.id(),foreignTenantSource.id(),SourceRelationshipType.CITES,null,null,null,now.plusSeconds(12));
+  assertThrows(IllegalStateException.class,()->repository.appendSourceRelationship(tenant,crossTenantLink));
   assertThrows(java.sql.SQLException.class,()->{
    try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
        var statement=connection.prepareStatement("update historical_source_relationship set note=? where tenant_id=? and relationship_id=?")) {
