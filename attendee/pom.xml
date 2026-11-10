@@ -17,5 +17,6 @@
         <module>attendee-domain</module>
         <module>attendee-application</module>
         <module>attendee-persistence-jdbc</module>
+        <module>attendee-adapter-rest</module>
     </modules>
 </project>
