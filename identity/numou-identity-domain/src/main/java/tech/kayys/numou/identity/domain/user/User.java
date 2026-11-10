@@ -171,6 +171,15 @@ public final class User extends AbstractAggregateRoot<UserId> {
         return email;
     }
 
+    /**
+     * Replaces only the stored password encoding after the application has
+     * verified the user's raw credential. This technical migration does not
+     * represent a user-initiated password change and raises no domain event.
+     */
+    public void upgradePasswordHash(PasswordHash upgradedHash) {
+        this.passwordHash = Objects.requireNonNull(upgradedHash, "upgradedHash cannot be null");
+    }
+
     public PasswordHash passwordHash() {
         return passwordHash;
     }
