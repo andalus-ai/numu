@@ -70,6 +70,17 @@ public class PostgresUserRepository implements UserRepository {
                 });
     }
 
+    @Override
+    public Uni<Void> updatePasswordHash(UserId id, PasswordHash passwordHash) {
+        return Panache.withTransaction(() -> UserEntity.<UserEntity>findById(id.value())
+                .invoke(entity -> {
+                    if (entity != null) {
+                        entity.passwordHash = passwordHash.value();
+                    }
+                })
+                .replaceWithVoid());
+    }
+
     private User toDomain(UserEntity entity) {
         return User.reconstitute(
                 UserId.of(entity.id),
