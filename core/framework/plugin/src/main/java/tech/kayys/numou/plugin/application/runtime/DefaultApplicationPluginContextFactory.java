@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class DefaultApplicationPluginContextFactory implements ApplicationPluginContextFactory {
     private final Map<String, String> properties;
+    private final Map<String, Object> contextAttributes;
     private final Map<Class<?>, Object> services = new ConcurrentHashMap<>();
 
     public DefaultApplicationPluginContextFactory() {
@@ -21,12 +22,25 @@ public final class DefaultApplicationPluginContextFactory implements Application
     }
 
     public DefaultApplicationPluginContextFactory(Map<String, String> properties) {
+        this(properties, Map.of());
+    }
+
+    /**
+     * @param properties application configuration shared by all selected plugins
+     * @param contextAttributes host context such as tenant, actor and correlation identifiers;
+     *                          copied into each plugin's isolated attribute map
+     */
+    public DefaultApplicationPluginContextFactory(Map<String, String> properties,
+            Map<String, Object> contextAttributes) {
         this.properties = new ConcurrentHashMap<>(properties == null ? Map.of() : properties);
+        this.contextAttributes = Map.copyOf(contextAttributes == null ? Map.of() : contextAttributes);
     }
 
     @Override
     public PluginContext create(CapabilityProvider provider, NumouPlugin plugin) {
-        return new DefaultPluginContext(plugin.id(), properties, services);
+        DefaultPluginContext context = new DefaultPluginContext(plugin.id(), properties, services);
+        contextAttributes.forEach(context::setAttribute);
+        return context;
     }
 
     /** Register a host-provided service before startup; all plugin contexts can resolve it. */
