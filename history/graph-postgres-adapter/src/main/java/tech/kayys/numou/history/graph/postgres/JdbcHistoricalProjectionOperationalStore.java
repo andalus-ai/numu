@@ -43,7 +43,7 @@ public final class JdbcHistoricalProjectionOperationalStore implements Historica
                    COALESCE(EXTRACT(EPOCH FROM (? - MIN(r.created_at)
                      FILTER (WHERE r.status='RUNNING'))),0)::bigint AS oldest_age
               FROM historical_relationship_projection_rebuild_run r
-             WHERE tenant_id IS NOT DISTINCT FROM ?
+             WHERE r.tenant_id IS NOT DISTINCT FROM ?
             """;
         try(Connection c=source.getConnection()) {
             c.setAutoCommit(false);
