@@ -67,11 +67,18 @@ public final class SocialGraphRelationshipReadService {
                         // Fail closed without disclosing whether the profile or list exists.
                         return Uni.createFrom().item(new SocialGraphRelationshipReadPage(java.util.List.of(), null));
                     }
-                    Uni<SocialGraphRelationshipQueryPage> raw = outgoing
-                            ? queries.findFollowing(tenantId, relationshipOwner, now, cursor, limit)
-                            : queries.findFollowers(tenantId, relationshipOwner, now, cursor, limit);
-                    return raw.flatMap(page -> filterVisible(tenantId, viewer, page)
-                            .map(items -> new SocialGraphRelationshipReadPage(items, page.nextCursor())));
+                    return policies.isBlocked(tenantId, viewer, relationshipOwner)
+                            .flatMap(blocked -> {
+                                if (blocked) {
+                                    return Uni.createFrom().item(
+                                            new SocialGraphRelationshipReadPage(java.util.List.of(), null));
+                                }
+                                Uni<SocialGraphRelationshipQueryPage> raw = outgoing
+                                        ? queries.findFollowing(tenantId, relationshipOwner, now, cursor, limit)
+                                        : queries.findFollowers(tenantId, relationshipOwner, now, cursor, limit);
+                                return raw.flatMap(page -> filterVisible(tenantId, viewer, page)
+                                        .map(items -> new SocialGraphRelationshipReadPage(items, page.nextCursor())));
+                            });
                 });
     }
 
