@@ -79,6 +79,25 @@ class HistoricalProjectionRebuildServiceTest {
         assertNull(store.run);
     }
 
+
+    @Test void emitsBoundedRebuildProgressMetrics() {
+        FakeStore store = new FakeStore();
+        store.events = List.of(event(1));
+        List<HistoricalProjectionMetricsPort.RebuildMetric> emitted = new ArrayList<>();
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, () -> TENANT, allowAll(),
+                Clock.fixed(NOW, ZoneOffset.UTC), 1, new HistoricalProjectionMetricsPort() {
+                    public void record(tech.kayys.numou.history.graph.spi.HistoricalProjectionOperationalStore.OperationalSnapshot snapshot) {}
+                    public void recordRebuildProgress(HistoricalProjectionMetricsPort.RebuildMetric metric) { emitted.add(metric); }
+                });
+        var run = service.start(TENANT);
+        service.resumeOnePage(TENANT, run.runId());
+        assertEquals(1, emitted.size());
+        assertEquals(1, emitted.get(0).projectedEvents());
+        assertEquals(1, emitted.get(0).cursorSequence());
+        assertEquals(1, emitted.get(0).highWaterSequence());
+        assertFalse(emitted.get(0).completed());
+    }
+
     private static HistoricalProjectionMaintenanceAuthorizationPort allowAll() {
         return new HistoricalProjectionMaintenanceAuthorizationPort() {
             public void requireCanRebuildTenant(UUID tenantId) {}
