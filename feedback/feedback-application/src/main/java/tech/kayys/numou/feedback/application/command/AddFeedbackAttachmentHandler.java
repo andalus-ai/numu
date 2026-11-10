@@ -40,6 +40,7 @@ public final class AddFeedbackAttachmentHandler {
         if (command.maximumAllowedBytes() <= 0 || command.sizeBytes() <= 0
                 || command.sizeBytes() > command.maximumAllowedBytes())
             throw new IllegalArgumentException("Attachment size is outside the configured limit");
+        validateFileName(command.fileName());
         String mediaType = command.mediaType() == null ? "" : command.mediaType().trim().toLowerCase(Locale.ROOT);
         if (!ALLOWED_MEDIA_TYPES.contains(mediaType)) throw new IllegalArgumentException("Unsupported attachment media type");
         if (command.sha256() == null || !command.sha256().matches("(?i)[a-f0-9]{64}"))
@@ -52,23 +53,29 @@ public final class AddFeedbackAttachmentHandler {
         FeedbackEvidenceStore.StoredEvidence stored = evidenceStore.store(new FeedbackEvidenceStore.Upload(
                 command.tenantId().toString(), command.fileName(), mediaType, command.sizeBytes(),
                 command.sha256().toLowerCase(Locale.ROOT), command.content()));
-        if (stored.sizeBytes() != command.sizeBytes()
-                || !stored.sha256().equalsIgnoreCase(command.sha256())
-                || !stored.mediaType().equalsIgnoreCase(mediaType)) {
-            evidenceStore.delete(stored.documentReference());
-            throw new IllegalStateException("Document Store metadata does not match upload request");
-        }
-
-        FeedbackAttachment attachment = FeedbackAttachment.register(UUID.randomUUID(), command.tenantId(),
-                feedbackId, stored.documentReference(), command.fileName(), mediaType,
-                stored.sizeBytes(), stored.sha256(), now);
         try {
+            if (stored.sizeBytes() != command.sizeBytes()
+                    || !stored.sha256().equalsIgnoreCase(command.sha256())
+                    || !stored.mediaType().equalsIgnoreCase(mediaType))
+                throw new IllegalStateException("Document Store metadata does not match upload request");
+
+            FeedbackAttachment attachment = FeedbackAttachment.register(UUID.randomUUID(), command.tenantId(),
+                    feedbackId, stored.documentReference(), command.fileName(), mediaType,
+                    stored.sizeBytes(), stored.sha256(), now);
             attachmentRepository.save(attachment);
-        } catch (RuntimeException persistenceFailure) {
+            return attachment.id();
+        } catch (RuntimeException persistenceOrValidationFailure) {
             try { evidenceStore.delete(stored.documentReference()); }
-            catch (IOException cleanupFailure) { persistenceFailure.addSuppressed(cleanupFailure); }
-            throw persistenceFailure;
+            catch (IOException cleanupFailure) { persistenceOrValidationFailure.addSuppressed(cleanupFailure); }
+            throw persistenceOrValidationFailure;
         }
-        return attachment.id();
+    }
+
+    private static void validateFileName(String fileName) {
+        if (fileName == null || fileName.isBlank() || fileName.length() > 255
+                || fileName.equals(".") || fileName.equals("..")
+                || fileName.contains("/") || fileName.contains("\\")
+                || fileName.indexOf('\0') >= 0)
+            throw new IllegalArgumentException("fileName must be a simple file name of at most 255 characters");
     }
 }
