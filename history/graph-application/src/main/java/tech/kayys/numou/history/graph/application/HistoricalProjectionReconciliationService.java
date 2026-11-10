@@ -135,13 +135,13 @@ public final class HistoricalProjectionReconciliationService {
 
             ReconciliationReport report=new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
             if(repair) repairAudit.complete(tenantId,actorId,operationId,
-                    new RepairOutcome(checked,missing,stale,divergent,orphaned,repaired),clock.instant());
+                    new RepairOutcome(pageSize,checked,missing,stale,divergent,orphaned,repaired),clock.instant());
             metrics.recordReconciliation(new HistoricalProjectionMetricsPort.ReconciliationMetric(
                     checked,missing,stale,divergent,orphaned,repaired));
             return report;
         } catch(Exception failure) {
             if(repair) {
-                try { repairAudit.fail(tenantId,actorId,operationId,safeFailure(failure),clock.instant()); }
+                try { repairAudit.fail(tenantId,actorId,operationId,pageSize,safeFailure(failure),clock.instant()); }
                 catch(RuntimeException auditFailure) { failure.addSuppressed(auditFailure); }
             }
             throw failure;
