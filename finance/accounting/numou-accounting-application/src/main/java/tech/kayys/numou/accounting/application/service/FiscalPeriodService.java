@@ -59,9 +59,12 @@ public class FiscalPeriodService {
         Objects.requireNonNull(ledgerId, "ledgerId");
         Objects.requireNonNull(periodId, "periodId");
         return fiscalPeriodRepository.findById(tenantId, ledgerId, periodId)
-                .onItem().transformToUni(optional -> optional
-                        .<Uni<FiscalPeriod>>map(Uni.createFrom()::item)
-                        .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Period not found"))));
+                .chain(optional -> {
+                    if (optional.isEmpty()) {
+                        return Uni.createFrom().failure(new IllegalArgumentException("Period not found"));
+                    }
+                    return Uni.createFrom().item(optional.get());
+                });
     }
 
     /** @deprecated Supply tenant and ledger scope explicitly. */
