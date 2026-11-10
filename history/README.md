@@ -6,8 +6,8 @@ Historical knowledge foundation for chronology, events, people, collectives, pla
 - events: canonical historical event and period domain models, lifecycle, nested-period validation, and event-period temporal relations.
 - entities: historical people, civilizations/cultures/polities/institutions, places, time-bounded names and location assertions, affiliations, event links, and typed graph relationships.
 - graph-spi: tenant-aware relationship and projection-outbox persistence contracts.
-- graph-application: trusted-tenant relationship use cases and lease-aware projection dispatcher/worker.
-- graph-postgres-adapter: authoritative append-only PostgreSQL relationship revisions, RLS isolation, transactional projection event capture, and fenced outbox delivery.
+- graph-application: trusted-tenant relationship use cases, lease-aware projection dispatcher/worker, authorized rebuild/reconciliation operations, and vendor-neutral observability contracts.
+- graph-postgres-adapter: authoritative append-only PostgreSQL relationship revisions, RLS isolation, transactional projection event capture, fenced outbox delivery, and read-only operational health snapshots.
 - graph-neo4j-adapter: optional, disposable Neo4j projection for graph traversal; never the system of record.
 - source: tenant-scoped historical source catalog, immutable source revisions, claim registry, precise evidence locators, and contradictory/supporting evidence links. PostgreSQL is authoritative; source binaries remain in the shared document capability.
 
@@ -28,3 +28,7 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 
 The history reactor is intentionally isolated from the repository's other Maven reactor roots. PostgreSQL and Neo4j adapter integration tests use Testcontainers and run in the History CI workflow. Migrations V2–V3 cover atomic event capture, lease fencing, retry accounting, and audited dead-letter replay.
+
+
+## Graph projection operations
+Operational metrics and recovery procedures are documented in [Historical graph projection operations](../docs/runbooks/HISTORICAL-GRAPH-PROJECTION-OPERATIONS.md). Metrics are exposed through framework-neutral application ports; the deployment runtime supplies its telemetry adapter and alert rules.
