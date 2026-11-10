@@ -72,7 +72,8 @@ public final class HistoricalProjectionReconciliationService {
             if(operatorContext==null||repairAudit==null)
                 throw new IllegalStateException("repair requires an authenticated operator context and durable audit store");
             actorId=Objects.requireNonNull(operatorContext.requireActorId(),"operator context must provide an actor");
-            operationId=repairAudit.start(tenantId,actorId,pageSize,clock.instant());
+            operationId=Objects.requireNonNull(repairAudit.start(tenantId,actorId,pageSize,clock.instant()),
+                    "repair audit store must return an operation id");
         }
 
         try {
