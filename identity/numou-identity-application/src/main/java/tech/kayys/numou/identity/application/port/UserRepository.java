@@ -25,19 +25,24 @@ public interface UserRepository {
     Uni<Void> save(User user);
 
     /**
-     * Persist a credential re-encoding after successful authentication.
-     * The default keeps in-memory and alternative adapters compatible;
-     * production adapters should override with a single transactional update.
+     * Compare-and-set a credential re-encoding after successful authentication.
+     * The update must be applied only while the persisted hash still equals
+     * the hash that was verified, preventing a concurrent password change
+     * from being overwritten by a delayed legacy-login migration.
+     *
+     * @return true when this update changed the stored credential
      */
-    default Uni<Void> updatePasswordHash(UserId id,
-                                         tech.kayys.numou.identity.domain.valueobject.PasswordHash passwordHash) {
+    default Uni<Boolean> updatePasswordHash(UserId id,
+                                             tech.kayys.numou.identity.domain.valueobject.PasswordHash expectedHash,
+                                             tech.kayys.numou.identity.domain.valueobject.PasswordHash replacementHash) {
         return findById(id).chain(optional -> {
-            if (optional.isEmpty()) {
-                return Uni.createFrom().voidItem();
+            if (optional.isEmpty()
+                    || !optional.get().passwordHash().equals(expectedHash)) {
+                return Uni.createFrom().item(false);
             }
             User user = optional.get();
-            user.upgradePasswordHash(passwordHash);
-            return save(user);
+            user.upgradePasswordHash(replacementHash);
+            return save(user).replaceWith(true);
         });
     }
 
