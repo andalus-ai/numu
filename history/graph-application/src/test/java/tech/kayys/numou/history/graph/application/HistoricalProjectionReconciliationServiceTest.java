@@ -64,7 +64,7 @@ class HistoricalProjectionReconciliationServiceTest {
     private static final class FakeRepairAudit implements HistoricalProjectionRepairAuditStore {
         public UUID start(UUID tenant,UUID actor,int pageSize,Instant at){return UUID.randomUUID();}
         public void complete(UUID tenant,UUID actor,UUID operation,RepairOutcome outcome,Instant at){}
-        public void fail(UUID tenant,UUID actor,UUID operation,String reason,Instant at){}
+        public void fail(UUID tenant,UUID actor,UUID operation,int pageSize,String reason,Instant at){}
     }
 
     private static HistoricalProjectionMaintenanceAuthorizationPort allowAll(){
