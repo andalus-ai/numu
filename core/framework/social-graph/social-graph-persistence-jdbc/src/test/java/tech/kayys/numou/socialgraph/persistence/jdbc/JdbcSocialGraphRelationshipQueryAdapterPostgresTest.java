@@ -67,6 +67,9 @@ class JdbcSocialGraphRelationshipQueryAdapterPostgresTest {
         assertThatThrownBy(() -> adapter.findFollowing(
                 tenant, PartyId.generate(), base.plusSeconds(10), page.nextCursor(), 2))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter.findFollowing(
+                TenantId.generate(), owner, base.plusSeconds(10), page.nextCursor(), 2))
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> adapter.findFollowers(
                 tenant, owner, base.plusSeconds(10), page.nextCursor(), 2))
                 .isInstanceOf(IllegalArgumentException.class);
