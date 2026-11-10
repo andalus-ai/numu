@@ -17,9 +17,10 @@ class SubmitFeedbackHandlerTest {
         AtomicReference<FeedbackItem> saved = new AtomicReference<>();
         AtomicReference<String> key = new AtomicReference<>();
         FeedbackRepository repository = new FeedbackRepository() {
-            @Override public void save(FeedbackItem item, String idempotencyKey) {
+            @Override public FeedbackId save(FeedbackItem item, String idempotencyKey) {
                 saved.set(item);
                 key.set(idempotencyKey);
+                return item.id();
             }
             @Override public Optional<FeedbackItem> findById(UUID tenantId, FeedbackId id) {
                 return Optional.empty();
@@ -40,7 +41,7 @@ class SubmitFeedbackHandlerTest {
     @Test
     void rejectsMissingTenantAndIdempotencyKeyBeforePersistence() {
         FeedbackRepository repository = new FeedbackRepository() {
-            @Override public void save(FeedbackItem item, String key) { fail("must not persist"); }
+            @Override public FeedbackId save(FeedbackItem item, String key) { fail("must not persist"); return item.id(); }
             @Override public Optional<FeedbackItem> findById(UUID tenantId, FeedbackId id) {
                 return Optional.empty();
             }
