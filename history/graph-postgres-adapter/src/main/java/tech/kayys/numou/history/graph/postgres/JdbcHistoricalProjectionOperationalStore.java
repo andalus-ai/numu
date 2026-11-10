@@ -34,12 +34,15 @@ public final class JdbcHistoricalProjectionOperationalStore implements Historica
             WHERE tenant_id IS NOT DISTINCT FROM ?
             """;
         String rebuild="""
-            SELECT COUNT(*) FILTER (WHERE status='RUNNING') AS running,
-                   COALESCE(SUM(high_water_sequence-cursor_sequence)
-                     FILTER (WHERE status='RUNNING'),0)::bigint AS remaining,
-                   COALESCE(EXTRACT(EPOCH FROM (? - MIN(created_at)
-                     FILTER (WHERE status='RUNNING'))),0)::bigint AS oldest_age
-              FROM historical_relationship_projection_rebuild_run
+            SELECT COUNT(*) FILTER (WHERE r.status='RUNNING') AS running,
+                   COALESCE(SUM((SELECT COUNT(*) FROM historical_relationship_projection_outbox o
+                     WHERE o.tenant_id IS NOT DISTINCT FROM r.tenant_id
+                       AND o.projection_sequence > r.cursor_sequence
+                       AND o.projection_sequence <= r.high_water_sequence)
+                     ) FILTER (WHERE r.status='RUNNING'),0)::bigint AS remaining,
+                   COALESCE(EXTRACT(EPOCH FROM (? - MIN(r.created_at)
+                     FILTER (WHERE r.status='RUNNING'))),0)::bigint AS oldest_age
+              FROM historical_relationship_projection_rebuild_run r
              WHERE tenant_id IS NOT DISTINCT FROM ?
             """;
         try(Connection c=source.getConnection()) {
