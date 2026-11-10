@@ -81,7 +81,7 @@ public class JdbcSocialGraphRelationshipQueryAdapter implements SocialGraphRelat
             ps.setObject(2, party.value());
             ps.setTimestamp(3, Timestamp.from(at));
             ps.setTimestamp(4, Timestamp.from(at));
-            ps.setObject(5, cursor == null ? null : cursor.createdAt());
+            ps.setTimestamp(5, cursor == null ? null : Timestamp.from(cursor.createdAt()));
             ps.setTimestamp(6, cursor == null ? null : Timestamp.from(cursor.createdAt()));
             ps.setObject(7, cursor == null ? null : cursor.relationshipId());
             ps.setInt(8, limit + 1);
