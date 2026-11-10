@@ -9,8 +9,9 @@ import java.util.UUID;
 /**
  * Persistence port owned by Feedback. Implementations must scope every operation by tenant.
  * save must persist the aggregate and its pending events/outbox records atomically.
+ * For a repeated idempotency key, it returns the ID of the original submission.
  */
 public interface FeedbackRepository {
-    void save(FeedbackItem feedback, String idempotencyKey);
+    FeedbackId save(FeedbackItem feedback, String idempotencyKey);
     Optional<FeedbackItem> findById(UUID tenantId, FeedbackId feedbackId);
 }
