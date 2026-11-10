@@ -62,6 +62,42 @@ class SocialGraphRelationshipReadServiceTest {
     }
 
     @Test
+    void doesNotQueryFollowersWhenViewerIsBlockedByProfileOwner() {
+        TenantId tenant = TenantId.generate();
+        PartyId viewer = PartyId.generate();
+        PartyId owner = PartyId.generate();
+        java.util.concurrent.atomic.AtomicBoolean queried = new java.util.concurrent.atomic.AtomicBoolean();
+        SocialGraphRelationshipQueryPort queries = new SocialGraphRelationshipQueryPort() {
+            @Override public Uni<SocialGraphRelationshipQueryPage> findFollowing(
+                    TenantId t, PartyId p, Instant at, String c, int l) {
+                queried.set(true);
+                return Uni.createFrom().item(new SocialGraphRelationshipQueryPage(List.of(), null));
+            }
+            @Override public Uni<SocialGraphRelationshipQueryPage> findFollowers(
+                    TenantId t, PartyId p, Instant at, String c, int l) {
+                queried.set(true);
+                return Uni.createFrom().item(new SocialGraphRelationshipQueryPage(List.of(), null));
+            }
+        };
+        SocialGraphRelationshipVisibilityPort visibility = (t, v, subject) -> Uni.createFrom().item(true);
+        SocialGraphPolicyService policies = new SocialGraphPolicyService(new SocialGraphRelationshipPolicyPort() {
+            @Override public Uni<Boolean> isBlocked(TenantId t, PartyId a, PartyId b, Instant at) {
+                return Uni.createFrom().item(a.equals(viewer) && b.equals(owner));
+            }
+            @Override public Uni<Boolean> isMuted(TenantId t, PartyId a, PartyId b, Instant at) {
+                return Uni.createFrom().item(false);
+            }
+        }, Clock.systemUTC());
+        var service = new SocialGraphRelationshipReadService(queries, visibility, policies, Clock.systemUTC());
+
+        var page = service.followers(tenant, viewer, owner, null, 20).await().indefinitely();
+
+        assertThat(page.items()).isEmpty();
+        assertThat(page.nextCursor()).isNull();
+        assertThat(queried).isFalse();
+    }
+
+    @Test
     void rejectsUnboundedPageSizes() {
         var service = new SocialGraphRelationshipReadService(
                 (t, p, at, c, l) -> Uni.createFrom().item(new SocialGraphRelationshipQueryPage(List.of(), null)),
