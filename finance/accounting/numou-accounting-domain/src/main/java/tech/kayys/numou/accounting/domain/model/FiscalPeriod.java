@@ -25,11 +25,13 @@ public final class FiscalPeriod extends AbstractAggregateRoot<FiscalPeriodId> {
         this.tenantId = Objects.requireNonNull(tenantId, "tenantId cannot be null");
         this.ledgerId = Objects.requireNonNull(ledgerId, "ledgerId cannot be null");
         this.id = Objects.requireNonNull(id, "id cannot be null");
+        if (periodNumber <= 0) throw new IllegalArgumentException("periodNumber must be positive");
         this.periodNumber = periodNumber;
-        this.periodName = Objects.requireNonNull(periodName);
-        this.startDate = Objects.requireNonNull(startDate);
+        this.periodName = Objects.requireNonNull(periodName, "periodName cannot be null");
+        if (periodName.isBlank()) throw new IllegalArgumentException("periodName cannot be blank");
+        this.startDate = Objects.requireNonNull(startDate, "startDate cannot be null");
+        this.endDate = Objects.requireNonNull(endDate, "endDate cannot be null");
         if (endDate.isBefore(startDate)) throw new IllegalArgumentException("endDate cannot be before startDate");
-        this.endDate = Objects.requireNonNull(endDate);
         this.status = PeriodStatus.OPEN;
     }
 
