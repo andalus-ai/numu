@@ -53,8 +53,12 @@ public class TenantSelectionLoginService {
                     }
                     Uni<Void> upgrade = Uni.createFrom().voidItem();
                     if (passwordHasher.needsRehash(user.passwordHash())) {
-                        upgrade = users.updatePasswordHash(user.id(),
-                                passwordHasher.hash(request.password()));
+                        var verifiedHash = user.passwordHash();
+                        upgrade = users.updatePasswordHash(user.id(), verifiedHash,
+                                        passwordHasher.hash(request.password()))
+                                .chain(updated -> updated
+                                        ? Uni.createFrom().voidItem()
+                                        : verifyCredentialStillCurrent(user.id(), request.password()));
                     }
                     return upgrade.map(ignored -> {
                         String token = tokenIssuer.issueTenantSelectionToken(
@@ -62,6 +66,17 @@ public class TenantSelectionLoginService {
                         return AccessTokenResponse.bearer(token, SELECTION_TOKEN_LIFETIME_SECONDS);
                     });
                 });
+    }
+
+    private Uni<Void> verifyCredentialStillCurrent(
+            tech.kayys.numou.identity.domain.user.UserId userId, String rawPassword) {
+        return users.findById(userId).chain(current -> {
+            if (current.isPresent() && current.get().isActive()
+                    && passwordHasher.matches(rawPassword, current.get().passwordHash())) {
+                return Uni.createFrom().voidItem();
+            }
+            return failure("BAD_CREDENTIALS", "Invalid username or password");
+        });
     }
 
     private static <T> Uni<T> failure(String code, String message) {
