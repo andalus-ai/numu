@@ -184,3 +184,35 @@ authorization, profile visibility, consent, moderation and data-retention
 policies. The policy service is not an unrestricted public discovery API.
 Policy decisions use PostgreSQL, never an eventually consistent graph
 projection.
+
+
+## M2e privacy-aware relationship reads
+
+The application provides bounded `following` and `followers` reads over
+`FOLLOW` edges. These are relationship-list primitives, not public profile or
+discovery endpoints.
+
+- Every SQL query is tenant-qualified and only returns active, effective
+  `FOLLOW` edges.
+- Ordering is deterministic newest-first by `created_at DESC, relationship_id
+  DESC`; V5 adds matching partial indexes for both directions.
+- Keyset cursors are opaque Base64URL values bound to tenant, list owner and
+  direction. They are continuation markers, not authorization credentials;
+  callers must authenticate and authorize every request independently.
+- Page size is bounded to 1–100. The cursor advances past scanned rows even
+  when privacy policy filters some rows, so hidden records are not repeatedly
+  scanned and are not exposed through counts.
+- The host must provide `SocialGraphRelationshipVisibilityPort`. It is a
+  fail-closed boundary for profile visibility, consent, moderation and
+  tenant-sharing policy. The relationship edge itself never grants profile
+  visibility.
+- The list owner must be visible to the viewer before a followers list is
+  queried. Each returned Party is independently checked for visibility and
+  for a block in either direction.
+- Results contain only canonical Party IDs and relationship timestamps;
+  profile content, contact details and other PII are resolved by their owning
+  capabilities after their own authorization checks.
+
+The current read service intentionally does not expose blocker/mute lists,
+mutual connections, arbitrary graph traversal, follower counts or public
+search. Those require separate privacy and authorization contracts.
