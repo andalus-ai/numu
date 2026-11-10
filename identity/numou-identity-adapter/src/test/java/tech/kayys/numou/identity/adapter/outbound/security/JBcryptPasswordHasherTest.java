@@ -6,9 +6,9 @@ import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class JBcryptPasswordHasherTest {
+class VersionedPasswordHasherTest {
 
-    private final JBcryptPasswordHasher hasher = new JBcryptPasswordHasher();
+    private final JBcryptPasswordHasher hasher = new VersionedPasswordHasher();
 
     @Test
     void hashesWithVersionedPbkdf2AndVerifiesCorrectPassword() {
