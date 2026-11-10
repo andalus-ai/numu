@@ -27,7 +27,6 @@ public final class SubmitFeedbackHandler {
         FeedbackItem item = FeedbackItem.submit(id, command.tenantId(), command.submitterId(),
                 command.type(), command.title(), command.description(), command.sourceApplication(),
                 command.sourceModule(), command.sourceReference(), priority, command.occurredAt());
-        repository.save(item, command.idempotencyKey().trim());
-        return id;
+        return repository.save(item, command.idempotencyKey().trim());
     }
 }
