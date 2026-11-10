@@ -31,6 +31,24 @@ class HistoricalProjectionReconciliationServiceTest {
         assertEquals(1,report.divergent());assertTrue(repairs.isEmpty());
     }
 
+
+    @Test void emitsDriftAndRepairMetrics() throws Exception {
+        UUID id=UUID.randomUUID();
+        FakeAudit audit=new FakeAudit(List.of(row(id,1)));
+        FakeInspection graph=new FakeInspection();
+        List<HistoricalProjectionMetricsPort.ReconciliationMetric> emitted=new ArrayList<>();
+        HistoricalProjectionMetricsPort metrics=new HistoricalProjectionMetricsPort(){
+            public void record(tech.kayys.numou.history.graph.spi.HistoricalProjectionOperationalStore.OperationalSnapshot snapshot){}
+            public void recordReconciliation(HistoricalProjectionMetricsPort.ReconciliationMetric metric){emitted.add(metric);}
+        };
+        var report=new HistoricalProjectionReconciliationService(audit,graph,e->{},()->TENANT,allowAll(),metrics)
+                .reconcile(TENANT,10,true);
+        assertEquals(1,report.repaired());
+        assertEquals(1,emitted.size());
+        assertEquals(1,emitted.get(0).missing());
+        assertEquals(1,emitted.get(0).repaired());
+    }
+
     private static HistoricalProjectionMaintenanceAuthorizationPort allowAll(){
         return new HistoricalProjectionMaintenanceAuthorizationPort(){
             public void requireCanRebuildTenant(UUID id){}
