@@ -42,7 +42,7 @@ class JdbcHistoricalProjectionOperationalStoreIntegrationTest {
         assertEquals(0,snapshot.deadLetterEvents());
         assertTrue(snapshot.oldestPendingAgeSeconds()>=0);
         assertEquals(1,snapshot.runningRebuilds());
-        assertTrue(snapshot.rebuildEventsRemaining()>=1);
+        assertEquals(1,snapshot.rebuildEventsRemaining());
         assertTrue(snapshot.oldestRebuildAgeSeconds()>=0);
         assertTrue(rebuilds.find(tenant,run.runId()).isPresent());
         assertNotNull(aggregate);
