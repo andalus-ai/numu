@@ -136,8 +136,12 @@ public final class HistoricalProjectionReconciliationService {
             ReconciliationReport report=new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
             if(repair) repairAudit.complete(tenantId,actorId,operationId,
                     new RepairOutcome(pageSize,checked,missing,stale,divergent,orphaned,repaired),clock.instant());
-            metrics.recordReconciliation(new HistoricalProjectionMetricsPort.ReconciliationMetric(
-                    checked,missing,stale,divergent,orphaned,repaired));
+            try {
+                metrics.recordReconciliation(new HistoricalProjectionMetricsPort.ReconciliationMetric(
+                        checked,missing,stale,divergent,orphaned,repaired));
+            } catch (RuntimeException ignored) {
+                // Metrics are best-effort; durable repair audit is the operational record.
+            }
             return report;
         } catch(Exception failure) {
             if(repair) {
