@@ -35,7 +35,7 @@ Thresholds are deployment-specific and should be tuned against measured throughp
 - Running rebuild age exceeds the planned maintenance window.
 - Rebuild remaining count stops decreasing across successive collection intervals.
 - Reconciliation reports any missing, stale, divergent, or orphaned records.
-- Repaired count is non-zero; this is an operational event and should be reviewed, even when repair succeeds.
+- Repaired count is non-zero; this is an operational event and should be reviewed, even when repair succeeds. Correlate it with the immutable STARTED/COMPLETED/FAILED audit entries for the operation.
 
 Do not use a single global threshold for all tenants without considering workload size. Avoid paging on a transient backlog that is draining within the delivery SLO.
 
@@ -63,7 +63,7 @@ Never run tenant and public rebuilds by passing client-supplied scope values. Ne
 
 Run reconciliation in dry-run mode first (repair=false). It compares canonical latest PostgreSQL events with the graph projection and checks for graph-only orphan records. Review the report before enabling repair.
 
-Repair (repair=true) requires both audit and rebuild authorization. It replays canonical events only into the disposable projection. A graph revision newer than the canonical revision is reported as divergent and is not overwritten automatically. Escalate such a result for investigation rather than forcing a downgrade.
+Repair (repair=true) requires audit and rebuild authorization, an authenticated operator identity, and the durable PostgreSQL repair-audit adapter. The audit stream appends STARTED before projection changes and COMPLETED or FAILED afterward; records are immutable. If durable audit is not configured, repair is refused before projection changes. It replays canonical events only into the disposable projection. A graph revision newer than the canonical revision is reported as divergent and is not overwritten automatically. Escalate such a result for investigation rather than forcing a downgrade.
 
 ## Recovery and rollback
 
