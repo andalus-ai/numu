@@ -1,6 +1,8 @@
 package tech.kayys.numou.accounting.domain.model;
 
 import tech.kayys.numou.accounting.domain.identifier.FiscalPeriodId;
+import tech.kayys.numou.accounting.domain.ledger.LedgerId;
+import tech.kayys.numou.accounting.domain.multitenancy.TenantRef;
 import tech.kayys.numou.foundation.domain.entity.AbstractAggregateRoot;
 import tech.kayys.numou.foundation.domain.valueobject.ValueObject;
 
@@ -11,20 +13,34 @@ public final class FiscalPeriod extends AbstractAggregateRoot<FiscalPeriodId> {
     public enum PeriodStatus implements ValueObject { OPEN, CLOSED, LOCKED }
 
     private final FiscalPeriodId id;
+    private final TenantRef tenantId;
+    private final LedgerId ledgerId;
     private final int periodNumber;
     private final String periodName;
     private final LocalDate startDate;
     private final LocalDate endDate;
     private PeriodStatus status;
 
-    public FiscalPeriod(FiscalPeriodId id, int periodNumber, String periodName, LocalDate startDate, LocalDate endDate) {
+    public FiscalPeriod(FiscalPeriodId id, TenantRef tenantId, LedgerId ledgerId, int periodNumber, String periodName, LocalDate startDate, LocalDate endDate) {
+        this.tenantId = Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        this.ledgerId = Objects.requireNonNull(ledgerId, "ledgerId cannot be null");
         this.id = Objects.requireNonNull(id, "id cannot be null");
         this.periodNumber = periodNumber;
         this.periodName = Objects.requireNonNull(periodName);
         this.startDate = Objects.requireNonNull(startDate);
+        if (endDate.isBefore(startDate)) throw new IllegalArgumentException("endDate cannot be before startDate");
         this.endDate = Objects.requireNonNull(endDate);
         this.status = PeriodStatus.OPEN;
     }
+
+    /** Transitional compatibility constructor; new periods must provide explicit ownership. */
+    @Deprecated(forRemoval = false)
+    public FiscalPeriod(FiscalPeriodId id, int periodNumber, String periodName, LocalDate startDate, LocalDate endDate) {
+        this(id, TenantRef.defaultTenant(), LedgerId.primary(), periodNumber, periodName, startDate, endDate);
+    }
+
+    public TenantRef getTenantId() { return tenantId; }
+    public LedgerId getLedgerId() { return ledgerId; }
 
     @Override
     public FiscalPeriodId id() { return id; }
