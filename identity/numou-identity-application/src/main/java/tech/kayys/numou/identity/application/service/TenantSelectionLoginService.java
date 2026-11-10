@@ -53,8 +53,8 @@ public class TenantSelectionLoginService {
                     }
                     Uni<Void> upgrade = Uni.createFrom().voidItem();
                     if (passwordHasher.needsRehash(user.passwordHash())) {
-                        user.upgradePasswordHash(passwordHasher.hash(request.password()));
-                        upgrade = users.save(user);
+                        upgrade = users.updatePasswordHash(user.id(),
+                                passwordHasher.hash(request.password()));
                     }
                     return upgrade.map(ignored -> {
                         String token = tokenIssuer.issueTenantSelectionToken(
