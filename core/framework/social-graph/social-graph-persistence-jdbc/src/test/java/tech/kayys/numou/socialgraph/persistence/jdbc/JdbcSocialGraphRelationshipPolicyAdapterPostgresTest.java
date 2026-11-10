@@ -62,7 +62,7 @@ class JdbcSocialGraphRelationshipPolicyAdapterPostgresTest {
         assertThat(adapter.isMuted(tenant, viewer, author, start).await().indefinitely()).isTrue();
         assertThat(adapter.isMuted(tenant, author, viewer, start).await().indefinitely()).isFalse();
         assertThat(adapter.isMuted(tenant, viewer, author, end).await().indefinitely()).isFalse();
-        assertThat(adapter.isMuted(tenant, viewer, author, start.minusNanos(1)).await().indefinitely()).isFalse();
+        assertThat(adapter.isMuted(tenant, viewer, author, start.minusSeconds(1)).await().indefinitely()).isFalse();
     }
 
     private static void insert(DataSource dataSource, SocialRelationship relationship) throws Exception {
