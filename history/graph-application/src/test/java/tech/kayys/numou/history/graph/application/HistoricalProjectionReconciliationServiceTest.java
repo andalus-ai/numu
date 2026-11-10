@@ -23,7 +23,7 @@ class HistoricalProjectionReconciliationServiceTest {
         graph.rows.put(divergent,projected(divergent,2,"wrong"));
         graph.rows.put(orphan,projected(orphan,1,"orphan"));
         List<ClaimedProjectionEvent> repairs=new ArrayList<>();
-        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add,()->TENANT,allowAll()).reconcile(TENANT,2,true);
+        var report=service(audit,graph,repairs::add).reconcile(TENANT,2,true);
         assertEquals(3,report.canonicalChecked());assertEquals(1,report.missing());assertEquals(1,report.stale());
         assertEquals(1,report.divergent());assertEquals(1,report.orphaned());assertEquals(3,report.repaired());
         assertEquals(Set.of(missing,stale,divergent),new HashSet<>(repairs.stream().map(ClaimedProjectionEvent::aggregateId).toList()));
