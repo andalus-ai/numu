@@ -53,7 +53,7 @@ public class JdbcSocialGraphRelationshipQueryAdapter implements SocialGraphRelat
         Objects.requireNonNull(party, "party cannot be null");
         Objects.requireNonNull(at, "at cannot be null");
         if (limit < 1 || limit > MAX_PAGE_SIZE) throw new IllegalArgumentException("limit must be between 1 and 100");
-        Cursor decoded = cursor == null || cursor.isBlank() ? null : Cursor.decode(cursor);
+        Cursor decoded = cursor == null || cursor.isBlank() ? null : Cursor.decode(cursor, party.value(), outgoing);
         return Uni.createFrom().item(() -> queryBlocking(tenantId, party, at, decoded, limit, outgoing))
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
@@ -71,7 +71,7 @@ public class JdbcSocialGraphRelationshipQueryAdapter implements SocialGraphRelat
                    AND status = 'ACTIVE'
                    AND valid_from <= ?
                    AND (valid_until IS NULL OR valid_until > ?)
-                   AND (? IS NULL OR (created_at, relationship_id) < (?, ?))
+                   AND (?::timestamptz IS NULL OR (created_at, relationship_id) < (?, ?))
                  ORDER BY created_at DESC, relationship_id DESC
                  LIMIT ?
                 """.formatted(counterpart, endpoint);
@@ -95,7 +95,7 @@ public class JdbcSocialGraphRelationshipQueryAdapter implements SocialGraphRelat
             boolean hasMore = rows.size() > limit;
             List<SocialGraphRelationshipListEntry> page = hasMore
                     ? List.copyOf(rows.subList(0, limit)) : List.copyOf(rows);
-            String next = hasMore ? Cursor.encode(page.get(page.size() - 1)) : null;
+            String next = hasMore ? Cursor.encode(page.get(page.size() - 1), party.value(), outgoing) : null;
             return new SocialGraphRelationshipQueryPage(page, next);
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to query Social Graph relationships", failure);
@@ -103,17 +103,21 @@ public class JdbcSocialGraphRelationshipQueryAdapter implements SocialGraphRelat
     }
 
     private record Cursor(Instant createdAt, UUID relationshipId) {
-        private static String encode(SocialGraphRelationshipListEntry entry) {
-            String raw = entry.createdAt() + "|" + entry.relationshipId();
+        private static String encode(SocialGraphRelationshipListEntry entry, UUID owner, boolean outgoing) {
+            String raw = owner + "|" + (outgoing ? "OUT" : "IN") + "|" + entry.createdAt() + "|" + entry.relationshipId();
             return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
         }
 
-        private static Cursor decode(String encoded) {
+        private static Cursor decode(String encoded, UUID expectedOwner, boolean expectedOutgoing) {
             try {
                 String raw = new String(Base64.getUrlDecoder().decode(encoded), StandardCharsets.UTF_8);
                 String[] parts = raw.split("\\|", -1);
-                if (parts.length != 2) throw new IllegalArgumentException("Invalid relationship cursor");
-                return new Cursor(Instant.parse(parts[0]), UUID.fromString(parts[1]));
+                if (parts.length != 4
+                        || !UUID.fromString(parts[0]).equals(expectedOwner)
+                        || !parts[1].equals(expectedOutgoing ? "OUT" : "IN")) {
+                    throw new IllegalArgumentException("Cursor does not belong to this relationship list");
+                }
+                return new Cursor(Instant.parse(parts[2]), UUID.fromString(parts[3]));
             } catch (RuntimeException invalid) {
                 throw new IllegalArgumentException("Invalid relationship cursor", invalid);
             }
