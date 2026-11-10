@@ -71,14 +71,12 @@ public class PostgresUserRepository implements UserRepository {
     }
 
     @Override
-    public Uni<Void> updatePasswordHash(UserId id, PasswordHash passwordHash) {
-        return Panache.withTransaction(() -> UserEntity.<UserEntity>findById(id.value())
-                .invoke(entity -> {
-                    if (entity != null) {
-                        entity.passwordHash = passwordHash.value();
-                    }
-                })
-                .replaceWithVoid());
+    public Uni<Boolean> updatePasswordHash(UserId id, PasswordHash expectedHash,
+                                           PasswordHash replacementHash) {
+        return Panache.withTransaction(() -> UserEntity.update(
+                        "passwordHash = ?1 where id = ?2 and passwordHash = ?3",
+                        replacementHash.value(), id.value(), expectedHash.value())
+                .map(updatedRows -> updatedRows > 0));
     }
 
     private User toDomain(UserEntity entity) {
