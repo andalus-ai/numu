@@ -25,11 +25,11 @@ public final class JdbcHistoricalProjectionRepairAuditStore implements Historica
 
     @Override public void complete(UUID tenantId,UUID actorId,UUID operationId,RepairOutcome outcome,Instant occurredAt) {
         Objects.requireNonNull(outcome,"outcome");
-        append(tenantId,actorId,operationId,"COMPLETED",1,outcome,"",occurredAt);
+        append(tenantId,actorId,operationId,"COMPLETED",outcome.pageSize(),outcome,"",occurredAt);
     }
 
-    @Override public void fail(UUID tenantId,UUID actorId,UUID operationId,String reason,Instant occurredAt) {
-        append(tenantId,actorId,operationId,"FAILED",1,null,safe(reason),occurredAt);
+    @Override public void fail(UUID tenantId,UUID actorId,UUID operationId,int pageSize,String reason,Instant occurredAt) {
+        append(tenantId,actorId,operationId,"FAILED",pageSize,null,safe(reason),occurredAt);
     }
 
     private void append(UUID tenantId,UUID actorId,UUID operationId,String phase,int pageSize,
