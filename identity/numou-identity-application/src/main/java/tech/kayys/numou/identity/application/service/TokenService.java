@@ -66,27 +66,34 @@ public class TokenService {
                                     "BAD_CREDENTIALS", "Invalid username or password"
                             ).toException());
                         }
-                        String token = tokenIssuer.issueToken(
-                                user.id().value(),
-                                "USER",
-                                user.displayName().value()
-                        );
-                        boolean rememberMe = request.rememberMe();
-                        String rememberMeToken = null;
-                        if (rememberMe) {
-                            var patResponse = patService.issue(
-                                    new CreatePatRequest(
-                                            "USER",
-                                            user.id().value(),
-                                            "remember-me:" + user.id().value(),
-                                            Instant.now().plusSeconds(30L * 24L * 60L * 60L)
-                                    )
-                            ).await().indefinitely();
-                            rememberMeToken = patResponse.token();
+                        Uni<Void> upgrade = Uni.createFrom().voidItem();
+                        if (passwordHasher.needsRehash(user.passwordHash())) {
+                            user.upgradePasswordHash(passwordHasher.hash(request.password()));
+                            upgrade = userRepository.save(user);
                         }
-                        return Uni.createFrom().item(new AccessTokenResponse(
-                                token, "Bearer", lifespanSeconds, rememberMeToken
-                        ));
+                        return upgrade.map(ignored -> {
+                            String token = tokenIssuer.issueToken(
+                                    user.id().value(),
+                                    "USER",
+                                    user.displayName().value()
+                            );
+                            boolean rememberMe = request.rememberMe();
+                            String rememberMeToken = null;
+                            if (rememberMe) {
+                                var patResponse = patService.issue(
+                                        new CreatePatRequest(
+                                                "USER",
+                                                user.id().value(),
+                                                "remember-me:" + user.id().value(),
+                                                Instant.now().plusSeconds(30L * 24L * 60L * 60L)
+                                        )
+                                ).await().indefinitely();
+                                rememberMeToken = patResponse.token();
+                            }
+                            return new AccessTokenResponse(
+                                    token, "Bearer", lifespanSeconds, rememberMeToken
+                            );
+                        });
                     });
         } catch (IllegalArgumentException e) {
             return Uni.createFrom().failure(ApplicationError.of(
