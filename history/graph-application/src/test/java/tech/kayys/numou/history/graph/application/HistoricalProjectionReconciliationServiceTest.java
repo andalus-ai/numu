@@ -19,7 +19,7 @@ class HistoricalProjectionReconciliationServiceTest {
         graph.rows.put(divergent,projected(divergent,2,"wrong"));
         graph.rows.put(orphan,projected(orphan,1,"orphan"));
         List<ClaimedProjectionEvent> repairs=new ArrayList<>();
-        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add).reconcile(TENANT,2,true);
+        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add,()->TENANT,allowAll()).reconcile(TENANT,2,true);
         assertEquals(3,report.canonicalChecked());assertEquals(1,report.missing());assertEquals(1,report.stale());
         assertEquals(1,report.divergent());assertEquals(1,report.orphaned());assertEquals(3,report.repaired());
         assertEquals(Set.of(missing,stale,divergent),new HashSet<>(repairs.stream().map(ClaimedProjectionEvent::aggregateId).toList()));
@@ -30,6 +30,16 @@ class HistoricalProjectionReconciliationServiceTest {
         var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add).reconcile(TENANT,10,true);
         assertEquals(1,report.divergent());assertTrue(repairs.isEmpty());
     }
+
+    private static HistoricalProjectionMaintenanceAuthorizationPort allowAll(){
+        return new HistoricalProjectionMaintenanceAuthorizationPort(){
+            public void requireCanRebuildTenant(UUID id){}
+            public void requireCanRebuildPublicCorpus(){}
+            public void requireCanAuditTenant(UUID id){}
+            public void requireCanAuditPublicCorpus(){}
+        };
+    }
+
     private static CanonicalRelationship row(UUID id,long rev) {
         String payload="{\"relationshipId\":\""+id+"\",\"revision\":"+rev+"}";
         return new CanonicalRelationship(UUID.randomUUID(),"history.relationship.revision-appended",1,TENANT,id,rev,
