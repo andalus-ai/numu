@@ -68,8 +68,8 @@ public class TokenService {
                         }
                         Uni<Void> upgrade = Uni.createFrom().voidItem();
                         if (passwordHasher.needsRehash(user.passwordHash())) {
-                            user.upgradePasswordHash(passwordHasher.hash(request.password()));
-                            upgrade = userRepository.save(user);
+                            upgrade = userRepository.updatePasswordHash(user.id(),
+                                    passwordHasher.hash(request.password()));
                         }
                         return upgrade.map(ignored -> {
                             String token = tokenIssuer.issueToken(
