@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VersionedPasswordHasherTest {
 
-    private final JBcryptPasswordHasher hasher = new VersionedPasswordHasher();
+    private final VersionedPasswordHasher hasher = new VersionedPasswordHasher();
 
     @Test
     void hashesWithVersionedPbkdf2AndVerifiesCorrectPassword() {
