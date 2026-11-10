@@ -105,8 +105,12 @@ public final class HistoricalProjectionRebuildService {
     }
 
     private RebuildProgress progress(UUID tenantId, RebuildRun run, int projected, boolean completed) {
-        metrics.recordRebuildProgress(new HistoricalProjectionMetricsPort.RebuildMetric(
-                projected,run.cursorSequence(),run.highWaterSequence(),completed));
+        try {
+            metrics.recordRebuildProgress(new HistoricalProjectionMetricsPort.RebuildMetric(
+                    projected,run.cursorSequence(),run.highWaterSequence(),completed));
+        } catch (RuntimeException ignored) {
+            // Telemetry must never turn a committed projection checkpoint into a failed page.
+        }
         return new RebuildProgress(run,projected,completed);
     }
 
