@@ -31,7 +31,7 @@ class HistoricalProjectionReconciliationServiceTest {
     @Test void neverOverwritesGraphRevisionNewerThanCanonical() throws Exception {
         UUID id=UUID.randomUUID();FakeAudit audit=new FakeAudit(List.of(row(id,1)));FakeInspection graph=new FakeInspection();
         graph.rows.put(id,projected(id,2,"newer"));List<ClaimedProjectionEvent> repairs=new ArrayList<>();
-        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add,()->TENANT,allowAll()).reconcile(TENANT,10,true);
+        var report=service(audit,graph,repairs::add).reconcile(TENANT,10,true);
         assertEquals(1,report.divergent());assertTrue(repairs.isEmpty());
     }
 
