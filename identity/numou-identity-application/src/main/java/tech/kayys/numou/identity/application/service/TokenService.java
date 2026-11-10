@@ -68,8 +68,12 @@ public class TokenService {
                         }
                         Uni<Void> upgrade = Uni.createFrom().voidItem();
                         if (passwordHasher.needsRehash(user.passwordHash())) {
-                            upgrade = userRepository.updatePasswordHash(user.id(),
-                                    passwordHasher.hash(request.password()));
+                            var verifiedHash = user.passwordHash();
+                            upgrade = userRepository.updatePasswordHash(user.id(), verifiedHash,
+                                            passwordHasher.hash(request.password()))
+                                    .chain(updated -> updated
+                                            ? Uni.createFrom().voidItem()
+                                            : verifyCredentialStillCurrent(user.id(), request.password()));
                         }
                         return upgrade.map(ignored -> {
                             String token = tokenIssuer.issueToken(
@@ -100,6 +104,19 @@ public class TokenService {
                     "BAD_CREDENTIALS", "Invalid username or password format"
             ).toException());
         }
+    }
+
+    private Uni<Void> verifyCredentialStillCurrent(
+            tech.kayys.numou.identity.domain.user.UserId userId, String rawPassword) {
+        return userRepository.findById(userId).chain(current -> {
+            if (current.isPresent() && current.get().isActive()
+                    && passwordHasher.matches(rawPassword, current.get().passwordHash())) {
+                return Uni.createFrom().voidItem();
+            }
+            return Uni.createFrom().failure(ApplicationError.of(
+                    "BAD_CREDENTIALS", "Invalid username or password"
+            ).toException());
+        });
     }
 
     public AccessTokenResponse issueFor(UUID principalId, String principalType, String displayName) {
