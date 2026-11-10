@@ -29,6 +29,10 @@ No bulk password reset or database migration is required. Existing BCrypt hashes
 
 The historical BCrypt 72-byte input behavior is a compatibility edge case: credentials whose UTF-8 encoding exceeds 72 bytes are not accepted by the legacy verifier. Such accounts need a controlled recovery/reset path; accepting arbitrary suffixes would preserve BCrypt's truncation ambiguity.
 
+## Login throttling scope and operational requirements
+
+The login filter currently enforces a per-process, per-source-address budget (default burst 10, refill 0.1 tokens/second, bounded to 100,000 tracked keys). It does not yet provide a distributed/global budget or a per-account credential-stuffing budget. In a multi-replica deployment, enforce a shared limit at the trusted ingress/API gateway and add account-keyed throttling in a later slice. The filter uses the socket peer address and does not trust arbitrary X-Forwarded-For input. If the service is behind a reverse proxy, configure Quarkus proxy handling with an explicit trusted-proxy allowlist so the effective remote address is correct; otherwise ingress-side controls must be authoritative.
+
 ## Operational requirements
 
 PBKDF2 at 600,000 iterations is intentionally CPU-expensive. Before production rollout:
@@ -51,6 +55,9 @@ Argon2id remains the preferred memory-hard option for deployments without a FIPS
 - UTF-8 byte-length enforcement.
 - BCrypt 72-byte boundary behavior.
 - Compare-and-set repository tests proving stale migrations cannot overwrite a newer credential.
+- Token bucket tests for burst capacity, refill behavior, independent keys, and invalid configuration.
+- A bounded token-bucket filter for both public password-login routes, returning HTTP 429 and Retry-After when the source budget is exhausted.
+- Reuse of the platform's shared TokenBucketRateLimiter rather than introducing a second token-bucket implementation.
 
 ## Verification status
 
