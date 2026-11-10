@@ -22,16 +22,26 @@ public final class HistoricalProjectionReconciliationService {
     private final HistoricalRelationshipProjectionPort replayPort;
     private final HistoricalRelationshipTenantContext tenantContext;
     private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
+    private final HistoricalProjectionMetricsPort metrics;
 
     public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
             HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization) {
+        this(canonical,projection,replayPort,tenantContext,authorization,snapshot -> {});
+    }
+
+    public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
+            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            HistoricalProjectionMetricsPort metrics) {
         this.canonical = Objects.requireNonNull(canonical, "canonical");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.replayPort = Objects.requireNonNull(replayPort, "replayPort");
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
+        this.metrics = Objects.requireNonNull(metrics, "metrics");
     }
 
     public ReconciliationReport reconcile(UUID tenantId, int pageSize, boolean repair) throws Exception {
@@ -93,7 +103,10 @@ public final class HistoricalProjectionReconciliationService {
             }
             if(page.size()<pageSize) break;
         }
-        return new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
+        ReconciliationReport report=new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
+        metrics.recordReconciliation(new HistoricalProjectionMetricsPort.ReconciliationMetric(
+                checked,missing,stale,divergent,orphaned,repaired));
+        return report;
     }
 
     private void authorizeScope(UUID tenantId, boolean repair) {
