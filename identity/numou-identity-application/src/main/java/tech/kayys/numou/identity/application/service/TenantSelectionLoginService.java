@@ -51,10 +51,16 @@ public class TenantSelectionLoginService {
                     if (!user.isActive() || !passwordHasher.matches(request.password(), user.passwordHash())) {
                         return failure("BAD_CREDENTIALS", "Invalid username or password");
                     }
-                    String token = tokenIssuer.issueTenantSelectionToken(
-                            user.id().value(), user.displayName().value());
-                    return Uni.createFrom().item(
-                            AccessTokenResponse.bearer(token, SELECTION_TOKEN_LIFETIME_SECONDS));
+                    Uni<Void> upgrade = Uni.createFrom().voidItem();
+                    if (passwordHasher.needsRehash(user.passwordHash())) {
+                        user.upgradePasswordHash(passwordHasher.hash(request.password()));
+                        upgrade = users.save(user);
+                    }
+                    return upgrade.map(ignored -> {
+                        String token = tokenIssuer.issueTenantSelectionToken(
+                                user.id().value(), user.displayName().value());
+                        return AccessTokenResponse.bearer(token, SELECTION_TOKEN_LIFETIME_SECONDS);
+                    });
                 });
     }
 
