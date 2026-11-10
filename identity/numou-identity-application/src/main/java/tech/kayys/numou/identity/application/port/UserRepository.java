@@ -24,4 +24,21 @@ public interface UserRepository {
 
     Uni<Void> save(User user);
 
+    /**
+     * Persist a credential re-encoding after successful authentication.
+     * The default keeps in-memory and alternative adapters compatible;
+     * production adapters should override with a single transactional update.
+     */
+    default Uni<Void> updatePasswordHash(UserId id,
+                                         tech.kayys.numou.identity.domain.valueobject.PasswordHash passwordHash) {
+        return findById(id).chain(optional -> {
+            if (optional.isEmpty()) {
+                return Uni.createFrom().voidItem();
+            }
+            User user = optional.get();
+            user.upgradePasswordHash(passwordHash);
+            return save(user);
+        });
+    }
+
 }
