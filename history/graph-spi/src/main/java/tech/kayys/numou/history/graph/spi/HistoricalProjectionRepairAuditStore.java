@@ -7,8 +7,8 @@ import java.util.UUID;
 public interface HistoricalProjectionRepairAuditStore {
     UUID start(UUID tenantId, UUID actorId, int pageSize, Instant occurredAt);
     void complete(UUID tenantId, UUID actorId, UUID operationId, RepairOutcome outcome, Instant occurredAt);
-    void fail(UUID tenantId, UUID actorId, UUID operationId, String reason, Instant occurredAt);
+    void fail(UUID tenantId, UUID actorId, UUID operationId, int pageSize, String reason, Instant occurredAt);
 
-    record RepairOutcome(long canonicalChecked, long missing, long stale, long divergent,
+    record RepairOutcome(int pageSize, long canonicalChecked, long missing, long stale, long divergent,
                          long orphaned, long repaired) {}
 }
