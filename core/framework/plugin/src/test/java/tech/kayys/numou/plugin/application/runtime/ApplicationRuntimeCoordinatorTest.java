@@ -173,7 +173,9 @@ class ApplicationRuntimeCoordinatorTest {
         TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, null);
         TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
         DefaultApplicationPluginContextFactory contexts =
-                new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"));
+                new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"),
+                        Map.of("tenant.id", "tenant-42", "actor.id", "user-7",
+                                "correlation.id", "corr-abc"));
         contexts.registerService(Runnable.class, () -> { });
 
         ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
@@ -181,6 +183,13 @@ class ApplicationRuntimeCoordinatorTest {
 
         assertThat(party.receivedContext.getProperty("region")).contains("id-ID");
         assertThat(accounting.receivedContext.getProperty("region")).contains("id-ID");
+        assertThat(party.receivedContext.attributes())
+                .containsEntry("tenant.id", "tenant-42")
+                .containsEntry("actor.id", "user-7")
+                .containsEntry("correlation.id", "corr-abc");
+        assertThat(accounting.receivedContext.attributes())
+                .containsEntry("tenant.id", "tenant-42")
+                .containsEntry("actor.id", "user-7");
         assertThat(accounting.observedSharedService).isInstanceOf(SharedMarker.class);
         assertThat(session.context("party-provider")).contains(party.receivedContext);
         assertThat(session.context("accounting-provider")).contains(accounting.receivedContext);
