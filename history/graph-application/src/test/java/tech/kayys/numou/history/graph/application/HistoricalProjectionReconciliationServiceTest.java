@@ -4,6 +4,10 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore.CanonicalRelationship;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionRepairAuditStore;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionRepairAuditStore.RepairOutcome;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.time.Instant;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,12 +45,26 @@ class HistoricalProjectionReconciliationServiceTest {
             public void record(tech.kayys.numou.history.graph.spi.HistoricalProjectionOperationalStore.OperationalSnapshot snapshot){}
             public void recordReconciliation(HistoricalProjectionMetricsPort.ReconciliationMetric metric){emitted.add(metric);}
         };
-        var report=new HistoricalProjectionReconciliationService(audit,graph,e->{},()->TENANT,allowAll(),metrics)
+        var report=new HistoricalProjectionReconciliationService(audit,graph,e->{},()->TENANT,allowAll(),metrics,
+                ()->UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),new FakeRepairAudit(),Clock.fixed(NOW,ZoneOffset.UTC))
                 .reconcile(TENANT,10,true);
         assertEquals(1,report.repaired());
         assertEquals(1,emitted.size());
         assertEquals(1,emitted.get(0).missing());
         assertEquals(1,emitted.get(0).repaired());
+    }
+
+
+    private static HistoricalProjectionReconciliationService service(HistoricalProjectionAuditStore audit,
+            HistoricalProjectionInspectionPort graph, HistoricalRelationshipProjectionPort replay) {
+        return new HistoricalProjectionReconciliationService(audit,graph,replay,()->TENANT,allowAll(),
+                snapshot->{},()->UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                new FakeRepairAudit(),Clock.fixed(NOW,ZoneOffset.UTC));
+    }
+    private static final class FakeRepairAudit implements HistoricalProjectionRepairAuditStore {
+        public UUID start(UUID tenant,UUID actor,int pageSize,Instant at){return UUID.randomUUID();}
+        public void complete(UUID tenant,UUID actor,UUID operation,RepairOutcome outcome,Instant at){}
+        public void fail(UUID tenant,UUID actor,UUID operation,String reason,Instant at){}
     }
 
     private static HistoricalProjectionMaintenanceAuthorizationPort allowAll(){
