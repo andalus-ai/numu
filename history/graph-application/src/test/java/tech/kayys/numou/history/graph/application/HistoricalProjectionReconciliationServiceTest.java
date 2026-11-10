@@ -36,6 +36,18 @@ class HistoricalProjectionReconciliationServiceTest {
     }
 
 
+
+    @Test void refusesRepairWhenDurableOperatorAuditIsNotConfigured() {
+        UUID id=UUID.randomUUID();
+        FakeAudit audit=new FakeAudit(List.of(row(id,1)));
+        FakeInspection graph=new FakeInspection();
+        int[] projected={0};
+        var service=new HistoricalProjectionReconciliationService(audit,graph,e->projected[0]++,
+                ()->TENANT,allowAll());
+        assertThrows(IllegalStateException.class,()->service.reconcile(TENANT,10,true));
+        assertEquals(0,projected[0]);
+    }
+
     @Test void emitsDriftAndRepairMetrics() throws Exception {
         UUID id=UUID.randomUUID();
         FakeAudit audit=new FakeAudit(List.of(row(id,1)));
