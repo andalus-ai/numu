@@ -71,7 +71,7 @@ class SocialGraphRelationshipReadServiceTest {
                     @Override public Uni<Boolean> isMuted(TenantId t, PartyId a, PartyId b, Instant at) { return Uni.createFrom().item(false); }
                 }, Clock.systemUTC()), Clock.systemUTC());
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> service.followers(TenantId.generate(), PartyId.generate(), null, 101))
+                () -> service.followers(TenantId.generate(), PartyId.generate(), PartyId.generate(), null, 101))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }
