@@ -66,6 +66,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Reuse the platform token-bucket primitive for public login throttling. -->
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-security-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Cross-cutting framework: metrics/tracing/health ports + their
              Micrometer/OpenTelemetry implementations, and the Caffeine Cache port. -->
         <dependency>
