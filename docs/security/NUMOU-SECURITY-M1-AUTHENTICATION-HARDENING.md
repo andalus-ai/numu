@@ -21,7 +21,7 @@ The format is self-describing:
 - Malformed or unsupported encoded hashes fail verification without exposing parser errors.
 - PBKDF2 verification bounds accepted iteration counts (100,000–2,000,000) to prevent attacker-controlled excessive CPU work.
 - BCrypt verification rejects candidates longer than BCrypt's 72-byte input boundary rather than silently ignoring a suffix.
-- The application repository port exposes a password-hash upgrade operation. The PostgreSQL adapter overrides it with a transaction-scoped update.
+- The application repository port exposes a compare-and-set password-hash upgrade operation. The PostgreSQL adapter updates only when the persisted hash still matches the hash verified at login, preventing a delayed migration from overwriting a concurrent password change. If another operation wins the race, the login flow reloads and re-verifies the credential before issuing a token.
 
 ## Compatibility and migration
 
@@ -50,6 +50,7 @@ Argon2id remains the preferred memory-hard option for deployments without a FIPS
 - Malformed encoded hash handling.
 - UTF-8 byte-length enforcement.
 - BCrypt 72-byte boundary behavior.
+- Compare-and-set repository tests proving stale migrations cannot overwrite a newer credential.
 
 ## Verification status
 
