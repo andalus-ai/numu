@@ -74,9 +74,9 @@ The comment says real secrets belong in environment variables or a secret manage
 
 If a deployment omits `IDENTITY_DB_PASSWORD`, the service may attempt to authenticate with the public placeholder. This is unsafe configuration behavior even if the database currently rejects that password.
 
-**Required action**
+**Implemented on the M0 branch**
 
-Remove the fallback and require the secret at runtime, with a startup failure when absent. Keep local developer credentials in an untracked local profile or documented local compose environment. Add a configuration contract test that ensures production configuration has no weak secret fallback.
+A production-profile override now requires `IDENTITY_DB_PASSWORD` without a fallback. The existing base fallback remains for local development compatibility; production must run with the `prod` profile. A configuration contract test and runtime startup verification remain pending.
 
 ### M0-03 — Federation cookie secure flag defaults to false
 
@@ -92,9 +92,9 @@ The nearby comment says production behind TLS should set this to true, but the c
 
 A production deployment that does not override the property may issue a federation flow cookie without the Secure attribute.
 
-**Required action**
+**Implemented on the M0 branch**
 
-Set the production profile to require Secure cookies. Prefer a secure default and make any HTTP-only local-development exception explicit in a dev-only profile. Verify HttpOnly, SameSite, Path, expiry, PKCE state binding, and CSRF protections in the actual cookie implementation.
+A production-profile override now sets `numou.identity.federation.cookie-secure=true`; the existing false value remains for local development compatibility. Verify the emitted Set-Cookie attributes (including HttpOnly, SameSite, Path and expiry), PKCE state binding, and CSRF protections with HTTP-level tests before closing this finding.
 
 ### M0-04 — ABAC evaluator has fail-closed behavior in the inspected path
 
@@ -209,8 +209,9 @@ Priorities are engineering triage based on source review, not externally validat
 - [x] Existing ABAC evaluator and authorization helper behavior inspected.
 - [x] Existing tenant-bound authentication and signing-key operations contracts reviewed.
 - [x] Findings and milestone ownership documented.
-- [ ] Remove weak database password fallback and add configuration regression test.
-- [ ] Enforce Secure federation cookies in production profile and add configuration/HTTP tests.
+- [x] Add a production-only mandatory database password override (runtime startup verification pending).
+- [x] Enforce Secure federation cookies in the production profile (HTTP-level attribute verification pending).
+- [ ] Add configuration regression tests for both production overrides.
 - [ ] Run the owning Identity Maven reactor and record exact command/result.
 - [ ] Complete endpoint and deployment configuration inventory.
 - [ ] Review findings with maintainers before declaring M0 closed.
