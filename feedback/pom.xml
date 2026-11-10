@@ -11,7 +11,7 @@
   <artifactId>numou-feedback</artifactId>
   <packaging>pom</packaging>
   <name>Numou Feedback</name>
-  <description>Reusable, application-neutral feedback capability.</description>
+  <description>Reusable, tenant-aware feedback capability.</description>
   <modules>
     <module>feedback-domain</module>
     <module>feedback-application</module>

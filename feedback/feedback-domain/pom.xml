@@ -10,7 +10,13 @@
   </parent>
   <artifactId>numou-feedback-domain</artifactId>
   <name>Numou Feedback - Domain</name>
+  <description>Pure Java feedback aggregates, value objects and lifecycle rules.</description>
   <dependencies>
+    <dependency>
+      <groupId>tech.kayys.numou</groupId>
+      <artifactId>numou-foundation</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
