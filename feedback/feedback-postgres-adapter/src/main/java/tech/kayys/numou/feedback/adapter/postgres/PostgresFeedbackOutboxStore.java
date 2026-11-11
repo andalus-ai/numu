@@ -44,7 +44,7 @@ public final class PostgresFeedbackOutboxStore implements FeedbackOutboxStore {
                 """;
         String lease = """
                 UPDATE feedback_outbox
-                   SET lease_until = ?
+                   SET lease_until = ?, lease_token = ?
                  WHERE event_id = ?
                    AND published_at IS NULL
                    AND dead_lettered_at IS NULL
@@ -69,14 +69,16 @@ public final class PostgresFeedbackOutboxStore implements FeedbackOutboxStore {
                                     rows.getInt("event_version"),
                                     rows.getString("payload"),
                                     rows.getTimestamp("occurred_at").toInstant(),
-                                    rows.getInt("attempts")));
+                                    rows.getInt("attempts"),
+                                    UUID.randomUUID()));
                         }
                     }
                 }
                 try (PreparedStatement statement = connection.prepareStatement(lease)) {
                     for (FeedbackOutboxMessage message : claimed) {
                         statement.setTimestamp(1, Timestamp.from(leaseUntil));
-                        statement.setObject(2, message.eventId());
+                        statement.setObject(2, message.leaseToken());
+                        statement.setObject(3, message.eventId());
                         statement.addBatch();
                     }
                     statement.executeBatch();
@@ -95,23 +97,24 @@ public final class PostgresFeedbackOutboxStore implements FeedbackOutboxStore {
     }
 
     @Override
-    public void markPublished(UUID eventId, Instant publishedAt) {
+    public void markPublished(UUID eventId, UUID leaseToken, Instant publishedAt) {
         Objects.requireNonNull(eventId, "eventId");
         Objects.requireNonNull(publishedAt, "publishedAt");
         String sql = """
                 UPDATE feedback_outbox
-                   SET published_at = ?, lease_until = NULL, last_error = NULL
-                 WHERE event_id = ? AND published_at IS NULL
-                   AND dead_lettered_at IS NULL AND lease_until IS NOT NULL
+                   SET published_at = ?, lease_until = NULL, lease_token = NULL, last_error = NULL
+                 WHERE event_id = ? AND lease_token = ? AND published_at IS NULL
+                   AND dead_lettered_at IS NULL
                 """;
         executeClaimedUpdate(sql, statement -> {
             statement.setTimestamp(1, Timestamp.from(publishedAt));
             statement.setObject(2, eventId);
-        }, "Outbox event is missing, already completed, dead-lettered, or not claimed");
+            statement.setObject(3, leaseToken);
+        }, "Outbox event lease is stale, missing, or already completed");
     }
 
     @Override
-    public void recordFailure(UUID eventId, String error, Instant nextAttemptAt, int maximumAttempts) {
+    public void recordFailure(UUID eventId, UUID leaseToken, String error, Instant nextAttemptAt, int maximumAttempts) {
         Objects.requireNonNull(eventId, "eventId");
         Objects.requireNonNull(nextAttemptAt, "nextAttemptAt");
         if (maximumAttempts < 1) throw new IllegalArgumentException("maximumAttempts must be positive");
@@ -124,9 +127,10 @@ public final class PostgresFeedbackOutboxStore implements FeedbackOutboxStore {
                            WHEN attempts + 1 >= ? THEN CURRENT_TIMESTAMP
                            ELSE NULL
                        END,
-                       lease_until = NULL
-                 WHERE event_id = ? AND published_at IS NULL
-                   AND dead_lettered_at IS NULL AND lease_until IS NOT NULL
+                       lease_until = NULL,
+                       lease_token = NULL
+                 WHERE event_id = ? AND lease_token = ? AND published_at IS NULL
+                   AND dead_lettered_at IS NULL
                 """;
         String safeError = sanitize(error);
         executeClaimedUpdate(sql, statement -> {
@@ -134,7 +138,8 @@ public final class PostgresFeedbackOutboxStore implements FeedbackOutboxStore {
             statement.setTimestamp(2, Timestamp.from(nextAttemptAt));
             statement.setInt(3, maximumAttempts);
             statement.setObject(4, eventId);
-        }, "Outbox event is missing, already completed, dead-lettered, or not claimed");
+            statement.setObject(5, leaseToken);
+        }, "Outbox event lease is stale, missing, or already completed");
     }
 
     private void executeClaimedUpdate(String sql, SqlBinder binder, String conflictMessage) {
