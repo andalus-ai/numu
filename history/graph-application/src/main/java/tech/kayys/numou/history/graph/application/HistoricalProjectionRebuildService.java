@@ -21,8 +21,6 @@ import java.util.UUID;
 public final class HistoricalProjectionRebuildService {
     private final HistoricalProjectionRebuildStore store;
     private final HistoricalRelationshipProjectionPort projection;
-    private final HistoricalRelationshipTenantContext tenantContext;
-    private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
     private final Clock clock;
     private final int pageSize;
     private final HistoricalProjectionMetricsPort metrics;
@@ -57,8 +55,19 @@ public final class HistoricalProjectionRebuildService {
 
     /** Processes at most one page; repeat with the same run ID to resume safely. */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
-        Objects.requireNonNull(runId, "runId");
-        authorizeScope(tenantId);
+        return resumeOnePageInternal(tenantId, runId, null);
+    }
+
+    /** Replays one page into an isolated staging generation, leaving active data untouched. */
+    public RebuildProgress resumeOnePage(UUID tenantId, UUID runId, UUID generationId) {
+        Objects.requireNonNull(generationId, "generationId");
+        if (!(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+            throw new IllegalStateException("projection provider does not support generation-targeted replay");
+        }
+        return resumeOnePageInternal(tenantId, runId, generationId);
+    }
+
+    private RebuildProgress resumeOnePageInternal(UUID tenantId, UUID runId, UUID generationId) {
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
         if (run.status() == RebuildRun.Status.COMPLETED) {
@@ -86,7 +95,13 @@ public final class HistoricalProjectionRebuildService {
                 throw new IllegalStateException("rebuild page contains an unordered or out-of-snapshot event");
             }
             try {
-                projection.project(asClaimedEvent(event));
+                ClaimedProjectionEvent claimed = asClaimedEvent(event);
+                if (generationId == null) {
+                    projection.project(claimed);
+                } else {
+                    ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
+                            .projectIntoGeneration(claimed, generationId);
+                }
             } catch (RuntimeException failure) {
                 throw failure;
             } catch (Exception failure) {

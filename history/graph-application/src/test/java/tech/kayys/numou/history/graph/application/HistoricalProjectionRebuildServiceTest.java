@@ -105,6 +105,25 @@ class HistoricalProjectionRebuildServiceTest {
             public void requireCanAuditTenant(UUID tenantId) {}
             public void requireCanAuditPublicCorpus() {}
         };
+    @Test void stagingReplayUsesGenerationTargetedPort() {
+        FakeStore store = new FakeStore();
+        store.events = List.of(event(1));
+        UUID generationId = UUID.randomUUID();
+        List<UUID> targets = new ArrayList<>();
+        GenerationTargetedHistoricalRelationshipProjectionPort port = new GenerationTargetedHistoricalRelationshipProjectionPort() {
+            public void project(tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent event) {
+                fail("staging replay must not write to the default active projection");
+            }
+            public void projectIntoGeneration(tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent event, UUID generation) {
+                targets.add(generation);
+            }
+        };
+        var service = new HistoricalProjectionRebuildService(store, port,
+                Clock.fixed(NOW, ZoneOffset.UTC), 10);
+        var run = service.start(TENANT);
+        service.resumeOnePage(TENANT, run.runId(), generationId);
+        assertEquals(List.of(generationId), targets);
+        assertEquals(1, store.cursor);
     }
 
     private static ReplayEvent event(long sequence) {

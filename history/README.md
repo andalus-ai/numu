@@ -21,7 +21,7 @@ M5 architecture and explicit deferrals: [HISTORY-M5-SOURCES-PROVENANCE.md](../do
 ## Architecture
 An event, person, collective, or place is recorded once. Global, regional, civilization, biography, political, economic, scientific, religious, military, cultural, and comparative timelines are projections over canonical records, not separate entity stores.
 Historical valid time is distinct from record time and publication time. Calendar identity and partial-date precision are preserved. Geo's GeoPoint is reused for coordinates; History owns the historical meaning and temporal validity of location assertions.
-PostgreSQL is authoritative. Neo4j is optional and rebuildable from the durable projection outbox.
+PostgreSQL is authoritative. Neo4j is optional and rebuildable from the durable projection outbox. The Neo4j generation registry supports isolated BUILDING/READY/ACTIVE/RETAINED lifecycle records, atomic compare-and-set activation, and rollback by reactivating a retained generation. Outbox projection dual-writes to active and BUILDING/READY generations under a shared pointer lock; rebuild replay is generation-targeted and fenced; inspection and validation can target a candidate before activation. Host runtime wiring, scheduler/metrics, retention policy, and operational runbooks remain required before production enablement.
 
 ## Build
 mvn -B -ntp -f geo/pom.xml install
