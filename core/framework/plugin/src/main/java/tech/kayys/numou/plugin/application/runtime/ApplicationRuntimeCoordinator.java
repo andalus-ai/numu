@@ -45,6 +45,8 @@ public final class ApplicationRuntimeCoordinator {
         List<BoundPlugin> ordered = preflight(composition, implementations);
         List<BoundPlugin> attempted = new ArrayList<>();
         Map<String, PluginContext> contexts = new java.util.LinkedHashMap<>();
+        Map<String, NumouPlugin> pluginsByProvider = new java.util.LinkedHashMap<>();
+        Map<String, String> providerByCapability = new java.util.LinkedHashMap<>();
         String currentProvider = null;
         try {
             for (BoundPlugin binding : ordered) {
@@ -55,6 +57,8 @@ public final class ApplicationRuntimeCoordinator {
                             + binding.plugin().id() + " (provider " + currentProvider + ")");
                 }
                 contexts.put(currentProvider, context);
+                pluginsByProvider.put(currentProvider, binding.plugin());
+                providerByCapability.put(binding.provider().capabilityId(), currentProvider);
                 attempted.add(binding);
                 binding.plugin().initialize(context);
             }
@@ -64,7 +68,7 @@ public final class ApplicationRuntimeCoordinator {
             }
             return new ApplicationRuntimeSession(composition.applicationId(),
                     ordered.stream().map(b -> b.provider().providerId()).toList(),
-                    attempted.stream().map(BoundPlugin::plugin).toList(), contexts);
+                    pluginsByProvider, contexts, providerByCapability);
         } catch (Exception failure) {
             ApplicationRuntimeException startupFailure = new ApplicationRuntimeException(
                     "Failed to start application " + composition.applicationId()
