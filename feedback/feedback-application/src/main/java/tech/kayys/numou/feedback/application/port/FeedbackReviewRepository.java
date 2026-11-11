@@ -14,6 +14,9 @@ public interface FeedbackReviewRepository {
     void update(FeedbackReview review);
     Optional<FeedbackReview> findById(TenantId tenantId, FeedbackReviewId id);
     /** Tenant/target-scoped review listing; null status means all moderation states. */
-    List<FeedbackReview> findByTarget(TenantId tenantId, tech.kayys.numou.feedback.domain.rating.RatingTarget target,
-                                      ReviewStatus status, int limit, int offset);
+    default List<FeedbackReview> findByTarget(TenantId tenantId,
+                                               tech.kayys.numou.feedback.domain.rating.RatingTarget target,
+                                               ReviewStatus status, int limit, int offset) {
+        return List.of();
+    }
 }
