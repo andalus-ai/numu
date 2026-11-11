@@ -79,7 +79,15 @@ public final class HistoricalProjectionReconciliationService {
         while (true) {
             List<CanonicalRelationship> page=canonical.nextLatestPage(tenantId,cursor,pageSize);
             if(page.isEmpty()) break;
+            String previous = cursor;
             for(CanonicalRelationship event:page) {
+                if (!Objects.equals(tenantId, event.tenantId())) {
+                    throw new IllegalStateException("canonical audit page crossed tenant scope");
+                }
+                String currentId = event.relationshipId().toString();
+                if (previous != null && currentId.compareTo(previous) <= 0) {
+                    throw new IllegalStateException("canonical audit page is not strictly ordered");
+                }
                 checked++;
                 var graph=inspector.findInGeneration(tenantId,generationId,event.relationshipId());
                 String hash=sha256(event.payload());
@@ -92,6 +100,7 @@ public final class HistoricalProjectionReconciliationService {
                         stale++;
                         if(repair){projectIntoGeneration(event,generationId);repaired++;}
                     } else if(actual.revision()>event.revision()) {
+                        // A graph revision newer than the source is never overwritten automatically.
                         divergent++;
                     } else if(!event.eventKey().equals(actual.eventKey())
                             || !event.relationshipKind().equals(actual.relationshipKind())
@@ -104,8 +113,9 @@ public final class HistoricalProjectionReconciliationService {
                         if(repair){projectIntoGeneration(event,generationId);repaired++;}
                     }
                 }
-                cursor=event.relationshipId().toString();
+                previous=currentId;
             }
+            cursor=previous;
             if(page.size()<pageSize) break;
         }
         String graphCursor=null;
@@ -113,10 +123,16 @@ public final class HistoricalProjectionReconciliationService {
             List<HistoricalProjectionInspectionPort.ProjectedRelationship> page=
                     inspector.nextPageInGeneration(tenantId,generationId,graphCursor,pageSize);
             if(page.isEmpty()) break;
+            String previous = graphCursor;
             for(var row:page) {
+                String currentId = row.relationshipId().toString();
+                if (previous != null && currentId.compareTo(previous) <= 0) {
+                    throw new IllegalStateException("graph inspection page is not strictly ordered");
+                }
                 if(canonical.findLatest(tenantId,row.relationshipId()).isEmpty()) orphaned++;
-                graphCursor=row.relationshipId().toString();
+                previous=currentId;
             }
+            graphCursor=previous;
             if(page.size()<pageSize) break;
         }
         return new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);

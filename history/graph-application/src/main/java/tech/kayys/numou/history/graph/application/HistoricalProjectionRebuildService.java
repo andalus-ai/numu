@@ -4,7 +4,6 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.RebuildRun;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.ReplayEvent;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -75,6 +74,7 @@ public final class HistoricalProjectionRebuildService {
         }
 
         List<ReplayEvent> page = store.nextPage(tenantId, runId, pageSize);
+        validatePage(tenantId, run, page);
         if (page.isEmpty()) {
             if (!store.complete(tenantId, runId, run.cursorSequence(), clock.instant())) {
                 RebuildRun latest = store.find(tenantId, runId)
@@ -110,6 +110,7 @@ public final class HistoricalProjectionRebuildService {
             previousSequence = event.sequence();
             nextCursor = event.sequence();
         }
+        long nextCursor = page.get(page.size() - 1).sequence();
         if (!store.advance(tenantId, runId, run.cursorSequence(), nextCursor, clock.instant())) {
             RebuildRun latest = store.find(tenantId, runId)
                     .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
