@@ -15,5 +15,6 @@
   <modules>
     <module>feedback-domain</module>
     <module>feedback-application</module>
+    <module>feedback-postgres-adapter</module>
   </modules>
 </project>
