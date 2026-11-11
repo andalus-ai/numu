@@ -48,13 +48,20 @@ class PostgresFeedbackRepositoryTest {
         assertEquals(FeedbackStatus.SUBMITTED,
                 repository.findById(tenantId, first).orElseThrow().status());
         try (Connection c = dataSource.getConnection();
-             Statement s = c.createStatement();
-             var rows = s.executeQuery("SELECT (SELECT count(*) FROM feedback_items), "
-                     + "(SELECT count(*) FROM feedback_idempotency), (SELECT count(*) FROM feedback_outbox)")) {
-            assertTrue(rows.next());
-            assertEquals(1, rows.getInt(1));
-            assertEquals(1, rows.getInt(2));
-            assertEquals(1, rows.getInt(3));
+             var s = c.prepareStatement("""
+                     SELECT (SELECT count(*) FROM feedback_items WHERE tenant_id = ?),
+                            (SELECT count(*) FROM feedback_idempotency WHERE tenant_id = ?),
+                            (SELECT count(*) FROM feedback_outbox WHERE tenant_id = ?)
+                     """)) {
+            s.setObject(1, tenantId);
+            s.setObject(2, tenantId);
+            s.setObject(3, tenantId);
+            try (var rows = s.executeQuery()) {
+                assertTrue(rows.next());
+                assertEquals(1, rows.getInt(1));
+                assertEquals(1, rows.getInt(2));
+                assertEquals(1, rows.getInt(3));
+            }
         }
         assertTrue(repository.findById(UUID.randomUUID(), first).isEmpty());
     }
