@@ -1,20 +1,20 @@
 package tech.kayys.numou.feedback.application.command;
 
+import tech.kayys.numou.feedback.domain.FeedbackActor;
+import tech.kayys.numou.feedback.domain.FeedbackContext;
+import tech.kayys.numou.feedback.domain.FeedbackKind;
 import tech.kayys.numou.feedback.domain.FeedbackPriority;
-import tech.kayys.numou.feedback.domain.FeedbackType;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
-import java.util.UUID;
 
 public record SubmitFeedbackCommand(
-        UUID tenantId,
-        UUID submitterId,
-        FeedbackType type,
+        TenantId tenantId,
+        FeedbackActor author,
+        FeedbackKind kind,
+        FeedbackPriority priority,
         String title,
         String description,
-        String sourceApplication,
-        String sourceModule,
-        String sourceReference,
-        FeedbackPriority priority,
+        FeedbackContext context,
         String idempotencyKey,
         Instant occurredAt) {}
