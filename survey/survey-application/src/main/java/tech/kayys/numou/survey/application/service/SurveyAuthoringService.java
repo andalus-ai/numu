@@ -49,7 +49,6 @@ public final class SurveyAuthoringService implements SurveyAuthoringUseCase {
         Tenant tenant = gate.activeTenant(ctx.tenantId());
         if (template.kind() == SurveyKind.QUIZ) tenant.ensureQuizAllowed();
         Survey survey = template.instantiate(new SurveyId(ids.next()), ctx.tenantId(), clock.instant());
-        int questions = 0;
         for (int i = 0; i < survey.questionCount(); i++) tenant.ensureQuestionQuota(i);
         surveys.save(survey);
         return survey;
