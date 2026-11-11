@@ -47,6 +47,24 @@ public final class FeedbackItem {
         pendingEvents.add(new FeedbackSubmitted(UUID.randomUUID(), id, tenantId, type, now));
     }
 
+    /** Reconstitutes persisted state without emitting a new domain event. */
+    public static FeedbackItem restore(FeedbackId id, UUID tenantId, UUID submitterId,
+                                       FeedbackType type, String title, String description,
+                                       String sourceApplication, String sourceModule,
+                                       String sourceReference, FeedbackPriority priority,
+                                       FeedbackStatus status, Instant createdAt,
+                                       Instant updatedAt, long version) {
+        FeedbackItem item = new FeedbackItem(id, tenantId, submitterId, type, title, description,
+                sourceApplication, sourceModule, sourceReference, priority, createdAt);
+        item.status = Objects.requireNonNull(status, "status cannot be null");
+        item.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
+        if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt cannot be before createdAt");
+        if (version < 0) throw new IllegalArgumentException("version cannot be negative");
+        item.version = version;
+        item.pendingEvents.clear();
+        return item;
+    }
+
     public static FeedbackItem submit(FeedbackId id, UUID tenantId, UUID submitterId,
                                       FeedbackType type, String title, String description,
                                       String sourceApplication, String sourceModule,
