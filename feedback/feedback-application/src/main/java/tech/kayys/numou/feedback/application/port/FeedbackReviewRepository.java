@@ -9,5 +9,7 @@ import java.util.Optional;
 /** Tenant-scoped persistence contract for moderated reviews. */
 public interface FeedbackReviewRepository {
     void save(FeedbackReview review);
+    /** Updates moderation state without permitting cross-tenant mutation. */
+    void update(FeedbackReview review);
     Optional<FeedbackReview> findById(TenantId tenantId, FeedbackReviewId id);
 }
