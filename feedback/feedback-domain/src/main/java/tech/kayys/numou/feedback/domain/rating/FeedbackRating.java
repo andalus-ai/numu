@@ -28,11 +28,16 @@ public record FeedbackRating(
         Objects.requireNonNull(value, "value cannot be null");
         Objects.requireNonNull(submittedAt, "submittedAt cannot be null");
         if (!scale.contains(value)) throw new IllegalArgumentException("Rating value is outside the configured scale");
-        if (metric != RatingMetric.CUSTOM
-                && !scale.min().equals(BigDecimal.valueOf(metric.defaultMin()))
-                || metric != RatingMetric.CUSTOM
-                && !scale.max().equals(BigDecimal.valueOf(metric.defaultMax()))) {
-            throw new IllegalArgumentException("Scale does not match metric " + metric);
+        if (metric != RatingMetric.CUSTOM) {
+            if (!scale.min().equals(BigDecimal.valueOf(metric.defaultMin()))
+                    || !scale.max().equals(BigDecimal.valueOf(metric.defaultMax()))) {
+                throw new IllegalArgumentException("Scale does not match metric " + metric);
+            }
+            try {
+                value.intValueExact();
+            } catch (ArithmeticException fractionalValue) {
+                throw new IllegalArgumentException(metric + " requires an integer score", fractionalValue);
+            }
         }
         surveyReference = normalize(surveyReference);
         if (surveyReference != null && surveyReference.length() > 200) {
