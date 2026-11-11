@@ -45,7 +45,7 @@ public final class PostgresFeedbackSurveyRepository
             else s.setTimestamp(10, Timestamp.from(template.publishedAt()));
             if (s.executeUpdate() == 0) {
                 Optional<FeedbackSurveyTemplate> existing = find(template.tenantId(), template.code(), template.version());
-                if (existing.isEmpty() || !existing.get().checksum().equals(template.checksum()))
+                if (existing.isEmpty() || !existing.get().equals(template))
                     throw new IllegalStateException("A different immutable template version already exists");
             }
         } catch (SQLException e) {
@@ -91,7 +91,7 @@ public final class PostgresFeedbackSurveyRepository
         if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be in 1..500");
         String sql = """
                 SELECT * FROM feedback_survey_templates
-                 WHERE tenant_id = ? AND (? IS NULL OR template_code = ?)
+                 WHERE tenant_id = ? AND (?::varchar IS NULL OR template_code = ?)
                  ORDER BY template_code, template_version DESC LIMIT ?
                 """;
         try (Connection c = dataSource.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
