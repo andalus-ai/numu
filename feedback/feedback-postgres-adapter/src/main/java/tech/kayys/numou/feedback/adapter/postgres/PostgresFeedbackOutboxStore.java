@@ -99,6 +99,7 @@ public final class PostgresFeedbackOutboxStore implements FeedbackOutboxStore {
     @Override
     public void markPublished(UUID eventId, UUID leaseToken, Instant publishedAt) {
         Objects.requireNonNull(eventId, "eventId");
+        Objects.requireNonNull(leaseToken, "leaseToken");
         Objects.requireNonNull(publishedAt, "publishedAt");
         String sql = """
                 UPDATE feedback_outbox
@@ -116,6 +117,7 @@ public final class PostgresFeedbackOutboxStore implements FeedbackOutboxStore {
     @Override
     public void recordFailure(UUID eventId, UUID leaseToken, String error, Instant nextAttemptAt, int maximumAttempts) {
         Objects.requireNonNull(eventId, "eventId");
+        Objects.requireNonNull(leaseToken, "leaseToken");
         Objects.requireNonNull(nextAttemptAt, "nextAttemptAt");
         if (maximumAttempts < 1) throw new IllegalArgumentException("maximumAttempts must be positive");
         String sql = """
