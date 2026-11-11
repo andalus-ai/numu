@@ -28,7 +28,7 @@ public final class PostgresFeedbackSurveyRepository
                 INSERT INTO feedback_survey_templates
                 (tenant_id, template_code, template_version, title, description, survey_definition,
                  definition_sha256, status, created_at, published_at)
-                VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (tenant_id, template_code, template_version) DO NOTHING
                 """;
         try (Connection c = dataSource.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
