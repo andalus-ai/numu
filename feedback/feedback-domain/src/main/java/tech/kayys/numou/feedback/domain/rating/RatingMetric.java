@@ -19,6 +19,16 @@ public enum RatingMetric {
     public Integer defaultMin() { return defaultMin; }
     public Integer defaultMax() { return defaultMax; }
 
+    /** Inclusive top-box threshold; null means no generic favorable band is defined. */
+    public Integer favorableThreshold() {
+        return switch (this) {
+            case NPS -> 9;
+            case CSAT, STAR_RATING -> 4;
+            case CES -> 5;
+            case CUSTOM -> null;
+        };
+    }
+
     public boolean accepts(int min, int max) {
         if (this == CUSTOM) return min < max;
         return defaultMin != null && defaultMin == min && defaultMax == max;
