@@ -5,13 +5,18 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Feedback-owned evidence metadata; binary content belongs to the Document capability. */
+/**
+ * Feedback-owned evidence association. The referenced binary and its version remain
+ * owned and served by the Document capability.
+ */
 public final class FeedbackAttachment {
     public enum Status { PENDING_SCAN, AVAILABLE, REJECTED, DELETED }
+
     private final UUID id;
     private final UUID tenantId;
     private final FeedbackId feedbackId;
-    private final String documentReference;
+    private final String documentId;
+    private final String documentVersionId;
     private final String fileName;
     private final String mediaType;
     private final long sizeBytes;
@@ -21,12 +26,14 @@ public final class FeedbackAttachment {
     private Instant updatedAt;
     private String rejectionReason;
 
-    private FeedbackAttachment(UUID id, UUID tenantId, FeedbackId feedbackId, String documentReference,
-                                String fileName, String mediaType, long sizeBytes, String sha256, Instant now) {
+    private FeedbackAttachment(UUID id, UUID tenantId, FeedbackId feedbackId,
+            String documentId, String documentVersionId, String fileName, String mediaType,
+            long sizeBytes, String sha256, Instant now) {
         this.id = Objects.requireNonNull(id, "id");
         this.tenantId = Objects.requireNonNull(tenantId, "tenantId");
         this.feedbackId = Objects.requireNonNull(feedbackId, "feedbackId");
-        this.documentReference = text(documentReference, "documentReference", 512);
+        this.documentId = identifier(documentId, "documentId");
+        this.documentVersionId = identifier(documentVersionId, "documentVersionId");
         this.fileName = fileName(fileName);
         this.mediaType = text(mediaType, "mediaType", 160).toLowerCase(Locale.ROOT);
         if (sizeBytes <= 0) throw new IllegalArgumentException("sizeBytes must be positive");
@@ -38,9 +45,10 @@ public final class FeedbackAttachment {
     }
 
     public static FeedbackAttachment register(UUID id, UUID tenantId, FeedbackId feedbackId,
-            String documentReference, String fileName, String mediaType, long sizeBytes, String sha256, Instant now) {
-        return new FeedbackAttachment(id, tenantId, feedbackId, documentReference, fileName,
-                mediaType, sizeBytes, sha256, now);
+            String documentId, String documentVersionId, String fileName, String mediaType,
+            long sizeBytes, String sha256, Instant now) {
+        return new FeedbackAttachment(id, tenantId, feedbackId, documentId, documentVersionId,
+                fileName, mediaType, sizeBytes, sha256, now);
     }
 
     public void markAvailable(Instant now) { transition(Status.AVAILABLE, now, null); }
@@ -66,10 +74,15 @@ public final class FeedbackAttachment {
     private void ensureNotBefore(Instant now) {
         if (now.isBefore(updatedAt)) throw new IllegalArgumentException("now cannot be before updatedAt");
     }
+    private static String identifier(String value, String field) {
+        String id = text(value, field, 128);
+        if (!id.matches("[A-Za-z0-9._:-]+")) throw new IllegalArgumentException(field + " has an invalid format");
+        return id;
+    }
     private static String fileName(String value) {
         String name = text(value, "fileName", 255);
-        if (name.equals(".") || name.equals("..") || name.contains("/") || name.contains("\\")
-                || name.indexOf('\0') >= 0) throw new IllegalArgumentException("fileName must be a simple file name");
+        if (name.equals(".") || name.equals("..") || name.contains("/") || name.contains("\\\\")
+                || name.indexOf('\\0') >= 0) throw new IllegalArgumentException("fileName must be a simple file name");
         return name;
     }
     private static String checksum(String value) {
@@ -87,7 +100,8 @@ public final class FeedbackAttachment {
     public UUID id() { return id; }
     public UUID tenantId() { return tenantId; }
     public FeedbackId feedbackId() { return feedbackId; }
-    public String documentReference() { return documentReference; }
+    public String documentId() { return documentId; }
+    public String documentVersionId() { return documentVersionId; }
     public String fileName() { return fileName; }
     public String mediaType() { return mediaType; }
     public long sizeBytes() { return sizeBytes; }
