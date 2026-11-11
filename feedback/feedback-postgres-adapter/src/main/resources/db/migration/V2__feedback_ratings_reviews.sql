@@ -61,3 +61,22 @@ CREATE INDEX feedback_reviews_public_idx
     WHERE status = 'PUBLISHED';
 CREATE INDEX feedback_reviews_moderation_idx
     ON feedback_reviews (tenant_id, status, created_at);
+
+CREATE TABLE feedback_engagement_outbox (
+    event_id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL,
+    aggregate_type VARCHAR(32) NOT NULL,
+    aggregate_id UUID NOT NULL,
+    event_type VARCHAR(120) NOT NULL,
+    event_version INTEGER NOT NULL,
+    payload JSONB NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    published_at TIMESTAMPTZ NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error VARCHAR(2000) NULL
+);
+
+CREATE INDEX feedback_engagement_outbox_pending_idx
+    ON feedback_engagement_outbox (created_at)
+    WHERE published_at IS NULL;
