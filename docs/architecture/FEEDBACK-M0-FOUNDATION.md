@@ -1,7 +1,7 @@
 # Numou Feedback — M0 Foundation
 
-- **Status:** Initial implementation on branch `feat/feedback-m0-foundation`
-- **Scope:** Domain and application foundation only
+- **Status:** Initial implementation on branch `feedback/m0-persistence-outbox`
+- **Scope:** Domain, application contract, PostgreSQL persistence, idempotency and transactional outbox
 - **Parent architecture:** [ADR-003](ADR-003-reusable-capability-modules.md) and [Capability Packaging and Composition Contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md)
 
 ## Ownership
@@ -19,7 +19,7 @@ Artifacts:
 - `numou-feedback-domain`: feedback identity, type, priority, lifecycle, aggregate, and domain events.
 - `numou-feedback-application`: submission command, handler, and tenant-scoped persistence port.
 
-The domain has no runtime/framework dependency. The application depends only on the Feedback domain and defines a persistence port. The persistence adapter must implement tenant-scoped reads and atomically save the aggregate with its pending outbox events. Repeated idempotency keys must return the original feedback ID.
+The domain has no runtime/framework dependency. The application depends on the Feedback domain and defines a tenant-scoped persistence port. The PostgreSQL adapter implements tenant-scoped reads and atomically saves the aggregate, idempotency mapping, and pending outbox events in one transaction. Repeated idempotency keys return the original feedback ID; keys are scoped by tenant. The adapter uses a conflict-safe insert path so concurrent retries cannot create duplicate feedback records.
 
 ## Initial supported types
 
@@ -49,8 +49,8 @@ Run from the repository root:
 mvn -f feedback/pom.xml test
 ```
 
-The domain and application tests cover submission invariants, validation, tenant ownership, lifecycle transitions, versioning, and the application persistence port. CI execution has not yet been observed for this branch; do not treat the source commits as a passing build.
+The domain and application tests cover submission invariants, validation, tenant ownership, lifecycle transitions, versioning, and the application persistence port. The PostgreSQL adapter includes a Testcontainers integration test for atomic item/idempotency/outbox persistence, replay behavior, and tenant isolation. Tests have been added but have not been executed in this session; do not treat source commits as a passing build.
 
 ## Explicitly deferred
 
-M1 adds public submission API and type-specific validation policies. M2 adds Document Store attachment references. Persistence schema, PostgreSQL adapter, transactional outbox implementation, HTTP transport, runtime registration, authentication integration, and portal UI are not claimed by M0. They must be added through their owning adapters and host composition rather than leaking infrastructure into the domain.
+M1 adds public submission API and type-specific validation policies. M2 adds Document Store attachment references. HTTP transport, runtime registration, authentication integration, outbox relay/worker, public portal UI, and advanced retention/partitioning policies remain deferred. The outbox table is written transactionally; publishing and retry orchestration belong to a later adapter/worker milestone.
