@@ -51,6 +51,26 @@ public final class PostgresFeedbackReviewRepository implements FeedbackReviewRep
     }
 
     @Override
+    public void update(FeedbackReview review) {
+        String sql = """
+                UPDATE feedback_reviews
+                   SET status = ?, verification_status = ?, moderated_at = ?
+                 WHERE tenant_id = ? AND id = ?
+                """;
+        try (Connection c = dataSource.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
+            s.setString(1, review.status().name());
+            s.setString(2, review.verificationStatus().name());
+            if (review.moderatedAt() == null) s.setNull(3, Types.TIMESTAMP_WITH_TIMEZONE);
+            else s.setTimestamp(3, Timestamp.from(review.moderatedAt()));
+            s.setObject(4, review.tenantId().value());
+            s.setObject(5, review.id().value());
+            if (s.executeUpdate() != 1) throw new IllegalStateException("Review not found for tenant");
+        } catch (SQLException e) {
+            throw new FeedbackPersistenceException("Unable to update review moderation state", e);
+        }
+    }
+
+    @Override
     public Optional<FeedbackReview> findById(TenantId tenantId, FeedbackReviewId id) {
         String sql = "SELECT * FROM feedback_reviews WHERE tenant_id = ? AND id = ?";
         try (Connection c = dataSource.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
