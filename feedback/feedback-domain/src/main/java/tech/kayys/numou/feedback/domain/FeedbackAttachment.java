@@ -81,7 +81,7 @@ public final class FeedbackAttachment {
     }
     private static String fileName(String value) {
         String name = text(value, "fileName", 255);
-        if (name.equals(".") || name.equals("..") || name.contains("/") || name.contains("\\\\")
+        if (name.equals(".") || name.equals("..") || name.contains("/") || name.indexOf(92) >= 0
                 || name.indexOf('\\0') >= 0) throw new IllegalArgumentException("fileName must be a simple file name");
         return name;
     }
