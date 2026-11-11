@@ -27,7 +27,7 @@ class SurveyResponseRatingMapperTest {
 
         var rating = new SurveyResponseRatingMapper().map(tenant, response, question,
                 new RatingTarget("service", "support-case-1", "branch-1"),
-                RatingMetric.NPS, RatingScale.of(0, 10), NOW.plusSeconds(31));
+                RatingMetric.NPS, RatingScale.of(0, 10));
 
         assertEquals(RatingMetric.NPS, rating.metric());
         assertEquals(10, rating.value().intValueExact());
@@ -45,7 +45,7 @@ class SurveyResponseRatingMapperTest {
         var mapper = new SurveyResponseRatingMapper();
         var target = new RatingTarget("service", "case-2", null);
         assertThrows(IllegalArgumentException.class, () -> mapper.map(tenant, response, question,
-                target, RatingMetric.CSAT, RatingScale.of(1, 5), NOW));
+                target, RatingMetric.CSAT, RatingScale.of(1, 5)));
         assertThrows(IllegalArgumentException.class, () -> mapper.map(TenantId.generate(), response, question,
                 target, RatingMetric.CSAT, RatingScale.of(1, 5), NOW));
     }
