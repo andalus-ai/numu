@@ -23,7 +23,7 @@ This slice adds tenant-owned, immutable, versioned snapshots of existing Survey 
 
 ## Persistence
 
-Migration V4__feedback_survey_catalog_distribution.sql adds tenant-scoped template and distribution tables. The template key prevents version replacement. Token hashes are globally unique to prevent ambiguous invitation resolution.
+Migration V5__feedback_survey_catalog_distribution.sql adds tenant-scoped template and distribution tables. The template key prevents version replacement. Token hashes are globally unique to prevent ambiguous invitation resolution.
 
 ## Security and integration notes
 
@@ -36,3 +36,8 @@ Migration V4__feedback_survey_catalog_distribution.sql adds tenant-scoped templa
 ## Verification status
 
 Domain unit tests have been added for checksum stability, publish transitions, invalid versions, invitation expiry, revocation and response-limit predicates. They have not been executed. PostgreSQL integration tests are still pending for immutable-version conflicts, tenant isolation, token non-persistence, quota races and outbox atomicity. CI has not been run for this slice.
+
+
+## Migration ordering correction
+
+The feedback PostgreSQL migration directory previously contained two V2 migrations. This branch restores a unique, dependency-ordered sequence: V1 foundation, V2 attachments, V3 ratings/reviews, V4 outbox leases/dead letters, V5 survey catalog/distribution. This avoids Flyway's duplicate-version failure on a clean install.
