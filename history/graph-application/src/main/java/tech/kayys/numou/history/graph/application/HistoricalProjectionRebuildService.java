@@ -29,14 +29,6 @@ public final class HistoricalProjectionRebuildService {
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
             Clock clock, int pageSize) {
-        this(store,projection,tenantContext,authorization,clock,pageSize,snapshot -> {});
-    }
-
-    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
-            HistoricalRelationshipProjectionPort projection,
-            HistoricalRelationshipTenantContext tenantContext,
-            HistoricalProjectionMaintenanceAuthorizationPort authorization,
-            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
@@ -54,19 +46,8 @@ public final class HistoricalProjectionRebuildService {
 
     /** Processes at most one page; repeat with the same run ID to resume safely. */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
-        return resumeOnePageInternal(tenantId, runId, null);
-    }
-
-    /** Replays one page into an isolated staging generation, leaving active data untouched. */
-    public RebuildProgress resumeOnePage(UUID tenantId, UUID runId, UUID generationId) {
-        Objects.requireNonNull(generationId, "generationId");
-        if (!(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
-            throw new IllegalStateException("projection provider does not support generation-targeted replay");
-        }
-        return resumeOnePageInternal(tenantId, runId, generationId);
-    }
-
-    private RebuildProgress resumeOnePageInternal(UUID tenantId, UUID runId, UUID generationId) {
+        Objects.requireNonNull(runId, "runId");
+        authorizeScope(tenantId);
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
         if (run.status() == RebuildRun.Status.COMPLETED) {
@@ -128,6 +109,19 @@ public final class HistoricalProjectionRebuildService {
             // Telemetry must never turn a committed projection checkpoint into a failed page.
         }
         return new RebuildProgress(run,projected,completed);
+    }
+
+    private void authorizeScope(UUID tenantId) {
+        if (tenantId == null) {
+            authorization.requireCanRebuildPublicCorpus();
+            return;
+        }
+        UUID trustedTenant = Objects.requireNonNull(tenantContext.requireTenantId(),
+                "trusted tenant context must provide a tenant");
+        if (!trustedTenant.equals(tenantId)) {
+            throw new SecurityException("requested rebuild scope differs from authenticated tenant");
+        }
+        authorization.requireCanRebuildTenant(trustedTenant);
     }
 
     private void authorizeScope(UUID tenantId) {
