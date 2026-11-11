@@ -25,6 +25,32 @@ class HistoricalSourceServiceTest {
   assertEquals(1,service.listAssessments(source.id(),10).size());
   assertEquals(1,service.listAssessmentReviews(source.id(),assessment.id(),10).size());
  }
+ @Test void editionsContributorsAndHoldingsRemainAttachedToTheirSource() {
+  var repo=new InMemoryRepository(); var tenant=UUID.randomUUID();
+  var service=new HistoricalSourceService(repo,()->tenant,new AllowAll(),Clock.systemUTC());
+  var source=service.register(HistoricalSourceKind.MANUSCRIPT,"Chronicle",null,null,null,null,"c. 1200 CE","id");
+  var contributor=service.addContributor(source.id(),"Anonymous author",null,SourceContributorRole.AUTHOR,0,"Attribution debated");
+  var edition=service.addEdition(source.id(),"Critical edition","Archive Press","Jakarta","c. 1920","id-ID","ISBN 978-1",null,null);
+  var holding=service.addHolding(source.id(),"institution:archive","National Archive","Central Repository","Colonial Records","COL/17",ArchivalHoldingType.PHYSICAL,null,"Appointment required",null);
+  var catalog=service.addCatalogIdentifier(source.id(),holding.id(),"SHELF_MARK","COL/17","National Archive");
+  assertEquals(contributor,service.listContributors(source.id(),10).get(0));
+  assertEquals(edition,service.listEditions(source.id(),10).get(0));
+  assertEquals(holding,service.listHoldings(source.id(),10).get(0));
+  assertEquals(catalog,service.listCatalogIdentifiers(source.id(),holding.id(),10).get(0));
+  assertTrue(service.listCatalogIdentifiers(source.id(),UUID.randomUUID(),10).isEmpty());
+  assertThrows(IllegalArgumentException.class,()->service.addCatalogIdentifier(source.id(),UUID.randomUUID(),"SHELF_MARK","wrong","Archive"));
+ }
+ @Test void sourceRelationshipsAreDirectedAndDoNotBecomeClaimEvidence() {
+  var repo=new InMemoryRepository(); var tenant=UUID.randomUUID();
+  var service=new HistoricalSourceService(repo,()->tenant,new AllowAll(),Clock.systemUTC());
+  var source=service.register(HistoricalSourceKind.BOOK,"Book A",null,null,null,null,null,"en");
+  var related=service.register(HistoricalSourceKind.BOOK,"Book B",null,null,null,null,null,"en");
+  var relation=service.relateSources(source.id(),related.id(),SourceRelationshipType.CITES,EvidenceLocatorType.PAGE,"p. 17","Footnote 4");
+  assertEquals(relation,service.listOutgoingSourceRelationships(source.id(),10).get(0));
+  assertEquals(relation,service.listIncomingSourceRelationships(related.id(),10).get(0));
+  assertTrue(service.listOutgoingSourceRelationships(related.id(),10).isEmpty());
+  assertThrows(IllegalArgumentException.class,()->service.relateSources(source.id(),source.id(),SourceRelationshipType.CITES,null,null,null));
+ }
  @Test void invalidLimitRejectedBeforeRepositoryAccess() {
   var service=new HistoricalSourceService(new InMemoryRepository(),UUID::randomUUID,new AllowAll(),Clock.systemUTC());
   assertThrows(IllegalArgumentException.class,()->service.list(201));
@@ -32,11 +58,11 @@ class HistoricalSourceServiceTest {
  private static class AllowAll implements HistoricalSourceAuthorizationPort {
   public void requireCanRegisterSource(UUID t){} public void requireCanReadSource(UUID t,HistoricalSourceId i){}
   public void requireCanReviseSource(UUID t,HistoricalSourceId i){} public void requireCanCreateClaim(UUID t){}
-  public void requireCanReadClaim(UUID t,HistoricalClaimId i){} public void requireCanReferenceSubject(UUID t,String k,String i){} public void requireCanAttachEvidence(UUID t,HistoricalClaimId c,HistoricalSourceId s){} public void requireCanAssessSource(UUID t,HistoricalSourceId s,String a){} public void requireCanReviewSourceAssessment(UUID t,HistoricalSourceId s,UUID a,String r){}
+  public void requireCanReadClaim(UUID t,HistoricalClaimId i){} public void requireCanReferenceSubject(UUID t,String k,String i){} public void requireCanAttachEvidence(UUID t,HistoricalClaimId c,HistoricalSourceId s){} public void requireCanAssessSource(UUID t,HistoricalSourceId s,String a){} public void requireCanReviewSourceAssessment(UUID t,HistoricalSourceId s,UUID a,String r){} public void requireCanManageSourceBibliography(UUID t,HistoricalSourceId s){} public void requireCanReadSourceBibliography(UUID t,HistoricalSourceId s){}
  }
  private static class InMemoryRepository implements HistoricalSourceRepository {
   final Map<UUID,Map<UUID,HistoricalSource>> sources=new HashMap<>(); final Map<UUID,Map<UUID,HistoricalClaim>> claims=new HashMap<>();
-  final Map<UUID,List<ClaimEvidence>> evidence=new HashMap<>(); final Map<UUID,List<SourceAssessment>> assessments=new HashMap<>(); final Map<UUID,List<SourceAssessmentReview>> reviews=new HashMap<>();
+  final Map<UUID,List<ClaimEvidence>> evidence=new HashMap<>(); final Map<UUID,List<SourceAssessment>> assessments=new HashMap<>(); final Map<UUID,List<SourceAssessmentReview>> reviews=new HashMap<>(); final Map<UUID,List<SourceContributor>> contributors=new HashMap<>(); final Map<UUID,List<SourceEdition>> editions=new HashMap<>(); final Map<UUID,List<ArchivalHolding>> holdings=new HashMap<>(); final Map<UUID,List<ArchivalCatalogIdentifier>> identifiers=new HashMap<>(); final Map<UUID,List<SourceRelationship>> sourceRelationships=new HashMap<>();
   public boolean register(UUID t,HistoricalSource s){return sources.computeIfAbsent(t,k->new HashMap<>()).putIfAbsent(s.id().value(),s)==null;}
   public Optional<HistoricalSource> find(UUID t,HistoricalSourceId i){return Optional.ofNullable(sources.getOrDefault(t,Map.of()).get(i.value()));}
   public List<HistoricalSource> list(UUID t,int n){return sources.getOrDefault(t,Map.of()).values().stream().limit(n).toList();}
@@ -50,5 +76,17 @@ class HistoricalSourceServiceTest {
   public Optional<SourceAssessment> findAssessment(UUID t,UUID id){return assessments.getOrDefault(t,List.of()).stream().filter(a->a.id().equals(id)).findFirst();}
   public boolean appendAssessmentReview(UUID t,SourceAssessmentReview r){reviews.computeIfAbsent(t,k->new ArrayList<>()).add(r);return true;}
   public List<SourceAssessmentReview> listAssessmentReviews(UUID t,UUID id,int n){return reviews.getOrDefault(t,List.of()).stream().filter(r->r.assessmentId().equals(id)).limit(n).toList();}
+  public boolean appendContributor(UUID t,SourceContributor x){contributors.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<SourceContributor> listContributors(UUID t,HistoricalSourceId s,int n){return contributors.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
+  public boolean appendEdition(UUID t,SourceEdition x){editions.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<SourceEdition> listEditions(UUID t,HistoricalSourceId s,int n){return editions.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
+  public boolean appendHolding(UUID t,ArchivalHolding x){holdings.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<ArchivalHolding> listHoldings(UUID t,HistoricalSourceId s,int n){return holdings.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
+  public Optional<ArchivalHolding> findHolding(UUID t,HistoricalSourceId s,UUID h){return holdings.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)&&x.id().equals(h)).findFirst();}
+  public boolean appendCatalogIdentifier(UUID t,ArchivalCatalogIdentifier x){identifiers.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public boolean appendSourceRelationship(UUID t,SourceRelationship x){sourceRelationships.computeIfAbsent(t,k->new ArrayList<>()).add(x);return true;}
+  public List<SourceRelationship> listOutgoingSourceRelationships(UUID t,HistoricalSourceId s,int n){return sourceRelationships.getOrDefault(t,List.of()).stream().filter(x->x.sourceId().equals(s)).limit(n).toList();}
+  public List<SourceRelationship> listIncomingSourceRelationships(UUID t,HistoricalSourceId s,int n){return sourceRelationships.getOrDefault(t,List.of()).stream().filter(x->x.relatedSourceId().equals(s)).limit(n).toList();}
+  public List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID t,HistoricalSourceId s,UUID h,int n){return identifiers.getOrDefault(t,List.of()).stream().filter(x->x.holdingId().equals(h)).filter(x->holdings.getOrDefault(t,List.of()).stream().anyMatch(v->v.id().equals(h)&&v.sourceId().equals(s))).limit(n).toList();}
  }
 }
