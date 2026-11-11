@@ -18,5 +18,6 @@
         <module>attendee-application</module>
         <module>attendee-persistence-jdbc</module>
         <module>attendee-postgres-adapter</module>
+        <module>attendee-adapter-rest</module>
     </modules>
 </project>
