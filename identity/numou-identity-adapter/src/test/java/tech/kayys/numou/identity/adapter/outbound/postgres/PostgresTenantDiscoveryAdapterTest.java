@@ -10,6 +10,7 @@ import tech.kayys.numou.identity.application.port.TenantDiscoveryPort;
 import tech.kayys.numou.identity.domain.user.UserId;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -91,7 +92,7 @@ class PostgresTenantDiscoveryAdapterTest {
     @Test
     void returnsOnlyActiveMembershipsInDeterministicOrder() {
         List<UUID> result = discovery.activeTenantIds(UserId.of(userId)).await().indefinitely();
-        assertEquals(Stream.of(activeTenant, secondActiveTenant).sorted().toList(), result);
+        assertEquals(Stream.of(activeTenant, secondActiveTenant).sorted(Comparator.comparing(UUID::toString)).toList(), result);
     }
 
     @Test
