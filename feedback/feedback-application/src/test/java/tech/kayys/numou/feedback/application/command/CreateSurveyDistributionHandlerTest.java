@@ -17,7 +17,7 @@ class CreateSurveyDistributionHandlerTest {
     void issuesOpaqueTokenAndResolverUsesOnlyItsHash() {
         var repository = new InMemoryDistributionRepository();
         var handler = new CreateSurveyDistributionHandler(repository);
-        var now = Instant.parse("2026-11-11T12:00:00Z");
+        var now = Instant.parse("2099-01-01T12:00:00Z");
 
         var created = handler.handle(new CreateSurveyDistributionCommand(TenantId.generate(),
                 "survey-123", DistributionChannel.PUBLIC_LINK, now.plusSeconds(3600), 50, now));
