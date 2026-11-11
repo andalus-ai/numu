@@ -47,7 +47,12 @@ public final class PostgresFeedbackRepository implements FeedbackRepository {
                 }
 
                 insertFeedback(connection, feedback);
-                insertIdempotency(connection, feedback, idempotencyKey);
+                if (!insertIdempotency(connection, feedback, idempotencyKey)) {
+                    connection.rollback();
+                    return findIdempotent(connection, feedback.tenantId(), idempotencyKey)
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "Idempotency key conflict was reported but no original submission exists"));
+                }
                 insertOutbox(connection, feedback);
 
                 connection.commit();
@@ -127,13 +132,15 @@ public final class PostgresFeedbackRepository implements FeedbackRepository {
         }
     }
 
-    private void insertIdempotency(Connection c, FeedbackItem f, String key) throws SQLException {
-        try (PreparedStatement s = c.prepareStatement(
-                "INSERT INTO feedback_idempotency (tenant_id, idempotency_key, feedback_id) VALUES (?, ?, ?)")) {
+    private boolean insertIdempotency(Connection c, FeedbackItem f, String key) throws SQLException {
+        try (PreparedStatement s = c.prepareStatement("""
+                INSERT INTO feedback_idempotency (tenant_id, idempotency_key, feedback_id)
+                VALUES (?, ?, ?) ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
+                """)) {
             s.setObject(1, f.tenantId());
             s.setString(2, key);
             s.setObject(3, f.id().value());
-            s.executeUpdate();
+            return s.executeUpdate() == 1;
         }
     }
 
@@ -148,7 +155,7 @@ public final class PostgresFeedbackRepository implements FeedbackRepository {
                 s.setObject(1, event.eventId());
                 s.setObject(2, event.tenantId());
                 s.setObject(3, event.feedbackId().value());
-                s.setString(4, event.getClass().getSimpleName());
+                s.setString(4, eventType(event));
                 s.setInt(5, 1);
                 s.setString(6, eventPayload(event));
                 s.setTimestamp(7, Timestamp.from(event.occurredAt()));
@@ -156,6 +163,12 @@ public final class PostgresFeedbackRepository implements FeedbackRepository {
             }
             s.executeBatch();
         }
+    }
+
+    private String eventType(FeedbackEvent event) {
+        if (event instanceof FeedbackSubmitted) return "feedback.submitted";
+        if (event instanceof FeedbackStatusChanged) return "feedback.status-changed";
+        throw new IllegalArgumentException("Unsupported feedback event: " + event.getClass().getName());
     }
 
     private String eventPayload(FeedbackEvent event) {
