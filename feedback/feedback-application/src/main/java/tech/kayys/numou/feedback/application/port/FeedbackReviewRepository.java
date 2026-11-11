@@ -2,6 +2,7 @@ package tech.kayys.numou.feedback.application.port;
 
 import tech.kayys.numou.feedback.domain.review.FeedbackReview;
 import tech.kayys.numou.feedback.domain.review.FeedbackReviewId;
+import tech.kayys.numou.feedback.domain.review.ReviewStatus;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.util.List;
