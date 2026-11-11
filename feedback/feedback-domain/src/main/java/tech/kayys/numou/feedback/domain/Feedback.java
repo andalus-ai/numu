@@ -52,6 +52,23 @@ public final class Feedback extends AbstractAggregateRoot<FeedbackId> {
                 description, context, occurredAt);
     }
 
+    /** Reconstitutes persisted state without raising a new submission event. */
+    public static Feedback rehydrate(FeedbackId id, TenantId tenantId, FeedbackActor author,
+                                     FeedbackKind kind, FeedbackPriority priority, String title,
+                                     String description, FeedbackContext context, FeedbackStatus status,
+                                     Instant createdAt, Instant updatedAt, int version) {
+        Feedback feedback = new Feedback(id, tenantId, author, kind, priority, title,
+                description, context, createdAt);
+        feedback.status = Objects.requireNonNull(status, "status cannot be null");
+        feedback.setCreatedAt(Objects.requireNonNull(createdAt, "createdAt cannot be null"));
+        feedback.setUpdatedAt(Objects.requireNonNull(updatedAt, "updatedAt cannot be null"));
+        if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt cannot be before createdAt");
+        if (version < 0) throw new IllegalArgumentException("version cannot be negative");
+        feedback.setVersion(version);
+        feedback.clearEvents();
+        return feedback;
+    }
+
     public TenantId tenantId() { return tenantId; }
     public FeedbackActor author() { return author; }
     public FeedbackKind kind() { return kind; }
@@ -60,6 +77,9 @@ public final class Feedback extends AbstractAggregateRoot<FeedbackId> {
     public String title() { return title; }
     public String description() { return description; }
     public FeedbackContext context() { return context; }
+    public Instant createdAt() { return getCreatedAt(); }
+    public Instant updatedAt() { return getUpdatedAt(); }
+    public int version() { return getVersion(); }
 
     public void changePriority(FeedbackPriority newPriority, Instant occurredAt) {
         ensureNotTerminal();
