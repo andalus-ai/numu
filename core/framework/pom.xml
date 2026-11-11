@@ -47,6 +47,7 @@
         <module>../../advertising</module>
         <module>../../attendee</module>
         <module>../../feedback</module>
+        <module>../../survey</module>
 
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
@@ -230,6 +231,11 @@
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-feedback-postgres-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-feedback-survey-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
