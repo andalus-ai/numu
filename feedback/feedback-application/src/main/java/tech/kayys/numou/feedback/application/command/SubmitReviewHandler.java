@@ -21,6 +21,9 @@ public final class SubmitReviewHandler {
         Objects.requireNonNull(command, "command cannot be null");
         var rating = ratings.findById(command.tenantId(), command.ratingId())
                 .orElseThrow(() -> new IllegalArgumentException("Rating does not exist for this tenant"));
+        if (rating.metric() != tech.kayys.numou.feedback.domain.rating.RatingMetric.STAR_RATING) {
+            throw new IllegalArgumentException("A review must reference a STAR_RATING response");
+        }
         if (!rating.target().equals(command.target())) {
             throw new IllegalArgumentException("Review target must match its rating target");
         }
