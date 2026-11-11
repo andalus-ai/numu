@@ -80,6 +80,8 @@ class PostgresFeedbackEngagementRepositoryTest {
         assertEquals(ReviewStatus.PUBLISHED, loaded.status());
         assertEquals(VerificationStatus.VERIFIED, loaded.verificationStatus());
         assertEquals(now.plusSeconds(2), loaded.moderatedAt());
+        assertEquals(1, reviews.findByTarget(tenant, target, ReviewStatus.PUBLISHED, 20, 0).size());
+        assertTrue(reviews.findByTarget(tenant, target, ReviewStatus.PENDING, 20, 0).isEmpty());
         assertTrue(reviews.findById(TenantId.generate(), review.id()).isEmpty());
     }
 
