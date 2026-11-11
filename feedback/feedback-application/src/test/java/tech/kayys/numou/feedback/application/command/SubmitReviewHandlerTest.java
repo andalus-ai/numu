@@ -47,6 +47,31 @@ class SubmitReviewHandlerTest {
     }
 
     @Test
+    void rejectsNonStarRatingAsReviewScore() {
+        TenantId tenant = TenantId.generate();
+        RatingTarget target = new RatingTarget("service", "delivery-1", null);
+        FeedbackRating nps = FeedbackRating.submit(FeedbackRatingId.generate(), tenant, target,
+                RatingMetric.NPS, RatingScale.of(0, 10), BigDecimal.TEN,
+                null, null, Instant.parse("2026-11-11T10:00:00Z"));
+        FeedbackRatingRepository ratingRepository = new FeedbackRatingRepository() {
+            @Override public FeedbackRatingId save(FeedbackRating value, String key) { return value.id(); }
+            @Override public Optional<FeedbackRating> findById(TenantId t, FeedbackRatingId id) { return Optional.of(nps); }
+            @Override public java.util.List<FeedbackRating> findByTarget(TenantId t, RatingTarget target, RatingMetric metric) {
+                return java.util.List.of(nps);
+            }
+        };
+        FeedbackReviewRepository reviewRepository = new FeedbackReviewRepository() {
+            @Override public void save(FeedbackReview review) { fail("review must not be saved"); }
+            @Override public void update(FeedbackReview review) { fail("review must not be updated"); }
+            @Override public Optional<FeedbackReview> findById(TenantId t, FeedbackReviewId id) { return Optional.empty(); }
+        };
+        SubmitReviewHandler handler = new SubmitReviewHandler(ratingRepository, reviewRepository);
+        assertThrows(IllegalArgumentException.class, () -> handler.handle(new SubmitReviewCommand(
+                tenant, target, new FeedbackActor("user", "u-1"), nps.id(),
+                "Not a star review", "Wrong metric", Instant.parse("2026-11-11T10:01:00Z"))));
+    }
+
+    @Test
     void rejectsRatingFromAnotherTarget() {
         TenantId tenant = TenantId.generate();
         RatingTarget rated = new RatingTarget("product", "sku-1", null);
