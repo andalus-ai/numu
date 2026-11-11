@@ -3,7 +3,7 @@ package tech.kayys.numou.history.graph.neo4j;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.neo4j.driver.*;
-import tech.kayys.numou.history.graph.application.HistoricalRelationshipProjectionPort;
+import tech.kayys.numou.history.graph.application.GenerationTargetedHistoricalRelationshipProjectionPort;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 
 import java.util.*;
@@ -15,9 +15,28 @@ import java.security.NoSuchAlgorithmException;
  * Optional Neo4j projection. PostgreSQL outbox events are the only input;
  * Neo4j records are disposable and can be rebuilt from the authoritative store.
  */
-public final class Neo4jHistoricalRelationshipProjectionAdapter implements HistoricalRelationshipProjectionPort {
+public final class Neo4jHistoricalRelationshipProjectionAdapter implements GenerationTargetedHistoricalRelationshipProjectionPort {
     public static final String EVENT_TYPE = "history.relationship.revision-appended";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
+    private static final String TARGET_SCOPES = """
+        MERGE (a:HistoricalProjectionActiveGeneration {scopeKey:$baseScope})
+        ON CREATE SET a.lockVersion=0
+        SET a.lockVersion=coalesce(a.lockVersion,0)+1
+        WITH a
+        OPTIONAL MATCH (active:HistoricalProjectionGeneration {
+            scopeKey:$baseScope, generationId:a.generationId, status:'ACTIVE'
+        })
+        WITH a, collect(active.generationId) AS activeIds
+        OPTIONAL MATCH (building:HistoricalProjectionGeneration {scopeKey:$baseScope})
+        WHERE building.status IN ['BUILDING','READY']
+        RETURN activeIds[0] AS activeGenerationId,
+               collect(building.generationId) AS buildingGenerationIds
+        """;
+    private static final String GENERATION_WRITABLE = """
+        MATCH (g:HistoricalProjectionGeneration {scopeKey:$baseScope, generationId:$generationId})
+        WHERE g.status IN ['BUILDING','READY']
+        RETURN count(g) AS writable
+        """;
     private static final String ADVANCE = """
         MERGE (r:HistoricalRelationship {scopeKey: $scopeKey, relationshipId: $relationshipId})
         ON CREATE SET r.revision = 0, r.lockVersion = 0
@@ -71,6 +90,16 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
 
     @Override
     public void project(ClaimedProjectionEvent event) {
+        projectInternal(event, null);
+    }
+
+    @Override
+    public void projectIntoGeneration(ClaimedProjectionEvent event, UUID generationId) {
+        Objects.requireNonNull(generationId, "generationId");
+        projectInternal(event, generationId);
+    }
+
+    private void projectInternal(ClaimedProjectionEvent event, UUID generationId) {
         Objects.requireNonNull(event, "event");
         if (!EVENT_TYPE.equals(event.eventType())) throw new IllegalArgumentException("Unsupported projection event type: " + event.eventType());
         if (event.schemaVersion() != SUPPORTED_SCHEMA_VERSION) throw new IllegalArgumentException("Unsupported projection schema version: " + event.schemaVersion());
@@ -92,6 +121,7 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
         String objectId = requiredText(object, "id");
         String relationshipKind = requiredText(payload, "relationshipKind");
         String scopeKey = event.tenantId() == null ? "public" : event.tenantId().toString();
+        if (generationId != null) scopeKey = scopeKey + "::" + generationId;
         String validityJson = payload.hasNonNull("validity") ? payload.get("validity").toString() : null;
         Map<String,Object> params = new HashMap<>();
         params.put("scopeKey", scopeKey);
@@ -108,10 +138,35 @@ public final class Neo4jHistoricalRelationshipProjectionAdapter implements Histo
 
         try (Session session = driver.session(SessionConfig.forDatabase(database))) {
             session.executeWrite(tx -> {
-                boolean advanced = tx.run(ADVANCE, params).single().get("apply").asBoolean();
-                if (advanced) {
-                    tx.run(REMOVE_ENDPOINTS, params).consume();
-                    tx.run(LINK_ENDPOINTS, params).consume();
+                List<String> targetScopes = new ArrayList<>();
+                if (generationId != null) {
+                    String baseScope = event.tenantId() == null ? "public" : event.tenantId().toString();
+                    tx.run(TARGET_SCOPES, Map.of("baseScope", baseScope)).consume();
+                    long writable = tx.run(GENERATION_WRITABLE, Values.parameters(
+                            "baseScope", baseScope, "generationId", generationId.toString()))
+                            .single().get("writable").asLong();
+                    if (writable != 1) throw new IllegalStateException("staging generation is not writable");
+                    targetScopes.add(scopeKey);
+                } else {
+                    var targets = tx.run(TARGET_SCOPES, Map.of("baseScope", scopeKey)).single();
+                    Value activeGeneration = targets.get("activeGenerationId");
+                    if (activeGeneration.isNull()) {
+                        targetScopes.add(scopeKey);
+                    } else {
+                        targetScopes.add(scopeKey + "::" + activeGeneration.asString());
+                    }
+                    for (String building : targets.get("buildingGenerationIds").asList(Value::asString)) {
+                        targetScopes.add(scopeKey + "::" + building);
+                    }
+                }
+                for (String targetScope : new LinkedHashSet<>(targetScopes)) {
+                    Map<String,Object> targetParams = new HashMap<>(params);
+                    targetParams.put("scopeKey", targetScope);
+                    boolean advanced = tx.run(ADVANCE, targetParams).single().get("apply").asBoolean();
+                    if (advanced) {
+                        tx.run(REMOVE_ENDPOINTS, targetParams).consume();
+                        tx.run(LINK_ENDPOINTS, targetParams).consume();
+                    }
                 }
                 return null;
             });

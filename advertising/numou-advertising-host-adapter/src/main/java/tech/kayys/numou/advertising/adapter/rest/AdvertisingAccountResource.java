@@ -13,6 +13,8 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import tech.kayys.numou.advertising.application.AdvertisingAccountService;
 import tech.kayys.numou.advertising.domain.*;
+import tech.kayys.numou.advertising.spi.AdvertisingPage;
+import tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
 import tech.kayys.numou.security.adapter.CurrentSecurity;
 
 import java.net.URI;
@@ -133,6 +135,98 @@ public class AdvertisingAccountResource {
         return accounts.enablePlacement(tenant(),new AdPlacementId(placementId))
                 .thenApply(p -> Response.ok(new PlacementResponse(p.id().value(),p.propertyId().value(),p.code(),p.format(),p.status().name(),p.version())).build())
                 .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/advertisers")
+    @Operation(summary="List advertiser accounts for the authenticated tenant")
+    public CompletionStage<Response> listAdvertisers(@QueryParam("page") @DefaultValue("0") int page,
+                                                      @QueryParam("size") @DefaultValue("20") int size) {
+        return accounts.listAdvertisers(tenant(),pageRequest(page,size))
+                .thenApply(result -> Response.ok(page(result,a -> new AccountResponse(a.id().value(),a.displayName(),a.status().name(),a.version()))).build())
+                .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/advertisers/{advertiserId}")
+    @Operation(summary="Get an advertiser account")
+    public CompletionStage<Response> getAdvertiser(@PathParam("advertiserId") UUID id) {
+        return accounts.getAdvertiser(tenant(),new AdvertisingAccountId(id))
+                .thenApply(found -> found.<Response>map(a -> Response.ok(new AccountResponse(a.id().value(),a.displayName(),a.status().name(),a.version())).build())
+                        .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build()))
+                .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/publishers")
+    @Operation(summary="List publisher accounts for the authenticated tenant")
+    public CompletionStage<Response> listPublishers(@QueryParam("page") @DefaultValue("0") int page,
+                                                     @QueryParam("size") @DefaultValue("20") int size) {
+        return accounts.listPublishers(tenant(),pageRequest(page,size))
+                .thenApply(result -> Response.ok(page(result,p -> new AccountResponse(p.id().value(),p.displayName(),p.status().name(),p.version()))).build())
+                .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/publishers/{publisherId}")
+    @Operation(summary="Get a publisher account")
+    public CompletionStage<Response> getPublisher(@PathParam("publisherId") UUID id) {
+        return accounts.getPublisher(tenant(),new AdvertisingAccountId(id))
+                .thenApply(found -> found.<Response>map(p -> Response.ok(new AccountResponse(p.id().value(),p.displayName(),p.status().name(),p.version())).build())
+                        .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build()))
+                .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/publishers/{publisherId}/properties")
+    @Operation(summary="List properties owned by a publisher")
+    public CompletionStage<Response> listProperties(@PathParam("publisherId") UUID publisherId,
+                                                     @QueryParam("page") @DefaultValue("0") int page,
+                                                     @QueryParam("size") @DefaultValue("20") int size) {
+        return accounts.listProperties(tenant(),new AdvertisingAccountId(publisherId),pageRequest(page,size))
+                .thenApply(result -> Response.ok(page(result,p -> new PropertyResponse(p.id().value(),p.publisherId().value(),p.name(),p.canonicalUri().toString(),p.status().name(),p.version()))).build())
+                .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/properties/{propertyId}")
+    @Operation(summary="Get a publisher property")
+    public CompletionStage<Response> getProperty(@PathParam("propertyId") UUID id) {
+        return accounts.getProperty(tenant(),new PublisherPropertyId(id))
+                .thenApply(found -> found.<Response>map(p -> Response.ok(new PropertyResponse(p.id().value(),p.publisherId().value(),p.name(),p.canonicalUri().toString(),p.status().name(),p.version())).build())
+                        .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build()))
+                .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/properties/{propertyId}/placements")
+    @Operation(summary="List placements defined on a publisher property")
+    public CompletionStage<Response> listPlacements(@PathParam("propertyId") UUID propertyId,
+                                                     @QueryParam("page") @DefaultValue("0") int page,
+                                                     @QueryParam("size") @DefaultValue("20") int size) {
+        return accounts.listPlacements(tenant(),new PublisherPropertyId(propertyId),pageRequest(page,size))
+                .thenApply(result -> Response.ok(page(result,p -> new PlacementResponse(p.id().value(),p.propertyId().value(),p.code(),p.format(),p.status().name(),p.version()))).build())
+                .exceptionally(this::failure);
+    }
+
+    @GET
+    @Path("/placements/{placementId}")
+    @Operation(summary="Get an ad placement")
+    public CompletionStage<Response> getPlacement(@PathParam("placementId") UUID id) {
+        return accounts.getPlacement(tenant(),new AdPlacementId(id))
+                .thenApply(found -> found.<Response>map(p -> Response.ok(new PlacementResponse(p.id().value(),p.propertyId().value(),p.code(),p.format(),p.status().name(),p.version())).build())
+                        .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build()))
+                .exceptionally(this::failure);
+    }
+
+    private static <T,R> PageResponse<R> page(AdvertisingPage<T> result,java.util.function.Function<T,R> mapper) {
+        return new PageResponse<>(result.items().stream().map(mapper).toList(),result.totalElements(),
+                result.page(),result.size(),result.totalPages(),result.hasNext(),result.hasPrevious());
+    }
+
+    private static AdvertisingPageRequest pageRequest(int page,int size) {
+        try { return new AdvertisingPageRequest(page,size); }
+        catch (IllegalArgumentException invalid) { throw new BadRequestException(invalid.getMessage(),invalid); }
     }
 
     private TenantId tenant() {

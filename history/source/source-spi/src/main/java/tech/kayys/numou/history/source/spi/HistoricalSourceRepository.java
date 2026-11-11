@@ -28,4 +28,7 @@ public interface HistoricalSourceRepository {
  Optional<ArchivalHolding> findHolding(UUID tenantId, HistoricalSourceId sourceId, UUID holdingId);
  boolean appendCatalogIdentifier(UUID tenantId, ArchivalCatalogIdentifier identifier);
  List<ArchivalCatalogIdentifier> listCatalogIdentifiers(UUID tenantId, HistoricalSourceId sourceId, UUID holdingId, int limit);
+ boolean appendSourceRelationship(UUID tenantId, SourceRelationship relationship);
+ List<SourceRelationship> listOutgoingSourceRelationships(UUID tenantId, HistoricalSourceId sourceId, int limit);
+ List<SourceRelationship> listIncomingSourceRelationships(UUID tenantId, HistoricalSourceId sourceId, int limit);
 }

@@ -158,6 +158,29 @@ public final class HistoricalSourceService {
   if(repository.find(tenant,sourceId).isEmpty()) return List.of();
   return List.copyOf(repository.listCatalogIdentifiers(tenant,sourceId,holdingId,limit));
  }
+ public SourceRelationship relateSources(HistoricalSourceId sourceId,HistoricalSourceId relatedSourceId,SourceRelationshipType relation,EvidenceLocatorType locatorType,String locator,String note) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); Objects.requireNonNull(relatedSourceId);
+  authorization.requireCanManageSourceBibliography(tenant,sourceId); authorization.requireCanManageSourceBibliography(tenant,relatedSourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) throw new IllegalArgumentException("Source not found");
+  if(repository.find(tenant,relatedSourceId).isEmpty()) throw new IllegalArgumentException("Related source not found");
+  var relationship=SourceRelationship.create(sourceId,relatedSourceId,relation,locatorType,locator,note,clock.instant());
+  if(!repository.appendSourceRelationship(tenant,relationship)) throw new HistoricalSourceConflictException("Source relationship could not be appended");
+  return relationship;
+ }
+ public List<SourceRelationship> listOutgoingSourceRelationships(HistoricalSourceId sourceId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); validateLimit(limit); authorization.requireCanReadSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) return List.of();
+  var items=repository.listOutgoingSourceRelationships(tenant,sourceId,limit);
+  items.forEach(x->authorization.requireCanReadSourceBibliography(tenant,x.relatedSourceId()));
+  return List.copyOf(items);
+ }
+ public List<SourceRelationship> listIncomingSourceRelationships(HistoricalSourceId sourceId,int limit) {
+  var tenant=requireTenant(); Objects.requireNonNull(sourceId); validateLimit(limit); authorization.requireCanReadSourceBibliography(tenant,sourceId);
+  if(repository.find(tenant,sourceId).isEmpty()) return List.of();
+  var items=repository.listIncomingSourceRelationships(tenant,sourceId,limit);
+  items.forEach(x->authorization.requireCanReadSourceBibliography(tenant,x.sourceId()));
+  return List.copyOf(items);
+ }
  private java.util.UUID requireTenant() { return Objects.requireNonNull(tenantContext.requireTenantId(),"trusted tenant context is required"); }
  private static void validateLimit(int limit) { if(limit<1||limit>200) throw new IllegalArgumentException("limit must be between 1 and 200"); }
 }

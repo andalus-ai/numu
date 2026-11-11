@@ -2,7 +2,7 @@
 
 ## Status
 
-M5.3 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
+M5.5 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
 
 ## Ownership and boundaries
 
@@ -52,12 +52,31 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - `ArchivalCatalogIdentifier` is scoped to a holding and assigning scheme/authority. Identifiers are not assumed globally unique across institutions.
 - These records are append-only, tenant-scoped and independently addressable. Catalogue identifier reads are scoped to both source and holding; a holding lookup is likewise source-scoped.
 
+## Source-to-source relationships
+
+- Source relationships are directed and preserve the direction from the citing/deriving source to the related source.
+- Supported relation types include citation, translation, editing, derivation, reproduction, response, contradiction, supersession and general relation.
+- An optional locator (type and value supplied together) and explanatory note preserve where and why the relationship is asserted.
+- These links are bibliographic/provenance relationships between source records. They do not replace `ClaimEvidence`, which connects one source to one historical claim.
+- Self-links are rejected. Both source endpoints must exist in the same tenant. Outgoing and incoming queries are separate, bounded, tenant-scoped and authorization-checked for both endpoints.
+- Relationship records are append-only; no citation graph is treated as a truth score or canonical event/person/place graph.
+
+## Citation graph projection and discovery
+
+- The application layer exposes an on-demand, immutable citation graph read model derived from source records and directed source relationships.
+- Traversal is breadth-first across both incoming and outgoing links. Each node records its shortest hop distance from the requested root; relationship direction and original relation type are preserved.
+- Requests are bounded to depth 0–3, at most 100 nodes and at most 200 relationships. The result reports whether a configured bound truncated traversal. A request cannot override these safety ceilings.
+- Graph values reject duplicate node/relationship identities, missing relationship endpoints, and nodes whose hop distance exceeds the requested depth.
+- Every discovered source is authorized through the host bibliography-read policy before its metadata is included. Repository results are checked to ensure each relationship is incident to the source being expanded. Repository reads remain tenant-scoped; graph traversal never crosses tenant boundaries.
+- The projection is not persisted and does not introduce graph write authority, a second source of truth, a universal reliability score, or an inference that connected sources are independent corroboration. PostgreSQL remains authoritative.
+- The existing optional Neo4j adapter for canonical historical-entity relationships is not coupled to this source graph read model. A future disposable graph projection may be introduced only with explicit rebuild, authorization, and consistency contracts.
+
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
-- Forced row-level security protects source heads, immutable source revisions, claims, evidence associations, assessments, editorial reviews, contributors, editions, holdings and catalogue identifiers.
+- Forced row-level security protects source heads, immutable source revisions, claims, evidence associations, assessments, editorial reviews, contributors, editions, holdings, catalogue identifiers and source relationships.
 - Composite tenant foreign keys prevent evidence from linking a claim or source owned by another tenant.
-- Source revisions, claims, evidence, assessments, editorial reviews, contributor attributions, editions, holdings and catalogue identifiers are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
+- Source revisions, claims, evidence, assessments, editorial reviews, contributor attributions, editions, holdings, catalogue identifiers and source relationships are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
 - Revision advancement and source revision insertion occur in one transaction.
 - Evidence insertion relies on tenant-scoped foreign keys to ensure both the claim and source exist in the same tenant.
 
@@ -72,15 +91,14 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalog identifiers and append-only enforcement.
+The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test verifies database-level tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalogue identifiers, directed source relationships and append-only enforcement. The source application unit tests separately verify citation graph breadth-first traversal, cycle deduplication, depth/node/relationship bounds, truncation reporting, tenant scoping, per-source authorization, malformed repository relationship rejection and graph value invariants. These are separate test boundaries; the database integration test does not claim to execute the application graph service.
 
 ## Deliberately deferred
 
-
 - source ingestion, OCR/transcription, content extraction and shared document-store integration;
-- source-to-source citation graph and claim/evidence graph projection;
+- durable/asynchronous source graph projections, full-text indexing, and cross-source independence analysis;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
-- REST/GraphQL APIs, search indexing, ranking and discovery;
+- REST/GraphQL APIs, full-text search indexing, ranking and corpus-scale discovery;
 - cross-tenant sharing or public-source visibility policies.
 
 These should be separate M5 increments. In particular, no universal numeric reliability score should be introduced without a documented, explainable assessment model.
