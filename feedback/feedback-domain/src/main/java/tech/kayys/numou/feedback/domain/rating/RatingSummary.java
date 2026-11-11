@@ -13,6 +13,8 @@ public record RatingSummary(
         long responseCount,
         BigDecimal average,
         Map<BigDecimal, Long> distribution,
+        BigDecimal favorablePercent,
+        long favorableResponses,
         Integer npsScore,
         long promoters,
         long passives,
@@ -25,21 +27,24 @@ public record RatingSummary(
     }
 
     public static RatingSummary empty(RatingMetric metric) {
-        return new RatingSummary(metric, 0, BigDecimal.ZERO.setScale(2), Map.of(), null, 0, 0, 0);
+        return new RatingSummary(metric, 0, BigDecimal.ZERO.setScale(2), Map.of(),
+                null, 0, null, 0, 0, 0);
     }
 
     public static RatingSummary from(RatingMetric metric, Iterable<FeedbackRating> ratings) {
         Objects.requireNonNull(metric, "metric cannot be null");
         Objects.requireNonNull(ratings, "ratings cannot be null");
-        long count = 0, promoters = 0, passives = 0, detractors = 0;
+        long count = 0, promoters = 0, passives = 0, detractors = 0, favorable = 0;
         BigDecimal total = BigDecimal.ZERO;
         Map<BigDecimal, Long> distribution = new TreeMap<>();
+        Integer threshold = metric.favorableThreshold();
         for (FeedbackRating rating : ratings) {
             if (rating.metric() != metric) throw new IllegalArgumentException("Mixed metrics in rating aggregation");
             BigDecimal value = rating.value().stripTrailingZeros();
             count++;
             total = total.add(value);
             distribution.merge(value, 1L, Long::sum);
+            if (threshold != null && value.compareTo(BigDecimal.valueOf(threshold)) >= 0) favorable++;
             if (metric == RatingMetric.NPS) {
                 int score = value.intValueExact();
                 if (score >= 9) promoters++;
@@ -49,11 +54,15 @@ public record RatingSummary(
         }
         if (count == 0) return empty(metric);
         BigDecimal average = total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP);
+        BigDecimal favorablePercent = threshold == null ? null
+                : BigDecimal.valueOf(favorable).multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP);
         Integer nps = metric == RatingMetric.NPS
                 ? BigDecimal.valueOf(promoters - detractors)
                     .multiply(BigDecimal.valueOf(100))
                     .divide(BigDecimal.valueOf(count), 0, RoundingMode.HALF_UP).intValueExact()
                 : null;
-        return new RatingSummary(metric, count, average, distribution, nps, promoters, passives, detractors);
+        return new RatingSummary(metric, count, average, distribution, favorablePercent,
+                favorable, nps, promoters, passives, detractors);
     }
 }
