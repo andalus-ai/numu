@@ -53,6 +53,15 @@ class PostgresFeedbackEngagementRepositoryTest {
         assertEquals(1, repository.findByTarget(tenant, target, RatingMetric.NPS).size());
         assertEquals(0, BigDecimal.TEN.compareTo(repository.findById(tenant, first).orElseThrow().value()));
         assertTrue(repository.findById(TenantId.generate(), first).isEmpty());
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT count(*) FROM feedback_engagement_outbox WHERE tenant_id = ? AND event_type = 'feedback.rating-submitted.v1'")) {
+            statement.setObject(1, tenant.value());
+            try (var rows = statement.executeQuery()) {
+                assertTrue(rows.next());
+                assertEquals(1, rows.getLong(1));
+            }
+        } 
     }
 
     @Test
@@ -83,6 +92,12 @@ class PostgresFeedbackEngagementRepositoryTest {
         assertEquals(1, reviews.findByTarget(tenant, target, ReviewStatus.PUBLISHED, 20, 0).size());
         assertTrue(reviews.findByTarget(tenant, target, ReviewStatus.PENDING, 20, 0).isEmpty());
         assertTrue(reviews.findById(TenantId.generate(), review.id()).isEmpty());
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             var rows = statement.executeQuery("SELECT count(*) FROM feedback_engagement_outbox")) {
+            assertTrue(rows.next());
+            assertEquals(3, rows.getLong(1));
+        }
     }
 
     private static DataSource dataSource() {
