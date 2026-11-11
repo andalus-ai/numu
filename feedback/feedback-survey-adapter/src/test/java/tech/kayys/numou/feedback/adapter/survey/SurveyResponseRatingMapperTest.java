@@ -47,6 +47,6 @@ class SurveyResponseRatingMapperTest {
         assertThrows(IllegalArgumentException.class, () -> mapper.map(tenant, response, question,
                 target, RatingMetric.CSAT, RatingScale.of(1, 5)));
         assertThrows(IllegalArgumentException.class, () -> mapper.map(TenantId.generate(), response, question,
-                target, RatingMetric.CSAT, RatingScale.of(1, 5), NOW));
+                target, RatingMetric.CSAT, RatingScale.of(1, 5)));
     }
 }
