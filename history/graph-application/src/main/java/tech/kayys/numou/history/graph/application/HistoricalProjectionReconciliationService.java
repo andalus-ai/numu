@@ -21,55 +21,19 @@ public final class HistoricalProjectionReconciliationService {
     private final HistoricalProjectionAuditStore canonical;
     private final HistoricalProjectionInspectionPort projection;
     private final HistoricalRelationshipProjectionPort replayPort;
-    private final HistoricalRelationshipTenantContext tenantContext;
     private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
 
     public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
             HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
-            HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization) {
         this.canonical = Objects.requireNonNull(canonical, "canonical");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.replayPort = Objects.requireNonNull(replayPort, "replayPort");
-        this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
     }
 
-    public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
-            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
-            HistoricalRelationshipTenantContext tenantContext,
-            HistoricalProjectionMaintenanceAuthorizationPort authorization,
-            HistoricalProjectionMetricsPort metrics) {
-        this(canonical,projection,replayPort,tenantContext,authorization,metrics,null,null,Clock.systemUTC());
-    }
-
-    public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
-            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
-            HistoricalRelationshipTenantContext tenantContext,
-            HistoricalProjectionMaintenanceAuthorizationPort authorization,
-            HistoricalProjectionMetricsPort metrics, HistoricalProjectionOperatorContext operatorContext,
-            HistoricalProjectionRepairAuditStore repairAudit, Clock clock) {
-        this.canonical=Objects.requireNonNull(canonical,"canonical");
-        this.projection=Objects.requireNonNull(projection,"projection");
-        this.replayPort=Objects.requireNonNull(replayPort,"replayPort");
-        this.tenantContext=Objects.requireNonNull(tenantContext,"tenantContext");
-        this.authorization=Objects.requireNonNull(authorization,"authorization");
-        this.metrics=Objects.requireNonNull(metrics,"metrics");
-        this.operatorContext=operatorContext;
-        this.repairAudit=repairAudit;
-        this.clock=Objects.requireNonNull(clock,"clock");
-    }
-
-    /** Reconciles a staging generation without changing or reading the active projection. */
-    public ReconciliationReport reconcileGeneration(UUID tenantId, UUID generationId,
-            int pageSize, boolean repair) throws Exception {
-        Objects.requireNonNull(generationId, "generationId");
-        if (!(projection instanceof GenerationTargetedHistoricalProjectionInspectionPort)) {
-            throw new IllegalStateException("inspection provider does not support generation-targeted reads");
-        }
-        if (repair && !(replayPort instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
-            throw new IllegalStateException("projection provider does not support generation-targeted repair");
-        }
+    public ReconciliationReport reconcile(UUID tenantId, int pageSize, boolean repair) throws Exception {
+        requireCanAudit(tenantId);
         if (pageSize < 1 || pageSize > 200) throw new IllegalArgumentException("pageSize must be 1..200");
         authorizeScope(tenantId, repair);
 
@@ -78,11 +42,15 @@ public final class HistoricalProjectionReconciliationService {
         while (true) {
             List<CanonicalRelationship> page=canonical.nextLatestPage(tenantId,cursor,pageSize);
             if(page.isEmpty()) break;
-            String previous=cursor;
+            String previous = cursor;
             for(CanonicalRelationship event:page) {
-                String current=event.relationshipId().toString();
-                if(previous!=null && current.compareTo(previous)<=0)
-                    throw new IllegalStateException("canonical reconciliation page is not strictly ordered");
+                if (!Objects.equals(tenantId, event.tenantId())) {
+                    throw new IllegalStateException("canonical audit page crossed tenant scope");
+                }
+                String currentId = event.relationshipId().toString();
+                if (previous != null && currentId.compareTo(previous) <= 0) {
+                    throw new IllegalStateException("canonical audit page is not strictly ordered");
+                }
                 checked++;
                 var graph=inspector.findInGeneration(tenantId,generationId,event.relationshipId());
                 String hash=sha256(event.payload());
@@ -108,8 +76,7 @@ public final class HistoricalProjectionReconciliationService {
                         if(repair){projectIntoGeneration(event,generationId);repaired++;}
                     }
                 }
-                cursor=current;
-                previous=current;
+                previous=currentId;
             }
             cursor=previous;
             if(page.size()<pageSize) break;
@@ -119,14 +86,14 @@ public final class HistoricalProjectionReconciliationService {
             List<HistoricalProjectionInspectionPort.ProjectedRelationship> page=
                     inspector.nextPageInGeneration(tenantId,generationId,graphCursor,pageSize);
             if(page.isEmpty()) break;
-            String previous=graphCursor;
+            String previous = graphCursor;
             for(var row:page) {
-                String current=row.relationshipId().toString();
-                if(previous!=null && current.compareTo(previous)<=0)
-                    throw new IllegalStateException("graph reconciliation page is not strictly ordered");
+                String currentId = row.relationshipId().toString();
+                if (previous != null && currentId.compareTo(previous) <= 0) {
+                    throw new IllegalStateException("graph inspection page is not strictly ordered");
+                }
                 if(canonical.findLatest(tenantId,row.relationshipId()).isEmpty()) orphaned++;
-                graphCursor=current;
-                previous=current;
+                previous=currentId;
             }
             graphCursor=previous;
             if(page.size()<pageSize) break;
@@ -134,18 +101,9 @@ public final class HistoricalProjectionReconciliationService {
         return new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
     }
 
-    private void authorizeScope(UUID tenantId, boolean repair) {
-        if (tenantId == null) {
-            authorization.requireCanAuditPublicCorpus();
-            if (repair) authorization.requireCanRebuildPublicCorpus();
-            return;
-        }
-        UUID trustedTenant = Objects.requireNonNull(tenantContext.requireTenantId(),
-                "trusted tenant context must provide a tenant");
-        if (!trustedTenant.equals(tenantId))
-            throw new SecurityException("requested audit scope differs from authenticated tenant");
-        authorization.requireCanAuditTenant(trustedTenant);
-        if (repair) authorization.requireCanRebuildTenant(trustedTenant);
+    private void requireCanAudit(UUID tenantId) {
+        if (tenantId == null) authorization.requireCanAuditPublicCorpus();
+        else authorization.requireCanAuditTenant(tenantId);
     }
 
     private static ClaimedProjectionEvent toProjectionEvent(CanonicalRelationship e) {

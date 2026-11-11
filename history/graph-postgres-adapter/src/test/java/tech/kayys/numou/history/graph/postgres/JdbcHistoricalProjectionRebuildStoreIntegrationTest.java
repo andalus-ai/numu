@@ -1,7 +1,6 @@
 package tech.kayys.numou.history.graph.postgres;
 import org.flywaydb.core.Flyway; import org.junit.jupiter.api.BeforeAll; import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource; import org.testcontainers.containers.PostgreSQLContainer; import org.testcontainers.junit.jupiter.Container; import org.testcontainers.junit.jupiter.Testcontainers;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore;
 import javax.sql.DataSource; import java.sql.*; import java.time.Instant; import java.util.List; import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 @Testcontainers(disabledWithoutDocker = true)
