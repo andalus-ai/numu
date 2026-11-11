@@ -42,6 +42,7 @@ public final class PostgresFeedbackRatingRepository implements FeedbackRatingRep
                     return findIdempotent(c, rating.tenantId(), key)
                             .orElseThrow(() -> new IllegalStateException("Idempotency conflict without original rating"));
                 }
+                insertOutbox(c, rating);
                 c.commit();
                 return rating.id();
             } catch (SQLException | RuntimeException failure) {
@@ -150,6 +151,37 @@ public final class PostgresFeedbackRatingRepository implements FeedbackRatingRep
             s.setObject(3, r.id().value());
             return s.executeUpdate() == 1;
         }
+    }
+
+    private void insertOutbox(Connection c, FeedbackRating r) throws SQLException {
+        String payload = "{"
+                + "\"ratingId\":" + quote(r.id().value().toString()) + ","
+                + "\"metric\":" + quote(r.metric().name()) + ","
+                + "\"targetType\":" + quote(r.target().targetType()) + ","
+                + "\"targetId\":" + quote(r.target().targetId()) + ","
+                + "\"branchId\":" + nullableQuote(r.target().branchId()) + ","
+                + "\"value\":" + r.value().toPlainString() + ","
+                + "\"surveyReference\":" + nullableQuote(r.surveyReference())
+                + "}";
+        try (PreparedStatement s = c.prepareStatement("""
+                INSERT INTO feedback_engagement_outbox
+                (event_id, tenant_id, aggregate_type, aggregate_id, event_type, event_version, payload, occurred_at)
+                VALUES (?, ?, 'RATING', ?, 'feedback.rating-submitted.v1', 1, ?::jsonb, ?)
+                """)) {
+            s.setObject(1, UUID.randomUUID());
+            s.setObject(2, r.tenantId().value());
+            s.setObject(3, r.id().value());
+            s.setString(4, payload);
+            s.setTimestamp(5, Timestamp.from(r.submittedAt()));
+            s.executeUpdate();
+        }
+    }
+
+    private String nullableQuote(String value) { return value == null ? "null" : quote(value); }
+
+    private String quote(String value) {
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "\"";
     }
 
     private FeedbackRating map(ResultSet r) throws SQLException {
