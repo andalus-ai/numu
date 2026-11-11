@@ -15,7 +15,7 @@ class FeedbackOutboxRelayTest {
 
     private static FeedbackOutboxMessage message(int attempts) {
         return new FeedbackOutboxMessage(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                "feedback.submitted", 1, "{\"feedbackId\":\"test\"}", NOW, attempts);
+                "feedback.submitted", 1, "{\"feedbackId\":\"test\"}", NOW, attempts, UUID.randomUUID());
     }
 
     private static final class Store implements FeedbackOutboxStore {
@@ -31,8 +31,8 @@ class FeedbackOutboxRelayTest {
             assertTrue(limit <= 50);
             return List.copyOf(claimed);
         }
-        @Override public void markPublished(UUID eventId, Instant publishedAt) { published.add(eventId); }
-        @Override public void recordFailure(UUID eventId, String error, Instant nextAttemptAt, int maximumAttempts) {
+        @Override public void markPublished(UUID eventId, UUID leaseToken, Instant publishedAt) { published.add(eventId); }
+        @Override public void recordFailure(UUID eventId, UUID leaseToken, String error, Instant nextAttemptAt, int maximumAttempts) {
             errors.add(error);
             retryAt = nextAttemptAt;
             this.maximumAttempts = maximumAttempts;
