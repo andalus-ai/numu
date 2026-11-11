@@ -22,4 +22,15 @@ The API Catalog owns lifecycle metadata for its immutable OpenAPI objects. Binar
 
 ## Scope of this milestone
 
-This milestone adds the durable registry and persistence coupling between API version registration/publication and lifecycle state. It deliberately does not run object deletion. A later worker milestone must add lease acquisition, retry/backoff, storage deletion and crash recovery before any physical object cleanup is enabled. Until then, artifacts remain in storage and no cleanup is scheduled automatically.
+M5h adds the durable registry and persistence coupling between API version registration/publication and lifecycle state.
+
+## M5i cleanup worker
+
+- The application dispatcher operates on one trusted tenant per invocation. Hosts create one `ApiArtifactCleanupManagedWorker` per authorized tenant; PostgreSQL leases coordinate replicas.
+- Claiming uses `FOR UPDATE SKIP LOCKED`, a unique per-dispatch lease owner, bounded batches and lease expiry. Expired leases can be reclaimed after a process crash.
+- The worker rechecks tenant, immutable reference, digest, retention, legal hold, attempt budget and current lease immediately before deletion.
+- The Document Storage adapter accepts only the catalog's `s3://api-catalog` or `rustfs://api-catalog` reference shape. It constructs the storage key from the trusted tenant, verifies the object's key and SHA-256 metadata, and treats an already absent object as a successful retry.
+- Failures are recorded as bounded error codes with exponential backoff (5 seconds, tripling to a one-hour cap). After the configured maximum attempts, the row remains visible in `ABANDONED` with its attempt count and last error code; it is not automatically retried until an operator-approved remediation resets the attempt budget.
+- Successful deletion transitions the row to the durable `DELETED` tombstone. If a process crashes after deleting the object but before tombstoning, the next lease safely repeats the idempotent delete.
+
+No automatic transition from `REGISTERED` to `ABANDONED` is introduced. A future reconciliation/administrative workflow must explicitly establish that an artifact is no longer referenced and assign its retention deadline before it becomes eligible. The worker never infers cleanup eligibility from age, and published artifacts remain protected.
