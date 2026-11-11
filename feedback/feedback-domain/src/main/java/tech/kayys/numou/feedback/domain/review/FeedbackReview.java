@@ -45,6 +45,24 @@ public final class FeedbackReview {
                 VerificationStatus.UNVERIFIED, createdAt);
     }
 
+    /** Rehydrates moderation state without replaying moderation actions. */
+    public static FeedbackReview rehydrate(FeedbackReviewId id, TenantId tenantId, RatingTarget target,
+                                           FeedbackActor author, FeedbackRatingId ratingId, String title,
+                                           String body, ReviewStatus status, VerificationStatus verificationStatus,
+                                           Instant createdAt, Instant moderatedAt) {
+        FeedbackReview review = new FeedbackReview(id, tenantId, target, author, ratingId, title, body,
+                verificationStatus, createdAt);
+        review.status = Objects.requireNonNull(status, "status cannot be null");
+        if (moderatedAt != null && moderatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("moderatedAt cannot precede createdAt");
+        }
+        if (status != ReviewStatus.PENDING && moderatedAt == null) {
+            throw new IllegalArgumentException("moderatedAt is required for moderated reviews");
+        }
+        review.moderatedAt = moderatedAt;
+        return review;
+    }
+
     /** Only a trusted commerce/service adapter should assert verification. */
     public void verify(Instant at) {
         ensurePending();
