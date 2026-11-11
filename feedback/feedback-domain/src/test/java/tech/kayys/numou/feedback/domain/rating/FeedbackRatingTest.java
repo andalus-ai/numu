@@ -54,6 +54,24 @@ class FeedbackRatingTest {
     }
 
     @Test
+    void csatAndCesSummariesExposeFavorableTopBoxPercentages() {
+        var csat = RatingSummary.from(RatingMetric.CSAT, List.of(
+                rating(RatingMetric.CSAT, 1, 5, "5"),
+                rating(RatingMetric.CSAT, 1, 5, "4"),
+                rating(RatingMetric.CSAT, 1, 5, "3"),
+                rating(RatingMetric.CSAT, 1, 5, "2")));
+        assertEquals(2, csat.favorableResponses());
+        assertEquals(new BigDecimal("50.00"), csat.favorablePercent());
+
+        var ces = RatingSummary.from(RatingMetric.CES, List.of(
+                rating(RatingMetric.CES, 1, 7, "7"),
+                rating(RatingMetric.CES, 1, 7, "5"),
+                rating(RatingMetric.CES, 1, 7, "4")));
+        assertEquals(2, ces.favorableResponses());
+        assertEquals(new BigDecimal("66.67"), ces.favorablePercent());
+    }
+
+    @Test
     void emptySummaryAndMixedMetricsAreHandled() {
         assertEquals(0, RatingSummary.empty(RatingMetric.CSAT).responseCount());
         assertNull(RatingSummary.empty(RatingMetric.NPS).npsScore());
