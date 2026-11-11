@@ -38,6 +38,8 @@ class SubmitReviewHandlerTest {
             @Override public void save(FeedbackReview review) { saved.set(review); }
             @Override public void update(FeedbackReview review) { saved.set(review); }
             @Override public Optional<FeedbackReview> findById(TenantId t, FeedbackReviewId id) { return Optional.empty(); }
+            @Override public java.util.List<FeedbackReview> findByTarget(TenantId t, RatingTarget target,
+                    tech.kayys.numou.feedback.domain.review.ReviewStatus status, int limit, int offset) { return java.util.List.of(); }
         };
         SubmitReviewHandler handler = new SubmitReviewHandler(ratingRepository, reviewRepository);
         FeedbackReviewId id = handler.handle(new SubmitReviewCommand(tenant, target,
