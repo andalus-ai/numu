@@ -54,6 +54,12 @@ class PostgresFeedbackAttachmentRepositoryTest {
         assertEquals(attachment.documentId(), reloaded.documentId());
         assertEquals(attachment.documentVersionId(), reloaded.documentVersionId());
 
+        FeedbackAttachment staleSameTimestamp = FeedbackAttachment.restore(
+                attachment.id(), tenantId, feedback.id(), attachment.documentId(), attachment.documentVersionId(),
+                attachment.fileName(), attachment.mediaType(), attachment.sizeBytes(), attachment.sha256(),
+                FeedbackAttachment.Status.PENDING_SCAN, now, now.plusSeconds(5), null);
+        assertThrows(IllegalStateException.class, () -> attachments.save(staleSameTimestamp));
+
         // One submission event + attachment-added + attachment-status-changed.
         assertEquals(3, countOutbox(dataSource));
         attachments.save(reloaded); // idempotent replay must not emit another event
