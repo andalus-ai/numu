@@ -159,3 +159,28 @@ M2 introduces a separate directed-edge model for `FOLLOW`, `BLOCK`, and `MUTE`. 
 - No persistence, command gateway, public discovery, feed, or graph traversal is exposed by this domain-only increment. Those require subsequent application/persistence work and the agreed privacy/consent policy.
 
 A BLOCK edge is stored with its actor as source. Any future interaction/discovery policy must evaluate a block in either direction; callers must not infer that a directed storage representation makes block enforcement directional.
+
+
+## M2d authoritative relationship policy
+
+The application exposes `SocialGraphPolicyService` backed by
+`SocialGraphRelationshipPolicyPort`. The JDBC adapter evaluates policy against
+authoritative PostgreSQL rows and effective-time windows:
+
+- **BLOCK:** storage remains directed (`source_party_id -> target_party_id`),
+  but enforcement checks both endpoint orientations. Either Party's active
+  block suppresses interaction between the pair.
+- **MUTE:** only the viewer-to-author edge applies. A mute in the reverse
+  direction does not suppress the viewer's feed.
+- Effective windows use inclusive `valid_from` and exclusive `valid_until`.
+  Removed or not-yet-effective/expired relationships do not apply.
+- Every lookup is tenant-qualified. Self-pairs are treated as not blocked/muted.
+- Feed suppression combines symmetric block and viewer-owned mute. It is a
+  filtering primitive, not a complete visibility decision.
+
+Consumers must call the policy service before interactions and before
+delivering feed items. They must still enforce the owning capability's
+authorization, profile visibility, consent, moderation and data-retention
+policies. The policy service is not an unrestricted public discovery API.
+Policy decisions use PostgreSQL, never an eventually consistent graph
+projection.
