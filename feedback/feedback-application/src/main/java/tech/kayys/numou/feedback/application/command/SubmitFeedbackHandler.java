@@ -1,13 +1,13 @@
 package tech.kayys.numou.feedback.application.command;
 
 import tech.kayys.numou.feedback.application.port.FeedbackRepository;
+import tech.kayys.numou.feedback.domain.Feedback;
 import tech.kayys.numou.feedback.domain.FeedbackId;
-import tech.kayys.numou.feedback.domain.FeedbackItem;
 import tech.kayys.numou.feedback.domain.FeedbackPriority;
 
 import java.util.Objects;
 
-/** Application use case; authentication and tenant authorization are enforced by the host boundary. */
+/** Application use case; host authentication and tenant authorization precede invocation. */
 public final class SubmitFeedbackHandler {
     private final FeedbackRepository repository;
 
@@ -17,16 +17,17 @@ public final class SubmitFeedbackHandler {
 
     public FeedbackId handle(SubmitFeedbackCommand command) {
         Objects.requireNonNull(command, "command cannot be null");
-        if (command.tenantId() == null) throw new IllegalArgumentException("tenantId is required");
+        Objects.requireNonNull(command.tenantId(), "tenantId is required");
+        Objects.requireNonNull(command.author(), "author is required");
+        Objects.requireNonNull(command.kind(), "kind is required");
+        Objects.requireNonNull(command.occurredAt(), "occurredAt is required");
         if (command.idempotencyKey() == null || command.idempotencyKey().isBlank()) {
             throw new IllegalArgumentException("idempotencyKey is required");
         }
-        FeedbackPriority priority = command.priority() == null
-                ? FeedbackPriority.NORMAL : command.priority();
-        FeedbackId id = FeedbackId.generate();
-        FeedbackItem item = FeedbackItem.submit(id, command.tenantId(), command.submitterId(),
-                command.type(), command.title(), command.description(), command.sourceApplication(),
-                command.sourceModule(), command.sourceReference(), priority, command.occurredAt());
-        return repository.save(item, command.idempotencyKey().trim());
+        Feedback feedback = Feedback.submit(FeedbackId.generate(), command.tenantId(),
+                command.author(), command.kind(),
+                command.priority() == null ? FeedbackPriority.NORMAL : command.priority(),
+                command.title(), command.description(), command.context(), command.occurredAt());
+        return repository.save(feedback, command.idempotencyKey().trim());
     }
 }
