@@ -136,7 +136,7 @@ class HistoricalEntitiesTest {
                 HistoricalPlaceKindCode.of("settlement"),
                 List.of(new HistoricalPlaceName("Old name", "id",
                         new HistoricalDateRange(
-                                HistoricalDate.year(800, GregorianCalendarDateConverter.ID),
+                                HistoricalDate.year(600, GregorianCalendarDateConverter.ID),
                                 HistoricalDate.year(900, GregorianCalendarDateConverter.ID)), true)),
                 List.of(new HistoricalPlaceLocation(new GeoPoint(-7.0, 110.0),
                         HistoricalPlacePrecision.APPROXIMATE_LOCATION,

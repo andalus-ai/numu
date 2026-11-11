@@ -2,6 +2,7 @@ package tech.kayys.numou.attendee.application.command;
 
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
+import tech.kayys.numou.attendee.application.error.AttendeeProfileAlreadyExistsException;
 import tech.kayys.numou.attendee.application.port.AttendeeAuthorizationPort;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileRepository;
 import tech.kayys.numou.attendee.application.port.AttendeeProfileAlreadyExistsException;
@@ -149,15 +150,13 @@ class CreateAttendeeProfileHandlerTest {
 
 
     @Test
-    void mapsConcurrentUniqueConstraintConflictToStableApplicationError() {
-        var tenantId = trustedTenant;
-        var partyId = UUID.randomUUID();
+    void translatesConcurrentDatabaseUniquenessConflictToStableApplicationError() {
         var repository = new AttendeeProfileRepository() {
             @Override
             public Uni<tech.kayys.numou.attendee.domain.AttendeeProfile> save(
                     tech.kayys.numou.attendee.domain.AttendeeProfile profile) {
-                return Uni.createFrom().failure(
-                        new AttendeeProfileAlreadyExistsException("duplicate", null));
+                return Uni.createFrom().failure(new AttendeeProfileAlreadyExistsException(
+                        "duplicate", new IllegalStateException("unique constraint")));
             }
             @Override
             public Uni<Optional<tech.kayys.numou.attendee.domain.AttendeeProfile>> findByTenantAndId(
@@ -171,12 +170,12 @@ class CreateAttendeeProfileHandlerTest {
             }
         };
         var handler = new CreateAttendeeProfileHandler(repository,
-                (tenant, actor, party) -> Uni.createFrom().voidItem(),
-                () -> new AttendeeTenantContext(tenantId, trustedActor),
+                (tenantId, actorId, partyId) -> Uni.createFrom().voidItem(),
+                () -> new AttendeeTenantContext(trustedTenant, trustedActor),
                 request -> Uni.createFrom().voidItem(), directUnitOfWork(), Clock.systemUTC());
 
         var result = handler.handle(new CreateAttendeeProfileCommand(
-                partyId, "EVENT_GUEST", "Guest", null, null)).await().indefinitely();
+                UUID.randomUUID(), "EVENT_GUEST", "Guest", null, null)).await().indefinitely();
 
         assertTrue(result.isFailure());
         assertEquals("ATTENDEE_PROFILE_ALREADY_EXISTS",

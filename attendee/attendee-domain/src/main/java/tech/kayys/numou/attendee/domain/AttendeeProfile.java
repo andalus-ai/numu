@@ -111,24 +111,24 @@ public record AttendeeProfile(
                 nextPreferredName, nextPreferredLanguage, nextStatus, createdAt, now, revision + 1);
     }
 
-    private static String requireText(String value, String field, int maxCodePoints) {
+    private static String requireText(String value, String field, int maxLength) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " is required");
         }
         String normalized = value.trim();
-        if (normalized.codePointCount(0, normalized.length()) > maxCodePoints) {
-            throw new IllegalArgumentException(field + " exceeds " + maxCodePoints + " characters");
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
         }
         return normalized;
     }
 
-    private static String optionalText(String value, String field, int maxCodePoints) {
+    private static String optionalText(String value, String field, int maxLength) {
         if (value == null || value.isBlank()) {
             return null;
         }
         String normalized = value.trim();
-        if (normalized.codePointCount(0, normalized.length()) > maxCodePoints) {
-            throw new IllegalArgumentException(field + " exceeds " + maxCodePoints + " characters");
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
         }
         return normalized;
     }
