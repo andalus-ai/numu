@@ -23,6 +23,7 @@ class ApplicationRuntimeCoordinatorTest {
         private final String failureAt;
         private PluginContext receivedContext;
         private Object observedSharedService;
+        private PluginState state = PluginState.LOADED;
 
         private TestPlugin(String id, String capability, String contractVersion,
                 List<String> events, String failureAt) {
@@ -37,11 +38,12 @@ class ApplicationRuntimeCoordinatorTest {
 
         @Override public String id() { return id; }
         @Override public PluginManifest manifest() { return manifest; }
-        @Override public PluginState state() { return PluginState.LOADED; }
+        @Override public PluginState state() { return state; }
 
         @Override
         public void initialize(PluginContext context) {
             events.add("init:" + id);
+            state = PluginState.INITIALIZED;
             receivedContext = context;
             if (id.equals("runtime.party.impl")) {
                 context.registerService(SharedMarker.class, new SharedMarker());
@@ -59,11 +61,13 @@ class ApplicationRuntimeCoordinatorTest {
             if ("start".equals(failureAt)) {
                 throw new IllegalStateException("start failed");
             }
+            state = PluginState.ACTIVE;
         }
 
         @Override
         public void stop() {
             events.add("stop:" + id);
+            state = PluginState.STOPPED;
         }
     }
 
@@ -209,5 +213,45 @@ class ApplicationRuntimeCoordinatorTest {
                 .isInstanceOf(ApplicationRuntimeException.class)
                 .hasMessageContaining("Context factory must return a context for plugin runtime.party.impl");
         assertThat(events).isEmpty();
+    } 
+    @Test
+    void routesOnlyToTheProviderSelectedForThisApplicationAndReportsReadiness() {
+        List<String> events = new ArrayList<>();
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting));
+
+        assertThat(session.route("numou.party")).contains(party);
+        assertThat(session.route("numou.accounting")).contains(accounting);
+        assertThat(session.route("numou.unknown")).isEmpty();
+        assertThat(session.health().ready()).isTrue();
+        assertThat(session.health().stopped()).isFalse();
+        assertThat(session.health().providers()).hasSize(2)
+                .allMatch(ApplicationRuntimeProviderHealth::ready);
+
+        session.stop();
+        assertThat(session.route("numou.party")).isEmpty();
+        assertThat(session.health().ready()).isFalse();
+        assertThat(session.health().stopped()).isTrue();
+        assertThat(session.health().providers()).noneMatch(ApplicationRuntimeProviderHealth::ready);
     }
+
+    @Test
+    void runtimeReadinessIsFalseWhenASelectedProviderIsNotActive() {
+        List<String> events = new ArrayList<>();
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting));
+        accounting.state = PluginState.FAILED;
+
+        assertThat(session.route("numou.accounting")).isEmpty();
+        assertThat(session.health().ready()).isFalse();
+        assertThat(session.health().providers())
+                .anyMatch(provider -> provider.providerId().equals("accounting-provider")
+                        && provider.state() == PluginState.FAILED && !provider.ready());
+        session.stop();
+    }
+
 }
