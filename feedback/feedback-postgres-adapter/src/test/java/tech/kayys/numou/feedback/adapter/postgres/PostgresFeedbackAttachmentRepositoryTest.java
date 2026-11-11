@@ -53,6 +53,11 @@ class PostgresFeedbackAttachmentRepositoryTest {
         assertEquals(FeedbackAttachment.Status.AVAILABLE, reloaded.status());
         assertEquals(attachment.documentId(), reloaded.documentId());
         assertEquals(attachment.documentVersionId(), reloaded.documentVersionId());
+
+        // One submission event + attachment-added + attachment-status-changed.
+        assertEquals(3, countOutbox(dataSource));
+        attachments.save(reloaded); // idempotent replay must not emit another event
+        assertEquals(3, countOutbox(dataSource));
     }
 
     @Test
@@ -73,6 +78,15 @@ class PostgresFeedbackAttachmentRepositoryTest {
                 50, "d".repeat(64), now);
 
         assertThrows(FeedbackPersistenceException.class, () -> attachments.save(forged));
+    }
+
+    private int countOutbox(DataSource dataSource) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             var rows = statement.executeQuery("SELECT count(*) FROM feedback_outbox")) {
+            assertTrue(rows.next());
+            return rows.getInt(1);
+        }
     }
 
     private DataSource dataSource() {
