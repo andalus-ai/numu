@@ -29,7 +29,7 @@
 - FeedbackDocumentPort: lookup of an exact, tenant-scoped Document version and authoritative metadata.
 - AddFeedbackAttachmentHandler: validates the feedback and Document version, then stores only the association metadata.
 
-The FeedbackDocumentPort adapter is a composition concern. It must use the Document public application/domain contracts, never Document persistence entities or tables. PostgreSQL attachment metadata is stored in `feedback_attachments` by the feedback-postgres-adapter, with a composite tenant/feedback foreign key, exact document-version uniqueness, and a pending-scan index.
+The FeedbackDocumentPort adapter is a composition concern. It must use the Document public application/domain contracts, never Document persistence entities or tables. PostgreSQL attachment metadata is stored in `feedback_attachments` by the feedback-postgres-adapter, with a composite tenant/feedback foreign key, exact document-version uniqueness, and a pending-scan index. Attachment creation and lifecycle transitions append versioned integration records to the existing `feedback_outbox` in the same database transaction; unchanged replays do not emit duplicate events.
 
 ## Existing Feedback domain and integration boundaries
 

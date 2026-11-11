@@ -98,6 +98,10 @@ class PostgresFeedbackAttachmentRepositoryTest {
     }
 
     private void migrate(DataSource dataSource) throws Exception {
+        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DROP SCHEMA public CASCADE");
+            statement.execute("CREATE SCHEMA public");
+        }
         for (String migration : new String[] {
                 "V1__feedback_foundation.sql", "V2__feedback_attachments.sql"
         }) {
