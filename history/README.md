@@ -9,7 +9,7 @@ Historical knowledge foundation for chronology, events, people, collectives, pla
 - graph-application: trusted-tenant relationship use cases, lease-aware projection dispatcher/worker, authorized rebuild/reconciliation operations, and vendor-neutral observability contracts.
 - graph-postgres-adapter: authoritative append-only PostgreSQL relationship revisions, RLS isolation, transactional projection event capture, fenced outbox delivery, read-only operational health snapshots, and append-only repair audit persistence.
 - graph-neo4j-adapter: optional, disposable Neo4j projection for graph traversal; never the system of record.
-- source: tenant-scoped historical source catalog, immutable source revisions, claim registry, precise evidence locators, and contradictory/supporting evidence links. PostgreSQL is authoritative; source binaries remain in the shared document capability.
+- source: tenant-scoped historical source catalog, immutable source revisions, claim registry, precise evidence locators, contradictory/supporting evidence links, qualitative methodology-bound source assessments, and append-only editorial review decisions. PostgreSQL is authoritative; source binaries remain in the shared document capability.
 
 - source/source-domain: framework-neutral source, claim, and evidence models with immutable revisions and precise evidence locators.
 - source/source-spi: tenant-aware source/provenance persistence contract.
