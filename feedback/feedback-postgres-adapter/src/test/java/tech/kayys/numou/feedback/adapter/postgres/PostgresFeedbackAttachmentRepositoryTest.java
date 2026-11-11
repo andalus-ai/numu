@@ -59,6 +59,12 @@ class PostgresFeedbackAttachmentRepositoryTest {
                 FeedbackAttachment.Status.PENDING_SCAN, now, now.plusSeconds(5), null);
         assertThrows(IllegalStateException.class, () -> attachments.save(staleSameTimestamp));
 
+        FeedbackAttachment forgedReverseTransition = FeedbackAttachment.restore(
+                attachment.id(), tenantId, feedback.id(), attachment.documentId(), attachment.documentVersionId(),
+                attachment.fileName(), attachment.mediaType(), attachment.sizeBytes(), attachment.sha256(),
+                FeedbackAttachment.Status.REJECTED, now, now.plusSeconds(6), "forged status");
+        assertThrows(IllegalStateException.class, () -> attachments.save(forgedReverseTransition));
+
         // One submission event + attachment-added + attachment-status-changed.
         assertEquals(3, countOutbox(dataSource));
         attachments.save(reloaded); // idempotent replay must not emit another event
