@@ -29,8 +29,8 @@ public record FeedbackRating(
         Objects.requireNonNull(submittedAt, "submittedAt cannot be null");
         if (!scale.contains(value)) throw new IllegalArgumentException("Rating value is outside the configured scale");
         if (metric != RatingMetric.CUSTOM) {
-            if (!scale.min().equals(BigDecimal.valueOf(metric.defaultMin()))
-                    || !scale.max().equals(BigDecimal.valueOf(metric.defaultMax()))) {
+            if (scale.min().compareTo(BigDecimal.valueOf(metric.defaultMin())) != 0
+                    || scale.max().compareTo(BigDecimal.valueOf(metric.defaultMax())) != 0) {
                 throw new IllegalArgumentException("Scale does not match metric " + metric);
             }
             try {
