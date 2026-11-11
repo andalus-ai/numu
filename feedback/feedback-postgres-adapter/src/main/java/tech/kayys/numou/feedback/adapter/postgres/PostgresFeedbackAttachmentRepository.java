@@ -42,14 +42,21 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
                     if (attachment.updatedAt().isBefore(current.updatedAt())) {
                         throw new IllegalStateException("Stale attachment state cannot overwrite a newer version");
                     }
-                    if (attachment.updatedAt().equals(current.updatedAt())
-                            && (current.status() != attachment.status()
-                                || !Objects.equals(current.rejectionReason(), attachment.rejectionReason()))) {
-                        throw new IllegalStateException("Conflicting attachment states share the same update timestamp");
-                    }
-                    if (current.status() != attachment.status()
-                            || !current.updatedAt().equals(attachment.updatedAt())
-                            || !Objects.equals(current.rejectionReason(), attachment.rejectionReason())) {
+                    boolean sameState = current.status() == attachment.status()
+                            && Objects.equals(current.rejectionReason(), attachment.rejectionReason());
+                    if (sameState) {
+                        if (!attachment.updatedAt().equals(current.updatedAt())) {
+                            throw new IllegalStateException("An unchanged attachment state cannot advance its timestamp");
+                        }
+                        // Idempotent replay: do not emit a duplicate outbox event.
+                    } else {
+                        if (!attachment.updatedAt().isAfter(current.updatedAt())) {
+                            throw new IllegalStateException("A lifecycle transition must advance updatedAt");
+                        }
+                        if (!allowedTransition(current.status(), attachment.status())) {
+                            throw new IllegalStateException("Invalid attachment transition: "
+                                    + current.status() + " -> " + attachment.status());
+                        }
                         updateState(connection, attachment);
                         appendOutbox(connection, attachment, "feedback.attachment-status-changed");
                     }
@@ -205,6 +212,17 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
             statement.setTimestamp(6, Timestamp.from(attachment.updatedAt()));
             statement.executeUpdate();
         }
+    }
+
+    private static boolean allowedTransition(FeedbackAttachment.Status current,
+                                             FeedbackAttachment.Status target) {
+        return switch (current) {
+            case PENDING_SCAN -> target == FeedbackAttachment.Status.AVAILABLE
+                    || target == FeedbackAttachment.Status.REJECTED
+                    || target == FeedbackAttachment.Status.DELETED;
+            case AVAILABLE, REJECTED -> target == FeedbackAttachment.Status.DELETED;
+            case DELETED -> false;
+        };
     }
 
     private static void verifyImmutableMetadata(Existing current, FeedbackAttachment attachment) {
