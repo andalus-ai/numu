@@ -1,5 +1,6 @@
 package tech.kayys.numou.feedback.adapter.postgres;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -22,10 +23,14 @@ class PostgresFeedbackRepositoryTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
+    @BeforeAll
+    static void setUpSchema() throws Exception {
+        migrate(dataSource());
+    }
+
     @Test
     void savesAggregateOutboxAndIdempotencyAtomically() throws Exception {
         DataSource dataSource = dataSource();
-        migrate(dataSource);
         PostgresFeedbackRepository repository = new PostgresFeedbackRepository(dataSource);
         UUID tenantId = UUID.randomUUID();
         Instant now = Instant.parse("2026-11-11T04:00:00Z");
@@ -57,7 +62,6 @@ class PostgresFeedbackRepositoryTest {
     @Test
     void idempotencyKeysAreScopedToTenant() throws Exception {
         DataSource dataSource = dataSource();
-        migrate(dataSource);
         PostgresFeedbackRepository repository = new PostgresFeedbackRepository(dataSource);
         Instant now = Instant.parse("2026-11-11T04:00:00Z");
         UUID tenantA = UUID.randomUUID();
@@ -78,7 +82,7 @@ class PostgresFeedbackRepositoryTest {
         assertTrue(repository.findById(tenantB, a).isEmpty());
     }
 
-    private DataSource dataSource() {
+    private static DataSource dataSource() {
         PGSimpleDataSource ds = new PGSimpleDataSource();
         ds.setURL(POSTGRES.getJdbcUrl());
         ds.setUser(POSTGRES.getUsername());
@@ -86,7 +90,7 @@ class PostgresFeedbackRepositoryTest {
         return ds;
     }
 
-    private void migrate(DataSource dataSource) throws Exception {
+    private static void migrate(DataSource dataSource) throws Exception {
         String sql = Files.readString(Path.of("src/main/resources/db/migration/V1__feedback_foundation.sql"));
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
             for (String statement : sql.split(";")) {
