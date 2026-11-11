@@ -1,3 +1,5 @@
+package tech.kayys.numou.plugin.application.runtime;
+
 import java.util.List;
 
 /** Immutable point-in-time readiness snapshot for one application runtime session. */
