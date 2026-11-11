@@ -45,6 +45,7 @@ CREATE TABLE feedback_reviews (
     created_at TIMESTAMPTZ NOT NULL,
     moderated_at TIMESTAMPTZ NULL,
     CONSTRAINT feedback_reviews_tenant_id_id_uq UNIQUE (tenant_id, id),
+    CONSTRAINT feedback_reviews_rating_once_uq UNIQUE (tenant_id, rating_id),
     CONSTRAINT feedback_reviews_rating_fk
         FOREIGN KEY (tenant_id, rating_id)
         REFERENCES feedback_ratings (tenant_id, id)
