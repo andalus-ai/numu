@@ -86,6 +86,11 @@ class PostgresFeedbackOutboxStoreTest {
                 FeedbackContext.empty(), at);
         new PostgresFeedbackRepository(dataSource).save(feedback, UUID.randomUUID().toString());
         try (Connection connection = dataSource.getConnection();
+             var update = connection.prepareStatement("UPDATE feedback_outbox SET next_attempt_at = ?")) {
+            update.setTimestamp(1, java.sql.Timestamp.from(at));
+            update.executeUpdate();
+        }
+        try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement();
              ResultSet row = statement.executeQuery("SELECT event_id FROM feedback_outbox ORDER BY created_at DESC LIMIT 1")) {
             if (!row.next()) throw new IllegalStateException("Feedback submission did not create an outbox event");
