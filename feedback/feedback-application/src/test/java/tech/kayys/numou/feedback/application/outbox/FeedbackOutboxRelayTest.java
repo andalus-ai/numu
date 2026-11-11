@@ -62,7 +62,7 @@ class FeedbackOutboxRelayTest {
         assertEquals(0, relay.dispatchOnce(NOW));
         assertTrue(store.published.isEmpty());
         assertEquals(1, store.errors.size());
-        assertTrue(store.errors.getFirst().contains("broker unavailable"));
+        assertTrue(store.errors.get(0).contains("broker unavailable"));
         assertEquals(NOW.plusSeconds(15), store.retryAt);
         assertEquals(8, store.maximumAttempts);
     }
