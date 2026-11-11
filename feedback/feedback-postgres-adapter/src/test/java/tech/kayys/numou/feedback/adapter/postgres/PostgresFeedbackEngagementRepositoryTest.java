@@ -51,7 +51,7 @@ class PostgresFeedbackEngagementRepositoryTest {
 
         assertEquals(first, retry);
         assertEquals(1, repository.findByTarget(tenant, target, RatingMetric.NPS).size());
-        assertEquals(BigDecimal.TEN, repository.findById(tenant, first).orElseThrow().value());
+        assertEquals(0, BigDecimal.TEN.compareTo(repository.findById(tenant, first).orElseThrow().value()));
         assertTrue(repository.findById(TenantId.generate(), first).isEmpty());
     }
 
