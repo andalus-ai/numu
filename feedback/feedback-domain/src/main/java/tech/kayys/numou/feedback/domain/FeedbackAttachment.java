@@ -51,6 +51,23 @@ public final class FeedbackAttachment {
                 fileName, mediaType, sizeBytes, sha256, now);
     }
 
+    /** Reconstitutes persisted state without replaying a lifecycle transition. */
+    public static FeedbackAttachment restore(UUID id, UUID tenantId, FeedbackId feedbackId,
+            String documentId, String documentVersionId, String fileName, String mediaType,
+            long sizeBytes, String sha256, Status status, Instant createdAt, Instant updatedAt,
+            String rejectionReason) {
+        FeedbackAttachment attachment = new FeedbackAttachment(id, tenantId, feedbackId, documentId,
+                documentVersionId, fileName, mediaType, sizeBytes, sha256, createdAt);
+        Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(updatedAt, "updatedAt");
+        if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt cannot be before createdAt");
+        if (status == Status.REJECTED) attachment.rejectionReason = text(rejectionReason, "rejectionReason", 500);
+        else if (rejectionReason != null) throw new IllegalArgumentException("rejectionReason is only valid for rejected evidence");
+        attachment.status = status;
+        attachment.updatedAt = updatedAt;
+        return attachment;
+    }
+
     public void markAvailable(Instant now) { transition(Status.AVAILABLE, now, null); }
     public void reject(String reason, Instant now) { transition(Status.REJECTED, now, text(reason, "reason", 500)); }
 
@@ -81,7 +98,7 @@ public final class FeedbackAttachment {
     }
     private static String fileName(String value) {
         String name = text(value, "fileName", 255);
-        if (name.equals(".") || name.equals("..") || name.contains("/") || name.contains("\\\\")
+        if (name.equals(".") || name.equals("..") || name.contains("/") || name.indexOf(92) >= 0
                 || name.indexOf('\\0') >= 0) throw new IllegalArgumentException("fileName must be a simple file name");
         return name;
     }
