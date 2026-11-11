@@ -55,7 +55,7 @@ class FeedbackTest {
         feedback.close(NOW.plusSeconds(7));
         assertEquals(FeedbackStatus.CLOSED, feedback.status());
         assertThrows(InvalidStateException.class,
-                () -> feedback.changePriority(FeedbackPriority.URGENT, NOW.plusSeconds(8)));
+                () -> feedback.changePriority(FeedbackPriority.CRITICAL, NOW.plusSeconds(8)));
     }
 
     @Test

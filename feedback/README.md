@@ -1,7 +1,7 @@
 # Numou Feedback Capability
 
-**Milestone:** M2 — attachment and evidence integration  
-**Status:** Document-reference contracts and PostgreSQL attachment metadata persistence are implemented. Host composition and scanning integration remain pending.
+**Milestone:** M0 — domain, application and persistence foundation  
+**Status:** Canonical aggregate, application submission contract, PostgreSQL persistence and transactional outbox schema implemented; HTTP transport, runtime registration and outbox relay remain pending.
 
 ## M2 evidence ownership
 
@@ -44,4 +44,23 @@ The FeedbackDocumentPort adapter is a composition concern. It must use the Docum
 
 ## Build
 
-Run the Feedback reactor with `mvn -f feedback/pom.xml test`. The framework parent resolves from `core/framework/pom.xml`; foundation artifacts must be available in the local Maven repository or built/installed first.
+The separate Maven reactor is included in the framework reactor and follows the repository's top-level capability pattern:
+
+```bash
+mvn -f core/framework/pom.xml -pl ../../feedback -am test
+```
+
+The framework parent resolves from `core/framework/pom.xml`. The foundation artifacts must be available in the local Maven repository or built/installed first according to the repository's multi-reactor workflow.
+
+
+## Persistence foundation (M0)
+
+The PostgreSQL adapter owns the Feedback write schema and migration:
+
+- `feedback_items` stores the canonical `Feedback` aggregate snapshot, including opaque actor reference, extensible kind code and bounded origin context.
+- `feedback_idempotency` scopes submission keys by tenant and resolves concurrent retries to the original feedback ID.
+- `feedback_outbox` stores versioned domain events in the same transaction as the aggregate and idempotency mapping.
+- Every item read includes both `tenant_id` and `id` predicates.
+- Rehydration uses the canonical `Feedback` aggregate and does not emit a second `FeedbackSubmitted` event.
+
+The adapter currently persists new submissions and reads them back. Lifecycle update persistence, outbox dispatch/retry workers, transport endpoints, runtime composition, and CI execution evidence remain follow-up work. The PostgreSQL Testcontainers integration tests are present but have not yet been run in this implementation session.
