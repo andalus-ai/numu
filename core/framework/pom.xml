@@ -47,6 +47,7 @@
         <module>../../advertising</module>
         <module>../../attendee</module>
         <module>../../feedback</module>
+        <module>../../survey</module>
 
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
