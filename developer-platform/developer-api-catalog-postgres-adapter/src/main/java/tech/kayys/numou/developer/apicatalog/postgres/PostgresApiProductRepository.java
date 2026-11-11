@@ -105,6 +105,7 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
    s.setString(5,v.specification().openApiVersion());s.setString(6,v.specification().artifactReference());s.setString(7,v.specification().sha256());
    if(s.executeUpdate()!=1)throw new IllegalStateException("persisted API version contract differs from immutable aggregate version");
   }
+  persistArtifactLifecycle(c,tenant,productId,v);
   for(ApiScope scope:v.scopes().values()){
    try(PreparedStatement s=c.prepareStatement("""
     INSERT INTO developer_api_scopes(provider_tenant_id,product_id,api_version,scope_name,description)
@@ -119,6 +120,27 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
     s.setObject(1,tenant);s.setObject(2,productId);s.setString(3,v.version());s.setString(4,scope.name());
     try(ResultSet rs=s.executeQuery()){if(!rs.next()||!scope.description().equals(rs.getString(1)))throw new IllegalStateException("persisted API scope differs from immutable aggregate scope");}
    }
+  }
+ }
+
+ private static void persistArtifactLifecycle(Connection c,UUID tenant,UUID productId,ApiVersion version)throws SQLException{
+  String state=version.status()==ApiVersionStatus.PUBLISHED?"PUBLISHED":"REGISTERED";
+  try(PreparedStatement s=c.prepareStatement("""
+   INSERT INTO developer_api_artifacts(provider_tenant_id,product_id,api_version,artifact_reference,sha256,lifecycle_state)
+   VALUES(?,?,?,?,?,?)
+   ON CONFLICT(provider_tenant_id,product_id,api_version) DO UPDATE
+     SET lifecycle_state=CASE
+       WHEN developer_api_artifacts.lifecycle_state='PUBLISHED' OR EXCLUDED.lifecycle_state='PUBLISHED'
+         THEN 'PUBLISHED'
+       ELSE developer_api_artifacts.lifecycle_state
+     END
+   WHERE developer_api_artifacts.artifact_reference=EXCLUDED.artifact_reference
+     AND developer_api_artifacts.sha256=EXCLUDED.sha256
+   """)){
+   s.setObject(1,tenant);s.setObject(2,productId);s.setString(3,version.version());
+   s.setString(4,version.specification().artifactReference());s.setString(5,version.specification().sha256());
+   s.setString(6,state);
+   if(s.executeUpdate()!=1)throw new IllegalStateException("artifact lifecycle identity differs from immutable API version");
   }
  }
  private static Optional<ApiProduct> load(Connection c,UUID tenant,UUID id)throws SQLException{

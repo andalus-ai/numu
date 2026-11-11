@@ -38,7 +38,7 @@ class PostgresApiProductRepositoryTest {
    s.execute("CREATE ROLE api_catalog_runtime NOLOGIN NOBYPASSRLS");
    s.execute("CREATE TABLE platform_outbox (entry_id uuid PRIMARY KEY,event_id uuid NOT NULL UNIQUE,tenant_id uuid,event_type text NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL,available_at timestamptz NOT NULL,attempts integer NOT NULL DEFAULT 0,locked_until timestamptz,published_at timestamptz,last_error text)");
    s.execute("GRANT USAGE ON SCHEMA public TO api_catalog_runtime");
-   s.execute("GRANT SELECT,INSERT,UPDATE ON developer_api_products,developer_api_versions,developer_api_scopes TO api_catalog_runtime");
+   s.execute("GRANT SELECT,INSERT,UPDATE ON developer_api_products,developer_api_versions,developer_api_scopes,developer_api_artifacts TO api_catalog_runtime");
    s.execute("GRANT SELECT,INSERT ON platform_outbox TO api_catalog_runtime");
   }
   runtime=new RoleDataSource(owner);
@@ -53,6 +53,7 @@ class PostgresApiProductRepositoryTest {
   assertThat(loaded.pullDomainEvents()).isEmpty();
   loaded.addVersion(version("1.0.0"),NOW.plusSeconds(1));
   repository.save(tenant,loaded,1).await().indefinitely();
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("REGISTERED");
   var withVersion=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
   assertThat(withVersion.versions()).containsKey("1.0.0");
   assertThat(withVersion.versions().get("1.0.0").scopes()).containsKey("orders.read");
@@ -61,6 +62,8 @@ class PostgresApiProductRepositoryTest {
   var published=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
   assertThat(published.status()).isEqualTo(ApiProductStatus.ACTIVE);
   assertThat(published.versions().get("1.0.0").status()).isEqualTo(ApiVersionStatus.PUBLISHED);
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("PUBLISHED");
+  assertPublishedArtifactCannotBeScheduledForDeletion(tenant,product.id().value(),"1.0.0");
  }
 
  @Test void enforcesTenantIsolationAndTenantScopedSlugUniqueness(){
@@ -89,6 +92,80 @@ class PostgresApiProductRepositoryTest {
  }
 
 
+ @Test void claimsOnlyExpiredAbandonedArtifactsAndTombstonesAfterIdempotentDeletion(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"cleanup-ready");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  Instant cleanupNow=Instant.now();
+  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",cleanupNow.minusSeconds(60));
+
+  var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
+  var leases=cleanup.claimDue(tenant,"cleanup-worker:unique-token",cleanupNow,cleanupNow.plusSeconds(90),10,5).await().indefinitely();
+  assertThat(leases).hasSize(1);
+  assertThat(leases.get(0).artifactReference()).isEqualTo("rustfs://api-specs/orders.yaml");
+  assertThat(cleanup.isLeaseCurrent(tenant,leases.get(0),"cleanup-worker:unique-token",cleanupNow,5).await().indefinitely()).isTrue();
+
+  cleanup.markDeleted(tenant,leases.get(0),"cleanup-worker:unique-token",cleanupNow.plusSeconds(1)).await().indefinitely();
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("DELETED");
+  assertThat(cleanup.claimDue(tenant,"another-worker",cleanupNow.plusSeconds(2),cleanupNow.plusSeconds(92),10,5)
+    .await().indefinitely()).isEmpty();
+ }
+
+ @Test void cleanupFailureUsesBoundedAttemptsAndReleasesTheLease(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"cleanup-retry");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  Instant cleanupNow=Instant.now();
+  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",cleanupNow.minusSeconds(60));
+
+  var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
+  var lease=cleanup.claimDue(tenant,"cleanup-worker:retry-token",cleanupNow,cleanupNow.plusSeconds(90),1,1)
+    .await().indefinitely().get(0);
+  cleanup.recordFailure(tenant,lease,"cleanup-worker:retry-token","StorageUnavailable",
+    cleanupNow.plusSeconds(5),1).await().indefinitely();
+
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("ABANDONED");
+  try(Connection connection=runtime.getConnection()){
+   try(PreparedStatement context=connection.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement query=connection.prepareStatement("""
+    SELECT cleanup_attempts,cleanup_last_error_code,cleanup_lease_owner
+    FROM developer_api_artifacts WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+    """)){
+    query.setObject(1,tenant.value());query.setObject(2,product.id().value());query.setString(3,"1.0.0");
+    try(ResultSet rows=query.executeQuery()){
+     assertThat(rows.next()).isTrue();assertThat(rows.getInt(1)).isEqualTo(1);
+     assertThat(rows.getString(2)).isEqualTo("StorageUnavailable");assertThat(rows.getString(3)).isNull();
+    }
+   }
+  }catch(SQLException failure){throw new IllegalStateException(failure);}
+  assertThat(cleanup.claimDue(tenant,"cleanup-worker:retry-token-2",cleanupNow.plusSeconds(10),
+    cleanupNow.plusSeconds(100),1,1).await().indefinitely()).isEmpty();
+ }
+
+ private void markArtifactAbandoned(TenantId tenant,UUID productId,String version,Instant retentionUntil){
+  try(Connection connection=runtime.getConnection()){
+   connection.setAutoCommit(false);
+   try(PreparedStatement context=connection.prepareStatement("SELECT set_config('numou.tenant_id',?,true)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement update=connection.prepareStatement("""
+    UPDATE developer_api_artifacts SET lifecycle_state='ABANDONED',retention_until=?,next_cleanup_at=?
+    WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+    """)){
+    update.setTimestamp(1,Timestamp.from(retentionUntil));update.setTimestamp(2,Timestamp.from(retentionUntil));
+    update.setObject(3,tenant.value());update.setObject(4,productId);update.setString(5,version);
+    assertThat(update.executeUpdate()).isEqualTo(1);
+   }
+   connection.commit();
+  }catch(SQLException failure){throw new IllegalStateException(failure);}
+ }
+
  @Test void commitsCatalogStateAndOutboxEventAtomically(){
   TenantId tenant=TenantId.generate();
   var context=new ExecutionContext(tenant,null,null,ActorId.of("developer-user"),"trace-api-catalog",null,NOW,null,null,null);
@@ -105,6 +182,39 @@ class PostgresApiProductRepositoryTest {
     .hasMessageContaining("force rollback");
   assertThat(repository.findById(tenant,rolledBack.id()).await().indefinitely()).isEmpty();
   assertThat(outboxCount(tenant)).isEqualTo(1);
+ }
+
+
+ private void assertPublishedArtifactCannotBeScheduledForDeletion(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection()){
+   c.setAutoCommit(false);
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,true)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   assertThatThrownBy(()->{
+    try(PreparedStatement s=c.prepareStatement("""
+     UPDATE developer_api_artifacts SET lifecycle_state='DELETE_PENDING'
+     WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+     """)){
+     s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);s.executeUpdate();
+    }
+   }).isInstanceOf(SQLException.class).hasMessageContaining("Published API artifacts are protected");
+   c.rollback();
+  }catch(SQLException e){throw new IllegalStateException(e);}
+ }
+ private String artifactState(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection()){
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement s=c.prepareStatement("""
+    SELECT lifecycle_state FROM developer_api_artifacts
+    WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+    """)){
+    s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
+    try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new AssertionError("artifact lifecycle row missing");return rs.getString(1);}
+   }
+  }catch(SQLException e){throw new IllegalStateException(e);}
  }
  private long outboxCount(TenantId tenant){
   try(Connection c=runtime.getConnection();PreparedStatement s=c.prepareStatement("SELECT count(*) FROM platform_outbox WHERE tenant_id=?")){

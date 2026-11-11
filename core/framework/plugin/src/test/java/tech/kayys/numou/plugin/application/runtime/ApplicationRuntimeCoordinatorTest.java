@@ -21,6 +21,8 @@ class ApplicationRuntimeCoordinatorTest {
         private final PluginManifest manifest;
         private final List<String> events;
         private final String failureAt;
+        private PluginContext receivedContext;
+        private Object observedSharedService;
 
         private TestPlugin(String id, String capability, String contractVersion,
                 List<String> events, String failureAt) {
@@ -40,6 +42,12 @@ class ApplicationRuntimeCoordinatorTest {
         @Override
         public void initialize(PluginContext context) {
             events.add("init:" + id);
+            receivedContext = context;
+            if (id.equals("runtime.party.impl")) {
+                context.registerService(SharedMarker.class, new SharedMarker());
+            } else {
+                observedSharedService = context.getService(SharedMarker.class).orElse(null);
+            }
             if ("initialize".equals(failureAt)) {
                 throw new IllegalStateException("initialize failed");
             }
@@ -57,6 +65,9 @@ class ApplicationRuntimeCoordinatorTest {
         public void stop() {
             events.add("stop:" + id);
         }
+    }
+
+    private static final class SharedMarker {
     }
 
     private ApplicationComposition composition() {
@@ -153,6 +164,50 @@ class ApplicationRuntimeCoordinatorTest {
                 Map.of("party-provider", shared, "accounting-provider", shared)))
                 .isInstanceOf(ApplicationRuntimeException.class)
                 .hasMessageContaining("Runtime plugin instance is bound to more than one provider");
+        assertThat(events).isEmpty();
+    }
+
+    @Test
+    void hostContextSharesConfigurationAndServicesAcrossPluginContexts() {
+        List<String> events = new ArrayList<>();
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        DefaultApplicationPluginContextFactory contexts =
+                new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"),
+                        Map.of("tenant.id", "tenant-42", "actor.id", "user-7",
+                                "correlation.id", "corr-abc"));
+        contexts.registerService(Runnable.class, () -> { });
+
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting), contexts);
+
+        assertThat(party.receivedContext.getProperty("region")).contains("id-ID");
+        assertThat(accounting.receivedContext.getProperty("region")).contains("id-ID");
+        assertThat(party.receivedContext.attributes())
+                .containsEntry("tenant.id", "tenant-42")
+                .containsEntry("actor.id", "user-7")
+                .containsEntry("correlation.id", "corr-abc");
+        assertThat(accounting.receivedContext.attributes())
+                .containsEntry("tenant.id", "tenant-42")
+                .containsEntry("actor.id", "user-7");
+        assertThat(accounting.observedSharedService).isInstanceOf(SharedMarker.class);
+        assertThat(session.context("party-provider")).contains(party.receivedContext);
+        assertThat(session.context("accounting-provider")).contains(accounting.receivedContext);
+        assertThat(session.contexts()).containsKeys("party-provider", "accounting-provider");
+        session.stop();
+    }
+
+    @Test
+    void rejectsHostContextForWrongPluginBeforeCallingInitialize() {
+        List<String> events = new ArrayList<>();
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+
+        assertThatThrownBy(() -> new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting),
+                (provider, plugin) -> new DefaultPluginContext("wrong-plugin")))
+                .isInstanceOf(ApplicationRuntimeException.class)
+                .hasMessageContaining("Context factory must return a context for plugin runtime.party.impl");
         assertThat(events).isEmpty();
     }
 }
