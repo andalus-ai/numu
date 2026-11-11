@@ -88,6 +88,7 @@ class SubmitReviewHandlerTest {
         };
         FeedbackReviewRepository reviewRepository = new FeedbackReviewRepository() {
             @Override public void save(FeedbackReview review) { fail("review must not be saved"); }
+            @Override public void update(FeedbackReview review) { fail("review must not be updated"); }
             @Override public Optional<FeedbackReview> findById(TenantId t, FeedbackReviewId id) { return Optional.empty(); }
         };
         SubmitReviewHandler handler = new SubmitReviewHandler(ratingRepository, reviewRepository);
