@@ -36,13 +36,13 @@ class PostgresFeedbackOutboxStoreTest {
 
         List<FeedbackOutboxMessage> first = store.claimPending(now, now.plusSeconds(30), 10);
         assertEquals(1, first.size());
-        assertEquals(eventId, first.getFirst().eventId());
+        assertEquals(eventId, first.get(0).eventId());
         assertEquals(0, store.claimPending(now.plusSeconds(1), now.plusSeconds(31), 10).size());
 
         List<FeedbackOutboxMessage> recovered =
                 store.claimPending(now.plusSeconds(31), now.plusSeconds(61), 10);
         assertEquals(1, recovered.size());
-        assertEquals(eventId, recovered.getFirst().eventId());
+        assertEquals(eventId, recovered.get(0).eventId());
 
         store.markPublished(eventId, now.plusSeconds(32));
         assertEquals(0, store.claimPending(now.plusSeconds(90), now.plusSeconds(120), 10).size());
@@ -61,16 +61,18 @@ class PostgresFeedbackOutboxStoreTest {
         store.recordFailure(eventId, "broker unavailable", now.plusSeconds(10), 1);
 
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet row = statement.executeQuery("""
+             var statement = connection.prepareStatement("""
                      SELECT attempts, last_error, dead_lettered_at, lease_until
-                       FROM feedback_outbox WHERE event_id = '" + eventId + "'
+                       FROM feedback_outbox WHERE event_id = ?
                      """)) {
-            assertTrue(row.next());
-            assertEquals(1, row.getInt("attempts"));
-            assertEquals("broker unavailable", row.getString("last_error"));
-            assertNotNull(row.getTimestamp("dead_lettered_at"));
-            assertNull(row.getTimestamp("lease_until"));
+            statement.setObject(1, eventId);
+            try (ResultSet row = statement.executeQuery()) {
+                assertTrue(row.next());
+                assertEquals(1, row.getInt("attempts"));
+                assertEquals("broker unavailable", row.getString("last_error"));
+                assertNotNull(row.getTimestamp("dead_lettered_at"));
+                assertNull(row.getTimestamp("lease_until"));
+            }
         }
         assertEquals(0, store.claimPending(now.plusSeconds(60), now.plusSeconds(90), 10).size());
     }
