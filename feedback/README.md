@@ -3,44 +3,57 @@
 **Milestone:** M0 — domain, application and persistence foundation  
 **Status:** Canonical aggregate, application submission contract, PostgreSQL persistence and transactional outbox schema implemented; HTTP transport, runtime registration and outbox relay remain pending.
 
-## M2 evidence ownership
+## Purpose
 
-- Feedback owns the attachment association, tenant/feedback relationship, display metadata and moderation/scanning state.
-- The Document capability owns binary upload, storage provider selection, checksums verified against stored bytes, document versions, retention and download authorization.
-- Uploads use the existing Document upload-session lifecycle: create an expiring upload session, upload to the returned target, then complete the session. Feedback does not proxy file bytes or implement a second storage path.
-- Feedback stores the Document ID and exact Document version ID. It does not store bucket names, object keys, presigned URLs or binary content.
-- The host composition implements FeedbackDocumentPort using the Document capability's public application contract. The adapter must resolve both document and version within the supplied tenant.
-- New associations begin as PENDING_SCAN. They must not be exposed as downloadable until a trusted malware/content inspection workflow marks them AVAILABLE.
-- REJECTED and DELETED associations remain in audit history. Removing an association does not delete the underlying Document, which may be referenced by other capabilities.
-- Document download authorization must be re-evaluated by Document on every access; possession of a FeedbackAttachment ID is not authorization.
+Feedback is a reusable, tenant-owned capability for comments, bug reports, ideas, error reports, complaints, reviews and future feedback kinds. It is independent of Support and Survey and may be composed into standalone applications, modular monoliths or distributed deployments.
 
-## Security requirements
+## M0 domain contract
 
-1. Tenant identity is mandatory for both Feedback and Document lookup.
-2. The Document adapter must query by tenant and document ID, then verify the exact version belongs to that document.
-3. Do not accept a document reference from a client as proof of access. The host must authorize the actor against the feedback item before invoking the use case.
-4. Never trust a client-supplied filename, MIME type, size or checksum as evidence metadata; use values returned by the Document capability after upload completion.
-5. Do not proxy arbitrary presigned URLs through Feedback. Use the Document capability's authorized download flow.
-6. Scanning is asynchronous and fail-closed: pending, rejected, archived and deleted documents cannot be served as feedback evidence.
+- `Feedback` owns the original submission and its triage/resolution lifecycle.
+- `FeedbackKind` is an extensible validated code, not a closed enum. Initial well-known codes: comment, bug, idea, error-report, complaint, review and other.
+- `FeedbackActor` is an opaque principal reference. Feedback does not own User, Customer, Party or Employee identity.
+- `FeedbackContext` stores bounded origin references only. It must not contain request bodies, credentials, stack traces or copied business records.
+- Every aggregate is tenant-owned through the shared `TenantId` primitive.
+- Domain events use the shared `DomainEvent` contract. Tenant, actor, correlation and idempotency metadata belong in the application/integration envelope, not duplicated into the neutral domain event abstraction.
+- `FeedbackRepository` is a capability-owned persistence port. Reads require both `TenantId` and `FeedbackId`; adapters must enforce the tenant predicate in the authoritative query.
+- Comments, votes, ratings, attachments and diagnostic evidence are separate resources introduced by later milestones.
 
-## Current application contracts
+## Lifecycle
 
-- FeedbackAttachmentRepository: tenant-scoped metadata persistence.
-- FeedbackDocumentPort: lookup of an exact, tenant-scoped Document version and authoritative metadata.
-- AddFeedbackAttachmentHandler: validates the feedback and Document version, then stores only the association metadata.
+```text
+SUBMITTED -> TRIAGED
+TRIAGED -> ACCEPTED | REJECTED | DUPLICATE
+ACCEPTED -> IN_PROGRESS | CLOSED
+IN_PROGRESS -> UNDER_REVIEW | RESOLVED | CLOSED
+UNDER_REVIEW -> IN_PROGRESS | RESOLVED | CLOSED
+RESOLVED -> REOPENED | CLOSED
+REOPENED -> IN_PROGRESS | CLOSED
+REJECTED | DUPLICATE -> CLOSED
+CLOSED -> (terminal)
+```
 
-The FeedbackDocumentPort adapter is a composition concern. It must use the Document public application/domain contracts, never Document persistence entities or tables. PostgreSQL attachment metadata is stored in `feedback_attachments` by the feedback-postgres-adapter, with a composite tenant/feedback foreign key, exact document-version uniqueness, and a pending-scan index. Attachment creation and lifecycle transitions append versioned integration records to the existing `feedback_outbox` in the same database transaction; unchanged replays do not emit duplicate events.
+A consuming capability maps its workflow to these lifecycle concepts through an explicit policy/adapter. Do not silently widen transitions in the domain.
 
-## Existing Feedback domain and integration boundaries
+## Integration boundaries
 
-- Feedback owns original submissions and triage/resolution lifecycle.
-- Feedback types remain extensible; initial use cases include comments, bugs, ideas, error reports, complaints and reviews.
-- Actor identity is an opaque principal reference; Feedback does not own User, Customer, Party or Employee identity.
-- Support owns support cases and SLAs; Survey owns survey definitions and respondent sessions.
-- Notification receives application-level delivery commands/events; Feedback domain does not send messages.
-- Workflow / Gamelan may orchestrate triage and escalation through application contracts.
-- Timeline may consume published feedback events as a projection.
-- Developer Portal / Iket may submit API, SDK and integration feedback using stable kind/context references.
+| Capability | Relationship |
+| --- | --- |
+| Support | Feedback may link to a support case; Support remains the owner of case handling, SLAs and support conversations. |
+| Survey | Feedback may link to a survey response or consume satisfaction metrics; Survey remains the owner of survey definitions, respondent sessions and scoring. |
+| Notification | Receives application-level delivery commands/events; Feedback domain does not send messages. |
+| Workflow / Gamelan | May orchestrate triage and escalation through application contracts; workflow state is not duplicated in the aggregate. |
+| Identity / Party / Customer | Actor references are resolved by host authorization and identity capabilities; no identity model is copied here. |
+| Documents | Later attachment/evidence resources reference the document capability; binary storage is not owned by this domain. |
+| Timeline | May consume published feedback events as a projection; Timeline is not the write model. |
+| Developer Portal / Iket | May submit API, SDK and integration feedback using stable kind/context references. |
+
+## Security and privacy invariants
+
+1. Tenant identity is mandatory and immutable on a Feedback aggregate.
+2. Authorization is enforced by application use cases, not by possession of a FeedbackId.
+3. Actor references are not proof of authorization.
+4. Context values are bounded references only; diagnostic secrets and PII redaction belong at ingestion boundaries.
+5. Public/anonymous submission policy, rate limiting, moderation, retention and attachment scanning are application/adapter concerns and must not be bypassed by direct persistence access.
 
 ## Build
 

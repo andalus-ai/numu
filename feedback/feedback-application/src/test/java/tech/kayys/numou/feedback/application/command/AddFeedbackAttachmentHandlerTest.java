@@ -6,11 +6,9 @@ import tech.kayys.numou.feedback.application.port.out.FeedbackAttachmentReposito
 import tech.kayys.numou.feedback.application.port.out.FeedbackDocumentPort;
 import tech.kayys.numou.feedback.domain.FeedbackAttachment;
 import tech.kayys.numou.feedback.domain.FeedbackId;
-import tech.kayys.numou.feedback.domain.FeedbackItem;
-import tech.kayys.numou.feedback.domain.FeedbackPriority;
-import tech.kayys.numou.feedback.domain.FeedbackType;
 
 import java.time.Instant;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,13 +22,18 @@ class AddFeedbackAttachmentHandlerTest {
     private static final String HASH = "b".repeat(64);
 
     private FeedbackRepository feedbackRepository() {
-        FeedbackItem item = FeedbackItem.submit(FEEDBACK_ID, TENANT, UUID.randomUUID(),
-                FeedbackType.BUG, "Upload fails", "The upload fails intermittently",
-                "portal", "feedback", null, FeedbackPriority.NORMAL, NOW);
+        var tenantId = TenantId.of(TENANT);
+        var item = tech.kayys.numou.feedback.domain.Feedback.submit(FEEDBACK_ID, tenantId,
+                new tech.kayys.numou.feedback.domain.FeedbackActor("user", "user-1"),
+                tech.kayys.numou.feedback.domain.FeedbackKind.BUG,
+                tech.kayys.numou.feedback.domain.FeedbackPriority.NORMAL,
+                "Upload fails", "The upload fails intermittently",
+                tech.kayys.numou.feedback.domain.FeedbackContext.empty(), NOW);
         return new FeedbackRepository() {
-            @Override public FeedbackId save(FeedbackItem feedback, String idempotencyKey) { return feedback.id(); }
-            @Override public Optional<FeedbackItem> findById(UUID tenantId, FeedbackId id) {
-                return TENANT.equals(tenantId) && FEEDBACK_ID.equals(id) ? Optional.of(item) : Optional.empty();
+            @Override public FeedbackId save(tech.kayys.numou.feedback.domain.Feedback feedback, String idempotencyKey) { return feedback.id(); }
+            @Override public Optional<tech.kayys.numou.feedback.domain.Feedback> findById(TenantId tenantId, FeedbackId id) {
+                return tenantId.equals(TenantId.of(TENANT)) && FEEDBACK_ID.equals(id)
+                        ? Optional.of(item) : Optional.empty();
             }
         };
     }

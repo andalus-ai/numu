@@ -5,6 +5,7 @@ import tech.kayys.numou.feedback.application.port.out.FeedbackAttachmentReposito
 import tech.kayys.numou.feedback.application.port.out.FeedbackDocumentPort;
 import tech.kayys.numou.feedback.domain.FeedbackAttachment;
 import tech.kayys.numou.feedback.domain.FeedbackId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -36,7 +37,7 @@ public final class AddFeedbackAttachmentHandler {
             throw new IllegalArgumentException("documentId and documentVersionId are required");
 
         FeedbackId feedbackId = FeedbackId.fromString(command.feedbackId().toString());
-        if (feedbackRepository.findById(command.tenantId(), feedbackId).isEmpty())
+        if (feedbackRepository.findById(TenantId.of(command.tenantId()), feedbackId).isEmpty())
             throw new IllegalArgumentException("Feedback item was not found");
 
         var evidence = documents.findVersion(command.tenantId(), command.documentId(), command.documentVersionId())
