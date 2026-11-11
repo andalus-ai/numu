@@ -54,6 +54,30 @@ class PostgresFeedbackRepositoryTest {
         assertTrue(repository.findById(UUID.randomUUID(), first).isEmpty());
     }
 
+    @Test
+    void idempotencyKeysAreScopedToTenant() throws Exception {
+        DataSource dataSource = dataSource();
+        migrate(dataSource);
+        PostgresFeedbackRepository repository = new PostgresFeedbackRepository(dataSource);
+        Instant now = Instant.parse("2026-11-11T04:00:00Z");
+        UUID tenantA = UUID.randomUUID();
+        UUID tenantB = UUID.randomUUID();
+
+        FeedbackItem first = FeedbackItem.submit(FeedbackId.generate(), tenantA, null,
+                FeedbackType.COMMENT, "A", "Tenant A feedback", null, null, null,
+                FeedbackPriority.NORMAL, now);
+        FeedbackItem second = FeedbackItem.submit(FeedbackId.generate(), tenantB, null,
+                FeedbackType.COMMENT, "B", "Tenant B feedback", null, null, null,
+                FeedbackPriority.NORMAL, now);
+
+        FeedbackId a = repository.save(first, "same-key");
+        FeedbackId b = repository.save(second, "same-key");
+
+        assertNotEquals(a, b);
+        assertTrue(repository.findById(tenantA, b).isEmpty());
+        assertTrue(repository.findById(tenantB, a).isEmpty());
+    }
+
     private DataSource dataSource() {
         PGSimpleDataSource ds = new PGSimpleDataSource();
         ds.setURL(POSTGRES.getJdbcUrl());
