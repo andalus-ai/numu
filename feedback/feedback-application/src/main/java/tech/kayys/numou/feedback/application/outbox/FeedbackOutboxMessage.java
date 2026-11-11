@@ -13,7 +13,8 @@ public record FeedbackOutboxMessage(
         int eventVersion,
         String payload,
         Instant occurredAt,
-        int attempts) {
+        int attempts,
+        UUID leaseToken) {
     public FeedbackOutboxMessage {
         Objects.requireNonNull(eventId, "eventId");
         Objects.requireNonNull(tenantId, "tenantId");
@@ -23,5 +24,6 @@ public record FeedbackOutboxMessage(
         if (payload == null || payload.isBlank()) throw new IllegalArgumentException("payload is required");
         Objects.requireNonNull(occurredAt, "occurredAt");
         if (attempts < 0) throw new IllegalArgumentException("attempts cannot be negative");
+        Objects.requireNonNull(leaseToken, "leaseToken");
     }
 }
