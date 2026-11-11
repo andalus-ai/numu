@@ -35,4 +35,4 @@ Migration V4__feedback_survey_catalog_distribution.sql adds tenant-scoped templa
 
 ## Verification status
 
-Unit and PostgreSQL integration tests still need to be added/run for checksum stability, immutable-version conflicts, tenant isolation, token non-persistence, expiry, quota races and outbox atomicity. CI has not been run for this slice.
+Domain unit tests have been added for checksum stability, publish transitions, invalid versions, invitation expiry, revocation and response-limit predicates. They have not been executed. PostgreSQL integration tests are still pending for immutable-version conflicts, tenant isolation, token non-persistence, quota races and outbox atomicity. CI has not been run for this slice.
