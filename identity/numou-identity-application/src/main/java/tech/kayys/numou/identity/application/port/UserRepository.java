@@ -24,4 +24,26 @@ public interface UserRepository {
 
     Uni<Void> save(User user);
 
+    /**
+     * Compare-and-set a credential re-encoding after successful authentication.
+     * The update must be applied only while the persisted hash still equals
+     * the hash that was verified, preventing a concurrent password change
+     * from being overwritten by a delayed legacy-login migration.
+     *
+     * @return true when this update changed the stored credential
+     */
+    default Uni<Boolean> updatePasswordHash(UserId id,
+                                             tech.kayys.numou.identity.domain.valueobject.PasswordHash expectedHash,
+                                             tech.kayys.numou.identity.domain.valueobject.PasswordHash replacementHash) {
+        return findById(id).chain(optional -> {
+            if (optional.isEmpty()
+                    || !optional.get().passwordHash().equals(expectedHash)) {
+                return Uni.createFrom().item(false);
+            }
+            User user = optional.get();
+            user.upgradePasswordHash(replacementHash);
+            return save(user).replaceWith(true);
+        });
+    }
+
 }

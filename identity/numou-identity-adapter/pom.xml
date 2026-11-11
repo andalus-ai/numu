@@ -21,7 +21,7 @@
     <description>
         Deployable Quarkus service for the Identity bounded context.
         Implements numou-identity-application's ports: PostgresUserRepository
-        (Hibernate Reactive Panache), JBcryptPasswordHasher,
+        (Hibernate Reactive Panache), VersionedPasswordHasher (legacy BCrypt verification),
         KafkaEventPublisher (SmallRye Reactive Messaging),
         HibernateReactiveUnitOfWork - and exposes them over REST
         (UserResource). This is the only module in the platform
@@ -63,6 +63,13 @@
         <dependency>
             <groupId>tech.kayys.numou</groupId>
             <artifactId>numou-security-spi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Reuse the platform token-bucket primitive for public login throttling. -->
+        <dependency>
+            <groupId>tech.kayys.numou</groupId>
+            <artifactId>numou-security-application</artifactId>
             <version>${project.version}</version>
         </dependency>
 
