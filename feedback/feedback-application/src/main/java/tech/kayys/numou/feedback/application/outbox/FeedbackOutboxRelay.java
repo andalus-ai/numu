@@ -38,10 +38,10 @@ public final class FeedbackOutboxRelay {
         for (var message : messages) {
             try {
                 publisher.publish(message);
-                store.markPublished(message.eventId(), now);
+                store.markPublished(message.eventId(), message.leaseToken(), now);
                 published++;
             } catch (Exception failure) {
-                store.recordFailure(message.eventId(), sanitize(failure),
+                store.recordFailure(message.eventId(), message.leaseToken(), sanitize(failure),
                         now.plus(retryDelay(message.attempts() + 1)), maximumAttempts);
             }
         }
