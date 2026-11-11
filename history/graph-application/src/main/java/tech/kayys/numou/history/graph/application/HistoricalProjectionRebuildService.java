@@ -4,7 +4,6 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.RebuildRun;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.ReplayEvent;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -21,10 +20,9 @@ import java.util.UUID;
 public final class HistoricalProjectionRebuildService {
     private final HistoricalProjectionRebuildStore store;
     private final HistoricalRelationshipProjectionPort projection;
-    private final HistoricalRelationshipTenantContext tenantContext;
-    private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
     private final Clock clock;
     private final int pageSize;
+    private final HistoricalProjectionMetricsPort metrics;
 
     public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
             HistoricalRelationshipProjectionPort projection,
@@ -36,6 +34,7 @@ public final class HistoricalProjectionRebuildService {
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.metrics = Objects.requireNonNull(metrics, "metrics");
         if (pageSize < 1 || pageSize > 500) throw new IllegalArgumentException("pageSize must be 1..500");
         this.pageSize = pageSize;
     }
@@ -52,18 +51,19 @@ public final class HistoricalProjectionRebuildService {
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
         if (run.status() == RebuildRun.Status.COMPLETED) {
-            return new RebuildProgress(run, 0, true);
+            return progress(tenantId, run, 0, true);
         }
 
         List<ReplayEvent> page = store.nextPage(tenantId, runId, pageSize);
+        validatePage(tenantId, run, page);
         if (page.isEmpty()) {
             if (!store.complete(tenantId, runId, run.cursorSequence(), clock.instant())) {
                 RebuildRun latest = store.find(tenantId, runId)
                         .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
-                return new RebuildProgress(latest, 0, latest.status() == RebuildRun.Status.COMPLETED);
+                return progress(tenantId, latest, 0, latest.status() == RebuildRun.Status.COMPLETED);
             }
             RebuildRun completed = store.find(tenantId, runId).orElseThrow();
-            return new RebuildProgress(completed, 0, true);
+            return progress(tenantId, completed, 0, true);
         }
 
         long nextCursor = run.cursorSequence();
@@ -76,7 +76,13 @@ public final class HistoricalProjectionRebuildService {
                 throw new IllegalStateException("rebuild page contains an unordered or out-of-snapshot event");
             }
             try {
-                projection.project(asClaimedEvent(event));
+                ClaimedProjectionEvent claimed = asClaimedEvent(event);
+                if (generationId == null) {
+                    projection.project(claimed);
+                } else {
+                    ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
+                            .projectIntoGeneration(claimed, generationId);
+                }
             } catch (RuntimeException failure) {
                 throw failure;
             } catch (Exception failure) {
@@ -85,13 +91,37 @@ public final class HistoricalProjectionRebuildService {
             previousSequence = event.sequence();
             nextCursor = event.sequence();
         }
+        long nextCursor = page.get(page.size() - 1).sequence();
         if (!store.advance(tenantId, runId, run.cursorSequence(), nextCursor, clock.instant())) {
             RebuildRun latest = store.find(tenantId, runId)
                     .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
-            return new RebuildProgress(latest, page.size(), latest.status() == RebuildRun.Status.COMPLETED);
+            return progress(tenantId, latest, page.size(), latest.status() == RebuildRun.Status.COMPLETED);
         }
         RebuildRun advanced = store.find(tenantId, runId).orElseThrow();
-        return new RebuildProgress(advanced, page.size(), false);
+        return progress(tenantId, advanced, page.size(), false);
+    }
+
+    private RebuildProgress progress(UUID tenantId, RebuildRun run, int projected, boolean completed) {
+        try {
+            metrics.recordRebuildProgress(new HistoricalProjectionMetricsPort.RebuildMetric(
+                    projected,run.cursorSequence(),run.highWaterSequence(),completed));
+        } catch (RuntimeException ignored) {
+            // Telemetry must never turn a committed projection checkpoint into a failed page.
+        }
+        return new RebuildProgress(run,projected,completed);
+    }
+
+    private void authorizeScope(UUID tenantId) {
+        if (tenantId == null) {
+            authorization.requireCanRebuildPublicCorpus();
+            return;
+        }
+        UUID trustedTenant = Objects.requireNonNull(tenantContext.requireTenantId(),
+                "trusted tenant context must provide a tenant");
+        if (!trustedTenant.equals(tenantId)) {
+            throw new SecurityException("requested rebuild scope differs from authenticated tenant");
+        }
+        authorization.requireCanRebuildTenant(trustedTenant);
     }
 
     private void authorizeScope(UUID tenantId) {

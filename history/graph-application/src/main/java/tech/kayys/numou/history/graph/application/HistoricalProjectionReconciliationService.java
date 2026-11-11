@@ -7,6 +7,7 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.Claime
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -34,7 +35,41 @@ public final class HistoricalProjectionReconciliationService {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
     }
 
-    public ReconciliationReport reconcile(UUID tenantId, int pageSize, boolean repair) throws Exception {
+    public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
+            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            HistoricalProjectionMetricsPort metrics) {
+        this(canonical,projection,replayPort,tenantContext,authorization,metrics,null,null,Clock.systemUTC());
+    }
+
+    public HistoricalProjectionReconciliationService(HistoricalProjectionAuditStore canonical,
+            HistoricalProjectionInspectionPort projection, HistoricalRelationshipProjectionPort replayPort,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            HistoricalProjectionMetricsPort metrics, HistoricalProjectionOperatorContext operatorContext,
+            HistoricalProjectionRepairAuditStore repairAudit, Clock clock) {
+        this.canonical=Objects.requireNonNull(canonical,"canonical");
+        this.projection=Objects.requireNonNull(projection,"projection");
+        this.replayPort=Objects.requireNonNull(replayPort,"replayPort");
+        this.tenantContext=Objects.requireNonNull(tenantContext,"tenantContext");
+        this.authorization=Objects.requireNonNull(authorization,"authorization");
+        this.metrics=Objects.requireNonNull(metrics,"metrics");
+        this.operatorContext=operatorContext;
+        this.repairAudit=repairAudit;
+        this.clock=Objects.requireNonNull(clock,"clock");
+    }
+
+    /** Reconciles a staging generation without changing or reading the active projection. */
+    public ReconciliationReport reconcileGeneration(UUID tenantId, UUID generationId,
+            int pageSize, boolean repair) throws Exception {
+        Objects.requireNonNull(generationId, "generationId");
+        if (!(projection instanceof GenerationTargetedHistoricalProjectionInspectionPort)) {
+            throw new IllegalStateException("inspection provider does not support generation-targeted reads");
+        }
+        if (repair && !(replayPort instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+            throw new IllegalStateException("projection provider does not support generation-targeted repair");
+        }
         if (pageSize < 1 || pageSize > 200) throw new IllegalArgumentException("pageSize must be 1..200");
         authorizeScope(tenantId, repair);
 
@@ -49,17 +84,18 @@ public final class HistoricalProjectionReconciliationService {
                 if(previous!=null && current.compareTo(previous)<=0)
                     throw new IllegalStateException("canonical reconciliation page is not strictly ordered");
                 checked++;
-                var graph=projection.find(tenantId,event.relationshipId());
+                var graph=inspector.findInGeneration(tenantId,generationId,event.relationshipId());
                 String hash=sha256(event.payload());
                 if(graph.isEmpty()) {
                     missing++;
-                    if(repair){replayPort.project(toProjectionEvent(event));repaired++;}
+                    if(repair){projectIntoGeneration(event,generationId);repaired++;}
                 } else {
                     var actual=graph.get();
                     if(actual.revision()<event.revision()) {
                         stale++;
-                        if(repair){replayPort.project(toProjectionEvent(event));repaired++;}
+                        if(repair){projectIntoGeneration(event,generationId);repaired++;}
                     } else if(actual.revision()>event.revision()) {
+                        // A graph revision newer than the source is never overwritten automatically.
                         divergent++;
                     } else if(!event.eventKey().equals(actual.eventKey())
                             || !event.relationshipKind().equals(actual.relationshipKind())
@@ -69,18 +105,19 @@ public final class HistoricalProjectionReconciliationService {
                             || !event.objectId().equals(actual.objectId())
                             || !hash.equals(actual.payloadHash())) {
                         divergent++;
-                        if(repair){replayPort.project(toProjectionEvent(event));repaired++;}
+                        if(repair){projectIntoGeneration(event,generationId);repaired++;}
                     }
                 }
                 cursor=current;
                 previous=current;
             }
+            cursor=previous;
             if(page.size()<pageSize) break;
         }
         String graphCursor=null;
         while(true) {
             List<HistoricalProjectionInspectionPort.ProjectedRelationship> page=
-                    projection.nextPage(tenantId,graphCursor,pageSize);
+                    inspector.nextPageInGeneration(tenantId,generationId,graphCursor,pageSize);
             if(page.isEmpty()) break;
             String previous=graphCursor;
             for(var row:page) {
@@ -91,6 +128,7 @@ public final class HistoricalProjectionReconciliationService {
                 graphCursor=current;
                 previous=current;
             }
+            graphCursor=previous;
             if(page.size()<pageSize) break;
         }
         return new ReconciliationReport(tenantId,checked,missing,stale,divergent,orphaned,repaired);
@@ -116,8 +154,12 @@ public final class HistoricalProjectionReconciliationService {
                 e.relationshipId(),e.revision(),e.payload(),e.occurredAt(),0,0,token,java.time.Instant.MAX);
     }
     private static String sha256(String value) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
+        try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}
         catch(NoSuchAlgorithmException impossible){throw new IllegalStateException("SHA-256 is unavailable",impossible);}
+    }
+    private static String safeFailure(Exception failure) {
+        String message=Objects.toString(failure.getMessage(),failure.getClass().getSimpleName()).replaceAll("[\\r\\n\\t]+"," ");
+        return message.length()>1000?message.substring(0,1000):message;
     }
     public record ReconciliationReport(UUID tenantId,long canonicalChecked,long missing,long stale,
             long divergent,long orphaned,long repaired) {
