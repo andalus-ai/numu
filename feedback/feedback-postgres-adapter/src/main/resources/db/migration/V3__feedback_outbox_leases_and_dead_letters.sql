@@ -1,7 +1,8 @@
 ALTER TABLE feedback_outbox
     ADD COLUMN next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ADD COLUMN lease_until TIMESTAMPTZ NULL,
-    ADD COLUMN dead_lettered_at TIMESTAMPTZ NULL;
+    ADD COLUMN dead_lettered_at TIMESTAMPTZ NULL,
+    ADD COLUMN lease_token UUID NULL;
 
 CREATE INDEX feedback_outbox_claim_idx
     ON feedback_outbox (next_attempt_at, created_at, event_id)
