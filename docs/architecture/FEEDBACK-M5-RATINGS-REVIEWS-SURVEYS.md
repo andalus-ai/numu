@@ -40,7 +40,7 @@ No new survey engine or survey database is introduced by M5.
 
 ## Persistence
 
-Migration `V2__feedback_ratings_reviews.sql` adds tenant-scoped rating, rating-idempotency and review tables, with composite tenant foreign keys and target/branch/metric indexes. PostgreSQL adapters implement idempotent rating submission, tenant-scoped lookup, aggregation input retrieval, review persistence and tenant-scoped moderation updates.
+Migration `V2__feedback_ratings_reviews.sql` adds tenant-scoped rating, rating-idempotency and review tables, with composite tenant foreign keys and target/branch/metric indexes. PostgreSQL adapters implement idempotent rating submission, tenant-scoped lookup, aggregation input retrieval, review persistence, paginated target/status review queries and tenant-scoped moderation updates. Rating submission, review submission and review moderation append versioned engagement events to `feedback_engagement_outbox` in the same database transaction as the corresponding state change.
 
 ## Tests added
 
@@ -50,7 +50,7 @@ Migration `V2__feedback_ratings_reviews.sql` adds tenant-scoped rating, rating-i
 - Review moderation and verified state transitions.
 - Cross-tenant/cross-target review linkage rejection.
 - Survey metric-to-question mapping, reusable metric templates, tenant-aware template instantiation and submitted-response import.
-- PostgreSQL Testcontainers tests for rating idempotency, tenant isolation, and review moderation round-trip.
+- PostgreSQL Testcontainers tests for rating idempotency, tenant isolation, transactional outbox event counts, review moderation round-trip and paginated review filtering.
 
 Tests have been added but have not been executed in this session. No CI pass is claimed.
 
