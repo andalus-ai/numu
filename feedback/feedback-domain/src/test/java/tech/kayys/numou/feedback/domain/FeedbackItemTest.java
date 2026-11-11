@@ -26,6 +26,22 @@ class FeedbackItemTest {
     }
 
     @Test
+    void restoreRehydratesPersistedStateWithoutPublishingNewEvents() {
+        UUID tenantId = UUID.randomUUID();
+        FeedbackId id = FeedbackId.generate();
+        FeedbackItem restored = FeedbackItem.restore(id, tenantId, null,
+                FeedbackType.BUG, "Existing bug", "Persisted description", "pos",
+                "checkout", "order:9", FeedbackPriority.HIGH, FeedbackStatus.IN_PROGRESS,
+                NOW, NOW.plusSeconds(30), 2);
+
+        assertEquals(id, restored.id());
+        assertEquals(tenantId, restored.tenantId());
+        assertEquals(FeedbackStatus.IN_PROGRESS, restored.status());
+        assertEquals(2, restored.version());
+        assertTrue(restored.pendingEvents().isEmpty());
+    }
+
+    @Test
     void statusTransitionsAreValidatedAndVersioned() {
         FeedbackItem item = create();
         item.changeStatus(FeedbackStatus.TRIAGED, NOW.plusSeconds(1));
