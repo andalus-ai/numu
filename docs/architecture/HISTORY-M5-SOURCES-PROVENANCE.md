@@ -2,7 +2,7 @@
 
 ## Status
 
-M5 initial vertical slice. This document describes the implemented source-catalog and claim-evidence contracts; it does not claim that all planned M5 capabilities are complete.
+M5.2 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
 
 ## Ownership and boundaries
 
@@ -36,12 +36,20 @@ Each evidence association is independently recorded with:
 
 Contradictory evidence is preserved alongside supporting evidence. The system does not calculate a truth score, collapse conflicting accounts, or treat repeated citations as independent corroboration.
 
+### Source assessments and editorial review
+
+- Assessments are append-only and scoped to a source plus one explicit dimension: authenticity, reliability, independence, provenance, completeness, bias, or condition.
+- Each assessment records a qualitative conclusion (verified, plausible, uncertain, doubtful, unverified, conflicting), rationale, methodology identifier and version, assessor reference, and timestamp. No universal numeric reliability score is exposed.
+- Assessment and review actors are passed to host authorization ports; the host must bind those references to the authenticated actor and check the relevant permission.
+- Editorial decisions (accept, request changes, reject) are separate immutable review records. A later review never overwrites the assessment or earlier editorial decisions.
+- PostgreSQL enforces tenant-scoped foreign keys, forced RLS, and append-only triggers for both assessment and review tables.
+
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
-- Forced row-level security protects source heads, immutable source revisions, claims, and evidence associations.
+- Forced row-level security protects source heads, immutable source revisions, claims, evidence associations, assessments, and editorial reviews.
 - Composite tenant foreign keys prevent evidence from linking a claim or source owned by another tenant.
-- Source revisions, claims, and evidence are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
+- Source revisions, claims, evidence, assessments, and editorial reviews are append-only at the database trigger boundary. The mutable source head is only a pointer to the latest immutable revision.
 - Revision advancement and source revision insertion occur in one transaction.
 - Evidence insertion relies on tenant-scoped foreign keys to ensure both the claim and source exist in the same tenant.
 
@@ -56,14 +64,12 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, and evidence.
+The focused History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test creates a restricted PostgreSQL runtime role and verifies tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, and immutable editorial review records.
 
 ## Deliberately deferred
 
-- independent source editions, contributor/author records, archive holdings and catalog identifiers;
+- independent source editions, contributor/author records, archive holdings and catalog identifiers (next M5.3 increment);
 - source ingestion, OCR/transcription, content extraction and shared document-store integration;
-- editorial source assessments (authenticity, reliability, independence, corroboration and uncertainty) with explicit assessment methodology;
-- actor-attributed source review and approval workflow;
 - source-to-source citation graph and claim/evidence graph projection;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
 - REST/GraphQL APIs, search indexing, ranking and discovery;

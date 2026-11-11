@@ -4,6 +4,10 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore.CanonicalRelationship;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionRepairAuditStore;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionRepairAuditStore.RepairOutcome;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.time.Instant;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,7 +23,7 @@ class HistoricalProjectionReconciliationServiceTest {
         graph.rows.put(divergent,projected(divergent,2,"wrong"));
         graph.rows.put(orphan,projected(orphan,1,"orphan"));
         List<ClaimedProjectionEvent> repairs=new ArrayList<>();
-        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add).reconcile(TENANT,2,true);
+        var report=service(audit,graph,repairs::add).reconcile(TENANT,2,true);
         assertEquals(3,report.canonicalChecked());assertEquals(1,report.missing());assertEquals(1,report.stale());
         assertEquals(1,report.divergent());assertEquals(1,report.orphaned());assertEquals(3,report.repaired());
         assertEquals(Set.of(missing,stale,divergent),new HashSet<>(repairs.stream().map(ClaimedProjectionEvent::aggregateId).toList()));
@@ -27,9 +31,63 @@ class HistoricalProjectionReconciliationServiceTest {
     @Test void neverOverwritesGraphRevisionNewerThanCanonical() throws Exception {
         UUID id=UUID.randomUUID();FakeAudit audit=new FakeAudit(List.of(row(id,1)));FakeInspection graph=new FakeInspection();
         graph.rows.put(id,projected(id,2,"newer"));List<ClaimedProjectionEvent> repairs=new ArrayList<>();
-        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add).reconcile(TENANT,10,true);
+        var report=service(audit,graph,repairs::add).reconcile(TENANT,10,true);
         assertEquals(1,report.divergent());assertTrue(repairs.isEmpty());
     }
+
+
+
+    @Test void refusesRepairWhenDurableOperatorAuditIsNotConfigured() {
+        UUID id=UUID.randomUUID();
+        FakeAudit audit=new FakeAudit(List.of(row(id,1)));
+        FakeInspection graph=new FakeInspection();
+        int[] projected={0};
+        var service=new HistoricalProjectionReconciliationService(audit,graph,e->projected[0]++,
+                ()->TENANT,allowAll());
+        assertThrows(IllegalStateException.class,()->service.reconcile(TENANT,10,true));
+        assertEquals(0,projected[0]);
+    }
+
+    @Test void emitsDriftAndRepairMetrics() throws Exception {
+        UUID id=UUID.randomUUID();
+        FakeAudit audit=new FakeAudit(List.of(row(id,1)));
+        FakeInspection graph=new FakeInspection();
+        List<HistoricalProjectionMetricsPort.ReconciliationMetric> emitted=new ArrayList<>();
+        HistoricalProjectionMetricsPort metrics=new HistoricalProjectionMetricsPort(){
+            public void record(tech.kayys.numou.history.graph.spi.HistoricalProjectionOperationalStore.OperationalSnapshot snapshot){}
+            public void recordReconciliation(HistoricalProjectionMetricsPort.ReconciliationMetric metric){emitted.add(metric);}
+        };
+        var report=new HistoricalProjectionReconciliationService(audit,graph,e->{},()->TENANT,allowAll(),metrics,
+                ()->UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),new FakeRepairAudit(),Clock.fixed(NOW,ZoneOffset.UTC))
+                .reconcile(TENANT,10,true);
+        assertEquals(1,report.repaired());
+        assertEquals(1,emitted.size());
+        assertEquals(1,emitted.get(0).missing());
+        assertEquals(1,emitted.get(0).repaired());
+    }
+
+
+    private static HistoricalProjectionReconciliationService service(HistoricalProjectionAuditStore audit,
+            HistoricalProjectionInspectionPort graph, HistoricalRelationshipProjectionPort replay) {
+        return new HistoricalProjectionReconciliationService(audit,graph,replay,()->TENANT,allowAll(),
+                snapshot->{},()->UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                new FakeRepairAudit(),Clock.fixed(NOW,ZoneOffset.UTC));
+    }
+    private static final class FakeRepairAudit implements HistoricalProjectionRepairAuditStore {
+        public UUID start(UUID tenant,UUID actor,int pageSize,Instant at){return UUID.randomUUID();}
+        public void complete(UUID tenant,UUID actor,UUID operation,RepairOutcome outcome,Instant at){}
+        public void fail(UUID tenant,UUID actor,UUID operation,int pageSize,String reason,Instant at){}
+    }
+
+    private static HistoricalProjectionMaintenanceAuthorizationPort allowAll(){
+        return new HistoricalProjectionMaintenanceAuthorizationPort(){
+            public void requireCanRebuildTenant(UUID id){}
+            public void requireCanRebuildPublicCorpus(){}
+            public void requireCanAuditTenant(UUID id){}
+            public void requireCanAuditPublicCorpus(){}
+        };
+    }
+
     private static CanonicalRelationship row(UUID id,long rev) {
         String payload="{\"relationshipId\":\""+id+"\",\"revision\":"+rev+"}";
         return new CanonicalRelationship(UUID.randomUUID(),"history.relationship.revision-appended",1,TENANT,id,rev,
