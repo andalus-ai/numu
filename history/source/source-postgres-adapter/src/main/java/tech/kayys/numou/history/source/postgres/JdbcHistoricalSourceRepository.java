@@ -69,6 +69,39 @@ public final class JdbcHistoricalSourceRepository implements HistoricalSourceRep
    p.setObject(1,tenant);p.setObject(2,claimId.value());p.setInt(3,limit);try(ResultSet rs=p.executeQuery()){List<ClaimEvidence> out=new ArrayList<>();while(rs.next())out.add(new ClaimEvidence(rs.getObject(1,UUID.class),new HistoricalClaimId(rs.getObject(2,UUID.class)),new HistoricalSourceId(rs.getObject(3,UUID.class)),EvidenceRelation.valueOf(rs.getString(4)),EvidenceLocatorType.valueOf(rs.getString(5)),rs.getString(6),rs.getString(7),rs.getTimestamp(8).toInstant()));return List.copyOf(out);}
   }});
  }
+ @Override public boolean appendAssessment(UUID tenant,SourceAssessment assessment) {
+  Objects.requireNonNull(tenant); Objects.requireNonNull(assessment);
+  return write(tenant,c->{try(PreparedStatement p=c.prepareStatement("insert into historical_source_assessment(tenant_id,assessment_id,source_id,dimension,conclusion,rationale,methodology_id,methodology_version,assessor_ref,assessed_at) values (?,?,?,?,?,?,?,?,?,?)")){
+   p.setObject(1,tenant);p.setObject(2,assessment.id());p.setObject(3,assessment.sourceId().value());p.setString(4,assessment.dimension().name());p.setString(5,assessment.conclusion().name());p.setString(6,assessment.rationale());p.setString(7,assessment.methodologyId());p.setString(8,assessment.methodologyVersion());p.setString(9,assessment.assessorRef());p.setTimestamp(10,Timestamp.from(assessment.assessedAt()));p.executeUpdate();return true;
+  }},false);
+ }
+ @Override public List<SourceAssessment> listAssessments(UUID tenant,HistoricalSourceId sourceId,int limit) {
+  Objects.requireNonNull(tenant);Objects.requireNonNull(sourceId);if(limit<1||limit>200)throw new IllegalArgumentException("limit must be between 1 and 200");
+  return read(tenant,c->{try(PreparedStatement p=c.prepareStatement("select assessment_id,source_id,dimension,conclusion,rationale,methodology_id,methodology_version,assessor_ref,assessed_at from historical_source_assessment where tenant_id=? and source_id=? order by assessed_at,assessment_id limit ?")){
+   p.setObject(1,tenant);p.setObject(2,sourceId.value());p.setInt(3,limit);try(ResultSet rs=p.executeQuery()){List<SourceAssessment> out=new ArrayList<>();while(rs.next())out.add(mapAssessment(rs));return List.copyOf(out);}
+  }});
+ }
+ @Override public Optional<SourceAssessment> findAssessment(UUID tenant,UUID assessmentId) {
+  Objects.requireNonNull(tenant);Objects.requireNonNull(assessmentId);
+  return read(tenant,c->{try(PreparedStatement p=c.prepareStatement("select assessment_id,source_id,dimension,conclusion,rationale,methodology_id,methodology_version,assessor_ref,assessed_at from historical_source_assessment where tenant_id=? and assessment_id=?")){
+   p.setObject(1,tenant);p.setObject(2,assessmentId);try(ResultSet rs=p.executeQuery()){return rs.next()?Optional.of(mapAssessment(rs)):Optional.empty();}
+  }});
+ }
+ @Override public boolean appendAssessmentReview(UUID tenant,SourceAssessmentReview review) {
+  Objects.requireNonNull(tenant);Objects.requireNonNull(review);
+  return write(tenant,c->{try(PreparedStatement p=c.prepareStatement("insert into historical_source_assessment_review(tenant_id,review_id,assessment_id,decision,rationale,reviewer_ref,reviewed_at) values (?,?,?,?,?,?,?)")){
+   p.setObject(1,tenant);p.setObject(2,review.id());p.setObject(3,review.assessmentId());p.setString(4,review.decision().name());p.setString(5,review.rationale());p.setString(6,review.reviewerRef());p.setTimestamp(7,Timestamp.from(review.reviewedAt()));p.executeUpdate();return true;
+  }},false);
+ }
+ @Override public List<SourceAssessmentReview> listAssessmentReviews(UUID tenant,UUID assessmentId,int limit) {
+  Objects.requireNonNull(tenant);Objects.requireNonNull(assessmentId);if(limit<1||limit>200)throw new IllegalArgumentException("limit must be between 1 and 200");
+  return read(tenant,c->{try(PreparedStatement p=c.prepareStatement("select review_id,assessment_id,decision,rationale,reviewer_ref,reviewed_at from historical_source_assessment_review where tenant_id=? and assessment_id=? order by reviewed_at,review_id limit ?")){
+   p.setObject(1,tenant);p.setObject(2,assessmentId);p.setInt(3,limit);try(ResultSet rs=p.executeQuery()){List<SourceAssessmentReview> out=new ArrayList<>();while(rs.next())out.add(new SourceAssessmentReview(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),SourceAssessmentReviewDecision.valueOf(rs.getString(3)),rs.getString(4),rs.getString(5),rs.getTimestamp(6).toInstant()));return List.copyOf(out);}
+  }});
+ }
+ private static SourceAssessment mapAssessment(ResultSet rs)throws SQLException {
+  return new SourceAssessment(rs.getObject(1,UUID.class),new HistoricalSourceId(rs.getObject(2,UUID.class)),SourceAssessmentDimension.valueOf(rs.getString(3)),SourceAssessmentConclusion.valueOf(rs.getString(4)),rs.getString(5),rs.getString(6),rs.getString(7),rs.getString(8),rs.getTimestamp(9).toInstant());
+ }
  private static void insertRevision(Connection c,UUID tenant,HistoricalSource s)throws SQLException{
   try(PreparedStatement p=c.prepareStatement("insert into historical_source_revision(tenant_id,source_id,revision,kind,status,title,subtitle,description,canonical_uri,publisher,publication_date_text,language_tag,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")){
    p.setObject(1,tenant);p.setObject(2,s.id().value());p.setLong(3,s.revision());p.setString(4,s.kind().name());p.setString(5,s.status().name());p.setString(6,s.title());p.setString(7,s.subtitle());p.setString(8,s.description());p.setString(9,s.canonicalUri());p.setString(10,s.publisher());p.setString(11,s.publicationDateText());p.setString(12,s.languageTag());p.setTimestamp(13,Timestamp.from(s.createdAt()));p.setTimestamp(14,Timestamp.from(s.updatedAt()));p.executeUpdate();

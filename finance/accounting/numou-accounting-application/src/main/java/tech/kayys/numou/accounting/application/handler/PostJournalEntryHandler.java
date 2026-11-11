@@ -68,7 +68,7 @@ public class PostJournalEntryHandler implements CommandHandler<PostJournalEntryC
         entry.post(command.postedBy() != null ? command.postedBy() : "system");
         LocalDate txDate = LocalDate.ofInstant(entry.getEntryDate(), ZoneOffset.UTC);
 
-        return fiscalPeriodRepository.findActivePeriod(txDate).chain(optPeriod -> {
+        return fiscalPeriodRepository.findActivePeriod(command.tenantId(), command.ledgerId(), txDate).chain(optPeriod -> {
             if (optPeriod.isPresent() && !optPeriod.get().isOpen()
                     && complianceEngine.getConfiguration().strictPeriodLocking()) {
                 return Uni.createFrom().failure(new IllegalStateException(

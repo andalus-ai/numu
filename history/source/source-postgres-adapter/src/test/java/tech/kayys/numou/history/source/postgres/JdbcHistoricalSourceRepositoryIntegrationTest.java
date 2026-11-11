@@ -25,7 +25,7 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
    s.execute("CREATE ROLE history_app LOGIN PASSWORD 'history-password' NOSUPERUSER NOBYPASSRLS");
    s.execute("GRANT USAGE ON SCHEMA public TO history_app");
    s.execute("GRANT SELECT, INSERT, UPDATE ON historical_source TO history_app");
-   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence TO history_app");
+   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review TO history_app");
   }
   appDataSource=new PGSimpleDataSource(); appDataSource.setURL(POSTGRES.getJdbcUrl());
   appDataSource.setUser("history_app"); appDataSource.setPassword("history-password");
@@ -53,6 +53,24 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   assertTrue(repository.appendEvidence(tenant,evidence));
   assertEquals(1,repository.listEvidence(tenant,claim.id(),20).size());
   assertTrue(repository.listEvidence(otherTenant,claim.id(),20).isEmpty());
+  var assessment=SourceAssessment.create(source.id(),SourceAssessmentDimension.RELIABILITY,
+   SourceAssessmentConclusion.UNCERTAIN,"The account is not independently corroborated.","numou.history.source-criticism","1.0","actor:historian-1",now.plusSeconds(4));
+  assertTrue(repository.appendAssessment(tenant,assessment));
+  assertEquals(assessment,repository.findAssessment(tenant,assessment.id()).orElseThrow());
+  assertEquals(1,repository.listAssessments(tenant,source.id(),20).size());
+  var review=SourceAssessmentReview.create(assessment.id(),SourceAssessmentReviewDecision.REQUEST_CHANGES,
+   "Provide a second witness.","actor:editor-1",now.plusSeconds(5));
+  assertTrue(repository.appendAssessmentReview(tenant,review));
+  assertEquals(review,repository.listAssessmentReviews(tenant,assessment.id(),20).get(0));
+  assertTrue(repository.listAssessments(otherTenant,source.id(),20).isEmpty());
+  assertTrue(repository.listAssessmentReviews(otherTenant,assessment.id(),20).isEmpty());
+  assertTrue(repository.findAssessment(otherTenant,assessment.id()).isEmpty());
+  assertThrows(java.sql.SQLException.class,()->{
+   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
+       var statement=connection.prepareStatement("update historical_source_assessment set rationale=? where tenant_id=? and assessment_id=?")) {
+    statement.setString(1,"rewritten assessment"); statement.setObject(2,tenant); statement.setObject(3,assessment.id()); statement.executeUpdate();
+   }
+  });
  }
  @Test void duplicateSourceRegistrationReturnsConflictInsteadOfOverwriting() {
   UUID tenant=UUID.randomUUID(); Instant now=Instant.parse("2026-11-07T00:00:00Z");

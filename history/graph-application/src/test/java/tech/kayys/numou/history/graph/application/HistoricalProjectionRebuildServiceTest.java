@@ -18,23 +18,37 @@ class HistoricalProjectionRebuildServiceTest {
     @Test void checkpointAdvancesOnlyAfterWholePageProjects() {
         FakeStore store = new FakeStore(); store.events = List.of(event(1), event(2));
         List<String> projected = new ArrayList<>();
-        var service = service(store, e -> projected.add(e.eventKey()), allowAll(), 2);
-        var run = service.start(TENANT); var progress = service.resumeOnePage(TENANT, run.runId());
-        assertEquals(2, progress.projectedEvents()); assertEquals(2, progress.run().cursorSequence());
+        HistoricalRelationshipProjectionPort port = e -> projected.add(e.eventKey());
+        var service = new HistoricalProjectionRebuildService(store, port, () -> TENANT, allowAll(),
+                Clock.fixed(NOW, ZoneOffset.UTC), 2);
+
+        var run = service.start(TENANT);
+        var progress = service.resumeOnePage(TENANT, run.runId());
+
+        assertEquals(2, progress.projectedEvents());
+        assertEquals(2, progress.run().cursorSequence());
         assertEquals(List.of("event-1", "event-2"), projected);
     }
 
     @Test void failedProjectionLeavesCursorForSafeReplay() {
-        FakeStore store = new FakeStore(); store.events = List.of(event(1), event(2)); int[] calls = {0};
-        var service = service(store, e -> { if (++calls[0] == 2) throw new IllegalStateException("temporary provider failure"); }, allowAll(), 2);
+        FakeStore store = new FakeStore();
+        store.events = List.of(event(1), event(2));
+        int[] calls = {0};
+        HistoricalRelationshipProjectionPort port = e -> {
+            calls[0]++;
+            if (calls[0] == 2) throw new IllegalStateException("temporary provider failure");
+        };
+        var service = new HistoricalProjectionRebuildService(store, port, () -> TENANT, allowAll(),
+                Clock.fixed(NOW, ZoneOffset.UTC), 2);
         var run = service.start(TENANT);
         assertThrows(IllegalStateException.class, () -> service.resumeOnePage(TENANT, run.runId()));
         assertEquals(0, store.cursor);
     }
 
-    @Test void rejectsCrossTenantPageBeforeProjectingAnyEvent() {
-        FakeStore store = new FakeStore(); store.events = List.of(event(1), event(2, OTHER_TENANT));
-        List<String> projected = new ArrayList<>(); var service = service(store, e -> projected.add(e.eventKey()), allowAll(), 2);
+    @Test void completedRunIsIdempotent() {
+        FakeStore store = new FakeStore();
+        store.events = List.of(event(1));
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, () -> TENANT, allowAll(), Clock.fixed(NOW, ZoneOffset.UTC), 1);
         var run = service.start(TENANT);
         assertThrows(IllegalStateException.class, () -> service.resumeOnePage(TENANT, run.runId()));
         assertTrue(projected.isEmpty()); assertEquals(0, store.cursor);
@@ -56,9 +70,80 @@ class HistoricalProjectionRebuildServiceTest {
         assertTrue(service.resumeOnePage(TENANT, run.runId()).completed());
     }
 
-    @Test void tenantRebuildAuthorizationPrecedesStoreAccess() {
-        FakeStore store = new FakeStore(); var service = service(store, e -> {}, denyRebuild(), 1);
-        assertThrows(SecurityException.class, () -> service.start(TENANT)); assertEquals(0, store.startCalls);
+
+    @Test void rejectsCrossTenantScopeBeforeReadingStore() {
+        FakeStore store = new FakeStore();
+        var service = new HistoricalProjectionRebuildService(store, e -> {},
+                () -> TENANT, allowAll(), Clock.fixed(NOW, ZoneOffset.UTC), 1);
+        assertThrows(SecurityException.class, () -> service.start(UUID.randomUUID()));
+        assertNull(store.run);
+    }
+
+    @Test void requiresPublicMaintenancePermissionForSharedCorpus() {
+        FakeStore store = new FakeStore();
+        HistoricalProjectionMaintenanceAuthorizationPort denied = new HistoricalProjectionMaintenanceAuthorizationPort() {
+            public void requireCanRebuildTenant(UUID tenantId) {}
+            public void requireCanRebuildPublicCorpus() { throw new SecurityException("denied"); }
+            public void requireCanAuditTenant(UUID tenantId) {}
+            public void requireCanAuditPublicCorpus() {}
+        };
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, () -> TENANT,
+                denied, Clock.fixed(NOW, ZoneOffset.UTC), 1);
+        assertThrows(SecurityException.class, () -> service.start(null));
+        assertNull(store.run);
+    }
+
+
+    @Test void emitsBoundedRebuildProgressMetrics() {
+        FakeStore store = new FakeStore();
+        store.events = List.of(event(1));
+        List<HistoricalProjectionMetricsPort.RebuildMetric> emitted = new ArrayList<>();
+        var service = new HistoricalProjectionRebuildService(store, e -> {}, () -> TENANT, allowAll(),
+                Clock.fixed(NOW, ZoneOffset.UTC), 1, new HistoricalProjectionMetricsPort() {
+                    public void record(tech.kayys.numou.history.graph.spi.HistoricalProjectionOperationalStore.OperationalSnapshot snapshot) {}
+                    public void recordRebuildProgress(HistoricalProjectionMetricsPort.RebuildMetric metric) { emitted.add(metric); }
+                });
+        var run = service.start(TENANT);
+        service.resumeOnePage(TENANT, run.runId());
+        assertEquals(1, emitted.size());
+        assertEquals(1, emitted.get(0).projectedEvents());
+        assertEquals(1, emitted.get(0).cursorSequence());
+        assertEquals(1, emitted.get(0).highWaterSequence());
+        assertFalse(emitted.get(0).completed());
+    }
+
+    private static HistoricalProjectionMaintenanceAuthorizationPort allowAll() {
+        return new HistoricalProjectionMaintenanceAuthorizationPort() {
+            public void requireCanRebuildTenant(UUID tenantId) {}
+            public void requireCanRebuildPublicCorpus() {}
+            public void requireCanAuditTenant(UUID tenantId) {}
+            public void requireCanAuditPublicCorpus() {}
+        };
+    @Test void stagingReplayUsesGenerationTargetedPort() {
+        FakeStore store = new FakeStore();
+        store.events = List.of(event(1));
+        UUID generationId = UUID.randomUUID();
+        List<UUID> targets = new ArrayList<>();
+        GenerationTargetedHistoricalRelationshipProjectionPort port = new GenerationTargetedHistoricalRelationshipProjectionPort() {
+            public void project(tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent event) {
+                fail("staging replay must not write to the default active projection");
+            }
+            public void projectIntoGeneration(tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent event, UUID generation) {
+                targets.add(generation);
+            }
+        };
+        var service = new HistoricalProjectionRebuildService(store, port,
+                Clock.fixed(NOW, ZoneOffset.UTC), 10);
+        var run = service.start(TENANT);
+        service.resumeOnePage(TENANT, run.runId(), generationId);
+        assertEquals(List.of(generationId), targets);
+        assertEquals(1, store.cursor);
+    }
+
+    private static ReplayEvent event(long sequence) {
+        return new ReplayEvent(sequence, UUID.randomUUID(), "event-" + sequence,
+                "history.relationship.revision-appended", 1, TENANT, UUID.randomUUID(),
+                sequence, "{}", NOW);
     }
 
     @Test void publicRebuildUsesSeparatePermission() {
