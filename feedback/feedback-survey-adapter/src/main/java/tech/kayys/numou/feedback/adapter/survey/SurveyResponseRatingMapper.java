@@ -16,7 +16,7 @@ import java.util.Objects;
 public final class SurveyResponseRatingMapper {
     public FeedbackRating map(TenantId tenantId, Response response, QuestionId questionId,
                               RatingTarget target, RatingMetric metric, RatingScale scale,
-                              Instant importedAt) {
+                              ) {
         Objects.requireNonNull(tenantId, "tenantId cannot be null");
         Objects.requireNonNull(response, "response cannot be null");
         Objects.requireNonNull(questionId, "questionId cannot be null");
@@ -34,6 +34,7 @@ public final class SurveyResponseRatingMapper {
         FeedbackActor respondent = response.respondentId()
                 .map(id -> new FeedbackActor("survey-respondent", id)).orElse(null);
         return FeedbackRating.submit(FeedbackRatingId.generate(), tenantId, target, metric, scale,
-                BigDecimal.valueOf(numeric.value()), respondent, response.surveyId().value(), importedAt);
+                BigDecimal.valueOf(numeric.value()), respondent, response.surveyId().value(),
+                response.submittedAt().orElseThrow(() -> new IllegalArgumentException("Submitted response has no submittedAt timestamp")));
     }
 }
