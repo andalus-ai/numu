@@ -232,6 +232,11 @@
                 <artifactId>numou-feedback-postgres-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-feedback-survey-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- Social Graph -->
             <dependency>
