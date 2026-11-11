@@ -5,7 +5,7 @@ CREATE TABLE feedback_survey_templates (
     template_version INTEGER NOT NULL CHECK (template_version > 0),
     title VARCHAR(200) NOT NULL,
     description VARCHAR(2000) NOT NULL DEFAULT '',
-    survey_definition JSONB NOT NULL,
+    survey_definition TEXT NOT NULL CHECK (jsonb_typeof(survey_definition::jsonb) IS NOT NULL),
     definition_sha256 CHAR(64) NOT NULL,
     status VARCHAR(16) NOT NULL CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
     created_at TIMESTAMPTZ NOT NULL,
