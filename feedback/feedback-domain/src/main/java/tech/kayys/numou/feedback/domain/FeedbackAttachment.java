@@ -76,6 +76,7 @@ public final class FeedbackAttachment {
         if (status == Status.DELETED) return;
         ensureNotBefore(now);
         status = Status.DELETED;
+        rejectionReason = null;
         updatedAt = now;
     }
 

@@ -37,10 +37,12 @@ class FeedbackAttachmentTest {
                 "text/plain", 12, "bad", NOW));
     }
 
-    @Test void deletionIsIdempotent() {
+    @Test void deletionIsIdempotentAndClearsRejectionReason() {
         FeedbackAttachment value = attachment();
-        value.delete(NOW.plusSeconds(1));
+        value.reject("malware detected", NOW.plusSeconds(1));
         value.delete(NOW.plusSeconds(2));
+        value.delete(NOW.plusSeconds(3));
         assertEquals(FeedbackAttachment.Status.DELETED, value.status());
+        assertNull(value.rejectionReason());
     }
 }

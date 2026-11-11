@@ -1,11 +1,12 @@
 package tech.kayys.numou.feedback.adapter.postgres;
 
 import org.junit.jupiter.api.Test;
+import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.postgresql.ds.PGSimpleDataSource;
 import tech.kayys.numou.feedback.domain.*;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import javax.sql.DataSource;
 import java.nio.file.Files;
@@ -30,9 +31,7 @@ class PostgresFeedbackAttachmentRepositoryTest {
         PostgresFeedbackAttachmentRepository attachments = new PostgresFeedbackAttachmentRepository(dataSource);
         UUID tenantId = UUID.randomUUID();
         Instant now = Instant.parse("2026-11-11T04:00:00Z");
-        FeedbackItem feedback = FeedbackItem.submit(FeedbackId.generate(), tenantId, null,
-                FeedbackType.BUG, "Broken upload", "The screenshot upload fails.",
-                "portal", "feedback", null, FeedbackPriority.NORMAL, now);
+        Feedback feedback = feedback(tenantId, now, "attachment-test-feedback");
         feedbacks.save(feedback, "attachment-test-feedback");
 
         FeedbackAttachment attachment = FeedbackAttachment.register(
@@ -54,6 +53,18 @@ class PostgresFeedbackAttachmentRepositoryTest {
         assertEquals(attachment.documentId(), reloaded.documentId());
         assertEquals(attachment.documentVersionId(), reloaded.documentVersionId());
 
+        FeedbackAttachment staleSameTimestamp = FeedbackAttachment.restore(
+                attachment.id(), tenantId, feedback.id(), attachment.documentId(), attachment.documentVersionId(),
+                attachment.fileName(), attachment.mediaType(), attachment.sizeBytes(), attachment.sha256(),
+                FeedbackAttachment.Status.PENDING_SCAN, now, now.plusSeconds(5), null);
+        assertThrows(IllegalStateException.class, () -> attachments.save(staleSameTimestamp));
+
+        FeedbackAttachment forgedReverseTransition = FeedbackAttachment.restore(
+                attachment.id(), tenantId, feedback.id(), attachment.documentId(), attachment.documentVersionId(),
+                attachment.fileName(), attachment.mediaType(), attachment.sizeBytes(), attachment.sha256(),
+                FeedbackAttachment.Status.REJECTED, now, now.plusSeconds(6), "forged status");
+        assertThrows(IllegalStateException.class, () -> attachments.save(forgedReverseTransition));
+
         // One submission event + attachment-added + attachment-status-changed.
         assertEquals(3, countOutbox(dataSource));
         attachments.save(reloaded); // idempotent replay must not emit another event
@@ -69,15 +80,20 @@ class PostgresFeedbackAttachmentRepositoryTest {
         UUID ownerTenant = UUID.randomUUID();
         UUID wrongTenant = UUID.randomUUID();
         Instant now = Instant.parse("2026-11-11T04:00:00Z");
-        FeedbackItem feedback = FeedbackItem.submit(FeedbackId.generate(), ownerTenant, null,
-                FeedbackType.COMMENT, "Feedback", "Body", null, null, null, FeedbackPriority.NORMAL, now);
-        feedbacks.save(feedback, "cross-tenant-attachment");
+        Feedback feedback = feedback(ownerTenant, now, "cross-tenant-feedback");
+        feedbacks.save(feedback, "cross-tenant-feedback");
         FeedbackAttachment forged = FeedbackAttachment.register(
                 UUID.randomUUID(), wrongTenant, feedback.id(), UUID.randomUUID().toString(),
                 UUID.randomUUID().toString(), "proof.pdf", "application/pdf",
                 50, "d".repeat(64), now);
 
         assertThrows(FeedbackPersistenceException.class, () -> attachments.save(forged));
+    }
+
+    private Feedback feedback(UUID tenantId, Instant now, String actorId) {
+        return Feedback.submit(FeedbackId.generate(), TenantId.of(tenantId),
+                new FeedbackActor("user", actorId), FeedbackKind.BUG, FeedbackPriority.NORMAL,
+                "Broken upload", "The screenshot upload fails.", FeedbackContext.empty(), now);
     }
 
     private int countOutbox(DataSource dataSource) throws Exception {

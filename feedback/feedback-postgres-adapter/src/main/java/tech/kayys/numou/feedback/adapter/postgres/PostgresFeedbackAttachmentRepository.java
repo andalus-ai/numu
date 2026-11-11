@@ -12,6 +12,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -41,8 +42,21 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
                     if (attachment.updatedAt().isBefore(current.updatedAt())) {
                         throw new IllegalStateException("Stale attachment state cannot overwrite a newer version");
                     }
-                    if (current.status() != attachment.status()
-                            || !current.updatedAt().equals(attachment.updatedAt())) {
+                    boolean sameState = current.status() == attachment.status()
+                            && Objects.equals(current.rejectionReason(), attachment.rejectionReason());
+                    if (sameState) {
+                        if (!attachment.updatedAt().equals(current.updatedAt())) {
+                            throw new IllegalStateException("An unchanged attachment state cannot advance its timestamp");
+                        }
+                        // Idempotent replay: do not emit a duplicate outbox event.
+                    } else {
+                        if (!attachment.updatedAt().isAfter(current.updatedAt())) {
+                            throw new IllegalStateException("A lifecycle transition must advance updatedAt");
+                        }
+                        if (!allowedTransition(current.status(), attachment.status())) {
+                            throw new IllegalStateException("Invalid attachment transition: "
+                                    + current.status() + " -> " + attachment.status());
+                        }
                         updateState(connection, attachment);
                         appendOutbox(connection, attachment, "feedback.attachment-status-changed");
                     }
@@ -111,7 +125,7 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
     private Existing findCurrent(Connection connection, UUID tenantId, UUID attachmentId) throws SQLException {
         String sql = """
                 SELECT feedback_id, document_id, document_version_id, file_name, media_type,
-                       size_bytes, sha256, status, updated_at
+                       size_bytes, sha256, status, rejection_reason, updated_at
                   FROM feedback_attachments
                  WHERE tenant_id = ? AND id = ?
                  FOR UPDATE
@@ -130,6 +144,7 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
                         row.getLong("size_bytes"),
                         row.getString("sha256"),
                         FeedbackAttachment.Status.valueOf(row.getString("status")),
+                        row.getString("rejection_reason"),
                         row.getTimestamp("updated_at").toInstant());
             }
         }
@@ -199,6 +214,17 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
         }
     }
 
+    private static boolean allowedTransition(FeedbackAttachment.Status current,
+                                             FeedbackAttachment.Status target) {
+        return switch (current) {
+            case PENDING_SCAN -> target == FeedbackAttachment.Status.AVAILABLE
+                    || target == FeedbackAttachment.Status.REJECTED
+                    || target == FeedbackAttachment.Status.DELETED;
+            case AVAILABLE, REJECTED -> target == FeedbackAttachment.Status.DELETED;
+            case DELETED -> false;
+        };
+    }
+
     private static void verifyImmutableMetadata(Existing current, FeedbackAttachment attachment) {
         if (!current.feedbackId().equals(attachment.feedbackId().value())
                 || !current.documentId().equals(attachment.documentId())
@@ -231,5 +257,5 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
 
     private record Existing(UUID feedbackId, String documentId, String documentVersionId,
                             String fileName, String mediaType, long sizeBytes, String sha256,
-                            FeedbackAttachment.Status status, java.time.Instant updatedAt) {}
+                            FeedbackAttachment.Status status, String rejectionReason, java.time.Instant updatedAt) {}
 }
