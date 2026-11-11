@@ -207,6 +207,10 @@
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-attendee-persistence-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-attendee-postgres-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>

@@ -2,8 +2,11 @@ package tech.kayys.numou.advertising.application;
 
 import tech.kayys.numou.advertising.domain.*;
 import tech.kayys.numou.advertising.spi.AdvertisingAccountStore;
+import tech.kayys.numou.advertising.spi.AdvertisingPage;
+import tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
 import java.time.Clock;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.*;
 
 /** Use cases for onboarding advertiser/publisher accounts and registering publisher inventory. */
@@ -80,6 +83,46 @@ public final class AdvertisingAccountService {
             return store.savePlacement(placement.enable());
           });
         });
+      });
+  }
+
+  public CompletionStage<Optional<AdvertiserAccount>> getAdvertiser(TenantId tenant,AdvertisingAccountId id){
+    return authorized(tenant,"advertiser.read").thenCompose(v->store.findAdvertiser(tenant,id));
+  }
+
+  public CompletionStage<AdvertisingPage<AdvertiserAccount>> listAdvertisers(TenantId tenant,AdvertisingPageRequest page){
+    return authorized(tenant,"advertiser.read").thenCompose(v->store.listAdvertisers(tenant,page));
+  }
+
+  public CompletionStage<Optional<PublisherAccount>> getPublisher(TenantId tenant,AdvertisingAccountId id){
+    return authorized(tenant,"publisher.read").thenCompose(v->store.findPublisher(tenant,id));
+  }
+
+  public CompletionStage<AdvertisingPage<PublisherAccount>> listPublishers(TenantId tenant,AdvertisingPageRequest page){
+    return authorized(tenant,"publisher.read").thenCompose(v->store.listPublishers(tenant,page));
+  }
+
+  public CompletionStage<Optional<PublisherProperty>> getProperty(TenantId tenant,PublisherPropertyId id){
+    return authorized(tenant,"publisher.inventory.read").thenCompose(v->store.findProperty(tenant,id));
+  }
+
+  public CompletionStage<AdvertisingPage<PublisherProperty>> listProperties(TenantId tenant,AdvertisingAccountId publisherId,AdvertisingPageRequest page){
+    return authorized(tenant,"publisher.inventory.read").thenCompose(v->store.findPublisher(tenant,publisherId))
+      .thenCompose(found->{
+        found.orElseThrow(()->new IllegalArgumentException("publisher account not found"));
+        return store.listProperties(tenant,publisherId,page);
+      });
+  }
+
+  public CompletionStage<Optional<AdPlacement>> getPlacement(TenantId tenant,AdPlacementId id){
+    return authorized(tenant,"publisher.inventory.read").thenCompose(v->store.findPlacement(tenant,id));
+  }
+
+  public CompletionStage<AdvertisingPage<AdPlacement>> listPlacements(TenantId tenant,PublisherPropertyId propertyId,AdvertisingPageRequest page){
+    return authorized(tenant,"publisher.inventory.read").thenCompose(v->store.findProperty(tenant,propertyId))
+      .thenCompose(found->{
+        found.orElseThrow(()->new IllegalArgumentException("publisher property not found"));
+        return store.listPlacements(tenant,propertyId,page);
       });
   }
 
