@@ -44,9 +44,9 @@ class PostgresFeedbackOutboxStoreTest {
         assertEquals(1, recovered.size());
         assertEquals(eventId, recovered.get(0).eventId());
 
-        store.markPublished(eventId, now.plusSeconds(32));
+        store.markPublished(eventId, recovered.get(0).leaseToken(), now.plusSeconds(32));
         assertEquals(0, store.claimPending(now.plusSeconds(90), now.plusSeconds(120), 10).size());
-        assertThrows(IllegalStateException.class, () -> store.markPublished(eventId, now.plusSeconds(33)));
+        assertThrows(IllegalStateException.class, () -> store.markPublished(eventId, first.get(0).leaseToken(), now.plusSeconds(33)));
     }
 
     @Test
@@ -57,8 +57,9 @@ class PostgresFeedbackOutboxStoreTest {
         UUID eventId = createFeedbackEvent(dataSource, now.minusSeconds(2));
         PostgresFeedbackOutboxStore store = new PostgresFeedbackOutboxStore(dataSource);
 
-        assertEquals(1, store.claimPending(now, now.plusSeconds(30), 10).size());
-        store.recordFailure(eventId, "broker unavailable", now.plusSeconds(10), 1);
+        List<FeedbackOutboxMessage> claimed = store.claimPending(now, now.plusSeconds(30), 10);
+        assertEquals(1, claimed.size());
+        store.recordFailure(eventId, claimed.get(0).leaseToken(), "broker unavailable", now.plusSeconds(10), 1);
 
         try (Connection connection = dataSource.getConnection();
              var statement = connection.prepareStatement("""
