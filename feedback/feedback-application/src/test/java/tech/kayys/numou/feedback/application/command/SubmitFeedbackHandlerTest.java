@@ -3,6 +3,7 @@ package tech.kayys.numou.feedback.application.command;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.feedback.application.port.FeedbackRepository;
 import tech.kayys.numou.feedback.domain.*;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -13,43 +14,55 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SubmitFeedbackHandlerTest {
     @Test
-    void submitsThroughTenantAwareRepositoryPort() {
-        AtomicReference<FeedbackItem> saved = new AtomicReference<>();
+    void submitsCanonicalAggregateThroughTenantAwareRepositoryPort() {
+        AtomicReference<Feedback> saved = new AtomicReference<>();
         AtomicReference<String> key = new AtomicReference<>();
         FeedbackRepository repository = new FeedbackRepository() {
-            @Override public FeedbackId save(FeedbackItem item, String idempotencyKey) {
-                saved.set(item);
+            @Override public FeedbackId save(Feedback feedback, String idempotencyKey) {
+                saved.set(feedback);
                 key.set(idempotencyKey);
-                return item.id();
+                return feedback.id();
             }
-            @Override public Optional<FeedbackItem> findById(UUID tenantId, FeedbackId id) {
+            @Override public Optional<Feedback> findById(TenantId tenantId, FeedbackId id) {
                 return Optional.empty();
             }
         };
-        UUID tenantId = UUID.randomUUID();
+        TenantId tenantId = TenantId.generate();
         SubmitFeedbackHandler handler = new SubmitFeedbackHandler(repository);
-        FeedbackId id = handler.handle(new SubmitFeedbackCommand(tenantId, null, FeedbackType.COMMENT,
-                "General feedback", "Useful product.", "erp", "dashboard", null,
-                null, " request-1 ", Instant.parse("2026-11-10T12:00:00Z")));
+        FeedbackId id = handler.handle(new SubmitFeedbackCommand(tenantId,
+                new FeedbackActor("user", UUID.randomUUID().toString()),
+                FeedbackKind.COMMENT, null, "General feedback", "Useful product.",
+                FeedbackContext.empty(), " request-1 ", Instant.parse("2026-11-10T12:00:00Z")));
 
         assertEquals(id, saved.get().id());
         assertEquals(tenantId, saved.get().tenantId());
         assertEquals(FeedbackPriority.NORMAL, saved.get().priority());
+        assertEquals(FeedbackKind.COMMENT, saved.get().kind());
         assertEquals("request-1", key.get());
     }
 
     @Test
     void rejectsMissingTenantAndIdempotencyKeyBeforePersistence() {
         FeedbackRepository repository = new FeedbackRepository() {
-            @Override public FeedbackId save(FeedbackItem item, String key) { fail("must not persist"); return item.id(); }
-            @Override public Optional<FeedbackItem> findById(UUID tenantId, FeedbackId id) {
+            @Override public FeedbackId save(Feedback feedback, String key) {
+                fail("must not persist");
+                return feedback.id();
+            }
+            @Override public Optional<Feedback> findById(TenantId tenantId, FeedbackId id) {
                 return Optional.empty();
             }
         };
         SubmitFeedbackHandler handler = new SubmitFeedbackHandler(repository);
-        SubmitFeedbackCommand command = new SubmitFeedbackCommand(null, null, FeedbackType.BUG,
-                "Bug", "Description", null, null, null, FeedbackPriority.HIGH,
-                "key", Instant.parse("2026-11-10T12:00:00Z"));
-        assertThrows(IllegalArgumentException.class, () -> handler.handle(command));
+        SubmitFeedbackCommand missingTenant = new SubmitFeedbackCommand(null,
+                new FeedbackActor("user", "u-1"), FeedbackKind.BUG, FeedbackPriority.HIGH,
+                "Bug", "Description", FeedbackContext.empty(), "key",
+                Instant.parse("2026-11-10T12:00:00Z"));
+        assertThrows(NullPointerException.class, () -> handler.handle(missingTenant));
+
+        SubmitFeedbackCommand missingKey = new SubmitFeedbackCommand(TenantId.generate(),
+                new FeedbackActor("user", "u-1"), FeedbackKind.BUG, FeedbackPriority.HIGH,
+                "Bug", "Description", FeedbackContext.empty(), " ",
+                Instant.parse("2026-11-10T12:00:00Z"));
+        assertThrows(IllegalArgumentException.class, () -> handler.handle(missingKey));
     }
 }
