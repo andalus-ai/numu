@@ -41,8 +41,14 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
                     if (attachment.updatedAt().isBefore(current.updatedAt())) {
                         throw new IllegalStateException("Stale attachment state cannot overwrite a newer version");
                     }
+                    if (attachment.updatedAt().equals(current.updatedAt())
+                            && (current.status() != attachment.status()
+                                || !Objects.equals(current.rejectionReason(), attachment.rejectionReason()))) {
+                        throw new IllegalStateException("Conflicting attachment states share the same update timestamp");
+                    }
                     if (current.status() != attachment.status()
-                            || !current.updatedAt().equals(attachment.updatedAt())) {
+                            || !current.updatedAt().equals(attachment.updatedAt())
+                            || !Objects.equals(current.rejectionReason(), attachment.rejectionReason())) {
                         updateState(connection, attachment);
                         appendOutbox(connection, attachment, "feedback.attachment-status-changed");
                     }
@@ -111,7 +117,7 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
     private Existing findCurrent(Connection connection, UUID tenantId, UUID attachmentId) throws SQLException {
         String sql = """
                 SELECT feedback_id, document_id, document_version_id, file_name, media_type,
-                       size_bytes, sha256, status, updated_at
+                       size_bytes, sha256, status, rejection_reason, updated_at
                   FROM feedback_attachments
                  WHERE tenant_id = ? AND id = ?
                  FOR UPDATE
@@ -130,6 +136,7 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
                         row.getLong("size_bytes"),
                         row.getString("sha256"),
                         FeedbackAttachment.Status.valueOf(row.getString("status")),
+                        row.getString("rejection_reason"),
                         row.getTimestamp("updated_at").toInstant());
             }
         }
@@ -231,5 +238,5 @@ public final class PostgresFeedbackAttachmentRepository implements FeedbackAttac
 
     private record Existing(UUID feedbackId, String documentId, String documentVersionId,
                             String fileName, String mediaType, long sizeBytes, String sha256,
-                            FeedbackAttachment.Status status, java.time.Instant updatedAt) {}
+                            FeedbackAttachment.Status status, String rejectionReason, java.time.Instant updatedAt) {}
 }
