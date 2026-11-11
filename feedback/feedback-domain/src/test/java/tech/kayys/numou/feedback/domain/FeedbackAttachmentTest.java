@@ -11,7 +11,7 @@ class FeedbackAttachmentTest {
 
     private FeedbackAttachment attachment() {
         return FeedbackAttachment.register(UUID.randomUUID(), UUID.randomUUID(), FeedbackId.generate(),
-                "doc-123", "screenshot.png", "image/png", 1024, HASH, NOW);
+                "document-123", "version-1", "screenshot.png", "image/png", 1024, HASH, NOW);
     }
 
     @Test void startsPendingAndCanBecomeAvailable() {
@@ -30,9 +30,11 @@ class FeedbackAttachmentTest {
 
     @Test void rejectsUnsafeFileNamesAndInvalidChecksums() {
         assertThrows(IllegalArgumentException.class, () -> FeedbackAttachment.register(UUID.randomUUID(),
-                UUID.randomUUID(), FeedbackId.generate(), "doc", "../secret.txt", "text/plain", 12, HASH, NOW));
+                UUID.randomUUID(), FeedbackId.generate(), "doc", "version", "../secret.txt",
+                "text/plain", 12, HASH, NOW));
         assertThrows(IllegalArgumentException.class, () -> FeedbackAttachment.register(UUID.randomUUID(),
-                UUID.randomUUID(), FeedbackId.generate(), "doc", "safe.txt", "text/plain", 12, "bad", NOW));
+                UUID.randomUUID(), FeedbackId.generate(), "doc", "version", "safe.txt",
+                "text/plain", 12, "bad", NOW));
     }
 
     @Test void deletionIsIdempotent() {
