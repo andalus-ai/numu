@@ -1,7 +1,7 @@
 # Numou Feedback Capability
 
 **Milestone:** M2 — attachment and evidence integration  
-**Status:** Domain and application contracts are implemented in the M2 draft PR. JDBC persistence, runtime composition and scanning integration remain pending.
+**Status:** Document-reference contracts and PostgreSQL attachment metadata persistence are implemented. Host composition and scanning integration remain pending.
 
 ## M2 evidence ownership
 
@@ -29,7 +29,7 @@
 - FeedbackDocumentPort: lookup of an exact, tenant-scoped Document version and authoritative metadata.
 - AddFeedbackAttachmentHandler: validates the feedback and Document version, then stores only the association metadata.
 
-The FeedbackDocumentPort adapter is a composition concern. It must use the Document public application/domain contracts, never Document persistence entities or tables.
+The FeedbackDocumentPort adapter is a composition concern. It must use the Document public application/domain contracts, never Document persistence entities or tables. PostgreSQL attachment metadata is stored in `feedback_attachments` by the feedback-postgres-adapter, with a composite tenant/feedback foreign key, exact document-version uniqueness, and a pending-scan index.
 
 ## Existing Feedback domain and integration boundaries
 
