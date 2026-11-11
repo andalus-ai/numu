@@ -44,6 +44,18 @@ public final class SurveyAuthoringService implements SurveyAuthoringUseCase {
     }
 
     @Override
+    public Survey createSurveyFromTemplate(TenantContext ctx,
+                                           tech.kayys.numou.survey.domain.survey.SurveyTemplate template) {
+        Tenant tenant = gate.activeTenant(ctx.tenantId());
+        if (template.kind() == SurveyKind.QUIZ) tenant.ensureQuizAllowed();
+        Survey survey = template.instantiate(new SurveyId(ids.next()), ctx.tenantId(), clock.instant());
+        int questions = 0;
+        for (int i = 0; i < survey.questionCount(); i++) tenant.ensureQuestionQuota(i);
+        surveys.save(survey);
+        return survey;
+    }
+
+    @Override
     public Survey updateDetails(TenantContext ctx, SurveyId id, String title, String description) {
         return edit(ctx, id, (s, tenant) -> s.updateDetails(title, description, clock.instant()));
     }
