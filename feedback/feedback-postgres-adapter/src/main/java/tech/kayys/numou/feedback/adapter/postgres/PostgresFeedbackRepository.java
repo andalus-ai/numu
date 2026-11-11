@@ -32,9 +32,10 @@ public final class PostgresFeedbackRepository implements FeedbackRepository {
     @Override
     public FeedbackId save(FeedbackItem feedback, String idempotencyKey) {
         java.util.Objects.requireNonNull(feedback, "feedback cannot be null");
-        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 200) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.trim().length() > 200) {
             throw new IllegalArgumentException("idempotencyKey must contain 1..200 characters");
         }
+        idempotencyKey = idempotencyKey.trim();
 
         try (Connection connection = dataSource.getConnection()) {
             boolean previousAutoCommit = connection.getAutoCommit();
