@@ -17,6 +17,16 @@ public final class Neo4jHistoricalGraphSchema {
         FOR (e:HistoricalEntity)
         REQUIRE (e.scopeKey, e.kind, e.entityId) IS UNIQUE
         """;
+    private static final String GENERATION_CONSTRAINT = """
+        CREATE CONSTRAINT history_projection_generation_identity IF NOT EXISTS
+        FOR (g:HistoricalProjectionGeneration)
+        REQUIRE (g.scopeKey, g.generationId) IS UNIQUE
+        """;
+    private static final String ACTIVE_GENERATION_CONSTRAINT = """
+        CREATE CONSTRAINT history_projection_active_scope IF NOT EXISTS
+        FOR (a:HistoricalProjectionActiveGeneration)
+        REQUIRE a.scopeKey IS UNIQUE
+        """;
     private Neo4jHistoricalGraphSchema() {}
     public static void ensure(Driver driver, String database) {
         Objects.requireNonNull(driver, "driver");
@@ -25,6 +35,8 @@ public final class Neo4jHistoricalGraphSchema {
             session.executeWrite(tx -> {
                 tx.run(RELATIONSHIP_CONSTRAINT).consume();
                 tx.run(ENTITY_CONSTRAINT).consume();
+                tx.run(GENERATION_CONSTRAINT).consume();
+                tx.run(ACTIVE_GENERATION_CONSTRAINT).consume();
                 return null;
             });
         }

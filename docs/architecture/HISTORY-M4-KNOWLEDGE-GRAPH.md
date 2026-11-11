@@ -27,6 +27,13 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Missing, stale, and same-revision divergent graph records can be repaired by replaying the exact immutable canonical event. A graph revision newer than PostgreSQL is reported as divergent and is never overwritten automatically.
 - Reconciliation is bounded by keyset pages and read-only unless the caller explicitly enables repair. The host must authorize maintenance operations and provide scheduler/runtime wiring.
 
+- The staged-generation lifecycle registry is stored in Neo4j with uniqueness constraints for `(scopeKey, generationId)` and one active pointer per scope. Lifecycle is BUILDING → READY → ACTIVE → RETAINED; activation is compare-and-set against the expected active generation, and rollback reactivates a retained generation without deleting it.
+- Maintenance lifecycle commands require the existing maintenance authorization port. The caller may mark a generation READY only after replay and reconciliation have completed successfully.
+- Relationship replay can target a BUILDING/READY generation without mutating the active graph. Normal outbox projection serializes on the per-scope active-pointer node and writes each event to the active generation plus every BUILDING/READY candidate. Activation takes the same lock before compare-and-set, preventing an event from falling between the old and new active generations.
+- Inspection can read either the active generation or an explicit candidate. The generation validator runs full canonical-to-candidate reconciliation and compares canonical/projected counts; the lifecycle service fails closed unless validation completes with zero missing, stale, divergent, or orphaned relationships.
+- A targeted replay is fenced: it locks the same active pointer and verifies the target remains BUILDING/READY before writing. A resumed stale worker therefore cannot mutate a generation after activation or rollback.
+- This remains an adapter-level projection lifecycle, not a complete operational rollout: the host must wire the generation store, generation-aware inspection, validator, rebuild scheduler, and authorization policy together. Outbox retention, dead-letter handling, and host deployment wiring remain prerequisites.
+
 ## Operational limits
 - Rebuild replays all retained outbox revisions through the captured high-water mark. It does not delete Neo4j nodes or relationships that have no corresponding canonical outbox event; reconciliation reports such records as orphaned but does not delete them.
 - Outbox retention must preserve all events required for a full rebuild. Do not purge projection events unless an independently verified canonical snapshot/rebuild source is introduced.
@@ -34,7 +41,7 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Reconciliation does not perform destructive orphan cleanup or active-generation swaps. Those operations require a separately staged graph generation, complete validation, and an atomic activation protocol.
 
 ## Deferred
-- Staged generation rebuild and atomic active-generation swap for destructive orphan cleanup.
+- Host runtime wiring, generation rebuild scheduling, lifecycle metrics, stale-build cleanup/retention policy, and production cutover runbooks.
 - Graph query APIs, traversal limits, pagination, and bounded traversal protection.
 - M5 source claims, citations, evidence, conflicting assertions, and verification.
 - Shared-corpus ingestion workflow and editorial authorization.
