@@ -46,6 +46,9 @@ jobs:
           print("Core reactor declares tenancy/ exactly once")
           PY
 
+      - name: Install neutral shared Maven parent
+        run: mvn -B -ntp -f core/framework/parent/pom.xml install
+
       - name: Install Core framework parent for isolated Tenancy reactor
         run: mvn -B -ntp -N -f core/framework/pom.xml install
 
