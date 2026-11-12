@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  install:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,25 +29,25 @@ jobs:
           cache: maven
 
       - name: Validate standalone shared parent
-        run: mvn -B -ntp -f core/framework/parent/pom.xml verify
+        run: mvn -B -ntp -f core/framework/parent/pom.xml install
 
       - name: Validate framework aggregator model without unrelated child reactors
         run: mvn -B -ntp -N -f core/framework/pom.xml validate
 
       - name: Validate published platform BOM
-        run: mvn -B -ntp -f core/framework/bom/pom.xml verify
+        run: mvn -B -ntp -f core/framework/bom/pom.xml install
 
       - name: Validate Foundation reactor
-        run: mvn -B -ntp -f core/framework/foundation/pom.xml verify
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
 
       - name: Validate Ecosystem reactor
-        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml verify
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
 
       - name: Validate Cache reactor
-        run: mvn -B -ntp -f core/framework/cache/pom.xml verify
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
 
       - name: Validate Observability reactor
-        run: mvn -B -ntp -f core/framework/observability/pom.xml verify
+        run: mvn -B -ntp -f core/framework/observability/pom.xml install
 
       - name: Validate Social Graph reactor
-        run: mvn -B -ntp -f core/framework/social-graph/pom.xml verify
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
