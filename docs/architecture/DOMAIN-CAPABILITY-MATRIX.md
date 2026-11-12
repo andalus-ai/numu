@@ -23,7 +23,7 @@ The first extraction wave is deliberately limited to these ten repositories. Do 
 
 | Repository | Capability group | Primary ownership | Key non-ownership |
 |---|---|---|---|
-| [numou-identity](https://github.com/andalus-ai/numou-identity) | Identity | Canonical people, organizations, principals, profiles, contact points, addresses, identity relationships and social graph | Authentication policy, authorization decisions, tenant lifecycle, customer lifecycle |
+| [numou-identity](https://github.com/andalus-ai/numou-identity) | Identity | Canonical people, organizations, principals, profiles, contact points, addresses and identity relationship references | Authentication policy, authorization decisions, tenant lifecycle, customer lifecycle |
 | [numou-finance](https://github.com/andalus-ai/numou-finance) | Finance | Money-related business invariants, accounting, ledger, payment execution, wallet, billing, AR/AP, settlement, reconciliation, Syirkah finance | Commerce order lifecycle, source-domain earning facts, identity, security policy |
 | [numou-security](https://github.com/andalus-ai/numou-security) | Security | Authentication, authorization, credentials, sessions, policies, roles/permissions, security audit and cryptographic/security services | Canonical identity records, tenant lifecycle, business ownership |
 | [numou-commerce](https://github.com/andalus-ai/numou-commerce) | Commerce | Product/catalog, offer, pricing, promotion, cart, checkout, order, POS, merchant, marketplace and sales-channel lifecycle | Payment execution, accounting, inventory authority, customer identity |
@@ -42,7 +42,7 @@ All ten destination repositories currently exist as separate GitHub repositories
 |---|---|---|---|
 | Person and legal-entity identity | Identity | Person, organization, party, identifiers, identity lifecycle and relationships | Does not own customer, employee, supplier or driver business lifecycle |
 | Principal and identity profile | Identity | Principal identity references, profile attributes, contact points, addresses, external identity links | Authentication factors and credentials are Security-owned |
-| Social graph | Identity | Follow/connect/block/relationship graph, relationship types and graph lifecycle | Domain-specific relationships such as supplier contracts or employee assignments remain in their business capability |
+| Social graph | Deferred shared platform / Foundation | Generic follow/connect/block graph engine, relationship graph queries, graph persistence and provider-neutral graph contracts | Identity supplies canonical subject references; domain-specific relationships such as supplier contracts or employee assignments remain in their business capability |
 | Authentication | Security | Credential verification, password hashing/upgrade, MFA, authentication flows, session issuance/revocation, federation protocol security | Identity supplies canonical subject; Security does not become the person registry |
 | Authorization | Security | RBAC, ABAC, permissions, policy evaluation, resource/action decisions and enforcement contracts | Tenant and resource context are inputs; Security does not own the resource's business state |
 | Security audit | Security | Authentication/security events, policy decisions where appropriate, credential/security lifecycle audit | Business audit facts remain with their owning capability; shared audit transport may be a later Foundation capability |
@@ -163,7 +163,7 @@ A module may be split only when its invariants and public contracts can be separ
 The sequence below is an ordering constraint for dependency safety, not a claim that the work is complete.
 
 1. **M0 — Inventory and contract freeze:** enumerate all Maven reactors and modules; map every source path, consumer, persistence migration, event and API. Record existing artifact coordinates and identify shared-parent dependencies.
-2. **M1 — Identity, Tenancy and Security foundations:** establish public subject, tenant-context and authorization contracts; preserve authentication, membership and tenant-isolation behavior.
+2. **M1 — Tenancy, Security, then Identity:** Tenancy can migrate independently; Security depends on shared Foundation/Cache/Observability/Social Graph artifacts; Identity and Organization consume Security SPI/application/vault contracts and therefore follow Security.
 3. **M2 — Finance:** extract financial primitives' consumers carefully, accounting, payment, wallet, billing, Syirkah and settlement without duplicating Money or financial invariants.
 4. **M3 — Supply Chain and Commerce:** establish order-to-inventory contract and preserve stock reservation/idempotency semantics.
 5. **M4 — Customer:** migrate customer/CRM ownership and replace duplicate person/organization models with Identity references.
