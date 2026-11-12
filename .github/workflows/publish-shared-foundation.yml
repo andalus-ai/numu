@@ -1,4 +1,4 @@
-name: Publish Shared Maven Parent and Foundation
+name: Publish Shared Maven Parent and Platform Artifacts
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: publish-shared-foundation
+  group: publish-shared-platform-artifacts
   cancel-in-progress: false
 
 jobs:
@@ -51,3 +51,27 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -f core/framework/foundation/pom.xml deploy
+
+      - name: Publish Ecosystem contracts
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml deploy
+
+      - name: Publish Cache contracts
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -f core/framework/cache/pom.xml deploy
+
+      - name: Publish Observability contracts
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -f core/framework/observability/pom.xml deploy
+
+      - name: Publish Social Graph contracts
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml deploy
