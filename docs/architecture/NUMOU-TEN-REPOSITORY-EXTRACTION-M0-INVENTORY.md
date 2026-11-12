@@ -25,7 +25,7 @@ The recursive Git tree contained 15,623 entries and was not truncated. The first
 | numou-mobility | `mobility/`, `transport/` | 21 | Root POMs observed; transport is scheduled passenger transport, not cargo logistics |
 | numou-workforce | `workforce/`, `talent/` | 17 | Root POMs observed; talent/work-marketplace boundary pending |
 
-The Tenancy destination is not empty: it contains the staged tenancy/ source transfer (75 source files) and a standalone root POM/BOM, tracked by [numou-tenancy PR #1](https://github.com/andalus-ai/numou-tenancy/pull/1). Its independent build remains pending shared package publication and clean CI verification. The Identity destination contains only a migration-status README; Security was empty when inspected. Destination state must be checked at each migration milestone because repositories can change independently.
+The Tenancy destination is not empty: it contains the merged tenancy/ source transfer (75 source files) and a standalone root POM/BOM, merged through [numou-tenancy PR #1](https://github.com/andalus-ai/numou-tenancy/pull/1). Its independent build remains pending shared package publication and clean CI verification. A follow-up README correction is open in [numou-tenancy PR #2](https://github.com/andalus-ai/numou-tenancy/pull/2). The Identity destination contains only a migration-status README; Security was empty when inspected. Destination state must be checked at each migration milestone because repositories can change independently.
 
 ## 2. Exact current Maven root POMs
 
@@ -347,7 +347,7 @@ M1 begins with the shared Maven contract already present in the source monorepo 
 
 | Repository | Current observed state | M1 action |
 |---|---|---|
-| [numou-tenancy](https://github.com/andalus-ai/numou-tenancy) | Source transfer staged in PR #1; README/build-prerequisite correction in PR #2 | Complete review, publish shared artifacts, run clean Maven verify, enable CI only after success |
+| [numou-tenancy](https://github.com/andalus-ai/numou-tenancy) | Source transfer merged in PR #1; README/build-prerequisite correction in PR #2 is open | Complete review, publish shared artifacts, run clean Maven verify, enable CI only after success |
 | [numou-identity](https://github.com/andalus-ai/numou-identity) | README only; source remains in identity/ and organization/ | Transfer Identity + Organization as one bounded-context portfolio; use numou-parent, import numou-bom, create unique numou-identity-bom |
 | [numou-security](https://github.com/andalus-ai/numou-security) | Empty repository at last inspection | Transfer Security and Vault modules; use numou-parent, import numou-bom, create unique numou-security-bom; retain social-graph adapter as an integration adapter only |
 
