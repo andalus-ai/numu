@@ -50,6 +50,9 @@
         <module>planning</module>
         <module>aggregate</module>
 
+        <!-- Core platform tenancy: tenant lifecycle and tenant-context contracts. -->
+        <module>../../tenancy</module>
+
         <!-- Shared business-facing capabilities used by Developer Platform adapters. -->
         <module>../../identity</module>
         <module>../../documents</module>
