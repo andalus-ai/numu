@@ -8,7 +8,7 @@
 
 ## 1. Executive result
 
-The source repository is a multi-reactor Maven monorepo. It has no repository-root `pom.xml`. The shared parent is currently `core/framework/pom.xml`, with coordinates `tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT`. Capability roots inherit that parent using relative paths such as `../core/framework/pom.xml`.
+The source repository is a multi-reactor Maven monorepo with no repository-root pom.xml. The shared, repository-neutral Maven parent is core/framework/parent/pom.xml, coordinates tech.kayys.numou:numou-parent:0.1.0-SNAPSHOT. The platform BOM is core/framework/bom/pom.xml, coordinates tech.kayys.numou:numou-bom:0.1.0-SNAPSHOT. The framework aggregator at core/framework/pom.xml has coordinates tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT; the current Identity and Security root POMs still inherit this aggregator through ../core/framework/pom.xml. Standalone repositories should inherit the neutral numou-parent and import the platform BOM, not inherit the framework aggregator.
 
 The recursive Git tree contained 15,623 entries and was not truncated. The first-wave candidate roots account for 247 Maven POM files:
 
@@ -25,7 +25,7 @@ The recursive Git tree contained 15,623 entries and was not truncated. The first
 | numou-mobility | `mobility/`, `transport/` | 21 | Root POMs observed; transport is scheduled passenger transport, not cargo logistics |
 | numou-workforce | `workforce/`, `talent/` | 17 | Root POMs observed; talent/work-marketplace boundary pending |
 
-The ten destination repositories existed at inventory time and all reported size zero. They are not yet populated with the source capabilities. The Identity destination was initialized with a migration-status README commit; that is repository initialization only, not a code migration.
+The Tenancy destination is not empty: it contains the merged tenancy/ source transfer (75 source files) and a standalone root POM/BOM, merged through [numou-tenancy PR #1](https://github.com/andalus-ai/numou-tenancy/pull/1). Its independent build remains pending shared package publication and clean CI verification. A follow-up README correction is open in [numou-tenancy PR #2](https://github.com/andalus-ai/numou-tenancy/pull/2). The Identity destination contains only a migration-status README; Security was empty when inspected. Destination state must be checked at each migration milestone because repositories can change independently.
 
 ## 2. Exact current Maven root POMs
 
@@ -194,9 +194,9 @@ Talent describes recruitment and work marketplace capabilities. Keep it separate
 
 ## 3. Shared-parent and build blockers
 
-All inspected capability root POMs inherit `tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT` with a relative path to `../core/framework/pom.xml`. A direct copy into an empty destination repository would fail because that parent path and its dependency management would be absent.
+Identity and Security currently inherit tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT through ../core/framework/pom.xml; Tenancy has already been adapted to inherit tech.kayys.numou:numou-parent:0.1.0-SNAPSHOT with an empty relativePath and import numou-bom. The neutral parent exists at core/framework/parent/pom.xml and the platform BOM exists at core/framework/bom/pom.xml. The monorepo also has a manual publication workflow at .github/workflows/publish-shared-foundation.yml that publishes the parent, framework parent POM, platform BOM and selected shared platform artifacts to GitHub Packages.
 
-The shared framework reactor currently includes platform components and some cross-cutting capabilities (including Identity and Developer Platform) via relative module entries. It is not a neutral published parent artifact yet.
+The shared parent and BOM architecture is implemented and its validation workflow is documented as passing in PR #1988. However, validation is not publication: no successful package publication or clean remote consumer resolution is assumed until the manual workflow and destination build have both been observed to pass.
 
 Required before first source code transfer:
 
@@ -339,3 +339,36 @@ The first source transfer is now staged in the selected Tenancy destination:
 The Tenancy transfer preserves all 75 files under their module-relative paths and replaces the monorepo root POM and legacy BOM with standalone repository POMs. The destination commit records source provenance from `andalus-ai/numu` main at `25dd5a99ff95b6d32ab59c864731528819da027f`.
 
 The destination PR is intentionally not claiming a successful Maven build yet: `numou-parent`, `numou-bom` and Foundation packages must first be published from the source repository, and the destination must be granted package read access. The source `tenancy/` directory remains unchanged until the destination build and monorepo consumers are verified.
+
+
+## 10. M1 execution status — Identity, Tenancy and Security
+
+M1 begins with the shared Maven contract already present in the source monorepo and a staged Tenancy transfer. It must not repeat or overwrite the existing Tenancy extraction.
+
+| Repository | Current observed state | M1 action |
+|---|---|---|
+| [numou-tenancy](https://github.com/andalus-ai/numou-tenancy) | Source transfer merged in PR #1; README/build-prerequisite correction in PR #2 is open | Complete review, publish shared artifacts, run clean Maven verify, enable CI only after success |
+| [numou-identity](https://github.com/andalus-ai/numou-identity) | README only; source remains in identity/ and organization/ | Transfer Identity + Organization as one bounded-context portfolio; use numou-parent, import numou-bom, create unique numou-identity-bom |
+| [numou-security](https://github.com/andalus-ai/numou-security) | Empty repository at last inspection | Transfer Security and Vault modules; use numou-parent, import numou-bom, create unique numou-security-bom; retain social-graph adapter as an integration adapter only |
+
+### 10.1 M1 dependency and sequencing gates
+
+1. Verify the shared publication workflow against the source main revision and record the package versions published.
+2. Verify that Tenancy can resolve the shared parent, platform BOM and Foundation artifacts using only configured GitHub Packages credentials; do not depend on developer-local Maven cache.
+3. Complete Tenancy PR #1 and #2 review. Run the destination reactor's clean `mvn -B -ntp verify`; keep CI manual-only until it passes, then enable push and pull-request triggers.
+4. Transfer Identity and Organization together. Organization currently depends on Identity and Ecosystem contracts; do not split the Organization root from Identity without preserving its dependency graph.
+5. Transfer Security and Vault as a separate bounded context. Replace framework-parent inheritance with the neutral parent and explicitly import platform BOM dependencies; keep authentication/authorization contracts dependent on stable Identity and Tenancy identifiers, not private persistence entities.
+6. Do not remove any source reactor modules or consumer dependencies until each destination build and source-consumer migration is verified.
+7. Record source commit, exact file count, POM inventory, artifact coordinates, test results, package publication and rollback path in each destination README and migration report.
+
+### 10.2 M1 acceptance criteria
+
+- [ ] Tenancy destination PRs reviewed and merged; clean remote-artifact build passes.
+- [ ] Identity and Organization source files transferred with provenance and no omitted tests/resources.
+- [ ] Identity root POM uses numou-parent, imports platform BOM, and includes the unique Identity BOM in its reactor.
+- [ ] Security and Vault source files transferred with provenance and no omitted tests/resources.
+- [ ] Security root POM uses numou-parent, imports platform BOM, and includes the unique Security BOM in its reactor.
+- [ ] All three destination repositories build independently from a clean environment.
+- [ ] Tenant membership, subject identity and authorization boundaries are covered by contract/integration tests.
+- [ ] Source monorepo consumers are inventoried and migrated before source modules are retired.
+- [ ] No source capability is deleted as part of a copy-only PR.

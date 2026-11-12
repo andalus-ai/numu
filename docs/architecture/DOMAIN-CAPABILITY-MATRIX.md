@@ -34,7 +34,7 @@ The first extraction wave is deliberately limited to these ten repositories. Do 
 | [numou-mobility](https://github.com/andalus-ai/numou-mobility) | Mobility | Driver operations, fleet, vehicle, trip/ride, dispatch, fare policy, location, geofence and mobility operations | Canonical driver identity, financial wallet/ledger, generic shipment lifecycle |
 | [numou-workforce](https://github.com/andalus-ai/numou-workforce) | Workforce | Employee/worker lifecycle, workforce profile, attendance, shift, scheduling, leave, skills, recruitment, performance and allocation | Canonical person identity, authentication, payroll ledger/accounting |
 
-All ten destination repositories currently exist as separate GitHub repositories. Their initial contents, default-branch protections, release configuration, and build readiness must be verified before code is transferred. Empty repositories are destinations, not evidence of a completed migration.
+All ten destination repositories exist as separate GitHub repositories. The Tenancy repository contains the merged source transfer from tenancy/ (75 source files; destination PR #1 merged), while Identity has only a migration-status README and Security is still empty. The remaining destinations must be inspected individually before transfer. A staged copy is not an accepted migration: the destination must build independently, preserve contracts and data semantics, and have its consumers migrated.
 
 ## 3. Capability ownership matrix
 
