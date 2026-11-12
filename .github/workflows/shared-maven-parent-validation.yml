@@ -1,0 +1,37 @@
+name: Shared Maven Parent Validation
+
+on:
+  pull_request:
+    paths:
+      - "core/framework/**"
+      - ".github/workflows/shared-maven-parent-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shared-maven-parent-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Validate parent, platform BOM and Foundation reactor
+        run: >
+          mvn -B -ntp
+          -f core/framework/pom.xml
+          -pl parent,bom,foundation
+          -am
+          verify
