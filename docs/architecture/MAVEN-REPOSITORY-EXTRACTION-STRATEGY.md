@@ -164,7 +164,7 @@ A source root is ready to transfer only when all of the following are true:
 | Platform BOM detached from framework aggregator parent | Implemented in branch |
 | PR validation workflow | Passed on PR #1988 (run 7) |
 | Manual GitHub Packages publishing workflow | Added; not run |
-| Shared parent/BOM/platform clean build | Initial parent/BOM/Foundation validation passed; expanded sequential install validation (Foundation/Ecosystem/Cache/Observability/Social Graph) pending |
+| Shared parent/BOM/platform clean build | Passed: parent, framework parent model, BOM, Foundation, Ecosystem, Cache, Observability and Social Graph reactors |
 | Published package read access from a destination repo | Pending publication and clean consumer test |
 | Identity/Tenancy/Security source transfer | Not started |
 | Source monorepo consumers updated | Not started |
