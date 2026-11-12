@@ -245,3 +245,40 @@ Do not work around this blocker by copying `core/framework/pom.xml` into every d
 - [ ] Approve a migration sequence with a clean destination build for the first extracted group.
 
 The next implementation milestone is to resolve the shared parent/dependency publication strategy and then extract Identity/Tenancy/Security in a dependency-safe order. Do not delete or disable source modules until destination CI and source-consumer migration are verified.
+
+
+## 7. Shared Maven parent and M1 reactor inspection
+
+The first three platform roots were inspected at POM level after the initial tree inventory.
+
+### 7.1 Current parent and aggregator layout
+
+- `identity/pom.xml`, `tenancy/pom.xml` and `security/pom.xml` all inherit `tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT` using `../core/framework/pom.xml`.
+- `core/framework/pom.xml` is both the parent and aggregator for technical framework modules and selected business capabilities. It includes `../../identity` as a reactor module.
+- Tenancy and Security remain separate Maven reactor roots and are not listed as modules in the framework aggregator.
+- A direct source-directory copy would leave invalid parent relative paths and would not establish standalone dependency resolution.
+
+### 7.2 BOM defects requiring correction during extraction
+
+- `identity/bom/pom.xml` exists but is not declared in `identity/pom.xml`'s modules.
+- `tenancy/bom/pom.xml` exists but is not declared in `tenancy/pom.xml`'s modules.
+- Both capability BOMs currently use artifactId `numou-bom`, which collides with the shared platform BOM if published with the same groupId/version.
+- The first capability BOMs must use unique artifactIds such as `numou-identity-bom`, `numou-tenancy-bom` and `numou-security-bom`, and must be explicit modules of their root reactors.
+
+### 7.3 M1 dependency observations
+
+Identity's adapter has direct dependencies on Foundation application, Security SPI/application, Observability API/adapter, Cache API/adapter and Quarkus integrations (OIDC, REST, Hibernate Reactive, PostgreSQL, Flyway, Kafka, gRPC, JWT and scheduler). Keep these dependencies in adapter/composition modules. Identity domain and application must not acquire Quarkus, database-driver or Security adapter dependencies.
+
+Tenancy's four declared modules are domain, SPI, application and adapter. Security declares domain, SPI, application, adapter, Social Graph adapter and security-vault modules. Keep the Security Social Graph adapter as an integration adapter; Social Graph domain ownership remains deferred with Foundation/framework.
+
+### 7.4 Shared parent implementation status
+
+A repository-neutral Maven parent was added at `core/framework/parent/pom.xml` with coordinates `tech.kayys.numou:numou-parent:0.1.0-SNAPSHOT`. The framework aggregator now consumes it and includes it in its reactor. The shared platform BOM now inherits directly from `numou-parent`, rather than the framework aggregator.
+
+Two workflows were added:
+- `.github/workflows/shared-maven-parent-validation.yml` validates the parent, platform BOM and Foundation reactor on pull requests.
+- `.github/workflows/publish-shared-foundation.yml` manually publishes the parent, platform BOM and Foundation artifacts to GitHub Packages.
+
+This is implementation in the current PR branch. It is not yet verified: CI has not run, artifacts have not been published, and no clean consumer repository has resolved them.
+
+See [Maven Parent and Cross-Repository Extraction Strategy](MAVEN-REPOSITORY-EXTRACTION-STRATEGY.md) for the exact publication and extraction contract.
