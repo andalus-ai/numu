@@ -284,6 +284,6 @@ Capability root aggregators must inherit from the published `numou-parent` with 
 
 The shared parent contains build conventions and managed versions only. It does not add capability or infrastructure dependencies to consumer classpaths. The platform BOM aligns published Foundation/platform artifacts. Each group BOM aligns its own artifacts and approved public cross-capability dependencies.
 
-The source branch includes the parent POM, framework aggregator linkage, BOM parent decoupling, and validation/publication workflows. These are not considered released until PR CI passes, the manual package publication succeeds, and a clean consumer build resolves the parent, BOM and Foundation artifacts.
+The source branch includes the parent POM, framework aggregator linkage, BOM parent decoupling, and validation/publication workflows. The isolated PR validation has passed (PR #1988, Shared Maven Parent Validation run 7). These artifacts are not considered released until the manual package publication succeeds and a clean consumer build resolves the parent, BOM and Foundation artifacts.
 
 See [Maven Parent and Cross-Repository Extraction Strategy](MAVEN-REPOSITORY-EXTRACTION-STRATEGY.md).
