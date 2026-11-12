@@ -282,3 +282,44 @@ Two workflows were added:
 This is implementation in the current PR branch. The isolated Shared Maven Parent Validation workflow passed on PR #1988 (run 7), covering the standalone parent, non-recursive framework parent model, platform BOM and Foundation reactor. Artifacts have not been published, and no clean consumer repository has resolved them yet.
 
 See [Maven Parent and Cross-Repository Extraction Strategy](MAVEN-REPOSITORY-EXTRACTION-STRATEGY.md) for the exact publication and extraction contract.
+
+
+## 8. M1 dependency graph and safe extraction order
+
+The Identity, Organization, Tenancy and Security POM dependencies were inspected individually. This changes the safe order from a name-based assumption to a dependency-based sequence.
+
+### 8.1 Capability-to-platform dependencies
+
+| Source capability | Required published shared artifacts | Cross-capability dependencies |
+|---|---|---|
+| Tenancy | Foundation, Foundation Application | None in the currently declared four-module reactor |
+| Security | Foundation, Foundation Application, Foundation Adapter, Cache API/Adapter, Observability API/Application | Social Graph Application and JDBC persistence for `security/social-graph-adapter` |
+| Identity | Foundation, Foundation Application, Cache API/Adapter, Observability API/Adapter | Security SPI/Application |
+| Organization (included in Identity repository) | Foundation, Foundation Application, Ecosystem Domain/Application | Identity Domain and Security Vault SPI |
+
+The Social Graph modules themselves depend on Foundation and Ecosystem. Therefore the shared platform publication order must be Foundation, Ecosystem, Cache, Observability, then Social Graph. Cache and Observability can be built after Foundation; Social Graph requires Ecosystem.
+
+### 8.2 Safe M1 order
+
+1. Publish shared parent, framework parent POM, platform BOM, Foundation, Ecosystem, Cache, Observability and Social Graph artifacts.
+2. Migrate Tenancy independently; its current declared modules only consume Foundation and their own modules.
+3. Migrate Security after shared platform dependencies; keep the Social Graph adapter in Security as an integration adapter.
+4. Migrate Identity and Organization together after Security because Identity adapter consumes Security SPI/Application and Organization adapter consumes Security Vault SPI. Organization domain/application also depend on Ecosystem and Identity Domain.
+5. Update monorepo consumers and remove source-reactor duplicates only after clean destination builds and compatibility checks pass.
+
+Social Graph remains in `core/framework/social-graph` for this extraction wave. It is a shared platform capability, not part of the Identity repository source transfer. Identity owns canonical subject/person/organization references; graph-engine ownership remains a shared platform concern until a later repository wave is approved.
+
+### 8.3 BOMs must be rebuilt, not copied
+
+The existing Identity, Organization and Tenancy BOM POMs all use artifactId `numou-bom`. They are not included in their respective root reactor module lists. The Security BOM also contains a broad list of artifacts from unrelated groups (including Identity, Workforce, Supply Chain, Commerce and Restaurant modules). These are not reliable capability BOMs.
+
+For destination repositories:
+- create a unique BOM artifactId per repository;
+- include it as a module in the root reactor;
+- manage only artifacts owned by that repository plus explicitly approved public contracts;
+- do not include every module from the monorepo platform BOM in each capability BOM;
+- validate BOM import with a clean sample consumer project.
+
+### 8.4 Expanded shared platform workflow
+
+The validation and manual publication workflows now include Foundation, Ecosystem, Cache, Observability and Social Graph reactors in addition to the shared parent and platform BOM. The first parent/BOM/Foundation-only validation passed; the expanded M1 dependency validation is pending.
