@@ -79,7 +79,7 @@ The nine capability destination repositories are separate from the Core Platform
 | Communication and notification | Deferred | Keep current notification/messaging ownership pending a later repository | Domain groups publish intent/events; provider delivery is not copied into each domain |
 | Data and analytics | Deferred | Keep current reporting/analytics ownership pending a later repository | Analytics is not the operational source of truth |
 | Application platform/runtime | Deferred | Keep current runtime/control-plane ownership pending a later repository | Control plane resolves/composes capabilities; it does not duplicate capability business logic |
-| Industry extensions | Deferred | Construction, hospitality, government, agriculture, events, field service and other verticals remain in the monorepo until separately assigned | Industry modules compose the ten groups; they do not become generic platform owners |
+| Industry extensions | Deferred | Construction, hospitality, government, agriculture, events, field service and other verticals remain in the monorepo until separately assigned | Industry modules compose the nine capability groups and Core; they do not become generic platform owners |
 
 ## 4. Cross-repository dependency and contract rules
 
@@ -195,7 +195,7 @@ A repository being created, a directory being copied, or a README being added is
 
 ## 9. Deferred repository groups
 
-The following are intentionally out of scope for the current ten-repository wave. Their current ownership remains in the monorepo until a later matrix revision assigns them to a new repository:
+The following are intentionally out of scope for the current Core-plus-nine-repository wave. Their current ownership remains in the monorepo until a later matrix revision assigns them to a new repository:
 
 - Foundation and framework;
 - Workspace and project management;
@@ -234,7 +234,7 @@ The source repository tree was inspected on 2026-11-12. The following are observ
 | numou-customer | `crm/`, `support/` | 11 | CRM and reusable support/ticketing are separate current roots; confirm support case/customer references use Identity IDs. |
 | numou-supply-chain | `supply/` | 19 | Contains inventory, purchasing, fulfillment and warehouse. |
 | numou-logistics | `logistics/` | 6 | Current aggregator includes fleet and courier modules. Fleet/driver ownership must be separated from shipment/courier ownership before extraction. |
-| numou-tenancy | `tenancy/` | 6 | Tenant lifecycle, SPI, application and adapter. |
+| Core (`andalus-ai/numu`) | `tenancy/` | 6 | Tenant lifecycle, SPI, application and adapter; remains in the Core reactor. |
 | numou-mobility | `mobility/`, `transport/` | 21 | Mobility is ride-hailing/driver/ride/pricing. Transport is a distinct scheduled passenger-transport capability and should remain a separately named module inside this repository if its contracts fit. |
 | numou-workforce | `workforce/`, `talent/` | 17 | Workforce includes HRIS/leave and workforce domain/application/adapters. Talent is a separate talent/recruitment/work marketplace capability; verify it does not duplicate Customer marketplace or Identity profiles. |
 
@@ -253,7 +253,7 @@ The source repository tree was inspected on 2026-11-12. The following are observ
 | `organization/` | Assigned to Identity, with contract review | Canonical Organization and Party association belong with Identity; workforce-specific org chart projections remain Workforce-owned. |
 | `transport/` | Assigned to Mobility as a separate passenger-transport sub-capability | Its POM describes scheduled passenger transport, not parcel/cargo shipment. |
 | `talent/` | Assigned to Workforce as a separate talent capability | Recruitment/talent lifecycle is workforce-adjacent; preserve marketplace-specific contracts. |
-| `feedback/`, `survey/`, `notification/`, `documents/`, `document/`, `workspace/`, `project/`, `queue-management/`, `developer-platform/`, `application-platform/`, `agent-integration/` | Deferred | Outside the ten-repository extraction wave. |
+| `feedback/`, `survey/`, `notification/`, `documents/`, `document/`, `workspace/`, `project/`, `queue-management/`, `developer-platform/`, `application-platform/`, `agent-integration/` | Deferred | Outside the nine-repository capability extraction wave. |
 
 ### 11.2 Source-root extraction is not a blind directory copy
 
