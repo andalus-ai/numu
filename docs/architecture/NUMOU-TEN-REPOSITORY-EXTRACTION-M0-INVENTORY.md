@@ -10,7 +10,7 @@
 
 The source repository is a multi-reactor Maven monorepo with no repository-root pom.xml. The shared, repository-neutral Maven parent is core/framework/parent/pom.xml, coordinates tech.kayys.numou:numou-parent:0.1.0-SNAPSHOT. The platform BOM is core/framework/bom/pom.xml, coordinates tech.kayys.numou:numou-bom:0.1.0-SNAPSHOT. The framework aggregator at core/framework/pom.xml has coordinates tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT; the current Identity and Security root POMs still inherit this aggregator through ../core/framework/pom.xml. Standalone repositories should inherit the neutral numou-parent and import the platform BOM, not inherit the framework aggregator.
 
-The recursive Git tree contained 15,623 entries and was not truncated. The first-wave candidate roots account for 247 Maven POM files:
+The recursive Git tree contained 15,623 entries and was not truncated. The original ten candidate roots accounted for 247 Maven POM files: 241 POMs across the nine capability extraction targets and 6 POMs in Core-owned Tenancy. The revised capability extraction scope is 241 POMs; Tenancy remains in Core.
 
 | Destination | Source roots | POMs | Inventory status |
 |---|---|---:|---|
@@ -225,7 +225,7 @@ Do not work around this blocker by copying `core/framework/pom.xml` into every d
 
 ## 5. What this inventory does not claim
 
-- It does not claim the 247 POMs have been independently built or released.
+- It does not claim the 241 capability POMs (or the 6 Core Tenancy POMs) have been independently built or released.
 - It does not claim all files under the listed roots belong to the target group without review.
 - It does not claim the existing artifact coordinates are suitable for a public release.
 - It does not claim the destination repositories have been populated.
@@ -311,7 +311,7 @@ Social Graph remains in `core/framework/social-graph` for this extraction wave. 
 
 ### 8.3 BOMs must be rebuilt, not copied
 
-The existing Identity, Organization and Tenancy BOM POMs all use artifactId `numou-bom`. They are not included in their respective root reactor module lists. The Security BOM also contains a broad list of artifacts from unrelated groups (including Identity, Workforce, Supply Chain, Commerce and Restaurant modules). These are not reliable capability BOMs.
+The existing Identity and Organization BOM POMs use artifactId `numou-bom` and are not included in the Identity root reactor module list. The Core Tenancy BOM also uses the legacy shared artifactId; it must be corrected or deliberately integrated into the Core platform BOM/reactor rather than published as a separate Tenancy capability BOM. The Security BOM also contains a broad list of artifacts from unrelated groups (including Identity, Workforce, Supply Chain, Commerce and Restaurant modules). These are not reliable capability BOMs.
 
 For destination repositories:
 - create a unique BOM artifactId per repository;
@@ -353,7 +353,7 @@ M1 begins with the shared Maven contract already present in the source monorepo.
 
 ### 10.1 M1 dependency and sequencing gates
 
-1. Verify the shared publication workflow against the source main revision and record the package versions published.
+1. Verify the shared publication workflow against the source main revision and record the package versions published for external capability consumers; Core must not resolve its own Foundation/Tenancy artifacts remotely.
 2. Verify the Core reactor builds Foundation and Tenancy together without remote self-dependency or reliance on developer-local Maven cache.
 3. Do not continue the separate Tenancy release path. Preserve PR history; document `numou-tenancy` as transitional and defer archive/redirect decisions until a reviewed reconciliation plan exists.
 4. Transfer Identity and Organization together. Organization currently depends on Identity and Ecosystem contracts; do not split the Organization root from Identity without preserving its dependency graph.
@@ -368,7 +368,7 @@ M1 begins with the shared Maven contract already present in the source monorepo.
 - [ ] Identity root POM uses numou-parent, imports platform BOM, and includes the unique Identity BOM in its reactor.
 - [ ] Security and Vault source files transferred with provenance and no omitted tests/resources.
 - [ ] Security root POM uses numou-parent, imports platform BOM, and includes the unique Security BOM in its reactor.
-- [ ] All three destination repositories build independently from a clean environment.
+- [ ] Identity and Security destination repositories build independently from a clean environment; the Core Foundation + Tenancy reactor builds in the source repository.
 - [ ] Tenant membership, subject identity and authorization boundaries are covered by contract/integration tests.
 - [ ] Source monorepo consumers are inventoried and migrated before source modules are retired.
 - [ ] No source capability is deleted as part of a copy-only PR.
