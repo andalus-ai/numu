@@ -219,3 +219,54 @@ Do not create these repositories or move their code as part of the current wave.
 - The monorepo remains the source of truth for modules not yet migrated; destination repositories become authoritative only after migration acceptance criteria are met.
 - Do not delete or disable source modules until consumers, releases, persisted data, deployment manifests and rollback paths have been verified.
 
+
+
+## 11. Observed monorepo source-root mapping (M0 initial inventory)
+
+The source repository tree was inspected on 2026-11-12. The following are observed top-level Maven roots and POM counts, not a statement that every artifact is ready to publish. The exact transitive consumer/dependency graph, migrations, and package-level ownership still require review.
+
+| Destination | Observed source roots | POM count | Notes |
+|---|---|---:|---|
+| numou-identity | `identity/`, `organization/` | 11 | Organization contains Organization, OrganizationUnit, membership, invitation and party-association models. Verify tenant-membership distinctions before moving. |
+| numou-finance | `finance/`, `budget/` | 85 | Finance includes accounting, billing, payment, Syirkah, tax, wallet, treasury and subscription finance. Budget is a separate current reactor root and must be dependency-audited. |
+| numou-security | `security/` | 14 | Includes security-vault modules and a `social-graph-adapter`; the latter is not social-graph domain ownership and requires relocation/re-wiring review. |
+| numou-commerce | `commerce/`, `product/` | 57 | Commerce includes POS, offering, pricing, promotion, marketplace, affiliate, kiosk, omnichannel and subscription modules. Product is a separate current root. |
+| numou-customer | `crm/`, `support/` | 11 | CRM and reusable support/ticketing are separate current roots; confirm support case/customer references use Identity IDs. |
+| numou-supply-chain | `supply/` | 19 | Contains inventory, purchasing, fulfillment and warehouse. |
+| numou-logistics | `logistics/` | 6 | Current aggregator includes fleet and courier modules. Fleet/driver ownership must be separated from shipment/courier ownership before extraction. |
+| numou-tenancy | `tenancy/` | 6 | Tenant lifecycle, SPI, application and adapter. |
+| numou-mobility | `mobility/`, `transport/` | 21 | Mobility is ride-hailing/driver/ride/pricing. Transport is a distinct scheduled passenger-transport capability and should remain a separately named module inside this repository if its contracts fit. |
+| numou-workforce | `workforce/`, `talent/` | 17 | Workforce includes HRIS/leave and workforce domain/application/adapters. Talent is a separate talent/recruitment/work marketplace capability; verify it does not duplicate Customer marketplace or Identity profiles. |
+
+### 11.1 Explicitly deferred or split-review roots
+
+| Source root | Current decision | Reason |
+|---|---|---|
+| `core/framework/` | Deferred Foundation/framework | Shared parent, technical platform, Foundation, plugin, runtime, workflow, events, reliability and social-graph domain. Do not copy this root into any of the ten repositories. |
+| `geo/` | Deferred Foundation/geo contract | Provider-neutral geographic primitives should not be silently owned by Mobility. Mobility may own its location/trip behavior and adapters. |
+| `vehicle-service/` | Deferred industry/vehicle-service extension | Workshop/service-order capability is not the same invariant as fleet/vehicle assignment. |
+| `asset/` | Deferred asset-management capability | Asset lifecycle may be shared by multiple industries; do not assume Supply Chain inventory is its owner. |
+| `automotive-parts/`, `automotive-parts-purchasing/` | Deferred automotive extension | Industry-specific catalog and procurement policies; reuse Supply Chain contracts. |
+| `restaurant/`, `hospitality/` | Deferred industry extensions | Restaurant operations and hospitality workflows compose Commerce, Finance, Workforce and Reservation contracts. |
+| `reservation/`, `events/`, `attendee/` | Deferred reservation/events capability | Reservation and admission entitlement semantics need an explicit owner; do not absorb into Commerce order or Customer. |
+| `corporate/` | Deferred corporate governance extension | Company registry/compliance semantics need review against Identity Organization before assignment. |
+| `organization/` | Assigned to Identity, with contract review | Canonical Organization and Party association belong with Identity; workforce-specific org chart projections remain Workforce-owned. |
+| `transport/` | Assigned to Mobility as a separate passenger-transport sub-capability | Its POM describes scheduled passenger transport, not parcel/cargo shipment. |
+| `talent/` | Assigned to Workforce as a separate talent capability | Recruitment/talent lifecycle is workforce-adjacent; preserve marketplace-specific contracts. |
+| `feedback/`, `survey/`, `notification/`, `documents/`, `document/`, `workspace/`, `project/`, `queue-management/`, `developer-platform/`, `application-platform/`, `agent-integration/` | Deferred | Outside the ten-repository extraction wave. |
+
+### 11.2 Source-root extraction is not a blind directory copy
+
+The current roots inherit `tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT` through relative paths to `../core/framework/pom.xml`. That parent path will not exist in the new repositories.
+
+Before a source root is moved:
+
+1. Replace the relative parent with a published parent artifact or a repository-local parent whose version is released and independently resolvable.
+2. Replace same-reactor assumptions with published dependency coordinates or narrow public contracts.
+3. Remove modules from the source reactor only after the destination build and source consumer migration are verified.
+4. Preserve existing package names and artifact coordinates initially unless a separate compatibility plan explicitly changes them.
+5. Keep capability-specific Maven BOMs, but do not invent dependencies for artifacts that are not yet published.
+6. Preserve schema migrations, SQL resources, tests, fixtures and operational documentation.
+7. Run destination builds in a clean environment, not only against locally installed artifacts from the old monorepo.
+
+This inventory corrects the earlier assumption that all target repositories can be populated by copying a single similarly named directory: several groups require multiple source roots, and some roots require splitting or explicit deferral.
