@@ -7,9 +7,9 @@
 
     <parent>
         <groupId>tech.kayys.numou</groupId>
-        <artifactId>numou-framework</artifactId>
+        <artifactId>numou-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../parent/pom.xml</relativePath>
     </parent>
 
     <artifactId>numou-bom</artifactId>
