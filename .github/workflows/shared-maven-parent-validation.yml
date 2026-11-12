@@ -39,3 +39,15 @@ jobs:
 
       - name: Validate Foundation reactor
         run: mvn -B -ntp -f core/framework/foundation/pom.xml verify
+
+      - name: Validate Ecosystem reactor
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml verify
+
+      - name: Validate Cache reactor
+        run: mvn -B -ntp -f core/framework/cache/pom.xml verify
+
+      - name: Validate Observability reactor
+        run: mvn -B -ntp -f core/framework/observability/pom.xml verify
+
+      - name: Validate Social Graph reactor
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml verify
