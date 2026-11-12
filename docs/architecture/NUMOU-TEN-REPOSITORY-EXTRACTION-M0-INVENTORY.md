@@ -279,6 +279,6 @@ Two workflows were added:
 - `.github/workflows/shared-maven-parent-validation.yml` validates the parent, platform BOM and Foundation reactor on pull requests.
 - `.github/workflows/publish-shared-foundation.yml` manually publishes the parent, platform BOM and Foundation artifacts to GitHub Packages.
 
-This is implementation in the current PR branch. It is not yet verified: CI has not run, artifacts have not been published, and no clean consumer repository has resolved them.
+This is implementation in the current PR branch. The isolated Shared Maven Parent Validation workflow passed on PR #1988 (run 7), covering the standalone parent, non-recursive framework parent model, platform BOM and Foundation reactor. Artifacts have not been published, and no clean consumer repository has resolved them yet.
 
 See [Maven Parent and Cross-Repository Extraction Strategy](MAVEN-REPOSITORY-EXTRACTION-STRATEGY.md) for the exact publication and extraction contract.
