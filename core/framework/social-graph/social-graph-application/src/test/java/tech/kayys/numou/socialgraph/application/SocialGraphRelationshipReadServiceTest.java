@@ -99,8 +99,21 @@ class SocialGraphRelationshipReadServiceTest {
 
     @Test
     void rejectsUnboundedPageSizes() {
+        SocialGraphRelationshipQueryPort queries = new SocialGraphRelationshipQueryPort() {
+            @Override
+            public Uni<SocialGraphRelationshipQueryPage> findFollowing(
+                    TenantId tenantId, PartyId follower, Instant at, String cursor, int limit) {
+                return Uni.createFrom().item(new SocialGraphRelationshipQueryPage(List.of(), null));
+            }
+
+            @Override
+            public Uni<SocialGraphRelationshipQueryPage> findFollowers(
+                    TenantId tenantId, PartyId followed, Instant at, String cursor, int limit) {
+                return Uni.createFrom().item(new SocialGraphRelationshipQueryPage(List.of(), null));
+            }
+        };
         var service = new SocialGraphRelationshipReadService(
-                (t, p, at, c, l) -> Uni.createFrom().item(new SocialGraphRelationshipQueryPage(List.of(), null)),
+                queries,
                 (t, v, p) -> Uni.createFrom().item(true),
                 new SocialGraphPolicyService(new SocialGraphRelationshipPolicyPort() {
                     @Override public Uni<Boolean> isBlocked(TenantId t, PartyId a, PartyId b, Instant at) { return Uni.createFrom().item(false); }
