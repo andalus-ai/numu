@@ -74,22 +74,22 @@ Consumers need a Maven repository entry for the shared package source and read c
 The initial publication command is:
 
 ```bash
-mvn -B -ntp \
-  -f core/framework/pom.xml \
-  -pl parent,bom,foundation \
-  -am deploy
+mvn -B -ntp -f core/framework/parent/pom.xml deploy
+mvn -B -ntp -N -f core/framework/pom.xml deploy
+mvn -B -ntp -f core/framework/bom/pom.xml deploy
+mvn -B -ntp -f core/framework/foundation/pom.xml deploy
 ```
 
 The pull-request validation command is:
 
 ```bash
-mvn -B -ntp \
-  -f core/framework/pom.xml \
-  -pl parent,bom,foundation \
-  -am verify
+mvn -B -ntp -f core/framework/parent/pom.xml verify
+mvn -B -ntp -N -f core/framework/pom.xml validate
+mvn -B -ntp -f core/framework/bom/pom.xml verify
+mvn -B -ntp -f core/framework/foundation/pom.xml verify
 ```
 
-The workflows execute these commands. Do not mark the shared artifacts as published until the manual workflow succeeds and a clean consumer build resolves them from GitHub Packages.
+The workflows execute these isolated commands. The first validation attempt used a single selection from the large framework aggregator and failed while Maven loaded the unrelated `survey/survey-adapter-rest` reactor: its parent declares `io.surveyhub:survey-platform` but its relative path resolves to `tech.kayys.numou:numou-survey`. The validation and publication workflows now avoid recursively loading unrelated capability reactors. The isolated validation must pass before the manual publication workflow is run. Do not mark the shared artifacts as published until publication succeeds and a clean consumer build resolves them from GitHub Packages.
 
 ## 5. Critical M0 findings from the first three capability reactors
 
@@ -151,7 +151,7 @@ A source root is ready to transfer only when all of the following are true:
 | Shared parent POM added | Implemented in branch |
 | Framework aggregator consumes parent | Implemented in branch |
 | Platform BOM detached from framework aggregator parent | Implemented in branch |
-| PR validation workflow | Added; execution pending |
+| PR validation workflow | Added; first broad-reactor attempt exposed an unrelated existing Survey parent-POM failure; workflow now isolates parent/BOM/Foundation reactors and awaits rerun |
 | Manual GitHub Packages publishing workflow | Added; not run |
 | Parent/BOM/Foundation clean build | Pending CI |
 | Published package read access from a destination repo | Pending publication and clean consumer test |
