@@ -151,11 +151,11 @@ A source root is ready to transfer only when all of the following are true:
 | Shared parent POM added | Implemented in branch |
 | Framework aggregator consumes parent | Implemented in branch |
 | Platform BOM detached from framework aggregator parent | Implemented in branch |
-| PR validation workflow | Added; first broad-reactor attempt exposed an unrelated existing Survey parent-POM failure; workflow now isolates parent/BOM/Foundation reactors and awaits rerun |
+| PR validation workflow | Passed on PR #1988 (run 7) |
 | Manual GitHub Packages publishing workflow | Added; not run |
-| Parent/BOM/Foundation clean build | Pending CI |
+| Parent/BOM/Foundation clean build | Passed: standalone parent, non-recursive framework parent model, platform BOM and Foundation reactor |
 | Published package read access from a destination repo | Pending publication and clean consumer test |
 | Identity/Tenancy/Security source transfer | Not started |
 | Source monorepo consumers updated | Not started |
 
-No Maven build or package publication is claimed by this document. CI output and a clean consumer resolution test are required before the next source-transfer step.
+The isolated Maven validation passed on PR #1988 (Shared Maven Parent Validation, run 7). The earlier broad-reactor attempt still documents a pre-existing Survey parent-POM issue; the passing workflow deliberately avoids that unrelated reactor. No package publication or clean consumer-repository resolution is claimed yet.
