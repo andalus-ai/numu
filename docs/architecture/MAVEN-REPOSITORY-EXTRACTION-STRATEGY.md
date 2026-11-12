@@ -166,7 +166,8 @@ A source root is ready to transfer only when all of the following are true:
 | Manual GitHub Packages publishing workflow | Added; not run |
 | Shared parent/BOM/platform clean build | Passed: parent, framework parent model, BOM, Foundation, Ecosystem, Cache, Observability and Social Graph reactors |
 | Published package read access from a destination repo | Pending publication and clean consumer test |
-| Identity/Tenancy/Security source transfer | Not started |
+| Tenancy source transfer | Staged in [numou-tenancy PR #1](https://github.com/andalus-ai/numou-tenancy/pull/1): 75 source files; build waits for shared package publication |
+| Security and Identity source transfer | Not started; Security precedes Identity based on actual POM dependencies |
 | Source monorepo consumers updated | Not started |
 
 The isolated Maven validation passed on PR #1988 (Shared Maven Parent Validation, run 7). The earlier broad-reactor attempt still documents a pre-existing Survey parent-POM issue; the passing workflow deliberately avoids that unrelated reactor. No package publication or clean consumer-repository resolution is claimed yet.
