@@ -28,10 +28,14 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Validate parent, platform BOM and Foundation reactor
-        run: >
-          mvn -B -ntp
-          -f core/framework/pom.xml
-          -pl parent,bom,foundation
-          -am
-          verify
+      - name: Validate standalone shared parent
+        run: mvn -B -ntp -f core/framework/parent/pom.xml verify
+
+      - name: Validate framework aggregator model without unrelated child reactors
+        run: mvn -B -ntp -N -f core/framework/pom.xml validate
+
+      - name: Validate published platform BOM
+        run: mvn -B -ntp -f core/framework/bom/pom.xml verify
+
+      - name: Validate Foundation reactor
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml verify
