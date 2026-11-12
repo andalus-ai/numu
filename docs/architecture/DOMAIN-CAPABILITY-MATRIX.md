@@ -2,7 +2,7 @@
 
 **Status:** Normative ownership and repository-boundary contract  
 **Source repository:** `andalus-ai/numu`  
-**Initial extraction wave:** Ten repositories listed below  
+**Initial extraction wave:** Nine capability repositories plus the Core Platform in `andalus-ai/numu`  
 **Architecture basis:** `AGENTS.md`, [ADR-003 — Reusable capability modules](ADR-003-reusable-capability-modules.md), and [Capability Packaging and Composition Contract](CAPABILITY-PACKAGING-AND-COMPOSITION.md)
 
 ## 1. Purpose and status semantics
@@ -19,7 +19,7 @@ A repository name or directory name is not evidence that a capability is impleme
 
 ## 2. Initial repository portfolio
 
-The first extraction wave is deliberately limited to these ten repositories. Do not create or move code into additional repositories until this wave has a verified source-to-target inventory and the user approves the next wave.
+The first extraction wave is deliberately limited to the Core Platform and these nine capability repositories. Tenancy remains in Core with Foundation; do not create or move code into additional repositories until this wave has a verified source-to-target inventory and the user approves the next wave.
 
 | Repository | Capability group | Primary ownership | Key non-ownership |
 |---|---|---|---|
@@ -30,11 +30,11 @@ The first extraction wave is deliberately limited to these ten repositories. Do 
 | [numou-customer](https://github.com/andalus-ai/numou-customer) | Customer and CRM | Customer lifecycle, CRM, leads, opportunities, segmentation, customer interactions, consent, loyalty and customer 360 projections | Canonical person/organization identity, payment, order, inventory |
 | [numou-supply-chain](https://github.com/andalus-ai/numou-supply-chain) | Supply Chain | Inventory, stock, warehouse, procurement, purchasing, supplier relationship, receiving, fulfillment, manufacturing and quality | Supplier identity master, AP/payment execution, sales order authority |
 | [numou-logistics](https://github.com/andalus-ai/numou-logistics) | Logistics | Shipment, parcel, cargo, courier, consignment, dispatch, delivery, tracking, custody, freight and proof of delivery | Fleet/driver master, inventory authority, payment/accounting execution |
-| [numou-tenancy](https://github.com/andalus-ai/numou-tenancy) | Tenancy | Tenant lifecycle, hierarchy, membership-in-tenant, tenant configuration, provisioning, isolation context and tenant lifecycle events | User/person identity, authorization policy, application entitlement |
+| `andalus-ai/numu` Core Platform | Foundation + Tenancy | Shared kernel, Money and common primitives, tenant lifecycle, hierarchy, membership-in-tenant, tenant configuration, provisioning, isolation context and tenant lifecycle events | User/person identity, authentication/authorization policy, application entitlement |
 | [numou-mobility](https://github.com/andalus-ai/numou-mobility) | Mobility | Driver operations, fleet, vehicle, trip/ride, dispatch, fare policy, location, geofence and mobility operations | Canonical driver identity, financial wallet/ledger, generic shipment lifecycle |
 | [numou-workforce](https://github.com/andalus-ai/numou-workforce) | Workforce | Employee/worker lifecycle, workforce profile, attendance, shift, scheduling, leave, skills, recruitment, performance and allocation | Canonical person identity, authentication, payroll ledger/accounting |
 
-All ten destination repositories exist as separate GitHub repositories. The Tenancy repository contains the merged source transfer from tenancy/ (75 source files; destination PR #1 merged), while Identity has only a migration-status README and Security is still empty. The remaining destinations must be inspected individually before transfer. A staged copy is not an accepted migration: the destination must build independently, preserve contracts and data semantics, and have its consumers migrated.
+The nine capability destination repositories are separate from the Core Platform. `numou-tenancy` contains a historical/staged copy of `tenancy/` (75 source files; PR #1 merged), but the canonical owner is Core in `andalus-ai/numu`; do not develop or release a competing Tenancy capability from that repository. Keep the source `tenancy/` reactor in Core and reconcile the destination as transitional documentation/source staging. Identity and Security extraction remain subject to their own inventory and clean-build gates. A staged copy is not an accepted migration: the destination must build independently, preserve contracts and data semantics, and have its consumers migrated.
 
 ## 3. Capability ownership matrix
 
@@ -46,8 +46,8 @@ All ten destination repositories exist as separate GitHub repositories. The Tena
 | Authentication | Security | Credential verification, password hashing/upgrade, MFA, authentication flows, session issuance/revocation, federation protocol security | Identity supplies canonical subject; Security does not become the person registry |
 | Authorization | Security | RBAC, ABAC, permissions, policy evaluation, resource/action decisions and enforcement contracts | Tenant and resource context are inputs; Security does not own the resource's business state |
 | Security audit | Security | Authentication/security events, policy decisions where appropriate, credential/security lifecycle audit | Business audit facts remain with their owning capability; shared audit transport may be a later Foundation capability |
-| Tenant lifecycle | Tenancy | Tenant creation, activation, suspension, hierarchy, membership association, tenant configuration and provisioning state | Identity owns the member subject; Security owns the authorization decision |
-| Tenant isolation | Tenancy | Tenant context contracts, tenant-scoped identifiers and isolation policy metadata | Storage enforcement remains in persistence adapters and must be verified with integration tests/RLS where applicable |
+| Tenant lifecycle | Core Platform (Tenancy) | Tenant creation, activation, suspension, hierarchy, membership association, tenant configuration and provisioning state | Identity owns the member subject; Security owns the authorization decision |
+| Tenant isolation | Core Platform (Tenancy) | Tenant context contracts, tenant-scoped identifiers and isolation policy metadata | Storage enforcement remains in persistence adapters and must be verified with integration tests/RLS where applicable |
 | Accounting | Finance | Chart of accounts, journal, posting, periods, close, financial statements, accounting policy and ledger integrity | Other groups request postings through contracts; no direct ledger-table writes |
 | Money and financial primitives | Foundation initially; Finance owns financial semantics | Shared Money/value primitives stay in the existing Foundation owner until a deliberate Foundation extraction; financial account/balance/movement semantics belong to Finance | Do not introduce a second Money implementation in Finance or consumer groups |
 | Payment execution | Finance | Payment intent/execution, method/provider integration, callback verification, refunds, reversals and payment status | Payment status is not wallet balance, invoice status or a journal entry |
@@ -85,8 +85,8 @@ All ten destination repositories exist as separate GitHub repositories. The Tena
 
 ### 4.1 Dependency direction
 
-1. The existing Foundation/framework remains the shared technical base during this first extraction wave. Do not create an eleventh repository as part of this task.
-2. Tenancy, Identity and Security are separate bounded contexts. Their integration is through stable subject, tenant-context and authorization contracts.
+1. Foundation and Tenancy remain in the `andalus-ai/numu` Core Platform. Extract only the nine capability repositories in this wave; do not create a separate Tenancy owner.
+2. Tenancy is a Core Platform capability; Identity and Security are separate bounded contexts. Their integration is through stable subject, tenant-context and authorization contracts.
 3. Business capabilities depend on public contracts, not another repository's private packages, persistence entities, database schema or internal implementation.
 4. Finance is the sole owner of financial ledger, wallet, payment execution and accounting invariants.
 5. Commerce owns sales/order lifecycle; Supply Chain owns inventory and procurement; Logistics owns shipment lifecycle; Mobility owns driver/fleet/trip operations; Workforce owns employment/worker operations; Customer owns customer relationship lifecycle.
@@ -145,7 +145,7 @@ Before moving a capability, record the following for every source module:
 |---|---|
 | Source path | Exact directory and module POM in `andalus-ai/numu` |
 | Maven identity | Group ID, artifact ID, version, packaging and parent |
-| Destination | One of the ten repositories above |
+| Destination | One of the nine capability repositories above, or Core Platform for Foundation/Tenancy |
 | Target module | Proposed artifact and package ownership |
 | Source consumers | All reactor modules and external consumers referencing it |
 | Dependencies | Internal and third-party dependencies, classified as API/runtime/test |
@@ -158,12 +158,12 @@ Before moving a capability, record the following for every source module:
 
 A module may be split only when its invariants and public contracts can be separated safely. If a module contains multiple capability owners, first create a reviewed split plan; do not assign the whole directory based on its name.
 
-## 7. Migration sequence for the ten repositories
+## 7. Migration sequence for Core plus nine capability repositories
 
 The sequence below is an ordering constraint for dependency safety, not a claim that the work is complete.
 
 1. **M0 — Inventory and contract freeze:** enumerate all Maven reactors and modules; map every source path, consumer, persistence migration, event and API. Record existing artifact coordinates and identify shared-parent dependencies.
-2. **M1 — Tenancy, Security, then Identity:** Tenancy can migrate independently; Security depends on shared Foundation/Cache/Observability/Social Graph artifacts; Identity and Organization consume Security SPI/application/vault contracts and therefore follow Security.
+2. **M1 — Core Tenancy consolidation, Security, then Identity:** Keep the existing `tenancy/` source reactor in Core and align its parent/BOM/build with Foundation. Do not transfer it again. Security depends on shared Foundation/Cache/Observability/Social Graph artifacts; Identity and Organization consume Security SPI/application/vault contracts and therefore follow Security.
 3. **M2 — Finance:** extract financial primitives' consumers carefully, accounting, payment, wallet, billing, Syirkah and settlement without duplicating Money or financial invariants.
 4. **M3 — Supply Chain and Commerce:** establish order-to-inventory contract and preserve stock reservation/idempotency semantics.
 5. **M4 — Customer:** migrate customer/CRM ownership and replace duplicate person/organization models with Identity references.
@@ -242,7 +242,7 @@ The source repository tree was inspected on 2026-11-12. The following are observ
 
 | Source root | Current decision | Reason |
 |---|---|---|
-| `core/framework/` | Deferred Foundation/framework | Shared parent, technical platform, Foundation, plugin, runtime, workflow, events, reliability and social-graph domain. Do not copy this root into any of the ten repositories. |
+| `core/framework/` | Core Platform | Shared parent, technical platform, Foundation, plugin, runtime, workflow, events, reliability and social-graph domain. Keep `tenancy/` in the same Core repository; do not copy either root into capability repositories. |
 | `geo/` | Deferred Foundation/geo contract | Provider-neutral geographic primitives should not be silently owned by Mobility. Mobility may own its location/trip behavior and adapters. |
 | `vehicle-service/` | Deferred industry/vehicle-service extension | Workshop/service-order capability is not the same invariant as fleet/vehicle assignment. |
 | `asset/` | Deferred asset-management capability | Asset lifecycle may be shared by multiple industries; do not assume Supply Chain inventory is its owner. |
@@ -280,7 +280,7 @@ The extraction foundation uses a repository-neutral shared parent:
 - Platform BOM: `tech.kayys.numou:numou-bom`, sourced from `core/framework/bom/pom.xml`.
 - Foundation artifacts remain owned by the current Numou source repository until a later Foundation extraction is approved.
 
-Capability root aggregators must inherit from the published `numou-parent` with an empty `relativePath`, import the published platform BOM, and declare only their own modules. Capability BOMs must have unique artifactIds (for example `numou-identity-bom`, `numou-tenancy-bom`, `numou-security-bom`) and must be included in their root reactor. The legacy Identity and Tenancy BOM POMs currently both use `numou-bom` and are not listed as root modules; they must be corrected before publishing.
+Capability root aggregators must inherit from the published `numou-parent` with an empty `relativePath`, import the published platform BOM, and declare only their own modules. Capability BOMs must have unique artifactIds (for example `numou-identity-bom`, `numou-security-bom`) and must be included in their root reactor. The legacy Identity BOM uses `numou-bom` and is not listed as a root module; it must be corrected before publishing. Tenancy's BOM belongs to the Core reactor and must be aligned with the Core platform BOM without publishing a separate capability BOM.
 
 The shared parent contains build conventions and managed versions only. It does not add capability or infrastructure dependencies to consumer classpaths. The platform BOM aligns published Foundation/platform artifacts. Each group BOM aligns its own artifacts and approved public cross-capability dependencies.
 
