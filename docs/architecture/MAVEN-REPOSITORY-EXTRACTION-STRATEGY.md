@@ -40,7 +40,7 @@ An extracted capability root aggregator should use the published parent and impo
 <parent>
     <groupId>tech.kayys.numou</groupId>
     <artifactId>numou-parent</artifactId>
-    <version>${numou.platform.version}</version>
+    <version>0.1.0-SNAPSHOT</version>
     <relativePath/>
 </parent>
 
