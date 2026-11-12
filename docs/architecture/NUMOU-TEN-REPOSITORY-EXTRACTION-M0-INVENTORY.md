@@ -322,4 +322,4 @@ For destination repositories:
 
 ### 8.4 Expanded shared platform workflow
 
-The validation and manual publication workflows now include Foundation, Ecosystem, Cache, Observability and Social Graph reactors in addition to the shared parent and platform BOM. The first parent/BOM/Foundation-only validation passed; the expanded M1 dependency validation is pending.
+The validation and manual publication workflows now include Foundation, Ecosystem, Cache, Observability and Social Graph reactors in addition to the shared parent and platform BOM. The expanded sequential install validation passed on PR #1988 (Shared Maven Parent Validation, run 18). Its first attempt exposed a Social Graph test fixture compile error because a two-method query port was supplied as a lambda; the fixture now implements both methods explicitly and the rerun passed.
