@@ -323,3 +323,19 @@ For destination repositories:
 ### 8.4 Expanded shared platform workflow
 
 The validation and manual publication workflows now include Foundation, Ecosystem, Cache, Observability and Social Graph reactors in addition to the shared parent and platform BOM. The expanded sequential install validation passed on PR #1988 (Shared Maven Parent Validation, run 18). Its first attempt exposed a Social Graph test fixture compile error because a two-method query port was supplied as a lambda; the fixture now implements both methods explicitly and the rerun passed.
+
+
+## 9. First destination source transfer staged
+
+The first source transfer is now staged in the selected Tenancy destination:
+
+| Destination | Source transfer | Current state |
+|---|---|---|
+| [numou-tenancy](https://github.com/andalus-ai/numou-tenancy) | `tenancy/` — 75 source files | [PR #1](https://github.com/andalus-ai/numou-tenancy/pull/1) open; root POM and unique Tenancy BOM rebuilt; build waits for shared package publication |
+| [numou-identity](https://github.com/andalus-ai/numou-identity) | `identity/` + `organization/` | Repository initialized with migration README only |
+| numou-security | `security/` | Not started |
+| Other seven destinations | As defined in the matrix | Not started |
+
+The Tenancy transfer preserves all 75 files under their module-relative paths and replaces the monorepo root POM and legacy BOM with standalone repository POMs. The destination commit records source provenance from `andalus-ai/numu` main at `25dd5a99ff95b6d32ab59c864731528819da027f`.
+
+The destination PR is intentionally not claiming a successful Maven build yet: `numou-parent`, `numou-bom` and Foundation packages must first be published from the source repository, and the destination must be granted package read access. The source `tenancy/` directory remains unchanged until the destination build and monorepo consumers are verified.
