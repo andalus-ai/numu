@@ -88,14 +88,14 @@ mvn -B -ntp -f core/framework/social-graph/pom.xml deploy
 The pull-request validation command is:
 
 ```bash
-mvn -B -ntp -f core/framework/parent/pom.xml verify
+mvn -B -ntp -f core/framework/parent/pom.xml install
 mvn -B -ntp -N -f core/framework/pom.xml validate
-mvn -B -ntp -f core/framework/bom/pom.xml verify
-mvn -B -ntp -f core/framework/foundation/pom.xml verify
-mvn -B -ntp -f core/framework/ecosystem/pom.xml verify
-mvn -B -ntp -f core/framework/cache/pom.xml verify
-mvn -B -ntp -f core/framework/observability/pom.xml verify
-mvn -B -ntp -f core/framework/social-graph/pom.xml verify
+mvn -B -ntp -f core/framework/bom/pom.xml install
+mvn -B -ntp -f core/framework/foundation/pom.xml install
+mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+mvn -B -ntp -f core/framework/cache/pom.xml install
+mvn -B -ntp -f core/framework/observability/pom.xml install
+mvn -B -ntp -f core/framework/social-graph/pom.xml install
 ```
 
 The workflows execute these isolated commands. The first validation attempt used a single selection from the large framework aggregator and failed while Maven loaded the unrelated `survey/survey-adapter-rest` reactor: its parent declares `io.surveyhub:survey-platform` but its relative path resolves to `tech.kayys.numou:numou-survey`. The validation and publication workflows now avoid recursively loading unrelated capability reactors. The expanded validation must pass before the manual publication workflow is run. Do not mark the shared artifacts as published until publication succeeds and a clean consumer build resolves them from GitHub Packages.
@@ -164,7 +164,7 @@ A source root is ready to transfer only when all of the following are true:
 | Platform BOM detached from framework aggregator parent | Implemented in branch |
 | PR validation workflow | Passed on PR #1988 (run 7) |
 | Manual GitHub Packages publishing workflow | Added; not run |
-| Shared parent/BOM/platform clean build | Initial parent/BOM/Foundation validation passed; expanded Ecosystem/Cache/Observability/Social Graph validation pending |
+| Shared parent/BOM/platform clean build | Initial parent/BOM/Foundation validation passed; expanded sequential install validation (Foundation/Ecosystem/Cache/Observability/Social Graph) pending |
 | Published package read access from a destination repo | Pending publication and clean consumer test |
 | Identity/Tenancy/Security source transfer | Not started |
 | Source monorepo consumers updated | Not started |
