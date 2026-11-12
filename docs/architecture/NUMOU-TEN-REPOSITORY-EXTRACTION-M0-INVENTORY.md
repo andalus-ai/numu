@@ -255,15 +255,15 @@ The first three platform roots were inspected at POM level after the initial tre
 
 - `identity/pom.xml`, `tenancy/pom.xml` and `security/pom.xml` all inherit `tech.kayys.numou:numou-framework:0.1.0-SNAPSHOT` using `../core/framework/pom.xml`. This is the intended Core inheritance for Tenancy; Identity and Security will be externalized.
 - `core/framework/pom.xml` is both the parent and aggregator for technical framework modules and selected business capabilities. It includes `../../identity` as a reactor module.
-- Tenancy and Security remain separate Maven reactor roots and are not listed as modules in the framework aggregator.
+- Tenancy is included in the Core framework aggregator by the staged M1 reactor change; Security remains a separate Maven reactor and is an external capability extraction target.
 - A direct source-directory copy would leave invalid parent relative paths and would not establish standalone dependency resolution.
 
 ### 7.2 BOM defects requiring correction during extraction
 
 - `identity/bom/pom.xml` exists but is not declared in `identity/pom.xml`'s modules.
-- `tenancy/bom/pom.xml` exists but is not declared in `tenancy/pom.xml`'s modules.
-- Both capability BOMs currently use artifactId `numou-bom`, which collides with the shared platform BOM if published with the same groupId/version.
-- The first capability BOMs must use unique artifactIds such as `numou-identity-bom`, `numou-tenancy-bom` and `numou-security-bom`, and must be explicit modules of their root reactors.
+- `tenancy/bom/pom.xml` is legacy metadata; Tenancy remains Core-owned and must not publish a separate capability BOM. Manage its artifacts through the shared Core platform BOM.
+- The legacy Identity and Security BOMs use artifactId `numou-bom`, which collides with the shared platform BOM if published with the same groupId/version.
+- External capability BOMs must use unique artifactIds such as `numou-identity-bom` and `numou-security-bom`, and must be explicit modules of their root reactors. Core Tenancy is managed by the shared platform BOM, not a separate `numou-tenancy-bom`.
 
 ### 7.3 M1 dependency observations
 
@@ -333,7 +333,7 @@ The first source transfer is staged in the historical Tenancy destination, but C
 |---|---|---|
 | Core (`andalus-ai/numu`) | `tenancy/` — 6 POMs in the source reactor | Canonical source remains in Core; no transfer or source deletion required |
 | [numou-identity](https://github.com/andalus-ai/numou-identity) | `identity/` + `organization/` | Repository initialized with migration README only |
-| numou-security | `security/` | Not started |
+| [numou-security](https://github.com/andalus-ai/numou-security) | `security/` — 172 source files; 12 capability modules | Staged in [PR #1](https://github.com/andalus-ai/numou-security/pull/1); independent build/publication not yet verified |
 | Other seven destinations | As defined in the matrix | Not started |
 
 The historical destination transfer preserves 75 source files, but it is not the canonical ownership boundary. Core's `tenancy/` source reactor remains authoritative. The staged destination should be treated as transitional until a separately reviewed reconciliation decision is made.
@@ -341,23 +341,23 @@ The historical destination transfer preserves 75 source files, but it is not the
 No independent build or package publication is claimed for the historical Tenancy destination. Since Tenancy remains in Core, the next build proof is a Core reactor build covering Foundation and `tenancy/`; no source deletion is authorized.
 
 
-## 10. M1 execution status — Core Tenancy, Identity and Security
+## 10. M1/M2 execution status — Core Tenancy, Security and Identity
 
 M1 begins with the shared Maven contract already present in the source monorepo. Tenancy remains in Core and must not be re-extracted or overwritten from the staged destination copy.
 
 | Repository | Current observed state | M1 action |
 |---|---|---|
-| Core (`andalus-ai/numu`) | Canonical `tenancy/` reactor remains in source; staged copy exists in `numou-tenancy` | Align Core Tenancy POM/BOM with Foundation; verify tenant isolation and Core reactor build |
+| Core (`andalus-ai/numu`) | Canonical `tenancy/` reactor remains in source; staged `numou-tenancy` copy is transitional; PR #1991 adds Tenancy to Core aggregator/BOM | Verify dedicated Foundation + Tenancy reactor CI; no clean Tenancy build is claimed yet |
 | [numou-identity](https://github.com/andalus-ai/numou-identity) | README only; source remains in identity/ and organization/ | Transfer Identity + Organization as one bounded-context portfolio; use numou-parent, import numou-bom, create unique numou-identity-bom |
-| [numou-security](https://github.com/andalus-ai/numou-security) | Empty repository at last inspection | Transfer Security and Vault modules; use numou-parent, import numou-bom, create unique numou-security-bom; retain social-graph adapter as an integration adapter only |
+| [numou-security](https://github.com/andalus-ai/numou-security) | 172 source files staged in PR #1; 12 Maven modules; standalone parent/BOM structure added | Verify clean reactor using published neutral parent/platform BOM and Core artifacts; add CI/security tests; preserve Social Graph adapter as integration-only |
 
-### 10.1 M1 dependency and sequencing gates
+### 10.1 M1/M2 dependency and sequencing gates
 
-1. Verify the shared publication workflow against the source main revision and record the package versions published for external capability consumers; Core must not resolve its own Foundation/Tenancy artifacts remotely.
-2. Verify the Core reactor builds Foundation and Tenancy together without remote self-dependency or reliance on developer-local Maven cache.
+1. Verify the shared publication workflow against the source main revision and record package versions published for external capability consumers; Core must not resolve its own Foundation/Tenancy artifacts remotely.
+2. Verify the dedicated Core reactor job builds Foundation and Tenancy together without remote self-dependency or reliance on developer-local Maven cache.
 3. Do not continue the separate Tenancy release path. Preserve PR history; document `numou-tenancy` as transitional and defer archive/redirect decisions until a reviewed reconciliation plan exists.
-4. Transfer Identity and Organization together. Organization currently depends on Identity and Ecosystem contracts; do not split the Organization root from Identity without preserving its dependency graph.
-5. Transfer Security and Vault as a separate bounded context. Replace framework-parent inheritance with the neutral parent and explicitly import platform BOM dependencies; keep authentication/authorization contracts dependent on stable Identity and Tenancy identifiers, not private persistence entities.
+4. Extract Security and Vault as a coherent capability. Verify its 12 modules, neutral parent, shared BOM, vault persistence migrations, cryptographic adapter and authorization boundary before package publication.
+5. Extract Identity and Organization together after Security's public SPI/application contracts are verified, because Identity's adapters consume Security contracts. Organization currently depends on Identity and Ecosystem contracts; do not split the Organization root from Identity without preserving its dependency graph.
 6. Do not remove any source reactor modules or consumer dependencies until each destination build and source-consumer migration is verified.
 7. Record source commit, exact file count, POM inventory, artifact coordinates, test results, package publication and rollback path in each destination README and migration report.
 
@@ -366,8 +366,8 @@ M1 begins with the shared Maven contract already present in the source monorepo.
 - [ ] Core Foundation + Tenancy reactor clean build passes; transitional destination status is documented without deleting history.
 - [ ] Identity and Organization source files transferred with provenance and no omitted tests/resources.
 - [ ] Identity root POM uses numou-parent, imports platform BOM, and includes the unique Identity BOM in its reactor.
-- [ ] Security and Vault source files transferred with provenance and no omitted tests/resources.
-- [ ] Security root POM uses numou-parent, imports platform BOM, and includes the unique Security BOM in its reactor.
+- [ ] Security and Vault source files transferred with provenance and no omitted tests/resources; staged transfer exists in numou-security PR #1 and must pass clean independent build/security verification.
+- [ ] Security root POM uses numou-parent, imports platform BOM, and includes the unique Security BOM in its reactor; the staged PR has this structure but publication/build remain unverified.
 - [ ] Identity and Security destination repositories build independently from a clean environment; the Core Foundation + Tenancy reactor builds in the source repository.
 - [ ] Tenant membership, subject identity and authorization boundaries are covered by contract/integration tests.
 - [ ] Source monorepo consumers are inventoried and migrated before source modules are retired.
