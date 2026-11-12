@@ -333,7 +333,7 @@ The first source transfer is staged in the historical Tenancy destination, but C
 |---|---|---|
 | Core (`andalus-ai/numu`) | `tenancy/` — 6 POMs in the source reactor | Canonical source remains in Core; no transfer or source deletion required |
 | [numou-identity](https://github.com/andalus-ai/numou-identity) | `identity/` + `organization/` | Repository initialized with migration README only |
-| [numou-security](https://github.com/andalus-ai/numou-security) | `security/` — 172 source files; 12 capability modules | Staged in [PR #1](https://github.com/andalus-ai/numou-security/pull/1); independent build/publication not yet verified |
+| [numou-security](https://github.com/andalus-ai/numou-security) | `security/` — 172 source files; 12 capability modules | Staged in [PR #1](https://github.com/andalus-ai/numou-security/pull/1); structural Maven topology CI passes; independent Maven build/publication remains pending |
 | Other seven destinations | As defined in the matrix | Not started |
 
 The historical destination transfer preserves 75 source files, but it is not the canonical ownership boundary. Core's `tenancy/` source reactor remains authoritative. The staged destination should be treated as transitional until a separately reviewed reconciliation decision is made.
@@ -349,7 +349,7 @@ M1 begins with the shared Maven contract already present in the source monorepo.
 |---|---|---|
 | Core (`andalus-ai/numu`) | Canonical `tenancy/` reactor remains in source; staged `numou-tenancy` copy is transitional; PR #1991 adds Tenancy to Core aggregator/BOM | Verify dedicated Foundation + Tenancy reactor CI; no clean Tenancy build is claimed yet |
 | [numou-identity](https://github.com/andalus-ai/numou-identity) | README only; source remains in identity/ and organization/ | Transfer Identity + Organization as one bounded-context portfolio; use numou-parent, import numou-bom, create unique numou-identity-bom |
-| [numou-security](https://github.com/andalus-ai/numou-security) | 172 source files staged in PR #1; 12 Maven modules; standalone parent/BOM structure added | Verify clean reactor using published neutral parent/platform BOM and Core artifacts; add CI/security tests; preserve Social Graph adapter as integration-only |
+| [numou-security](https://github.com/andalus-ai/numou-security) | 172 source files staged in PR #1; 12 Maven modules; standalone parent/BOM structure added; topology CI passes | Verify clean reactor using published neutral parent/platform BOM and Core artifacts; add security/PostgreSQL tests; preserve Social Graph adapter as integration-only |
 
 ### 10.1 M1/M2 dependency and sequencing gates
 
