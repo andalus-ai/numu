@@ -270,3 +270,20 @@ Before a source root is moved:
 7. Run destination builds in a clean environment, not only against locally installed artifacts from the old monorepo.
 
 This inventory corrects the earlier assumption that all target repositories can be populated by copying a single similarly named directory: several groups require multiple source roots, and some roots require splitting or explicit deferral.
+
+
+## 12. Shared Maven parent and capability BOM rule
+
+The extraction foundation uses a repository-neutral shared parent:
+
+- Parent: `tech.kayys.numou:numou-parent`, sourced from `core/framework/parent/pom.xml`.
+- Platform BOM: `tech.kayys.numou:numou-bom`, sourced from `core/framework/bom/pom.xml`.
+- Foundation artifacts remain owned by the current Numou source repository until a later Foundation extraction is approved.
+
+Capability root aggregators must inherit from the published `numou-parent` with an empty `relativePath`, import the published platform BOM, and declare only their own modules. Capability BOMs must have unique artifactIds (for example `numou-identity-bom`, `numou-tenancy-bom`, `numou-security-bom`) and must be included in their root reactor. The legacy Identity and Tenancy BOM POMs currently both use `numou-bom` and are not listed as root modules; they must be corrected before publishing.
+
+The shared parent contains build conventions and managed versions only. It does not add capability or infrastructure dependencies to consumer classpaths. The platform BOM aligns published Foundation/platform artifacts. Each group BOM aligns its own artifacts and approved public cross-capability dependencies.
+
+The source branch includes the parent POM, framework aggregator linkage, BOM parent decoupling, and validation/publication workflows. These are not considered released until PR CI passes, the manual package publication succeeds, and a clean consumer build resolves the parent, BOM and Foundation artifacts.
+
+See [Maven Parent and Cross-Repository Extraction Strategy](MAVEN-REPOSITORY-EXTRACTION-STRATEGY.md).
