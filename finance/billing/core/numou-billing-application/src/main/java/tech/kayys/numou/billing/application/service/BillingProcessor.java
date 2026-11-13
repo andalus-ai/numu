@@ -254,20 +254,41 @@ public class BillingProcessor implements BillingService {
             });
     }
 
+    /**
+     * Charges the latest failed cycle again, against the invoice it already has. The retry is stored before the
+     * charge, like a first attempt. A schedule that has stopped (too many failed payments) is not retried.
+     */
     @Override
     public CompletionStage<BillingCycleResult> retryBillingCycle(RetryBillingCycleCommand command) {
-        return CompletableFuture.completedFuture(
-            new BillingCycleResult(
-                command.scheduleId(),
-                0,
-                false,
-                Money.zero("USD"),
-                null,
-                null,
-                "Retry executed",
-                Instant.now()
-            )
-        );
+        return billingScheduleRepository.findById(command.scheduleId()).subscribeAsCompletionStage()
+            .thenCompose(scheduleOpt -> {
+                BillingSchedule schedule = scheduleOpt.orElseThrow(() ->
+                    new IllegalArgumentException("Billing schedule not found: " + command.scheduleId())
+                );
+                BillingSchedule.BillingCycle cycle = schedule.beginRetry(null);
+
+                return billingScheduleRepository.save(schedule).subscribeAsCompletionStage()
+                    .thenCompose(saved -> charge(schedule))
+                    .thenCompose(paymentResult -> {
+                        if (paymentResult.success()) {
+                            schedule.markCycleSuccess(cycle.getCycleNumber(), paymentResult.transactionId());
+                        } else {
+                            schedule.markCycleFailed(cycle.getCycleNumber(), paymentResult.message());
+                        }
+                        return billingScheduleRepository.save(schedule).subscribeAsCompletionStage()
+                            .thenApply(v -> new BillingCycleResult(
+                                schedule.getId(),
+                                cycle.getCycleNumber(),
+                                paymentResult.success(),
+                                schedule.getAmount(),
+                                cycle.getInvoiceId(),
+                                paymentResult.success() ? paymentResult.transactionId() : null,
+                                paymentResult.success() ? "Payment processed successfully on retry"
+                                    : paymentResult.message(),
+                                Instant.now()
+                            ));
+                    });
+            });
     }
 
     @Override

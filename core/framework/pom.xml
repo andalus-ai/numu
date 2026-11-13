@@ -7,6 +7,13 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>tech.kayys.numou</groupId>
+        <artifactId>numou-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>parent/pom.xml</relativePath>
+    </parent>
+
     <groupId>tech.kayys.numou</groupId>
     <artifactId>numou-framework</artifactId>
     <version>0.1.0-SNAPSHOT</version>
@@ -22,6 +29,8 @@
 
 
     <modules>
+        <!-- Shared build parent is published independently for extracted repositories. -->
+        <module>parent</module>
         <module>bom</module>
 
         <!-- Technical Platform Chassis -->
@@ -34,10 +43,20 @@
         <module>reliability</module>
         <module>cache</module>
         <module>plugin</module>
+        <module>runtime</module>
+        <module>runtime-quarkus</module>
         <module>workflow</module>
         <module>scope</module>
         <module>planning</module>
         <module>aggregate</module>
+
+        <!-- Shared business-facing capabilities used by Developer Platform adapters. -->
+        <module>../../identity</module>
+        <module>../../documents</module>
+        <module>../../advertising</module>
+        <module>../../attendee</module>
+        <module>../../feedback</module>
+        <module>../../survey</module>
 
         <!-- Business-facing developer ecosystem capability -->
         <module>../../developer-platform</module>
@@ -184,6 +203,48 @@
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-ecosystem-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-persistence-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-postgres-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Feedback capability -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-feedback-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-feedback-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-feedback-postgres-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-feedback-survey-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

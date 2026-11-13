@@ -1,0 +1,2 @@
+package tech.kayys.numou.history.source.domain;
+public enum SourceContributorRole { AUTHOR, EDITOR, TRANSLATOR, COMPILER, ILLUSTRATOR, PHOTOGRAPHER, CARTOGRAPHER, ORAL_INFORMANT, INTERVIEWER, RECORDER, PUBLISHER, OTHER }

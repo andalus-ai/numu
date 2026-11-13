@@ -1,7 +1,6 @@
 package tech.kayys.numou.developer.apicatalog.postgres;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiProductRepository;
 import tech.kayys.numou.developer.apicatalog.domain.*;
 import tech.kayys.numou.foundation.application.page.Page;
@@ -9,17 +8,21 @@ import tech.kayys.numou.foundation.application.page.PageRequest;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import javax.sql.DataSource;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.sql.*;
 import java.util.*;
 
 /**
  * JDBC implementation of the API catalog aggregate repository.
- * Every operation starts a transaction, installs the trusted tenant in transaction-local
- * PostgreSQL state, and also carries the tenant predicate in every statement.
+ * Operations install the trusted tenant in transaction-local PostgreSQL state and carry
+ * the tenant predicate in every statement. Calls inside UnitOfWork reuse its connection.
  */
+@ApplicationScoped
 public final class PostgresApiProductRepository implements ApiProductRepository {
- private final DataSource dataSource;
- public PostgresApiProductRepository(DataSource dataSource){this.dataSource=Objects.requireNonNull(dataSource,"dataSource cannot be null");}
+ private final ApiCatalogJdbcTransactionManager transactions;
+ @Inject public PostgresApiProductRepository(ApiCatalogJdbcTransactionManager transactions){this.transactions=Objects.requireNonNull(transactions,"transactions cannot be null");}
+ public PostgresApiProductRepository(DataSource dataSource){this(new ApiCatalogJdbcTransactionManager(dataSource));}
 
  @Override public Uni<Optional<ApiProduct>> findById(TenantId tenant,ApiProductId id){
   Objects.requireNonNull(id,"id cannot be null");
@@ -63,18 +66,7 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
 
  private <T> Uni<T> inTenant(TenantId tenant,SqlWork<T> work){
   Objects.requireNonNull(tenant,"tenant cannot be null");
-  return Uni.createFrom().item(()->{
-   try(Connection c=dataSource.getConnection()){
-    c.setAutoCommit(false);
-    c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-    try{
-     try(PreparedStatement s=c.prepareStatement("SELECT set_config('numou.tenant_id',?,true)")){
-      s.setString(1,tenant.value().toString());s.execute();
-     }
-     T result=work.apply(c);c.commit();return result;
-    }catch(SQLException|RuntimeException|Error e){try{c.rollback();}catch(SQLException rollback){e.addSuppressed(rollback);}throw e;}
-   }catch(SQLException e){if("40001".equals(e.getSQLState()))throw new OptimisticLockException("Concurrent API product update; reload and retry",e);throw new IllegalStateException("API catalog PostgreSQL operation failed",e);}
-  }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+  return transactions.withTenant(tenant,connection->work.apply(connection));
  }
 
  private static void insertProduct(Connection c,UUID tenant,ApiProduct p)throws SQLException{
@@ -113,6 +105,7 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
    s.setString(5,v.specification().openApiVersion());s.setString(6,v.specification().artifactReference());s.setString(7,v.specification().sha256());
    if(s.executeUpdate()!=1)throw new IllegalStateException("persisted API version contract differs from immutable aggregate version");
   }
+  persistArtifactLifecycle(c,tenant,productId,v);
   for(ApiScope scope:v.scopes().values()){
    try(PreparedStatement s=c.prepareStatement("""
     INSERT INTO developer_api_scopes(provider_tenant_id,product_id,api_version,scope_name,description)
@@ -127,6 +120,27 @@ public final class PostgresApiProductRepository implements ApiProductRepository 
     s.setObject(1,tenant);s.setObject(2,productId);s.setString(3,v.version());s.setString(4,scope.name());
     try(ResultSet rs=s.executeQuery()){if(!rs.next()||!scope.description().equals(rs.getString(1)))throw new IllegalStateException("persisted API scope differs from immutable aggregate scope");}
    }
+  }
+ }
+
+ private static void persistArtifactLifecycle(Connection c,UUID tenant,UUID productId,ApiVersion version)throws SQLException{
+  String state=version.status()==ApiVersionStatus.PUBLISHED?"PUBLISHED":"REGISTERED";
+  try(PreparedStatement s=c.prepareStatement("""
+   INSERT INTO developer_api_artifacts(provider_tenant_id,product_id,api_version,artifact_reference,sha256,lifecycle_state)
+   VALUES(?,?,?,?,?,?)
+   ON CONFLICT(provider_tenant_id,product_id,api_version) DO UPDATE
+     SET lifecycle_state=CASE
+       WHEN developer_api_artifacts.lifecycle_state='PUBLISHED' OR EXCLUDED.lifecycle_state='PUBLISHED'
+         THEN 'PUBLISHED'
+       ELSE developer_api_artifacts.lifecycle_state
+     END
+   WHERE developer_api_artifacts.artifact_reference=EXCLUDED.artifact_reference
+     AND developer_api_artifacts.sha256=EXCLUDED.sha256
+   """)){
+   s.setObject(1,tenant);s.setObject(2,productId);s.setString(3,version.version());
+   s.setString(4,version.specification().artifactReference());s.setString(5,version.specification().sha256());
+   s.setString(6,state);
+   if(s.executeUpdate()!=1)throw new IllegalStateException("artifact lifecycle identity differs from immutable API version");
   }
  }
  private static Optional<ApiProduct> load(Connection c,UUID tenant,UUID id)throws SQLException{

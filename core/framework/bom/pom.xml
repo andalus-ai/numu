@@ -7,9 +7,9 @@
 
     <parent>
         <groupId>tech.kayys.numou</groupId>
-        <artifactId>numou-framework</artifactId>
+        <artifactId>numou-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../parent/pom.xml</relativePath>
     </parent>
 
     <artifactId>numou-bom</artifactId>
@@ -63,6 +63,23 @@
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-security-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Attendee capability -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-attendee-persistence-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

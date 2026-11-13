@@ -146,3 +146,88 @@ mvn -f core/framework/pom.xml -pl :numou-social-graph-persistence-jdbc,:numou-ec
 mvn -f security/pom.xml -pl social-graph-adapter -am verify
 ```
 
+
+## M2 relationship lifecycle foundation
+
+M2 introduces a separate directed-edge model for `FOLLOW`, `BLOCK`, and `MUTE`. It does not overload the bilateral `SocialConnection` approval state machine. The initial domain contract provides:
+
+- Stable built-in relationship types; tenant-defined type registration is not yet part of the contract.
+- Canonical source/target Party references and tenant ownership.
+- Explicit creation provenance and bounded immutable metadata.
+- Optional validity windows using inclusive `validFrom` and exclusive `validUntil` semantics.
+- Versioned ACTIVE/REMOVED lifecycle with source-Party-owned removal.
+- No persistence, command gateway, public discovery, feed, or graph traversal is exposed by this domain-only increment. Those require subsequent application/persistence work and the agreed privacy/consent policy.
+
+A BLOCK edge is stored with its actor as source. Any future interaction/discovery policy must evaluate a block in either direction; callers must not infer that a directed storage representation makes block enforcement directional.
+
+
+## M2d authoritative relationship policy
+
+The application exposes `SocialGraphPolicyService` backed by
+`SocialGraphRelationshipPolicyPort`. The JDBC adapter evaluates policy against
+authoritative PostgreSQL rows and effective-time windows:
+
+- **BLOCK:** storage remains directed (`source_party_id -> target_party_id`),
+  but enforcement checks both endpoint orientations. Either Party's active
+  block suppresses interaction between the pair.
+- **MUTE:** only the viewer-to-author edge applies. A mute in the reverse
+  direction does not suppress the viewer's feed.
+- Effective windows use inclusive `valid_from` and exclusive `valid_until`.
+  Removed or not-yet-effective/expired relationships do not apply.
+- Every lookup is tenant-qualified. Self-pairs are treated as not blocked/muted.
+- Feed suppression combines symmetric block and viewer-owned mute. It is a
+  filtering primitive, not a complete visibility decision.
+
+Consumers must call the policy service before interactions and before
+delivering feed items. They must still enforce the owning capability's
+authorization, profile visibility, consent, moderation and data-retention
+policies. The policy service is not an unrestricted public discovery API.
+Policy decisions use PostgreSQL, never an eventually consistent graph
+projection.
+
+
+## M2e privacy-aware relationship reads
+
+The application provides bounded `following` and `followers` reads over
+`FOLLOW` edges. These are relationship-list primitives, not public profile or
+discovery endpoints.
+
+- Every SQL query is tenant-qualified and only returns active, effective
+  `FOLLOW` edges.
+- Ordering is deterministic newest-first by `created_at DESC, relationship_id
+  DESC`; V5 adds matching partial indexes for both directions.
+- Keyset cursors are opaque Base64URL values bound to tenant, list owner and
+  direction. They are continuation markers, not authorization credentials;
+  callers must authenticate and authorize every request independently.
+- Page size is bounded to 1–100. The cursor advances past scanned rows even
+  when privacy policy filters some rows, so hidden records are not repeatedly
+  scanned and are not exposed through counts.
+- The host must provide `SocialGraphRelationshipVisibilityPort`. It is a
+  fail-closed boundary for profile visibility, consent, moderation and
+  tenant-sharing policy. The relationship edge itself never grants profile
+  visibility.
+- The list owner must be visible to the viewer before a followers list is
+  queried. Each returned Party is independently checked for visibility and
+  for a block in either direction.
+- Results contain only canonical Party IDs and relationship timestamps;
+  profile content, contact details and other PII are resolved by their owning
+  capabilities after their own authorization checks.
+
+The current read service intentionally does not expose blocker/mute lists,
+mutual connections, arbitrary graph traversal, follower counts or public
+search. Those require separate privacy and authorization contracts.
+
+
+## M2f interaction and delivery policy gate
+
+The application exposes `SocialGraphInteractionPolicyService` for consuming capabilities that need a single, typed policy decision before acting or delivering content. Its supported intents are `FOLLOW`, `MESSAGE`, `COMMENT`, `INVITE`, `ENDORSE`, `FEED_DELIVERY` and `NOTIFICATION_DELIVERY`.
+
+- Every intent checks symmetric BLOCK policy first. A block in either stored direction returns `BLOCKED`.
+- Only `FEED_DELIVERY` and `NOTIFICATION_DELIVERY` consult directional MUTE policy. A viewer-owned mute returns `MUTED`; it does not deny comments, messages, invitations, endorsements or relationship commands by itself.
+- Non-delivery intents return `ALLOWED` when no block applies. `ALLOWED` is only a Social Graph relationship-policy result; the consumer must still perform its own action authorization and domain validation.
+- Both relationship lookups in one evaluation use the same captured instant, avoiding mixed effective-time decisions.
+- Self-pairs return `ALLOWED` without a relationship-store lookup.
+- Suppression is a delivery/read decision, not event deletion. Notification and activity outbox records, audit history and source events remain intact; consumers should suppress dispatch while retaining durable intent and observability.
+- This is an application contract, not an implicit dependency from Notification or Feed into Social Graph. Hosts compose an adapter at the boundary and must supply canonical tenant-scoped Party IDs from trusted identity/domain records. Do not parse Party IDs from untrusted notification text or source-reference strings.
+
+The consumer still owns profile visibility, consent, moderation, notification preferences unrelated to Social Graph, recipient eligibility, rate limits and transport/provider behavior. No feed API, message service, notification mutation or public discovery endpoint is introduced by this increment.

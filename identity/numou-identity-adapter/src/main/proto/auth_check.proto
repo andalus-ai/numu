@@ -60,4 +60,6 @@ message ResolvePrincipalResponse {
   PrincipalType principal_type = 2;
   string principal_id = 3;
   string display_name = 4;
+  // Tenant bound to a verified access JWT; empty for legacy tenant-neutral JWTs and PATs.
+  string tenant_id = 5;
 }
