@@ -415,6 +415,28 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- Core Platform Tenancy -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- Test and static-analysis dependencies -->
             <dependency>
                 <groupId>org.junit</groupId>
