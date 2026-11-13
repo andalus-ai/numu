@@ -467,7 +467,33 @@
             </dependency>
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-observability-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-observability-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- Social Graph is Core-owned; consumers use its public contracts. -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-persistence-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
