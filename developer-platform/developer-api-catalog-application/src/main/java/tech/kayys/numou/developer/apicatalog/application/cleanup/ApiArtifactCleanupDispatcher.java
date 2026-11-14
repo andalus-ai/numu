@@ -88,7 +88,7 @@ public final class ApiArtifactCleanupDispatcher {
                     Instant failedAt = Instant.now();
                     return repository.recordFailure(tenant, lease, workerId, failureCode(failure), failedAt,
                             failedAt.plus(retryDelay(lease.attempts() + 1)), maximumAttempts)
-                            .replaceWith(Outcome.FAILED);
+                            .map(recorded -> recorded ? Outcome.FAILED : Outcome.LEASE_LOST);
                 });
     }
 
