@@ -87,6 +87,17 @@ class LocalWorkspacePageChangeHubTest {
         assertThrows(IllegalArgumentException.class, () -> new LocalWorkspacePageChangeHub(2, 1, 2));
     }
 
+
+    @Test void enforcesPerPageQuotaIndependentlyOfTenantQuota() {
+        var hub = new LocalWorkspacePageChangeHub(5, 3, 1);
+        UUID tenant = UUID.randomUUID(), page = UUID.randomUUID();
+        hub.subscribe(tenant, UUID.randomUUID(), page, ignored -> {});
+        assertThrows(LocalWorkspacePageChangeHub.SubscriptionLimitExceededException.class,
+                () -> hub.subscribe(tenant, UUID.randomUUID(), page, ignored -> {}));
+        assertEquals(1, hub.health().activeConnections());
+        assertEquals(1, hub.health().rejectedSubscriptions());
+    }
+
     private static WorkspacePageChangeSignal signal(UUID tenant, UUID page, UUID actor) {
         return new WorkspacePageChangeSignal(tenant, UUID.randomUUID(), UUID.randomUUID(), page,
                 2, actor, WorkspacePageChangeSignal.ChangeType.UPDATED, Instant.EPOCH);
