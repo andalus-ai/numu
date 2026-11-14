@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -105,17 +106,27 @@ class JdbcNotificationRepositoryTest {
     }
 
     private static void executeMigration(DataSource dataSource) throws Exception {
-        String sql;
-        try (var stream = JdbcNotificationRepositoryTest.class.getResourceAsStream("/db/migration/V1__notification_inbox.sql")) {
-            if (stream == null) throw new IllegalStateException("Notification migration resource missing");
-            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not read notification migration", e);
-        }
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS notification_push_token_migration_audit CASCADE");
+            statement.execute("DROP TABLE IF EXISTS notification_delivery_job CASCADE");
+            statement.execute("DROP TABLE IF EXISTS notification_push_device CASCADE");
             statement.execute("DROP TABLE IF EXISTS notification_inbox CASCADE");
-            for (String command : sql.split(";")) {
-                if (!command.isBlank()) statement.execute(command);
+        }
+        for (String migration : List.of(
+                "V1__notification_inbox.sql",
+                "V2__notification_push_device.sql",
+                "V3__notification_delivery_jobs.sql",
+                "V4__notification_push_token_encryption.sql",
+                "V5__notification_push_token_migration_audit.sql",
+                "V6__social_graph_delivery_suppression.sql")) {
+            String sql;
+            try (var stream = JdbcNotificationRepositoryTest.class
+                    .getResourceAsStream("/db/migration/" + migration)) {
+                if (stream == null) throw new IllegalStateException("Notification migration resource missing: " + migration);
+                sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                for (String command : sql.split(";")) if (!command.isBlank()) statement.execute(command);
             }
         }
     }
