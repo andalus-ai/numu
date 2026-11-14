@@ -12,6 +12,7 @@ import java.util.concurrent.CompletionStage;
 public interface ApplicationInstallationOperationsPort {
     CompletionStage<List<TransitionEntry>> history(TenantId tenantId, ApplicationInstallationId installationId, int limit);
     CompletionStage<List<DeadLetterEntry>> deadLetters(TenantId tenantId, int limit);
+    CompletionStage<List<RedriveAuditEntry>> redriveHistory(TenantId tenantId, ApplicationInstallationId installationId, int limit);
     CompletionStage<RedriveResult> redrive(RedriveCommand command);
 
     record TransitionEntry(UUID eventId, String fromStatus, String toStatus, long revision,
@@ -19,6 +20,9 @@ public interface ApplicationInstallationOperationsPort {
 
     record DeadLetterEntry(UUID eventId, UUID installationId, String applicationId, String packageVersion,
             String failureCode, int attempts, Instant occurredAt) {}
+
+    record RedriveAuditEntry(UUID auditId, UUID deadEventId, UUID redriveEventId, UUID operationId,
+            String actorId, String reason, Instant occurredAt) {}
 
     record RedriveCommand(TenantId tenantId, ApplicationInstallationId installationId,
             String actorId, String reason, String idempotencyKeySha256, Instant now) {
@@ -31,6 +35,8 @@ public interface ApplicationInstallationOperationsPort {
                 throw new IllegalArgumentException("redrive reason must contain 1 to 500 characters");
             if (idempotencyKeySha256 == null || !idempotencyKeySha256.matches("^[a-f0-9]{64}$"))
                 throw new IllegalArgumentException("idempotency key must be lowercase SHA-256 hex");
+            actorId = actorId.trim();
+            reason = reason.trim();
         }
     }
 
