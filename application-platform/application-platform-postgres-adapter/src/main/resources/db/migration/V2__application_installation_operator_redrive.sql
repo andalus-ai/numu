@@ -4,6 +4,8 @@ ALTER TABLE application_installation_outbox
 UPDATE application_installation_outbox SET operation_id = event_id WHERE operation_id IS NULL;
 ALTER TABLE application_installation_outbox ALTER COLUMN operation_id SET NOT NULL;
 ALTER TABLE application_installation_outbox ALTER COLUMN operation_id SET DEFAULT gen_random_uuid();
+ALTER TABLE application_installation_outbox
+    ADD CONSTRAINT uq_application_installation_outbox_tenant_event UNIQUE (tenant_id, event_id);
 CREATE INDEX ix_application_installation_outbox_operation
     ON application_installation_outbox (tenant_id, operation_id, occurred_at);
 
