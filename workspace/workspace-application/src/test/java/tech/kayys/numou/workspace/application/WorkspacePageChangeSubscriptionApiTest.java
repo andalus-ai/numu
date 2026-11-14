@@ -60,7 +60,7 @@ class WorkspacePageChangeSubscriptionApiTest {
         assertEquals(0, registrations.get());
 
         WorkspacePageChangeSubscriptionApi missing = new WorkspacePageChangeSubscriptionApi(
-                () -> new WorkspaceApi.AuthenticatedActor(tenant, actor), repository(tenant, page, true), (t, a, r, id, action) -> {}, (t, id, listener) -> {
+                () -> new WorkspaceApi.AuthenticatedActor(tenant, actor), repository(tenant, page, true), (t, a, r, id, action) -> {}, (t, subscribedActor, id, listener) -> {
                     registrations.incrementAndGet(); return () -> {};
                 });
         assertEquals(404, assertThrows(WorkspaceApi.ApiException.class,
@@ -71,7 +71,7 @@ class WorkspacePageChangeSubscriptionApiTest {
     @Test void missingTrustedIdentityIsRejected() {
         WorkspacePageChangeSubscriptionApi api = new WorkspacePageChangeSubscriptionApi(
                 () -> null, repository(UUID.randomUUID(), null), (t, a, r, id, action) -> {},
-                (t, id, listener) -> { fail("must not subscribe"); return () -> {}; });
+                (t, subscribedActor, id, listener) -> { fail("must not subscribe"); return () -> {}; });
         assertEquals(401, assertThrows(WorkspaceApi.ApiException.class,
                 () -> api.subscribe(UUID.randomUUID(), signal -> {})).status());
     }
