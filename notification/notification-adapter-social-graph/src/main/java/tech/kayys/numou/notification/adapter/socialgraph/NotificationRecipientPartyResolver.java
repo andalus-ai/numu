@@ -7,11 +7,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Host-owned mapping from the Notification recipient identity to the canonical
- * Ecosystem Party. Implementations must resolve an active, tenant-scoped
- * association; UUID equality is not an identity mapping.
+ * Host-owned tenant-scoped identity bridge. Both recipient identity and the
+ * attributed source Party must resolve to active canonical Parties in the
+ * notification tenant. UUID equality is not an identity mapping.
  */
-@FunctionalInterface
 public interface NotificationRecipientPartyResolver {
-    Optional<PartyId> resolve(TenantId tenantId, UUID notificationRecipientId);
+    Optional<PartyId> resolveRecipient(TenantId tenantId, UUID notificationRecipientId);
+
+    /** Validates that the attributed source Party exists and is active in this tenant. */
+    Optional<PartyId> resolveSourceActor(TenantId tenantId, UUID canonicalSourcePartyId);
 }
