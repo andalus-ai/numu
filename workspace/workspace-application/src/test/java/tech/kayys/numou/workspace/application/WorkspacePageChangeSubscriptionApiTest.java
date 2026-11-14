@@ -76,6 +76,32 @@ class WorkspacePageChangeSubscriptionApiTest {
                 () -> api.subscribe(UUID.randomUUID(), signal -> {})).status());
     }
 
+
+    @Test void permissionRevocationClosesSubscriptionBeforeDeliveringNextSignal() {
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), pageId = UUID.randomUUID();
+        Page page = new Page(pageId, tenant, UUID.randomUUID(), UUID.randomUUID(), null,
+                "Page", List.of(), 1, Instant.EPOCH, Instant.EPOCH);
+        java.util.concurrent.atomic.AtomicBoolean allowed = new java.util.concurrent.atomic.AtomicBoolean(true);
+        @SuppressWarnings("unchecked")
+        Consumer<WorkspacePageChangeSignal>[] registered = new Consumer[1];
+        AtomicInteger closeCalls = new AtomicInteger();
+        WorkspacePageChangeSubscriptionApi api = new WorkspacePageChangeSubscriptionApi(
+                () -> new WorkspaceApi.AuthenticatedActor(tenant, actor), repository(tenant, page),
+                (t, a, resource, id, action) -> {
+                    if (!allowed.get()) throw new SecurityException("revoked");
+                },
+                (t, subscribedActor, id, listener) -> {
+                    registered[0] = listener;
+                    return closeCalls::incrementAndGet;
+                });
+        List<WorkspacePageChangeSignal> received = new ArrayList<>();
+        api.subscribe(pageId, received::add);
+        allowed.set(false);
+        registered[0].accept(signal(tenant, pageId));
+        assertTrue(received.isEmpty());
+        assertEquals(1, closeCalls.get());
+    }
+
     private static PageRepository repository(UUID tenant, Page page) { return repository(tenant, page, false); }
 
     private static PageRepository repository(UUID tenant, Page page, boolean forceMissing) {
