@@ -116,7 +116,7 @@ class PostgresFeedbackOutboxStoreTest {
         for (String migration : new String[] {
                 "V1__feedback_foundation.sql",
                 "V2__feedback_attachments.sql",
-                "V3__feedback_outbox_leases_and_dead_letters.sql"
+                "V4__feedback_outbox_leases_and_dead_letters.sql"
         }) {
             String sql = Files.readString(Path.of("src/main/resources/db/migration/" + migration));
             try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
