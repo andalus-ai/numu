@@ -187,6 +187,242 @@ public final class PostgresFeedbackSurveyRepository
         }
     }
 
+    @Override
+    public ReservationResult reserveResponse(TenantId tenantId, UUID distributionId,
+                                             String responseId, java.time.Instant now) {
+        if (responseId == null || responseId.isBlank() || responseId.length() > 200)
+            throw new IllegalArgumentException("responseId must contain 1..200 characters");
+        String lockDistribution = """
+                SELECT status, expires_at, max_responses, accepted_responses, reserved_responses
+                  FROM feedback_survey_distributions
+                 WHERE tenant_id = ? AND id = ? FOR UPDATE
+                """;
+        try (Connection c = dataSource.getConnection()) {
+            boolean autoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+            try {
+                String status;
+                java.time.Instant expiresAt;
+                int max;
+                int accepted;
+                int reserved;
+                try (PreparedStatement s = c.prepareStatement(lockDistribution)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    try (ResultSet r = s.executeQuery()) {
+                        if (!r.next()) { c.commit(); return ReservationResult.NOT_ACTIVE; }
+                        status = r.getString("status");
+                        expiresAt = r.getTimestamp("expires_at").toInstant();
+                        max = r.getInt("max_responses");
+                        accepted = r.getInt("accepted_responses");
+                        reserved = r.getInt("reserved_responses");
+                    }
+                }
+                if (!"ACTIVE".equals(status) || !expiresAt.isAfter(now)) {
+                    c.commit();
+                    return ReservationResult.NOT_ACTIVE;
+                }
+
+                String claimStatus = null;
+                java.time.Instant claimUpdatedAt = null;
+                try (PreparedStatement s = c.prepareStatement("""
+                        SELECT claim_status, updated_at FROM feedback_survey_distribution_response_claims
+                         WHERE tenant_id = ? AND distribution_id = ? AND response_id = ? FOR UPDATE
+                        """)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    s.setString(3, responseId.trim());
+                    try (ResultSet r = s.executeQuery()) {
+                        if (r.next()) { claimStatus = r.getString(1); claimUpdatedAt = r.getTimestamp(2).toInstant(); }
+                    }
+                }
+                if ("COMPLETED".equals(claimStatus)) { c.commit(); return ReservationResult.ALREADY_COMPLETED; }
+                if ("RESERVED".equals(claimStatus)) {
+                    if (claimUpdatedAt.isAfter(now.minus(java.time.Duration.ofMinutes(5)))) {
+                        c.commit();
+                        return ReservationResult.ALREADY_RESERVED;
+                    }
+                    try (PreparedStatement s = c.prepareStatement("""
+                            UPDATE feedback_survey_distribution_response_claims SET updated_at = ?
+                             WHERE tenant_id = ? AND distribution_id = ? AND response_id = ? AND claim_status = 'RESERVED'
+                            """)) {
+                        s.setTimestamp(1, Timestamp.from(now));
+                        s.setObject(2, tenantId.value());
+                        s.setObject(3, distributionId);
+                        s.setString(4, responseId.trim());
+                        if (s.executeUpdate() != 1) throw new IllegalStateException("Survey response reservation changed concurrently");
+                    }
+                    c.commit();
+                    return ReservationResult.RESERVED;
+                }
+                if (accepted + reserved >= max) { c.commit(); return ReservationResult.LIMIT_REACHED; }
+
+                try (PreparedStatement s = c.prepareStatement("""
+                        UPDATE feedback_survey_distributions
+                           SET reserved_responses = reserved_responses + 1
+                         WHERE tenant_id = ? AND id = ?
+                        """)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    if (s.executeUpdate() != 1) throw new IllegalStateException("Survey distribution disappeared");
+                }
+                if ("RELEASED".equals(claimStatus)) {
+                    try (PreparedStatement s = c.prepareStatement("""
+                            UPDATE feedback_survey_distribution_response_claims
+                               SET claim_status = 'RESERVED', updated_at = ?
+                             WHERE tenant_id = ? AND distribution_id = ? AND response_id = ? AND claim_status = 'RELEASED'
+                            """)) {
+                        s.setTimestamp(1, Timestamp.from(now));
+                        s.setObject(2, tenantId.value());
+                        s.setObject(3, distributionId);
+                        s.setString(4, responseId.trim());
+                        if (s.executeUpdate() != 1) throw new IllegalStateException("Survey response claim changed concurrently");
+                    }
+                } else {
+                    try (PreparedStatement s = c.prepareStatement("""
+                            INSERT INTO feedback_survey_distribution_response_claims
+                            (tenant_id, distribution_id, response_id, claim_status, created_at, updated_at)
+                            VALUES (?, ?, ?, 'RESERVED', ?, ?)
+                            """)) {
+                        s.setObject(1, tenantId.value());
+                        s.setObject(2, distributionId);
+                        s.setString(3, responseId.trim());
+                        s.setTimestamp(4, Timestamp.from(now));
+                        s.setTimestamp(5, Timestamp.from(now));
+                        s.executeUpdate();
+                    }
+                }
+                c.commit();
+                return ReservationResult.RESERVED;
+            } catch (SQLException | RuntimeException failure) {
+                c.rollback();
+                throw failure;
+            } finally {
+                c.setAutoCommit(autoCommit);
+            }
+        } catch (SQLException e) {
+            throw new FeedbackPersistenceException("Unable to reserve survey response quota", e);
+        }
+    }
+
+    @Override
+    public void completeResponse(TenantId tenantId, UUID distributionId, String responseId,
+                                 java.time.Instant completedAt) {
+        updateClaim(tenantId, distributionId, responseId, completedAt, true);
+    }
+
+    @Override
+    public void releaseResponse(TenantId tenantId, UUID distributionId, String responseId,
+                                java.time.Instant releasedAt) {
+        updateClaim(tenantId, distributionId, responseId, releasedAt, false);
+    }
+
+    private void updateClaim(TenantId tenantId, UUID distributionId, String responseId,
+                             java.time.Instant changedAt, boolean complete) {
+        try (Connection c = dataSource.getConnection()) {
+            boolean autoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+            try {
+                // Keep lock ordering consistent with reserveResponse: distribution row first, claim second.
+                try (PreparedStatement s = c.prepareStatement("""
+                        SELECT id FROM feedback_survey_distributions
+                         WHERE tenant_id = ? AND id = ? FOR UPDATE
+                        """)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    try (ResultSet r = s.executeQuery()) {
+                        if (!r.next()) throw new IllegalStateException("Survey distribution does not exist");
+                    }
+                }
+                String status = null;
+                try (PreparedStatement s = c.prepareStatement("""
+                        SELECT claim_status FROM feedback_survey_distribution_response_claims
+                         WHERE tenant_id = ? AND distribution_id = ? AND response_id = ? FOR UPDATE
+                        """)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    s.setString(3, responseId);
+                    try (ResultSet r = s.executeQuery()) { if (r.next()) status = r.getString(1); }
+                }
+                if (complete && "COMPLETED".equals(status)) { c.commit(); return; }
+                if (!complete && ("RELEASED".equals(status) || "COMPLETED".equals(status))) { c.commit(); return; }
+                if (!"RESERVED".equals(status)) throw new IllegalStateException("No active quota reservation for survey response");
+                String updateClaim = """
+                        UPDATE feedback_survey_distribution_response_claims
+                           SET claim_status = ?, updated_at = ?
+                         WHERE tenant_id = ? AND distribution_id = ? AND response_id = ? AND claim_status = 'RESERVED'
+                        """;
+                try (PreparedStatement s = c.prepareStatement(updateClaim)) {
+                    s.setString(1, complete ? "COMPLETED" : "RELEASED");
+                    s.setTimestamp(2, Timestamp.from(changedAt));
+                    s.setObject(3, tenantId.value());
+                    s.setObject(4, distributionId);
+                    s.setString(5, responseId);
+                    if (s.executeUpdate() != 1) throw new IllegalStateException("Survey response claim changed concurrently");
+                }
+                String updateCounts = complete
+                        ? "UPDATE feedback_survey_distributions SET reserved_responses = reserved_responses - 1, accepted_responses = accepted_responses + 1 WHERE tenant_id = ? AND id = ? AND reserved_responses > 0"
+                        : "UPDATE feedback_survey_distributions SET reserved_responses = reserved_responses - 1 WHERE tenant_id = ? AND id = ? AND reserved_responses > 0";
+                try (PreparedStatement s = c.prepareStatement(updateCounts)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    if (s.executeUpdate() != 1) throw new IllegalStateException("Survey distribution reservation counter is inconsistent");
+                }
+                c.commit();
+            } catch (SQLException | RuntimeException failure) {
+                c.rollback();
+                throw failure;
+            } finally {
+                c.setAutoCommit(autoCommit);
+            }
+        } catch (SQLException e) {
+            throw new FeedbackPersistenceException("Unable to update survey response quota claim", e);
+        }
+    }
+
+    @Override
+    public boolean revoke(TenantId tenantId, UUID distributionId, java.time.Instant revokedAt) {
+        try (Connection c = dataSource.getConnection()) {
+            boolean autoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+            try {
+                int changed;
+                try (PreparedStatement s = c.prepareStatement("""
+                        UPDATE feedback_survey_distributions SET status = 'REVOKED'
+                         WHERE tenant_id = ? AND id = ? AND status = 'ACTIVE'
+                        """)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    changed = s.executeUpdate();
+                }
+                if (changed == 1) {
+                    String payload = "{\\"distributionId\\":\\"" + distributionId + "\\"}";
+                    try (PreparedStatement s = c.prepareStatement("""
+                            INSERT INTO feedback_engagement_outbox
+                            (event_id, tenant_id, aggregate_type, aggregate_id, event_type, event_version, payload, occurred_at)
+                            VALUES (?, ?, 'SURVEY_DISTRIBUTION', ?, 'feedback.survey-distribution-revoked.v1', 1, ?::jsonb, ?)
+                            """)) {
+                        s.setObject(1, UUID.randomUUID());
+                        s.setObject(2, tenantId.value());
+                        s.setObject(3, distributionId);
+                        s.setString(4, payload);
+                        s.setTimestamp(5, Timestamp.from(revokedAt));
+                        s.executeUpdate();
+                    }
+                }
+                c.commit();
+                return changed == 1;
+            } catch (SQLException | RuntimeException failure) {
+                c.rollback();
+                throw failure;
+            } finally {
+                c.setAutoCommit(autoCommit);
+            }
+        } catch (SQLException e) {
+            throw new FeedbackPersistenceException("Unable to revoke survey distribution", e);
+        }
+    }
+
     private FeedbackSurveyTemplate mapTemplate(ResultSet r) throws SQLException {
         Timestamp published = r.getTimestamp("published_at");
         return new FeedbackSurveyTemplate(TenantId.of(r.getObject("tenant_id", UUID.class)),
