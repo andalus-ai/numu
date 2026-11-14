@@ -512,6 +512,39 @@ public final class PostgresApplicationInstallationStore
     }
 
     @Override
+    public CompletionStage<List<RedriveAuditEntry>> redriveHistory(TenantId tenantId,
+            ApplicationInstallationId installationId, int limit) {
+        if (tenantId == null || installationId == null || limit < 1 || limit > 100)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("tenant, installation and bounded limit are required"));
+        String sql = """
+                SELECT audit_id,dead_event_id,redrive_event_id,operation_id,actor_id,reason,occurred_at
+                FROM application_installation_redrive_audit
+                WHERE tenant_id=? AND installation_id=?
+                ORDER BY occurred_at DESC,audit_id DESC LIMIT ?
+                """;
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            setTenant(connection, tenantId);
+            List<RedriveAuditEntry> entries = new ArrayList<>();
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setObject(1, tenantId.value());
+                statement.setObject(2, installationId.value());
+                statement.setInt(3, limit);
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) entries.add(new RedriveAuditEntry(
+                            result.getObject(1, UUID.class), result.getObject(2, UUID.class),
+                            result.getObject(3, UUID.class), result.getObject(4, UUID.class),
+                            result.getString(5), result.getString(6), result.getTimestamp(7).toInstant()));
+                }
+            }
+            connection.commit();
+            return CompletableFuture.completedFuture(List.copyOf(entries));
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("read installation redrive audit", failure));
+        }
+    }
+
+    @Override
     public CompletionStage<RedriveResult> redrive(RedriveCommand command) {
         Objects.requireNonNull(command, "command");
         String fingerprint = sha256(command.installationId().value() + "\u0000"
