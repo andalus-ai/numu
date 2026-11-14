@@ -231,3 +231,30 @@ The application exposes `SocialGraphInteractionPolicyService` for consuming capa
 - This is an application contract, not an implicit dependency from Notification or Feed into Social Graph. Hosts compose an adapter at the boundary and must supply canonical tenant-scoped Party IDs from trusted identity/domain records. Do not parse Party IDs from untrusted notification text or source-reference strings.
 
 The consumer still owns profile visibility, consent, moderation, notification preferences unrelated to Social Graph, recipient eligibility, rate limits and transport/provider behavior. No feed API, message service, notification mutation or public discovery endpoint is introduced by this increment.
+
+
+## M2g Notification delivery integration
+
+The optional `notification/notification-adapter-social-graph` artifact composes
+Notification's required `NotificationDeliveryPolicy` worker port with
+`SocialGraphInteractionPolicyService`. Notification remains the owner of
+inbox and delivery-job state; Social Graph remains the owner of BLOCK/MUTE
+semantics. Neither module accesses the other's persistence tables.
+
+For social-originated notifications, trusted producers persist the canonical
+source `PartyId` as `sourceActorPartyId`. The host supplies a
+`NotificationRecipientPartyResolver` that resolves the notification recipient
+to an active canonical Party in the same tenant. The adapter evaluates the
+recipient as viewer and source Party as author. It never assumes UUID equality
+between Notification recipient IDs and Ecosystem Party IDs.
+
+BLOCK and recipient-owned MUTE produce durable `SUPPRESSED` delivery jobs.
+An unresolved recipient Party also suppresses rather than bypassing policy.
+Policy infrastructure failures are retried without calling the provider.
+System-originated notifications with no source Party skip relationship
+checks because there is no social author. Producers must attach canonical
+source attribution for Party-authored content/actions; all other host-owned
+consent, visibility, moderation and recipient eligibility checks still apply.
+
+See [M2g Notification delivery suppression](../../../docs/architecture/SOCIAL-GRAPH-M2G-NOTIFICATION-DELIVERY.md)
+for schema, composition and verification details.

@@ -47,16 +47,20 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
-      - name: Build and install Social Graph plus required framework artifacts
-        run: >-
-          mvn -B -ntp -f core/framework/pom.xml
-          -pl foundation/numou-foundation-domain,foundation/numou-foundation-testing,social-graph/social-graph-persistence-jdbc
-          -am install
-      - name: Install Social Graph, Ecosystem, and Security API prerequisites
-        run: >-
-          mvn -B -ntp -f core/framework/pom.xml
-          -pl :numou-social-graph-persistence-jdbc,:numou-ecosystem-persistence-jdbc,:numou-foundation-adapter,:numou-cache-api,:numou-cache-adapter,:numou-observability-application
-          -am install
+      - name: Install shared framework parent POM
+        run: mvn -B -ntp -f core/framework/parent/pom.xml install
+      - name: Install framework aggregator POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Install Foundation contracts
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Install Ecosystem contracts
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Install Social Graph domain, application, and PostgreSQL adapter
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
+      - name: Install Cache contracts
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
+      - name: Install Observability API and application contracts
+        run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
       - name: Verify SecurityContext Social Graph adapter
         run: mvn -B -ntp -f security/pom.xml -pl social-graph-adapter -am verify
       - name: Upload Social Graph Maven test reports

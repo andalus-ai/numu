@@ -11,7 +11,7 @@ public record NotificationDeliveryJob(
         Instant createdAt, Instant nextAttemptAt, UUID leaseToken, Instant leaseUntil,
         Instant deliveredAt, String lastErrorCode) {
 
-    public enum Status { PENDING, IN_FLIGHT, RETRY_WAIT, DELIVERED, DEAD }
+    public enum Status { PENDING, IN_FLIGHT, RETRY_WAIT, DELIVERED, DEAD, SUPPRESSED }
     public static final int MAX_PROVIDER_LENGTH = 40;
     public static final int MAX_IDEMPOTENCY_KEY_LENGTH = 240;
     public static final int MAX_ERROR_CODE_LENGTH = 120;
@@ -90,6 +90,14 @@ public record NotificationDeliveryJob(
         return new NotificationDeliveryJob(id, tenantId, recipientId, notificationId, deviceId,
                 provider, idempotencyKey, Status.DEAD, attemptCount, createdAt, nextAttemptAt,
                 null, null, null, errorCode);
+    }
+
+    /** Terminal policy outcome; distinct from provider failure/dead-letter. */
+    public NotificationDeliveryJob suppressed(UUID token, String reasonCode) {
+        requireLease(token);
+        return new NotificationDeliveryJob(id, tenantId, recipientId, notificationId, deviceId,
+                provider, idempotencyKey, Status.SUPPRESSED, attemptCount, createdAt, nextAttemptAt,
+                null, null, null, reasonCode);
     }
 
     private void requireLease(UUID token) {
