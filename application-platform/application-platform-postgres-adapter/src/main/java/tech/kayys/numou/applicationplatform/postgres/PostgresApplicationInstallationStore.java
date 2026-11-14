@@ -1,6 +1,8 @@
 package tech.kayys.numou.applicationplatform.postgres;
 
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOutboxStore;
+import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOperationsPort;
+import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOperationsPort.*;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationQueryPort;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationStore;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationTransitionStore;
@@ -24,7 +26,8 @@ import java.util.concurrent.CompletionStage;
  */
 public final class PostgresApplicationInstallationStore
         implements ApplicationInstallationStore, ApplicationInstallationTransitionStore,
-                   ApplicationInstallationOutboxStore, ApplicationInstallationQueryPort {
+                   ApplicationInstallationOutboxStore, ApplicationInstallationQueryPort,
+                   ApplicationInstallationOperationsPort {
     private static final String SELECT_INSTALLATION = """
             SELECT id, tenant_id, application_id, package_version, package_digest, status,
                    revision, created_at, updated_at, created_by, updated_by, failure_code
@@ -218,7 +221,7 @@ public final class PostgresApplicationInstallationStore
                     FROM candidates c WHERE o.event_id=c.event_id
                     RETURNING o.event_id,o.installation_id,o.application_id,o.package_version,o.package_digest,
                               o.event_type,o.to_status,o.revision,o.actor_id,o.correlation_id,o.reason_code,o.occurred_at,
-                              o.attempts,o.lease_owner,o.lease_token,o.lease_until
+                              o.attempts,o.lease_owner,o.lease_token,o.lease_until,o.operation_id
                     """;
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
@@ -239,7 +242,7 @@ public final class PostgresApplicationInstallationStore
                                     result.getString(6), result.getString(7), result.getLong(8),
                                     result.getString(9), result.getString(10), result.getString(11), result.getTimestamp(12).toInstant(),
                                     result.getInt(13), result.getString(14), result.getObject(15, UUID.class),
-                                    result.getTimestamp(16).toInstant()));
+                                    result.getTimestamp(16).toInstant(), result.getObject(17, UUID.class)));
                         }
                     }
                     connection.commit();
@@ -440,6 +443,275 @@ public final class PostgresApplicationInstallationStore
             statement.setTimestamp(10, Timestamp.from(now));
             statement.setTimestamp(11, Timestamp.from(now));
             statement.executeUpdate();
+        }
+    }
+
+    @Override
+    public CompletionStage<List<TransitionEntry>> history(TenantId tenantId,
+            ApplicationInstallationId installationId, int limit) {
+        if (tenantId == null || installationId == null || limit < 1 || limit > 100)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("tenant, installation and bounded limit are required"));
+        String sql = """
+                SELECT event_id,from_status,to_status,revision,actor_id,correlation_id,occurred_at,reason_code
+                FROM application_installation_transitions
+                WHERE tenant_id=? AND installation_id=?
+                ORDER BY revision DESC,event_id DESC LIMIT ?
+                """;
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            setTenant(connection, tenantId);
+            List<TransitionEntry> entries = new ArrayList<>();
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setObject(1, tenantId.value());
+                statement.setObject(2, installationId.value());
+                statement.setInt(3, limit);
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) entries.add(new TransitionEntry(
+                            result.getObject(1, UUID.class), result.getString(2), result.getString(3),
+                            result.getLong(4), result.getString(5), result.getString(6),
+                            result.getTimestamp(7).toInstant(), result.getString(8)));
+                }
+            }
+            connection.commit();
+            return CompletableFuture.completedFuture(List.copyOf(entries));
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("read installation transition history", failure));
+        }
+    }
+
+    @Override
+    public CompletionStage<List<DeadLetterEntry>> deadLetters(TenantId tenantId, int limit) {
+        if (tenantId == null || limit < 1 || limit > 100)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("tenant and bounded limit are required"));
+        String sql = """
+                SELECT event_id,installation_id,application_id,package_version,last_failure_code,attempts,occurred_at
+                FROM application_installation_outbox
+                WHERE tenant_id=? AND delivery_status='DEAD'
+                  AND event_type IN ('APPLICATION_INSTALLATION_REQUESTED','APPLICATION_INSTALLATION_RETRY_REQUESTED')
+                ORDER BY occurred_at DESC,event_id DESC LIMIT ?
+                """;
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            setTenant(connection, tenantId);
+            List<DeadLetterEntry> entries = new ArrayList<>();
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setObject(1, tenantId.value());
+                statement.setInt(2, limit);
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) entries.add(new DeadLetterEntry(
+                            result.getObject(1, UUID.class), result.getObject(2, UUID.class),
+                            result.getString(3), result.getString(4), result.getString(5),
+                            result.getInt(6), result.getTimestamp(7).toInstant()));
+                }
+            }
+            connection.commit();
+            return CompletableFuture.completedFuture(List.copyOf(entries));
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("inspect installation dead letters", failure));
+        }
+    }
+
+    @Override
+    public CompletionStage<List<RedriveAuditEntry>> redriveHistory(TenantId tenantId,
+            ApplicationInstallationId installationId, int limit) {
+        if (tenantId == null || installationId == null || limit < 1 || limit > 100)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("tenant, installation and bounded limit are required"));
+        String sql = """
+                SELECT audit_id,dead_event_id,redrive_event_id,operation_id,actor_id,reason,occurred_at
+                FROM application_installation_redrive_audit
+                WHERE tenant_id=? AND installation_id=?
+                ORDER BY occurred_at DESC,audit_id DESC LIMIT ?
+                """;
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            setTenant(connection, tenantId);
+            List<RedriveAuditEntry> entries = new ArrayList<>();
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setObject(1, tenantId.value());
+                statement.setObject(2, installationId.value());
+                statement.setInt(3, limit);
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) entries.add(new RedriveAuditEntry(
+                            result.getObject(1, UUID.class), result.getObject(2, UUID.class),
+                            result.getObject(3, UUID.class), result.getObject(4, UUID.class),
+                            result.getString(5), result.getString(6), result.getTimestamp(7).toInstant()));
+                }
+            }
+            connection.commit();
+            return CompletableFuture.completedFuture(List.copyOf(entries));
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("read installation redrive audit", failure));
+        }
+    }
+
+    @Override
+    public CompletionStage<RedriveResult> redrive(RedriveCommand command) {
+        Objects.requireNonNull(command, "command");
+        String fingerprint = sha256(command.installationId().value() + "\u0000"
+                + command.actorId() + "\u0000" + command.reason().trim());
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                setTenant(connection, command.tenantId());
+                try (PreparedStatement lock = connection.prepareStatement(
+                        "SELECT pg_advisory_xact_lock(hashtextextended(? || ':' || ?, 0))")) {
+                    lock.setString(1, command.tenantId().value().toString());
+                    lock.setString(2, command.idempotencyKeySha256());
+                    lock.execute();
+                }
+                String replaySql = """
+                        SELECT request_fingerprint,redrive_event_id,operation_id
+                        FROM application_installation_redrive_audit
+                        WHERE tenant_id=? AND idempotency_key_sha256=? FOR UPDATE
+                        """;
+                try (PreparedStatement statement = connection.prepareStatement(replaySql)) {
+                    statement.setObject(1, command.tenantId().value());
+                    statement.setString(2, command.idempotencyKeySha256());
+                    try (ResultSet result = statement.executeQuery()) {
+                        if (result.next()) {
+                            if (!fingerprint.equals(result.getString(1))) {
+                                connection.commit();
+                                return CompletableFuture.completedFuture(new RedriveResult(
+                                        RedriveResult.Outcome.CONFLICT, null, null));
+                            }
+                            RedriveResult replay = new RedriveResult(RedriveResult.Outcome.REPLAYED,
+                                    result.getObject(2, UUID.class), result.getObject(3, UUID.class));
+                            connection.commit();
+                            return CompletableFuture.completedFuture(replay);
+                        }
+                    }
+                }
+
+                Optional<ApplicationInstallation> found;
+                try (PreparedStatement statement = connection.prepareStatement(SELECT_INSTALLATION + " FOR UPDATE")) {
+                    statement.setObject(1, command.tenantId().value());
+                    statement.setObject(2, command.installationId().value());
+                    try (ResultSet result = statement.executeQuery()) {
+                        found = result.next() ? Optional.of(readInstallation(result)) : Optional.empty();
+                    }
+                }
+                if (found.isEmpty() || found.get().status() != ApplicationInstallationStatus.FAILED) {
+                    connection.commit();
+                    return CompletableFuture.completedFuture(new RedriveResult(
+                            RedriveResult.Outcome.NOT_REDRIVABLE, null, null));
+                }
+                ApplicationInstallation installation = found.get();
+
+                UUID deadEventId;
+                UUID operationId;
+                String deadSql = """
+                        SELECT event_id,operation_id FROM application_installation_outbox
+                        WHERE tenant_id=? AND installation_id=? AND delivery_status='DEAD'
+                          AND event_type IN ('APPLICATION_INSTALLATION_REQUESTED','APPLICATION_INSTALLATION_RETRY_REQUESTED')
+                        ORDER BY occurred_at DESC,event_id DESC LIMIT 1 FOR UPDATE
+                        """;
+                try (PreparedStatement statement = connection.prepareStatement(deadSql)) {
+                    statement.setObject(1, command.tenantId().value());
+                    statement.setObject(2, command.installationId().value());
+                    try (ResultSet result = statement.executeQuery()) {
+                        if (!result.next()) {
+                            connection.commit();
+                            return CompletableFuture.completedFuture(new RedriveResult(
+                                    RedriveResult.Outcome.NOT_REDRIVABLE, null, null));
+                        }
+                        deadEventId = result.getObject(1, UUID.class);
+                        operationId = result.getObject(2, UUID.class);
+                    }
+                }
+
+                long expectedRevision = installation.revision();
+                ApplicationInstallationTransition transition = installation.retry(
+                        command.actorId(), "OPERATOR_REDRIVE", command.now());
+                String update = """
+                        UPDATE application_installations
+                        SET status='VALIDATING',revision=?,updated_at=?,updated_by=?,failure_code=NULL
+                        WHERE tenant_id=? AND id=? AND revision=? AND status='FAILED'
+                        """;
+                try (PreparedStatement statement = connection.prepareStatement(update)) {
+                    statement.setLong(1, installation.revision());
+                    statement.setTimestamp(2, Timestamp.from(installation.updatedAt()));
+                    statement.setString(3, installation.updatedBy());
+                    statement.setObject(4, command.tenantId().value());
+                    statement.setObject(5, command.installationId().value());
+                    statement.setLong(6, expectedRevision);
+                    if (statement.executeUpdate() != 1) {
+                        connection.rollback();
+                        return CompletableFuture.completedFuture(new RedriveResult(
+                                RedriveResult.Outcome.NOT_REDRIVABLE, null, null));
+                    }
+                }
+
+                UUID redriveEventId = UUID.randomUUID();
+                String transitionSql = """
+                        INSERT INTO application_installation_transitions
+                          (event_id,tenant_id,installation_id,application_id,from_status,to_status,revision,
+                           actor_id,correlation_id,occurred_at,reason_code)
+                        VALUES (?,?,?,?,'FAILED','VALIDATING',?,?,?,?,'OPERATOR_REDRIVE')
+                        """;
+                try (PreparedStatement statement = connection.prepareStatement(transitionSql)) {
+                    statement.setObject(1, redriveEventId);
+                    statement.setObject(2, command.tenantId().value());
+                    statement.setObject(3, command.installationId().value());
+                    statement.setString(4, installation.applicationId().value());
+                    statement.setLong(5, installation.revision());
+                    statement.setString(6, command.actorId());
+                    statement.setString(7, "OPERATOR_REDRIVE");
+                    statement.setTimestamp(8, Timestamp.from(command.now()));
+                    statement.executeUpdate();
+                }
+                String outboxSql = """
+                        INSERT INTO application_installation_outbox
+                          (event_id,tenant_id,installation_id,application_id,package_version,package_digest,
+                           event_type,to_status,revision,actor_id,correlation_id,reason_code,occurred_at,available_at,operation_id)
+                        VALUES (?,?,?,?,?,?,'APPLICATION_INSTALLATION_RETRY_REQUESTED','VALIDATING',?,
+                                ?,?,'OPERATOR_REDRIVE',?,?,?)
+                        """;
+                try (PreparedStatement statement = connection.prepareStatement(outboxSql)) {
+                    statement.setObject(1, redriveEventId);
+                    statement.setObject(2, command.tenantId().value());
+                    statement.setObject(3, command.installationId().value());
+                    statement.setString(4, installation.applicationId().value());
+                    statement.setString(5, installation.packageVersion().value());
+                    statement.setString(6, installation.packageDigest());
+                    statement.setLong(7, installation.revision());
+                    statement.setString(8, command.actorId());
+                    statement.setString(9, "OPERATOR_REDRIVE");
+                    statement.setTimestamp(10, Timestamp.from(command.now()));
+                    statement.setTimestamp(11, Timestamp.from(command.now()));
+                    statement.setObject(12, operationId);
+                    statement.executeUpdate();
+                }
+                String auditSql = """
+                        INSERT INTO application_installation_redrive_audit
+                          (audit_id,tenant_id,installation_id,dead_event_id,redrive_event_id,operation_id,
+                           idempotency_key_sha256,request_fingerprint,actor_id,reason,occurred_at)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                        """;
+                try (PreparedStatement statement = connection.prepareStatement(auditSql)) {
+                    statement.setObject(1, UUID.randomUUID());
+                    statement.setObject(2, command.tenantId().value());
+                    statement.setObject(3, command.installationId().value());
+                    statement.setObject(4, deadEventId);
+                    statement.setObject(5, redriveEventId);
+                    statement.setObject(6, operationId);
+                    statement.setString(7, command.idempotencyKeySha256());
+                    statement.setString(8, fingerprint);
+                    statement.setString(9, command.actorId());
+                    statement.setString(10, command.reason().trim());
+                    statement.setTimestamp(11, Timestamp.from(command.now()));
+                    statement.executeUpdate();
+                }
+                connection.commit();
+                return CompletableFuture.completedFuture(new RedriveResult(
+                        RedriveResult.Outcome.QUEUED, redriveEventId, operationId));
+            } catch (SQLException | RuntimeException failure) {
+                rollback(connection, failure);
+                throw failure;
+            }
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("redrive failed installation", failure));
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
         }
     }
 
