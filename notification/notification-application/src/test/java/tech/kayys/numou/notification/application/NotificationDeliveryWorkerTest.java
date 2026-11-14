@@ -56,6 +56,41 @@ class NotificationDeliveryWorkerTest {
         assertTrue(jobs.delivered);
     }
 
+    @Test
+    void mutedNotificationIsSuppressedBeforeProviderDispatch() {
+        UUID tenant = UUID.randomUUID(), recipient = UUID.randomUUID();
+        Notification notification = Notification.create(tenant, recipient, "social.reply",
+                "New reply", "A person replied", "post:1", "notification-muted", UUID.randomUUID(), NOW);
+        PushDevice device = PushDevice.register(tenant, recipient, "provider-token",
+                PushDevice.Platform.ANDROID, "app", NOW);
+        NotificationDeliveryJob pending = NotificationDeliveryJob.pending(tenant, recipient,
+                notification.id(), device.id(), "TEST", "job-muted", NOW);
+        RecordingJobs jobs = new RecordingJobs(pending);
+        RecordingProvider provider = new RecordingProvider();
+        NotificationRepository notificationRepository = new NotificationRepository() {
+            public Notification createIfAbsent(Notification n) { return n; }
+            public List<Notification> findInbox(UUID t, UUID r, int limit, Instant before) { return List.of(); }
+            public Optional<Notification> findById(UUID t, UUID r, UUID id) { return Optional.of(notification); }
+            public Optional<Notification> markRead(UUID t, UUID r, UUID id, Instant at) { return Optional.empty(); }
+        };
+        PushDeviceRepository deviceRepository = new PushDeviceRepository() {
+            public PushDevice registerOrRefresh(PushDevice d) { return d; }
+            public List<PushDevice> findActiveByRecipient(UUID t, UUID r) { return List.of(device); }
+            public Optional<PushDevice> disable(UUID t, UUID r, UUID id, Instant at) { return Optional.empty(); }
+        };
+        var worker = new NotificationDeliveryWorker(jobs, notificationRepository, deviceRepository,
+                Map.of("TEST", provider),
+                n -> NotificationDeliveryPolicy.Decision.MUTED,
+                new NotificationDeliveryRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10), 0),
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), 10);
+
+        var result = worker.processBatch();
+
+        assertEquals(new NotificationDeliveryWorker.BatchResult(1, 0, 0, 0, 1), result);
+        assertNull(provider.request);
+        assertTrue(jobs.suppressed);
+    }
+
     private static final class RecordingProvider implements NotificationDeliveryProvider {
         private DeliveryRequest request;
         public String providerCode() { return "TEST"; }
@@ -70,6 +105,7 @@ class NotificationDeliveryWorkerTest {
         private NotificationDeliveryJob claimed;
         private UUID lease;
         private boolean delivered;
+        private boolean suppressed;
         RecordingJobs(NotificationDeliveryJob pending) { this.pending = pending; }
         public NotificationDeliveryJob enqueue(NotificationDeliveryJob job) { return job; }
         public List<NotificationDeliveryJob> claimDue(Instant now, Instant expiry, int limit, UUID leaseToken) {
@@ -94,7 +130,9 @@ class NotificationDeliveryWorkerTest {
             return Optional.empty();
         }
         public Optional<NotificationDeliveryJob> markSuppressed(UUID t, UUID id, UUID token, String code) {
-            return Optional.empty();
+            assertEquals("social_graph_muted", code);
+            suppressed = true;
+            return Optional.of(claimed.suppressed(token, code));
         }
     }
 }
