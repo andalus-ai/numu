@@ -75,7 +75,8 @@ public final class ApiArtifactCleanupDispatcher {
 
     private Uni<Outcome> processOne(TenantId tenant, String workerId, Instant now,
                                     int maximumAttempts, CleanupLease lease) {
-        return repository.isLeaseCurrent(tenant, lease, workerId, now, maximumAttempts)
+        Instant checkedAt = Instant.now();
+        return repository.isLeaseCurrent(tenant, lease, workerId, checkedAt, maximumAttempts)
                 .flatMap(current -> {
                     if (!current) return Uni.createFrom().item(Outcome.LEASE_LOST);
                     return deletion.delete(tenant, lease.artifactReference(), lease.sha256())
@@ -84,8 +85,8 @@ public final class ApiArtifactCleanupDispatcher {
                             .replaceWith(Outcome.DELETED);
                 })
                 .onFailure().recoverWithUni(failure ->
-                        repository.recordFailure(tenant, lease, workerId, failureCode(failure),
-                                now.plus(retryDelay(lease.attempts() + 1)), maximumAttempts)
+                        repository.recordFailure(tenant, lease, workerId, failureCode(failure), Instant.now(),
+                                Instant.now().plus(retryDelay(lease.attempts() + 1)), maximumAttempts)
                                 .replaceWith(Outcome.FAILED));
     }
 
