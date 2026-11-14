@@ -131,7 +131,7 @@ class ApiArtifactCleanupDispatcherTest {
             return Uni.createFrom().voidItem();
         }
         @Override public Uni<Void> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
-                                                 String code, Instant retry, int maximumAttempts) {
+                                                 String code, Instant failedAt, Instant retry, int maximumAttempts) {
             failureCode.set(code);
             retryAt.set(retry);
             return Uni.createFrom().voidItem();
