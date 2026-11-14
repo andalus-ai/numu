@@ -125,6 +125,27 @@ class PostgresApiProductRepositoryTest {
     .await().indefinitely()).isEmpty();
  }
 
+ @Test void expiredCleanupLeaseCannotRecordFailureOrOverwriteAudit(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"cleanup-expired-lease");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  Instant cleanupNow=Instant.now();
+  markArtifactAbandoned(tenant,product.id().value(),"1.0.0",cleanupNow.minusSeconds(60));
+
+  var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
+  var lease=cleanup.claimDue(tenant,"cleanup-worker:short-lease",cleanupNow,
+    cleanupNow.plusSeconds(1),1,5).await().indefinitely().get(0);
+  cleanup.recordFailure(tenant,lease,"cleanup-worker:short-lease","LateStorageFailure",
+    cleanupNow.plusSeconds(2),cleanupNow.plusSeconds(7),5).await().indefinitely();
+
+  assertThat(cleanup.isLeaseCurrent(tenant,lease,"cleanup-worker:short-lease",
+    cleanupNow.plusSeconds(2),5).await().indefinitely()).isFalse();
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("DELETE_PENDING");
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0")).containsExactly("CLEANUP_CLAIMED");
+ }
+
  @Test void cleanupFailureUsesBoundedAttemptsAndReleasesTheLease(){
   TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"cleanup-retry");
   repository.save(tenant,product,0).await().indefinitely();
