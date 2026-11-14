@@ -19,7 +19,7 @@ import java.util.UUID;
 public final class JdbcNotificationRepository implements NotificationRepository {
     private static final String COLUMNS =
             "id, tenant_id, recipient_id, notification_type, title, body, source_reference, " +
-            "idempotency_key, created_at, read_at";
+            "idempotency_key, created_at, read_at, source_actor_party_id";
     private final DataSource dataSource;
 
     public JdbcNotificationRepository(DataSource dataSource) {
@@ -133,7 +133,7 @@ public final class JdbcNotificationRepository implements NotificationRepository 
                 && a.type().equals(b.type())
                 && a.title().equals(b.title())
                 && a.body().equals(b.body())
-                && a.sourceReference().equals(b.sourceReference());
+                && a.sourceReference().equals(b.sourceReference())\n                && Objects.equals(a.sourceActorPartyId(), b.sourceActorPartyId());
     }
 
     private Optional<Notification> findByIdempotencyKey(
@@ -162,7 +162,7 @@ public final class JdbcNotificationRepository implements NotificationRepository 
                 row.getString("source_reference"),
                 row.getString("idempotency_key"),
                 row.getTimestamp("created_at").toInstant(),
-                readAt == null ? null : readAt.toInstant());
+                readAt == null ? null : readAt.toInstant(),\n                row.getObject("source_actor_party_id", UUID.class));
     }
 
     private static void requireScope(UUID tenantId, UUID recipientId) {
