@@ -27,8 +27,8 @@ class WorkspacePageChangeSubscriptionApiTest {
                     assertEquals(tenant, t); assertEquals(actor, a);
                     assertEquals(Resource.PAGE, resource); assertEquals(pageId, id); assertEquals(Action.READ, action);
                 },
-                (t, id, listener) -> {
-                    assertEquals(tenant, t); assertEquals(pageId, id);
+                (t, subscribedActor, id, listener) -> {
+                    assertEquals(tenant, t); assertEquals(actor, subscribedActor); assertEquals(pageId, id);
                     registered[0] = listener;
                     return closeCalls::incrementAndGet;
                 });
