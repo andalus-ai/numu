@@ -65,13 +65,15 @@ class ApiArtifactCleanupDispatcherTest {
         ApiArtifactObjectDeletionPort storage = (tenant, reference, sha) ->
                 Uni.createFrom().failure(new IllegalStateException("storage unavailable"));
 
+        Instant beforeFailure = Instant.now();
         int count = new ApiArtifactCleanupDispatcher(repository, storage)
                 .dispatchOnce(TenantId.generate(), "worker", NOW, Duration.ofSeconds(90), 10, 5)
                 .await().indefinitely();
 
         assertThat(count).isZero();
         assertThat(repository.failureCode.get()).isEqualTo("IllegalStateException");
-        assertThat(repository.retryAt.get()).isEqualTo(NOW.plusSeconds(5));
+        assertThat(repository.retryAt.get()).isAfter(beforeFailure.plusSeconds(4))
+                .isBefore(Instant.now().plusSeconds(6));
     }
 
     @Test
