@@ -26,6 +26,10 @@ class ApplicationInstallationOperationsServiceTest {
             @Override public CompletableFuture<List<DeadLetterEntry>> deadLetters(TenantId ignored, int limit) {
                 return CompletableFuture.completedFuture(List.of());
             }
+            @Override public CompletableFuture<List<RedriveAuditEntry>> redriveHistory(
+                    TenantId ignored, ApplicationInstallationId id, int limit) {
+                return CompletableFuture.completedFuture(List.of());
+            }
             @Override public CompletableFuture<RedriveResult> redrive(RedriveCommand command) {
                 redriveCalls.incrementAndGet();
                 return CompletableFuture.completedFuture(new RedriveResult(RedriveResult.Outcome.QUEUED, null, null));
