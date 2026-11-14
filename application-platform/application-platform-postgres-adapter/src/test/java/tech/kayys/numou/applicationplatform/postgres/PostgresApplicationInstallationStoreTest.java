@@ -230,6 +230,12 @@ class PostgresApplicationInstallationStoreTest {
         assertThat(history.get(0).toStatus()).isEqualTo("VALIDATING");
         assertThat(history.get(0).actorId()).isEqualTo("operator:alice");
         assertThat(history.get(0).reasonCode()).isEqualTo("OPERATOR_REDRIVE");
+        var audit = store.redriveHistory(tenant, installation.id(), 10).toCompletableFuture().join();
+        assertThat(audit).hasSize(1);
+        assertThat(audit.get(0).actorId()).isEqualTo("operator:alice");
+        assertThat(audit.get(0).reason()).isEqualTo("Verified package and corrected temporary host dependency");
+        assertThat(audit.get(0).deadEventId()).isEqualTo(original.eventId());
+        assertThat(audit.get(0).redriveEventId()).isEqualTo(queued.redriveEventId());
 
         var events = store.claimDue(tenant, "worker-b", now.plusSeconds(12), Duration.ofSeconds(30), 10)
                 .toCompletableFuture().join();
@@ -242,6 +248,7 @@ class PostgresApplicationInstallationStoreTest {
         TenantId otherTenant = TenantId.generate();
         assertThat(store.history(otherTenant, installation.id(), 10).toCompletableFuture().join()).isEmpty();
         assertThat(store.deadLetters(otherTenant, 10).toCompletableFuture().join()).isEmpty();
+        assertThat(store.redriveHistory(otherTenant, installation.id(), 10).toCompletableFuture().join()).isEmpty();
     }
 
     @Test
