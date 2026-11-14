@@ -31,7 +31,10 @@ class PostgresFeedbackEngagementRepositoryTest {
     static void setUpSchema() throws Exception {
         DataSource dataSource = dataSource();
         executeMigration(dataSource, "V1__feedback_foundation.sql");
-        executeMigration(dataSource, "V2__feedback_ratings_reviews.sql");
+        executeMigration(dataSource, "V2__feedback_attachments.sql");
+        executeMigration(dataSource, "V3__feedback_ratings_reviews.sql");
+        executeMigration(dataSource, "V4__feedback_outbox_leases_and_dead_letters.sql");
+        executeMigration(dataSource, "V5__feedback_survey_catalog_distribution.sql");
     }
 
     @Test
