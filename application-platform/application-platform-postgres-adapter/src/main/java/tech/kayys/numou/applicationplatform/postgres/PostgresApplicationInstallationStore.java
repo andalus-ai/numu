@@ -1,6 +1,7 @@
 package tech.kayys.numou.applicationplatform.postgres;
 
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOutboxStore;
+import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOperationsPort;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationQueryPort;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationStore;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationTransitionStore;
