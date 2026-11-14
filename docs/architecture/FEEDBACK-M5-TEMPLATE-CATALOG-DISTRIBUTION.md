@@ -41,3 +41,26 @@ Domain unit tests have been added for checksum stability, publish transitions, i
 ## Migration ordering correction
 
 The feedback PostgreSQL migration directory previously contained two V2 migrations. This branch restores a unique, dependency-ordered sequence: V1 foundation, V2 attachments, V3 ratings/reviews, V4 outbox leases/dead letters, V5 survey catalog/distribution. This avoids Flyway's duplicate-version failure on a clean install.
+
+
+## Public invitation submission and quota enforcement
+
+The follow-up implementation adds an application-level submission coordinator:
+
+- Resolve the bearer token by hashing it and looking up an active, unexpired distribution.
+- Reserve one response slot in PostgreSQL before calling the Survey submission use case.
+- Bind the response to the distribution's tenant and survey ID; the Survey adapter verifies the response belongs to that survey.
+- Commit the reservation only after Survey accepts the submission. Release the reservation on synchronous failure.
+- A response claim is unique by tenant + distribution + response ID. Repeated completed submissions return an idempotent outcome.
+- Reservation and completion operations lock the distribution row before the claim row. This consistent lock order avoids a claim/distribution deadlock and serializes competing submissions.
+- The quota constraint is enforced in the database with accepted + reserved <= max responses, so concurrent requests cannot oversubscribe an invitation.
+- A reservation older than five minutes can be reclaimed. The Survey bridge treats an already-submitted response as success, covering a crash after Survey commits but before Feedback finalizes the claim.
+- Revocation is tenant-scoped and emits feedback.survey-distribution-revoked.v1 in the same transaction.
+
+### Important runtime integration boundary
+
+The application handler and Survey submission bridge are implemented, but the HTTP resource/route and CDI/runtime registration are not yet mounted. The runtime should expose invitation resolution and response submission through the public API, apply rate limiting and bot protection, and map invalid/expired tokens to a non-enumerating 404 response and quota exhaustion to 410/409. Survey's own response start/answer endpoints must use the same verified invitation context; they must not accept an arbitrary tenant or survey ID from the public caller.
+
+### Recovery semantics
+
+A reservation is a small cross-capability protocol, not a distributed transaction. Survey owns the response commit; Feedback owns invitation quota. The five-minute claim lease plus idempotent Survey bridge makes retry recovery possible. Production runtime should monitor stale RESERVED claims and alert if they persist beyond the lease. If Survey and Feedback share one transaction manager in a deployment profile, a future adapter may collapse both steps into one local transaction.
