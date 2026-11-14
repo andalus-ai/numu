@@ -34,12 +34,13 @@ public final class SocialGraphNotificationDeliveryPolicyAdapter implements Notif
             return Decision.ALLOW;
         }
         TenantId tenantId = TenantId.of(notification.tenantId());
-        PartyId recipient = recipients.resolve(tenantId, notification.recipientId()).orElse(null);
-        if (recipient == null) {
-            // Never fall back to comparing a Notification user ID with a Party ID.
+        PartyId recipient = recipients.resolveRecipient(tenantId, notification.recipientId()).orElse(null);
+        PartyId author = recipients.resolveSourceActor(tenantId, notification.sourceActorPartyId()).orElse(null);
+        if (recipient == null || author == null) {
+            // Both endpoints must resolve as active Parties in this tenant.
+            // Never fall back to comparing arbitrary UUIDs.
             return Decision.UNRESOLVED;
         }
-        PartyId author = PartyId.of(notification.sourceActorPartyId());
         SocialGraphInteractionDecision decision = policies.evaluate(
                 tenantId, recipient, author, SocialGraphInteractionKind.NOTIFICATION_DELIVERY)
                 .await().indefinitely();
