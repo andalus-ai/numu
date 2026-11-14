@@ -2,6 +2,7 @@ package tech.kayys.numou.notification.application;
 
 import tech.kayys.numou.notification.application.port.NotificationDeliveryJobRepository;
 import tech.kayys.numou.notification.application.port.NotificationDeliveryProvider;
+import tech.kayys.numou.notification.application.port.NotificationDeliveryPolicy;
 import tech.kayys.numou.notification.application.port.NotificationRepository;
 import tech.kayys.numou.notification.application.port.PushDeviceRepository;
 import tech.kayys.numou.notification.domain.Notification;
@@ -25,16 +26,18 @@ public final class NotificationDeliveryWorker {
     private final PushDeviceRepository devices;
     private final Map<String, NotificationDeliveryProvider> providers;
     private final NotificationDeliveryRetryPolicy retryPolicy;
+    private final NotificationDeliveryPolicy deliveryPolicy;
     private final Clock clock;
     private final Duration leaseDuration;
     private final int batchSize;
 
     public NotificationDeliveryWorker(NotificationDeliveryJobRepository jobs, NotificationRepository notifications,
             PushDeviceRepository devices, NotificationDeliveryProvider provider,
-            NotificationDeliveryRetryPolicy retryPolicy, Clock clock, Duration leaseDuration, int batchSize) {
+            NotificationDeliveryPolicy deliveryPolicy, NotificationDeliveryRetryPolicy retryPolicy,
+            Clock clock, Duration leaseDuration, int batchSize) {
         this(jobs, notifications, devices, Map.of(
                 Objects.requireNonNull(provider, "provider is required").providerCode(), provider),
-                retryPolicy, clock, leaseDuration, batchSize);
+                deliveryPolicy, retryPolicy, clock, leaseDuration, batchSize);
     }
 
     /**
@@ -44,7 +47,8 @@ public final class NotificationDeliveryWorker {
      */
     public NotificationDeliveryWorker(NotificationDeliveryJobRepository jobs, NotificationRepository notifications,
             PushDeviceRepository devices, Map<String, NotificationDeliveryProvider> providers,
-            NotificationDeliveryRetryPolicy retryPolicy, Clock clock, Duration leaseDuration, int batchSize) {
+            NotificationDeliveryPolicy deliveryPolicy, NotificationDeliveryRetryPolicy retryPolicy,
+            Clock clock, Duration leaseDuration, int batchSize) {
         this.jobs = Objects.requireNonNull(jobs, "jobs is required");
         this.notifications = Objects.requireNonNull(notifications, "notifications is required");
         this.devices = Objects.requireNonNull(devices, "devices is required");
@@ -62,6 +66,7 @@ public final class NotificationDeliveryWorker {
             }
         });
         this.providers = Map.copyOf(configured);
+        this.deliveryPolicy = Objects.requireNonNull(deliveryPolicy, "deliveryPolicy is required");
         this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy is required");
         this.clock = Objects.requireNonNull(clock, "clock is required");
         this.leaseDuration = Objects.requireNonNull(leaseDuration, "leaseDuration is required");
@@ -74,15 +79,16 @@ public final class NotificationDeliveryWorker {
         Instant startedAt = Instant.now(clock);
         UUID leaseToken = UUID.randomUUID();
         List<NotificationDeliveryJob> claimed = jobs.claimDue(startedAt, startedAt.plus(leaseDuration), batchSize, leaseToken);
-        int delivered = 0, retrying = 0, dead = 0;
+        int delivered = 0, retrying = 0, dead = 0, suppressed = 0;
         for (NotificationDeliveryJob job : claimed) {
             switch (process(job, leaseToken)) {
                 case DELIVERED -> delivered++;
                 case RETRYING -> retrying++;
                 case DEAD -> dead++;
+                case SUPPRESSED -> suppressed++;
             }
         }
-        return new BatchResult(claimed.size(), delivered, retrying, dead);
+        return new BatchResult(claimed.size(), delivered, retrying, dead, suppressed);
     }
 
     private Outcome process(NotificationDeliveryJob job, UUID leaseToken) {
@@ -91,6 +97,25 @@ public final class NotificationDeliveryWorker {
         if (provider == null) return dead(job, leaseToken, "provider_unavailable");
         Notification notification = notifications.findById(job.tenantId(), job.recipientId(), job.notificationId()).orElse(null);
         if (notification == null) return dead(job, leaseToken, NOTIFICATION_UNAVAILABLE);
+        NotificationDeliveryPolicy.Decision policyDecision;
+        try {
+            policyDecision = Objects.requireNonNull(deliveryPolicy.evaluate(notification),
+                    "delivery policy decision is required");
+        } catch (RuntimeException policyFailure) {
+            // Fail closed: a policy outage cannot become a provider-delivery bypass.
+            return failure(job, leaseToken, "delivery_policy_unavailable", true, now);
+        }
+        if (policyDecision != NotificationDeliveryPolicy.Decision.ALLOW) {
+            String reason = switch (policyDecision) {
+                case BLOCKED -> "social_graph_blocked";
+                case MUTED -> "social_graph_muted";
+                case UNRESOLVED -> "social_graph_party_unresolved";
+                case ALLOW -> throw new IllegalStateException("unreachable allow decision");
+            };
+            return jobs.markSuppressed(job.tenantId(), job.id(), leaseToken, reason).isPresent()
+                    ? Outcome.SUPPRESSED : Outcome.DEAD;
+        }
+
         PushDevice device = devices.findActiveByRecipient(job.tenantId(), job.recipientId()).stream()
                 .filter(candidate -> candidate.id().equals(job.deviceId()) && candidate.isActive())
                 .findFirst().orElse(null);
@@ -126,10 +151,14 @@ public final class NotificationDeliveryWorker {
         return Outcome.DEAD;
     }
 
-    private enum Outcome { DELIVERED, RETRYING, DEAD }
-    public record BatchResult(int claimed, int delivered, int retrying, int dead) {
+    private enum Outcome { DELIVERED, RETRYING, DEAD, SUPPRESSED }
+    public record BatchResult(int claimed, int delivered, int retrying, int dead, int suppressed) {
+        public BatchResult(int claimed, int delivered, int retrying, int dead) {
+            this(claimed, delivered, retrying, dead, 0);
+        }
         public BatchResult {
-            if (claimed < 0 || delivered < 0 || retrying < 0 || dead < 0 || delivered + retrying + dead > claimed)
+            if (claimed < 0 || delivered < 0 || retrying < 0 || dead < 0 || suppressed < 0
+                    || delivered + retrying + dead + suppressed > claimed)
                 throw new IllegalArgumentException("invalid batch result counts");
         }
     }
