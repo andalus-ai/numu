@@ -17,7 +17,7 @@ public interface ApiArtifactCleanupRepository {
     Uni<Void> markDeleted(TenantId tenant, CleanupLease lease, String workerId, Instant deletedAt);
 
     Uni<Void> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
-                            String failureCode, Instant retryAt, int maximumAttempts);
+                            String failureCode, Instant failedAt, Instant retryAt, int maximumAttempts);
 
     Uni<CleanupOperationalSnapshot> snapshot(TenantId tenant, Instant now, int maximumAttempts);
 
