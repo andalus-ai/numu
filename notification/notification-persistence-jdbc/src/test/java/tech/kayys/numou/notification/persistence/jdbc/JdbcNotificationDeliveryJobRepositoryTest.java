@@ -107,6 +107,22 @@ class JdbcNotificationDeliveryJobRepositoryTest {
     }
 
     @Test
+    void policySuppressionIsTerminalAndNeverReclaimedAsProviderWork() {
+        Fixture fixture = fixture();
+        NotificationDeliveryJob queued = repository.enqueue(job(fixture, "suppressed"));
+        UUID lease = UUID.randomUUID();
+        repository.claimDue(now, now.plusSeconds(30), 10, lease);
+
+        NotificationDeliveryJob suppressed = repository.markSuppressed(
+                fixture.tenant(), queued.id(), lease, "social_graph_muted").orElseThrow();
+
+        assertEquals(NotificationDeliveryJob.Status.SUPPRESSED, suppressed.status());
+        assertEquals("social_graph_muted", suppressed.lastErrorCode());
+        assertTrue(repository.claimDue(now.plusSeconds(60), now.plusSeconds(90), 10, UUID.randomUUID()).isEmpty());
+        assertTrue(repository.markDelivered(fixture.tenant(), queued.id(), lease, now.plusSeconds(61)).isEmpty());
+    }
+
+    @Test
     void tenantAndRecipientMustMatchReferencedInboxAndDevice() throws Exception {
         Fixture fixture = fixture();
         NotificationDeliveryJob invalid = NotificationDeliveryJob.pending(
