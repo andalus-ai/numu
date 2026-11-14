@@ -323,6 +323,17 @@ public final class PostgresFeedbackSurveyRepository
             boolean autoCommit = c.getAutoCommit();
             c.setAutoCommit(false);
             try {
+                // Keep lock ordering consistent with reserveResponse: distribution row first, claim second.
+                try (PreparedStatement s = c.prepareStatement("""
+                        SELECT id FROM feedback_survey_distributions
+                         WHERE tenant_id = ? AND id = ? FOR UPDATE
+                        """)) {
+                    s.setObject(1, tenantId.value());
+                    s.setObject(2, distributionId);
+                    try (ResultSet r = s.executeQuery()) {
+                        if (!r.next()) throw new IllegalStateException("Survey distribution does not exist");
+                    }
+                }
                 String status = null;
                 try (PreparedStatement s = c.prepareStatement("""
                         SELECT claim_status FROM feedback_survey_distribution_response_claims
