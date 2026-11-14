@@ -23,7 +23,9 @@ application contracts; neither capability reads or writes the other's tables.
   tenant-scoped `NotificationRecipientPartyResolver`. It does not
   infer Party identity from UUID equality.
 - The recipient is evaluated as viewer and the source Party as author using
-  `NOTIFICATION_DELIVERY` semantics from Social Graph.
+  `NOTIFICATION_DELIVERY` semantics from Social Graph. System-originated
+  notifications without a source Party skip relationship evaluation; producers
+  must attach canonical source attribution for Party-authored content/actions.
 - `BLOCKED`, `MUTED` and `UNRESOLVED` produce
   terminal `SUPPRESSED` delivery jobs with safe reason codes.
 - Policy infrastructure failures are treated as retryable internal failures;
