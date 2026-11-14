@@ -1,6 +1,6 @@
 # M8 — Tenant-Scoped Operator Operations and Audited Redrive
 
-- **Status:** implementation branch; focused verification pending.
+- **Status:** implementation branch; verification workflow blocked before the Application Platform module tests by an unrelated Survey Maven parent-resolution failure.
 - **Depends on:** M7 terminal failure reconciliation (merged PR #1710).
 - **Owner:** optional `application-platform` capability.
 - **Host responsibility:** authenticated principal resolution, permission policy and API transport.
@@ -60,7 +60,7 @@ The PostgreSQL Testcontainers test covers:
 - stable operation ID preservation from original dead event to retry event;
 - tenant isolation for history and dead-letter reads.
 
-Application-layer tests prove authorization denial occurs before persistence reads or writes. Focused Java 21 Application Platform CI is the acceptance gate. Broader repository CI remains a separate signal.
+Application-layer tests prove authorization denial occurs before persistence reads or writes. The latest focused Java 21 workflow (run #117) fails in its shared plugin setup before reaching the Application Platform tests because Maven cannot resolve the unrelated `io.surveyhub:survey-platform:0.1.0-SNAPSHOT` parent for `survey/survey-adapter-rest`. Therefore the M8 tests have not yet been executed by CI; this run is not a pass/fail result for the M8 implementation itself. Broader repository CI remains a separate signal.
 
 ## 6. Explicit non-goals
 
