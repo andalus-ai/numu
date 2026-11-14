@@ -37,6 +37,14 @@ public final class ApplicationInstallationOperationsService {
                 .thenCompose(ignored -> operations.deadLetters(tenantId, limit));
     }
 
+    public CompletionStage<List<RedriveAuditEntry>> redriveHistory(TenantId tenantId, String actorId,
+            ApplicationInstallationId installationId, int limit) {
+        requireActor(actorId);
+        if (limit < 1 || limit > 100) throw new IllegalArgumentException("limit must be between 1 and 100");
+        return authorization.assertCanInspect(tenantId, actorId)
+                .thenCompose(ignored -> operations.redriveHistory(tenantId, installationId, limit));
+    }
+
     public CompletionStage<RedriveResult> redrive(RedriveCommand command) {
         Objects.requireNonNull(command, "command");
         return authorization.assertCanRedrive(command.tenantId(), command.actorId())
