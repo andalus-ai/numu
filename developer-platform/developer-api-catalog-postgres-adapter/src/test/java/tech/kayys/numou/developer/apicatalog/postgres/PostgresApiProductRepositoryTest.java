@@ -39,6 +39,7 @@ class PostgresApiProductRepositoryTest {
    s.execute("CREATE TABLE platform_outbox (entry_id uuid PRIMARY KEY,event_id uuid NOT NULL UNIQUE,tenant_id uuid,event_type text NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL,available_at timestamptz NOT NULL,attempts integer NOT NULL DEFAULT 0,locked_until timestamptz,published_at timestamptz,last_error text)");
    s.execute("GRANT USAGE ON SCHEMA public TO api_catalog_runtime");
    s.execute("GRANT SELECT,INSERT,UPDATE ON developer_api_products,developer_api_versions,developer_api_scopes,developer_api_artifacts TO api_catalog_runtime");
+   s.execute("GRANT SELECT,INSERT ON developer_api_artifact_cleanup_audit TO api_catalog_runtime");
    s.execute("GRANT SELECT,INSERT ON platform_outbox TO api_catalog_runtime");
   }
   runtime=new RoleDataSource(owner);
@@ -106,9 +107,18 @@ class PostgresApiProductRepositoryTest {
   assertThat(leases).hasSize(1);
   assertThat(leases.get(0).artifactReference()).isEqualTo("rustfs://api-specs/orders.yaml");
   assertThat(cleanup.isLeaseCurrent(tenant,leases.get(0),"cleanup-worker:unique-token",cleanupNow,5).await().indefinitely()).isTrue();
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0")).containsExactly("CLEANUP_CLAIMED");
+  var claimedSnapshot=cleanup.snapshot(tenant,cleanupNow,5).await().indefinitely();
+  assertThat(claimedSnapshot.leased()).isEqualTo(1);
+  assertThat(claimedSnapshot.eligible()).isZero();
 
   cleanup.markDeleted(tenant,leases.get(0),"cleanup-worker:unique-token",cleanupNow.plusSeconds(1)).await().indefinitely();
   assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("DELETED");
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
+    .containsExactly("CLEANUP_CLAIMED","CLEANUP_DELETED");
+  var deletedSnapshot=cleanup.snapshot(tenant,cleanupNow.plusSeconds(2),5).await().indefinitely();
+  assertThat(deletedSnapshot.tombstones()).isEqualTo(1);
+  assertThat(deletedSnapshot.leased()).isZero();
   assertThat(cleanup.claimDue(tenant,"another-worker",cleanupNow.plusSeconds(2),cleanupNow.plusSeconds(92),10,5)
     .await().indefinitely()).isEmpty();
  }
@@ -213,6 +223,20 @@ class PostgresApiProductRepositoryTest {
     """)){
     s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
     try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new AssertionError("artifact lifecycle row missing");return rs.getString(1);}
+   }
+  }catch(SQLException e){throw new IllegalStateException(e);}
+ }
+ private List<String> auditActions(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection()){
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement s=c.prepareStatement("""
+    SELECT action FROM developer_api_artifact_cleanup_audit
+    WHERE provider_tenant_id=? AND product_id=? AND api_version=? ORDER BY occurred_at,audit_id
+    """)){
+    s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
+    try(ResultSet rs=s.executeQuery()){List<String> actions=new ArrayList<>();while(rs.next())actions.add(rs.getString(1));return actions;}
    }
   }catch(SQLException e){throw new IllegalStateException(e);}
  }
