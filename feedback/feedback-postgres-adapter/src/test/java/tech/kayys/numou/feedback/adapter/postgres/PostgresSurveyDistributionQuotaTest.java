@@ -57,10 +57,10 @@ class PostgresSurveyDistributionQuotaTest {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        List<Future<SurveyDistributionRepository.ReservationResult>> futures = new ArrayList<>();
+        java.util.Map<String, Future<SurveyDistributionRepository.ReservationResult>> futures = new java.util.LinkedHashMap<>();
         for (int i = 0; i < 2; i++) {
             final String responseId = "response-" + i;
-            futures.add(pool.submit(() -> {
+            futures.put(responseId, pool.submit(() -> {
                 ready.countDown();
                 start.await();
                 return repository.reserveResponse(tenant, distribution.id(), responseId, NOW);
@@ -68,14 +68,15 @@ class PostgresSurveyDistributionQuotaTest {
         }
         assertTrue(ready.await(5, TimeUnit.SECONDS));
         start.countDown();
-        List<SurveyDistributionRepository.ReservationResult> results = new ArrayList<>();
-        for (Future<SurveyDistributionRepository.ReservationResult> future : futures) results.add(future.get(10, TimeUnit.SECONDS));
+        java.util.Map<String, SurveyDistributionRepository.ReservationResult> results = new java.util.LinkedHashMap<>();
+        for (var entry : futures.entrySet()) results.put(entry.getKey(), entry.getValue().get(10, TimeUnit.SECONDS));
         pool.shutdownNow();
 
-        assertEquals(1, results.stream().filter(r -> r == SurveyDistributionRepository.ReservationResult.RESERVED).count());
-        assertEquals(1, results.stream().filter(r -> r == SurveyDistributionRepository.ReservationResult.LIMIT_REACHED).count());
-        String reservedResponse = results.get(0) == SurveyDistributionRepository.ReservationResult.RESERVED
-                ? "response-0" : "response-1";
+        assertEquals(1, results.values().stream().filter(r -> r == SurveyDistributionRepository.ReservationResult.RESERVED).count());
+        assertEquals(1, results.values().stream().filter(r -> r == SurveyDistributionRepository.ReservationResult.LIMIT_REACHED).count());
+        String reservedResponse = results.entrySet().stream()
+                .filter(e -> e.getValue() == SurveyDistributionRepository.ReservationResult.RESERVED)
+                .map(java.util.Map.Entry::getKey).findFirst().orElseThrow();
         repository.completeResponse(tenant, distribution.id(), reservedResponse, NOW.plusSeconds(1));
 
         try (Connection c = dataSource().getConnection();
