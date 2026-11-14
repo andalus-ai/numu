@@ -17,5 +17,6 @@
     <module>feedback-application</module>
     <module>feedback-postgres-adapter</module>
     <module>feedback-survey-adapter</module>
+    <module>feedback-runtime-quarkus</module>
   </modules>
 </project>
