@@ -34,3 +34,12 @@ M5h adds the durable registry and persistence coupling between API version regis
 - Successful deletion transitions the row to the durable `DELETED` tombstone. If a process crashes after deleting the object but before tombstoning, the next lease safely repeats the idempotent delete.
 
 No automatic transition from `REGISTERED` to `ABANDONED` is introduced. A future reconciliation/administrative workflow must explicitly establish that an artifact is no longer referenced and assign its retention deadline before it becomes eligible. The worker never infers cleanup eligibility from age, and published artifacts remain protected.
+
+## M5j operational audit and visibility
+
+- Each successful lease claim, object deletion, retry scheduling and terminal failure appends an immutable row to `developer_api_artifact_cleanup_audit` in the same PostgreSQL transaction as the lifecycle state change.
+- Audit rows carry tenant, product/version, immutable artifact reference and digest, action, worker actor reference, attempt number, bounded failure code and timestamp. RLS is forced by tenant; UPDATE, DELETE and TRUNCATE are rejected.
+- `ApiArtifactCleanupRepository.snapshot(...)` provides tenant-scoped gauges for currently eligible items, active leases, terminal failures, tombstones and age of the oldest eligible item.
+- The managed worker exposes process-local monotonic counters for claimed, deleted, failed and lease-lost items, plus its last completion/failure and the latest database snapshot. A hosting runtime can bind these getters to its metrics/health exporter without coupling the reusable capability to a particular metrics vendor.
+- These counters reset on process restart. The audit table and database snapshot are the durable operational source of truth.
+- A stale worker that no longer owns a lease cannot write a success/failure audit record over the newer lease. Failed object deletion and its audit entry are committed together with the retry/terminal state update.
