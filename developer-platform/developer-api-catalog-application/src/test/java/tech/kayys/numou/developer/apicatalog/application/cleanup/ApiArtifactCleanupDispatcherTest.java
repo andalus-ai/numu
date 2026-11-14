@@ -132,11 +132,11 @@ class ApiArtifactCleanupDispatcherTest {
             markedDeleted.set(true);
             return Uni.createFrom().voidItem();
         }
-        @Override public Uni<Void> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
+        @Override public Uni<Boolean> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
                                                  String code, Instant failedAt, Instant retry, int maximumAttempts) {
             failureCode.set(code);
             retryAt.set(retry);
-            return Uni.createFrom().voidItem();
+            return Uni.createFrom().item(true);
         }
 
         @Override public Uni<ApiArtifactCleanupRepository.CleanupOperationalSnapshot> snapshot(
