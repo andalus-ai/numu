@@ -9,6 +9,7 @@ import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscripti
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /** Authenticates and authorizes a page subscription before delegating to host-owned fanout. */
@@ -33,27 +34,46 @@ public final class WorkspacePageChangeSubscriptionApi {
         if (actor == null || actor.tenantId() == null || actor.actorId() == null) {
             throw new WorkspaceApi.ApiException(401, "An authenticated tenant and actor are required");
         }
-        // Resolve within the trusted tenant before checking READ; never trust tenant/page values
-        // supplied by the transport or accept a page identifier as an authorization grant.
         pages.findPage(actor.tenantId(), pageId)
                 .orElseThrow(() -> new WorkspaceApi.ApiException(404, "Page not found"));
+        requireRead(actor.tenantId(), actor.actorId(), pageId);
+
+        AtomicBoolean active = new AtomicBoolean(true);
+        AtomicReference<AutoCloseable> delegateRef = new AtomicReference<>();
+        AutoCloseable delegate = Objects.requireNonNull(
+                subscriptions.subscribe(actor.tenantId(), actor.actorId(), pageId, signal -> {
+                    if (!active.get() || signal == null
+                            || !actor.tenantId().equals(signal.tenantId())
+                            || !pageId.equals(signal.pageId())) return;
+                    // Re-check on delivery so permission revocation takes effect without waiting
+                    // for a new connection. A denied subscriber is closed and receives no frame.
+                    try {
+                        requireRead(actor.tenantId(), actor.actorId(), pageId);
+                    } catch (WorkspaceApi.ApiException revoked) {
+                        close(active, delegateRef.get());
+                        return;
+                    }
+                    listener.accept(signal);
+                }), "subscription handle");
+        delegateRef.set(delegate);
+        if (!active.get()) closeQuietly(delegate);
+        return () -> close(active, delegate);
+    }
+
+    private void requireRead(UUID tenantId, UUID actorId, UUID pageId) {
         try {
-            access.require(actor.tenantId(), actor.actorId(), Resource.PAGE, pageId, Action.READ);
+            access.require(tenantId, actorId, Resource.PAGE, pageId, Action.READ);
         } catch (SecurityException denied) {
             throw new WorkspaceApi.ApiException(403, "Access denied", denied);
         }
+    }
 
-        AtomicBoolean active = new AtomicBoolean(true);
-        AutoCloseable delegate = Objects.requireNonNull(
-                subscriptions.subscribe(actor.tenantId(), pageId, signal -> {
-                    if (active.get() && signal != null
-                            && actor.tenantId().equals(signal.tenantId())
-                            && pageId.equals(signal.pageId())) {
-                        listener.accept(signal);
-                    }
-                }), "subscription handle");
-        return () -> {
-            if (active.compareAndSet(true, false)) delegate.close();
-        };
+    private static void close(AtomicBoolean active, AutoCloseable delegate) {
+        if (active.compareAndSet(true, false)) closeQuietly(delegate);
+    }
+
+    private static void closeQuietly(AutoCloseable handle) {
+        if (handle == null) return;
+        try { handle.close(); } catch (Exception ignored) { /* best-effort lifecycle cleanup */ }
     }
 }
