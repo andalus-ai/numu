@@ -108,6 +108,8 @@ class PostgresApiProductRepositoryTest {
   assertThat(leases.get(0).artifactReference()).isEqualTo("rustfs://api-specs/orders.yaml");
   assertThat(cleanup.isLeaseCurrent(tenant,leases.get(0),"cleanup-worker:unique-token",cleanupNow,5).await().indefinitely()).isTrue();
   assertThat(auditActions(tenant,product.id().value(),"1.0.0")).containsExactly("CLEANUP_CLAIMED");
+  assertThat(auditActions(TenantId.generate(),product.id().value(),"1.0.0")).isEmpty();
+  assertAuditRowsAreImmutable(tenant,product.id().value(),"1.0.0");
   var claimedSnapshot=cleanup.snapshot(tenant,cleanupNow,5).await().indefinitely();
   assertThat(claimedSnapshot.leased()).isEqualTo(1);
   assertThat(claimedSnapshot.eligible()).isZero();
@@ -228,6 +230,21 @@ class PostgresApiProductRepositoryTest {
     s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
     try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new AssertionError("artifact lifecycle row missing");return rs.getString(1);}
    }
+  }catch(SQLException e){throw new IllegalStateException(e);}
+ }
+ private void assertAuditRowsAreImmutable(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection()){
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   assertThatThrownBy(()->{
+    try(PreparedStatement s=c.prepareStatement("""
+     UPDATE developer_api_artifact_cleanup_audit SET reason_code='tampered'
+     WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+     """)){
+     s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);s.executeUpdate();
+    }
+   }).isInstanceOf(SQLException.class).hasMessageContaining("append-only");
   }catch(SQLException e){throw new IllegalStateException(e);}
  }
  private List<String> auditActions(TenantId tenant,UUID productId,String version){
