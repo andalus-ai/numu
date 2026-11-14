@@ -145,7 +145,8 @@ class JdbcNotificationDeliveryJobRepositoryTest {
 
     private static void executeMigrations(DataSource dataSource) throws Exception {
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-            statement.execute("DROP TABLE IF EXISTS notification_push_token_migration_audit CASCADE");\n            statement.execute("DROP TABLE IF EXISTS notification_delivery_job CASCADE");
+            statement.execute("DROP TABLE IF EXISTS notification_push_token_migration_audit CASCADE");
+            statement.execute("DROP TABLE IF EXISTS notification_delivery_job CASCADE");
             statement.execute("DROP TABLE IF EXISTS notification_push_device CASCADE");
             statement.execute("DROP TABLE IF EXISTS notification_inbox CASCADE");
         }
@@ -153,7 +154,9 @@ class JdbcNotificationDeliveryJobRepositoryTest {
                 "V1__notification_inbox.sql",
                 "V2__notification_push_device.sql",
                 "V3__notification_delivery_jobs.sql",
-                "V4__notification_push_token_encryption.sql",\n                "V5__notification_push_token_migration_audit.sql",\n                "V6__social_graph_delivery_suppression.sql")) {
+                "V4__notification_push_token_encryption.sql",
+                "V5__notification_push_token_migration_audit.sql",
+                "V6__social_graph_delivery_suppression.sql")) {
             String sql;
             try (var stream = JdbcNotificationDeliveryJobRepositoryTest.class
                     .getResourceAsStream("/db/migration/" + migration)) {
