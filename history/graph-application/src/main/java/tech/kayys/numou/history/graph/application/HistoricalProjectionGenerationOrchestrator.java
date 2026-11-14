@@ -49,6 +49,8 @@ public final class HistoricalProjectionGenerationOrchestrator {
     /** Performs one bounded lifecycle step; call again with the same operation ID to continue. */
     public Run resumeOneStep(UUID tenantId, UUID operationId) {
         Objects.requireNonNull(operationId, "operationId");
+        // Authorize every invocation, including reads of already-completed operations.
+        generations.active(tenantId);
         Run run = runs.find(tenantId, operationId)
                 .orElseThrow(() -> new IllegalArgumentException("generation operation does not exist in this scope"));
         try {
