@@ -85,7 +85,7 @@ class ApplicationInstallationOutboxDispatcherTest {
         var outbox = new FakeOutbox(new ClaimedEvent(UUID.randomUUID(), installation.id().value(),
                 APP.value(), VERSION.value(), PACKAGE.sha256Digest(), "APPLICATION_INSTALLATION_STATUS_CHANGED",
                 "VALIDATING", 2, "system:application-platform", "corr-1", "", NOW, 1, "worker-a",
-                UUID.randomUUID(), NOW.plusSeconds(30)));
+                UUID.randomUUID(), NOW.plusSeconds(30), UUID.randomUUID()));
         var provisionCalls = new AtomicInteger();
         var dispatcher = dispatcher(outbox, new FakeInstallationStore(installation), command -> {
             provisionCalls.incrementAndGet();
@@ -113,7 +113,7 @@ class ApplicationInstallationOutboxDispatcherTest {
         return new ClaimedEvent(UUID.randomUUID(), installation.id().value(), APP.value(), VERSION.value(),
                 PACKAGE.sha256Digest(), "APPLICATION_INSTALLATION_REQUESTED", "REQUESTED", 1,
                 "user:alice", "corr-1", "INSTALL_REQUESTED", NOW, attempt, "worker-a",
-                UUID.randomUUID(), NOW.plusSeconds(30));
+                UUID.randomUUID(), NOW.plusSeconds(30), UUID.randomUUID());
     }
 
     private static ApplicationInstallation copy(ApplicationInstallation value) {
@@ -156,7 +156,7 @@ class ApplicationInstallationOutboxDispatcherTest {
             event = new ClaimedEvent(event.eventId(), event.installationId(), event.applicationId(),
                     event.packageVersion(), event.packageDigest(), event.eventType(), event.toStatus(),
                     event.revision(), event.actorId(), event.correlationId(), event.reasonCode(),
-                    event.occurredAt(), attempt, event.workerId(), UUID.randomUUID(), NOW.plusSeconds(30));
+                    event.occurredAt(), attempt, event.workerId(), UUID.randomUUID(), NOW.plusSeconds(30), event.operationId());
         }
 
         @Override public CompletionStage<List<ClaimedEvent>> claimDue(TenantId tenantId, String workerId,
@@ -165,7 +165,7 @@ class ApplicationInstallationOutboxDispatcherTest {
             ClaimedEvent claimed = new ClaimedEvent(event.eventId(), event.installationId(), event.applicationId(),
                     event.packageVersion(), event.packageDigest(), event.eventType(), event.toStatus(),
                     event.revision(), event.actorId(), event.correlationId(), event.reasonCode(),
-                    event.occurredAt(), event.attempts(), workerId, event.leaseToken(), now.plus(lease));
+                    event.occurredAt(), event.attempts(), workerId, event.leaseToken(), now.plus(lease), event.operationId());
             return CompletableFuture.completedFuture(List.of(claimed));
         }
 
