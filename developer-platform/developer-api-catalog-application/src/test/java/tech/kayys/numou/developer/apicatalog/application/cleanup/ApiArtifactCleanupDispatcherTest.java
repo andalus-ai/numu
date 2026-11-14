@@ -77,6 +77,21 @@ class ApiArtifactCleanupDispatcherTest {
     }
 
     @Test
+    void countsExpiredFailureLeaseAsLeaseLostRatherThanFailed() {
+        FakeRepository repository = new FakeRepository();
+        repository.failureRecorded.set(false);
+        ApiArtifactObjectDeletionPort storage = (tenant, reference, sha) ->
+                Uni.createFrom().failure(new IllegalStateException("late storage failure"));
+
+        ApiArtifactCleanupDispatcher.DispatchResult result = new ApiArtifactCleanupDispatcher(repository, storage)
+                .dispatchDetailedOnce(TenantId.generate(), "worker", NOW,
+                        Duration.ofSeconds(90), 10, 5).await().indefinitely();
+
+        assertThat(result.failed()).isZero();
+        assertThat(result.leaseLost()).isEqualTo(1);
+    }
+
+    @Test
     void detailedDispatchReportsClaimsAndDeletedItems() {
         FakeRepository repository = new FakeRepository();
         ApiArtifactCleanupDispatcher.DispatchResult result = new ApiArtifactCleanupDispatcher(
@@ -118,6 +133,7 @@ class ApiArtifactCleanupDispatcherTest {
         final AtomicBoolean markedDeleted = new AtomicBoolean();
         final AtomicReference<String> failureCode = new AtomicReference<>();
         final AtomicReference<Instant> retryAt = new AtomicReference<>();
+        final AtomicBoolean failureRecorded = new AtomicBoolean(true);
 
         @Override public Uni<List<CleanupLease>> claimDue(TenantId tenant, String workerId, Instant now,
                                                           Instant leaseUntil, int limit, int maximumAttempts) {
@@ -136,7 +152,7 @@ class ApiArtifactCleanupDispatcherTest {
                                                  String code, Instant failedAt, Instant retry, int maximumAttempts) {
             failureCode.set(code);
             retryAt.set(retry);
-            return Uni.createFrom().item(true);
+            return Uni.createFrom().item(failureRecorded.get());
         }
 
         @Override public Uni<ApiArtifactCleanupRepository.CleanupOperationalSnapshot> snapshot(
