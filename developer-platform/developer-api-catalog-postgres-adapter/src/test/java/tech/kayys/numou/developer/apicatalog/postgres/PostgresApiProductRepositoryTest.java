@@ -139,6 +139,10 @@ class PostgresApiProductRepositoryTest {
     cleanupNow.plusSeconds(5),1).await().indefinitely();
 
   assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("ABANDONED");
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
+    .containsExactly("CLEANUP_CLAIMED","TERMINAL_FAILURE");
+  assertThat(cleanup.snapshot(tenant,cleanupNow.plusSeconds(10),1).await().indefinitely()
+    .terminalFailures()).isEqualTo(1);
   try(Connection connection=runtime.getConnection()){
    try(PreparedStatement context=connection.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
     context.setString(1,tenant.value().toString());context.execute();
