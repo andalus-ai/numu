@@ -13,8 +13,10 @@ its `SocialGraphNotificationDeliveryPolicyAdapter` to the
   directed block edge.
 - Recipient-owned MUTE suppresses notification delivery only.
 - A MUTE does not deny messages, comments, invitations, or other direct actions.
-- System-originated notifications with no source Party do not invent an author
-  and are allowed by this relationship policy.
+- System-originated notifications with no source Party have no social author
+  for this gate and skip relationship evaluation. Producers must always attach
+  a canonical source Party for Party-authored content/actions; omission would
+  make the notification indistinguishable from a system-originated event.
 - If a notification has a source Party but the recipient cannot be resolved to
   an active tenant-scoped canonical Party, the adapter returns `UNRESOLVED`.
   The worker records a terminal suppression; it never falls back to UUID equality.
