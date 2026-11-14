@@ -8,6 +8,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import tech.kayys.numou.documents.storage.local.LocalFileDocumentStorage;
 import tech.kayys.numou.documents.storage.s3.S3CompatibleDocumentStorage;
 import tech.kayys.numou.documents.storage.spi.DocumentStorage;
@@ -29,6 +30,7 @@ public final class DocumentStorageProviderFactory {
 
     private static DocumentStorage createS3Compatible(DocumentStorageSettings settings) {
         S3ClientBuilder builder = S3Client.builder()
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .region(Region.of(settings.region()))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(settings.pathStyleAccess())
