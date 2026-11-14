@@ -54,7 +54,7 @@ class WorkspacePageChangeSubscriptionApiTest {
         WorkspacePageChangeSubscriptionApi denied = new WorkspacePageChangeSubscriptionApi(
                 () -> new WorkspaceApi.AuthenticatedActor(tenant, actor), repository(tenant, page),
                 (t, a, r, id, action) -> { throw new SecurityException("denied"); },
-                (t, id, listener) -> { registrations.incrementAndGet(); return () -> {}; });
+                (t, subscribedActor, id, listener) -> { registrations.incrementAndGet(); return () -> {}; });
         assertEquals(403, assertThrows(WorkspaceApi.ApiException.class,
                 () -> denied.subscribe(pageId, signal -> {})).status());
         assertEquals(0, registrations.get());
