@@ -224,19 +224,37 @@ public final class PostgresFeedbackSurveyRepository
                 }
 
                 String claimStatus = null;
+                java.time.Instant claimUpdatedAt = null;
                 try (PreparedStatement s = c.prepareStatement("""
-                        SELECT claim_status FROM feedback_survey_distribution_response_claims
+                        SELECT claim_status, updated_at FROM feedback_survey_distribution_response_claims
                          WHERE tenant_id = ? AND distribution_id = ? AND response_id = ? FOR UPDATE
                         """)) {
                     s.setObject(1, tenantId.value());
                     s.setObject(2, distributionId);
                     s.setString(3, responseId.trim());
                     try (ResultSet r = s.executeQuery()) {
-                        if (r.next()) claimStatus = r.getString(1);
+                        if (r.next()) { claimStatus = r.getString(1); claimUpdatedAt = r.getTimestamp(2).toInstant(); }
                     }
                 }
                 if ("COMPLETED".equals(claimStatus)) { c.commit(); return ReservationResult.ALREADY_COMPLETED; }
-                if ("RESERVED".equals(claimStatus)) { c.commit(); return ReservationResult.ALREADY_RESERVED; }
+                if ("RESERVED".equals(claimStatus)) {
+                    if (claimUpdatedAt.isAfter(now.minus(java.time.Duration.ofMinutes(5)))) {
+                        c.commit();
+                        return ReservationResult.ALREADY_RESERVED;
+                    }
+                    try (PreparedStatement s = c.prepareStatement("""
+                            UPDATE feedback_survey_distribution_response_claims SET updated_at = ?
+                             WHERE tenant_id = ? AND distribution_id = ? AND response_id = ? AND claim_status = 'RESERVED'
+                            """)) {
+                        s.setTimestamp(1, Timestamp.from(now));
+                        s.setObject(2, tenantId.value());
+                        s.setObject(3, distributionId);
+                        s.setString(4, responseId.trim());
+                        if (s.executeUpdate() != 1) throw new IllegalStateException("Survey response reservation changed concurrently");
+                    }
+                    c.commit();
+                    return ReservationResult.RESERVED;
+                }
                 if (accepted + reserved >= max) { c.commit(); return ReservationResult.LIMIT_REACHED; }
 
                 try (PreparedStatement s = c.prepareStatement("""
