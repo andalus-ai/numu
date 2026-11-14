@@ -45,8 +45,17 @@ class SocialGraphNotificationDeliveryPolicyAdapterTest {
             }
         };
         var service = new SocialGraphInteractionPolicyService(port, Clock.fixed(NOW, ZoneOffset.UTC));
-        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(service,
-                (scope, id) -> Optional.of(recipientParty));
+        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(service, new NotificationRecipientPartyResolver() {
+            @Override
+            public Optional<PartyId> resolveRecipient(TenantId scope, UUID id) {
+                return Optional.of(recipientParty);
+            }
+
+            @Override
+            public Optional<PartyId> resolveSourceActor(TenantId scope, UUID id) {
+                return Optional.of(authorParty);
+            }
+        });
         Notification notification = Notification.create(tenant, recipientId, "social.reply",
                 "New reply", "A person replied", "post:1", "key-1", authorParty.value(), NOW);
 
@@ -71,7 +80,17 @@ class SocialGraphNotificationDeliveryPolicyAdapterTest {
                 throw new AssertionError("unresolved identity must not query policy");
             }
         }, Clock.fixed(NOW, ZoneOffset.UTC));
-        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(service, (scope, id) -> Optional.empty());
+        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(service, new NotificationRecipientPartyResolver() {
+            @Override
+            public Optional<PartyId> resolveRecipient(TenantId scope, UUID id) {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<PartyId> resolveSourceActor(TenantId scope, UUID id) {
+                return Optional.of(PartyId.of(id));
+            }
+        });
 
         assertThat(adapter.evaluate(notification)).isEqualTo(NotificationDeliveryPolicy.Decision.UNRESOLVED);
     }
@@ -92,8 +111,17 @@ class SocialGraphNotificationDeliveryPolicyAdapterTest {
                 throw new AssertionError("system notification should not query mute policy");
             }
         }, Clock.fixed(NOW, ZoneOffset.UTC));
-        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(service,
-                (scope, id) -> Optional.empty());
+        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(service, new NotificationRecipientPartyResolver() {
+            @Override
+            public Optional<PartyId> resolveRecipient(TenantId scope, UUID id) {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<PartyId> resolveSourceActor(TenantId scope, UUID id) {
+                return Optional.empty();
+            }
+        });
 
         assertThat(adapter.evaluate(notification)).isEqualTo(NotificationDeliveryPolicy.Decision.ALLOW);
     }
