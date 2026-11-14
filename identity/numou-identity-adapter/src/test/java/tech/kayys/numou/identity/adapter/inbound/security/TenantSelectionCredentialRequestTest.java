@@ -40,7 +40,7 @@ class TenantSelectionCredentialRequestTest {
         assertEquals(200, discovery.statusCode(), discovery.body());
 
         HttpResponse<String> exchange = request("POST", "api/v2/auth/tenant-exchange", token,
-                "{\\"tenantId\\":\\"" + UUID.randomUUID() + "\\"}");
+                "{\"tenantId\":\"" + UUID.randomUUID() + "\"}");
         assertFalse(exchange.body().contains(FILTER_DENIAL), exchange.body());
 
         HttpResponse<String> management = request("GET", "api/v1/service-accounts", token);
