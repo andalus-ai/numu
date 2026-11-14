@@ -107,6 +107,50 @@ class PostgresSurveyDistributionQuotaTest {
                 repository.reserveResponse(tenant, distribution.id(), "response-revoked", NOW.plusSeconds(2)));
     }
 
+    @Test
+    void reservationIsIdempotentAndAbandonedClaimCanBeReclaimed() throws Exception {
+        var repository = new PostgresFeedbackSurveyRepository(dataSource());
+        TenantId tenant = TenantId.generate();
+        SurveyDistribution distribution = new SurveyDistribution(UUID.randomUUID(), tenant, "survey-retry",
+                DistributionChannel.PUBLIC_LINK, "c".repeat(64), NOW.plusSeconds(3600), 2,
+                DistributionStatus.ACTIVE, NOW.minusSeconds(1));
+        repository.save(distribution);
+
+        assertEquals(SurveyDistributionRepository.ReservationResult.RESERVED,
+                repository.reserveResponse(tenant, distribution.id(), "response-retry", NOW));
+        assertEquals(SurveyDistributionRepository.ReservationResult.ALREADY_RESERVED,
+                repository.reserveResponse(tenant, distribution.id(), "response-retry", NOW.plusSeconds(1)));
+
+        try (Connection c = dataSource().getConnection();
+             var s = c.prepareStatement("""
+                     UPDATE feedback_survey_distribution_response_claims
+                        SET updated_at = ?
+                      WHERE tenant_id = ? AND distribution_id = ? AND response_id = ?
+                     """)) {
+            s.setTimestamp(1, java.sql.Timestamp.from(NOW.minusSeconds(600)));
+            s.setObject(2, tenant.value());
+            s.setObject(3, distribution.id());
+            s.setString(4, "response-retry");
+            assertEquals(1, s.executeUpdate());
+        }
+
+        assertEquals(SurveyDistributionRepository.ReservationResult.RESERVED,
+                repository.reserveResponse(tenant, distribution.id(), "response-retry", NOW));
+        repository.completeResponse(tenant, distribution.id(), "response-retry", NOW.plusSeconds(2));
+        repository.completeResponse(tenant, distribution.id(), "response-retry", NOW.plusSeconds(3));
+
+        try (Connection c = dataSource().getConnection();
+             var s = c.prepareStatement("SELECT accepted_responses, reserved_responses FROM feedback_survey_distributions WHERE tenant_id = ? AND id = ?")) {
+            s.setObject(1, tenant.value());
+            s.setObject(2, distribution.id());
+            try (var rows = s.executeQuery()) {
+                assertTrue(rows.next());
+                assertEquals(1, rows.getInt(1));
+                assertEquals(0, rows.getInt(2));
+            }
+        }
+    }
+
     private static DataSource dataSource() {
         PGSimpleDataSource ds = new PGSimpleDataSource();
         ds.setURL(POSTGRES.getJdbcUrl());
