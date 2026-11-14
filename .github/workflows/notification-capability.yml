@@ -43,8 +43,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
       - name: Install Numou security adapter and its required modules
         run: mvn -B -ntp -f security/pom.xml -pl security-adapter -am install
+      - name: Install Ecosystem identity contracts for Social Graph integration
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
       - name: Install Social Graph policy contracts for notification integration
-        run: mvn -B -ntp -f core/framework/pom.xml -pl social-graph -am install
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Verify notification domain, application, and host adapters
         run: mvn -B -ntp -f notification/pom.xml verify
       - name: Upload notification Maven test reports
