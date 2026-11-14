@@ -155,7 +155,7 @@ public final class PostgresApiArtifactCleanupRepository implements ApiArtifactCl
     }
 
     @Override
-    public Uni<Void> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
+    public Uni<Boolean> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
                                    String failureCode, Instant failedAt, Instant retryAt, int maximumAttempts) {
         return transactions.withTenant(tenant, connection -> {
             String reason = failureCode == null ? "CLEANUP_FAILURE"
@@ -172,6 +172,7 @@ public final class PostgresApiArtifactCleanupRepository implements ApiArtifactCl
                        AND cleanup_lease_until>?
                     RETURNING cleanup_attempts, lifecycle_state
                     """)) {
+                boolean updated = false;
                 statement.setInt(1, maximumAttempts);
                 statement.setTimestamp(2, Timestamp.from(retryAt));
                 statement.setString(3, reason);
@@ -189,10 +190,11 @@ public final class PostgresApiArtifactCleanupRepository implements ApiArtifactCl
                         insertAudit(connection, tenant, lease,
                                 "ABANDONED".equals(state) ? "TERMINAL_FAILURE" : "RETRY_SCHEDULED",
                                 workerId, attempts, reason, failedAt);
+                        updated = true;
                     }
                 }
+                return updated;
             }
-            return null; // A stale worker cannot overwrite or audit a newer lease.
         });
     }
 
