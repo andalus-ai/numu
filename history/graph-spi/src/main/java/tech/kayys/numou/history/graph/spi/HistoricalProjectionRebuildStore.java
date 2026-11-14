@@ -14,16 +14,22 @@ public interface HistoricalProjectionRebuildStore {
     boolean complete(UUID tenantId, UUID runId, long expectedCursor, Instant now);
 
     /** Fenced checkpoint: a stale worker cannot advance after any lifecycle transition. */
-    boolean advanceFenced(UUID tenantId, UUID runId, long expectedCursor, long nextCursor,
-                         long expectedLifecycleVersion, Instant now);
+    default boolean advanceFenced(UUID tenantId, UUID runId, long expectedCursor, long nextCursor,
+                                  long expectedLifecycleVersion, Instant now) {
+        throw new UnsupportedOperationException("fenced rebuild checkpoints are not implemented by this adapter");
+    }
 
     /** Atomically changes lifecycle state and appends the operator audit record. */
-    boolean transition(UUID tenantId, UUID runId, UUID actorId, String action,
-                       long expectedLifecycleVersion, RebuildRun.Status expectedStatus,
-                       RebuildRun.Status targetStatus, String detail, Instant now);
+    default boolean transition(UUID tenantId, UUID runId, UUID actorId, String action,
+                                long expectedLifecycleVersion, RebuildRun.Status expectedStatus,
+                                RebuildRun.Status targetStatus, String detail, Instant now) {
+        throw new UnsupportedOperationException("rebuild lifecycle transitions are not implemented by this adapter");
+    }
 
     /** Marks a still-running run failed without moving its last successful cursor. */
-    boolean fail(UUID tenantId, UUID runId, long expectedLifecycleVersion, String detail, Instant now);
+    default boolean fail(UUID tenantId, UUID runId, long expectedLifecycleVersion, String detail, Instant now) {
+        throw new UnsupportedOperationException("durable rebuild failure handling is not implemented by this adapter");
+    }
 
     record RebuildRun(UUID runId, UUID tenantId, long highWaterSequence,
                       long cursorSequence, Status status, Instant createdAt, Instant updatedAt,
