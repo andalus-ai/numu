@@ -51,6 +51,23 @@ class JdbcNotificationRepositoryTest {
     }
 
     @Test
+    void sourceActorPartyIsPersistedAndPartOfIdempotencyFingerprint() {
+        UUID tenant = UUID.randomUUID();
+        UUID recipient = UUID.randomUUID();
+        UUID author = UUID.randomUUID();
+        Notification attributed = Notification.create(tenant, recipient, "social.reply",
+                "New reply", "A person replied", "post:1", "social-reply-1", author, now);
+
+        Notification stored = repository.createIfAbsent(attributed);
+
+        assertEquals(author, stored.sourceActorPartyId());
+        Notification conflictingAuthor = Notification.create(tenant, recipient, "social.reply",
+                "New reply", "A person replied", "post:1", "social-reply-1", UUID.randomUUID(), now);
+        assertThrows(IdempotencyConflictException.class,
+                () -> repository.createIfAbsent(conflictingAuthor));
+    }
+
+    @Test
     void reusingKeyForDifferentPayloadIsRejected() {
         UUID tenant = UUID.randomUUID();
         UUID recipient = UUID.randomUUID();
