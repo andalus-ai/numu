@@ -10,6 +10,7 @@
 The application layer exposes an operations facade for:
 - bounded installation transition history;
 - bounded tenant-scoped provisioning dead-letter inspection;
+- bounded immutable redrive audit history.
 - audited redrive of an eligible failed installation.
 
 The facade calls a host-provided `ApplicationInstallationOperatorAuthorizationPort` before every read or mutation. The host must derive tenant and actor identity from its authenticated request context; it must not trust tenant or actor identifiers supplied in request bodies. The capability does not introduce HTTP routes or a second identity/authorization model.
@@ -46,6 +47,7 @@ The host provisioner must enforce idempotency for this operation ID. Redrive doe
 - All operational reads and redrive writes set the transaction-local tenant RLS context and include explicit tenant predicates.
 - The adapter does not expose cross-tenant/global dead-letter scans.
 - Redrive audit rows are protected by forced tenant RLS and append-only update/delete/truncate triggers.
+- Authorized operators can inspect the immutable redrive audit entries, including actor, reason, original dead event, retry event and stable operation identity.
 - Raw idempotency keys are not stored; the caller supplies only a lowercase SHA-256 hash.
 - Failure codes remain stable machine-readable codes; exception messages are not persisted.
 
