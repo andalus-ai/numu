@@ -84,10 +84,12 @@ public final class ApiArtifactCleanupDispatcher {
                             .chain(() -> repository.markDeleted(tenant, lease, workerId, Instant.now()))
                             .replaceWith(Outcome.DELETED);
                 })
-                .onFailure().recoverWithUni(failure ->
-                        repository.recordFailure(tenant, lease, workerId, failureCode(failure), Instant.now(),
-                                Instant.now().plus(retryDelay(lease.attempts() + 1)), maximumAttempts)
-                                .replaceWith(Outcome.FAILED));
+                .onFailure().recoverWithUni(failure -> {
+                    Instant failedAt = Instant.now();
+                    return repository.recordFailure(tenant, lease, workerId, failureCode(failure), failedAt,
+                            failedAt.plus(retryDelay(lease.attempts() + 1)), maximumAttempts)
+                            .replaceWith(Outcome.FAILED);
+                });
     }
 
     static Duration retryDelay(int attempt) {
