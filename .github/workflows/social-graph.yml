@@ -47,6 +47,10 @@ jobs:
           cache: maven
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
+      - name: Install shared framework parent POM
+        run: mvn -B -ntp -f core/framework/parent/pom.xml install
+      - name: Install framework aggregator POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install Foundation contracts
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Install Ecosystem contracts
