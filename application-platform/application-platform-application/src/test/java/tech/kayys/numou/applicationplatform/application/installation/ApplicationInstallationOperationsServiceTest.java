@@ -67,6 +67,11 @@ class ApplicationInstallationOperationsServiceTest {
                 reads.incrementAndGet();
                 return CompletableFuture.completedFuture(List.of());
             }
+            @Override public CompletableFuture<List<RedriveAuditEntry>> redriveHistory(
+                    TenantId ignored, ApplicationInstallationId id, int limit) {
+                reads.incrementAndGet();
+                return CompletableFuture.completedFuture(List.of());
+            }
             @Override public CompletableFuture<RedriveResult> redrive(RedriveCommand command) {
                 return CompletableFuture.failedFuture(new AssertionError("not expected"));
             }
