@@ -39,6 +39,10 @@ class TenantSelectionCredentialRequestTest {
         HttpResponse<String> discovery = request("GET", "api/v2/auth/tenants", token);
         assertEquals(200, discovery.statusCode(), discovery.body());
 
+        HttpResponse<String> exchange = request("POST", "api/v2/auth/tenant-exchange", token,
+                "{\\"tenantId\\":\\"" + UUID.randomUUID() + "\\"}");
+        assertFalse(exchange.body().contains(FILTER_DENIAL), exchange.body());
+
         HttpResponse<String> management = request("GET", "api/v1/service-accounts", token);
         assertEquals(403, management.statusCode(), management.body());
         assertTrue(management.body().contains(FILTER_DENIAL), management.body());
@@ -55,11 +59,15 @@ class TenantSelectionCredentialRequestTest {
     }
 
     private HttpResponse<String> request(String method, String path, String token) throws Exception {
+        return request(method, path, token, "{}");
+    }
+
+    private HttpResponse<String> request(String method, String path, String token, String body) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder(baseUri.resolve(path))
                 .header("Authorization", "Bearer " + token)
                 .header("Accept", "application/json");
         if ("POST".equals(method)) {
-            builder.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{}"));
+            builder.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body));
         } else {
             builder.GET();
         }
