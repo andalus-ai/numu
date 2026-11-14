@@ -169,6 +169,7 @@ public final class PostgresApiArtifactCleanupRepository implements ApiArtifactCl
                      WHERE provider_tenant_id=? AND product_id=? AND api_version=?
                        AND artifact_reference=? AND sha256=?
                        AND lifecycle_state='DELETE_PENDING' AND cleanup_lease_owner=?
+                       AND cleanup_lease_until>?
                     RETURNING cleanup_attempts, lifecycle_state
                     """)) {
                 statement.setInt(1, maximumAttempts);
@@ -180,6 +181,7 @@ public final class PostgresApiArtifactCleanupRepository implements ApiArtifactCl
                 statement.setString(7, lease.artifactReference());
                 statement.setString(8, lease.sha256());
                 statement.setString(9, workerId);
+                statement.setTimestamp(10, Timestamp.from(failedAt));
                 try (ResultSet rows = statement.executeQuery()) {
                     if (rows.next()) {
                         int attempts = rows.getInt(1);
