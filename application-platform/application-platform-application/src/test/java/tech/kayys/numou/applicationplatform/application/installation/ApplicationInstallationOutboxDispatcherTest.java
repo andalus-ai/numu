@@ -99,6 +99,30 @@ class ApplicationInstallationOutboxDispatcherTest {
         assertThat(outbox.delivered).isTrue();
     }
 
+    @Test
+    void auditedRedriveEventResumesProvisioningWithOriginalOperationIdentity() {
+        var installation = ApplicationInstallation.request(TENANT, APP, VERSION, PACKAGE.sha256Digest(),
+                "user:alice", NOW);
+        installation.fail("system:application-platform", NOW.plusSeconds(1), "PROVISIONING_TEMPORARY_FAILURE");
+        installation.retry("operator:alice", "OPERATOR_REDRIVE", NOW.plusSeconds(2));
+        UUID operationId = UUID.randomUUID();
+        var retryEvent = new ClaimedEvent(UUID.randomUUID(), installation.id().value(), APP.value(), VERSION.value(),
+                PACKAGE.sha256Digest(), "APPLICATION_INSTALLATION_RETRY_REQUESTED", "VALIDATING", 3,
+                "operator:alice", "OPERATOR_REDRIVE", "OPERATOR_REDRIVE", NOW.plusSeconds(2),
+                1, "worker-a", UUID.randomUUID(), NOW.plusSeconds(30), operationId);
+        var outbox = new FakeOutbox(retryEvent);
+        var seenOperationId = new AtomicReference<UUID>();
+        var dispatcher = dispatcher(outbox, new FakeInstallationStore(installation), command -> {
+            seenOperationId.set(command.operationId());
+            return CompletableFuture.completedFuture(null);
+        }, Optional.of(PACKAGE));
+
+        var result = dispatcher.dispatchOnce(TENANT, "worker-a").toCompletableFuture().join();
+
+        assertThat(result.delivered()).isEqualTo(1);
+        assertThat(seenOperationId).hasValue(operationId);
+    }
+
     private static ApplicationInstallationOutboxDispatcher dispatcher(FakeOutbox outbox,
             FakeInstallationStore installations, ApplicationInstallationProvisioningPort provisioner,
             Optional<ValidatedApplicationPackage> pkg) {
