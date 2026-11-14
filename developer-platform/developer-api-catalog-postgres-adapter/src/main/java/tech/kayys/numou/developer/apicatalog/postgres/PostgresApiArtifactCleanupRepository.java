@@ -156,7 +156,7 @@ public final class PostgresApiArtifactCleanupRepository implements ApiArtifactCl
 
     @Override
     public Uni<Void> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
-                                   String failureCode, Instant retryAt, int maximumAttempts) {
+                                   String failureCode, Instant failedAt, Instant retryAt, int maximumAttempts) {
         return transactions.withTenant(tenant, connection -> {
             String reason = failureCode == null ? "CLEANUP_FAILURE"
                     : failureCode.substring(0, Math.min(120, failureCode.length()));
@@ -186,7 +186,7 @@ public final class PostgresApiArtifactCleanupRepository implements ApiArtifactCl
                         String state = rows.getString(2);
                         insertAudit(connection, tenant, lease,
                                 "ABANDONED".equals(state) ? "TERMINAL_FAILURE" : "RETRY_SCHEDULED",
-                                workerId, attempts, reason, retryAt);
+                                workerId, attempts, reason, failedAt);
                     }
                 }
             }
