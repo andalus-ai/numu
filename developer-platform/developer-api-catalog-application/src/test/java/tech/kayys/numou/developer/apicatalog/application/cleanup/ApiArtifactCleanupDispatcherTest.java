@@ -75,6 +75,34 @@ class ApiArtifactCleanupDispatcherTest {
     }
 
     @Test
+    void detailedDispatchReportsClaimsAndDeletedItems() {
+        FakeRepository repository = new FakeRepository();
+        ApiArtifactCleanupDispatcher.DispatchResult result = new ApiArtifactCleanupDispatcher(
+                repository, (tenant, reference, sha) -> Uni.createFrom().voidItem())
+                .dispatchDetailedOnce(TenantId.generate(), "worker", NOW,
+                        Duration.ofSeconds(90), 10, 5).await().indefinitely();
+
+        assertThat(result.claimed()).isEqualTo(1);
+        assertThat(result.deleted()).isEqualTo(1);
+        assertThat(result.failed()).isZero();
+        assertThat(result.leaseLost()).isZero();
+    }
+
+    @Test
+    void exposesTenantScopedOperationalSnapshot() {
+        FakeRepository repository = new FakeRepository();
+        var snapshot = new ApiArtifactCleanupDispatcher(repository,
+                (tenant, reference, sha) -> Uni.createFrom().voidItem())
+                .snapshot(TenantId.generate(), NOW, 5).await().indefinitely();
+
+        assertThat(snapshot.eligible()).isEqualTo(2);
+        assertThat(snapshot.leased()).isEqualTo(1);
+        assertThat(snapshot.terminalFailures()).isZero();
+        assertThat(snapshot.tombstones()).isEqualTo(3);
+        assertThat(snapshot.oldestDueAgeSeconds()).isEqualTo(15);
+    }
+
+    @Test
     void appliesBoundedExponentialRetryDelay() {
         assertThat(ApiArtifactCleanupDispatcher.retryDelay(1)).isEqualTo(Duration.ofSeconds(5));
         assertThat(ApiArtifactCleanupDispatcher.retryDelay(2)).isEqualTo(Duration.ofSeconds(15));
@@ -107,6 +135,12 @@ class ApiArtifactCleanupDispatcherTest {
             failureCode.set(code);
             retryAt.set(retry);
             return Uni.createFrom().voidItem();
+        }
+
+        @Override public Uni<ApiArtifactCleanupRepository.CleanupOperationalSnapshot> snapshot(
+                TenantId tenant, Instant now, int maximumAttempts) {
+            return Uni.createFrom().item(new ApiArtifactCleanupRepository.CleanupOperationalSnapshot(
+                    2, 1, 0, 3, 15));
         }
     }
 }
