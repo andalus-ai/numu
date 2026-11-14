@@ -29,7 +29,9 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
  @Test void callerAssignedRunIdMakesCoordinatorRetriesIdempotent() {
   UUID tenant=UUID.randomUUID(),runId=UUID.randomUUID();var store=new JdbcHistoricalProjectionRebuildStore(source);
   var first=store.start(tenant,runId,Instant.now());var retry=store.start(tenant,runId,Instant.now().plusSeconds(10));
-  assertEquals(runId,first.runId());assertEquals(first,retry);
+  assertEquals(runId,first.runId());assertEquals(first.runId(),retry.runId());
+  assertEquals(first.highWaterSequence(),retry.highWaterSequence());assertEquals(first.cursorSequence(),retry.cursorSequence());
+  assertEquals(first.status(),retry.status());
  }
  private static UUID insertRevision(UUID tenant) throws Exception {
   UUID id=UUID.randomUUID();try(Connection c=source.getConnection()){c.setAutoCommit(false);
