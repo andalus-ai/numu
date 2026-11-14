@@ -159,7 +159,7 @@ class PostgresApiProductRepositoryTest {
   var lease=cleanup.claimDue(tenant,"cleanup-worker:retry-token",cleanupNow,cleanupNow.plusSeconds(90),1,1)
     .await().indefinitely().get(0);
   cleanup.recordFailure(tenant,lease,"cleanup-worker:retry-token","StorageUnavailable",
-    cleanupNow.plusSeconds(5),1).await().indefinitely();
+    cleanupNow.plusSeconds(1),cleanupNow.plusSeconds(5),1).await().indefinitely();
 
   assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("ABANDONED");
   assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
