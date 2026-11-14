@@ -251,9 +251,10 @@ between Notification recipient IDs and Ecosystem Party IDs.
 BLOCK and recipient-owned MUTE produce durable `SUPPRESSED` delivery jobs.
 An unresolved recipient Party also suppresses rather than bypassing policy.
 Policy infrastructure failures are retried without calling the provider.
-System-originated notifications with no source Party remain eligible under
-Social Graph relationship policy; all other host-owned consent, visibility,
-moderation and recipient eligibility checks still apply.
+System-originated notifications with no source Party skip relationship
+checks because there is no social author. Producers must attach canonical
+source attribution for Party-authored content/actions; all other host-owned
+consent, visibility, moderation and recipient eligibility checks still apply.
 
 See [M2g Notification delivery suppression](../../../docs/architecture/SOCIAL-GRAPH-M2G-NOTIFICATION-DELIVERY.md)
 for schema, composition and verification details.
