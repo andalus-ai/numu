@@ -20,6 +20,7 @@
     <module>notification-provider-http</module>
     <module>notification-adapter-quarkus</module>
     <module>notification-adapter-numou-security</module>
+    <module>notification-adapter-social-graph</module>
     <module>notification-adapter-quarkus-jdbc</module>
   </modules>
 </project>
