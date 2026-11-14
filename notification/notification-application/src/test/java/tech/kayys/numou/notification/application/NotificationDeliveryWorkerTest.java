@@ -41,7 +41,7 @@ class NotificationDeliveryWorkerTest {
             public Optional<PushDevice> disable(UUID t, UUID r, UUID id, Instant at) { return Optional.empty(); }
         };
         var worker = new NotificationDeliveryWorker(jobs, notificationRepository, deviceRepository, Map.of("TEST", provider),
-                new NotificationDeliveryRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10), 0),
+                notification -> NotificationDeliveryPolicy.Decision.ALLOW,\n                new NotificationDeliveryRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10), 0),
                 Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), 10);
 
         var result = worker.processBatch();
@@ -90,6 +90,9 @@ class NotificationDeliveryWorkerTest {
             return Optional.empty();
         }
         public Optional<NotificationDeliveryJob> markDead(UUID t, UUID id, UUID token, String code) {
+            return Optional.empty();
+        }
+        public Optional<NotificationDeliveryJob> markSuppressed(UUID t, UUID id, UUID token, String code) {
             return Optional.empty();
         }
     }
