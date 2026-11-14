@@ -46,7 +46,7 @@ public final class SubmitDistributedSurveyResponseHandler {
             throw new SurveyDistributionLimitReachedException();
 
         try {
-            surveyResponses.submit(tenantId, id);
+            surveyResponses.submit(tenantId, distribution.surveyId(), id);
             distributions.completeResponse(tenantId, distribution.id(), id, now);
             return Outcome.SUBMITTED;
         } catch (RuntimeException failure) {
