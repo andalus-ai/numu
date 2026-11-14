@@ -7,6 +7,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
@@ -36,6 +37,7 @@ class S3CompatibleDocumentStorageRustFsIT {
         String secretKey = System.getenv().getOrDefault("NUMOU_RUSTFS_SECRET_KEY", "numou-ci-secret");
         bucket = System.getenv().getOrDefault("NUMOU_RUSTFS_BUCKET", "numou-document-integration");
         client = S3Client.builder()
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .endpointOverride(URI.create(endpoint))
                 .region(Region.US_EAST_1)
                 .credentialsProvider(StaticCredentialsProvider.create(
