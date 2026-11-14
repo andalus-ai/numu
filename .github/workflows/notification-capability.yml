@@ -33,7 +33,9 @@ jobs:
         run: python3 tools/verify-module-topology.py
       - name: Enforce domain dependency boundaries
         run: python3 tools/verify-domain-boundaries.py
-      - name: Install framework parent POM
+      - name: Install shared framework parent POM
+        run: mvn -B -ntp -f core/framework/parent/pom.xml install
+      - name: Install framework aggregator POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install foundation capabilities required by Numou security integration
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
