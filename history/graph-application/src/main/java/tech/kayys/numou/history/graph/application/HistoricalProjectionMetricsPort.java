@@ -13,9 +13,11 @@ public interface HistoricalProjectionMetricsPort {
 
     default void recordRebuildProgress(RebuildMetric metric) {}
     default void recordReconciliation(ReconciliationMetric metric) {}
+    default void recordGenerationRun(GenerationRunMetric metric) {}
 
     record RebuildMetric(long projectedEvents, long cursorSequence, long highWaterSequence,
                          boolean completed) {}
     record ReconciliationMetric(long canonicalChecked, long missing, long stale,
                                 long divergent, long orphaned, long repaired) {}
+    record GenerationRunMetric(String status, int failureCount) {}
 }

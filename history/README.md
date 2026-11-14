@@ -32,3 +32,7 @@ The history reactor is intentionally isolated from the repository's other Maven 
 
 ## Graph projection operations
 Operational metrics and recovery procedures are documented in [Historical graph projection operations](../docs/runbooks/HISTORICAL-GRAPH-PROJECTION-OPERATIONS.md). Metrics are exposed through framework-neutral application ports; the deployment runtime supplies its telemetry adapter and alert rules.
+
+
+### Staged graph-generation operations
+The M4 graph projection includes a resumable generation orchestrator. A caller supplies a stable operation UUID; PostgreSQL journals the selected generation, rebuild run, captured active-generation precondition, lifecycle phase, and failure diagnostics. The coordinator advances one bounded step per invocation and can be resumed after process interruption. The host runtime must schedule repeated calls and provide maintenance authorization. Automatic deletion of retained generations is deliberately deferred; keep prior generations until an audited retention/cleanup policy is deployed.

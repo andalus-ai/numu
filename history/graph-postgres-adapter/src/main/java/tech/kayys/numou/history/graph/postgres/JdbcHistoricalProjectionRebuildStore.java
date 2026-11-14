@@ -24,16 +24,31 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
 
     @Override
     public RebuildRun start(UUID tenantId, Instant now) {
+        return start(tenantId, UUID.randomUUID(), now);
+    }
+
+    @Override
+    public RebuildRun start(UUID tenantId, UUID runId, Instant now) {
+        Objects.requireNonNull(runId, "runId");
         Objects.requireNonNull(now, "now");
-        UUID runId = UUID.randomUUID();
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
             try {
+                Optional<RebuildRun> existing = find(c, tenantId, runId);
+                if (existing.isPresent()) {
+                    c.commit();
+                    return existing.get();
+                }
                 // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock. Once acquired,
-                // all earlier event transactions have committed; later inserts receive a
-                // sequence above this run's immutable high-water mark.
+                // all earlier event transactions have committed; later inserts receive
+                // a sequence above this run's immutable high-water mark.
                 try (Statement lock = c.createStatement()) {
                     lock.execute("LOCK TABLE historical_relationship_projection_outbox IN SHARE MODE");
+                }
+                existing = find(c, tenantId, runId);
+                if (existing.isPresent()) {
+                    c.commit();
+                    return existing.get();
                 }
                 long highWater;
                 try (Statement s = c.createStatement();
@@ -60,6 +75,10 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 throw e;
             }
         } catch (SQLException e) {
+            // A concurrent retry may have won the primary-key race. Resolve only if the
+            // existing run belongs to exactly the requested scope.
+            Optional<RebuildRun> existing = find(tenantId, runId);
+            if (existing.isPresent()) return existing.get();
             throw failure("start historical projection rebuild", e);
         }
     }
@@ -67,15 +86,21 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
     @Override
     public Optional<RebuildRun> find(UUID tenantId, UUID runId) {
         Objects.requireNonNull(runId, "runId");
+        try (Connection c = source.getConnection()) {
+            return find(c, tenantId, runId);
+        } catch (SQLException e) {
+            throw failure("load historical projection rebuild", e);
+        }
+    }
+
+    private Optional<RebuildRun> find(Connection c, UUID tenantId, UUID runId) throws SQLException {
         String sql = "SELECT * FROM historical_relationship_projection_rebuild_run WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?";
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
+        try (PreparedStatement s = c.prepareStatement(sql)) {
             s.setObject(1, runId);
             s.setObject(2, tenantId);
             try (ResultSet r = s.executeQuery()) {
                 return r.next() ? Optional.of(mapRun(r)) : Optional.empty();
             }
-        } catch (SQLException e) {
-            throw failure("load historical projection rebuild", e);
         }
     }
 

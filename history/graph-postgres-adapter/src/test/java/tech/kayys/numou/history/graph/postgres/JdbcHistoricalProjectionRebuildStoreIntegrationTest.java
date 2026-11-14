@@ -26,6 +26,11 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
   assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.COMPLETED,store.find(tenant,run.runId()).orElseThrow().status());
   assertTrue(store.nextPage(tenant,run.runId(),10).isEmpty());
  }
+ @Test void callerAssignedRunIdMakesCoordinatorRetriesIdempotent() {
+  UUID tenant=UUID.randomUUID(),runId=UUID.randomUUID();var store=new JdbcHistoricalProjectionRebuildStore(source);
+  var first=store.start(tenant,runId,Instant.now());var retry=store.start(tenant,runId,Instant.now().plusSeconds(10));
+  assertEquals(runId,first.runId());assertEquals(first,retry);
+ }
  private static UUID insertRevision(UUID tenant) throws Exception {
   UUID id=UUID.randomUUID();try(Connection c=source.getConnection()){c.setAutoCommit(false);
    if(tenant!=null)try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")){scope.setString(1,tenant.toString());scope.execute();}
