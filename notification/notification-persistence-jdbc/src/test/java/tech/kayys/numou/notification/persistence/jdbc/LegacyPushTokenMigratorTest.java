@@ -202,7 +202,8 @@ class LegacyPushTokenMigratorTest {
                 "V2__notification_push_device.sql",
                 "V3__notification_delivery_jobs.sql",
                 "V4__notification_push_token_encryption.sql",
-                "V5__notification_push_token_migration_audit.sql",\n                "V6__social_graph_delivery_suppression.sql")) {
+                "V5__notification_push_token_migration_audit.sql",
+                "V6__social_graph_delivery_suppression.sql")) {
             String sql;
             try (var stream = LegacyPushTokenMigratorTest.class
                     .getResourceAsStream("/db/migration/" + migration)) {
