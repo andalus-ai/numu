@@ -27,6 +27,9 @@ public final class SurveyResponseSubmissionBridge implements DistributedSurveyRe
         if (!surveyId.equals(session.surveyId().value())) {
             throw new IllegalArgumentException("Response does not belong to the invited survey");
         }
+        // A retried invitation submission may arrive after Survey committed but before
+        // Feedback finalized its quota claim. Treat that state as successful/idempotent.
+        if (session.status() == tech.kayys.numou.survey.domain.response.ResponseStatus.SUBMITTED) return;
         responses.submit(context, id);
     }
 }
