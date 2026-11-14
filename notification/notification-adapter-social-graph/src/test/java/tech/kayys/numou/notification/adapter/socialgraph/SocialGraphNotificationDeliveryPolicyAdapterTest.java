@@ -81,7 +81,18 @@ class SocialGraphNotificationDeliveryPolicyAdapterTest {
         Notification notification = Notification.create(UUID.randomUUID(), UUID.randomUUID(),
                 "billing.invoice-due", "Invoice due", "Your invoice is due",
                 "invoice:123", "key-3", NOW);
-        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(null,
+        var service = new SocialGraphInteractionPolicyService(new SocialGraphRelationshipPolicyPort() {
+            @Override
+            public Uni<Boolean> isBlocked(TenantId scope, PartyId first, PartyId second, Instant at) {
+                throw new AssertionError("system notification should not query block policy");
+            }
+
+            @Override
+            public Uni<Boolean> isMuted(TenantId scope, PartyId viewer, PartyId author, Instant at) {
+                throw new AssertionError("system notification should not query mute policy");
+            }
+        }, Clock.fixed(NOW, ZoneOffset.UTC));
+        var adapter = new SocialGraphNotificationDeliveryPolicyAdapter(service,
                 (scope, id) -> Optional.empty());
 
         assertThat(adapter.evaluate(notification)).isEqualTo(NotificationDeliveryPolicy.Decision.ALLOW);
