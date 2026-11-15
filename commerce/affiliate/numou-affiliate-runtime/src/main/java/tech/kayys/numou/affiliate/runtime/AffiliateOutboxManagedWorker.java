@@ -55,13 +55,21 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
         if (!inFlight.compareAndSet(false, true)) return;
         try {
             dispatcher.dispatchOnce(tenantId, workerId).whenComplete((delivered, failure) -> {
-                if (failure != null) metrics.recordDispatchFailure();
-                else metrics.recordDelivered(delivered);
-                refreshHealth();
+                try {
+                    if (failure != null) recordFailureSafely();
+                    else if (delivered != null && delivered > 0) metrics.recordDelivered(delivered);
+                } catch (RuntimeException ignored) {
+                    // Telemetry must never prevent lease health refresh or stall delivery.
+                } finally {
+                    refreshHealth();
+                }
             });
-        } catch (Throwable failure) {
-            metrics.recordDispatchFailure();
-            inFlight.set(false);
+        } catch (RuntimeException failure) {
+            try {
+                recordFailureSafely();
+            } finally {
+                inFlight.set(false);
+            }
         }
     }
 
@@ -69,15 +77,28 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
         try {
             store.healthSnapshot().whenComplete((snapshot, failure) -> {
                 try {
-                    if (failure != null) metrics.recordDispatchFailure();
-                    else metrics.refresh(snapshot);
+                    if (failure != null) recordFailureSafely();
+                    else if (snapshot != null) metrics.refresh(snapshot);
+                } catch (RuntimeException ignored) {
+                    // Health telemetry is best-effort; lifecycle progress is not.
                 } finally {
                     inFlight.set(false);
                 }
             });
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
+            try {
+                recordFailureSafely();
+            } finally {
+                inFlight.set(false);
+            }
+        }
+    }
+
+    private void recordFailureSafely() {
+        try {
             metrics.recordDispatchFailure();
-            inFlight.set(false);
+        } catch (RuntimeException ignored) {
+            // Metrics backends are outside the delivery correctness boundary.
         }
     }
 

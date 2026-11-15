@@ -21,3 +21,12 @@ The host must provide an `EventPublisherPort`, an `AffiliateEventMetadataResolve
 - Outbox claims recover expired leases and remain safe across competing worker instances through PostgreSQL `SKIP LOCKED` and lease ownership checks.
 - Event delivery is at-least-once. A crash after broker acceptance but before outbox acknowledgement can redeliver the same event ID.
 - Tenant IDs in Affiliate storage are opaque strings. Mapping to the event platform's UUID tenant field is a host identity responsibility, not a local conversion rule.
+
+
+## M19 — Managed worker lifecycle hardening
+
+- Dispatch completion always proceeds to the health refresh even if the metrics backend throws; telemetry failures are deliberately isolated from outbox delivery progress.
+- A failed health read or failed gauge update cannot leave the worker's in-flight gate permanently closed.
+- Runtime tests cover repeated start/stop calls and prove that a telemetry failure does not prevent later scheduled dispatch attempts or health refreshes.
+- Register one shared `AffiliateOutboxMetrics` instance per application/runtime. The metric names are process-wide and intentionally have no tenant labels; do not create a separate metrics adapter for each tenant worker.
+- A worker remains single-tenant and owns only its scheduling loop. PostgreSQL leases, not JVM synchronization, coordinate competing processes.
