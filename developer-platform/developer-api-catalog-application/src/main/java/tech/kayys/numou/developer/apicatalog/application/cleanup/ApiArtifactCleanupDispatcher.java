@@ -3,6 +3,7 @@ package tech.kayys.numou.developer.apicatalog.application.cleanup;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactCleanupRepository;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactCleanupRepository.CleanupLease;
+import tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactCleanupRepository.CleanupOperationalSnapshot;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactObjectDeletionPort;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
@@ -27,8 +28,15 @@ public final class ApiArtifactCleanupDispatcher {
         this.deletion = Objects.requireNonNull(deletion, "deletion cannot be null");
     }
 
+    /** Backwards-compatible count-only dispatch contract. */
     public Uni<Integer> dispatchOnce(TenantId tenant, String workerId, Instant now,
                                      Duration leaseDuration, int batchSize, int maximumAttempts) {
+        return dispatchDetailedOnce(tenant, workerId, now, leaseDuration, batchSize, maximumAttempts)
+                .map(DispatchResult::deleted);
+    }
+
+    public Uni<DispatchResult> dispatchDetailedOnce(TenantId tenant, String workerId, Instant now,
+                                                     Duration leaseDuration, int batchSize, int maximumAttempts) {
         Objects.requireNonNull(tenant, "tenant cannot be null");
         Objects.requireNonNull(now, "now cannot be null");
         if (workerId == null || workerId.isBlank() || workerId.length() > 120
@@ -38,33 +46,50 @@ public final class ApiArtifactCleanupDispatcher {
         }
         String leaseOwner = workerId.trim() + ":" + UUID.randomUUID();
         return repository.claimDue(tenant, leaseOwner, now, now.plus(leaseDuration), batchSize, maximumAttempts)
-                .chain(leases -> process(tenant, leaseOwner, now, maximumAttempts, leases, 0));
+                .chain(leases -> process(tenant, leaseOwner, now, maximumAttempts, leases, 0, 0, 0)
+                        .map(counts -> new DispatchResult(leases.size(), counts.deleted(),
+                                counts.failed(), counts.leaseLost())));
     }
 
-    private Uni<Integer> process(TenantId tenant, String workerId, Instant now, int maximumAttempts,
-                                 List<CleanupLease> leases, int completed) {
-        if (leases.isEmpty()) return Uni.createFrom().item(completed);
-        CleanupLease lease = leases.get(0);
-        List<CleanupLease> remaining = leases.subList(1, leases.size());
+    public Uni<CleanupOperationalSnapshot> snapshot(TenantId tenant, Instant now, int maximumAttempts) {
+        Objects.requireNonNull(tenant, "tenant cannot be null");
+        Objects.requireNonNull(now, "now cannot be null");
+        if (maximumAttempts < 1) return Uni.createFrom().failure(
+                new IllegalArgumentException("maximumAttempts must be positive"));
+        return repository.snapshot(tenant, now, maximumAttempts);
+    }
+
+    private Uni<Counts> process(TenantId tenant, String workerId, Instant now, int maximumAttempts,
+                                List<CleanupLease> leases, int index, int deleted, int failed) {
+        if (index >= leases.size()) {
+            return Uni.createFrom().item(new Counts(deleted, failed, 0));
+        }
+        CleanupLease lease = leases.get(index);
         return processOne(tenant, workerId, now, maximumAttempts, lease)
-                .chain(deleted -> process(tenant, workerId, now, maximumAttempts, remaining,
-                        completed + (deleted ? 1 : 0)));
+                .chain(outcome -> process(tenant, workerId, now, maximumAttempts, leases, index + 1,
+                        deleted + (outcome == Outcome.DELETED ? 1 : 0),
+                        failed + (outcome == Outcome.FAILED ? 1 : 0))
+                        .map(rest -> new Counts(rest.deleted(), rest.failed(),
+                                rest.leaseLost() + (outcome == Outcome.LEASE_LOST ? 1 : 0))));
     }
 
-    private Uni<Boolean> processOne(TenantId tenant, String workerId, Instant now,
+    private Uni<Outcome> processOne(TenantId tenant, String workerId, Instant now,
                                     int maximumAttempts, CleanupLease lease) {
-        return repository.isLeaseCurrent(tenant, lease, workerId, now, maximumAttempts)
+        Instant checkedAt = Instant.now();
+        return repository.isLeaseCurrent(tenant, lease, workerId, checkedAt, maximumAttempts)
                 .flatMap(current -> {
-                    if (!current) return Uni.createFrom().item(false);
+                    if (!current) return Uni.createFrom().item(Outcome.LEASE_LOST);
                     return deletion.delete(tenant, lease.artifactReference(), lease.sha256())
                             .ifNoItem().after(DELETE_TIMEOUT).fail()
-                            .chain(() -> repository.markDeleted(tenant, lease, workerId, now))
-                            .replaceWith(true);
+                            .chain(() -> repository.markDeleted(tenant, lease, workerId, Instant.now()))
+                            .replaceWith(Outcome.DELETED);
                 })
-                .onFailure().recoverWithUni(failure ->
-                        repository.recordFailure(tenant, lease, workerId, failureCode(failure),
-                                now.plus(retryDelay(lease.attempts() + 1)), maximumAttempts)
-                                .replaceWith(false));
+                .onFailure().recoverWithUni(failure -> {
+                    Instant failedAt = Instant.now();
+                    return repository.recordFailure(tenant, lease, workerId, failureCode(failure), failedAt,
+                            failedAt.plus(retryDelay(lease.attempts() + 1)), maximumAttempts)
+                            .map(recorded -> recorded ? Outcome.FAILED : Outcome.LEASE_LOST);
+                });
     }
 
     static Duration retryDelay(int attempt) {
@@ -78,4 +103,8 @@ public final class ApiArtifactCleanupDispatcher {
         String type = failure.getClass().getSimpleName();
         return type.length() <= 120 ? type : type.substring(0, 120);
     }
+
+    public record DispatchResult(int claimed, int deleted, int failed, int leaseLost) { }
+    private record Counts(int deleted, int failed, int leaseLost) { }
+    private enum Outcome { DELETED, FAILED, LEASE_LOST }
 }
