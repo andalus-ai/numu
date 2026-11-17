@@ -84,6 +84,6 @@ Repair (repair=true) requires audit and rebuild authorization, an authenticated 
 - Provision PostgreSQL and Neo4j credentials with least privilege; runtime projection role must not have canonical revision mutation rights.
 - Bootstrap Neo4j schema using a schema-capable deployment identity, not the application read/write identity.
 - Wire a metrics adapter and alert rules before production rollout.
-- Configure tenant context and maintenance authorization from trusted server-side security infrastructure.
+- Configure tenant context, maintenance authorization, and authenticated operator context from trusted server-side security infrastructure. Worker-triggered failure transitions must use a configured service-principal actor.
 - Exercise a tenant-scoped rebuild, public rebuild (where applicable), pause/resume, cancel, failure/retry, stale-worker fencing, dry-run reconciliation, and an audited dead-letter replay in a non-production environment.
 - Verify the History PostgreSQL/Neo4j CI workflow and retain the test report with the release evidence.
