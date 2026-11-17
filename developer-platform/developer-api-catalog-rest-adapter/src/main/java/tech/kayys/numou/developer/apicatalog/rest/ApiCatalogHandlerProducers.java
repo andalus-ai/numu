@@ -76,4 +76,9 @@ public class ApiCatalogHandlerProducers {
     ExtendApiArtifactRetentionCommandHandler extendArtifactRetention() {
         return new ExtendApiArtifactRetentionCommandHandler(artifactGovernance, authorization, executionContext);
     }
+
+    @Produces @ApplicationScoped
+    GetApiArtifactGovernanceQueryHandler getArtifactGovernance() {
+        return new GetApiArtifactGovernanceQueryHandler(artifactGovernance, authorization, executionContext);
+    }
 }
