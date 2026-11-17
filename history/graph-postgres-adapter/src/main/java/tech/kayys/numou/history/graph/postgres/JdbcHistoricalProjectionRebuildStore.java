@@ -151,15 +151,27 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                    AND status='RUNNING' AND cursor_sequence=? AND lifecycle_version=?
                    AND high_water_sequence>=?
                 """;
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
-            s.setLong(1, nextCursor);
-            s.setTimestamp(2, Timestamp.from(now));
-            s.setObject(3, runId);
-            s.setObject(4, tenantId);
-            s.setLong(5, expectedCursor);
-            s.setLong(6, expectedLifecycleVersion);
-            s.setLong(7, nextCursor);
-            return s.executeUpdate() == 1;
+        try (Connection c = source.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                setTenantScope(c, tenantId);
+                boolean advanced;
+                try (PreparedStatement s = c.prepareStatement(sql)) {
+                    s.setLong(1, nextCursor);
+                    s.setTimestamp(2, Timestamp.from(now));
+                    s.setObject(3, runId);
+                    s.setObject(4, tenantId);
+                    s.setLong(5, expectedCursor);
+                    s.setLong(6, expectedLifecycleVersion);
+                    s.setLong(7, nextCursor);
+                    advanced = s.executeUpdate() == 1;
+                }
+                c.commit();
+                return advanced;
+            } catch (SQLException | RuntimeException e) {
+                rollback(c, e);
+                throw e;
+            }
         } catch (SQLException e) {
             throw failure("advance fenced historical projection rebuild checkpoint", e);
         }
