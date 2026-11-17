@@ -80,6 +80,28 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
   assertEquals(event.sequence(),updated.cursorSequence());
  }
 
+
+ @Test void failedRunRetryClearsFailureAndKeepsCursor() {
+  UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();
+  var store=new JdbcHistoricalProjectionRebuildStore(source);
+  var run=store.start(tenant,Instant.now());
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.FAIL,0,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.FAILED,"provider failure",Instant.now()));
+  var failed=store.find(tenant,run.runId()).orElseThrow();
+  assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.FAILED,failed.status());
+  assertEquals("provider failure",failed.failureDetail());
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.RETRY,1,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.FAILED,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,"provider recovered",Instant.now()));
+  var retried=store.find(tenant,run.runId()).orElseThrow();
+  assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,retried.status());
+  assertEquals("",retried.failureDetail());
+  assertEquals(0,retried.cursorSequence());
+ }
+
  private static UUID insertRevision(UUID tenant) throws Exception {
   UUID id=UUID.randomUUID();try(Connection c=source.getConnection()){c.setAutoCommit(false);
    if(tenant!=null)try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")){scope.setString(1,tenant.toString());scope.execute();}
