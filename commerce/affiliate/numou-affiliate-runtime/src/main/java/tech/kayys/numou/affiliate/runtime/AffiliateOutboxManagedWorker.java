@@ -57,19 +57,16 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
             dispatcher.dispatchOnce(tenantId, workerId).whenComplete((delivered, failure) -> {
                 try {
                     if (failure != null) recordFailureSafely();
-                    else if (delivered != null && delivered > 0) metrics.recordDelivered(delivered);
-                } catch (RuntimeException ignored) {
-                    // Telemetry must never prevent lease health refresh or stall delivery.
+                    else recordDeliveredSafely(delivered);
                 } finally {
+                    // Telemetry must never own worker liveness. Always attempt the
+                    // health refresh and release the gate even if a metrics adapter fails.
                     refreshHealth();
                 }
             });
-        } catch (RuntimeException failure) {
-            try {
-                recordFailureSafely();
-            } finally {
-                inFlight.set(false);
-            }
+        } catch (Throwable failure) {
+            recordFailureSafely();
+            inFlight.set(false);
         }
     }
 
@@ -78,27 +75,36 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
             store.healthSnapshot().whenComplete((snapshot, failure) -> {
                 try {
                     if (failure != null) recordFailureSafely();
-                    else if (snapshot != null) metrics.refresh(snapshot);
-                } catch (RuntimeException ignored) {
-                    // Health telemetry is best-effort; lifecycle progress is not.
+                    else {
+                        try {
+                            metrics.refresh(snapshot);
+                        } catch (Throwable ignored) {
+                            // A broken metrics sink must not wedge dispatch scheduling.
+                        }
+                    }
                 } finally {
                     inFlight.set(false);
                 }
             });
-        } catch (RuntimeException failure) {
-            try {
-                recordFailureSafely();
-            } finally {
-                inFlight.set(false);
-            }
+        } catch (Throwable failure) {
+            recordFailureSafely();
+            inFlight.set(false);
         }
     }
 
     private void recordFailureSafely() {
         try {
             metrics.recordDispatchFailure();
-        } catch (RuntimeException ignored) {
-            // Metrics backends are outside the delivery correctness boundary.
+        } catch (Throwable ignored) {
+            // Metrics are best-effort and cannot control delivery lifecycle.
+        }
+    }
+
+    private void recordDeliveredSafely(long delivered) {
+        try {
+            metrics.recordDelivered(delivered);
+        } catch (Throwable ignored) {
+            // Metrics are best-effort and cannot control delivery lifecycle.
         }
     }
 
@@ -113,7 +119,8 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
                 while (inFlight.get() && System.nanoTime() < deadline) Thread.sleep(25);
                 long remaining = Math.max(0, deadline - System.nanoTime());
                 if (!stopping.awaitTermination(remaining, TimeUnit.NANOSECONDS)) stopping.shutdownNow();
-                if (inFlight.get()) throw new IllegalStateException("Affiliate outbox worker did not drain before stop timeout");
+                if (inFlight.get()) throw new IllegalStateException(
+                        "Affiliate outbox worker did not drain before stop timeout");
                 return (Void) null;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
