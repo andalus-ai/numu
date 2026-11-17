@@ -232,7 +232,13 @@ public final class LocalWorkspacePageChangeHub
                 revoked.set(true);
                 callback = revocationCallback.getAndSet(null);
             }
-            if (callback != null) callback.run();
+            if (callback != null) {
+                try {
+                    callback.run();
+                } catch (RuntimeException callbackFailure) {
+                    synchronized (LocalWorkspacePageChangeHub.this) { deliveryFailures++; }
+                }
+            }
         }
     }
 
