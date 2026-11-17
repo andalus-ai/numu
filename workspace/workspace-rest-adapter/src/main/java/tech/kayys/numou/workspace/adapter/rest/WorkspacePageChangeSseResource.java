@@ -6,6 +6,7 @@ import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.sse.OutboundSseEvent;
@@ -14,20 +15,21 @@ import jakarta.ws.rs.sse.SseEventSink;
 import tech.kayys.numou.workspace.application.WorkspacePageChangeSubscriptionApi;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSignal;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Optional SSE transport. The host must compose a tenant-aware subscription port; this resource
- * does not create an in-memory or single-instance production broker.
+ * Optional SSE transport. The host supplies the tenant-aware fanout implementation; this
+ * resource owns bounded connection lifecycle, heartbeat and slow-consumer handling.
  */
 @Path("/api/v1/pages/{pageId}/events")
 public class WorkspacePageChangeSseResource {
     private final WorkspacePageChangeSubscriptionApi subscriptions;
+    private final WorkspaceSseConnectionRegistry connections;
 
     @Inject
-    public WorkspacePageChangeSseResource(WorkspacePageChangeSubscriptionApi subscriptions) {
+    public WorkspacePageChangeSseResource(WorkspacePageChangeSubscriptionApi subscriptions,
+            WorkspaceSseConnectionRegistry connections) {
         this.subscriptions = subscriptions;
+        this.connections = connections;
     }
 
     @GET
@@ -46,44 +48,32 @@ public class WorkspacePageChangeSseResource {
             }
         }
 
-        AtomicBoolean sending = new AtomicBoolean();
-        AtomicReference<AutoCloseable> registration = new AtomicReference<>();
-        sink.onClose(() -> closeQuietly(registration.get()));
+        WorkspaceSseConnectionRegistry.Connection connection;
+        try {
+            connection = connections.open(
+                    () -> sink.send(sse.newEventBuilder().comment("keepalive").build()),
+                    sink::close);
+        } catch (WorkspaceSseConnectionRegistry.ConnectionLimitExceededException limit) {
+            sink.close();
+            throw new WebApplicationException("Workspace SSE connection capacity reached", 503);
+        }
+        sink.onClose(connection::close);
 
-        AutoCloseable handle = subscriptions.subscribe(pageId, signal -> {
-            if (sink.isClosed()) {
-                closeQuietly(registration.get());
-                return;
-            }
-            // One outstanding write per connection. A slow consumer is disconnected rather
-            // than allowing an unbounded queue of SSE frames to accumulate.
-            if (!sending.compareAndSet(false, true)) {
-                sink.close();
-                closeQuietly(registration.get());
-                return;
-            }
-            OutboundSseEvent event = sse.newEventBuilder()
-                    .id(Long.toString(signal.revision()))
-                    .name("page-change")
-                    .mediaType(MediaType.APPLICATION_JSON_TYPE)
-                    .data(ChangeEvent.class, ChangeEvent.from(signal))
-                    .build();
-            try {
-                sink.send(event).whenComplete((ignored, failure) -> {
-                    sending.set(false);
-                    if (failure != null) {
-                        sink.close();
-                        closeQuietly(registration.get());
-                    }
-                });
-            } catch (RuntimeException sendFailure) {
-                sending.set(false);
-                sink.close();
-                closeQuietly(registration.get());
-            }
-        });
-        registration.set(handle);
-        if (sink.isClosed()) closeQuietly(registration.get());
+        try {
+            AutoCloseable registration = subscriptions.subscribe(pageId, signal -> {
+                OutboundSseEvent event = sse.newEventBuilder()
+                        .id(Long.toString(signal.revision()))
+                        .name("page-change")
+                        .mediaType(MediaType.APPLICATION_JSON_TYPE)
+                        .data(ChangeEvent.class, ChangeEvent.from(signal))
+                        .build();
+                connection.send(() -> sink.send(event));
+            });
+            connection.onClose(() -> closeQuietly(registration));
+        } catch (RuntimeException subscriptionFailure) {
+            connection.close();
+            throw subscriptionFailure;
+        }
     }
 
     private static void closeQuietly(AutoCloseable handle) {
