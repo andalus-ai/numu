@@ -54,7 +54,6 @@ public class WorkspacePageChangeSseResource {
                     () -> sink.send(sse.newEventBuilder().comment("keepalive").build()),
                     sink::close);
         } catch (WorkspaceSseConnectionRegistry.ConnectionLimitExceededException limit) {
-            sink.close();
             throw new WebApplicationException("Workspace SSE connection capacity reached", 503);
         }
         sink.onClose(connection::close);
