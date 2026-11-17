@@ -99,3 +99,21 @@ The framework parent resolves from `core/framework/pom.xml`. Foundation artifact
 - `V3__feedback_outbox_leases_and_dead_letters.sql`: leases, retry scheduling, fencing tokens and dead-letter state.
 
 PostgreSQL Testcontainers tests cover attachment persistence, tenant isolation, outbox lease recovery and dead-letter handling. They still require execution in CI or a Docker-enabled build environment before this milestone can be called verified.
+
+## M7 — Discussion and comment threads
+
+M7 adds append-only comments and replies to a Feedback item.
+
+- Every comment is scoped to a tenant and a Feedback item.
+- Visibility is explicit: `PUBLIC` or `INTERNAL`.
+- A reply must reference a parent comment from the same tenant and Feedback item.
+- A reply must have the same visibility as its parent; public threads cannot branch into internal notes.
+- Public retrieval requires an explicit `PUBLIC` visibility predicate. The repository API does not provide an all-visibility shortcut.
+- Internal visibility is not authorization. Both add and list use cases require the host-provided `FeedbackCommentAccessPolicy` port, which must delegate to the Security capability.
+- Comment creation is idempotent per tenant and stores its `feedback.comment-added.v1` outbox event in the same PostgreSQL transaction.
+- The event payload contains identifiers and visibility only; it deliberately excludes comment body text.
+- M7 comments are append-only. Editing, deletion, moderation, attachments and rich-text rendering are not included.
+
+See [Feedback M7 — Discussion and comment threads](../docs/architecture/FEEDBACK-M7-DISCUSSION-COMMENTS.md) for invariants, persistence details and verification requirements.
+
+Migration: `V7__feedback_discussion_comments.sql`. The separate M6 public-invitation branch introduces V6; reconcile and apply migrations in order before enabling both milestones.
