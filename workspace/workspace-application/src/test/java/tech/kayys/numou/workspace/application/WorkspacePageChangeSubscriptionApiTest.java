@@ -124,16 +124,21 @@ class WorkspacePageChangeSubscriptionApiTest {
         private final Runnable closeAction;
         private Runnable revocation;
         private boolean closed;
+        private boolean revoked;
         TestSubscription(Runnable closeAction) { this.closeAction = closeAction; }
-        public synchronized void onRevoked(Runnable callback) {
-            if (closed) callback.run(); else revocation = callback;
+        public void onRevoked(Runnable callback) {
+            boolean invoke;
+            synchronized (this) { invoke = revoked; if (!invoke) revocation = callback; }
+            if (invoke) callback.run();
         }
-        public synchronized void close() {
-            if (!closed) { closed = true; closeAction.run(); }
+        public void close() {
+            boolean run;
+            synchronized (this) { run = !closed; closed = true; }
+            if (run) closeAction.run();
         }
         void revoke() {
             Runnable callback;
-            synchronized (this) { closed = true; callback = revocation; revocation = null; }
+            synchronized (this) { closed = true; revoked = true; callback = revocation; revocation = null; }
             if (callback != null) callback.run();
         }
     }
