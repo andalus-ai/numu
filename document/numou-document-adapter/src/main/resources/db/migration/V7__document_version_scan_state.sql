@@ -68,3 +68,39 @@ CREATE TABLE document_scan_jobs (
 CREATE INDEX ix_document_scan_jobs_claim
     ON document_scan_jobs (next_attempt_at, created_at, id)
     WHERE status IN ('PENDING', 'PROCESSING');
+
+
+-- Existing versions are also queued once. The unique key makes this safe if a
+-- migration is retried by an operator after a partial deployment.
+INSERT INTO document_scan_jobs (id, tenant_id, document_id, document_version_id)
+SELECT gen_random_uuid(), tenant_id, document_id, document_version_id
+FROM document_version_scan_results
+ON CONFLICT (tenant_id, document_id, document_version_id) DO NOTHING;
+
+-- Every future immutable version receives its own pending verdict and durable
+-- scan job in the same transaction that creates the version row.
+CREATE OR REPLACE FUNCTION enqueue_document_version_scan()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO document_version_scan_results (
+        tenant_id, document_id, document_version_id, scan_status
+    ) VALUES (
+        NEW.tenant_id, NEW.document_id, NEW.id, 'PENDING'
+    );
+
+    INSERT INTO document_scan_jobs (
+        id, tenant_id, document_id, document_version_id
+    ) VALUES (
+        gen_random_uuid(), NEW.tenant_id, NEW.document_id, NEW.id
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_document_version_enqueue_scan
+AFTER INSERT ON document_versions
+FOR EACH ROW
+EXECUTE FUNCTION enqueue_document_version_scan();
