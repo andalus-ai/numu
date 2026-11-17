@@ -12,6 +12,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Transactional PostgreSQL implementation of API artifact retention and legal-hold governance. */
@@ -25,6 +26,32 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
     @Inject
     public PostgresApiArtifactGovernanceRepository(ApiCatalogJdbcTransactionManager transactions) {
         this.transactions = Objects.requireNonNull(transactions);
+    }
+
+    @Override
+    public Uni<Optional<ArtifactGovernanceView>> find(TenantId tenant, String productId, String version) {
+        validateLookup(tenant, productId, version);
+        return transactions.withTenant(tenant, connection -> {
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    SELECT legal_hold, retention_until, lifecycle_state, cleanup_attempts,
+                           cleanup_last_error_code, deleted_at
+                      FROM developer_api_artifacts
+                     WHERE provider_tenant_id=? AND product_id=? AND api_version=?
+                    """)) {
+                statement.setObject(1, tenant.value());
+                statement.setObject(2, UUID.fromString(productId));
+                statement.setString(3, version);
+                try (ResultSet rows = statement.executeQuery()) {
+                    if (!rows.next()) return Optional.empty();
+                    Timestamp retention = rows.getTimestamp("retention_until");
+                    Timestamp deleted = rows.getTimestamp("deleted_at");
+                    return Optional.of(new ArtifactGovernanceView(rows.getBoolean("legal_hold"),
+                            retention == null ? null : retention.toInstant(), rows.getString("lifecycle_state"),
+                            rows.getInt("cleanup_attempts"), rows.getString("cleanup_last_error_code"),
+                            deleted == null ? null : deleted.toInstant()));
+                }
+            }
+        });
     }
 
     @Override
@@ -158,6 +185,14 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
             else statement.setTimestamp(10, Timestamp.from(retentionUntil));
             statement.setString(11, reason.trim());
             statement.executeUpdate();
+        }
+    }
+
+    private static void validateLookup(TenantId tenant, String productId, String version) {
+        Objects.requireNonNull(tenant, "tenant cannot be null");
+        UUID.fromString(Objects.requireNonNull(productId, "productId cannot be null"));
+        if (version == null || version.isBlank() || version.length() > 80) {
+            throw new IllegalArgumentException("Invalid API artifact version");
         }
     }
 
