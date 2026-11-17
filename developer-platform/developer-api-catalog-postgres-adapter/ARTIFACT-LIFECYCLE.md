@@ -53,6 +53,7 @@ No automatic transition from `REGISTERED` to `ABANDONED` is introduced. A future
 - A legal hold cannot be applied while an active cleanup lease is executing. If a cleanup lease has expired and its 30-second object-delete settle window has elapsed, applying a hold atomically cancels the stale lease and returns the artifact to `ABANDONED`; a subsequent worker claim excludes it while the hold remains active.
 - Retention extension follows the same active-lease fence. An expired pending lease is cancelled and returned to `ABANDONED` before the longer deadline is persisted.
 - Governance does not override the protection of published artifacts or deleted tombstones. Releasing a hold does not itself delete an artifact; normal retention and cleanup eligibility checks still apply.
+- The read-only governance view is available at `GET /api/v1/developer/api-products/{productId}/versions/{version}/governance`; it returns legal-hold state, retention deadline, lifecycle state, cleanup attempts, last bounded failure code and tombstone time.
 - REST operations:
   - `PUT /api/v1/developer/api-products/{productId}/versions/{version}/legal-hold` with `{ "held": true|false, "reason": "..." }`
   - `PUT /api/v1/developer/api-products/{productId}/versions/{version}/retention` with `{ "retentionUntil": "...", "reason": "..." }`
