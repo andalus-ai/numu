@@ -10,7 +10,7 @@ declare
     tenant_a constant uuid := 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     parent_id constant uuid := '81000000-0000-4000-8000-000000000001';
     child_id constant uuid := '81000000-0000-4000-8000-000000000002';
-    proposal_id constant uuid := '91000000-0000-4000-8000-000000000001';
+    v_proposal_id constant uuid := '91000000-0000-4000-8000-000000000001';
 begin
     insert into crm_accounts(id, participant_id, parent_account_id, name, status, created_at, tenant_id)
     values
@@ -21,7 +21,7 @@ begin
       proposal_id, aggregate_name, record_id, proposed_tenant_id,
       evidence_type, evidence_reference, evidence_sha256, rationale, submitted_by
     ) values (
-      proposal_id, 'accounts', child_id, tenant_a,
+      v_proposal_id, 'accounts', child_id, tenant_a,
       'CONTRACT', 'm9/least-privilege',
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       'Verify SECURITY INVOKER execution under a restricted operator role',
@@ -33,7 +33,7 @@ begin
            reviewed_by = 'm9-reviewer',
            reviewed_at = now(),
            review_note = 'M9 test evidence reviewed'
-     where proposal_id = proposal_id;
+     where crm_tenant_ownership_proposals.proposal_id = v_proposal_id;
 end;
 $$;
 
