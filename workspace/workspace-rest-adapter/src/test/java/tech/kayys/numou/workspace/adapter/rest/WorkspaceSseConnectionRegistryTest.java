@@ -49,6 +49,10 @@ class WorkspaceSseConnectionRegistryTest {
                 return CompletableFuture.completedFuture(null);
             }, closed::incrementAndGet);
             assertTrue(heartbeat.await(1, TimeUnit.SECONDS));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+            while (registry.health().heartbeatsSent() < 1 && System.nanoTime() < deadline) {
+                Thread.sleep(2);
+            }
             assertTrue(registry.health().heartbeatsSent() >= 1);
             registry.close();
             assertEquals(0, registry.health().activeConnections());
