@@ -53,9 +53,12 @@ Do not use a single global threshold for all tenants without considering workloa
 1. Verify the Neo4j target database and credentials. Schema bootstrap requires schema privileges and is a separate deployment operation.
 2. Start a rebuild for exactly one authorized scope. A run captures an immutable outbox high-water sequence.
 3. Process one bounded page at a time. The cursor advances only after the entire page projects successfully.
-4. If a page fails, fix the projection/provider problem and resume the same run. Projection application must remain idempotent for replay.
-5. Confirm the run completes and the outbox continues to deliver events created after the captured high-water mark.
-6. Run a read-only reconciliation and review missing, stale, divergent, and orphaned counts.
+4. Pause a run before planned maintenance; pause takes effect at the next page boundary. A page already being projected may finish, but its checkpoint is rejected if the lifecycle version changed.
+5. If a page fails, mark the run FAILED with a bounded reason and actor identity. Fix the projection/provider problem, then explicitly retry the same run. Retry resumes from the last committed cursor; projection application must remain idempotent.
+6. Cancel only when the run should not be resumed. COMPLETED and CANCELLED are terminal; a FAILED run must be explicitly retried or cancelled.
+7. Every pause, resume, failure, retry, and cancellation is actor-attributed and appended to the PostgreSQL lifecycle audit in the same transaction as the state transition. Stale operator commands fail their lifecycle-version compare-and-set.
+8. Confirm the run completes and the outbox continues to deliver events created after the captured high-water mark.
+9. Run a read-only reconciliation and review missing, stale, divergent, and orphaned counts.
 
 Never run tenant and public rebuilds by passing client-supplied scope values. Never increase page limits beyond the service's enforced bounds to accelerate a recovery.
 
@@ -68,7 +71,9 @@ Repair (repair=true) requires audit and rebuild authorization, an authenticated 
 ## Recovery and rollback
 
 - If Neo4j is lost or corrupted, provision a clean projection database, bootstrap its constraints/indexes, and rebuild from PostgreSQL's retained outbox.
-- If a rebuild fails, preserve the run and resume from its last durable cursor after resolving the cause. Do not delete the run or reset its cursor manually.
+- If a rebuild fails, preserve the FAILED run and its last durable cursor. After resolving the cause, use the authorized, audited retry operation. Do not delete the run or reset its cursor manually.
+- If a rebuild is paused, resume it through the authorized lifecycle operation. Do not restart a second run merely to bypass a pause.
+- If a rebuild is cancelled, start a new run only after confirming that the cancelled snapshot is no longer required; cancelled runs cannot be resumed.
 - If a deployment introduces an incompatible event schema, roll back the projection consumer or deploy a compatible adapter; do not rewrite historical outbox payloads.
 - If PostgreSQL is unavailable, stop projection maintenance operations. Never fall back to treating Neo4j as canonical.
 - Capture the run ID, deployment version, scope, time window, metric snapshot, and reconciliation report in the incident record, subject to tenant data access policy.
@@ -80,5 +85,5 @@ Repair (repair=true) requires audit and rebuild authorization, an authenticated 
 - Bootstrap Neo4j schema using a schema-capable deployment identity, not the application read/write identity.
 - Wire a metrics adapter and alert rules before production rollout.
 - Configure tenant context and maintenance authorization from trusted server-side security infrastructure.
-- Exercise a tenant-scoped rebuild, public rebuild (where applicable), dry-run reconciliation, and an audited dead-letter replay in a non-production environment.
+- Exercise a tenant-scoped rebuild, public rebuild (where applicable), pause/resume, cancel, failure/retry, stale-worker fencing, dry-run reconciliation, and an audited dead-letter replay in a non-production environment.
 - Verify the History PostgreSQL/Neo4j CI workflow and retain the test report with the release evidence.
