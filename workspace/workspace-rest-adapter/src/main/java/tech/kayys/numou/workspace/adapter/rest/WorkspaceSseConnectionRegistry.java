@@ -59,10 +59,12 @@ public class WorkspaceSseConnectionRegistry implements AutoCloseable {
     private WorkspaceSseConnectionRegistry(int maxConnections, Duration heartbeatInterval, Duration writeTimeout,
             ScheduledExecutorService scheduler, Clock clock, boolean ownsScheduler) {
         if (maxConnections < 1) throw new IllegalArgumentException("maxConnections must be positive");
-        if (heartbeatInterval == null || heartbeatInterval.isZero() || heartbeatInterval.isNegative())
-            throw new IllegalArgumentException("heartbeatInterval must be positive");
-        if (writeTimeout == null || writeTimeout.compareTo(heartbeatInterval) <= 0)
-            throw new IllegalArgumentException("writeTimeout must exceed heartbeatInterval");
+        if (heartbeatInterval == null || heartbeatInterval.isZero() || heartbeatInterval.isNegative()
+                || heartbeatInterval.toMillis() < 1)
+            throw new IllegalArgumentException("heartbeatInterval must be at least one millisecond");
+        if (writeTimeout == null || writeTimeout.compareTo(heartbeatInterval) <= 0
+                || writeTimeout.toMillis() < 1)
+            throw new IllegalArgumentException("writeTimeout must exceed heartbeatInterval and be at least one millisecond");
         this.maxConnections = maxConnections;
         this.heartbeatInterval = heartbeatInterval;
         this.writeTimeout = writeTimeout;
@@ -84,8 +86,13 @@ public class WorkspaceSseConnectionRegistry implements AutoCloseable {
             connections.add(connection);
             active.incrementAndGet();
             accepted.increment();
-            connection.start();
-            return connection;
+            try {
+                connection.start();
+                return connection;
+            } catch (RuntimeException schedulingFailure) {
+                connection.close();
+                throw schedulingFailure;
+            }
         }
     }
 
@@ -97,8 +104,10 @@ public class WorkspaceSseConnectionRegistry implements AutoCloseable {
     @Override
     @PreDestroy
     public void close() {
-        if (!closed.compareAndSet(false, true)) return;
-        for (Connection connection : Set.copyOf(connections)) connection.close();
+        synchronized (admissionLock) {
+            if (!closed.compareAndSet(false, true)) return;
+            for (Connection connection : Set.copyOf(connections)) connection.close();
+        }
         if (ownsScheduler) scheduler.shutdownNow();
     }
 
