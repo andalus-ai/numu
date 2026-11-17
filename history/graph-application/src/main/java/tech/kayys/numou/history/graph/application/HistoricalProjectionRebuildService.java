@@ -26,18 +26,31 @@ public final class HistoricalProjectionRebuildService {
     private final Clock clock;
     private final int pageSize;
     private final HistoricalProjectionMetricsPort metrics;
+    private final UUID generationId;
 
     public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
             HistoricalRelationshipProjectionPort projection,
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
             Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics) {
+        this(store, projection, tenantContext, authorization, clock, pageSize, metrics, null);
+    }
+
+    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
+            HistoricalRelationshipProjectionPort projection,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics, UUID generationId) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.metrics = Objects.requireNonNull(metrics, "metrics");
+        this.generationId = generationId;
+        if (generationId != null && !(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+            throw new IllegalArgumentException("generation-targeted rebuild requires a generation-aware projection adapter");
+        }
         if (pageSize < 1 || pageSize > 500) throw new IllegalArgumentException("pageSize must be 1..500");
         this.pageSize = pageSize;
     }
@@ -70,7 +83,13 @@ public final class HistoricalProjectionRebuildService {
 
         for (ReplayEvent event : page) {
             try {
-                projection.project(asClaimedEvent(event));
+                ClaimedProjectionEvent claimed = asClaimedEvent(event);
+                if (generationId == null) {
+                    projection.project(claimed);
+                } else {
+                    ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
+                            .projectIntoGeneration(claimed, generationId);
+                }
             } catch (RuntimeException failure) {
                 throw failure;
             } catch (Exception failure) {
