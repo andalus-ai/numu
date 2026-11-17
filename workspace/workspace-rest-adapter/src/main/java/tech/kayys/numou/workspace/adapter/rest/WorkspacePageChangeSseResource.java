@@ -13,6 +13,7 @@ import jakarta.ws.rs.sse.Sse;
 import jakarta.ws.rs.sse.SseEventSink;
 import tech.kayys.numou.workspace.application.WorkspacePageChangeSubscriptionApi;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSignal;
+import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscription;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,7 +51,7 @@ public class WorkspacePageChangeSseResource {
         AtomicReference<AutoCloseable> registration = new AtomicReference<>();
         sink.onClose(() -> closeQuietly(registration.get()));
 
-        AutoCloseable handle = subscriptions.subscribe(pageId, signal -> {
+        WorkspacePageChangeSubscription handle = subscriptions.subscribe(pageId, signal -> {
             if (sink.isClosed()) {
                 closeQuietly(registration.get());
                 return;
@@ -83,6 +84,7 @@ public class WorkspacePageChangeSseResource {
             }
         });
         registration.set(handle);
+        handle.onRevoked(sink::close);
         if (sink.isClosed()) closeQuietly(registration.get());
     }
 
