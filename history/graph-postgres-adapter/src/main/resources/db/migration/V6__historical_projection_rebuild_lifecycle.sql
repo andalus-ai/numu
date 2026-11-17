@@ -39,8 +39,8 @@ CREATE TABLE historical_projection_rebuild_audit (
     tenant_id UUID NULL,
     actor_id UUID NOT NULL,
     action VARCHAR(16) NOT NULL CHECK (action IN ('PAUSE','RESUME','CANCEL','RETRY','FAIL')),
-    previous_status VARCHAR(16) NOT NULL,
-    resulting_status VARCHAR(16) NOT NULL,
+    previous_status VARCHAR(16) NOT NULL CHECK (previous_status IN ('RUNNING','PAUSED','CANCELLED','FAILED','COMPLETED')),
+    resulting_status VARCHAR(16) NOT NULL CHECK (resulting_status IN ('RUNNING','PAUSED','CANCELLED','FAILED','COMPLETED')),
     lifecycle_version BIGINT NOT NULL CHECK (lifecycle_version >= 1),
     detail VARCHAR(1000) NOT NULL DEFAULT '',
     occurred_at TIMESTAMPTZ NOT NULL
