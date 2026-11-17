@@ -142,7 +142,14 @@ public class WorkspaceSseConnectionRegistry implements AutoCloseable {
         private boolean send(Supplier<? extends CompletionStage<?>> writer, boolean heartbeat) {
             if (!open.get()) return false;
             if (!writing.compareAndSet(false, true)) {
-                if (!heartbeat) slowConsumers.increment();
+                if (heartbeat) {
+                    if (clock.millis() - lastSuccessfulWrite.get() > writeTimeout.toMillis()) {
+                        timedOut.increment();
+                        close();
+                    }
+                    return false;
+                }
+                slowConsumers.increment();
                 close();
                 return false;
             }
