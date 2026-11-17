@@ -68,6 +68,7 @@ public class ApiCatalogResource {
     @Inject GetApiSpecificationArtifactQueryHandler getSpecificationArtifact;
     @Inject SetApiArtifactLegalHoldCommandHandler setArtifactLegalHold;
     @Inject ExtendApiArtifactRetentionCommandHandler extendArtifactRetention;
+    @Inject GetApiArtifactGovernanceQueryHandler getArtifactGovernance;
 
     @POST
     @Operation(summary = "Register an API product for the authenticated provider tenant")
@@ -168,6 +169,15 @@ public class ApiCatalogResource {
                 .replaceWith(Response.noContent().build());
     }
 
+
+    @GET
+    @Path("/{productId}/versions/{version}/governance")
+    @Operation(summary = "Get artifact retention, legal-hold and cleanup governance state")
+    public Uni<tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactGovernanceRepository.ArtifactGovernanceView>
+            getArtifactGovernance(@PathParam("productId") UUID productId,
+                                  @PathParam("version") String version) {
+        return getArtifactGovernance.handle(new GetApiArtifactGovernanceQuery(productId, version));
+    }
 
     @PUT
     @Path("/{productId}/versions/{version}/legal-hold")
