@@ -16,6 +16,11 @@ public interface HistoricalProjectionRebuildStore {
     boolean advance(UUID tenantId, UUID runId, long expectedCursor, long nextCursor, Instant now);
     boolean complete(UUID tenantId, UUID runId, long expectedCursor, Instant now);
 
+    default boolean completeFenced(UUID tenantId, UUID runId, long expectedCursor,
+                                   long expectedLifecycleVersion, Instant now) {
+        throw new UnsupportedOperationException("fenced rebuild completion is not supported");
+    }
+
     /**
      * Advances a page only if both cursor and lifecycle version still match the
      * worker's snapshot. Implementations must atomically increment lifecycleVersion.
