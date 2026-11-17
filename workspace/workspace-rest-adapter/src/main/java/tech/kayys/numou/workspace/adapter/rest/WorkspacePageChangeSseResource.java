@@ -15,6 +15,7 @@ import jakarta.ws.rs.sse.SseEventSink;
 import tech.kayys.numou.workspace.application.WorkspacePageChangeSubscriptionApi;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSignal;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Optional SSE transport. The host supplies the tenant-aware fanout implementation; this
@@ -48,31 +49,33 @@ public class WorkspacePageChangeSseResource {
             }
         }
 
+        // Authenticate and authorize before consuming a scarce SSE connection slot.
+        AtomicReference<WorkspaceSseConnectionRegistry.Connection> connectionRef = new AtomicReference<>();
+        AutoCloseable registration = subscriptions.subscribe(pageId, signal -> {
+            WorkspaceSseConnectionRegistry.Connection connection = connectionRef.get();
+            if (connection == null) return; // Any setup-gap signal is recovered by the M35 revision feed.
+            OutboundSseEvent event = sse.newEventBuilder()
+                    .id(Long.toString(signal.revision()))
+                    .name("page-change")
+                    .mediaType(MediaType.APPLICATION_JSON_TYPE)
+                    .data(ChangeEvent.class, ChangeEvent.from(signal))
+                    .build();
+            connection.send(() -> sink.send(event));
+        });
+
         WorkspaceSseConnectionRegistry.Connection connection;
         try {
             connection = connections.open(
                     () -> sink.send(sse.newEventBuilder().comment("keepalive").build()),
                     sink::close);
         } catch (WorkspaceSseConnectionRegistry.ConnectionLimitExceededException limit) {
+            closeQuietly(registration);
             throw new WebApplicationException("Workspace SSE connection capacity reached", 503);
         }
+        connectionRef.set(connection);
+        connection.onClose(() -> closeQuietly(registration));
         sink.onClose(connection::close);
-
-        try {
-            AutoCloseable registration = subscriptions.subscribe(pageId, signal -> {
-                OutboundSseEvent event = sse.newEventBuilder()
-                        .id(Long.toString(signal.revision()))
-                        .name("page-change")
-                        .mediaType(MediaType.APPLICATION_JSON_TYPE)
-                        .data(ChangeEvent.class, ChangeEvent.from(signal))
-                        .build();
-                connection.send(() -> sink.send(event));
-            });
-            connection.onClose(() -> closeQuietly(registration));
-        } catch (RuntimeException subscriptionFailure) {
-            connection.close();
-            throw subscriptionFailure;
-        }
+        if (sink.isClosed()) connection.close();
     }
 
     private static void closeQuietly(AutoCloseable handle) {
