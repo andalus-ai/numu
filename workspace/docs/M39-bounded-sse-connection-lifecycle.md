@@ -15,7 +15,7 @@ A connection whose writes do not complete within the configured write-timeout wi
 
 ## Admission, cleanup, and shutdown
 
-- New connections are admitted atomically up to the process-wide limit; excess connections receive HTTP 503.
+- The application subscription API authenticates and authorizes the page before the transport reserves a connection slot. Any event arriving in the brief setup gap is recovered through the M35 revision feed.\n- New connections are admitted atomically up to the process-wide limit; excess connections receive HTTP 503.\n- If connection admission or sink lifecycle registration fails after authorization, the page subscription is released.
 - Closing the SSE sink, a failed write, a slow consumer, a write timeout, or application shutdown closes the registration.
 - Subscription cleanup is attached with close-before-attach race handling.
 - Heartbeat tasks are cancelled on connection close.
