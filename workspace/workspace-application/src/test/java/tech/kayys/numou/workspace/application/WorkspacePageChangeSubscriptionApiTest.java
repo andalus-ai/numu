@@ -92,7 +92,7 @@ class WorkspacePageChangeSubscriptionApiTest {
                 },
                 (t, subscribedActor, id, listener) -> {
                     registered[0] = listener;
-                    return closeCalls::incrementAndGet;
+                    return new TestSubscription(closeCalls::incrementAndGet);
                 });
         List<WorkspacePageChangeSignal> received = new ArrayList<>();
         AtomicInteger revocations = new AtomicInteger();
