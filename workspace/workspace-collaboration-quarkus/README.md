@@ -14,3 +14,6 @@ Configuration (all values are positive integers):
 The hub is closed by CDI disposal during application shutdown. Actor, page, and tenant revocation terminate matching subscriptions and notify the SSE resource so its connection is closed. The hub also exposes an aggregate health snapshot for host health/metrics integration.
 
 This is a single-process adapter, not a distributed broker. For multi-instance deployments, omit this module and compose both application ports with a shared broker/event transport adapter. Do not run multiple local hubs and assume they share subscriptions.
+
+
+The optional REST exception mapper converts local-hub quota rejections to HTTP `429 Too Many Requests`. Hosts using a different transport should map `SubscriptionLimitExceededException` to their equivalent capacity response.
