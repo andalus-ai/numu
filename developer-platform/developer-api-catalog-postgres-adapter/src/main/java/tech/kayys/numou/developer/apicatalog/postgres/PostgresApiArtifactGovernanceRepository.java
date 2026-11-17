@@ -4,13 +4,13 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactGovernanceRepository;
+import tech.kayys.numou.developer.apicatalog.application.cleanup.ApiArtifactCleanupDispatcher;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,7 +20,7 @@ import java.util.UUID;
 public final class PostgresApiArtifactGovernanceRepository implements ApiArtifactGovernanceRepository {
     // Match the cleanup dispatcher's maximum object-delete timeout before reclaiming an
     // expired lease for governance changes; a stale in-flight delete must have time to settle.
-    private static final Duration DELETE_SETTLE_WINDOW = Duration.ofSeconds(30);
+    private static final java.time.Duration DELETE_SETTLE_WINDOW = ApiArtifactCleanupDispatcher.DELETE_TIMEOUT;
     private final ApiCatalogJdbcTransactionManager transactions;
 
     @Inject
