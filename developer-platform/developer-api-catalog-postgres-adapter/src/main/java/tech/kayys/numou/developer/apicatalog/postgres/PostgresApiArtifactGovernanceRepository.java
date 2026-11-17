@@ -86,7 +86,8 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
 
             String nextState = artifact.lifecycleState();
             if ("DELETE_PENDING".equals(nextState)) {
-                if (artifact.leaseUntil() != null && artifact.leaseUntil().isAfter(occurredAt)) {
+                if (artifact.leaseUntil() != null
+                        && artifact.leaseUntil().plus(DELETE_SETTLE_WINDOW).isAfter(occurredAt)) {
                     throw new IllegalStateException("Cannot extend retention while artifact deletion owns an active lease");
                 }
                 nextState = "ABANDONED";
