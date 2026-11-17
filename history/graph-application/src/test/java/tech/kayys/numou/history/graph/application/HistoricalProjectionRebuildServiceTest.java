@@ -66,6 +66,22 @@ class HistoricalProjectionRebuildServiceTest {
         assertThrows(SecurityException.class, () -> service.start(null)); assertEquals(0, store.startCalls);
     }
 
+
+    @Test void staleWorkerCannotAdvanceAfterPauseAndResumeLifecycleChanges() {
+        FakeStore store = new FakeStore(); store.events = List.of(event(1));
+        var service = service(store, e -> {
+            RebuildRun current = store.run;
+            store.run = new RebuildRun(current.runId(), current.tenantId(), current.highWaterSequence(),
+                    current.cursorSequence(), RebuildRun.Status.RUNNING, current.createdAt(), NOW,
+                    current.lifecycleVersion() + 2, current.failureDetail());
+        }, allowAll(), 1);
+        var run = service.start(TENANT);
+        var progress = service.resumeOnePage(TENANT, run.runId());
+        assertEquals(0, progress.projectedEvents());
+        assertEquals(0, progress.run().cursorSequence());
+        assertEquals(2, progress.run().lifecycleVersion());
+    }
+
     private static HistoricalProjectionRebuildService service(FakeStore store, HistoricalRelationshipProjectionPort projection,
             HistoricalProjectionMaintenanceAuthorizationPort auth, int pageSize) {
         return new HistoricalProjectionRebuildService(store, projection, () -> TENANT, auth, Clock.fixed(NOW, ZoneOffset.UTC), pageSize, snapshot -> {});
