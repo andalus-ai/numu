@@ -22,7 +22,12 @@ final class SurveyAnswerJson {
                     throw new IllegalArgumentException("Numeric answer value must be finite");
                 yield new AnswerValue.Numeric(value.asDouble());
             }
-            case "day" -> new AnswerValue.Day(LocalDate.parse(requiredText(node, "value")));
+            case "day" -> {
+                try { yield new AnswerValue.Day(LocalDate.parse(requiredText(node, "value"))); }
+                catch (java.time.DateTimeException invalidDate) {
+                    throw new IllegalArgumentException("Day answer must use ISO-8601 date format", invalidDate);
+                }
+            }
             case "bool" -> {
                 JsonNode value = node.get("value");
                 if (value == null || !value.isBoolean()) throw new IllegalArgumentException("Boolean answer value is required");
