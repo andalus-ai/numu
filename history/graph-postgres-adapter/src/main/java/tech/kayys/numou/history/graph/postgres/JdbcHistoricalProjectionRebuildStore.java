@@ -29,6 +29,7 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
             try {
+                setTenantScope(c, tenantId);
                 // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock. Once acquired,
                 // all earlier event transactions have committed; later inserts receive a
                 // sequence above this run's immutable high-water mark.
@@ -302,14 +303,26 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                           AND o.projection_sequence <= r.high_water_sequence
                    )
                 """;
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
-            s.setTimestamp(1, Timestamp.from(now));
-            s.setTimestamp(2, Timestamp.from(now));
-            s.setObject(3, runId);
-            s.setObject(4, tenantId);
-            s.setLong(5, expectedCursor);
-            s.setLong(6, expectedLifecycleVersion);
-            return s.executeUpdate() == 1;
+        try (Connection c = source.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                setTenantScope(c, tenantId);
+                boolean completed;
+                try (PreparedStatement s = c.prepareStatement(sql)) {
+                    s.setTimestamp(1, Timestamp.from(now));
+                    s.setTimestamp(2, Timestamp.from(now));
+                    s.setObject(3, runId);
+                    s.setObject(4, tenantId);
+                    s.setLong(5, expectedCursor);
+                    s.setLong(6, expectedLifecycleVersion);
+                    completed = s.executeUpdate() == 1;
+                }
+                c.commit();
+                return completed;
+            } catch (SQLException | RuntimeException e) {
+                rollback(c, e);
+                throw e;
+            }
         } catch (SQLException e) {
             throw failure("complete fenced historical projection rebuild", e);
         }
