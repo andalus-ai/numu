@@ -25,6 +25,7 @@ class SurveyAnswerJsonTest {
     void rejectsMalformedAndNonFiniteAnswers() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> parse("{\"kind\":\"number\",\"value\":\"NaN\"}"));
         assertThrows(IllegalArgumentException.class, () -> parse("{\"kind\":\"choice\",\"selected\":\"a\"}"));
+        assertThrows(IllegalArgumentException.class, () -> parse("{\"kind\":\"day\",\"value\":\"not-a-date\"}"));
         assertThrows(IllegalArgumentException.class, () -> parse("{\"kind\":\"unknown\"}"));
         assertThrows(IllegalArgumentException.class, () -> parse("[]"));
     }
