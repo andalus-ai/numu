@@ -13,7 +13,15 @@ public interface HistoricalProjectionRebuildStore {
     RebuildRun start(UUID tenantId, Instant now);
     Optional<RebuildRun> find(UUID tenantId, UUID runId);
     List<ReplayEvent> nextPage(UUID tenantId, UUID runId, int limit);
+    /**
+     * Legacy checkpoint API retained for source compatibility. New workers must use
+     * advanceFenced; this method cannot protect against pause/resume ABA races.
+     */
+    @Deprecated
     boolean advance(UUID tenantId, UUID runId, long expectedCursor, long nextCursor, Instant now);
+
+    /** Legacy completion API; new workers must use completeFenced. */
+    @Deprecated
     boolean complete(UUID tenantId, UUID runId, long expectedCursor, Instant now);
 
     default boolean completeFenced(UUID tenantId, UUID runId, long expectedCursor,
