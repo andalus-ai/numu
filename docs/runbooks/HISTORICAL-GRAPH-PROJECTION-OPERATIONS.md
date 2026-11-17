@@ -82,3 +82,19 @@ Repair (repair=true) requires audit and rebuild authorization, an authenticated 
 - Configure tenant context and maintenance authorization from trusted server-side security infrastructure.
 - Exercise a tenant-scoped rebuild, public rebuild (where applicable), dry-run reconciliation, and an audited dead-letter replay in a non-production environment.
 - Verify the History PostgreSQL/Neo4j CI workflow and retain the test report with the release evidence.
+
+
+## Staged-generation orchestration
+
+The application coordinator persists a generation operation before external work. The operator or host scheduler must:
+
+1. Generate one operation UUID for the requested scope and persist/return it to the caller. Reuse this exact UUID for retries; never generate a new one to resume.
+2. Invoke the authorized coordinator start operation. It creates or recovers the bound generation and rebuild-run IDs, then advances one lifecycle phase.
+3. Schedule bounded resume invocations with the same scope and operation UUID. REPLAYING advances at most one outbox page per invocation; a failed page leaves its cursor unchanged and can be replayed.
+4. Allow VALIDATING to complete only when full canonical-to-candidate reconciliation succeeds. A failed validation remains in VALIDATING, records a failure, and must be investigated before retry.
+5. Confirm ACTIVE in the PostgreSQL operation journal and independently inspect the Neo4j active pointer before declaring the cutover complete.
+6. Keep the prior generation RETAINED for rollback. Do not automatically delete it or any other generation until an audited retention policy is deployed.
+
+The journal and Neo4j pointer are separate transactions. If an operation remains ACTIVATING after a process interruption, inspect the target generation status and active pointer first. If the target is ACTIVE or RETAINED, the coordinator can complete the journal phase on retry. If the target is still READY/BUILDING, resume the compare-and-set activation only when the expected active generation still matches. If it does not, stop and reconcile rather than force activation.
+
+The operation journal records only the latest bounded error summary and failure count; it is not a replacement for access-controlled operator logs, traces, or the immutable repair-audit stream.

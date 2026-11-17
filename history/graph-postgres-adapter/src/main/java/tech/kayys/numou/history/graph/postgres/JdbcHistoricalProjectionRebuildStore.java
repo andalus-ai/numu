@@ -24,17 +24,25 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
 
     @Override
     public RebuildRun start(UUID tenantId, Instant now) {
+        return start(tenantId, UUID.randomUUID(), now);
+    }
+
+    @Override
+    public RebuildRun start(UUID tenantId, UUID runId, Instant now) {
+        Objects.requireNonNull(runId, "runId");
         Objects.requireNonNull(now, "now");
-        UUID runId = UUID.randomUUID();
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock. Once acquired,
-                // all earlier event transactions have committed; later inserts receive a
-                // sequence above this run's immutable high-water mark.
+                Optional<RebuildRun> existing = find(c, tenantId, runId);
+                if (existing.isPresent()) { c.commit(); return existing.get(); }
+                // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock, stabilizing the
+                // high-water boundary against append transactions already in flight.
                 try (Statement lock = c.createStatement()) {
                     lock.execute("LOCK TABLE historical_relationship_projection_outbox IN SHARE MODE");
                 }
+                existing = find(c, tenantId, runId);
+                if (existing.isPresent()) { c.commit(); return existing.get(); }
                 long highWater;
                 try (Statement s = c.createStatement();
                      ResultSet r = s.executeQuery("SELECT COALESCE(MAX(projection_sequence), 0) FROM historical_relationship_projection_outbox")) {
@@ -55,27 +63,35 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 }
                 c.commit();
                 return new RebuildRun(runId, tenantId, highWater, 0, RebuildRun.Status.RUNNING, now, now);
-            } catch (SQLException | RuntimeException e) {
-                rollback(c, e);
-                throw e;
+            } catch (SQLException | RuntimeException failure) {
+                try { c.rollback(); } catch (SQLException rollback) { failure.addSuppressed(rollback); }
+                throw failure;
             }
-        } catch (SQLException e) {
-            throw failure("start historical projection rebuild", e);
+        } catch (SQLException failure) {
+            Optional<RebuildRun> existing = find(tenantId, runId);
+            if (existing.isPresent()) return existing.get();
+            throw new IllegalStateException("Unable to start historical projection rebuild", failure);
         }
     }
 
     @Override
     public Optional<RebuildRun> find(UUID tenantId, UUID runId) {
         Objects.requireNonNull(runId, "runId");
+        try (Connection c = source.getConnection()) {
+            return find(c, tenantId, runId);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to load historical projection rebuild", failure);
+        }
+    }
+
+    private Optional<RebuildRun> find(Connection c, UUID tenantId, UUID runId) throws SQLException {
         String sql = "SELECT * FROM historical_relationship_projection_rebuild_run WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?";
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
+        try (PreparedStatement s = c.prepareStatement(sql)) {
             s.setObject(1, runId);
             s.setObject(2, tenantId);
             try (ResultSet r = s.executeQuery()) {
                 return r.next() ? Optional.of(mapRun(r)) : Optional.empty();
             }
-        } catch (SQLException e) {
-            throw failure("load historical projection rebuild", e);
         }
     }
 
@@ -106,8 +122,8 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                         r.getObject(10, OffsetDateTime.class).toInstant()));
             }
             return List.copyOf(events);
-        } catch (SQLException e) {
-            throw failure("read historical projection rebuild page", e);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to read historical projection rebuild page", failure);
         }
     }
 
@@ -128,8 +144,8 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
             s.setLong(5, expectedCursor);
             s.setLong(6, nextCursor);
             return s.executeUpdate() == 1;
-        } catch (SQLException e) {
-            throw failure("advance historical projection rebuild checkpoint", e);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to advance historical projection rebuild checkpoint", failure);
         }
     }
 
@@ -154,8 +170,8 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
             s.setObject(4, tenantId);
             s.setLong(5, expectedCursor);
             return s.executeUpdate() == 1;
-        } catch (SQLException e) {
-            throw failure("complete historical projection rebuild", e);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to complete historical projection rebuild", failure);
         }
     }
 
@@ -165,13 +181,5 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 RebuildRun.Status.valueOf(r.getString("status")),
                 r.getObject("created_at", OffsetDateTime.class).toInstant(),
                 r.getObject("updated_at", OffsetDateTime.class).toInstant());
-    }
-
-    private static void rollback(Connection c, Throwable failure) {
-        try { c.rollback(); } catch (SQLException e) { failure.addSuppressed(e); }
-    }
-
-    private static IllegalStateException failure(String operation, SQLException cause) {
-        return new IllegalStateException("Unable to " + operation, cause);
     }
 }

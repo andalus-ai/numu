@@ -12,6 +12,11 @@ import java.util.UUID;
 public interface HistoricalProjectionRebuildStore {
     RebuildRun start(UUID tenantId, Instant now);
 
+    /** Idempotently starts or recovers a rebuild with a caller-assigned ID. */
+    default RebuildRun start(UUID tenantId, UUID runId, Instant now) {
+        throw new UnsupportedOperationException("caller-assigned rebuild run IDs are not supported");
+    }
+
     Optional<RebuildRun> find(UUID tenantId, UUID runId);
 
     List<ReplayEvent> nextPage(UUID tenantId, UUID runId, int limit);
