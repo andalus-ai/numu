@@ -2,6 +2,7 @@ package tech.kayys.numou.workspace.collaboration.local;
 
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeNotifier;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSignal;
+import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscription;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscriptionPort;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
@@ -24,6 +27,7 @@ public final class LocalWorkspacePageChangeHub
     private final int maxConnections;
     private final int maxPerTenant;
     private final int maxPerPage;
+    private final int maxPerActor;
     private final Map<PageKey, Map<UUID, Registration>> registrations = new HashMap<>();
     private long publishedSignals;
     private long deliveryFailures;
@@ -31,17 +35,23 @@ public final class LocalWorkspacePageChangeHub
     private boolean closed;
 
     public LocalWorkspacePageChangeHub(int maxConnections, int maxPerTenant, int maxPerPage) {
-        if (maxConnections < 1 || maxPerTenant < 1 || maxPerPage < 1
-                || maxPerTenant > maxConnections || maxPerPage > maxPerTenant) {
-            throw new IllegalArgumentException("limits must satisfy 1 <= maxPerPage <= maxPerTenant <= maxConnections");
+        this(maxConnections, maxPerTenant, maxPerPage, maxPerTenant);
+    }
+
+    public LocalWorkspacePageChangeHub(int maxConnections, int maxPerTenant, int maxPerPage, int maxPerActor) {
+        if (maxConnections < 1 || maxPerTenant < 1 || maxPerPage < 1 || maxPerActor < 1
+                || maxPerTenant > maxConnections || maxPerPage > maxPerTenant || maxPerActor > maxPerTenant) {
+            throw new IllegalArgumentException(
+                    "limits must satisfy 1 <= maxPerPage,maxPerActor <= maxPerTenant <= maxConnections");
         }
         this.maxConnections = maxConnections;
         this.maxPerTenant = maxPerTenant;
         this.maxPerPage = maxPerPage;
+        this.maxPerActor = maxPerActor;
     }
 
     @Override
-    public synchronized AutoCloseable subscribe(UUID tenantId, UUID actorId, UUID pageId,
+    public synchronized WorkspacePageChangeSubscription subscribe(UUID tenantId, UUID actorId, UUID pageId,
             Consumer<WorkspacePageChangeSignal> listener) {
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(actorId, "actorId");
@@ -51,22 +61,30 @@ public final class LocalWorkspacePageChangeHub
 
         int total = 0;
         int tenantTotal = 0;
+        int actorTotal = 0;
         PageKey key = new PageKey(tenantId, pageId);
         Map<UUID, Registration> pageRegistrations = registrations.get(key);
         int pageTotal = pageRegistrations == null ? 0 : pageRegistrations.size();
         for (Map.Entry<PageKey, Map<UUID, Registration>> entry : registrations.entrySet()) {
             total += entry.getValue().size();
-            if (entry.getKey().tenantId().equals(tenantId)) tenantTotal += entry.getValue().size();
+            if (entry.getKey().tenantId().equals(tenantId)) {
+                tenantTotal += entry.getValue().size();
+                for (Registration registration : entry.getValue().values()) {
+                    if (registration.actorId().equals(actorId)) actorTotal++;
+                }
+            }
         }
-        if (total >= maxConnections || tenantTotal >= maxPerTenant || pageTotal >= maxPerPage) {
+        if (total >= maxConnections || tenantTotal >= maxPerTenant || pageTotal >= maxPerPage
+                || actorTotal >= maxPerActor) {
             rejectedSubscriptions++;
             throw new SubscriptionLimitExceededException("workspace collaboration connection limit reached");
         }
 
         UUID subscriptionId = UUID.randomUUID();
-        Registration registration = new Registration(actorId, listener);
-        registrations.computeIfAbsent(key, ignored -> new HashMap<>()).put(subscriptionId, registration);
-        return () -> unsubscribe(key, subscriptionId);
+        SubscriptionHandle handle = new SubscriptionHandle(key, subscriptionId);
+        registrations.computeIfAbsent(key, ignored -> new HashMap<>())
+                .put(subscriptionId, new Registration(actorId, listener, handle));
+        return handle;
     }
 
     @Override
@@ -82,35 +100,65 @@ public final class LocalWorkspacePageChangeHub
         }
         for (Registration registration : recipients) {
             try {
-                registration.listener().accept(signal);
+                registration.handle().deliver(signal, registration.listener());
             } catch (RuntimeException deliveryFailure) {
                 synchronized (this) { deliveryFailures++; }
             }
         }
     }
 
-    /** Immediately terminates all active subscriptions belonging to an actor in a tenant. */
-    public synchronized int revokeActor(UUID tenantId, UUID actorId) {
+    /** Immediately terminates all subscriptions belonging to an actor in a tenant. */
+    public int revokeActor(UUID tenantId, UUID actorId) {
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(actorId, "actorId");
-        int removed = 0;
-        var iterator = registrations.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<PageKey, Map<UUID, Registration>> entry = iterator.next();
-            if (!entry.getKey().tenantId().equals(tenantId)) continue;
-            int before = entry.getValue().size();
-            entry.getValue().entrySet().removeIf(subscription -> subscription.getValue().actorId().equals(actorId));
-            removed += before - entry.getValue().size();
-            if (entry.getValue().isEmpty()) iterator.remove();
+        List<SubscriptionHandle> revoked = new ArrayList<>();
+        synchronized (this) {
+            var iterator = registrations.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<PageKey, Map<UUID, Registration>> entry = iterator.next();
+                if (!entry.getKey().tenantId().equals(tenantId)) continue;
+                var subscriptions = entry.getValue().entrySet().iterator();
+                while (subscriptions.hasNext()) {
+                    Registration registration = subscriptions.next().getValue();
+                    if (registration.actorId().equals(actorId)) {
+                        revoked.add(registration.handle());
+                        subscriptions.remove();
+                    }
+                }
+                if (entry.getValue().isEmpty()) iterator.remove();
+            }
         }
-        return removed;
+        revoked.forEach(SubscriptionHandle::revoke);
+        return revoked.size();
     }
 
-    /** Terminates all subscriptions for a tenant/page, for page deletion or access-policy changes. */
-    public synchronized int revokePage(UUID tenantId, UUID pageId) {
-        Map<UUID, Registration> removed = registrations.remove(new PageKey(
-                Objects.requireNonNull(tenantId, "tenantId"), Objects.requireNonNull(pageId, "pageId")));
-        return removed == null ? 0 : removed.size();
+    /** Terminates all subscriptions for a tenant/page, e.g. when a page is deleted. */
+    public int revokePage(UUID tenantId, UUID pageId) {
+        Map<UUID, Registration> removed;
+        synchronized (this) {
+            removed = registrations.remove(new PageKey(
+                    Objects.requireNonNull(tenantId, "tenantId"), Objects.requireNonNull(pageId, "pageId")));
+        }
+        if (removed == null) return 0;
+        removed.values().forEach(registration -> registration.handle().revoke());
+        return removed.size();
+    }
+
+    /** Terminates every subscription for a tenant, e.g. when the tenant is suspended. */
+    public int revokeTenant(UUID tenantId) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        List<SubscriptionHandle> revoked = new ArrayList<>();
+        synchronized (this) {
+            var iterator = registrations.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<PageKey, Map<UUID, Registration>> entry = iterator.next();
+                if (!entry.getKey().tenantId().equals(tenantId)) continue;
+                entry.getValue().values().forEach(registration -> revoked.add(registration.handle()));
+                iterator.remove();
+            }
+        }
+        revoked.forEach(SubscriptionHandle::revoke);
+        return revoked.size();
     }
 
     public synchronized HealthSnapshot health() {
@@ -121,9 +169,16 @@ public final class LocalWorkspacePageChangeHub
     }
 
     @Override
-    public synchronized void close() {
-        registrations.clear();
-        closed = true;
+    public void close() {
+        List<SubscriptionHandle> revoked = new ArrayList<>();
+        synchronized (this) {
+            if (closed) return;
+            closed = true;
+            registrations.values().forEach(page -> page.values()
+                    .forEach(registration -> revoked.add(registration.handle())));
+            registrations.clear();
+        }
+        revoked.forEach(SubscriptionHandle::revoke);
     }
 
     private synchronized void unsubscribe(PageKey key, UUID subscriptionId) {
@@ -134,7 +189,58 @@ public final class LocalWorkspacePageChangeHub
     }
 
     private record PageKey(UUID tenantId, UUID pageId) {}
-    private record Registration(UUID actorId, Consumer<WorkspacePageChangeSignal> listener) {}
+    private record Registration(UUID actorId, Consumer<WorkspacePageChangeSignal> listener,
+            SubscriptionHandle handle) {}
+
+    private final class SubscriptionHandle implements WorkspacePageChangeSubscription {
+        private final PageKey key;
+        private final UUID subscriptionId;
+        private final AtomicBoolean active = new AtomicBoolean(true);
+        private final AtomicBoolean revoked = new AtomicBoolean();
+        private final AtomicReference<Runnable> revocationCallback = new AtomicReference<>();
+
+        private SubscriptionHandle(PageKey key, UUID subscriptionId) {
+            this.key = key;
+            this.subscriptionId = subscriptionId;
+        }
+
+        private synchronized void deliver(WorkspacePageChangeSignal signal,
+                Consumer<WorkspacePageChangeSignal> listener) {
+            if (active.get()) listener.accept(signal);
+        }
+
+        @Override
+        public void onRevoked(Runnable callback) {
+            Objects.requireNonNull(callback, "callback");
+            boolean invoke;
+            synchronized (this) {
+                invoke = revoked.get();
+                if (!invoke) revocationCallback.set(callback);
+            }
+            if (invoke) callback.run();
+        }
+
+        @Override
+        public void close() {
+            if (active.compareAndSet(true, false)) unsubscribe(key, subscriptionId);
+        }
+
+        private void revoke() {
+            Runnable callback;
+            synchronized (this) {
+                if (!active.compareAndSet(true, false)) return;
+                revoked.set(true);
+                callback = revocationCallback.getAndSet(null);
+            }
+            if (callback != null) {
+                try {
+                    callback.run();
+                } catch (RuntimeException callbackFailure) {
+                    synchronized (LocalWorkspacePageChangeHub.this) { deliveryFailures++; }
+                }
+            }
+        }
+    }
 
     public record HealthSnapshot(int activeConnections, int activePages, long publishedSignals,
             long deliveryFailures, long rejectedSubscriptions, boolean closed) {}
