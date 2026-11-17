@@ -26,6 +26,54 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
   assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.COMPLETED,store.find(tenant,run.runId()).orElseThrow().status());
   assertTrue(store.nextPage(tenant,run.runId(),10).isEmpty());
  }
+
+ @Test void lifecycleTransitionsAreAtomicAuditedAndFenceStaleWorkers() throws Exception {
+  UUID tenant=UUID.randomUUID(),actor=UUID.randomUUID();
+  insertRevision(tenant);
+  var store=new JdbcHistoricalProjectionRebuildStore(source);
+  var run=store.start(tenant,Instant.now());
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.PAUSE,0,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,"planned maintenance",Instant.now()));
+  assertFalse(store.advanceFenced(tenant,run.runId(),0,1,0,Instant.now()));
+  var paused=store.find(tenant,run.runId()).orElseThrow();
+  assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,paused.status());
+  assertEquals(1,paused.lifecycleVersion());
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.RESUME,1,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,"maintenance complete",Instant.now()));
+  assertFalse(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.PAUSE,1,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,"stale operator",Instant.now()));
+  var resumed=store.find(tenant,run.runId()).orElseThrow();
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.CANCEL,2,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.CANCELLED,"cancelled by operator",Instant.now()));
+  try(Connection c=source.getConnection();PreparedStatement s=c.prepareStatement(
+      "SELECT COUNT(*), COUNT(DISTINCT actor_id) FROM historical_projection_rebuild_audit WHERE run_id=? AND tenant_id=?")){
+   s.setObject(1,run.runId());s.setObject(2,tenant);
+   try(ResultSet rs=s.executeQuery()){assertTrue(rs.next());assertEquals(3,rs.getLong(1));assertEquals(1,rs.getLong(2));}
+  }
+  assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.CANCELLED,
+    store.find(tenant,run.runId()).orElseThrow().status());
+ }
+
+ @Test void fencedCheckpointAcceptsOnlyOneWorkerSnapshot() throws Exception {
+  UUID tenant=UUID.randomUUID();insertRevision(tenant);
+  var store=new JdbcHistoricalProjectionRebuildStore(source);
+  var run=store.start(tenant,Instant.now());
+  var event=store.nextPage(tenant,run.runId(),10).get(0);
+  assertTrue(store.advanceFenced(tenant,run.runId(),0,event.sequence(),0,Instant.now()));
+  assertFalse(store.advanceFenced(tenant,run.runId(),0,event.sequence(),0,Instant.now()));
+  var updated=store.find(tenant,run.runId()).orElseThrow();
+  assertEquals(1,updated.lifecycleVersion());
+  assertEquals(event.sequence(),updated.cursorSequence());
+ }
+
  private static UUID insertRevision(UUID tenant) throws Exception {
   UUID id=UUID.randomUUID();try(Connection c=source.getConnection()){c.setAutoCommit(false);
    if(tenant!=null)try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")){scope.setString(1,tenant.toString());scope.execute();}
