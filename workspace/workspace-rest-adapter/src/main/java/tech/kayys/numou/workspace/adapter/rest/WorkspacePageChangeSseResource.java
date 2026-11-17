@@ -71,6 +71,9 @@ public class WorkspacePageChangeSseResource {
         } catch (WorkspaceSseConnectionRegistry.ConnectionLimitExceededException limit) {
             closeQuietly(registration);
             throw new WebApplicationException("Workspace SSE connection capacity reached", 503);
+        } catch (RuntimeException setupFailure) {
+            closeQuietly(registration);
+            throw setupFailure;
         }
         connectionRef.set(connection);
         connection.onClose(() -> closeQuietly(registration));
