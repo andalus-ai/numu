@@ -39,7 +39,7 @@
 - Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup; tenant claim parsing and tenant context propagation through gRPC response.
 - PostgreSQL adapter integration test verifies multiple active memberships are returned in UUID order, revoked memberships are excluded, and memberships for inactive users are not exposed.
 - JWT tests: selection and access tokens have distinct `token_use`, audiences, claims, and bounded lifetimes.
-- Request-level tests: route allowlist unit tests cover path/method restrictions; a Quarkus HTTP test signs real selection/access JWTs, verifies tenant discovery remains reachable, and verifies selection credentials are rejected by the service-account management API before its handler executes.
+- Request-level tests: route allowlist unit tests cover path/method restrictions; Quarkus HTTP tests sign real selection/access JWTs, verify tenant discovery and exchange routing, reject selection credentials on service-account management, and reject wrong HTTP methods or unrelated login routes.
 - CI must run against the exact PR head. No local build or CI success is claimed until evidence is available.
 
 ## Remaining before production enablement
