@@ -37,7 +37,7 @@
 ## Required verification
 
 - Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup; tenant claim parsing and tenant context propagation through gRPC response.
-- Adapter integration test added: PostgreSQL query returns only active memberships for active users, sorted deterministically.
+- PostgreSQL adapter integration coverage verifies multiple active memberships are returned in deterministic UUID order, revoked memberships are excluded, and memberships for inactive users are not exposed.
 - JWT tests: selection and access tokens have distinct `token_use`, audiences, claims, and bounded lifetimes.
 - Request-level tests: route allowlist unit tests cover JAX-RS restrictions; generic JWT-verifier unit tests cover rejection by the Identity token-verification/gRPC principal-resolution path. Full Quarkus request tests remain required.
 - CI must run against the exact PR head. No local build or CI success is claimed until evidence is available.
