@@ -50,7 +50,7 @@ public class ApiCatalogResource {
         public AddVersionRequest { scopes = scopes == null ? List.of() : List.copyOf(scopes); }
     }
 
-    public record LegalHoldRequest(boolean held, @NotBlank @Size(max = 500) String reason) { }
+    public record LegalHoldRequest(@NotNull Boolean held, @NotBlank @Size(max = 500) String reason) { }
 
     public record RetentionRequest(@NotNull java.time.Instant retentionUntil,
                                    @NotBlank @Size(max = 500) String reason) { }
