@@ -47,14 +47,42 @@ class LocalWorkspacePageChangeHubTest {
         UUID tenant = UUID.randomUUID(), page = UUID.randomUUID();
         UUID revoked = UUID.randomUUID(), retained = UUID.randomUUID();
         AtomicInteger deliveries = new AtomicInteger();
-        hub.subscribe(tenant, revoked, page, ignored -> deliveries.incrementAndGet());
+        var revokedSubscription = hub.subscribe(tenant, revoked, page, ignored -> deliveries.incrementAndGet());
+        AtomicInteger revocations = new AtomicInteger();
+        revokedSubscription.onRevoked(revocations::incrementAndGet);
         hub.subscribe(tenant, retained, page, ignored -> deliveries.incrementAndGet());
         hub.subscribe(UUID.randomUUID(), revoked, page, ignored -> deliveries.incrementAndGet());
 
         assertEquals(1, hub.revokeActor(tenant, revoked));
+        assertEquals(1, revocations.get(), "actor revocation must notify the transport");
         hub.notifyChanged(signal(tenant, page, retained));
         assertEquals(1, deliveries.get());
         assertEquals(2, hub.health().activeConnections());
+    }
+
+    @Test void pageAndTenantRevocationNotifyEveryAffectedTransport() {
+        var hub = new LocalWorkspacePageChangeHub(10, 5, 5);
+        UUID tenant = UUID.randomUUID(), page = UUID.randomUUID(), actor = UUID.randomUUID();
+        AtomicInteger revocations = new AtomicInteger();
+        var pageSubscription = hub.subscribe(tenant, actor, page, ignored -> {});
+        pageSubscription.onRevoked(revocations::incrementAndGet);
+        hub.subscribe(tenant, actor, page, ignored -> {}).onRevoked(revocations::incrementAndGet);
+        assertEquals(2, hub.revokePage(tenant, page));
+        assertEquals(2, revocations.get());
+
+        hub.subscribe(tenant, actor, page, ignored -> {}).onRevoked(revocations::incrementAndGet);
+        hub.subscribe(UUID.randomUUID(), actor, page, ignored -> {}).onRevoked(revocations::incrementAndGet);
+        assertEquals(1, hub.revokeTenant(tenant));
+        assertEquals(3, revocations.get());
+    }
+
+    @Test void enforcesPerActorQuotaAcrossDifferentPages() {
+        var hub = new LocalWorkspacePageChangeHub(10, 8, 5, 1);
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
+        hub.subscribe(tenant, actor, UUID.randomUUID(), ignored -> {});
+        assertThrows(LocalWorkspacePageChangeHub.SubscriptionLimitExceededException.class,
+                () -> hub.subscribe(tenant, actor, UUID.randomUUID(), ignored -> {}));
+        assertEquals(1, hub.health().rejectedSubscriptions());
     }
 
     @Test void isolatesListenerFailuresAndExposesHealth() {
@@ -85,6 +113,7 @@ class LocalWorkspacePageChangeHubTest {
     @Test void rejectsInvalidLimits() {
         assertThrows(IllegalArgumentException.class, () -> new LocalWorkspacePageChangeHub(1, 2, 1));
         assertThrows(IllegalArgumentException.class, () -> new LocalWorkspacePageChangeHub(2, 1, 2));
+        assertThrows(IllegalArgumentException.class, () -> new LocalWorkspacePageChangeHub(5, 3, 2, 4));
     }
 
 
