@@ -101,13 +101,16 @@ class LocalWorkspacePageChangeHubTest {
         var hub = new LocalWorkspacePageChangeHub(10, 5, 5);
         UUID tenant = UUID.randomUUID(), page = UUID.randomUUID(), actor = UUID.randomUUID();
         AtomicInteger deliveries = new AtomicInteger();
-        hub.subscribe(tenant, actor, page, ignored -> deliveries.incrementAndGet());
+        AtomicInteger revocations = new AtomicInteger();
+        hub.subscribe(tenant, actor, page, ignored -> deliveries.incrementAndGet())
+                .onRevoked(revocations::incrementAndGet);
         hub.close();
         assertThrows(IllegalStateException.class, () -> hub.subscribe(tenant, actor, page, ignored -> {}));
         hub.notifyChanged(signal(tenant, page, actor));
         assertEquals(0, deliveries.get());
         assertTrue(hub.health().closed());
         assertEquals(0, hub.health().activeConnections());
+        assertEquals(1, revocations.get(), "shutdown must terminate the active transport");
     }
 
     @Test void rejectsInvalidLimits() {
