@@ -189,10 +189,10 @@ class PostgresApiProductRepositoryTest {
     "provider-admin","Preserve evidence",now.plusSeconds(1)).await().indefinitely())
     .hasMessageContaining("active lease");
   assertThat(governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",true,
-    "provider-admin","Preserve evidence",now.plusSeconds(6)).await().indefinitely()).isTrue();
+    "provider-admin","Preserve evidence",now.plusSeconds(36)).await().indefinitely()).isTrue();
   assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("ABANDONED");
   assertThat(artifactLegalHold(tenant,product.id().value(),"1.0.0")).isTrue();
-  assertThat(cleanup.isLeaseCurrent(tenant,lease,"cleanup-worker:governance",now.plusSeconds(6),5)
+  assertThat(cleanup.isLeaseCurrent(tenant,lease,"cleanup-worker:governance",now.plusSeconds(36),5)
     .await().indefinitely()).isFalse();
  }
 
