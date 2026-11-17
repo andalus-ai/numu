@@ -60,6 +60,12 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
   }
   assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.CANCELLED,
     store.find(tenant,run.runId()).orElseThrow().status());
+  assertThrows(SQLException.class,()->{
+   try(Connection c=source.getConnection();PreparedStatement s=c.prepareStatement(
+       "UPDATE historical_projection_rebuild_audit SET detail='tampered' WHERE run_id=?")){
+    s.setObject(1,run.runId());s.executeUpdate();
+   }
+  });
  }
 
  @Test void fencedCheckpointAcceptsOnlyOneWorkerSnapshot() throws Exception {
