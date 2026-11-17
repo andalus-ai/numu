@@ -55,7 +55,8 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
                 statement.setString(5, version);
                 if (statement.executeUpdate() != 1) throw new IllegalStateException("API artifact governance update lost its row");
             }
-            insertGovernanceAudit(connection, tenant, artifact, held ? "LEGAL_HOLD_APPLIED" : "LEGAL_HOLD_RELEASED",
+            insertGovernanceAudit(connection, tenant, productId, version, artifact,
+                    held ? "LEGAL_HOLD_APPLIED" : "LEGAL_HOLD_RELEASED",
                     actorReference, reason, held, artifact.retentionUntil(), occurredAt);
             return true;
         });
@@ -99,7 +100,7 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
                 statement.setString(5, version);
                 if (statement.executeUpdate() != 1) throw new IllegalStateException("API artifact governance update lost its row");
             }
-            insertGovernanceAudit(connection, tenant, artifact, "RETENTION_EXTENDED",
+            insertGovernanceAudit(connection, tenant, productId, version, artifact, "RETENTION_EXTENDED",
                     actorReference, reason, artifact.legalHold(), retentionUntil, occurredAt);
             return true;
         });
@@ -129,8 +130,8 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
     }
 
     private static void insertGovernanceAudit(java.sql.Connection connection, TenantId tenant,
-            ArtifactRow artifact, String action, String actor, String reason, boolean legalHold,
-            Instant retentionUntil, Instant occurredAt) throws java.sql.SQLException {
+            String productId, String version, ArtifactRow artifact, String action, String actor,
+            String reason, boolean legalHold, Instant retentionUntil, Instant occurredAt) throws java.sql.SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO developer_api_artifact_cleanup_audit
                     (provider_tenant_id, product_id, api_version, artifact_reference, sha256,
@@ -139,9 +140,18 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
                 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                 """)) {
             statement.setObject(1, tenant.value());
-            // product/version are supplied by the immutable artifact row's lookup identity.
-            // They are set by the caller-specific context below through the scoped insert.
-            throw new IllegalStateException("Governance audit identity must be provided by the caller");
+            statement.setObject(2, UUID.fromString(productId));
+            statement.setString(3, version);
+            statement.setString(4, artifact.reference());
+            statement.setString(5, artifact.sha256());
+            statement.setString(6, action);
+            statement.setString(7, actor);
+            statement.setTimestamp(8, Timestamp.from(occurredAt));
+            statement.setBoolean(9, legalHold);
+            if (retentionUntil == null) statement.setNull(10, java.sql.Types.TIMESTAMP_WITH_TIMEZONE);
+            else statement.setTimestamp(10, Timestamp.from(retentionUntil));
+            statement.setString(11, reason.trim());
+            statement.executeUpdate();
         }
     }
 
