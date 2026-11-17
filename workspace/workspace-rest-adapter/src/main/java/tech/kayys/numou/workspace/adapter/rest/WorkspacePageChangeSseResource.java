@@ -77,8 +77,13 @@ public class WorkspacePageChangeSseResource {
         }
         connectionRef.set(connection);
         connection.onClose(() -> closeQuietly(registration));
-        sink.onClose(connection::close);
-        if (sink.isClosed()) connection.close();
+        try {
+            sink.onClose(connection::close);
+            if (sink.isClosed()) connection.close();
+        } catch (RuntimeException closeRegistrationFailure) {
+            connection.close();
+            throw closeRegistrationFailure;
+        }
     }
 
     private static void closeQuietly(AutoCloseable handle) {
