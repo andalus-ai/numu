@@ -10,12 +10,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
 /** Transactional PostgreSQL implementation of API artifact retention and legal-hold governance. */
 @ApplicationScoped
 public final class PostgresApiArtifactGovernanceRepository implements ApiArtifactGovernanceRepository {
+    // Match the cleanup dispatcher's maximum object-delete timeout before reclaiming an
+    // expired lease for governance changes; a stale in-flight delete must have time to settle.
+    private static final Duration DELETE_SETTLE_WINDOW = Duration.ofSeconds(30);
     private final ApiCatalogJdbcTransactionManager transactions;
 
     @Inject
@@ -34,7 +38,8 @@ public final class PostgresApiArtifactGovernanceRepository implements ApiArtifac
 
             String nextState = artifact.lifecycleState();
             if ("DELETE_PENDING".equals(nextState)) {
-                if (artifact.leaseUntil() != null && artifact.leaseUntil().isAfter(occurredAt)) {
+                if (artifact.leaseUntil() != null
+                        && artifact.leaseUntil().plus(DELETE_SETTLE_WINDOW).isAfter(occurredAt)) {
                     throw new IllegalStateException("Cannot apply a legal hold while artifact deletion owns an active lease");
                 }
                 // Cancel an expired cleanup lease before applying the hold. The lifecycle
