@@ -26,6 +26,9 @@ class WorkspaceSseConnectionRegistryTest {
 
             connection.close();
             connection.close();
+            AtomicInteger lateCleanup = new AtomicInteger();
+            connection.onClose(lateCleanup::incrementAndGet);
+            assertEquals(1, lateCleanup.get(), "cleanup attached after close must run immediately");
             assertEquals(1, closed.get());
             assertEquals(0, registry.health().activeConnections());
         } finally {
