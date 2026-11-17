@@ -4,11 +4,13 @@ import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactGovernanceRepository;
 import tech.kayys.numou.developer.apicatalog.application.port.ApiCatalogAuthorizationPort;
 import tech.kayys.numou.foundation.application.context.ExecutionContextProvider;
+import tech.kayys.numou.foundation.application.query.QueryHandler;
 import tech.kayys.numou.foundation.application.result.ApplicationError;
 
 import java.util.Objects;
 
-public final class GetApiArtifactGovernanceQueryHandler {
+public final class GetApiArtifactGovernanceQueryHandler
+        implements QueryHandler<GetApiArtifactGovernanceQuery, ApiArtifactGovernanceRepository.ArtifactGovernanceView> {
     private final ApiArtifactGovernanceRepository governance;
     private final ApiCatalogAuthorizationPort authorization;
     private final ExecutionContextProvider contexts;
@@ -20,6 +22,7 @@ public final class GetApiArtifactGovernanceQueryHandler {
         this.contexts = Objects.requireNonNull(contexts);
     }
 
+    @Override
     public Uni<ApiArtifactGovernanceRepository.ArtifactGovernanceView> handle(GetApiArtifactGovernanceQuery query) {
         var context = contexts.current();
         var tenant = context.requireTenant();
