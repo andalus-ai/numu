@@ -51,6 +51,23 @@ class TenantSelectionCredentialRequestTest {
     }
 
     @Test
+    void selectionCredentialCannotUseDiscoveryOrExchangeWithWrongHttpMethod() throws Exception {
+        String token = tokenIssuer.issueTenantSelectionToken(UUID.randomUUID(), "Selection Test");
+
+        HttpResponse<String> postDiscovery = request("POST", "api/v2/auth/tenants", token);
+        assertEquals(403, postDiscovery.statusCode(), postDiscovery.body());
+        assertTrue(postDiscovery.body().contains(FILTER_DENIAL), postDiscovery.body());
+
+        HttpResponse<String> getExchange = request("GET", "api/v2/auth/tenant-exchange", token);
+        assertEquals(403, getExchange.statusCode(), getExchange.body());
+        assertTrue(getExchange.body().contains(FILTER_DENIAL), getExchange.body());
+
+        HttpResponse<String> login = request("POST", "api/v2/auth/login", token);
+        assertEquals(403, login.statusCode(), login.body());
+        assertTrue(login.body().contains(FILTER_DENIAL), login.body());
+    }
+
+    @Test
     void tenantBoundAccessCredentialIsNotRejectedBySelectionBoundary() throws Exception {
         String token = tokenIssuer.issueTenantAccessToken(
                 UUID.randomUUID(), "Access Test", UUID.randomUUID());
