@@ -56,17 +56,30 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
     HistoricalProjectionRebuildStore.Action.CANCEL,2,
     HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
     HistoricalProjectionRebuildStore.RebuildRun.Status.CANCELLED,"cancelled by operator",Instant.now()));
-  try(Connection c=source.getConnection();PreparedStatement s=c.prepareStatement(
+  try(Connection c=source.getConnection()){
+   c.setAutoCommit(false);
+   try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")){
+    scope.setString(1,tenant.toString());scope.execute();
+   }
+   try(PreparedStatement s=c.prepareStatement(
       "SELECT COUNT(*), COUNT(DISTINCT actor_id) FROM historical_projection_rebuild_audit WHERE run_id=? AND tenant_id=?")){
-   s.setObject(1,run.runId());s.setObject(2,tenant);
-   try(ResultSet rs=s.executeQuery()){assertTrue(rs.next());assertEquals(3,rs.getLong(1));assertEquals(1,rs.getLong(2));}
+    s.setObject(1,run.runId());s.setObject(2,tenant);
+    try(ResultSet rs=s.executeQuery()){assertTrue(rs.next());assertEquals(3,rs.getLong(1));assertEquals(1,rs.getLong(2));}
+   }
+   c.commit();
   }
   assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.CANCELLED,
     store.find(tenant,run.runId()).orElseThrow().status());
   assertThrows(SQLException.class,()->{
-   try(Connection c=source.getConnection();PreparedStatement s=c.prepareStatement(
-       "UPDATE historical_projection_rebuild_audit SET detail='tampered' WHERE run_id=?")){
-    s.setObject(1,run.runId());s.executeUpdate();
+   try(Connection c=source.getConnection()){
+    c.setAutoCommit(false);
+    try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")){
+     scope.setString(1,tenant.toString());scope.execute();
+    }
+    try(PreparedStatement s=c.prepareStatement(
+        "UPDATE historical_projection_rebuild_audit SET detail='tampered' WHERE run_id=?")){
+     s.setObject(1,run.runId());s.executeUpdate();
+    }
    }
   });
  }
