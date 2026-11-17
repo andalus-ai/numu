@@ -187,7 +187,7 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                            paused_at=CASE WHEN ?='PAUSED' THEN ? ELSE paused_at END,
                            cancelled_at=CASE WHEN ?='CANCELLED' THEN ? ELSE cancelled_at END,
                            failed_at=CASE WHEN ?='FAILED' THEN ? ELSE failed_at END,
-                           failure_detail=CASE WHEN ?='FAILED' THEN ? WHEN ?='RUNNING' THEN '' ELSE failure_detail END
+                           failure_detail=CASE WHEN ?='FAILED' THEN ? ELSE '' END
                      WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?
                        AND status=? AND lifecycle_version=?
                     """;
@@ -200,7 +200,6 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                     s.setString(i++, targetStatus.name()); s.setTimestamp(i++, Timestamp.from(now));
                     s.setString(i++, targetStatus.name()); s.setTimestamp(i++, Timestamp.from(now));
                     s.setString(i++, targetStatus.name()); s.setString(i++, safeDetail);
-                    s.setString(i++, targetStatus.name());
                     s.setObject(i++, runId); s.setObject(i++, tenantId);
                     s.setString(i++, expectedStatus.name()); s.setLong(i, expectedLifecycleVersion);
                     changed = s.executeUpdate();
