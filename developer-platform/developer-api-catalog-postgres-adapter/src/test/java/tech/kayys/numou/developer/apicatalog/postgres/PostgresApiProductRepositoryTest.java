@@ -19,7 +19,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.sql.*;
-import java.time.Instant;
+import java.time.Instant;\nimport java.time.Duration;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -123,6 +123,75 @@ class PostgresApiProductRepositoryTest {
   assertThat(deletedSnapshot.leased()).isZero();
   assertThat(cleanup.claimDue(tenant,"another-worker",cleanupNow.plusSeconds(2),cleanupNow.plusSeconds(92),10,5)
     .await().indefinitely()).isEmpty();
+ }
+
+ @Test void legalHoldIsAuditedAndPreventsCleanupClaims(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"legal-hold");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  Instant now=Instant.now();markArtifactAbandoned(tenant,product.id().value(),"1.0.0",now.minusSeconds(60));
+  var governance=new PostgresApiArtifactGovernanceRepository(transactions);
+  assertThat(governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",true,
+    "provider-admin","Regulatory investigation",now).await().indefinitely()).isTrue();
+  assertThat(artifactLegalHold(tenant,product.id().value(),"1.0.0")).isTrue();
+  assertThat(new PostgresApiArtifactCleanupRepository(transactions)
+    .claimDue(tenant,"cleanup-worker",now.plusSeconds(1),now.plusSeconds(91),10,5)
+    .await().indefinitely()).isEmpty();
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
+    .containsExactly("LEGAL_HOLD_APPLIED");
+
+  assertThat(governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",false,
+    "provider-admin","Investigation closed",now.plusSeconds(2)).await().indefinitely()).isTrue();
+  assertThat(artifactLegalHold(tenant,product.id().value(),"1.0.0")).isFalse();
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
+    .containsExactly("LEGAL_HOLD_APPLIED","LEGAL_HOLD_RELEASED");
+ }
+
+ @Test void retentionCanOnlyBeExtendedAndDelaysCleanup(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"retention-extend");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  Instant now=Instant.now();markArtifactAbandoned(tenant,product.id().value(),"1.0.0",now.minusSeconds(60));
+  var governance=new PostgresApiArtifactGovernanceRepository(transactions);
+  Instant extendedUntil=now.plus(Duration.ofDays(30));
+  assertThat(governance.extendRetention(tenant,product.id().value().toString(),"1.0.0",extendedUntil,
+    "provider-admin","Customer contract retention",now).await().indefinitely()).isTrue();
+  assertThat(artifactRetentionUntil(tenant,product.id().value(),"1.0.0")).isEqualTo(extendedUntil);
+  assertThat(new PostgresApiArtifactCleanupRepository(transactions)
+    .claimDue(tenant,"cleanup-worker",now.plusSeconds(1),now.plusSeconds(91),10,5)
+    .await().indefinitely()).isEmpty();
+  assertThatThrownBy(()->governance.extendRetention(tenant,product.id().value().toString(),"1.0.0",
+    now.plus(Duration.ofDays(7)),"provider-admin","Attempt to shorten",now.plusSeconds(2))
+    .await().indefinitely()).isInstanceOf(IllegalArgumentException.class)
+    .hasMessageContaining("cannot be shortened");
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
+    .containsExactly("RETENTION_EXTENDED");
+ }
+
+ @Test void legalHoldCannotRaceAnActiveCleanupLeaseButCancelsAnExpiredLease(){
+  TenantId tenant=TenantId.generate();ApiProduct product=product(tenant,"legal-hold-pending");
+  repository.save(tenant,product,0).await().indefinitely();
+  var aggregate=repository.findById(tenant,product.id()).await().indefinitely().orElseThrow();
+  aggregate.addVersion(version("1.0.0"),NOW.plusSeconds(1));
+  repository.save(tenant,aggregate,1).await().indefinitely();
+  Instant now=Instant.now();markArtifactAbandoned(tenant,product.id().value(),"1.0.0",now.minusSeconds(60));
+  var cleanup=new PostgresApiArtifactCleanupRepository(transactions);
+  var lease=cleanup.claimDue(tenant,"cleanup-worker:governance",now,now.plusSeconds(5),1,5)
+    .await().indefinitely().get(0);
+  var governance=new PostgresApiArtifactGovernanceRepository(transactions);
+  assertThatThrownBy(()->governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",true,
+    "provider-admin","Preserve evidence",now.plusSeconds(1)).await().indefinitely())
+    .hasMessageContaining("active lease");
+  assertThat(governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",true,
+    "provider-admin","Preserve evidence",now.plusSeconds(6)).await().indefinitely()).isTrue();
+  assertThat(artifactState(tenant,product.id().value(),"1.0.0")).isEqualTo("ABANDONED");
+  assertThat(artifactLegalHold(tenant,product.id().value(),"1.0.0")).isTrue();
+  assertThat(cleanup.isLeaseCurrent(tenant,lease,"cleanup-worker:governance",now.plusSeconds(6),5)
+    .await().indefinitely()).isFalse();
  }
 
  @Test void expiredCleanupLeaseCannotRecordFailureOrOverwriteAudit(){
@@ -250,6 +319,28 @@ class PostgresApiProductRepositoryTest {
     """)){
     s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
     try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new AssertionError("artifact lifecycle row missing");return rs.getString(1);}
+   }
+  }catch(SQLException e){throw new IllegalStateException(e);}
+ }
+ private boolean artifactLegalHold(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection()){
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement s=c.prepareStatement("SELECT legal_hold FROM developer_api_artifacts WHERE provider_tenant_id=? AND product_id=? AND api_version=?")){
+    s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
+    try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new IllegalStateException("artifact missing");return rs.getBoolean(1);}
+   }
+  }catch(SQLException e){throw new IllegalStateException(e);}
+ }
+ private Instant artifactRetentionUntil(TenantId tenant,UUID productId,String version){
+  try(Connection c=runtime.getConnection()){
+   try(PreparedStatement context=c.prepareStatement("SELECT set_config('numou.tenant_id',?,false)")){
+    context.setString(1,tenant.value().toString());context.execute();
+   }
+   try(PreparedStatement s=c.prepareStatement("SELECT retention_until FROM developer_api_artifacts WHERE provider_tenant_id=? AND product_id=? AND api_version=?")){
+    s.setObject(1,tenant.value());s.setObject(2,productId);s.setString(3,version);
+    try(ResultSet rs=s.executeQuery()){if(!rs.next())throw new IllegalStateException("artifact missing");Timestamp ts=rs.getTimestamp(1);return ts==null?null:ts.toInstant();}
    }
   }catch(SQLException e){throw new IllegalStateException(e);}
  }
