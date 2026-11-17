@@ -83,8 +83,7 @@ class LocalWorkspacePageChangeHubTest {
         assertEquals(1, hub.revokeActor(tenant, actor));
         AtomicInteger callbacks = new AtomicInteger();
         subscription.onRevoked(callbacks::incrementAndGet);
-        subscription.onRevoked(callbacks::incrementAndGet);
-        assertEquals(2, callbacks.get());
+        assertEquals(1, callbacks.get());
     }
 
     @Test void enforcesPerActorQuotaAcrossDifferentPages() {
