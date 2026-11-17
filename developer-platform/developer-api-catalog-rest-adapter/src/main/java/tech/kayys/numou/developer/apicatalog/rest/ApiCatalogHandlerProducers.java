@@ -20,6 +20,7 @@ public class ApiCatalogHandlerProducers {
     @Inject EventPublisher events;
     @Inject ApiSpecificationValidationPort specificationValidation;
     @Inject ApiSpecificationArtifactStore specificationArtifacts;
+    @Inject ApiArtifactGovernanceRepository artifactGovernance;
 
     @Produces @ApplicationScoped
     CreateApiProductCommandHandler createProduct() {
@@ -64,5 +65,15 @@ public class ApiCatalogHandlerProducers {
     @Produces @ApplicationScoped
     RetireApiVersionCommandHandler retireVersion() {
         return new RetireApiVersionCommandHandler(repository, authorization, executionContext, unitOfWork);
+    }
+
+    @Produces @ApplicationScoped
+    SetApiArtifactLegalHoldCommandHandler setArtifactLegalHold() {
+        return new SetApiArtifactLegalHoldCommandHandler(artifactGovernance, authorization, executionContext);
+    }
+
+    @Produces @ApplicationScoped
+    ExtendApiArtifactRetentionCommandHandler extendArtifactRetention() {
+        return new ExtendApiArtifactRetentionCommandHandler(artifactGovernance, authorization, executionContext);
     }
 }
