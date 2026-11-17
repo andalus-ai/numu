@@ -85,6 +85,31 @@ class HistoricalProjectionGenerationOrchestratorTest {
         assertTrue(generationService.active(TENANT).isEmpty());
     }
 
+    @Test void recoversWhenNeo4jActivationCommittedBeforePostgresJournalUpdate() {
+        var generationStore = new FakeGenerationStore();
+        var runStore = new FakeRunStore();
+        var auth = allowAll();
+        var generationService = new HistoricalProjectionGenerationService(generationStore, auth,
+                (tenant, generation) -> new HistoricalProjectionGenerationValidationPort.ValidationResult(
+                        true, 0, 0, 0, 0, 0, 0, "clean"), clock());
+        var coordinator = new HistoricalProjectionGenerationOrchestrator(runStore, generationService,
+                rebuildService(new FakeRebuildStore(), auth), snapshot -> {}, clock());
+
+        UUID operation = UUID.randomUUID();
+        Run run = coordinator.start(TENANT, operation);
+        coordinator.resumeOneStep(TENANT, operation); // REPLAYING -> VALIDATING
+        coordinator.resumeOneStep(TENANT, operation); // VALIDATING -> READY
+        coordinator.resumeOneStep(TENANT, operation); // READY -> ACTIVATING
+
+        generationService.create(TENANT, run.generationId());
+        generationService.markValidatedReady(TENANT, run.generationId());
+        generationService.activate(TENANT, run.generationId(), null); // Neo4j committed; journal still ACTIVATING
+
+        Run recovered = coordinator.resumeOneStep(TENANT, operation);
+        assertEquals(Status.ACTIVE, recovered.status());
+        assertEquals(run.generationId(), generationService.active(TENANT).orElseThrow().generationId());
+    }
+
     private static HistoricalProjectionRebuildService rebuildService(FakeRebuildStore store,
             HistoricalProjectionMaintenanceAuthorizationPort auth) {
         GenerationTargetedHistoricalRelationshipProjectionPort projector = new GenerationTargetedHistoricalRelationshipProjectionPort() {
