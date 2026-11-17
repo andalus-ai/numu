@@ -138,6 +138,10 @@ class PostgresApiProductRepositoryTest {
   assertThat(governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",true,
     "provider-admin","Regulatory investigation",now).await().indefinitely()).isTrue();
   assertThat(artifactLegalHold(tenant,product.id().value(),"1.0.0")).isTrue();
+  var governanceView=governance.find(tenant,product.id().value().toString(),"1.0.0")
+    .await().indefinitely().orElseThrow();
+  assertThat(governanceView.legalHold()).isTrue();
+  assertThat(governanceView.lifecycleState()).isEqualTo("ABANDONED");
   assertThat(new PostgresApiArtifactCleanupRepository(transactions)
     .claimDue(tenant,"cleanup-worker",now.plusSeconds(1),now.plusSeconds(91),10,5)
     .await().indefinitely()).isEmpty();
@@ -163,6 +167,10 @@ class PostgresApiProductRepositoryTest {
   assertThat(governance.extendRetention(tenant,product.id().value().toString(),"1.0.0",extendedUntil,
     "provider-admin","Customer contract retention",now).await().indefinitely()).isTrue();
   assertThat(artifactRetentionUntil(tenant,product.id().value(),"1.0.0")).isEqualTo(extendedUntil);
+  var governanceView=governance.find(tenant,product.id().value().toString(),"1.0.0")
+    .await().indefinitely().orElseThrow();
+  assertThat(governanceView.retentionUntil()).isEqualTo(extendedUntil);
+  assertThat(governanceView.legalHold()).isFalse();
   assertThat(new PostgresApiArtifactCleanupRepository(transactions)
     .claimDue(tenant,"cleanup-worker",now.plusSeconds(1),now.plusSeconds(91),10,5)
     .await().indefinitely()).isEmpty();
