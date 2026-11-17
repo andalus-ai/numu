@@ -21,8 +21,8 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
   assertTrue(store.nextPage(tenant,run.runId(),10).stream().anyMatch(e->e.aggregateId().equals(aggregate)));
   assertFalse(store.advance(UUID.randomUUID(),run.runId(),0,1,Instant.now()));
   var page=store.nextPage(tenant,run.runId(),10);assertEquals(1,page.size());
-  assertTrue(store.advance(tenant,run.runId(),0,page.get(0).sequence(),Instant.now()));
-  assertTrue(store.complete(tenant,run.runId(),page.get(0).sequence(),Instant.now()));
+  assertTrue(store.advanceFenced(tenant,run.runId(),0,page.get(0).sequence(),0,Instant.now()));
+  assertTrue(store.completeFenced(tenant,run.runId(),page.get(0).sequence(),1,Instant.now()));
   assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.COMPLETED,store.find(tenant,run.runId()).orElseThrow().status());
   assertTrue(store.nextPage(tenant,run.runId(),10).isEmpty());
  }
