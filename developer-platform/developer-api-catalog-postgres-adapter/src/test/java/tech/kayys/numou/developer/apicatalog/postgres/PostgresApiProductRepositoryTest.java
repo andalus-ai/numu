@@ -19,7 +19,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.sql.*;
-import java.time.Instant;\nimport java.time.Duration;
+import java.time.Instant;\nimport java.time.Duration;\nimport java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -157,7 +157,7 @@ class PostgresApiProductRepositoryTest {
   repository.save(tenant,aggregate,1).await().indefinitely();
   Instant now=Instant.now();markArtifactAbandoned(tenant,product.id().value(),"1.0.0",now.minusSeconds(60));
   var governance=new PostgresApiArtifactGovernanceRepository(transactions);
-  Instant extendedUntil=now.plus(Duration.ofDays(30));
+  Instant extendedUntil=now.plus(Duration.ofDays(30)).truncatedTo(ChronoUnit.MICROS);
   assertThat(governance.extendRetention(tenant,product.id().value().toString(),"1.0.0",extendedUntil,
     "provider-admin","Customer contract retention",now).await().indefinitely()).isTrue();
   assertThat(artifactRetentionUntil(tenant,product.id().value(),"1.0.0")).isEqualTo(extendedUntil);
