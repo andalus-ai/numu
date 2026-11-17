@@ -95,17 +95,27 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                  LIMIT ?
                 """;
         List<ReplayEvent> events = new ArrayList<>();
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
-            s.setObject(1, runId);
-            s.setObject(2, tenantId);
-            s.setInt(3, limit);
-            try (ResultSet r = s.executeQuery()) {
-                while (r.next()) events.add(new ReplayEvent(r.getLong(1), r.getObject(2, UUID.class),
-                        r.getString(3), r.getString(4), r.getInt(5), r.getObject(6, UUID.class),
-                        r.getObject(7, UUID.class), r.getLong(8), r.getString(9),
-                        r.getObject(10, OffsetDateTime.class).toInstant()));
+        try (Connection c = source.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                setTenantScope(c, tenantId);
+                try (PreparedStatement s = c.prepareStatement(sql)) {
+                    s.setObject(1, runId);
+                    s.setObject(2, tenantId);
+                    s.setInt(3, limit);
+                    try (ResultSet r = s.executeQuery()) {
+                        while (r.next()) events.add(new ReplayEvent(r.getLong(1), r.getObject(2, UUID.class),
+                                r.getString(3), r.getString(4), r.getInt(5), r.getObject(6, UUID.class),
+                                r.getObject(7, UUID.class), r.getLong(8), r.getString(9),
+                                r.getObject(10, OffsetDateTime.class).toInstant()));
+                    }
+                }
+                c.commit();
+                return List.copyOf(events);
+            } catch (SQLException | RuntimeException e) {
+                rollback(c, e);
+                throw e;
             }
-            return List.copyOf(events);
         } catch (SQLException e) {
             throw failure("read historical projection rebuild page", e);
         }
@@ -312,6 +322,14 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 r.getObject("created_at", OffsetDateTime.class).toInstant(),
                 r.getObject("updated_at", OffsetDateTime.class).toInstant(),
                 r.getLong("lifecycle_version"), r.getString("failure_detail"));
+    }
+
+    private static void setTenantScope(Connection c, UUID tenantId) throws SQLException {
+        if (tenantId == null) return;
+        try (PreparedStatement scope = c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")) {
+            scope.setString(1, tenantId.toString());
+            scope.execute();
+        }
     }
 
     private static void rollback(Connection c, Throwable failure) {
