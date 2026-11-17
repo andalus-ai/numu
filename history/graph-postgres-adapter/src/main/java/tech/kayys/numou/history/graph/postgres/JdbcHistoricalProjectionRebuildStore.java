@@ -69,11 +69,23 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
     public Optional<RebuildRun> find(UUID tenantId, UUID runId) {
         Objects.requireNonNull(runId, "runId");
         String sql = "SELECT * FROM historical_relationship_projection_rebuild_run WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?";
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
-            s.setObject(1, runId);
-            s.setObject(2, tenantId);
-            try (ResultSet r = s.executeQuery()) {
-                return r.next() ? Optional.of(mapRun(r)) : Optional.empty();
+        try (Connection c = source.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                setTenantScope(c, tenantId);
+                Optional<RebuildRun> result;
+                try (PreparedStatement s = c.prepareStatement(sql)) {
+                    s.setObject(1, runId);
+                    s.setObject(2, tenantId);
+                    try (ResultSet r = s.executeQuery()) {
+                        result = r.next() ? Optional.of(mapRun(r)) : Optional.empty();
+                    }
+                }
+                c.commit();
+                return result;
+            } catch (SQLException | RuntimeException e) {
+                rollback(c, e);
+                throw e;
             }
         } catch (SQLException e) {
             throw failure("load historical projection rebuild", e);
