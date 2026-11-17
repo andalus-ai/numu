@@ -123,27 +123,10 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
     }
 
     @Override
+    @Deprecated
     public boolean advance(UUID tenantId, UUID runId, long expectedCursor, long nextCursor, Instant now) {
-        if (nextCursor <= expectedCursor) throw new IllegalArgumentException("next cursor must advance");
-        String sql = """
-                UPDATE historical_relationship_projection_rebuild_run
-                   SET cursor_sequence=?, updated_at=?
-                 WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?
-                   AND status='RUNNING' AND cursor_sequence=? AND high_water_sequence>=?
-                """;
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
-            s.setLong(1, nextCursor);
-            s.setTimestamp(2, Timestamp.from(now));
-            s.setObject(3, runId);
-            s.setObject(4, tenantId);
-            s.setLong(5, expectedCursor);
-            s.setLong(6, nextCursor);
-            return s.executeUpdate() == 1;
-        } catch (SQLException e) {
-            throw failure("advance historical projection rebuild checkpoint", e);
-        }
+        throw new UnsupportedOperationException("use advanceFenced with the observed lifecycle version");
     }
-
 
     @Override
     public boolean advanceFenced(UUID tenantId, UUID runId, long expectedCursor, long nextCursor,
@@ -261,31 +244,10 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
     }
 
     @Override
+    @Deprecated
     public boolean complete(UUID tenantId, UUID runId, long expectedCursor, Instant now) {
-        String sql = """
-                UPDATE historical_relationship_projection_rebuild_run r
-                   SET status='COMPLETED', updated_at=?, completed_at=?, lifecycle_version=lifecycle_version+1
-                 WHERE r.run_id=? AND r.tenant_id IS NOT DISTINCT FROM ?
-                   AND r.status='RUNNING' AND r.cursor_sequence=?
-                   AND NOT EXISTS (
-                       SELECT 1 FROM historical_relationship_projection_outbox o
-                        WHERE o.tenant_id IS NOT DISTINCT FROM r.tenant_id
-                          AND o.projection_sequence > r.cursor_sequence
-                          AND o.projection_sequence <= r.high_water_sequence
-                   )
-                """;
-        try (Connection c = source.getConnection(); PreparedStatement s = c.prepareStatement(sql)) {
-            s.setTimestamp(1, Timestamp.from(now));
-            s.setTimestamp(2, Timestamp.from(now));
-            s.setObject(3, runId);
-            s.setObject(4, tenantId);
-            s.setLong(5, expectedCursor);
-            return s.executeUpdate() == 1;
-        } catch (SQLException e) {
-            throw failure("complete historical projection rebuild", e);
-        }
+        throw new UnsupportedOperationException("use completeFenced with the observed lifecycle version");
     }
-
 
     @Override
     public boolean completeFenced(UUID tenantId, UUID runId, long expectedCursor,
