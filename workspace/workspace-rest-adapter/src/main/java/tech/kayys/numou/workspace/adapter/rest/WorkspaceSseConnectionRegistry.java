@@ -132,8 +132,10 @@ public class WorkspaceSseConnectionRegistry implements AutoCloseable {
         }
 
         private void start() {
-            heartbeatTask = scheduler.scheduleAtFixedRate(this::heartbeat,
+            ScheduledFuture<?> scheduled = scheduler.scheduleAtFixedRate(this::heartbeat,
                     heartbeatInterval.toMillis(), heartbeatInterval.toMillis(), TimeUnit.MILLISECONDS);
+            heartbeatTask = scheduled;
+            if (!open.get()) scheduled.cancel(false);
         }
 
         /** Attach the subscription cleanup after registration; handles close-before-attach races. */
