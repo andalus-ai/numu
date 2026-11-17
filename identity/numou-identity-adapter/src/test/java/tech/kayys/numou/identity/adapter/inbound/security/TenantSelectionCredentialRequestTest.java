@@ -41,6 +41,8 @@ class TenantSelectionCredentialRequestTest {
 
         HttpResponse<String> exchange = request("POST", "api/v2/auth/tenant-exchange", token,
                 "{\"tenantId\":\"" + UUID.randomUUID() + "\"}");
+        assertEquals(400, exchange.statusCode(), exchange.body());
+        assertTrue(exchange.body().contains("TENANT_MEMBERSHIP_REQUIRED"), exchange.body());
         assertFalse(exchange.body().contains(FILTER_DENIAL), exchange.body());
 
         HttpResponse<String> management = request("GET", "api/v1/service-accounts", token);
