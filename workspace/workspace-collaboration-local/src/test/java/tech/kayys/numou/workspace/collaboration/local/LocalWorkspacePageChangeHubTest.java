@@ -76,6 +76,17 @@ class LocalWorkspacePageChangeHubTest {
         assertEquals(3, revocations.get());
     }
 
+    @Test void lateRevocationListenerRunsImmediatelyAndOnlyOnce() {
+        var hub = new LocalWorkspacePageChangeHub(10, 5, 5);
+        UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID(), page = UUID.randomUUID();
+        var subscription = hub.subscribe(tenant, actor, page, ignored -> {});
+        assertEquals(1, hub.revokeActor(tenant, actor));
+        AtomicInteger callbacks = new AtomicInteger();
+        subscription.onRevoked(callbacks::incrementAndGet);
+        subscription.onRevoked(callbacks::incrementAndGet);
+        assertEquals(2, callbacks.get());
+    }
+
     @Test void enforcesPerActorQuotaAcrossDifferentPages() {
         var hub = new LocalWorkspacePageChangeHub(10, 8, 5, 1);
         UUID tenant = UUID.randomUUID(), actor = UUID.randomUUID();
