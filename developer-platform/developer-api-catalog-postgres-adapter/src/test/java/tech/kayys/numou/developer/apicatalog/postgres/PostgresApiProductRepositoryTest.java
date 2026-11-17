@@ -147,6 +147,10 @@ class PostgresApiProductRepositoryTest {
     .await().indefinitely()).isEmpty();
   assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
     .containsExactly("LEGAL_HOLD_APPLIED");
+  assertThat(governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",true,
+    "provider-admin","Repeated apply is idempotent",now.plusMillis(500)).await().indefinitely()).isFalse();
+  assertThat(auditActions(tenant,product.id().value(),"1.0.0"))
+    .containsExactly("LEGAL_HOLD_APPLIED");
 
   assertThat(governance.setLegalHold(tenant,product.id().value().toString(),"1.0.0",false,
     "provider-admin","Investigation closed",now.plusSeconds(2)).await().indefinitely()).isTrue();
@@ -166,6 +170,8 @@ class PostgresApiProductRepositoryTest {
   Instant extendedUntil=now.plus(Duration.ofDays(30)).truncatedTo(ChronoUnit.MICROS);
   assertThat(governance.extendRetention(tenant,product.id().value().toString(),"1.0.0",extendedUntil,
     "provider-admin","Customer contract retention",now).await().indefinitely()).isTrue();
+  assertThat(governance.extendRetention(tenant,product.id().value().toString(),"1.0.0",extendedUntil,
+    "provider-admin","Repeated extension is idempotent",now.plusMillis(500)).await().indefinitely()).isFalse();
   assertThat(artifactRetentionUntil(tenant,product.id().value(),"1.0.0")).isEqualTo(extendedUntil);
   var governanceView=governance.find(tenant,product.id().value().toString(),"1.0.0")
     .await().indefinitely().orElseThrow();
