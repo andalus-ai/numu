@@ -41,7 +41,7 @@ class PostgresApiProductRepositoryTest {
    s.execute("CREATE TABLE platform_outbox (entry_id uuid PRIMARY KEY,event_id uuid NOT NULL UNIQUE,tenant_id uuid,event_type text NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL,available_at timestamptz NOT NULL,attempts integer NOT NULL DEFAULT 0,locked_until timestamptz,published_at timestamptz,last_error text)");
    s.execute("GRANT USAGE ON SCHEMA public TO api_catalog_runtime");
    s.execute("GRANT SELECT,INSERT,UPDATE ON developer_api_products,developer_api_versions,developer_api_scopes,developer_api_artifacts TO api_catalog_runtime");
-   s.execute("GRANT SELECT,INSERT ON developer_api_artifact_cleanup_audit TO api_catalog_runtime");
+   s.execute("GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE ON developer_api_artifact_cleanup_audit TO api_catalog_runtime");
    s.execute("GRANT SELECT,INSERT ON platform_outbox TO api_catalog_runtime");
   }
   runtime=new RoleDataSource(owner);
