@@ -33,6 +33,13 @@ ALTER TABLE historical_relationship_projection_rebuild_run
     ADD CONSTRAINT historical_projection_rebuild_failure_detail_check
         CHECK (status = 'FAILED' OR failure_detail = '');
 
+ALTER TABLE historical_relationship_projection_rebuild_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE historical_relationship_projection_rebuild_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY historical_projection_rebuild_run_scope
+    ON historical_relationship_projection_rebuild_run FOR ALL
+    USING (tenant_id IS NULL OR tenant_id = nullif(current_setting('numou.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id IS NULL OR tenant_id = nullif(current_setting('numou.tenant_id', true), '')::uuid);
+
 CREATE TABLE historical_projection_rebuild_audit (
     audit_id UUID PRIMARY KEY,
     run_id UUID NOT NULL,
