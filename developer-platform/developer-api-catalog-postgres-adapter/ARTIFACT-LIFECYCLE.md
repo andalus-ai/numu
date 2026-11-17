@@ -50,7 +50,7 @@ No automatic transition from `REGISTERED` to `ABANDONED` is introduced. A future
 - Governance commands derive tenant and actor from trusted execution context; request DTOs cannot select a tenant or impersonate an actor. A non-anonymous actor and a reason (1–500 characters) are required.
 - Retention is monotonic: an existing deadline can be extended but never shortened or cleared through this contract. Deadlines must be in the future.
 - Governance updates lock the tenant-scoped artifact row and append an immutable audit entry in the same PostgreSQL transaction. Audit history records the action, actor, reason, resulting legal-hold state and retention deadline.
-- A legal hold cannot be applied while an active cleanup lease is executing. If a cleanup lease has already expired, applying a hold atomically cancels the stale lease and returns the artifact to `ABANDONED`; a subsequent worker claim excludes it while the hold remains active.
+- A legal hold cannot be applied while an active cleanup lease is executing. If a cleanup lease has expired and its 30-second object-delete settle window has elapsed, applying a hold atomically cancels the stale lease and returns the artifact to `ABANDONED`; a subsequent worker claim excludes it while the hold remains active.
 - Retention extension follows the same active-lease fence. An expired pending lease is cancelled and returned to `ABANDONED` before the longer deadline is persisted.
 - Governance does not override the protection of published artifacts or deleted tombstones. Releasing a hold does not itself delete an artifact; normal retention and cleanup eligibility checks still apply.
 - REST operations:
