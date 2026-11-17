@@ -100,13 +100,5 @@ public final class PublicSurveyInvitationResource {
                 .header("Cache-Control", "no-store").build();
     }
 
-    @Provider
-    public static final class PublicInvitationNotFoundMapper
-            implements jakarta.ws.rs.ext.ExceptionMapper<PublicInvitationNotFoundException> {
-        @Override public Response toResponse(PublicInvitationNotFoundException exception) {
-            return notFound();
-        }
-    }
-
     public static final class PublicInvitationNotFoundException extends RuntimeException {}
 }
