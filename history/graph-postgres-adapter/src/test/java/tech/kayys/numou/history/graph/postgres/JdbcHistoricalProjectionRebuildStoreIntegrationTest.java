@@ -19,7 +19,9 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
  @Test void checkpointIsScopeBoundAndCompletionWaitsUntilSnapshotIsConsumed() throws Exception {
   UUID tenant=UUID.randomUUID(),aggregate=insertRevision(tenant);var store=new JdbcHistoricalProjectionRebuildStore(source);var run=store.start(tenant,Instant.now());
   assertTrue(store.nextPage(tenant,run.runId(),10).stream().anyMatch(e->e.aggregateId().equals(aggregate)));
-  assertFalse(store.advanceFenced(UUID.randomUUID(),run.runId(),0,1,0,Instant.now()));
+  UUID wrongTenant=UUID.randomUUID();
+  assertTrue(store.find(wrongTenant,run.runId()).isEmpty());
+  assertFalse(store.advanceFenced(wrongTenant,run.runId(),0,1,0,Instant.now()));
   var page=store.nextPage(tenant,run.runId(),10);assertEquals(1,page.size());
   assertTrue(store.advanceFenced(tenant,run.runId(),0,page.get(0).sequence(),0,Instant.now()));
   assertTrue(store.completeFenced(tenant,run.runId(),page.get(0).sequence(),1,Instant.now()));
