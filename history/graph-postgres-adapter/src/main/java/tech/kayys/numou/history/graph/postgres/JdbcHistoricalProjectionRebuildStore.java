@@ -193,12 +193,7 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
             try {
-                if (tenantId != null) {
-                    try (PreparedStatement scope = c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")) {
-                        scope.setString(1, tenantId.toString());
-                        scope.execute();
-                    }
-                }
+                setTenantScope(c, tenantId);
                 String update = """
                     UPDATE historical_relationship_projection_rebuild_run
                        SET status=?, updated_at=?, lifecycle_version=lifecycle_version+1,
@@ -324,9 +319,8 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
     }
 
     private static void setTenantScope(Connection c, UUID tenantId) throws SQLException {
-        if (tenantId == null) return;
         try (PreparedStatement scope = c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")) {
-            scope.setString(1, tenantId.toString());
+            scope.setString(1, tenantId == null ? "" : tenantId.toString());
             scope.execute();
         }
     }
