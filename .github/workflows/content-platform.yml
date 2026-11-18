@@ -26,6 +26,10 @@ jobs:
           cache: maven
       - name: Install framework parent POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Install Foundation dependencies
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Install Document domain and application dependencies
+        run: mvn -B -ntp -f document/pom.xml -pl numou-document-application -am install
       - name: Verify Content capability
         run: mvn -B -ntp -f content/pom.xml verify
       - name: Upload Content Maven test reports
