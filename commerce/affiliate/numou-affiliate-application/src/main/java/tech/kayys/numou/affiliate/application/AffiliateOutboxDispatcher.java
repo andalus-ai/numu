@@ -58,13 +58,13 @@ public final class AffiliateOutboxDispatcher {
         CompletionStage<Integer> current;
         try {
             current = publisher.publish(event)
-                    .thenCompose(ignored -> store.markDelivered(event.tenantId(), event.id(), workerId, clock.instant()))
+                    .thenCompose(ignored -> store.markDelivered(event.tenantId(), event.id(), workerId, event.leaseVersion(), clock.instant()))
                     .thenApply(ignored -> delivered + 1)
                     .exceptionallyCompose(failure -> {
                         Instant now = clock.instant();
                         String reason = describe(failure);
                         return store.reschedule(event.tenantId(), event.id(), workerId, reason,
-                                now.plus(backoff(event.attempts())), now, maxAttempts)
+                                now.plus(backoff(event.attempts())), now, maxAttempts, event.leaseVersion())
                                 .thenApply(ignored -> delivered);
                     });
         } catch (RuntimeException failure) {
