@@ -46,6 +46,57 @@ class AffiliateOutboxDispatcherTest {
     }
 
     @Test
+    void staleCompletionFailureDoesNotStrandLaterEventsInClaimedBatch() {
+        List<AffiliateEventOutboxStore.ClaimedEvent> events = List.of(event(1), event(2));
+        java.util.concurrent.atomic.AtomicInteger acknowledgements = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger reschedules = new java.util.concurrent.atomic.AtomicInteger();
+        AffiliateEventOutboxStore store = new AffiliateEventOutboxStore() {
+            @Override public java.util.concurrent.CompletionStage<List<ClaimedEvent>> claimPending(
+                    String tenantId, String workerId, Instant now, Duration lease, int limit) {
+                return CompletableFuture.completedFuture(events);
+            }
+            @Override public java.util.concurrent.CompletionStage<Void> markDelivered(
+                    String tenantId, UUID eventId, String workerId, long leaseVersion, Instant now) {
+                if (acknowledgements.incrementAndGet() == 1) {
+                    return CompletableFuture.failedFuture(new IllegalStateException("stale lease version"));
+                }
+                return CompletableFuture.completedFuture(null);
+            }
+            @Override public java.util.concurrent.CompletionStage<Void> reschedule(
+                    String tenantId, UUID eventId, String workerId, String reason,
+                    Instant retryAt, Instant now, int maxAttempts, long leaseVersion) {
+                reschedules.incrementAndGet();
+                return CompletableFuture.failedFuture(new IllegalStateException("lease already reclaimed"));
+            }
+            @Override public java.util.concurrent.CompletionStage<Boolean> redriveDeadLetter(
+                    String tenantId, UUID eventId, String actorId, String reason,
+                    String idempotencyKey, String correlationId, Instant now) {
+                return CompletableFuture.completedFuture(false);
+            }
+            @Override public java.util.concurrent.CompletionStage<DeadLetterPage> findDeadLetters(
+                    String tenantId, DeadLetterCursor before, int limit) {
+                return CompletableFuture.completedFuture(new DeadLetterPage(List.of(), null));
+            }
+            @Override public java.util.concurrent.CompletionStage<OutboxHealthSnapshot> healthSnapshot() {
+                return CompletableFuture.completedFuture(new OutboxHealthSnapshot(0, 0, 0, 0, 0, 0));
+            }
+        };
+        AffiliateOutboxDispatcher dispatcher = dispatcher(new FakeStore(List.of()), event ->
+                CompletableFuture.completedFuture(null));
+        // Use the test's standard settings with a store that simulates a reclaimed first lease.
+        dispatcher = new AffiliateOutboxDispatcher(store, event -> CompletableFuture.completedFuture(null),
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(10),
+                Duration.ofSeconds(40), 20, 3);
+
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> dispatcher.dispatchOnce("tenant-a", "worker-a").toCompletableFuture().join());
+        assertInstanceOf(AffiliateOutboxDispatchException.class, failure.getCause());
+        assertEquals(1, ((AffiliateOutboxDispatchException) failure.getCause()).deliveredCount());
+        assertEquals(2, acknowledgements.get(), "the second event must still be published and acknowledged");
+        assertEquals(1, reschedules.get(), "only the stale first event should attempt rescheduling");
+    }
+
+    @Test
     void requiresTenantAndWorkerIdentity() {
         AffiliateOutboxDispatcher dispatcher = dispatcher(new FakeStore(List.of()),
                 ignored -> CompletableFuture.completedFuture(null));
