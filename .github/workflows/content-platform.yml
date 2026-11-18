@@ -9,7 +9,7 @@ on:
       - "core/framework/**"
       - ".github/workflows/content-platform.yml"
   pull_request:
-    branches: [main, content/m1-content-core, content/m2-dynamic-content-modeling]
+    branches: [main, content/m1-content-core, content/m3-content-lifecycle]
     paths:
       - "content/**"
       - "core/framework/pom.xml"
