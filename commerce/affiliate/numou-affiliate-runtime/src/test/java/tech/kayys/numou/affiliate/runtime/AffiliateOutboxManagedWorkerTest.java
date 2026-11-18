@@ -92,7 +92,7 @@ class AffiliateOutboxManagedWorkerTest {
         }
 
         @Override public CompletionStage<Void> markDelivered(String tenantId, java.util.UUID eventId,
-                String workerId, Instant now) {
+                String workerId, long leaseVersion, Instant now) {
             return CompletableFuture.completedFuture(null);
         }
 
