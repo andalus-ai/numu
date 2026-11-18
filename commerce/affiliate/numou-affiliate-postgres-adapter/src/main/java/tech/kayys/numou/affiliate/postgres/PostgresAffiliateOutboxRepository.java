@@ -43,7 +43,7 @@ public class PostgresAffiliateOutboxRepository implements AffiliateEventOutboxSt
 
  @Override public CompletionStage<Void> reschedule(String tenant,UUID id,String worker,String reason,Instant retryAt,Instant now,int maxAttempts,long leaseVersion){
   if(reason==null||reason.isBlank()||reason.length()>1000||maxAttempts<1)return CompletableFuture.failedFuture(new IllegalArgumentException("invalid retry details"));
-  return update("UPDATE affiliate_event_outbox SET delivery_status=CASE WHEN attempts>=? THEN 'DEAD_LETTER' ELSE 'PENDING' END,available_at=?,lease_owner=NULL,lease_until=NULL,last_error=?,version=version+1 WHERE tenant_id=? AND outbox_id=? AND delivery_status='IN_FLIGHT' AND lease_owner=? AND lease_until>?",
+  return update("UPDATE affiliate_event_outbox SET delivery_status=CASE WHEN attempts>=? THEN 'DEAD_LETTER' ELSE 'PENDING' END,available_at=?,lease_owner=NULL,lease_until=NULL,last_error=?,version=version+1 WHERE tenant_id=? AND outbox_id=? AND delivery_status='IN_FLIGHT' AND lease_owner=? AND lease_until>? AND version=?",
    s->{s.setInt(1,maxAttempts);s.setTimestamp(2,Timestamp.from(retryAt));s.setString(3,reason);s.setString(4,tenant);s.setObject(5,id);s.setString(6,worker);s.setTimestamp(7,Timestamp.from(now));s.setLong(8,leaseVersion);});
  }
 
