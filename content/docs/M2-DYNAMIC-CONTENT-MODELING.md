@@ -23,4 +23,4 @@
 M2 establishes schema definition, versioning and validation as a reusable capability. It does not yet attach a schema version foreign key to each ContentRevision; that integration is a follow-on content-entry contract change so historical revisions can remain validated against their original schema. Do not treat schema validation as enforced by the legacy untyped ContentApplicationService create/revise methods.
 
 ## Validation
-The content workflow runs the content reactor build and tests. PostgreSQL adapter compilation is covered; a live PostgreSQL integration environment is not provisioned by this workflow. Treat database migration execution as pending until an integration test environment is added.
+The Content Platform workflow is configured to run for pull requests targeting main and the M1 branch. The M1 base branch now contains that trigger configuration; the M2 PR's first authoritative result is pending. PostgreSQL adapter compilation is covered by Maven verification, but a live PostgreSQL integration environment and migration execution are not yet included.
