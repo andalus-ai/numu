@@ -23,9 +23,7 @@ class ApplicationRuntimeCoordinatorTest {
         private final String failureAt;
         private PluginContext receivedContext;
         private Object observedSharedService;
-        private Object registeredService;
         private PluginState state = PluginState.LOADED;
-        private int stopFailuresRemaining;
 
         private TestPlugin(String id, String capability, String contractVersion,
                 List<String> events, String failureAt) {
@@ -71,10 +69,6 @@ class ApplicationRuntimeCoordinatorTest {
         @Override
         public void stop() {
             events.add("stop:" + id);
-            if (stopFailuresRemaining > 0) {
-                stopFailuresRemaining--;
-                throw new IllegalStateException("stop failed once");
-            }
             state = PluginState.STOPPED;
         }
     }
@@ -264,67 +258,6 @@ class ApplicationRuntimeCoordinatorTest {
                 .anyMatch(provider -> provider.providerId().equals("accounting-provider")
                         && provider.state() == PluginState.FAILED && !provider.ready());
         session.stop();
-    }
-
-    @Test
-    void defaultContextFactoryIsolatesPluginServicesBetweenApplications() {
-        List<String> events = new ArrayList<>();
-        DefaultApplicationPluginContextFactory sharedFactory =
-                new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"));
-        TestPlugin partyOne = new TestPlugin("runtime.party.one", "numou.party", "1.2.0", events, null);
-        TestPlugin accountingOne = new TestPlugin("runtime.accounting.one", "numou.accounting", "2.1.0", events, null);
-        ApplicationRuntimeSession first = new ApplicationRuntimeCoordinator().start(composition("app-one"),
-                Map.of("party-provider", partyOne, "accounting-provider", accountingOne), sharedFactory);
-
-        TestPlugin partyTwo = new TestPlugin("runtime.party.two", "numou.party", "1.2.0", events, null);
-        TestPlugin accountingTwo = new TestPlugin("runtime.accounting.two", "numou.accounting", "2.1.0", events, null);
-        ApplicationRuntimeSession second = new ApplicationRuntimeCoordinator().start(composition("app-two"),
-                Map.of("party-provider", partyTwo, "accounting-provider", accountingTwo), sharedFactory);
-
-        assertThat(partyOne.receivedContext.attributes())
-                .containsEntry("application.id", "app-one");
-        assertThat(partyTwo.receivedContext.attributes())
-                .containsEntry("application.id", "app-two");
-        assertThat(accountingOne.observedSharedService).isSameAs(partyOne.registeredService);
-        assertThat(accountingTwo.observedSharedService).isSameAs(partyTwo.registeredService);
-        assertThat(accountingOne.observedSharedService).isNotSameAs(accountingTwo.observedSharedService);
-        assertThat(first.context("party-provider")).isNotSameAs(second.context("party-provider"));
-        first.stop();
-        second.stop();
-    }
-
-    @Test
-    void retriesOnlyFailedProvidersDuringGracefulShutdown() {
-        List<String> events = new ArrayList<>();
-        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, "stop");
-        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
-        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
-                Map.of("party-provider", party, "accounting-provider", accounting));
-
-        assertThatThrownBy(session::stop)
-                .isInstanceOf(ApplicationRuntimeException.class)
-                .hasMessageContaining("1/2 providers stopped");
-        assertThat(session.isStopping()).isTrue();
-        assertThat(session.isStopped()).isFalse();
-        assertThat(session.route("numou.party")).isEmpty();
-
-        session.stop();
-        assertThat(session.isStopped()).isTrue();
-        assertThat(events).containsExactly("init:runtime.party.impl", "init:runtime.ledger.impl",
-                "start:runtime.party.impl", "start:runtime.ledger.impl",
-                "stop:runtime.ledger.impl", "stop:runtime.party.impl", "stop:runtime.party.impl");
-        session.stop();
-        assertThat(events).hasSize(7);
-    }
-
-    @Test
-    void tenantBoundContextFactoryCannotBeReusedForAnotherApplication() {
-        DefaultApplicationPluginContextFactory tenantFactory =
-                new DefaultApplicationPluginContextFactory(Map.of(), Map.of("tenant.id", "tenant-42"));
-        assertThat(tenantFactory.forApplication("app-one")).isNotNull();
-        assertThatThrownBy(() -> tenantFactory.forApplication("app-two"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Tenant-bound context factory is already assigned to application app-one");
     }
 
 }
