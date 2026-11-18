@@ -38,6 +38,36 @@ class SurveyResponseSubmissionBridgeTest {
     }
 
     @Test
+    void startsSurveySessionThroughSurveyUseCaseWithInvitationTenant() {
+        TenantId tenant = TenantId.generate();
+        FakeResponseUseCase responses = new FakeResponseUseCase(session("response-2", "survey-1", ResponseStatus.IN_PROGRESS));
+        var result = new SurveyResponseSubmissionBridge(responses).start(tenant, "survey-1", null);
+        assertEquals("response-2", result.responseId());
+        assertEquals(tenant, responses.lastContext.tenantId());
+        assertEquals("survey-1", responses.lastStart.survey().value());
+    }
+
+    @Test
+    void mapsPublicAnswerPayloadIntoSurveyDomainAnswer() {
+        TenantId tenant = TenantId.generate();
+        FakeResponseUseCase responses = new FakeResponseUseCase(session("response-3", "survey-1", ResponseStatus.IN_PROGRESS));
+        var result = new SurveyResponseSubmissionBridge(responses).saveAnswer(
+                tenant, "response-3", "question-1", Map.of("text", "hello"));
+        assertEquals("response-3", result.responseId());
+        assertEquals(tenant, responses.lastContext.tenantId());
+        assertInstanceOf(AnswerValue.Text.class, responses.lastAnswer.answer());
+        assertEquals("hello", ((AnswerValue.Text) responses.lastAnswer.answer()).value());
+    }
+
+    @Test
+    void malformedDateAnswerIsRejectedBeforeCallingSurvey() {
+        FakeResponseUseCase responses = new FakeResponseUseCase(session("response-4", "survey-1", ResponseStatus.IN_PROGRESS));
+        assertThrows(IllegalArgumentException.class, () -> new SurveyResponseSubmissionBridge(responses)
+                .saveAnswer(TenantId.generate(), "response-4", "question-1", Map.of("date", "not-a-date")));
+        assertNull(responses.lastAnswer);
+    }
+
+    @Test
     void rejectsResponseFromAnotherSurvey() {
         FakeResponseUseCase responses = new FakeResponseUseCase(session("response-1", "survey-other", ResponseStatus.IN_PROGRESS));
         assertThrows(IllegalArgumentException.class,
@@ -54,11 +84,21 @@ class SurveyResponseSubmissionBridgeTest {
         private final ResponseSession session;
         private int submissions;
         private TenantContext lastContext;
+        private StartResponse lastStart;
+        private SaveAnswer lastAnswer;
 
         private FakeResponseUseCase(ResponseSession session) { this.session = session; }
 
-        @Override public ResponseSession start(TenantContext ctx, StartResponse cmd) { throw new UnsupportedOperationException(); }
-        @Override public ResponseSession saveAnswer(TenantContext ctx, SaveAnswer cmd) { throw new UnsupportedOperationException(); }
+        @Override public ResponseSession start(TenantContext ctx, StartResponse cmd) {
+            lastContext = ctx;
+            lastStart = cmd;
+            return session;
+        }
+        @Override public ResponseSession saveAnswer(TenantContext ctx, SaveAnswer cmd) {
+            lastContext = ctx;
+            lastAnswer = cmd;
+            return session;
+        }
         @Override public ResponseSession getSession(TenantContext ctx, ResponseId id) { return session; }
         @Override public SubmissionResult submit(TenantContext ctx, ResponseId id) {
             submissions++;
