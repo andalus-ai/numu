@@ -8,13 +8,17 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Binds only a verified, tenant-bound access token to the receipt-posting request context.
- * Caller-controlled tenant headers, query parameters and payload fields are deliberately ignored.
+ * Binds only a cryptographically verified, audience-bound tenant access token to the
+ * receipt-posting request context. Caller-controlled tenant headers, query parameters
+ * and payload fields are deliberately ignored.
  */
 @Provider
 @Priority(Priorities.AUTHORIZATION - 100)
@@ -23,11 +27,21 @@ public class ReceiptPostingTenantContextFilter implements ContainerRequestFilter
 
     private final SecurityIdentity identity;
     private final RequestContextHolder requestContext;
+    private final JsonWebToken token;
+
+    @ConfigProperty(name = "mp.jwt.verify.issuer")
+    String expectedIssuer;
+
+    @ConfigProperty(name = "numou.oauth.access-token.audience")
+    String expectedAudience;
 
     @Inject
-    public ReceiptPostingTenantContextFilter(SecurityIdentity identity, RequestContextHolder requestContext) {
+    public ReceiptPostingTenantContextFilter(SecurityIdentity identity,
+                                             RequestContextHolder requestContext,
+                                             JsonWebToken token) {
         this.identity = identity;
         this.requestContext = requestContext;
+        this.token = token;
     }
 
     @Override
@@ -44,6 +58,7 @@ public class ReceiptPostingTenantContextFilter implements ContainerRequestFilter
         }
 
         try {
+            requireIssuerAndAudience(token.getIssuer(), token.getAudience(), expectedIssuer, expectedAudience);
             String tenantId = resolveVerifiedTenant(
                     identity.getAttribute("principalType"),
                     identity.getAttribute("token_use"),
@@ -52,6 +67,18 @@ public class ReceiptPostingTenantContextFilter implements ContainerRequestFilter
             requestContext.verifiedTenant(tenantId);
         } catch (IllegalArgumentException invalidCredential) {
             throw new WebApplicationException("Tenant-bound access credential required", 403);
+        }
+    }
+
+    static void requireIssuerAndAudience(String actualIssuer, Set<String> actualAudiences,
+                                         String expectedIssuer, String expectedAudience) {
+        if (expectedIssuer == null || expectedIssuer.isBlank()
+                || actualIssuer == null || !expectedIssuer.equals(actualIssuer)) {
+            throw new IllegalArgumentException("Access token issuer is not trusted");
+        }
+        if (expectedAudience == null || expectedAudience.isBlank()
+                || actualAudiences == null || !actualAudiences.contains(expectedAudience)) {
+            throw new IllegalArgumentException("Access token audience is not valid for this API");
         }
     }
 

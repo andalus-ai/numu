@@ -2,6 +2,7 @@ package tech.kayys.numou.automotiveparts.purchasing;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,5 +39,26 @@ class ReceiptPostingTenantContextFilterTest {
                         "USER", "access", tenant, UUID.randomUUID().toString()));
         assertThrows(IllegalArgumentException.class, () ->
                 ReceiptPostingTenantContextFilter.resolveVerifiedTenant("USER", "access", "1-1-1-1-1", null));
+    }
+
+    @Test
+    void requiresExactIdentityIssuerAndReceiptApiAudience() {
+        Set<String> audiences = Set.of("numou-api", "another-service");
+
+        assertDoesNotThrow(() -> ReceiptPostingTenantContextFilter.requireIssuerAndAudience(
+                "https://identity.numou.internal", audiences,
+                "https://identity.numou.internal", "numou-api"));
+        assertThrows(IllegalArgumentException.class, () ->
+                ReceiptPostingTenantContextFilter.requireIssuerAndAudience(
+                        "https://attacker.example", audiences,
+                        "https://identity.numou.internal", "numou-api"));
+        assertThrows(IllegalArgumentException.class, () ->
+                ReceiptPostingTenantContextFilter.requireIssuerAndAudience(
+                        "https://identity.numou.internal", audiences,
+                        "https://identity.numou.internal", "automotive-parts-api"));
+        assertThrows(IllegalArgumentException.class, () ->
+                ReceiptPostingTenantContextFilter.requireIssuerAndAudience(
+                        "https://identity.numou.internal", Set.of(),
+                        "https://identity.numou.internal", "numou-api"));
     }
 }
