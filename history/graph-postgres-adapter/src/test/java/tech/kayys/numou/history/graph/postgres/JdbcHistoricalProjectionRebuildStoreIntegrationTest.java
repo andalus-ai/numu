@@ -118,6 +118,78 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
   assertEquals(0,retried.cursorSequence());
  }
 
+
+ @Test void lifecycleTransitionsAreFencedAndAuditedAtomically() throws Exception {
+  UUID tenant=UUID.randomUUID(), actor=UUID.randomUUID();
+  insertRevision(tenant);
+  var store=new JdbcHistoricalProjectionRebuildStore(source);
+  var run=store.start(tenant,Instant.now());
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.PAUSE,run.lifecycleVersion(),
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,"maintenance pause",Instant.now()));
+  var paused=store.find(tenant,run.runId()).orElseThrow();
+  assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,paused.status());
+  assertEquals(1,paused.lifecycleVersion());
+  assertFalse(store.advanceFenced(tenant,run.runId(),0,1,run.lifecycleVersion(),Instant.now()));
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.RESUME,paused.lifecycleVersion(),
+    HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,"resume",Instant.now()));
+  var resumed=store.find(tenant,run.runId()).orElseThrow();
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.CANCEL,resumed.lifecycleVersion(),
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.CANCELLED,"cancel",Instant.now()));
+  assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.CANCELLED,
+    store.find(tenant,run.runId()).orElseThrow().status());
+  try(Connection c=source.getConnection()){
+   c.setAutoCommit(false);
+   try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")){scope.setString(1,tenant.toString());scope.execute();}
+   try(PreparedStatement q=c.prepareStatement("SELECT count(*) FROM historical_projection_rebuild_audit WHERE run_id=?")){
+    q.setObject(1,run.runId());try(ResultSet rs=q.executeQuery()){rs.next();assertEquals(3,rs.getInt(1));}
+   }
+   c.commit();
+  }
+ }
+
+ @Test void failedRebuildCanBeRetriedWithoutLosingSuccessfulCursor() throws Exception {
+  UUID tenant=UUID.randomUUID(), actor=UUID.randomUUID();
+  insertRevision(tenant);
+  var store=new JdbcHistoricalProjectionRebuildStore(source);
+  var run=store.start(tenant,Instant.now());
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.FAIL,run.lifecycleVersion(),
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.FAILED,"projection unavailable",Instant.now()));
+  var failed=store.find(tenant,run.runId()).orElseThrow();
+  assertEquals("projection unavailable",failed.failureDetail());
+  assertEquals(0,failed.cursorSequence());
+  assertTrue(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.RETRY,failed.lifecycleVersion(),
+    HistoricalProjectionRebuildStore.RebuildRun.Status.FAILED,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,"provider recovered",Instant.now()));
+  var retried=store.find(tenant,run.runId()).orElseThrow();
+  assertEquals(HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,retried.status());
+  assertEquals("",retried.failureDetail());
+  assertEquals(2,retried.lifecycleVersion());
+ }
+
+ @Test void invalidTransitionsAndStaleLifecycleVersionsAreRejected() throws Exception {
+  UUID tenant=UUID.randomUUID(), actor=UUID.randomUUID();
+  var store=new JdbcHistoricalProjectionRebuildStore(source);
+  var run=store.start(tenant,Instant.now());
+  assertThrows(IllegalArgumentException.class,()->store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.RESUME,0,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.COMPLETED,"invalid",Instant.now()));
+  assertFalse(store.transition(tenant,run.runId(),actor,
+    HistoricalProjectionRebuildStore.Action.PAUSE,99,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.RUNNING,
+    HistoricalProjectionRebuildStore.RebuildRun.Status.PAUSED,"stale",Instant.now()));
+  assertEquals(0,store.find(tenant,run.runId()).orElseThrow().lifecycleVersion());
+ }
+
  private static UUID insertRevision(UUID tenant) throws Exception {
   UUID id=UUID.randomUUID();try(Connection c=source.getConnection()){c.setAutoCommit(false);
    if(tenant!=null)try(PreparedStatement scope=c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")){scope.setString(1,tenant.toString());scope.execute();}
