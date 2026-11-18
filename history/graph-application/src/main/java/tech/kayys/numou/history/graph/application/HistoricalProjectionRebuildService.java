@@ -27,13 +27,14 @@ public final class HistoricalProjectionRebuildService {
     private final int pageSize;
     private final HistoricalProjectionMetricsPort metrics;
     private final UUID generationId;
+    private final HistoricalProjectionRebuildFailurePort failurePort;
 
     public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
             HistoricalRelationshipProjectionPort projection,
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
             Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics) {
-        this(store, projection, tenantContext, authorization, clock, pageSize, metrics, null);
+        this(store, projection, tenantContext, authorization, clock, pageSize, metrics, null, null);
     }
 
     public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
@@ -41,6 +42,15 @@ public final class HistoricalProjectionRebuildService {
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
             Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics, UUID generationId) {
+        this(store, projection, tenantContext, authorization, clock, pageSize, metrics, generationId, null);
+    }
+
+    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
+            HistoricalRelationshipProjectionPort projection,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics,
+            UUID generationId, HistoricalProjectionRebuildFailurePort failurePort) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
@@ -48,6 +58,7 @@ public final class HistoricalProjectionRebuildService {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.metrics = Objects.requireNonNull(metrics, "metrics");
         this.generationId = generationId;
+        this.failurePort = failurePort;
         if (generationId != null && !(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
             throw new IllegalArgumentException("generation-targeted rebuild requires a generation-aware projection adapter");
         }
@@ -90,11 +101,18 @@ public final class HistoricalProjectionRebuildService {
                     ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
                             .projectIntoGeneration(claimed, generationId);
                 }
-            } catch (RuntimeException failure) {
-                throw failure;
             } catch (Exception failure) {
-                throw new IllegalStateException(
-                        "Unable to project historical relationship event " + event.eventKey(), failure);
+                String detail = "Unable to project historical relationship event " + event.eventKey()
+                        + ": " + Objects.toString(failure.getMessage(), failure.getClass().getSimpleName());
+                if (failurePort != null) {
+                    try {
+                        failurePort.markFailed(tenantId, runId, detail);
+                    } catch (RuntimeException auditOrTransitionFailure) {
+                        failure.addSuppressed(auditOrTransitionFailure);
+                    }
+                }
+                if (failure instanceof RuntimeException runtimeFailure) throw runtimeFailure;
+                throw new IllegalStateException(detail, failure);
             }
         }
 
