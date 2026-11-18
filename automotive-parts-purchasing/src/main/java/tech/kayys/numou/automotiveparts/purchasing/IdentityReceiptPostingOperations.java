@@ -83,7 +83,7 @@ public final class IdentityReceiptPostingOperations {
 
         return authorize(operator, REQUEUE_PERMISSION).flatMap(ignored -> blocking(() -> {
             String fingerprint = postings.findFingerprint(operator.tenantId(), receiptId)
-                    .orElseThrow(() -> new IllegalArgumentException("Dead-letter receipt posting not found"));
+                    .orElseThrow(ReceiptPostingNotFoundException::new);
             // The ledger transition and V1003 database trigger write the audit event atomically.
             ledger.requeue(operator.tenantId(), receiptId, fingerprint, operator.actorId(), normalizedReason);
             return Boolean.TRUE;

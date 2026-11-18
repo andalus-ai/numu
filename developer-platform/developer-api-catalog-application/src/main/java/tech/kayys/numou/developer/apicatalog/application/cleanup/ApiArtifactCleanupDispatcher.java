@@ -18,7 +18,7 @@ import java.util.UUID;
  * PostgreSQL SKIP LOCKED leases coordinate replicas for that tenant.
  */
 public final class ApiArtifactCleanupDispatcher {
-    private static final Duration DELETE_TIMEOUT = Duration.ofSeconds(30);
+    public static final Duration DELETE_TIMEOUT = Duration.ofSeconds(30);
     private final ApiArtifactCleanupRepository repository;
     private final ApiArtifactObjectDeletionPort deletion;
 
