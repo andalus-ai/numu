@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Runs when CONTENT_TEST_JDBC_URL points at an isolated PostgreSQL database. */
@@ -25,9 +26,9 @@ class PostgresContentRepositoryIntegrationTest {
         String password=System.getenv().getOrDefault("CONTENT_TEST_DB_PASSWORD","postgres");
         dataSource=new DriverManagerDataSource(url,user,password);
         repository=new PostgresContentRepository(dataSource);
-        for(String migration:new String[]{"V1__content_core.sql","V2__content_type_schemas.sql","V3__bind_content_revisions_to_schema.sql"}) {
+        for(String migration:new String[]{"V1__content_core.sql","V2__content_type_schemas.sql","V3__content_lifecycle.sql","V4__bind_content_revisions_to_schema.sql"}) {
             try(InputStream in=getClassResource(migration)) {
-                String sql=new String(in.readAllBytes(),StandardCharsets.UTF_8);
+                String sql=new String(Objects.requireNonNull(in,"Missing migration resource: "+migration).readAllBytes(),StandardCharsets.UTF_8);
                 try(Connection c=dataSource.getConnection();Statement s=c.createStatement()){s.execute(sql);}
             }
         }
