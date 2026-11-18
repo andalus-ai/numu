@@ -81,10 +81,8 @@ class AffiliateOutboxDispatcherTest {
                 return CompletableFuture.completedFuture(new OutboxHealthSnapshot(0, 0, 0, 0, 0, 0));
             }
         };
-        AffiliateOutboxDispatcher dispatcher = dispatcher(new FakeStore(List.of()), event ->
-                CompletableFuture.completedFuture(null));
-        // Use the test's standard settings with a store that simulates a reclaimed first lease.
-        dispatcher = new AffiliateOutboxDispatcher(store, event -> CompletableFuture.completedFuture(null),
+        AffiliateOutboxDispatcher dispatcher = new AffiliateOutboxDispatcher(store,
+                event -> CompletableFuture.completedFuture(null),
                 Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(10),
                 Duration.ofSeconds(40), 20, 3);
 
