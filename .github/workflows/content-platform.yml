@@ -1,0 +1,56 @@
+name: Content Platform Verification
+
+on:
+  pull_request:
+    branches: [main, content/m1-content-core, content/m2-dynamic-content-modeling]
+    paths:
+      - "content/**"
+      - "core/framework/pom.xml"
+      - "core/framework/parent/**"
+      - ".github/workflows/content-platform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  content:
+    name: Content domain, application and PostgreSQL adapter
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: numou_content_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d numou_content_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CONTENT_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/numou_content_test
+      CONTENT_TEST_DB_USER: postgres
+      CONTENT_TEST_DB_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Verify Content capability
+        run: mvn -B -ntp -f content/pom.xml verify
+      - name: Upload Content Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-platform-maven-test-reports
+          path: "content/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
