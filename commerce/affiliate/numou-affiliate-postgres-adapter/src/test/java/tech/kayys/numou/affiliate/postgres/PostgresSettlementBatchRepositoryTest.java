@@ -150,14 +150,14 @@ class PostgresSettlementBatchRepositoryTest {
                 Duration.ofSeconds(30), 10).toCompletableFuture().join();
         assertTrue(blocked.isEmpty());
 
-        var reclaimed = outbox.claimPending("tenant-a", "worker-b", now.plusSeconds(31),
+        var reclaimed = outbox.claimPending("tenant-a", "worker-a", now.plusSeconds(31),
                 Duration.ofSeconds(30), 10).toCompletableFuture().join();
         assertEquals(1, reclaimed.size());
         assertEquals(2, reclaimed.get(0).attempts());
 
         assertThrows(RuntimeException.class, () -> outbox.markDelivered("tenant-a",
-                reclaimed.get(0).id(), "worker-a", now.plusSeconds(32)).toCompletableFuture().join());
-        outbox.markDelivered("tenant-a", reclaimed.get(0).id(), "worker-b", now.plusSeconds(32))
+                reclaimed.get(0).id(), "worker-a", first.get(0).leaseVersion(), now.plusSeconds(32)).toCompletableFuture().join());
+        outbox.markDelivered("tenant-a", reclaimed.get(0).id(), "worker-a", reclaimed.get(0).leaseVersion(), now.plusSeconds(32))
                 .toCompletableFuture().join();
         assertTrue(outbox.claimPending("tenant-a", "worker-c", now.plusSeconds(40),
                 Duration.ofSeconds(30), 10).toCompletableFuture().join().isEmpty());
