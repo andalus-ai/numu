@@ -24,7 +24,7 @@ Use Document's authenticated upload-session and completion application handlers 
 - Public/private media delivery URLs and CDN.
 - Collections/folders and bulk operations.
 - Automated media probing and EXIF extraction.
-- Scan-event consumer wiring in a host runtime.
+- Kafka/event-broker subscription, durable consumer offset management and dead-letter operations in the composed host runtime.
 - Media retention/deletion orchestration across Document and CMS references.
 
 ## Verification
