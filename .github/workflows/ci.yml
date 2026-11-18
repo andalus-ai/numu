@@ -126,6 +126,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security capability
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
@@ -207,6 +211,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts used by security
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security contracts used by framework adapters
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
@@ -515,6 +523,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security capability
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
@@ -568,6 +580,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts used by security
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security contracts used by framework adapters
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
