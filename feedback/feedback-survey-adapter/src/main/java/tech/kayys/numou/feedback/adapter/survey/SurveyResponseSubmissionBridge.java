@@ -81,89 +81,15 @@ public final class SurveyResponseSubmissionBridge
 
     @Override
     public void submit(TenantId tenantId, String surveyId, String responseId) {
-        TenantContext context = context(tenantId);
+        TenantContext context = new TenantContext(tenantId, "public-invitation");
         ResponseId id = new ResponseId(responseId);
         ResponseUseCase.ResponseSession session = responses.getSession(context, id);
         if (!surveyId.equals(session.surveyId().value())) {
             throw new IllegalArgumentException("Response does not belong to the invited survey");
         }
-        // A retry may arrive after Survey committed but before Feedback finalized its quota claim.
+        // A retried invitation submission may arrive after Survey committed but before
+        // Feedback finalized its quota claim. Treat that state as successful/idempotent.
         if (session.status() == tech.kayys.numou.survey.domain.response.ResponseStatus.SUBMITTED) return;
         responses.submit(context, id);
-    }
-
-    private static TenantContext context(TenantId tenantId) {
-        return new TenantContext(Objects.requireNonNull(tenantId, "tenantId cannot be null"),
-                "public-invitation");
-    }
-
-    private static ResponseSnapshot snapshot(ResponseUseCase.ResponseSession session) {
-        Map<String, Object> answers = new LinkedHashMap<>();
-        session.answers().forEach((id, answer) -> answers.put(id.value(), answer));
-        return new ResponseSnapshot(session.id().value(), session.surveyId().value(),
-                session.status().name(), session.attempt(),
-                session.visibleQuestions().stream().map(SurveyResponseSubmissionBridge::question).toList(),
-                answers, session.deadline().orElse(null));
-    }
-
-    private static QuestionSnapshot question(Question question) {
-        return new QuestionSnapshot(question.id().value(), question.title(), question.description(),
-                question.required(), question.type().kind(), question.type());
-    }
-
-    private static AnswerValue parseAnswer(Map<String, Object> value) {
-        if (value == null || value.isEmpty()) return null;
-        if (value.containsKey("text")) return new AnswerValue.Text(asString(value.get("text"), "text"));
-        if (value.containsKey("number")) return new AnswerValue.Numeric(asNumber(value.get("number"), "number"));
-        if (value.containsKey("date")) {
-            try {
-                return new AnswerValue.Day(LocalDate.parse(asString(value.get("date"), "date")));
-            } catch (java.time.DateTimeException invalidDate) {
-                throw new IllegalArgumentException("date must use ISO-8601 yyyy-MM-dd format");
-            }
-        }
-        if (value.containsKey("bool")) {
-            if (!(value.get("bool") instanceof Boolean bool)) throw new IllegalArgumentException("bool must be a boolean");
-            return new AnswerValue.Bool(bool);
-        }
-        if (value.containsKey("choice") || value.containsKey("other")) {
-            Set<OptionId> selected = new LinkedHashSet<>();
-            Object raw = value.get("choice");
-            if (raw instanceof List<?> list) list.forEach(item -> selected.add(new OptionId(asString(item, "choice item"))));
-            else if (raw != null) throw new IllegalArgumentException("choice must be an array of option IDs");
-            return new AnswerValue.Choice(selected,
-                    value.get("other") == null ? "" : asString(value.get("other"), "other"));
-        }
-        if (value.containsKey("ranking")) {
-            Object raw = value.get("ranking");
-            if (!(raw instanceof List<?> list)) throw new IllegalArgumentException("ranking must be an array");
-            return new AnswerValue.Ranking(list.stream()
-                    .map(item -> new OptionId(asString(item, "ranking item"))).toList());
-        }
-        if (value.containsKey("matrix")) {
-            Object raw = value.get("matrix");
-            if (!(raw instanceof Map<?, ?> rows)) throw new IllegalArgumentException("matrix must be an object");
-            Map<OptionId, Set<OptionId>> cells = new LinkedHashMap<>();
-            rows.forEach((row, columns) -> {
-                if (!(columns instanceof List<?> list)) throw new IllegalArgumentException("matrix row must be an array");
-                Set<OptionId> selected = list.stream()
-                        .map(item -> new OptionId(asString(item, "matrix column"))).collect(Collectors.toCollection(LinkedHashSet::new));
-                cells.put(new OptionId(asString(row, "matrix row")), selected);
-            });
-            return new AnswerValue.Matrix(cells);
-        }
-        throw new IllegalArgumentException("Answer must contain text, number, date, bool, choice, ranking or matrix");
-    }
-
-    private static String asString(Object value, String field) {
-        if (!(value instanceof String text) || text.length() > 20_000)
-            throw new IllegalArgumentException(field + " must be a string of at most 20000 characters");
-        return text;
-    }
-
-    private static double asNumber(Object value, String field) {
-        if (!(value instanceof Number number) || !Double.isFinite(number.doubleValue()))
-            throw new IllegalArgumentException(field + " must be a finite number");
-        return number.doubleValue();
     }
 }
