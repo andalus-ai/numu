@@ -30,3 +30,12 @@ The host must provide an `EventPublisherPort`, an `AffiliateEventMetadataResolve
 - Runtime tests cover repeated start/stop calls and prove that a telemetry failure does not prevent later scheduled dispatch attempts or health refreshes.
 - Register one shared `AffiliateOutboxMetrics` instance per application/runtime. The metric names are process-wide and intentionally have no tenant labels; do not create a separate metrics adapter for each tenant worker.
 - A worker remains single-tenant and owns only its scheduling loop. PostgreSQL leases, not JVM synchronization, coordinate competing processes.
+
+
+## M20 — outbox lease fencing
+
+- Every successful claim returns the persisted outbox row version as its lease fencing version.
+- Delivery acknowledgement and retry/dead-letter rescheduling must present that exact version in addition to tenant, event, worker, and unexpired lease ownership.
+- Reclaiming an expired lease increments the row version. A late completion from the previous claim is rejected even when a deployment reuses the same worker ID.
+- This is an optimistic fencing token, not a broker exactly-once guarantee. A publish accepted by the broker before a process crash may still be delivered again; consumers continue to deduplicate by the stable outbox EventId.
+- The existing version column is reused; no new migration is required. The SPI signature change requires custom AffiliateEventOutboxStore implementations to carry the claim version through completion operations.
