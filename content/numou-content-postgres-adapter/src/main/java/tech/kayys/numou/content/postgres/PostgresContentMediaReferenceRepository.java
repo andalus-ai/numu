@@ -8,7 +8,7 @@ import java.util.*;
 public final class PostgresContentMediaReferenceRepository implements ContentMediaReferenceRepository {
  private final DataSource dataSource;
  public PostgresContentMediaReferenceRepository(DataSource dataSource){this.dataSource=Objects.requireNonNull(dataSource);}
- public boolean attach(ContentMediaReference r){String sql="INSERT INTO content_media_reference(tenant_id,reference_id,content_id,revision_number,media_asset_id,role,created_at) SELECT ?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM content_media_asset a WHERE a.tenant_id=? AND a.media_asset_id=? AND a.lifecycle_status='AVAILABLE' AND a.scan_status='CLEAN')";
+ public boolean attach(ContentMediaReference r){String sql="INSERT INTO content_media_reference(tenant_id,reference_id,content_id,revision_number,media_asset_id,role,created_at) SELECT ?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM content_media_asset a WHERE a.tenant_id=? AND a.media_asset_id=? AND a.lifecycle_status='AVAILABLE' AND a.scan_status='CLEAN') ON CONFLICT DO NOTHING";
   try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setObject(1,r.tenantId().value());p.setObject(2,r.id());p.setObject(3,r.contentId().value());p.setInt(4,r.revisionNumber());p.setObject(5,r.mediaAssetId().value());p.setString(6,r.role());p.setTimestamp(7,Timestamp.from(r.createdAt()));p.setObject(8,r.tenantId().value());p.setObject(9,r.mediaAssetId().value());return p.executeUpdate()==1;}
   catch(SQLException e){throw failure("attach media to content revision",e);}
  }
