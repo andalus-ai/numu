@@ -7,6 +7,7 @@ import tech.kayys.numou.plugin.application.resolution.CapabilityProvider;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Default in-process host context. Configuration and typed services are shared only by plugins
@@ -16,6 +17,7 @@ public final class DefaultApplicationPluginContextFactory implements Application
     private final Map<String, String> properties;
     private final Map<String, Object> contextAttributes;
     private final Map<Class<?>, Object> services = new ConcurrentHashMap<>();
+    private final AtomicReference<String> tenantBoundApplication = new AtomicReference<>();
 
     public DefaultApplicationPluginContextFactory() {
         this(Map.of());
@@ -35,6 +37,19 @@ public final class DefaultApplicationPluginContextFactory implements Application
     public ApplicationPluginContextFactory forApplication(String applicationId) {
         if (applicationId == null || applicationId.isBlank()) {
             throw new IllegalArgumentException("Application ID is required");
+        }
+        Object tenantId = contextAttributes.get("tenant.id");
+        if (tenantId != null) {
+            String bound = tenantBoundApplication.get();
+            if (bound == null && tenantBoundApplication.compareAndSet(null, applicationId)) {
+                bound = applicationId;
+            } else if (bound == null) {
+                bound = tenantBoundApplication.get();
+            }
+            if (!applicationId.equals(bound)) {
+                throw new IllegalStateException("Tenant-bound context factory is already assigned to application "
+                        + bound + "; create a separate factory for " + applicationId);
+            }
         }
         Object suppliedApplicationId = contextAttributes.get("application.id");
         if (suppliedApplicationId != null && !applicationId.equals(suppliedApplicationId)) {
