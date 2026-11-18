@@ -42,11 +42,15 @@ public interface DocumentScanner {
         public ScanVerdict {
             Objects.requireNonNull(outcome, "outcome");
             Objects.requireNonNull(scannedAt, "scannedAt");
-            if (scanner == null || scanner.isBlank()) {
-                throw new IllegalArgumentException("scanner must not be blank");
+            if (scanner == null || scanner.isBlank() || scanner.length() > 200) {
+                throw new IllegalArgumentException("scanner must contain 1 to 200 characters");
             }
-            if (outcome == Outcome.FAILED && (failureCode == null || failureCode.isBlank())) {
-                throw new IllegalArgumentException("FAILED verdicts require a failureCode");
+            if (signatureVersion != null && signatureVersion.length() > 200) {
+                throw new IllegalArgumentException("signatureVersion must not exceed 200 characters");
+            }
+            if (outcome == Outcome.FAILED && (failureCode == null || failureCode.isBlank()
+                    || failureCode.length() > 200)) {
+                throw new IllegalArgumentException("FAILED verdicts require a failureCode of at most 200 characters");
             }
             if (outcome != Outcome.FAILED && failureCode != null) {
                 throw new IllegalArgumentException("Only FAILED verdicts may contain a failureCode");
