@@ -12,7 +12,14 @@ public final class DefaultModuleRegistry implements ModuleRegistry {
     @Override
     public synchronized void register(ApplicationModule module) {
         Objects.requireNonNull(module, "module cannot be null");
-        modules.put(module.id(), module);
+        String id = module.id();
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("module ID cannot be blank");
+        }
+        if (modules.containsKey(id)) {
+            throw new IllegalStateException("Application module is already registered: " + id);
+        }
+        modules.put(id, module);
     }
 
     @Override

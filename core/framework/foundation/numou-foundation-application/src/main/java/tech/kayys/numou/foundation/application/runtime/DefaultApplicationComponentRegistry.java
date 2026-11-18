@@ -12,7 +12,14 @@ public final class DefaultApplicationComponentRegistry implements ApplicationCom
     @Override
     public synchronized void register(RuntimeComponent component) {
         Objects.requireNonNull(component, "component cannot be null");
-        components.put(component.id(), component);
+        String id = component.id();
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("component ID cannot be blank");
+        }
+        if (components.containsKey(id)) {
+            throw new IllegalStateException("Runtime component is already registered: " + id);
+        }
+        components.put(id, component);
     }
 
     @Override

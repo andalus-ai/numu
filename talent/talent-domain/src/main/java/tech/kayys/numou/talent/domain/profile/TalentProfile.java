@@ -76,6 +76,53 @@ public final class TalentProfile extends AbstractAggregateRoot<TalentProfileId> 
         return profile;
     }
 
+    /**
+     * Reconstitutes a previously persisted aggregate without raising creation
+     * events or applying a new lifecycle transition. Persistence adapters must
+     * supply the complete snapshot and the exact optimistic-lock version.
+     */
+    public static TalentProfile rehydrate(
+            TalentProfileId id,
+            TenantId tenantId,
+            PartyRef subject,
+            String headline,
+            String summary,
+            String locationLabel,
+            ProfileVisibility visibility,
+            TalentProfileStatus status,
+            List<ProfileContent.Skill> skills,
+            List<ProfileContent.Experience> experiences,
+            List<ProfileContent.Education> education,
+            List<ProfileContent.Credential> credentials,
+            List<ProfileContent.PortfolioItem> portfolio,
+            Instant createdAt,
+            Instant updatedAt,
+            int version
+    ) {
+        Objects.requireNonNull(visibility, "visibility must not be null");
+        Objects.requireNonNull(status, "status must not be null");
+        Objects.requireNonNull(createdAt, "createdAt must not be null");
+        Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+        if (version < 0) throw new IllegalArgumentException("version must not be negative");
+        if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt precedes createdAt");
+        if (status == TalentProfileStatus.ARCHIVED && visibility != ProfileVisibility.PRIVATE) {
+            throw new IllegalArgumentException("Archived profile must have private visibility");
+        }
+
+        TalentProfile profile = new TalentProfile(id, tenantId, subject, headline, summary, locationLabel);
+        profile.visibility = visibility;
+        profile.status = status;
+        profile.skills = validatedItems(skills, "skills");
+        profile.experiences = validatedItems(experiences, "experiences");
+        profile.education = validatedItems(education, "education");
+        profile.credentials = validatedItems(credentials, "credentials");
+        profile.portfolio = validatedItems(portfolio, "portfolio");
+        profile.setCreatedAt(createdAt);
+        profile.setUpdatedAt(updatedAt);
+        profile.setVersion(version);
+        return profile;
+    }
+
     /** Replaces the professional presentation without changing identity or publication state. */
     public void updatePresentation(String headline, String summary, String locationLabel) {
         ensureEditable();

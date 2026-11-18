@@ -18,13 +18,21 @@ public record Notification(
         String sourceReference,
         String idempotencyKey,
         Instant createdAt,
-        Instant readAt) {
+        Instant readAt,
+        UUID sourceActorPartyId) {
 
     public static final int MAX_TYPE_LENGTH = 120;
     public static final int MAX_TITLE_LENGTH = 200;
     public static final int MAX_BODY_LENGTH = 4000;
     public static final int MAX_SOURCE_REFERENCE_LENGTH = 500;
     public static final int MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+
+    /** Compatibility constructor for existing system-originated notification producers. */
+    public Notification(UUID id, UUID tenantId, UUID recipientId, String type, String title,
+            String body, String sourceReference, String idempotencyKey, Instant createdAt, Instant readAt) {
+        this(id, tenantId, recipientId, type, title, body, sourceReference,
+                idempotencyKey, createdAt, readAt, null);
+    }
 
     public Notification {
         Objects.requireNonNull(id, "id is required");
@@ -42,16 +50,18 @@ public record Notification(
     }
 
     public static Notification create(
-            UUID tenantId,
-            UUID recipientId,
-            String type,
-            String title,
-            String body,
-            String sourceReference,
-            String idempotencyKey,
-            Instant now) {
+            UUID tenantId, UUID recipientId, String type, String title, String body,
+            String sourceReference, String idempotencyKey, Instant now) {
+        return create(tenantId, recipientId, type, title, body, sourceReference,
+                idempotencyKey, null, now);
+    }
+
+    /** sourceActorPartyId must be a canonical Ecosystem Party ID from a trusted producer. */
+    public static Notification create(
+            UUID tenantId, UUID recipientId, String type, String title, String body,
+            String sourceReference, String idempotencyKey, UUID sourceActorPartyId, Instant now) {
         return new Notification(UUID.randomUUID(), tenantId, recipientId, type, title, body,
-                sourceReference, idempotencyKey, now, null);
+                sourceReference, idempotencyKey, now, null, sourceActorPartyId);
     }
 
     /** Reading is idempotent: an already-read notification remains unchanged. */
@@ -62,7 +72,7 @@ public record Notification(
         }
         return readAt == null
                 ? new Notification(id, tenantId, recipientId, type, title, body,
-                    sourceReference, idempotencyKey, createdAt, now)
+                    sourceReference, idempotencyKey, createdAt, now, sourceActorPartyId)
                 : this;
     }
 

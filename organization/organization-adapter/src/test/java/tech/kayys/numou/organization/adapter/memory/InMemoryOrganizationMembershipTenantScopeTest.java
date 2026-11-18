@@ -54,6 +54,24 @@ class InMemoryOrganizationMembershipTenantScopeTest {
                 .toCompletableFuture().join().isPresent());
     }
 
+
+    @Test
+    void existenceCheckIsTenantScopedAndUnscopedAccessFailsClosed() {
+        var repository = new InMemoryOrganizationMembershipRepository();
+        var tenantA = TenantId.generate();
+        var tenantB = TenantId.generate();
+        var membership = OrganizationMembership.invite(
+                OrganizationMembershipId.generate(), OrganizationId.generate(), new UserId(UUID.randomUUID()));
+
+        repository.save(membership, tenantA).toCompletableFuture().join();
+
+        assertTrue(repository.existsByTenantAndId(tenantA, membership.getId()).toCompletableFuture().join());
+        assertFalse(repository.existsByTenantAndId(tenantB, membership.getId()).toCompletableFuture().join());
+        assertThrows(RuntimeException.class, () -> repository.findById(membership.getId()).toCompletableFuture().join());
+        assertThrows(RuntimeException.class, () -> repository.existsById(membership.getId()).toCompletableFuture().join());
+        assertThrows(RuntimeException.class, () -> repository.deleteById(membership.getId()).toCompletableFuture().join());
+    }
+
     @Test
     void duplicateMembershipWithinTenantIsRejected() {
         var repository = new InMemoryOrganizationMembershipRepository();

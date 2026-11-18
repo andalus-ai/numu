@@ -66,7 +66,7 @@ public final class TalentProfileApplicationService {
                         TalentProfile profile = TalentProfile.create(profileId, tenantId, subject,
                                 headline, summary, locationLabel);
                         List<DomainEvent> events = profile.pullDomainEvents();
-                        return tx.profiles().save(tenantId, profile)
+                        return tx.profiles().insert(tenantId, profile)
                                 .flatMap(saved -> tx.publish(context, events)
                                         .replaceWith(TalentProfileView.from(saved)));
                     }));
@@ -192,10 +192,11 @@ public final class TalentProfileApplicationService {
                 tx.profiles().findByTenantAndId(tenantId, id).flatMap(found -> {
                     if (found.isEmpty()) return Uni.createFrom().failure(new TalentProfileNotFoundException(id));
                     TalentProfile profile = found.get();
+                    int expectedVersion = profile.getVersion();
                     return allowed(context, action, profile.subject(), profile).flatMap(ignored ->
                             mutation.apply(profile).flatMap(done -> {
                                 List<DomainEvent> events = profile.pullDomainEvents();
-                                return tx.profiles().save(tenantId, profile)
+                                return tx.profiles().update(tenantId, profile, expectedVersion)
                                         .flatMap(saved -> tx.publish(context, events)
                                                 .replaceWith(TalentProfileView.from(saved)));
                             }));
@@ -216,10 +217,11 @@ public final class TalentProfileApplicationService {
                 tx.profiles().findByTenantAndId(tenantId, id).flatMap(found -> {
                     if (found.isEmpty()) return Uni.createFrom().failure(new TalentProfileNotFoundException(id));
                     TalentProfile profile = found.get();
+                    int expectedVersion = profile.getVersion();
                     return allowed(context, action, profile.subject(), profile).flatMap(ignored -> {
                         mutation.accept(profile);
                         List<DomainEvent> events = profile.pullDomainEvents();
-                        return tx.profiles().save(tenantId, profile)
+                        return tx.profiles().update(tenantId, profile, expectedVersion)
                                 .flatMap(saved -> tx.publish(context, events)
                                         .replaceWith(TalentProfileView.from(saved)));
                     });

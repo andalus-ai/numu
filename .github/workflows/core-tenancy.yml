@@ -1,0 +1,62 @@
+name: Core Tenancy Reactor Verification
+
+on:
+  pull_request:
+    paths:
+      - "core/framework/**"
+      - "tenancy/**"
+      - ".github/workflows/core-tenancy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-tenancy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-tenancy:
+    name: Core Foundation and Tenancy reactor
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Validate Core framework parent and aggregator
+        run: mvn -B -ntp -N -f core/framework/pom.xml validate
+
+      - name: Assert Tenancy is a Core framework module
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          root = ET.parse("core/framework/pom.xml").getroot()
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          modules = [node.text for node in root.findall("m:modules/m:module", ns)]
+          assert "../../tenancy" in modules, f"Tenancy missing from Core reactor: {modules}"
+          assert Path("tenancy/pom.xml").is_file(), "Core Tenancy POM is missing"
+          print("Core reactor declares tenancy/ exactly once")
+          PY
+
+      - name: Install neutral shared Maven parent
+        run: mvn -B -ntp -f core/framework/parent/pom.xml install
+
+      - name: Install Core framework parent for isolated Tenancy reactor
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+
+      - name: Build and install Foundation dependencies
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+
+      - name: Verify Tenancy reactor independently of unrelated capability POMs
+        run: mvn -B -ntp -f tenancy/pom.xml verify
+
+      - name: Validate shared platform BOM
+        run: mvn -B -ntp -f core/framework/bom/pom.xml validate

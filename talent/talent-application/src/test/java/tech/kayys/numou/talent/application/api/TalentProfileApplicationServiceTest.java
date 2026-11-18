@@ -63,6 +63,18 @@ class TalentProfileApplicationServiceTest {
     }
 
     @Test
+    void repositoryRejectsUpdateWhenExpectedVersionIsStale() {
+        TalentProfileId id = TalentProfileId.generate();
+        service.create(context, id, person, "Engineer", null, null).await().indefinitely();
+        TalentProfile stored = unitOfWork.repository.findByTenantAndId(tenant, id).await().indefinitely().orElseThrow();
+        stored.updatePresentation("Updated", null, null);
+
+        assertThatThrownBy(() -> unitOfWork.repository.update(tenant, stored, 9).await().indefinitely())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("concurrently");
+    }
+
+    @Test
     void rejectsPartyThatIsNotPresentInTheActiveTenant() {
         assertThatThrownBy(() -> service.create(context, TalentProfileId.generate(),
                 PartyRef.of(PartyId.generate(), PartyKind.PERSON), "Engineer", null, null)
@@ -191,11 +203,30 @@ class TalentProfileApplicationServiceTest {
         }
 
         @Override
-        public Uni<TalentProfile> save(TenantId tenantId, TalentProfile profile) {
+        public Uni<TalentProfile> insert(TenantId tenantId, TalentProfile profile) {
             if (!tenantId.equals(profile.tenantId())) {
                 return Uni.createFrom().failure(new SecurityException("Tenant does not own talent profile"));
             }
-            profiles.put(new Key(tenantId, profile.id()), profile);
+            Key key = new Key(tenantId, profile.id());
+            if (profiles.containsKey(key)) {
+                return Uni.createFrom().failure(new IllegalStateException("Talent profile already exists"));
+            }
+            profiles.put(key, profile);
+            return Uni.createFrom().item(profile);
+        }
+
+        @Override
+        public Uni<TalentProfile> update(TenantId tenantId, TalentProfile profile, int expectedVersion) {
+            if (!tenantId.equals(profile.tenantId())) {
+                return Uni.createFrom().failure(new SecurityException("Tenant does not own talent profile"));
+            }
+            Key key = new Key(tenantId, profile.id());
+            TalentProfile current = profiles.get(key);
+            if (current == null || current.getVersion() != expectedVersion
+                    || (profile.getVersion() != expectedVersion && profile.getVersion() != expectedVersion + 1)) {
+                return Uni.createFrom().failure(new IllegalStateException("Talent profile changed concurrently"));
+            }
+            profiles.put(key, profile);
             return Uni.createFrom().item(profile);
         }
 

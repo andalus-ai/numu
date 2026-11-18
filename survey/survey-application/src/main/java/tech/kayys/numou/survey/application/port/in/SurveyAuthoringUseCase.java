@@ -16,6 +16,8 @@ import java.util.List;
 /** Compose a survey/quiz: sections, questions of any format, logic, scoring, settings. Only DRAFT surveys are editable. */
 public interface SurveyAuthoringUseCase {
     Survey createSurvey(TenantContext ctx, CreateSurvey cmd);
+    /** Creates a new draft from an immutable, versioned template. */
+    Survey createSurveyFromTemplate(TenantContext ctx, tech.kayys.numou.survey.domain.survey.SurveyTemplate template);
 
     Survey updateDetails(TenantContext ctx, SurveyId id, String title, String description);
 

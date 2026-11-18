@@ -3,10 +3,9 @@ package tech.kayys.numou.identity.application.port;
 import tech.kayys.numou.identity.domain.valueobject.PasswordHash;
 
 /**
- * Synchronous by design - hashing is CPU-bound, not I/O-bound, so
- * there's no reactive benefit to wrapping it in a Uni. An adapter
- * that needs to offload it onto a worker pool can do so internally
- * without changing this contract.
+ * Password hashing is infrastructure work behind the Identity application boundary.
+ * Implementations must use a versioned encoded representation and verify legacy
+ * formats during a controlled migration.
  */
 public interface PasswordHasher {
 
@@ -14,4 +13,11 @@ public interface PasswordHasher {
 
     boolean matches(String rawPassword, PasswordHash hash);
 
+    /**
+     * True when a successfully authenticated credential should be re-encoded
+     * using the implementation's current algorithm and parameters.
+     */
+    default boolean needsRehash(PasswordHash hash) {
+        return false;
+    }
 }
