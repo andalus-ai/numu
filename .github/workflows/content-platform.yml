@@ -2,7 +2,7 @@ name: Content Platform Verification
 
 on:
   pull_request:
-    branches: [main, content/m1-content-core]
+    branches: [main, content/m1-content-core, content/m2-dynamic-content-modeling]
     paths:
       - "content/**"
       - "core/framework/pom.xml"
@@ -17,6 +17,24 @@ jobs:
   content:
     name: Content domain, application and PostgreSQL adapter
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: numou_content_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d numou_content_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CONTENT_TEST_JDBC_URL: jdbc:postgresql://localhost:5432/numou_content_test
+      CONTENT_TEST_DB_USER: postgres
+      CONTENT_TEST_DB_PASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
