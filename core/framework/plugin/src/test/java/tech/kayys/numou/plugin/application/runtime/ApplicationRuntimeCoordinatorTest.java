@@ -23,6 +23,7 @@ class ApplicationRuntimeCoordinatorTest {
         private final String failureAt;
         private PluginContext receivedContext;
         private Object observedSharedService;
+        private Object registeredService;
         private PluginState state = PluginState.LOADED;
         private int stopFailuresRemaining;
 
@@ -47,8 +48,9 @@ class ApplicationRuntimeCoordinatorTest {
             events.add("init:" + id);
             state = PluginState.INITIALIZED;
             receivedContext = context;
-            if (id.equals("runtime.party.impl")) {
-                context.registerService(SharedMarker.class, new SharedMarker());
+            if (id.startsWith("runtime.party")) {
+                registeredService = new SharedMarker();
+                context.registerService(SharedMarker.class, registeredService);
             } else {
                 observedSharedService = context.getService(SharedMarker.class).orElse(null);
             }
@@ -268,8 +270,7 @@ class ApplicationRuntimeCoordinatorTest {
     void defaultContextFactoryIsolatesServicesAndTenantAttributesBetweenApplications() {
         List<String> events = new ArrayList<>();
         DefaultApplicationPluginContextFactory sharedFactory =
-                new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"),
-                        Map.of("tenant.id", "tenant-one"));
+                new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"));
         SharedMarker firstApplicationService = new SharedMarker();
         sharedFactory.registerService(SharedMarker.class, firstApplicationService);
 
@@ -284,11 +285,12 @@ class ApplicationRuntimeCoordinatorTest {
                 Map.of("party-provider", partyTwo, "accounting-provider", accountingTwo), sharedFactory);
 
         assertThat(partyOne.receivedContext.attributes())
-                .containsEntry("application.id", "app-one").containsEntry("tenant.id", "tenant-one");
+                .containsEntry("application.id", "app-one");
         assertThat(partyTwo.receivedContext.attributes())
-                .containsEntry("application.id", "app-two").containsEntry("tenant.id", "tenant-one");
-        assertThat(accountingOne.observedSharedService).isSameAs(firstApplicationService);
-        assertThat(accountingTwo.observedSharedService).isSameAs(firstApplicationService);
+                .containsEntry("application.id", "app-two");
+        assertThat(accountingOne.observedSharedService).isSameAs(partyOne.registeredService);
+        assertThat(accountingTwo.observedSharedService).isSameAs(partyTwo.registeredService);
+        assertThat(accountingOne.observedSharedService).isNotSameAs(accountingTwo.observedSharedService);
         assertThat(first.context("party-provider")).isNotSameAs(second.context("party-provider"));
         first.stop();
         second.stop();
@@ -316,6 +318,16 @@ class ApplicationRuntimeCoordinatorTest {
                 "stop:runtime.ledger.impl", "stop:runtime.party.impl", "stop:runtime.party.impl");
         session.stop();
         assertThat(events).hasSize(7);
+    }
+
+    @Test
+    void tenantBoundContextFactoryCannotBeReusedForAnotherApplication() {
+        DefaultApplicationPluginContextFactory tenantFactory =
+                new DefaultApplicationPluginContextFactory(Map.of(), Map.of("tenant.id", "tenant-42"));
+        assertThat(tenantFactory.forApplication("app-one")).isNotNull();
+        assertThatThrownBy(() -> tenantFactory.forApplication("app-two"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Tenant-bound context factory is already assigned to application app-one");
     }
 
 }
