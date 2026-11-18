@@ -257,6 +257,9 @@ jobs:
       - name: Build and install identity contracts (tests deferred)
         id: identity_bootstrap
         run: mvn -B -ntp -f identity/pom.xml install -DskipTests
+
+      - name: Verify Document capability domain, application and PostgreSQL adapter
+        run: mvn -B -ntp -f document/pom.xml verify
       - name: Build and install organization contracts used by Courier
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
