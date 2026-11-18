@@ -26,10 +26,15 @@ class HistoricalProjectionRebuildServiceTest {
 
     @Test void failedProjectionLeavesCursorForSafeReplay() {
         FakeStore store = new FakeStore(); store.events = List.of(event(1), event(2)); int[] calls = {0};
-        var service = service(store, e -> { if (++calls[0] == 2) throw new IllegalStateException("temporary provider failure"); }, allowAll(), 2);
+        String[] failedReason = {null};
+        var service = new HistoricalProjectionRebuildService(store,
+                e -> { if (++calls[0] == 2) throw new IllegalStateException("temporary provider failure"); },
+                () -> TENANT, allowAll(), Clock.fixed(NOW, ZoneOffset.UTC), 2, snapshot -> {}, null,
+                (tenant, runId, reason) -> failedReason[0] = reason);
         var run = service.start(TENANT);
         assertThrows(IllegalStateException.class, () -> service.resumeOnePage(TENANT, run.runId()));
         assertEquals(0, store.cursor);
+        assertTrue(failedReason[0].contains("temporary provider failure"));
     }
 
     @Test void rejectsCrossTenantPageBeforeProjectingAnyEvent() {
@@ -106,8 +111,13 @@ class HistoricalProjectionRebuildServiceTest {
     }
     private static final class FakeStore implements HistoricalProjectionRebuildStore {
         private List<ReplayEvent> events = List.of(); private long cursor; private RebuildRun run; int startCalls;
-        public RebuildRun start(UUID tenant, Instant now) {
-            startCalls++; run = new RebuildRun(UUID.randomUUID(), tenant, events.size(), 0, RebuildRun.Status.RUNNING, now, now); return run;
+        public RebuildRun start(UUID tenant, UUID id, Instant now) {
+            startCalls++;
+            if (run != null && run.runId().equals(id) && Objects.equals(run.tenantId(), tenant)) return run;
+            run = new RebuildRun(id, tenant, events.isEmpty() ? 0 : events.get(events.size()-1).sequence(),
+                    0, RebuildRun.Status.RUNNING, now, now);
+            cursor = 0;
+            return run;
         }
         public Optional<RebuildRun> find(UUID tenant, UUID id) {
             return run != null && run.runId().equals(id) && Objects.equals(run.tenantId(), tenant) ? Optional.of(run) : Optional.empty();
@@ -123,8 +133,17 @@ class HistoricalProjectionRebuildServiceTest {
             return true;
         }
         public boolean advance(UUID tenant, UUID id, long expected, long next, Instant now) {
-            if (cursor != expected) return false; cursor = next;
-            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, run.status(), run.createdAt(), now); return true;
+            if (cursor != expected) return false;
+            cursor = next;
+            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, run.status(), run.createdAt(), now);
+            return true;
+        }
+        public boolean completeFenced(UUID tenant, UUID id, long expected, long expectedVersion, Instant now) {
+            if (cursor != expected || run.lifecycleVersion() != expectedVersion || run.status() != RebuildRun.Status.RUNNING
+                    || events.stream().anyMatch(e -> e.sequence() > cursor)) return false;
+            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, RebuildRun.Status.COMPLETED,
+                    run.createdAt(), now, expectedVersion + 1, run.failureDetail());
+            return true;
         }
         public boolean completeFenced(UUID tenant, UUID id, long expected, long expectedVersion, Instant now) {
             if (cursor != expected || run.lifecycleVersion() != expectedVersion || run.status() != RebuildRun.Status.RUNNING
@@ -135,7 +154,8 @@ class HistoricalProjectionRebuildServiceTest {
         }
         public boolean complete(UUID tenant, UUID id, long expected, Instant now) {
             if (cursor != expected || events.stream().anyMatch(e -> e.sequence() > cursor)) return false;
-            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, RebuildRun.Status.COMPLETED, run.createdAt(), now); return true;
+            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, RebuildRun.Status.COMPLETED, run.createdAt(), now);
+            return true;
         }
     }
 }
