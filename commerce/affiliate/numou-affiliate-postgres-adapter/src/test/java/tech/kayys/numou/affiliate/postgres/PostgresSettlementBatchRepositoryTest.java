@@ -157,6 +157,10 @@ class PostgresSettlementBatchRepositoryTest {
 
         assertThrows(RuntimeException.class, () -> outbox.markDelivered("tenant-a",
                 reclaimed.get(0).id(), "worker-a", first.get(0).leaseVersion(), now.plusSeconds(32)).toCompletableFuture().join());
+        assertThrows(RuntimeException.class, () -> outbox.reschedule("tenant-a",
+                reclaimed.get(0).id(), "worker-a", "late failure from stale claim",
+                now.plusSeconds(90), now.plusSeconds(32), 5, first.get(0).leaseVersion())
+                .toCompletableFuture().join());
         outbox.markDelivered("tenant-a", reclaimed.get(0).id(), "worker-a", reclaimed.get(0).leaseVersion(), now.plusSeconds(32))
                 .toCompletableFuture().join();
         assertTrue(outbox.claimPending("tenant-a", "worker-c", now.plusSeconds(40),
