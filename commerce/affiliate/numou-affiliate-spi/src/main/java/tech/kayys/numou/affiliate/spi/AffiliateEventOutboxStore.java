@@ -22,7 +22,6 @@ public interface AffiliateEventOutboxStore {
     record DeadLetterCursor(Instant occurredAt, UUID eventId) {
         public DeadLetterCursor {
             Objects.requireNonNull(occurredAt, "occurredAt");
-            if (leaseVersion < 1) throw new IllegalArgumentException("leaseVersion must be positive");
             Objects.requireNonNull(eventId, "eventId");
         }
     }
@@ -57,6 +56,6 @@ public interface AffiliateEventOutboxStore {
             String leaseOwner, Instant leaseUntil, Instant occurredAt, long leaseVersion) {
         public ClaimedEvent {
             Objects.requireNonNull(occurredAt, "occurredAt");
+            if (leaseVersion < 1) throw new IllegalArgumentException("leaseVersion must be positive");
         }
     }
-}
