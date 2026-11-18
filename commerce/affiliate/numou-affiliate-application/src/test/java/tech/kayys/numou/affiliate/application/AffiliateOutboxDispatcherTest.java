@@ -66,7 +66,7 @@ class AffiliateOutboxDispatcherTest {
     private static AffiliateEventOutboxStore.ClaimedEvent event(int attempts) {
         return new AffiliateEventOutboxStore.ClaimedEvent("tenant-a", UUID.randomUUID(),
                 "PartnerPayout", UUID.randomUUID(), "affiliate.payout.submitted",
-                "event-key-" + attempts, "{}", attempts, "worker-a", NOW.plusSeconds(30), NOW);
+                "event-key-" + attempts, "{}", attempts, "worker-a", NOW.plusSeconds(30), NOW, 1);
     }
 
     private static final class FakeStore implements AffiliateEventOutboxStore {
@@ -100,14 +100,14 @@ class AffiliateOutboxDispatcherTest {
         }
 
         @Override public java.util.concurrent.CompletionStage<Void> markDelivered(
-                String tenantId, UUID eventId, String workerId, Instant now) {
+                String tenantId, UUID eventId, String workerId, long leaseVersion, Instant now) {
             delivered.add(events.stream().filter(e -> e.id().equals(eventId)).findFirst().orElseThrow());
             return CompletableFuture.completedFuture(null);
         }
 
         @Override public java.util.concurrent.CompletionStage<Void> reschedule(
                 String tenantId, UUID eventId, String workerId, String reason,
-                Instant retryAt, Instant now, int maxAttempts) {
+                Instant retryAt, Instant now, int maxAttempts, long leaseVersion) {
             rescheduled.add(new Retry(reason, retryAt, maxAttempts));
             return CompletableFuture.completedFuture(null);
         }
