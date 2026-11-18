@@ -352,4 +352,11 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
             scope.execute();
         }
     }
+
+    private static void setTenantScope(Connection c, UUID tenantId) throws SQLException {
+        try (PreparedStatement scope = c.prepareStatement("SELECT set_config('numou.tenant_id', ?, true)")) {
+            scope.setString(1, tenantId == null ? "" : tenantId.toString());
+            scope.execute();
+        }
+    }
 }

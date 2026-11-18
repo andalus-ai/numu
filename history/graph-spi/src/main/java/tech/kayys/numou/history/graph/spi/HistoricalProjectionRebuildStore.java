@@ -10,13 +10,7 @@ import java.util.UUID;
  * Null tenant scope denotes the shared public corpus; non-null scope is tenant-private.
  */
 public interface HistoricalProjectionRebuildStore {
-    /** Creates or returns the rebuild identified by runId; repeated calls are idempotent. */
-    RebuildRun start(UUID tenantId, UUID runId, Instant now);
-
-    default RebuildRun start(UUID tenantId, Instant now) {
-        return start(tenantId, UUID.randomUUID(), now);
-    }
-
+    RebuildRun start(UUID tenantId, Instant now);
     Optional<RebuildRun> find(UUID tenantId, UUID runId);
     List<ReplayEvent> nextPage(UUID tenantId, UUID runId, int limit);
     /**
