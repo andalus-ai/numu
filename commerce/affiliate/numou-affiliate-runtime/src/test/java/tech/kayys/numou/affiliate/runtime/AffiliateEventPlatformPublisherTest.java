@@ -26,7 +26,7 @@ class AffiliateEventPlatformPublisherTest {
         Instant occurredAt = Instant.parse("2026-10-31T10:00:00Z");
         ClaimedEvent claimed = new ClaimedEvent("tenant-external-key", eventId, "AffiliatePartner",
                 UUID.randomUUID(), "affiliate.partner.created", "partner-created-1",
-                "{\"status\":\"ACTIVE\"}", 1, "worker-a", occurredAt.plusSeconds(30), occurredAt);
+                "{\"status\":\"ACTIVE\"}", 1, "worker-a", occurredAt.plusSeconds(30), occurredAt, 1);
         AtomicReference<EventEnvelope<? extends BusinessEvent>> captured = new AtomicReference<>();
         EventPublisherPort port = new EventPublisherPort() {
             @Override public Uni<Void> publish(EventEnvelope<? extends BusinessEvent> envelope) {
