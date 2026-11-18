@@ -66,9 +66,25 @@ class HistoricalProjectionRebuildServiceTest {
         assertThrows(SecurityException.class, () -> service.start(null)); assertEquals(0, store.startCalls);
     }
 
+
+    @Test void staleWorkerCannotAdvanceAfterPauseAndResumeLifecycleChanges() {
+        FakeStore store = new FakeStore(); store.events = List.of(event(1));
+        var service = service(store, e -> {
+            RebuildRun current = store.run;
+            store.run = new RebuildRun(current.runId(), current.tenantId(), current.highWaterSequence(),
+                    current.cursorSequence(), RebuildRun.Status.RUNNING, current.createdAt(), NOW,
+                    current.lifecycleVersion() + 2, current.failureDetail());
+        }, allowAll(), 1);
+        var run = service.start(TENANT);
+        var progress = service.resumeOnePage(TENANT, run.runId());
+        assertEquals(0, progress.projectedEvents());
+        assertEquals(0, progress.run().cursorSequence());
+        assertEquals(2, progress.run().lifecycleVersion());
+    }
+
     private static HistoricalProjectionRebuildService service(FakeStore store, HistoricalRelationshipProjectionPort projection,
             HistoricalProjectionMaintenanceAuthorizationPort auth, int pageSize) {
-        return new HistoricalProjectionRebuildService(store, projection, auth, Clock.fixed(NOW, ZoneOffset.UTC), pageSize);
+        return new HistoricalProjectionRebuildService(store, projection, () -> TENANT, auth, Clock.fixed(NOW, ZoneOffset.UTC), pageSize, snapshot -> {});
     }
     private static HistoricalProjectionMaintenanceAuthorizationPort allowAll() {
         return new HistoricalProjectionMaintenanceAuthorizationPort() {
@@ -99,9 +115,23 @@ class HistoricalProjectionRebuildServiceTest {
         public List<ReplayEvent> nextPage(UUID tenant, UUID id, int limit) {
             return events.stream().filter(e -> e.sequence() > cursor).limit(limit).toList();
         }
+        public boolean advanceFenced(UUID tenant, UUID id, long expected, long next, long expectedVersion, Instant now) {
+            if (cursor != expected || run.lifecycleVersion() != expectedVersion || run.status() != RebuildRun.Status.RUNNING) return false;
+            cursor = next;
+            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, run.status(), run.createdAt(), now,
+                    expectedVersion + 1, run.failureDetail());
+            return true;
+        }
         public boolean advance(UUID tenant, UUID id, long expected, long next, Instant now) {
             if (cursor != expected) return false; cursor = next;
             run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, run.status(), run.createdAt(), now); return true;
+        }
+        public boolean completeFenced(UUID tenant, UUID id, long expected, long expectedVersion, Instant now) {
+            if (cursor != expected || run.lifecycleVersion() != expectedVersion || run.status() != RebuildRun.Status.RUNNING
+                    || events.stream().anyMatch(e -> e.sequence() > cursor)) return false;
+            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, RebuildRun.Status.COMPLETED,
+                    run.createdAt(), now, expectedVersion + 1, run.failureDetail());
+            return true;
         }
         public boolean complete(UUID tenant, UUID id, long expected, Instant now) {
             if (cursor != expected || events.stream().anyMatch(e -> e.sequence() > cursor)) return false;
