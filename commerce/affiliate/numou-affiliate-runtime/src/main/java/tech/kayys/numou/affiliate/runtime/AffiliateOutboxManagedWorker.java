@@ -55,7 +55,9 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
     private void tick() {
         if (!inFlight.compareAndSet(false, true)) return;
         try {
-            dispatcher.dispatchOnce(tenantId, workerId).whenComplete((delivered, failure) -> {
+            CompletionStage<Integer> dispatch = Objects.requireNonNull(
+                    dispatcher.dispatchOnce(tenantId, workerId), "dispatcher returned null stage");
+            dispatch.whenComplete((delivered, failure) -> {
                 try {
                     if (failure != null) {
                         Throwable cause = failure;
@@ -78,16 +80,18 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
             });
         } catch (Throwable failure) {
             recordFailureSafely();
-            inFlight.set(false);
+            refreshHealth();
         }
     }
 
     private void refreshHealth() {
         try {
-            store.healthSnapshot().whenComplete((snapshot, failure) -> {
+            CompletionStage<AffiliateEventOutboxStore.OutboxHealthSnapshot> health =
+                    Objects.requireNonNull(store.healthSnapshot(), "healthSnapshot returned null stage");
+            health.whenComplete((snapshot, failure) -> {
                 try {
                     if (failure != null) recordFailureSafely();
-                    else {
+                    else if (snapshot != null) {
                         try {
                             metrics.refresh(snapshot);
                         } catch (Throwable ignored) {
