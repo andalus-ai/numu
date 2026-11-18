@@ -78,15 +78,13 @@ public final class QuarkusWorkspaceSseHeartbeatScheduler
     }
 
     public HealthSnapshot health() {
-        return new HealthSnapshot(activeStreams.get(), heartbeatCallbacks.sum(), callbackFailures.sum(), closed.get());
+        boolean isClosed = closed.get();
+        return new HealthSnapshot(isClosed ? 0 : activeStreams.get(), heartbeatCallbacks.sum(), callbackFailures.sum(), isClosed);
     }
 
     @Override
     public void close() {
-        if (closed.compareAndSet(false, true)) {
-            executor.shutdownNow();
-            activeStreams.set(0);
-        }
+        if (closed.compareAndSet(false, true)) executor.shutdownNow();
     }
 
     public record HealthSnapshot(int activeStreams, long heartbeatCallbacks,
