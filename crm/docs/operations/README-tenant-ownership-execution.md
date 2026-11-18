@@ -52,6 +52,22 @@ only after verifying every relationship read, target update, and audit-trigger
 write required by its chosen operations. Do not grant schema ownership or
 superuser access.
 
+## Least-privilege verification
+
+The CRM PostgreSQL workflow includes an M9 integration test that creates a
+non-owner, NOLOGIN operator role and grants only the function and table
+privileges needed for one account-ownership execution. It then switches to
+that role and exercises the actual SECURITY INVOKER path, including the
+relationship helper, target update, proposal transition, and APPLIED audit
+trigger. The test checks the resulting tenant, proposal state, and audit actor,
+then revokes the temporary grants and rolls back its fixtures.
+
+This test validates PostgreSQL privilege sufficiency for the account aggregate.
+It does not establish the caller's identity: the test's actor string is a
+fixture. Production identity must still come from the verified Numou
+operational security context. The deployment grants above should be scoped to
+the aggregates the operator is actually authorized to reconcile.
+
 ## Execution semantics
 
 Call the function inside an explicit transaction and commit only after the
