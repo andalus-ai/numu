@@ -553,6 +553,9 @@ class SyirkahApiTest {
         assertEquals(0, last.capitalBalance().compareTo(v.closing().capitalBalance()));
         assertEquals(0, last.profitPayable().compareTo(v.closing().profitPayable()));
         assertThrows(IllegalArgumentException.class, () -> api.statement(id, "not-a-uuid"));
+    }
+
+    @Test
     void aWholeSyirkahThroughTheApiWithEveryStoreWired() {
         LocalTransactionPort tx = new LocalTransactionPort();
         Clock clock = Clock.system(ZoneOffset.UTC);
