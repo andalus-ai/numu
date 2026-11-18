@@ -7,8 +7,6 @@ import tech.kayys.numou.accounting.domain.document.DocumentScanResult;
 import tech.kayys.numou.accounting.domain.document.DocumentScanStatus;
 import tech.kayys.numou.document.application.port.DocumentScanResultRepository;
 
-import java.util.UUID;
-
 @ApplicationScoped
 public class PostgresDocumentScanResultRepository implements DocumentScanResultRepository {
     @Override
@@ -47,8 +45,8 @@ public class PostgresDocumentScanResultRepository implements DocumentScanResultR
         if (current == DocumentScanStatus.PENDING) {
             return true;
         }
-        // FAILED is retryable, but replaying the same or an older failure is a no-op.
-        return incoming.scannedAt().isAfter(existing.scannedAt);
+        // FAILED is retryable, but stale/equal worker results cannot overwrite newer evidence.
+        return existing.scannedAt != null && incoming.scannedAt().isAfter(existing.scannedAt);
     }
 
     private static void apply(DocumentScanResultEntity target, DocumentScanResult result) {
