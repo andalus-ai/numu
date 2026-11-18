@@ -1,2 +1,6 @@
 package tech.kayys.numou.content.domain;
-public enum ContentStatus { DRAFT, ARCHIVED }
+
+/** Editorial lifecycle states. Publication delivery is implemented by the publishing milestone. */
+public enum ContentStatus {
+ DRAFT, IN_REVIEW, APPROVED, SCHEDULED, PUBLISHED, UNPUBLISHED, ARCHIVED
+}
