@@ -37,15 +37,14 @@
 ## Required verification
 
 - Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup; tenant claim parsing and tenant context propagation through gRPC response.
-- PostgreSQL adapter integration coverage verifies multiple active memberships are returned in deterministic UUID order, revoked memberships are excluded, and memberships for inactive users are not exposed.
+- PostgreSQL adapter integration test verifies multiple active memberships are returned in UUID order, revoked memberships are excluded, and memberships for inactive users are not exposed.
 - JWT tests: selection and access tokens have distinct `token_use`, audiences, claims, and bounded lifetimes.
-- Request-level tests: route allowlist unit tests cover JAX-RS restrictions; generic JWT-verifier unit tests cover rejection by the Identity token-verification/gRPC principal-resolution path. Full Quarkus request tests remain required.
+- Request-level tests: route allowlist unit tests cover path/method restrictions; Quarkus HTTP tests sign real selection/access JWTs, verify tenant discovery and exchange routing, reject selection credentials on service-account management, and reject wrong HTTP methods or unrelated login routes.
 - CI must run against the exact PR head. No local build or CI success is claimed until evidence is available.
 
 ## Remaining before production enablement
 
-1. Add PostgreSQL integration coverage for `PostgresTenantDiscoveryAdapter`.
-2. Add signed-JWT tests for `TenantJwtTokenIssuerAdapter` and request-level filter tests.
-3. Integrate OIDC, SAML and LDAP flows with tenant-selection credential issuance.
-4. Define refresh/PAT/service-account semantics and align all consumers on `tenant_id`.
-5. Confirm the API gateway and downstream resource servers enforce the audience and `token_use=access` contract.
+1. Run the PostgreSQL and Quarkus HTTP integration tests on the exact PR head and address any environment-specific failures.
+2. Integrate OIDC, SAML and LDAP flows with tenant-selection credential issuance.
+3. Define refresh/PAT/service-account semantics and align all consumers on `tenant_id`.
+4. Confirm the API gateway and downstream resource servers enforce the audience and `token_use=access` contract.

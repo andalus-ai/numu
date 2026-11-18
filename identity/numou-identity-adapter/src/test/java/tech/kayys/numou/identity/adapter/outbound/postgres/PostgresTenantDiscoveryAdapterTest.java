@@ -92,7 +92,8 @@ class PostgresTenantDiscoveryAdapterTest {
     @Test
     void returnsOnlyActiveMembershipsInDeterministicOrder() {
         List<UUID> result = discovery.activeTenantIds(UserId.of(userId)).await().indefinitely();
-        assertEquals(Stream.of(activeTenant, secondActiveTenant).sorted(Comparator.comparing(UUID::toString)).toList(), result);
+        assertEquals(Stream.of(activeTenant, secondActiveTenant)
+                .sorted(Comparator.comparing(UUID::toString)).toList(), result);
     }
 
     @Test

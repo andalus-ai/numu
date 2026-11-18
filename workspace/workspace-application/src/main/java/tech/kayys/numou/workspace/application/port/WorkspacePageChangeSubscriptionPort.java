@@ -10,5 +10,5 @@ import java.util.function.Consumer;
  */
 @FunctionalInterface
 public interface WorkspacePageChangeSubscriptionPort {
-    AutoCloseable subscribe(UUID tenantId, UUID actorId, UUID pageId, Consumer<WorkspacePageChangeSignal> listener);
+    WorkspacePageChangeSubscription subscribe(UUID tenantId, UUID actorId, UUID pageId, Consumer<WorkspacePageChangeSignal> listener);
 }
