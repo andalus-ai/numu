@@ -98,6 +98,23 @@ class SaleCommandServiceTest {
     }
 
     @Test
+    void addLineIdempotencyFingerprintIncludesProductOfferingReference() {
+        UUID id = UUID.randomUUID();
+        service.open(context, "open-" + id, id, BRANCH, REGISTER, SHIFT, SaleChannel.POS, "IDR");
+        UUID lineId = UUID.randomUUID();
+        SaleLine first = new SaleLine(lineId, "item-1", "Coffee", "SKU-1",
+                BigDecimal.ONE, "cup", Money.of(new BigDecimal("25000"), "IDR"), "offering-a");
+        service.addLine(context, "same-line-command", id, 0, first);
+
+        SaleLine changedOffering = new SaleLine(lineId, "item-1", "Coffee", "SKU-1",
+                BigDecimal.ONE, "cup", Money.of(new BigDecimal("25000"), "IDR"), "offering-b");
+        assertThrows(IllegalStateException.class,
+                () -> service.addLine(context, "same-line-command", id, 0, changedOffering));
+        assertEquals("offering-a", sales.find(TENANT, id).orElseThrow()
+                .sale().lines().getFirst().productOfferingReference());
+    }
+
+    @Test
     void voidingOpenSaleEmitsLifecycleEvent() {
         UUID id = UUID.randomUUID();
         service.open(context, "open-" + id, id, BRANCH, REGISTER, SHIFT, SaleChannel.POS, "IDR");

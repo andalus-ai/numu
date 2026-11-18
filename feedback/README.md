@@ -73,6 +73,8 @@ Apply `V6__feedback_public_invitation_rate_limits.sql` through the host's migrat
 - Uploads use the existing Document upload-session lifecycle. Feedback does not proxy file bytes or implement a second storage path.
 - Feedback stores the Document ID and exact Document version ID. It does not store bucket names, object keys, presigned URLs or binary content.
 - A newly linked attachment begins as `PENDING_SCAN`. It must not be exposed as downloadable until the authoritative Document scanning workflow has confirmed it is safe.
+- **Document scan contract is now defined, but end-to-end scanning is not yet operational.** Document migration V7 creates a tenant- and immutable-version-scoped scan result plus a durable scan job for every existing and newly inserted version. The provider-neutral `DocumentScanner` port and `DocumentScanResult` model define CLEAN / INFECTED / FAILED outcomes. However, a vendor scanner adapter, lease-claiming worker, result persistence/outbox event, and Feedback consumer are still pending. Until those are deployed, versions remain PENDING and Feedback attachments must remain unavailable. Never mark evidence AVAILABLE based on upload completion.
+- Removing an attachment association does not delete the underlying Document, which may be referenced by other capabilities. Document authorization must be re-evaluated on every download.
 - Malware-scanning integration remains a host/Document capability responsibility; do not mark evidence AVAILABLE based only on completed upload.
 
 ## Transactional outbox and delivery
@@ -131,4 +133,23 @@ mvn -f core/framework/pom.xml -pl ../../feedback -am test
 
 For the public API runtime, include the Quarkus runtime module in the host application and provide Survey's application-port beans. Run the host's normal Maven/Quarkus build after applying V6.
 
+PostgreSQL Testcontainers tests cover attachment persistence, tenant isolation, outbox lease recovery and dead-letter handling. They still require execution in CI or a Docker-enabled build environment before this milestone can be called verified.
+
+## M7 — Discussion and comment threads
+
+M7 adds append-only comments and replies to a Feedback item.
+
+- Every comment is scoped to a tenant and a Feedback item.
+- Visibility is explicit: `PUBLIC` or `INTERNAL`.
+- A reply must reference a parent comment from the same tenant and Feedback item.
+- A reply must have the same visibility as its parent; public threads cannot branch into internal notes.
+- Public retrieval requires an explicit `PUBLIC` visibility predicate. The repository API does not provide an all-visibility shortcut.
+- Internal visibility is not authorization. Both add and list use cases require the host-provided `FeedbackCommentAccessPolicy` port, which must delegate to the Security capability.
+- Comment creation is idempotent per tenant and stores its `feedback.comment-added.v1` outbox event in the same PostgreSQL transaction.
+- The event payload contains identifiers and visibility only; it deliberately excludes comment body text.
+- M7 comments are append-only. Editing, deletion, moderation, attachments and rich-text rendering are not included.
+
+See [Feedback M7 — Discussion and comment threads](../docs/architecture/FEEDBACK-M7-DISCUSSION-COMMENTS.md) for invariants, persistence details and verification requirements.
+
+Migration: `V7__feedback_discussion_comments.sql`. The separate M6 public-invitation branch introduces V6; reconcile and apply migrations in order before enabling both milestones.
 PostgreSQL Testcontainers tests cover invitation quota reservations, concurrent rate-limit admission, tenant isolation and existing outbox/attachment behavior. Docker-enabled CI and the complete multi-reactor build must pass before calling this milestone production-verified.

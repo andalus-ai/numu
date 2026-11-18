@@ -2,6 +2,7 @@ package tech.kayys.numou.developer.apicatalog.integration.openapi;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.developer.apicatalog.application.cleanup.ApiArtifactCleanupDispatcher;
+import tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactCleanupRepository.CleanupOperationalSnapshot;
 import tech.kayys.numou.foundation.application.runtime.ManagedWorker;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.foundation.domain.time.DomainClock;
@@ -18,7 +19,8 @@ import java.util.concurrent.atomic.LongAdder;
 
 /**
  * One managed worker per authorized provider tenant. The database lease, not this
- * local scheduler, provides cross-replica coordination.
+ * local scheduler, provides cross-replica coordination. Counters are monotonic
+ * process-local telemetry; the operational snapshot is read from PostgreSQL.
  */
 public final class ApiArtifactCleanupManagedWorker implements ManagedWorker {
     private final TenantId tenant;
@@ -33,7 +35,11 @@ public final class ApiArtifactCleanupManagedWorker implements ManagedWorker {
     private final AtomicBoolean inFlight = new AtomicBoolean();
     private final AtomicReference<Instant> lastCompletedAt = new AtomicReference<>();
     private final AtomicReference<String> lastFailureCode = new AtomicReference<>();
+    private final AtomicReference<CleanupOperationalSnapshot> operationalSnapshot = new AtomicReference<>();
+    private final LongAdder claimedCount = new LongAdder();
     private final LongAdder deletedCount = new LongAdder();
+    private final LongAdder failureCount = new LongAdder();
+    private final LongAdder leaseLostCount = new LongAdder();
     private volatile ScheduledExecutorService executor;
 
     public ApiArtifactCleanupManagedWorker(TenantId tenant, String workerId,
@@ -72,9 +78,17 @@ public final class ApiArtifactCleanupManagedWorker implements ManagedWorker {
         if (!inFlight.compareAndSet(false, true)) return;
         Instant now = clock.now();
         try {
-            dispatcher.dispatchOnce(tenant, workerId, now, leaseDuration, batchSize, maximumAttempts)
-                    .subscribe().with(deleted -> {
-                        deletedCount.add(deleted);
+            dispatcher.dispatchDetailedOnce(tenant, workerId, now, leaseDuration, batchSize, maximumAttempts)
+                    .invoke(result -> {
+                        claimedCount.add(result.claimed());
+                        deletedCount.add(result.deleted());
+                        failureCount.add(result.failed());
+                        leaseLostCount.add(result.leaseLost());
+                    })
+                    .chain(result -> dispatcher.snapshot(tenant, clock.now(), maximumAttempts)
+                            .invoke(operationalSnapshot::set)
+                            .replaceWith(result))
+                    .subscribe().with(result -> {
                         lastCompletedAt.set(clock.now());
                         lastFailureCode.set(null);
                         inFlight.set(false);
@@ -113,7 +127,11 @@ public final class ApiArtifactCleanupManagedWorker implements ManagedWorker {
 
     public Instant lastCompletedAt() { return lastCompletedAt.get(); }
     public String lastFailureCode() { return lastFailureCode.get(); }
+    public long claimedCount() { return claimedCount.sum(); }
     public long deletedCount() { return deletedCount.sum(); }
+    public long failureCount() { return failureCount.sum(); }
+    public long leaseLostCount() { return leaseLostCount.sum(); }
+    public CleanupOperationalSnapshot operationalSnapshot() { return operationalSnapshot.get(); }
 
     @Override public synchronized boolean isRunning() {
         return executor != null && !executor.isShutdown();
