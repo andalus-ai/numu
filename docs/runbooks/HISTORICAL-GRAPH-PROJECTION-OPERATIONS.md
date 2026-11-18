@@ -50,13 +50,17 @@ Do not use a single global threshold for all tenants without considering workloa
 
 ## Rebuild procedure
 
+The rebuild lifecycle is persisted in PostgreSQL. Its state machine is RUNNING → PAUSED → RUNNING, or RUNNING/PAUSED/FAILED → CANCELLED; RUNNING → FAILED → RUNNING is the explicit retry path. COMPLETED and CANCELLED are terminal. Every successful state transition increments a monotonic lifecycle version and appends an actor-attributed audit row in the same transaction.
+
+Operator commands must load the run in the authorized scope, capture its lifecycle version, and issue a compare-and-set transition. A stale command returns a conflict and must reload state rather than retry blindly. The rebuild worker must use the fenced checkpoint/completion methods with the lifecycle version it observed; the legacy unfenced checkpoint methods are not supported by the PostgreSQL adapter.
+
 1. Verify the Neo4j target database and credentials. Schema bootstrap requires schema privileges and is a separate deployment operation.
 2. Start a rebuild for exactly one authorized scope. A run captures an immutable outbox high-water sequence.
 3. Process one bounded page at a time. The cursor advances only after the entire page projects successfully.
 4. Pause a run before planned maintenance; pause takes effect at the next page boundary. A page already being projected may finish, but its checkpoint is rejected if the lifecycle version changed.
-5. If a page fails, mark the run FAILED with a bounded reason and actor identity. Fix the projection/provider problem, then explicitly retry the same run. Retry resumes from the last committed cursor; projection application must remain idempotent.
+5. If a page fails, mark the run FAILED through the lifecycle operation using a configured operator or service-principal identity. Fix the projection/provider problem, then explicitly retry the same run. Retry resumes from the last committed cursor; projection application must remain idempotent.
 6. Cancel only when the run should not be resumed. COMPLETED and CANCELLED are terminal; a FAILED run must be explicitly retried or cancelled.
-7. Every pause, resume, failure, retry, and cancellation is actor-attributed and appended to the PostgreSQL lifecycle audit in the same transaction as the state transition. Stale operator commands fail their lifecycle-version compare-and-set.
+7. Every pause, resume, failure, retry, and cancellation is actor-attributed and appended to the PostgreSQL lifecycle audit in the same transaction as the state transition. Stale operator commands and worker checkpoints fail their lifecycle-version compare-and-set.
 8. Confirm the run completes and the outbox continues to deliver events created after the captured high-water mark.
 9. Run a read-only reconciliation and review missing, stale, divergent, and orphaned counts.
 
@@ -80,7 +84,7 @@ Repair (repair=true) requires audit and rebuild authorization, an authenticated 
 
 ## Deployment checklist
 
-- Apply Flyway migrations using the host's approved migration process before enabling adapters.
+- Apply Flyway migrations V1–V6 using the host's approved migration process before enabling adapters.
 - Provision PostgreSQL and Neo4j credentials with least privilege; runtime projection role must not have canonical revision mutation rights.
 - Bootstrap Neo4j schema using a schema-capable deployment identity, not the application read/write identity.
 - Wire a metrics adapter and alert rules before production rollout.
