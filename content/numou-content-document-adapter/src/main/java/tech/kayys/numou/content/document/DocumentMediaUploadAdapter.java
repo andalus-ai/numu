@@ -15,7 +15,7 @@ public final class DocumentMediaUploadAdapter implements DocumentMediaUploadGate
   return create.handle(command).map(result->new UploadTicket(result.uploadSessionId().value(),result.uploadUrl(),result.expiresAt(),result.requiredHeaders())).subscribeAsCompletionStage();
  }
  @Override public CompletionStage<UploadedDocument> complete(String tenantId,String uploadSessionId){
-  var command=new CompleteUpload(tenantId,UploadSessionId.of(uploadSessionId));
+  var command=new CompleteUpload(tenantId,new UploadSessionId(uploadSessionId));
   return complete.handle(command).chain(result->documents.findById(tenantId,result.documentId())
    .onItem().transform(optional->optional.orElseThrow(()->new IllegalStateException("Completed Document is not readable for its tenant"))))
    .map(document->{var metadata=document.metadata();var version=document.latestVersion();return new UploadedDocument(document.id().value(),version.id().value(),metadata.filename(),metadata.contentType(),metadata.fileSize(),version.sha256Hash());})
