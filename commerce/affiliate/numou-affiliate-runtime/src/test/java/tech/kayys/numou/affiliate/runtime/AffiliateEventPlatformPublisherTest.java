@@ -58,7 +58,7 @@ class AffiliateEventPlatformPublisherTest {
         UUID eventId = UUID.randomUUID();
         ClaimedEvent claimed = new ClaimedEvent("not-a-uuid-tenant-key", eventId, "AffiliatePartner",
                 UUID.randomUUID(), "affiliate.partner.created", "key", "{}", 1, "worker",
-                Instant.now().plusSeconds(30), Instant.now());
+                Instant.now().plusSeconds(30), Instant.now(), 1);
         EventPublisherPort port = new EventPublisherPort() {
             @Override public Uni<Void> publish(EventEnvelope<? extends BusinessEvent> envelope) {
                 return Uni.createFrom().voidItem();
