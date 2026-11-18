@@ -26,14 +26,13 @@ public final class ContentEntry {
   next.add(new ContentRevision(expectedRevision+1,title,slug,body,authorId,now));
   return new ContentEntry(id,tenantId,status,next,createdAt,now);
  }
- public ContentEntry archive(Instant now) {
-  if(status==ContentStatus.ARCHIVED) return this;
-  return new ContentEntry(id,tenantId,ContentStatus.ARCHIVED,revisions,createdAt,now);
+ public ContentEntry transitionTo(ContentStatus target, Instant now) {
+  Objects.requireNonNull(target,"target status"); Objects.requireNonNull(now,"transition time");
+  if (!ContentLifecyclePolicy.canTransition(status,target)) throw new IllegalStateException("Invalid content lifecycle transition: "+status+" -> "+target);
+  return new ContentEntry(id,tenantId,target,revisions,createdAt,now);
  }
- public ContentEntry restore(Instant now) {
-  if(status!=ContentStatus.ARCHIVED) throw new IllegalStateException("Only archived content can be restored");
-  return new ContentEntry(id,tenantId,ContentStatus.DRAFT,revisions,createdAt,now);
- }
+ public ContentEntry archive(Instant now) { return transitionTo(ContentStatus.ARCHIVED,now); }
+ public ContentEntry restore(Instant now) { return transitionTo(ContentStatus.DRAFT,now); }
  public int currentRevisionNumber(){return revisions.get(revisions.size()-1).number();}
  public ContentRevision currentRevision(){return revisions.get(revisions.size()-1);}
  public ContentId id(){return id;} public TenantId tenantId(){return tenantId;} public ContentStatus status(){return status;}
