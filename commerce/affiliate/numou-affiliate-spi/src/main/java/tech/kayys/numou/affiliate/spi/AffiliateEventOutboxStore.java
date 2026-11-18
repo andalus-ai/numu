@@ -11,9 +11,9 @@ import java.util.concurrent.CompletionStage;
 public interface AffiliateEventOutboxStore {
     CompletionStage<List<ClaimedEvent>> claimPending(String tenantId, String workerId,
             Instant now, Duration lease, int limit);
-    CompletionStage<Void> markDelivered(String tenantId, UUID eventId, String workerId, Instant now);
+    CompletionStage<Void> markDelivered(String tenantId, UUID eventId, String workerId, long leaseVersion, Instant now);
     CompletionStage<Void> reschedule(String tenantId, UUID eventId, String workerId,
-            String reason, Instant retryAt, Instant now, int maxAttempts);
+            String reason, Instant retryAt, Instant now, int maxAttempts, long leaseVersion);
 
     CompletionStage<Boolean> redriveDeadLetter(String tenantId, UUID eventId, String actorId,
             String reason, String idempotencyKey, String correlationId, Instant now);
@@ -22,6 +22,7 @@ public interface AffiliateEventOutboxStore {
     record DeadLetterCursor(Instant occurredAt, UUID eventId) {
         public DeadLetterCursor {
             Objects.requireNonNull(occurredAt, "occurredAt");
+            if (leaseVersion < 1) throw new IllegalArgumentException("leaseVersion must be positive");
             Objects.requireNonNull(eventId, "eventId");
         }
     }
@@ -53,7 +54,7 @@ public interface AffiliateEventOutboxStore {
 
     record ClaimedEvent(String tenantId, UUID id, String aggregateType, UUID aggregateId,
             String eventType, String eventKey, String payload, int attempts,
-            String leaseOwner, Instant leaseUntil, Instant occurredAt) {
+            String leaseOwner, Instant leaseUntil, Instant occurredAt, long leaseVersion) {
         public ClaimedEvent {
             Objects.requireNonNull(occurredAt, "occurredAt");
         }
