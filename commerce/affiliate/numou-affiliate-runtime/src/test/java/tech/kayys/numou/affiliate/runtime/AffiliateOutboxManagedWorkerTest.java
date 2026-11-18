@@ -3,7 +3,6 @@ package tech.kayys.numou.affiliate.runtime;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.affiliate.application.AffiliateOutboxDispatcher;
 import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore;
-import tech.kayys.numou.affiliate.spi.AffiliateEventPublisher;
 import tech.kayys.numou.observability.MetricName;
 import tech.kayys.numou.observability.MetricsPort;
 
@@ -20,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class AffiliateOutboxManagedWorkerTest {
 
     @Test
-    void metricsFailureDoesNotWedgeTheDispatchGate() throws Exception {
+    void metricsFailureDoesNotWedgeDispatchGateAndStoreFailureIsRetried() throws Exception {
         FailingFirstClaimStore store = new FailingFirstClaimStore();
         MetricsPort brokenCounter = new MetricsPort() {
             @Override public void increment(MetricName name, long amount) {
@@ -30,10 +29,9 @@ class AffiliateOutboxManagedWorkerTest {
             @Override public void gauge(MetricName name, Supplier<Number> value) {}
         };
         AffiliateOutboxMetrics metrics = new AffiliateOutboxMetrics(brokenCounter);
-        AffiliateEventPublisher publisher = event -> CompletableFuture.completedFuture(null);
-        AffiliateOutboxDispatcher dispatcher = new AffiliateOutboxDispatcher(store, publisher,
-                Clock.systemUTC(), Duration.ofSeconds(10), Duration.ofMillis(10),
-                Duration.ofSeconds(1), 10, 5);
+        AffiliateOutboxDispatcher dispatcher = new AffiliateOutboxDispatcher(store,
+                event -> CompletableFuture.completedFuture(null), Clock.systemUTC(),
+                Duration.ofSeconds(10), Duration.ofMillis(10), Duration.ofSeconds(1), 10, 5);
         AffiliateOutboxManagedWorker worker = new AffiliateOutboxManagedWorker("tenant-a", "worker-a",
                 dispatcher, store, metrics, Duration.ofMillis(20), Duration.ofSeconds(2));
 

@@ -21,7 +21,12 @@ public final class MediaApplicationService {
   if(!assets.update(next,current.scanStatus(),current.status()))throw new IllegalStateException("Media scan state changed concurrently");
   return next;
  }
- public MediaAsset applyDocumentScanVerdict(tech.kayys.numou.content.domain.TenantId tenant,String documentId,String versionId,MediaScanStatus verdict){\n  var current=assets.findByDocumentVersion(tenant,documentId,versionId).orElseThrow(()->new IllegalArgumentException("Media asset for Document version not found"));\n  var next=current.recordScan(verdict,clock.instant());if(next==current)return current;\n  if(!assets.update(next,current.scanStatus(),current.status()))throw new IllegalStateException("Media scan state changed concurrently");return next;\n }\n public MediaAsset describe(ContentCommandContext context,MediaAssetId id,String altText,String caption,Integer width,Integer height,Long durationMillis){
+ public MediaAsset applyDocumentScanVerdict(tech.kayys.numou.content.domain.TenantId tenant,String documentId,String versionId,MediaScanStatus verdict){
+  var current=assets.findByDocumentVersion(tenant,documentId,versionId).orElseThrow(()->new IllegalArgumentException("Media asset for Document version not found"));
+  var next=current.recordScan(verdict,clock.instant());if(next==current)return current;
+  if(!assets.update(next,current.scanStatus(),current.status()))throw new IllegalStateException("Media scan state changed concurrently");return next;
+ }
+ public MediaAsset describe(ContentCommandContext context,MediaAssetId id,String altText,String caption,Integer width,Integer height,Long durationMillis){
   var current=assets.find(context.tenantId(),id).orElseThrow(()->new IllegalArgumentException("Media asset not found"));
   var next=current.describe(altText,caption,width,height,durationMillis,clock.instant());
   if(!assets.update(next,current.scanStatus(),current.status()))throw new IllegalStateException("Media metadata changed concurrently");
