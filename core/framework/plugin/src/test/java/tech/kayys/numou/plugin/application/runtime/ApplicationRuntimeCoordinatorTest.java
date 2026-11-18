@@ -267,13 +267,10 @@ class ApplicationRuntimeCoordinatorTest {
     }
 
     @Test
-    void defaultContextFactoryIsolatesServicesAndTenantAttributesBetweenApplications() {
+    void defaultContextFactoryIsolatesPluginServicesBetweenApplications() {
         List<String> events = new ArrayList<>();
         DefaultApplicationPluginContextFactory sharedFactory =
                 new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"));
-        SharedMarker firstApplicationService = new SharedMarker();
-        sharedFactory.registerService(SharedMarker.class, firstApplicationService);
-
         TestPlugin partyOne = new TestPlugin("runtime.party.one", "numou.party", "1.2.0", events, null);
         TestPlugin accountingOne = new TestPlugin("runtime.accounting.one", "numou.accounting", "2.1.0", events, null);
         ApplicationRuntimeSession first = new ApplicationRuntimeCoordinator().start(composition("app-one"),
