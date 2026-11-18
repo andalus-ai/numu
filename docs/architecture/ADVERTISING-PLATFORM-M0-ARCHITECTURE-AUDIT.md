@@ -22,7 +22,7 @@ The capability must support:
 - optional programmatic demand/supply integrations;
 - standalone, embedded, modular-monolith, and distributed compositions where explicitly supported.
 
-This document records an initial evidence-based design. It does not claim that Advertising code, runtime, APIs, schemas, or integrations already exist.
+This document records an evidence-based architecture and audit of the existing Advertising capability. Existing domain, application, PostgreSQL, and host-adapter code is present; the audit distinguishes implemented behavior from production gaps and does not claim that the full AdSense-style product is complete.
 
 ## 2. Repository guidance and constraints
 
@@ -215,16 +215,7 @@ Mandatory design constraints:
 
 ## 10. Deployment and module packaging direction
 
-Candidate top-level reactor: `advertising/pom.xml`, inheriting from `../core/framework/pom.xml`.
-
-Do not create every candidate module immediately. Begin with the smallest artifact set justified by public contracts and reactor conventions:
-
-- `advertising-domain`: advertiser/publisher, inventory, campaign, creative, policy, budget-control and billability invariants.
-- `advertising-application`: use cases, authorization, orchestration, ports, transaction boundaries and event publication.
-- `advertising-spi`: stable consumer-facing ports and versioned integration contracts where these need independent consumption.
-- `advertising-persistence-postgres`: Advertising-owned persistence and migrations.
-- `advertising-adapter-rest`: publisher/advertiser/serving transport endpoints only after API contracts are defined.
-- Optional runtime/composition module only when a real runnable profile and required adapters are selected.
+An Advertising reactor already exists at `advertising/pom.xml`, inherits from `../core/framework/pom.xml`, and is included by `core/framework/pom.xml`. It currently contains five artifacts: `numou-advertising-domain`, `numou-advertising-spi`, `numou-advertising-application`, `numou-advertising-postgres-adapter`, and `numou-advertising-host-adapter`. Do not create a parallel reactor or duplicate these modules. Extend the existing boundaries; introduce new artifacts only when an independently useful contract or runtime boundary is justified.
 
 Serving and measurement may become independently deployable runtime workloads later, but are not separate business owners by default. A separate deployment requires demonstrated scaling, latency, security, operational, or failure-isolation reasons.
 
@@ -411,3 +402,120 @@ M0 remains partially complete until the unchecked evidence gates are resolved or
 - [ ] Finalize M1 artifact list and dependency direction based on the verified contracts.
 
 M0 remains partially complete. The source audit confirms several useful integration contracts, while also showing that Billing usage invoicing and generic Wallet payouts are not yet proven. No build/test/CI success is claimed by this source audit.
+
+
+## 15. Follow-up contract and packaging verification (2026-11-10)
+
+A second pass inspected additional exact reactor and child POMs. These findings refine the integration decisions above.
+
+| Contract/package evidence | Verified fact | Advertising consequence |
+|---|---|---|
+| `finance/billing/pom.xml` and `finance/billing/core/pom.xml` | Billing is a nested reactor: `finance-billing` -> `numou-billing-services` -> domain/application/adapter/pricing/dunning | Correct Maven coordinates and paths must follow the nested reactor. The earlier shorthand path `finance/billing/numou-billing-application` is not valid. |
+| `finance/billing/core/numou-billing-application/pom.xml` | Billing application describes CQRS commands, queries, and ports; depends on billing domain and foundation application, with CDI APIs | Advertising should integrate at the Billing application boundary, but exact use-case/port types still require Java source inspection. |
+| `finance/payment/numou-payment-api/pom.xml` | Payment API is explicitly described as a framework-neutral consumer contract for payment execution and refunds; its POM has no runtime framework dependency | This is the preferred Payment dependency for advertiser collection/publisher payout orchestration. Do not depend on Payment Core or gateway implementation. Exact request/result and idempotency semantics remain to be inspected. |
+| `finance/wallet/numou-wallet-domain/pom.xml`, `numou-wallet-application/pom.xml`, `numou-wallet-spi/pom.xml` | Artifacts are explicitly named/described as Mobility wallet; wallet domain depends on aggregate kernel and foundation; application depends on domain/SPI and Mutiny | Do not yet treat Wallet as a generic platform-wide publisher payout ledger. Verify whether its public contract is sufficiently generic; otherwise Advertising should orchestrate payout through Payment and Finance contracts without modeling wallet balances itself. Any shared-wallet generalization is a separate Finance milestone. |
+| `core/framework/event/event-domain/pom.xml` | Domain describes transport-neutral `BusinessEvent`, `EventEnvelope`, `EventMetadata`, `EventVersion`, `EventId`, `CorrelationId`, and `CausationId` | Advertising business lifecycle events should use this envelope/identity/versioning contract rather than inventing a parallel event envelope. |
+| `core/framework/event/event-application/pom.xml` | Application orchestrates envelope construction, event store/publisher ports, subscription registration and dispatch | Use the event application boundary for finalized business events; do not make raw ad impressions synchronous business-bus writes. |
+| `core/framework/event/event-spi/pom.xml` | SPI names `EventPublisherPort`, `EventSubscriberPort`, `EventStorePort`, and `EventSerializerPort` | Event infrastructure is broker-neutral; adapter selection remains runtime composition. |
+| `documents/pom.xml` and `documents/numou-document-storage-spi/pom.xml` | Documents reactor contains provider-neutral storage SPI plus local, S3, and config modules; storage SPI POM is framework-neutral | Reuse binary storage for creative assets. Advertising still owns creative metadata, approval/version, destination, and serving eligibility. |
+| `identity/numou-identity-application/pom.xml` | Identity application describes CQRS use cases and owns UserRepository/PasswordHasher ports; it depends on identity domain and foundation application | This inspected Identity module is user identity, not proof of complete tenant/organization authorization semantics. Do not infer publisher/advertiser tenant ownership from user identity alone. |
+| `commerce/marketplace/numou-marketplace-application/pom.xml` | Marketplace application depends on Marketplace domain and Payment API | Marketplace integration can be contract-based, but this POM alone does not prove an ad inventory or promoted-listing API exists. |
+| `commerce/promotion/numou-promotion-application/pom.xml` | Promotion application depends on Foundation Application, Promotion Domain, Promotion SPI and Mutiny; described as stateless discount resolution | Confirms Promotion is cart/discount resolution, not the Advertising campaign or ad-decision owner. |
+
+### Corrected integration confidence
+
+- **High confidence at POM boundary:** Event envelope/application/SPI layering; Documents storage SPI; Payment API as the consumer-facing framework-neutral payment contract; Billing as a CQRS application capability; Promotion as discount resolution.
+- **Candidate only:** Wallet integration. Current module naming and description are Mobility-specific; generic publisher wallet reuse is not established.
+- **Not established by inspected POMs:** tenant/organization authorization contract, Party/Organization reference type, advertiser invoice creation use case, payment idempotency contract, creative malware scanning/moderation, Marketplace sponsored inventory contract, and raw event ingestion guarantees.
+
+### Remaining source-level blocker
+
+The GitHub source retrieval/search available during this pass exposed file fetches and POMs but did not provide a repository directory listing; attempted code searches for guessed Java symbols returned no matches. Therefore no Java API/class names are asserted beyond names explicitly documented in POM descriptions. Before M1 creates dependencies, retrieve the exact Java source files (or a source archive/worktree) and verify public types, package names, tenant context, authorization, transaction, and idempotency behavior.
+
+### M0 status after follow-up
+
+The capability ownership and package-level integration map are now more precise. M0 is still **not fully accepted** because source-level contract verification and a reproducible Maven/CI baseline have not been performed. The Advertising module must not yet add dependencies against guessed artifact names or assumed generic Wallet behavior.
+
+
+## 16. Existing Advertising implementation audit (2026-11-10)
+
+The repository Git tree was inspected recursively for `advertising/`. This revealed an existing implementation that was not captured by the initial high-level audit. The earlier proposal to create a new `advertising/pom.xml` is superseded: the reactor and five modules already exist and are already included by `core/framework/pom.xml`.
+
+### 16.1 Existing implementation inventory
+
+| Existing artifact / source | Verified implementation | Assessment |
+|---|---|---|
+| `advertising/pom.xml` | Top-level reactor with five modules; parent is `numou-framework` at `../core/framework/pom.xml` | Existing capability boundary; extend in place |
+| `numou-advertising-domain` | AdvertiserAccount, PublisherAccount, PublisherProperty, AdPlacement, Campaign, Creative, AdDecision, serving request/result/inventory/candidate and typed IDs/statuses | Useful domain foundation already exists |
+| `numou-advertising-spi` | Tenant-scoped stores for accounts/inventory, campaigns/creatives/assignments, and ad-serving inventory/candidates/decision audit | Existing ports are explicit and tenant-scoped |
+| `numou-advertising-application` | AdvertisingAccountService, AdvertisingCampaignService, AdvertisingAdServingService; authorization and canonical Party verification ports | Core onboarding/campaign/serving use cases exist |
+| `numou-advertising-postgres-adapter` | JDBC stores for accounts, campaigns, serving read model, and decision audit | Existing PostgreSQL persistence |
+| Migrations V1–V3 | Accounts/inventory, campaigns/creatives/assignments, serving targets and append-only ad-decision audit | Existing relational schema with composite tenant keys and owner foreign keys |
+| `numou-advertising-host-adapter` | Account/inventory REST resource, CurrentSecurity-based authorization adapter, Ecosystem Party lookup adapter, CDI producer for AdvertisingAccountService | Host integration exists but is incomplete for campaign and serving operations |
+| Existing tests | Domain lifecycle tests, application service tests, PostgreSQL Testcontainers tests for account/campaign/serving stores, host authorization/Party adapter tests | Meaningful baseline, but not a complete acceptance suite |
+
+### 16.2 Confirmed behavior
+
+- Advertiser and publisher accounts are tenant-scoped and reference canonical Party through an opaque `PartyReference`.
+- Account registration calls a Party verification port; the host adapter resolves that reference using Ecosystem `PartyLookupPort`.
+- Host authorization obtains the actor/tenant from `CurrentSecurity`, verifies tenant membership, checks active Identity membership, and asks Security for an effective permission decision.
+- Publisher properties, placements, campaigns, creatives and ad decisions carry tenant identifiers.
+- PostgreSQL account/property/placement/campaign/creative writes use optimistic version compare-and-set for updates.
+- The serving store scopes joins by tenant and requires explicit campaign-to-placement and campaign-to-creative assignments.
+- Serving validates placement enabled state, property verified state, publisher active state, request page origin and requested format.
+- Candidate eligibility checks campaign active/time window, advertiser active state, creative approved state and creative format.
+- Every filled or no-fill decision is appended to `advertising_ad_decision`; decision constraints tie selected campaign, creative, advertiser and placement to the same tenant and assignment records.
+- The serving application explicitly does not create billable impressions; measurement/billable qualification is deferred to a later milestone.
+
+### 16.3 Production gaps identified in existing implementation
+
+1. **Property verification is currently a privileged state transition, not proof of ownership.** `verifyProperty` checks authorization and publisher state, then calls `property.verify()`. No DNS TXT, HTTPS well-known file, meta-tag challenge, verification token, expiry, or re-verification evidence was found in the inspected source tree. This must be fixed before publishers can self-activate inventory in production.
+2. **Campaign REST surface is absent.** The host adapter tree contains `AdvertisingAccountResource` but no Campaign/Creative REST resource. The campaign service exists as Java application code but is not exposed through a verified HTTP API in the inspected tree.
+3. **Serving transport is absent.** `AdvertisingAdServingService` exists, but no public serving REST endpoint or publisher SDK/resource was found. The service is therefore not yet an end-to-end publisher ad-serving product.
+4. **CDI composition is incomplete.** `AdvertisingServiceProducer` produces only `AdvertisingAccountService`; no corresponding producer for `AdvertisingCampaignService` or `AdvertisingAdServingService` was found in the host adapter tree.
+5. **No delivery safety controls beyond basic eligibility were found.** There is no campaign budget reservation, spend pacing, bid/priority model, frequency capping, consent policy gate, geo/context targeting engine, or per-publisher inventory policy in the inspected implementation. Selection is deterministic by campaign creation time and IDs, not an auction.
+6. **No measurement pipeline exists in the inspected modules.** Decision audit is not an impression/click/conversion event ledger. There is no event ingestion authentication, event idempotency, invalid-traffic adjudication, attribution, billable-evidence finalization, or analytics projection.
+7. **No monetization lifecycle exists in Advertising.** There is no advertiser chargeable usage/billing request, publisher earning calculation, revenue-share contract, settlement reconciliation, payout orchestration, or Finance integration.
+8. **Creative asset lifecycle is incomplete.** Creative stores an opaque document reference, but no Documents SPI adapter or asset authorization/scan/metadata validation integration was found in the Advertising module tree.
+9. **Property verification and creative approval need operational evidence.** Creative approval is currently a state transition; no moderation queue, review actor/audit record, malware scanning, landing-page safety inspection, or policy-version evidence was found in the inspected files.
+10. **Blocking persistence needs a clear execution contract.** PostgreSQL adapters use synchronous JDBC while returning already-completed `CompletionStage` values. This is explicitly described as blocking for serving persistence. Every transport/composition must run this path on a blocking executor or the adapter must be redesigned; do not assume the return type makes JDBC non-blocking.
+11. **Tenant-level authorization is not account-level delegation.** The authorization adapter verifies tenant membership and a tenant permission action. The inspected code does not yet prove scoped agency delegation or per-advertiser/per-publisher resource grants within one tenant.
+12. **Domain and persistence tests do not prove runtime readiness.** Existing Testcontainers coverage is valuable, but no Advertising-specific CI job invoking `mvn -f advertising/pom.xml verify` was found in `.github/workflows/ci.yml`. The Advertising modules are included in the broader framework reactor build, which is not equivalent to a dedicated capability acceptance gate.
+
+### 16.4 Wallet integration correction
+
+The Wallet capability has real payout and idempotent ledger behavior, and CI refers to installing shared wallet artifacts. However, the inspected domain/application implementation is still explicitly driver-oriented:
+- `OwnerKind` is built around DRIVER, RIDER and PLATFORM ownership.
+- `WalletService.requestPayout` accepts a driver ID and applies driver payout policy.
+- `PayoutService` is documented as driver withdrawals and uses driver-specific payout aggregates/events.
+- The Wallet aggregate contains mobility-specific overdraft and booking/cash-ride semantics.
+
+Therefore it is **not yet a generic Publisher Wallet contract**. Advertising must not create a fake `OwnerKind.PUBLISHER` dependency or couple publisher revenue to driver withdrawal semantics. A generic finance-owned beneficiary wallet/payout contract would need a separately scoped Finance design and migration, or Advertising may orchestrate direct payout through an appropriate general Payment/Finance contract once verified.
+
+### 16.5 Updated milestone interpretation
+
+The previous M1/M2/M3 roadmap must now be interpreted as implementation stages, not greenfield module creation:
+
+- **M1 — Account and inventory hardening:** existing advertiser/publisher/property/placement domain and persistence exist. Complete property ownership proof, resource-scoped authorization, lifecycle audit, tenant/RLS tests, and host API coverage.
+- **M2 — Campaign and creative hardening:** existing campaign/creative domain and application services exist. Add campaign/creative REST APIs, durable review evidence, Documents integration, moderation/policy versioning and stronger validation.
+- **M3 — Production serving:** existing eligibility service and decision audit exist. Add a safe serving transport/SDK, publisher property credentials, delivery policy, budget reservation/pacing, frequency caps, ranking/auction extension points, and bounded-latency execution.
+- **M4 — Measurement:** still largely new work; add authenticated, idempotent measurement ingestion, invalid traffic handling, attribution and finalized billable evidence.
+- **M5 — Monetization:** still largely new work; integrate advertiser billing, publisher earning/revenue share, reconciliation and payout with Finance-owned contracts.
+- **M6+ — Exchange, advanced fraud and network scale:** later extensions.
+
+### 16.6 CI and verification baseline
+
+The shared framework parent `core/framework/pom.xml` includes `../../advertising`, so the broader framework reactor can compile/test the Advertising modules when that reactor is run. The CI workflow also runs module topology, domain dependency boundary, and capability dependency direction checks. However, the current CI file has no explicit Advertising job with an Advertising-specific `verify` command or dedicated report upload.
+
+The relevant reproducible commands to validate in CI/local execution are:
+- `python3 tools/verify-module-topology.py`
+- `python3 tools/verify-domain-boundaries.py`
+- `python3 tools/verify-capability-boundaries.py`
+- `mvn -B -ntp -f core/framework/pom.xml install` (includes Advertising through the framework reactor)
+- `mvn -B -ntp -f advertising/pom.xml verify` (dedicated Advertising reactor gate; confirm parent/dependency prerequisites in a clean environment)
+
+These commands were inspected from repository structure/CI configuration but were **not executed in this audit session**. No passing build or CI result is claimed.
+
+### 16.7 Revised M0 outcome
+
+M0 has now identified the actual existing Advertising codebase and the major missing production capabilities. The next work should be a focused gap-hardening milestone on existing modules, not a greenfield scaffold. Before implementation, establish a clean build baseline and add a dedicated Advertising CI gate; then prioritize proof-based publisher property verification and account-level authorization as the highest-risk M1 issues.

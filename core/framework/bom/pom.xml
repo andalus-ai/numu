@@ -7,9 +7,9 @@
 
     <parent>
         <groupId>tech.kayys.numou</groupId>
-        <artifactId>numou-framework</artifactId>
+        <artifactId>numou-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../parent/pom.xml</relativePath>
     </parent>
 
     <artifactId>numou-bom</artifactId>
@@ -415,6 +415,28 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- Core Platform Tenancy -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-tenancy-adapter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- Test and static-analysis dependencies -->
             <dependency>
                 <groupId>org.junit</groupId>
@@ -445,7 +467,33 @@
             </dependency>
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-observability-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
                 <artifactId>numou-observability-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- Social Graph is Core-owned; consumers use its public contracts. -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-social-graph-persistence-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

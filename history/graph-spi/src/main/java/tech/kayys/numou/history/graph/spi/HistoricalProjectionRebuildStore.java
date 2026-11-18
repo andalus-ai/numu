@@ -5,31 +5,62 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Durable, tenant-scoped lifecycle and cursor contract for projection rebuilds. */
+/**
+ * Durable cursor and lifecycle contract for replaying the immutable projection outbox.
+ * Null tenant scope denotes the shared public corpus; non-null scope is tenant-private.
+ */
 public interface HistoricalProjectionRebuildStore {
     RebuildRun start(UUID tenantId, Instant now);
+
+    /** Starts or recovers a run with a caller-persisted idempotency key. */
+    default RebuildRun start(UUID tenantId, UUID runId, Instant now) {
+        RebuildRun run = start(tenantId, now);
+        if (!run.runId().equals(runId)) {
+            throw new UnsupportedOperationException("store does not support caller-assigned rebuild run IDs");
+        }
+        return run;
+    }
+
+    Optional<RebuildRun> find(UUID tenantId, UUID runId);
+
     Optional<RebuildRun> find(UUID tenantId, UUID runId);
     List<ReplayEvent> nextPage(UUID tenantId, UUID runId, int limit);
+    /**
+     * Legacy checkpoint API retained for source compatibility. New workers must use
+     * advanceFenced; this method cannot protect against pause/resume ABA races.
+     */
+    @Deprecated
     boolean advance(UUID tenantId, UUID runId, long expectedCursor, long nextCursor, Instant now);
+
+    /** Legacy completion API; new workers must use completeFenced. */
+    @Deprecated
     boolean complete(UUID tenantId, UUID runId, long expectedCursor, Instant now);
 
-    /** Fenced checkpoint: a stale worker cannot advance after any lifecycle transition. */
+    default boolean completeFenced(UUID tenantId, UUID runId, long expectedCursor,
+                                   long expectedLifecycleVersion, Instant now) {
+        throw new UnsupportedOperationException("fenced rebuild completion is not supported");
+    }
+
+    /**
+     * Advances a page only if both cursor and lifecycle version still match the
+     * worker's snapshot. Implementations must atomically increment lifecycleVersion.
+     */
     default boolean advanceFenced(UUID tenantId, UUID runId, long expectedCursor, long nextCursor,
                                   long expectedLifecycleVersion, Instant now) {
-        throw new UnsupportedOperationException("fenced rebuild checkpoints are not implemented by this adapter");
+        throw new UnsupportedOperationException("fenced rebuild checkpoints are not supported");
     }
 
-    /** Atomically changes lifecycle state and appends the operator audit record. */
-    default boolean transition(UUID tenantId, UUID runId, UUID actorId, String action,
-                                long expectedLifecycleVersion, RebuildRun.Status expectedStatus,
-                                RebuildRun.Status targetStatus, String detail, Instant now) {
-        throw new UnsupportedOperationException("rebuild lifecycle transitions are not implemented by this adapter");
+    /**
+     * Changes state and appends the actor-attributed audit row in one transaction.
+     * The update is compare-and-set on both status and lifecycle version.
+     */
+    default boolean transition(UUID tenantId, UUID runId, UUID actorId, Action action,
+                               long expectedLifecycleVersion, RebuildRun.Status expectedStatus,
+                               RebuildRun.Status targetStatus, String detail, Instant now) {
+        throw new UnsupportedOperationException("rebuild lifecycle transitions are not supported");
     }
 
-    /** Marks a still-running run failed without moving its last successful cursor. */
-    default boolean fail(UUID tenantId, UUID runId, long expectedLifecycleVersion, String detail, Instant now) {
-        throw new UnsupportedOperationException("durable rebuild failure handling is not implemented by this adapter");
-    }
+    enum Action { PAUSE, RESUME, CANCEL, RETRY, FAIL }
 
     record RebuildRun(UUID runId, UUID tenantId, long highWaterSequence,
                       long cursorSequence, Status status, Instant createdAt, Instant updatedAt,

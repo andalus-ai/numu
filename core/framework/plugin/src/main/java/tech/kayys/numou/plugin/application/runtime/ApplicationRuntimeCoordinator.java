@@ -1,7 +1,7 @@
 package tech.kayys.numou.plugin.application.runtime;
 
 import tech.kayys.numou.plugin.api.Capability;
-import tech.kayys.numou.plugin.api.DefaultPluginContext;
+import tech.kayys.numou.plugin.api.PluginContext;
 import tech.kayys.numou.plugin.api.NumouPlugin;
 import tech.kayys.numou.plugin.application.resolution.CapabilityProvider;
 
@@ -28,17 +28,45 @@ public final class ApplicationRuntimeCoordinator {
      */
     public ApplicationRuntimeSession start(ApplicationComposition composition,
             Map<String, ? extends NumouPlugin> implementations) {
+        return start(composition, implementations, new DefaultApplicationPluginContextFactory());
+    }
+
+    /**
+     * Starts the composition using host-supplied plugin contexts. The factory is invoked only
+     * after every provider binding has passed preflight validation.
+     */
+    public ApplicationRuntimeSession start(ApplicationComposition composition,
+            Map<String, ? extends NumouPlugin> implementations,
+            ApplicationPluginContextFactory contextFactory) {
         Objects.requireNonNull(composition, "Application composition is required");
         Objects.requireNonNull(implementations, "Runtime implementation bindings are required");
+        Objects.requireNonNull(contextFactory, "Application plugin context factory is required");
 
         List<BoundPlugin> ordered = preflight(composition, implementations);
+        ApplicationPluginContextFactory applicationContextFactory =
+                contextFactory.forApplication(composition.applicationId());
+        if (applicationContextFactory == null) {
+            throw new ApplicationRuntimeException("Application context factory returned null for "
+                    + composition.applicationId());
+        }
         List<BoundPlugin> attempted = new ArrayList<>();
+        Map<String, PluginContext> contexts = new java.util.LinkedHashMap<>();
+        Map<String, NumouPlugin> pluginsByProvider = new java.util.LinkedHashMap<>();
+        Map<String, String> providerByCapability = new java.util.LinkedHashMap<>();
         String currentProvider = null;
         try {
             for (BoundPlugin binding : ordered) {
                 currentProvider = binding.provider().providerId();
+                PluginContext context = applicationContextFactory.create(binding.provider(), binding.plugin());
+                if (context == null || !binding.plugin().id().equals(context.pluginId())) {
+                    throw new IllegalStateException("Context factory must return a context for plugin "
+                            + binding.plugin().id() + " (provider " + currentProvider + ")");
+                }
+                contexts.put(currentProvider, context);
+                pluginsByProvider.put(currentProvider, binding.plugin());
+                providerByCapability.put(binding.provider().capabilityId(), currentProvider);
                 attempted.add(binding);
-                binding.plugin().initialize(new DefaultPluginContext(binding.plugin().id()));
+                binding.plugin().initialize(context);
             }
             for (BoundPlugin binding : ordered) {
                 currentProvider = binding.provider().providerId();
@@ -46,7 +74,7 @@ public final class ApplicationRuntimeCoordinator {
             }
             return new ApplicationRuntimeSession(composition.applicationId(),
                     ordered.stream().map(b -> b.provider().providerId()).toList(),
-                    attempted.stream().map(BoundPlugin::plugin).toList());
+                    pluginsByProvider, contexts, providerByCapability);
         } catch (Exception failure) {
             ApplicationRuntimeException startupFailure = new ApplicationRuntimeException(
                     "Failed to start application " + composition.applicationId()

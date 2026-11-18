@@ -45,6 +45,39 @@ class Neo4jHistoricalRelationshipProjectionAdapterTest {
         }
     }
 
+    @Test void stagingGenerationIsIsolatedAndInspectionFollowsActivePointer() {
+        UUID relationship = UUID.randomUUID();
+        UUID tenant = UUID.randomUUID();
+        UUID generation = UUID.randomUUID();
+        var generations = new Neo4jHistoricalProjectionGenerationStore(driver, "neo4j");
+        var candidate = generations.create(tenant, generation, Instant.parse("2026-11-10T00:00:00Z"));
+        adapter.project(event(relationship, 1, tenant, "PERSON", "legacy-person", "COLLECTIVE", "legacy-group"));
+        try (Session session = driver.session()) {
+            assertEquals(1, session.run("MATCH (r:HistoricalRelationship {scopeKey:$scope, relationshipId:$id, revision:1}) RETURN count(r) AS n",
+                    Values.parameters("scope", tenant + "::" + generation, "id", relationship.toString())).single().get("n").asLong());
+        }
+        adapter.projectIntoGeneration(event(relationship, 2, tenant, "PERSON", "staged-person", "COLLECTIVE", "staged-group"), generation);
+
+        try (Session session = driver.session()) {
+            assertEquals(1, session.run("MATCH (r:HistoricalRelationship {scopeKey:$scope, relationshipId:$id}) RETURN count(r) AS n",
+                    Values.parameters("scope", tenant.toString(), "id", relationship.toString())).single().get("n").asLong());
+            assertEquals(1, session.run("MATCH (r:HistoricalRelationship {scopeKey:$scope, relationshipId:$id}) RETURN count(r) AS n",
+                    Values.parameters("scope", tenant + "::" + generation, "id", relationship.toString())).single().get("n").asLong());
+        }
+
+        assertTrue(generations.markReady(tenant, candidate.generationId(), Instant.parse("2026-11-10T00:00:01Z")));
+        assertTrue(generations.activate(tenant, generation, null, Instant.parse("2026-11-10T00:00:02Z")));
+        var inspection = new Neo4jHistoricalProjectionInspectionAdapter(driver, "neo4j", generations);
+        var visible = inspection.find(tenant, relationship).orElseThrow();
+        assertEquals(2, visible.revision());
+        assertEquals("staged-person", visible.subjectId());
+
+        adapter.project(event(relationship, 3, tenant, "PERSON", "active-person", "COLLECTIVE", "active-group"));
+        assertEquals(3, inspection.find(tenant, relationship).orElseThrow().revision());
+        assertThrows(IllegalStateException.class, () -> adapter.projectIntoGeneration(
+                event(relationship, 4, tenant, "PERSON", "late-replay", "COLLECTIVE", "late-group"), generation));
+    }
+
     private static ClaimedProjectionEvent event(UUID id, long revision, UUID tenant, String sk, String sid, String ok, String oid) {
         String payload = """
           {"relationshipId":"%s","revision":%d,"subject":{"kind":"%s","id":"%s"},"object":{"kind":"%s","id":"%s"},"relationshipKind":"founded","description":"test","validity":null}

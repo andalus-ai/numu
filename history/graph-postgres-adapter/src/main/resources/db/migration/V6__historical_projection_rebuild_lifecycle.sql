@@ -7,20 +7,38 @@ ALTER TABLE historical_relationship_projection_rebuild_run
     ADD COLUMN failed_at TIMESTAMPTZ NULL;
 
 DO $$
-DECLARE c RECORD;
+DECLARE constraint_row RECORD;
 BEGIN
-    FOR c IN
-        SELECT conname FROM pg_constraint
+    FOR constraint_row IN
+        SELECT conname, pg_get_constraintdef(oid) AS definition
+          FROM pg_constraint
          WHERE conrelid = 'historical_relationship_projection_rebuild_run'::regclass
-           AND contype = 'c' AND pg_get_constraintdef(oid) ILIKE '%status%'
+           AND contype = 'c'
     LOOP
-        EXECUTE format('ALTER TABLE historical_relationship_projection_rebuild_run DROP CONSTRAINT %I', c.conname);
+        IF constraint_row.definition ILIKE '%status%' THEN
+            EXECUTE format('ALTER TABLE historical_relationship_projection_rebuild_run DROP CONSTRAINT %I',
+                           constraint_row.conname);
+        ELSIF constraint_row.definition ILIKE '%completed_at%' THEN
+            EXECUTE format('ALTER TABLE historical_relationship_projection_rebuild_run DROP CONSTRAINT %I',
+                           constraint_row.conname);
+        END IF;
     END LOOP;
 END $$;
 
 ALTER TABLE historical_relationship_projection_rebuild_run
     ADD CONSTRAINT historical_projection_rebuild_status_check
-    CHECK (status IN ('RUNNING','PAUSED','CANCELLED','FAILED','COMPLETED'));
+        CHECK (status IN ('RUNNING','PAUSED','CANCELLED','FAILED','COMPLETED')),
+    ADD CONSTRAINT historical_projection_rebuild_terminal_timestamp_check
+        CHECK ((status = 'COMPLETED') = (completed_at IS NOT NULL)),
+    ADD CONSTRAINT historical_projection_rebuild_failure_detail_check
+        CHECK (status = 'FAILED' OR failure_detail = '');
+
+ALTER TABLE historical_relationship_projection_rebuild_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE historical_relationship_projection_rebuild_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY historical_projection_rebuild_run_scope
+    ON historical_relationship_projection_rebuild_run FOR ALL
+    USING (tenant_id IS NULL OR tenant_id = nullif(current_setting('numou.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id IS NULL OR tenant_id = nullif(current_setting('numou.tenant_id', true), '')::uuid);
 
 CREATE TABLE historical_projection_rebuild_audit (
     audit_id UUID PRIMARY KEY,
