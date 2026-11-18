@@ -58,6 +58,33 @@ class S3CompatibleDocumentStorageRustFsIT {
     }
 
     @Test
+    void tenantPrefixesIsolateIdenticalObjectIdsAndOverwriteIsVisible() throws Exception {
+        String objectId = "shared/" + UUID.randomUUID() + ".txt";
+        StorageKey tenantA = new StorageKey("tenant-a", objectId);
+        StorageKey tenantB = new StorageKey("tenant-b", objectId);
+        byte[] first = "tenant-a-original".getBytes(StandardCharsets.UTF_8);
+        byte[] replacement = "tenant-a-replacement".getBytes(StandardCharsets.UTF_8);
+        String firstSha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(first));
+        String replacementSha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(replacement));
+
+        storage.put(tenantA, new ByteArrayInputStream(first), first.length, "text/plain", firstSha);
+        assertTrue(storage.head(tenantA).isPresent());
+        assertTrue(storage.head(tenantB).isEmpty());
+
+        storage.put(tenantA, new ByteArrayInputStream(replacement), replacement.length,
+                "text/plain", replacementSha);
+        try (var object = storage.get(tenantA).orElseThrow()) {
+            assertArrayEquals(replacement, object.content().readAllBytes());
+            assertEquals(java.util.Optional.of(replacementSha), object.metadata().sha256());
+        }
+        assertTrue(storage.head(tenantB).isEmpty());
+
+        assertTrue(storage.delete(tenantA));
+        assertTrue(storage.head(tenantA).isEmpty());
+        assertTrue(storage.head(tenantB).isEmpty());
+    }
+
+    @Test
     void roundTripsContentMetadataAndTenantScopedKeyThenDeletesObject() throws Exception {
         byte[] payload = ("rustfs-integration-" + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8);
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
