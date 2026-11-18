@@ -54,10 +54,12 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
     private void tick() {
         if (!inFlight.compareAndSet(false, true)) return;
         try {
-            dispatcher.dispatchOnce(tenantId, workerId).whenComplete((delivered, failure) -> {
+            CompletionStage<Integer> dispatch = Objects.requireNonNull(
+                    dispatcher.dispatchOnce(tenantId, workerId), "dispatcher returned null stage");
+            dispatch.whenComplete((delivered, failure) -> {
                 try {
                     if (failure != null) recordFailureSafely();
-                    else recordDeliveredSafely(delivered);
+                    else recordDeliveredSafely(delivered == null ? 0 : delivered);
                 } finally {
                     // Telemetry must never own worker liveness. Always attempt the
                     // health refresh and release the gate even if a metrics adapter fails.
@@ -66,16 +68,18 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
             });
         } catch (Throwable failure) {
             recordFailureSafely();
-            inFlight.set(false);
+            refreshHealth();
         }
     }
 
     private void refreshHealth() {
         try {
-            store.healthSnapshot().whenComplete((snapshot, failure) -> {
+            CompletionStage<AffiliateEventOutboxStore.OutboxHealthSnapshot> health =
+                    Objects.requireNonNull(store.healthSnapshot(), "healthSnapshot returned null stage");
+            health.whenComplete((snapshot, failure) -> {
                 try {
                     if (failure != null) recordFailureSafely();
-                    else {
+                    else if (snapshot != null) {
                         try {
                             metrics.refresh(snapshot);
                         } catch (Throwable ignored) {
