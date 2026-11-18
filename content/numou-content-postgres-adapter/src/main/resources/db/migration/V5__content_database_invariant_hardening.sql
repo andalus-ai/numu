@@ -138,34 +138,35 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    schema_tenant UUID;
-    schema_type UUID;
-    schema_version INTEGER;
-    schema_status VARCHAR(16);
+    old_status VARCHAR(16);
+    new_status VARCHAR(16);
 BEGIN
-    IF TG_OP = 'DELETE' THEN
-        schema_tenant := OLD.tenant_id;
-        schema_type := OLD.content_type_id;
-        schema_version := OLD.schema_version;
-    ELSE
-        schema_tenant := NEW.tenant_id;
-        schema_type := NEW.content_type_id;
-        schema_version := NEW.schema_version;
+    IF TG_OP <> 'INSERT' THEN
+        SELECT status INTO old_status
+          FROM content_type_schema
+         WHERE tenant_id = OLD.tenant_id
+           AND content_type_id = OLD.content_type_id
+           AND content_type_schema.schema_version = OLD.schema_version;
+        IF old_status = 'PUBLISHED' THEN
+            RAISE EXCEPTION 'fields and options of a published schema are immutable'
+                USING ERRCODE = '55000';
+        END IF;
     END IF;
 
-    SELECT status INTO schema_status
-      FROM content_type_schema
-     WHERE tenant_id = schema_tenant
-       AND content_type_id = schema_type
-       AND content_type_schema.schema_version = schema_version;
-
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'content schema version does not exist'
-            USING ERRCODE = '23503';
-    END IF;
-    IF schema_status = 'PUBLISHED' THEN
-        RAISE EXCEPTION 'fields and options of a published schema are immutable'
-            USING ERRCODE = '55000';
+    IF TG_OP <> 'DELETE' THEN
+        SELECT status INTO new_status
+          FROM content_type_schema
+         WHERE tenant_id = NEW.tenant_id
+           AND content_type_id = NEW.content_type_id
+           AND content_type_schema.schema_version = NEW.schema_version;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'content schema version does not exist'
+                USING ERRCODE = '23503';
+        END IF;
+        IF new_status = 'PUBLISHED' THEN
+            RAISE EXCEPTION 'fields and options of a published schema are immutable'
+                USING ERRCODE = '55000';
+        END IF;
     END IF;
 
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
