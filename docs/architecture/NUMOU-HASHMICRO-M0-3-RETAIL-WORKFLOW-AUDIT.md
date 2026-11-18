@@ -319,3 +319,85 @@ This creates a dangerous split-brain lifecycle: a checkout can be COMPLETED whil
 6. **P1 — Accounting consumer/dispatcher:** inspect existing outbox dispatch infrastructure and accounting source-reference contracts before wiring the sale-completed event to journal posting. Do not infer that a sale-completed event alone is an accounting journal.
 
 No source implementation was changed in M0.3b. The findings now identify the exact lifecycle seam that must be fixed without duplicating the existing inventory, payment, sale or outbox capabilities.
+
+
+## 11. M0.3b — Inventory adapter and sale-to-accounting route trace (2026-11-18)
+
+This pass follows the M0.3a next-step order: verify the concrete inventory adapter/idempotency boundary and trace the existing sale-completion event toward Accounting. The source tree and the files listed below were inspected on `main`. This is a source-level trace, not a Maven or runtime verification.
+
+### 11.1 Inventory reservation contract and adapter gap
+
+Inspected:
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/port/out/CheckoutInventoryPort.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/CheckoutOrchestrationService.java`
+- POS source tree under `commerce/pos/numou-pos-adapter`
+- Inventory source tree under `supply/inventory`
+
+Verified:
+- POS defines a tenant-scoped `CheckoutInventoryPort` with `reserve`, `commit` and `release`; its contract explicitly requires durable idempotency.
+- Checkout uses stable operation keys for reserve, commit and release.
+- No concrete implementation of `CheckoutInventoryPort` was found in the POS adapter source tree. The inspected POS adapter POM does not declare Inventory artifacts.
+- Inventory has separate domain/application/SPI/adapter boundaries and PostgreSQL persistence, but the inspected POS source does not establish a concrete bridge.
+
+Conclusion: the port contract exists, but concrete runtime composition and idempotency are not proven. Do not claim stock reservation/commit is operational end-to-end until a host composition or adapter is located and tested.
+
+Required next action:
+1. Locate the host composition module that supplies `CheckoutInventoryPort`, if one exists outside the POS subtree.
+2. Verify reserve idempotency by tenant + checkout operation key and that replay returns the same reservation reference.
+3. Verify commit/release are safe terminal operations for the same reservation and tenant mismatch is rejected.
+4. If no implementation exists, add a dedicated POS-to-Inventory application adapter using public Inventory contracts; never let POS write Inventory tables directly.
+5. Add PostgreSQL-backed tests for duplicate reserve, commit replay, release replay, commit-vs-release races, tenant isolation and process retry.
+
+### 11.2 Sale completion event and Accounting route
+
+Inspected:
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/SaleCommandService.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/event/SaleLifecycleEvents.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/PosEventConsumer.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/PosOutboxDispatcher.java`
+- `commerce/pos/numou-pos-adapter/src/main/java/tech/kayys/numou/pos/adapter/persistence/PostgresPosOutboxWriter.java`
+- `commerce/pos/numou-pos-adapter/src/main/java/tech/kayys/numou/pos/adapter/persistence/PostgresPosEventInbox.java`
+- `commerce/pos/numou-pos-adapter/src/main/resources/db/migration/V2__pos_transactional_outbox.sql`
+
+Verified:
+- `SaleCommandService.complete` persists the completed sale and appends `pos.sale.completed` through `SaleLifecycleEvents`.
+- The event is versioned (schema version 1), tenant-scoped, and carries sale, branch, register, shift, channel, currency, line count and completion timestamp.
+- `PostgresPosOutboxWriter` persists the event envelope; the migration provides durable delivery state, attempts, availability, leases and publication timestamps.
+- `PosOutboxDispatcher` claims bounded batches and publishes with retry/dead-letter handling.
+- `PosEventConsumer` and `PostgresPosEventInbox` provide tenant + stable consumer name + event ID deduplication. The inbox marker and handler are intended to share a transaction.
+
+Not proven:
+- No concrete Accounting consumer for `pos.sale.completed` was found in the inspected POS module.
+- No source evidence establishes posting instruction, account mapping, tax/discount/fee treatment, COGS valuation, legal-entity/business-date context or journal idempotency for POS sales.
+- The generic inbox does not prove an Accounting handler is registered or that it posts a balanced journal.
+- Checkout completion and sale completion are distinct paths; the checkout saga itself does not append an accounting posting request.
+
+Conclusion: POS already has a durable sale lifecycle outbox and generic consumer inbox. Identify an existing Accounting integration/host consumer and posting contract before adding anything. Do not add a second POS accounting outbox or parallel posting engine before that search is complete.
+
+### 11.3 M0.3b findings
+
+| ID | Finding | Status | Next action |
+|---|---|---|---|
+| POS-A7 | `CheckoutInventoryPort` has a durable-idempotency contract, but no concrete adapter was found in the POS adapter subtree. | Open — runtime composition not proven | Locate host binding; otherwise implement a public-contract adapter and integration tests. |
+| POS-A8 | Sale completion emits `pos.sale.completed` through the POS transactional outbox. | Verified at source level | Trace registered consumers and deployment composition. |
+| POS-A9 | No Accounting consumer/posting mapping for the POS completion event was established in inspected source. | Open — not proof of global absence | Search host integrations and Accounting local-integration modules; verify journal source reference and idempotency. |
+| POS-A10 | POS has a generic tenant-scoped inbox deduplication mechanism suitable for a logical consumer. | Verified at source level | Verify the actual Accounting consumer uses it in the same transaction as journal creation/outbox append. |
+
+### 11.4 Decision and next implementation gate
+
+Keep the existing POS sale outbox and Payment API boundary. Do not introduce replacement modules or direct cross-capability database writes.
+
+Before implementing a POS-to-Inventory adapter or Accounting consumer, complete one focused composition trace:
+- Search host/runtime composition modules for the `CheckoutInventoryPort` binding.
+- Search Commerce/Finance local-integration modules for `pos.sale.completed` handling.
+- Confirm Accounting's supported application command/handler for posting an externally sourced sale.
+- Verify tenant, legal entity, branch, business date, currency and source-reference semantics.
+- Establish whether the existing POS inbox/outbox can carry the handoff without a new schema.
+
+Acceptance evidence for the next code milestone:
+- A concrete, registered Inventory adapter with PostgreSQL tests for reserve/commit/release idempotency.
+- An Accounting consumer that uses the existing posting API, stable source reference and idempotent event handling.
+- End-to-end tests proving one completed sale produces one stock consumption and one balanced journal despite duplicate delivery and crash/retry.
+- Focused POS, Inventory and Accounting Maven reactor tests plus CI run links.
+
+**M0.3b status: source trace completed; runtime composition and Accounting posting route remain unverified. No production implementation or build/test pass is claimed in this pass.**
