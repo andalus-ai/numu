@@ -1,6 +1,7 @@
 package tech.kayys.numou.content.domain.model;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -45,11 +46,15 @@ public final class ContentValueValidator {
                     errors.add(v(field, "allowed_values", "Value is not in the allowed set"));
             }
             if (value instanceof Number n) {
-                BigDecimal number = new BigDecimal(n.toString());
-                if (field.minNumber() != null && number.compareTo(field.minNumber()) < 0)
-                    errors.add(v(field, "min_number", "Value is below the minimum"));
-                if (field.maxNumber() != null && number.compareTo(field.maxNumber()) > 0)
-                    errors.add(v(field, "max_number", "Value exceeds the maximum"));
+                try {
+                    BigDecimal number = new BigDecimal(n.toString());
+                    if (field.minNumber() != null && number.compareTo(field.minNumber()) < 0)
+                        errors.add(v(field, "min_number", "Value is below the minimum"));
+                    if (field.maxNumber() != null && number.compareTo(field.maxNumber()) > 0)
+                        errors.add(v(field, "max_number", "Value exceeds the maximum"));
+                } catch (NumberFormatException e) {
+                    errors.add(v(field, "number_format", "Value must be a finite numeric value"));
+                }
             }
         }
         return new ContentValidationResult(errors);
@@ -60,7 +65,8 @@ public final class ContentValueValidator {
             case STRING, TEXT -> value instanceof String;
             case EMAIL -> value instanceof String s && s.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
             case URL -> validUrl(value);
-            case INTEGER -> value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long;
+            case INTEGER -> value instanceof Byte || value instanceof Short || value instanceof Integer
+                    || value instanceof Long || value instanceof BigInteger;
             case DECIMAL -> value instanceof Number;
             case BOOLEAN -> value instanceof Boolean;
             case DATE -> validDate(value);
