@@ -16,6 +16,7 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
  @Container static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
    .withDatabaseName("history").withUsername("admin").withPassword("admin-password");
  static JdbcHistoricalSourceRepository repository;
+ static JdbcSourceIngestionRepository ingestionRepository;
  static PGSimpleDataSource appDataSource;
  @BeforeAll static void start() throws Exception {
   Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword())
@@ -25,11 +26,12 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
    s.execute("CREATE ROLE history_app LOGIN PASSWORD 'history-password' NOSUPERUSER NOBYPASSRLS");
    s.execute("GRANT USAGE ON SCHEMA public TO history_app");
    s.execute("GRANT SELECT, INSERT, UPDATE ON historical_source TO history_app");
-   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review, historical_source_contributor, historical_source_edition, historical_archival_holding, historical_archival_catalog_identifier, historical_source_relationship TO history_app");
+   s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review, historical_source_contributor, historical_source_edition, historical_archival_holding, historical_archival_catalog_identifier, historical_source_relationship, historical_source_ingestion, historical_source_extraction TO history_app");
   }
   appDataSource=new PGSimpleDataSource(); appDataSource.setURL(POSTGRES.getJdbcUrl());
   appDataSource.setUser("history_app"); appDataSource.setPassword("history-password");
   repository=new JdbcHistoricalSourceRepository(appDataSource);
+  ingestionRepository=new JdbcSourceIngestionRepository(appDataSource);
  }
  @Test void persistsRevisionsClaimsAndEvidenceWithTenantIsolation() {
   UUID tenant=UUID.randomUUID(), otherTenant=UUID.randomUUID(); Instant now=Instant.parse("2026-11-07T00:00:00Z");
@@ -121,4 +123,43 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
   var source=HistoricalSource.register(HistoricalSourceId.generate(),HistoricalSourceKind.BOOK,"Book",null,null,null,null,null,null,now);
   assertTrue(repository.register(tenant,source)); assertFalse(repository.register(tenant,source));
  }
+ @Test void ingestionAndExtractionProvenanceAreTenantScopedAndAppendOnly() {
+  UUID tenant=UUID.randomUUID(), otherTenant=UUID.randomUUID();
+  Instant now=Instant.parse("2026-11-18T00:00:00Z");
+  var source=HistoricalSource.register(HistoricalSourceId.generate(),HistoricalSourceKind.ARCHIVAL_RECORD,
+   "Digitized register",null,null,"https://archive.example/register/9", "National Archive", "1890", "id-ID",now);
+  assertTrue(repository.register(tenant,source));
+  String inputHash="a".repeat(64), outputHash="b".repeat(64);
+  var request=SourceIngestionRequest.fromDocument(source.id(),UUID.randomUUID(),UUID.randomUUID(),
+   inputHash,"application/pdf","actor:historian",now.plusSeconds(1));
+  assertTrue(ingestionRepository.appendIngestion(tenant,request));
+  assertEquals(request,ingestionRepository.findIngestion(tenant,request.id()).orElseThrow());
+  assertEquals(1,ingestionRepository.listIngestions(tenant,source.id().value(),20).size());
+  assertFalse(ingestionRepository.appendIngestion(tenant,request));
+  assertTrue(ingestionRepository.listIngestions(otherTenant,source.id().value(),20).isEmpty());
+
+  var artifact=SourceExtractionArtifact.create(request.id(),SourceExtractionKind.OCR_TEXT,"ocr-engine","5.4",
+   UUID.randomUUID(),UUID.randomUUID(),inputHash,outputHash,"id-ID","page:3","worker:ocr-1",now.plusSeconds(2));
+  assertTrue(ingestionRepository.appendExtraction(tenant,artifact));
+  assertEquals(artifact,ingestionRepository.listExtractions(tenant,request.id(),20).get(0));
+  assertFalse(ingestionRepository.appendExtraction(tenant,artifact));
+  assertTrue(ingestionRepository.listExtractions(otherTenant,request.id(),20).isEmpty());
+
+  assertThrows(IllegalStateException.class,()->ingestionRepository.appendIngestion(otherTenant,
+   SourceIngestionRequest.fromDocument(source.id(),UUID.randomUUID(),UUID.randomUUID(),inputHash,
+    "application/pdf","actor:other",now.plusSeconds(3))));
+  assertThrows(java.sql.SQLException.class,()->{
+   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
+       var statement=connection.prepareStatement("update historical_source_ingestion set requested_by=? where tenant_id=? and ingestion_id=?")) {
+    statement.setString(1,"actor:rewritten"); statement.setObject(2,tenant); statement.setObject(3,request.id()); statement.executeUpdate();
+   }
+  });
+  assertThrows(java.sql.SQLException.class,()->{
+   try(var connection=java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(),POSTGRES.getUsername(),POSTGRES.getPassword());
+       var statement=connection.prepareStatement("delete from historical_source_extraction where tenant_id=? and extraction_id=?")) {
+    statement.setObject(1,tenant); statement.setObject(2,artifact.id()); statement.executeUpdate();
+   }
+  });
+ }
+
 }
