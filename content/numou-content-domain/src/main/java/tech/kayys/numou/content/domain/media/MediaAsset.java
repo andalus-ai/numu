@@ -42,7 +42,7 @@ public final class MediaAsset {
  public MediaAsset recordScan(MediaScanStatus verdict,Instant now){
   Objects.requireNonNull(verdict);if(verdict==MediaScanStatus.PENDING)throw new IllegalArgumentException("A scan verdict cannot be PENDING");
   if(scanStatus==MediaScanStatus.CLEAN||scanStatus==MediaScanStatus.INFECTED){if(scanStatus==verdict)return this;throw new IllegalStateException("Terminal scan verdict cannot be replaced");}
-  MediaLifecycleStatus next=verdict==MediaScanStatus.CLEAN?MediaLifecycleStatus.AVAILABLE:verdict==MediaScanStatus.INFECTED?MediaLifecycleStatus.REJECTED:MediaLifecycleStatus.QUARANTINED;
+  MediaLifecycleStatus next=status==MediaLifecycleStatus.ARCHIVED?MediaLifecycleStatus.ARCHIVED:verdict==MediaScanStatus.CLEAN?MediaLifecycleStatus.AVAILABLE:verdict==MediaScanStatus.INFECTED?MediaLifecycleStatus.REJECTED:MediaLifecycleStatus.QUARANTINED;
   return copy(width,height,durationMillis,verdict,next,altText,caption,now);
  }
  public MediaAsset describe(String altText,String caption,Integer width,Integer height,Long durationMillis,Instant now){
