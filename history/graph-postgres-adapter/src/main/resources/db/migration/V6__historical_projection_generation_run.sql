@@ -1,5 +1,6 @@
--- Durable saga journal. PostgreSQL and Neo4j activation are separate transactions;
--- lifecycle phases are resumable rather than falsely presented as a distributed commit.
+-- Durable orchestration journal for staged graph-generation rebuilds.
+-- The Neo4j generation pointer and this PostgreSQL journal are separate transactions;
+-- statuses are intentionally resumable so an interrupted cutover can be reconciled.
 CREATE TABLE historical_projection_generation_run (
     scope_key VARCHAR(64) NOT NULL,
     operation_id UUID NOT NULL,
@@ -34,4 +35,4 @@ CREATE POLICY historical_projection_generation_run_scope
     WITH CHECK (tenant_id IS NULL OR tenant_id = nullif(current_setting('numou.tenant_id', true), '')::uuid);
 
 COMMENT ON TABLE historical_projection_generation_run IS
-    'Resumable orchestration journal binding a staged Neo4j generation to one PostgreSQL rebuild run.';
+    'Resumable orchestration journal linking a staged Neo4j generation to one immutable PostgreSQL rebuild run.';

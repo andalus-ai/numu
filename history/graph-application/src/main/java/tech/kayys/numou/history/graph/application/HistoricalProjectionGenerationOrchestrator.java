@@ -4,6 +4,7 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationRunStore
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationRunStore.Run;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationRunStore.Status;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationStore;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationStore.Generation;
 
 import java.time.Clock;
 import java.util.Objects;
@@ -11,8 +12,8 @@ import java.util.UUID;
 
 /**
  * Resumable coordinator for staging, replaying, validating and activating one graph generation.
- * PostgreSQL persists the operation and rebuild cursor; Neo4j owns the active-generation pointer.
- * The two systems do not share an ACID transaction, so every transition is independently recoverable.
+ * PostgreSQL persists the saga/checkpoint; Neo4j owns the generation pointer. Recovery is
+ * deliberately stepwise because the two stores do not share an ACID transaction.
  */
 public final class HistoricalProjectionGenerationOrchestrator {
     private final HistoricalProjectionGenerationRunStore runs;
@@ -21,9 +22,12 @@ public final class HistoricalProjectionGenerationOrchestrator {
     private final HistoricalProjectionMetricsPort metrics;
     private final Clock clock;
 
-    public HistoricalProjectionGenerationOrchestrator(HistoricalProjectionGenerationRunStore runs,
-            HistoricalProjectionGenerationService generations, HistoricalProjectionRebuildService rebuilds,
-            HistoricalProjectionMetricsPort metrics, Clock clock) {
+    public HistoricalProjectionGenerationOrchestrator(
+            HistoricalProjectionGenerationRunStore runs,
+            HistoricalProjectionGenerationService generations,
+            HistoricalProjectionRebuildService rebuilds,
+            HistoricalProjectionMetricsPort metrics,
+            Clock clock) {
         this.runs = Objects.requireNonNull(runs, "runs");
         this.generations = Objects.requireNonNull(generations, "generations");
         this.rebuilds = Objects.requireNonNull(rebuilds, "rebuilds");
@@ -31,22 +35,22 @@ public final class HistoricalProjectionGenerationOrchestrator {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /** The caller must reuse operationId for every retry of the same requested rebuild. */
+    /** operationId is the caller's idempotency key and must be reused on retries. */
     public Run start(UUID tenantId, UUID operationId) {
         Objects.requireNonNull(operationId, "operationId");
-        // This authorized lookup is deliberately before journal access.
-        var active = generations.active(tenantId);
-        if (runs.find(tenantId, operationId).isEmpty()) {
-            runs.create(tenantId, operationId, UUID.randomUUID(), UUID.randomUUID(),
-                    active.map(g -> g.generationId()).orElse(null), clock.instant());
-        }
+        var existing = runs.find(tenantId, operationId);
+        if (existing.isPresent()) return resumeOneStep(tenantId, operationId);
+        UUID expectedActive = generations.active(tenantId).map(Generation::generationId).orElse(null);
+        runs.create(tenantId, operationId, UUID.randomUUID(), UUID.randomUUID(),
+                expectedActive, clock.instant());
         return resumeOneStep(tenantId, operationId);
     }
 
-    /** Advances at most one bounded lifecycle step; safe to invoke repeatedly after interruption. */
+    /** Performs one bounded lifecycle step; call again with the same operation ID to continue. */
     public Run resumeOneStep(UUID tenantId, UUID operationId) {
         Objects.requireNonNull(operationId, "operationId");
-        generations.active(tenantId); // fail-closed authorization before journal lookup
+        // Authorize every invocation, including reads of already-completed operations.
+        generations.active(tenantId);
         Run run = runs.find(tenantId, operationId)
                 .orElseThrow(() -> new IllegalArgumentException("generation operation does not exist in this scope"));
         try {
@@ -66,32 +70,23 @@ public final class HistoricalProjectionGenerationOrchestrator {
                 }
                 case READY -> transition(run, Status.ACTIVATING);
                 case ACTIVATING -> activateRecoverably(run);
-                case ACTIVE -> { /* terminal, idempotent result */ }
+                case ACTIVE -> { /* idempotent terminal state */ }
             }
         } catch (RuntimeException failure) {
-            try {
-                runs.recordFailure(tenantId, operationId, safeMessage(failure), clock.instant());
-            } catch (RuntimeException journalFailure) {
-                failure.addSuppressed(journalFailure);
-            }
+            runs.recordFailure(tenantId, operationId, safeMessage(failure), clock.instant());
             throw failure;
         }
         Run latest = runs.find(tenantId, operationId).orElseThrow();
-        try {
-            metrics.recordGenerationRun(new HistoricalProjectionMetricsPort.GenerationRunMetric(
-                    latest.status().name(), latest.failureCount()));
-        } catch (RuntimeException ignored) {
-            // Observability must never invalidate committed lifecycle state.
-        }
+        recordMetric(latest);
         return latest;
     }
 
     private void activateRecoverably(Run run) {
-        var candidate = generations.find(run.tenantId(), run.generationId())
+        Generation candidate = generations.find(run.tenantId(), run.generationId())
                 .orElseThrow(() -> new IllegalStateException("staged generation disappeared"));
         if (candidate.status() == HistoricalProjectionGenerationStore.Status.ACTIVE
                 || candidate.status() == HistoricalProjectionGenerationStore.Status.RETAINED) {
-            // Neo4j may have committed activation before the PostgreSQL phase update was interrupted.
+            // Neo4j may commit activation just before the PostgreSQL journal update is interrupted.
             transition(run, Status.ACTIVE);
             return;
         }
@@ -100,11 +95,21 @@ public final class HistoricalProjectionGenerationOrchestrator {
     }
 
     private void transition(Run run, Status next) {
-        if (runs.transition(run.tenantId(), run.operationId(), run.status(), next, clock.instant())) return;
-        Run latest = runs.find(run.tenantId(), run.operationId()).orElseThrow();
-        if (latest.status() != next) {
-            throw new IllegalStateException("generation operation transition conflict: expected "
-                    + run.status() + " but found " + latest.status());
+        if (!runs.transition(run.tenantId(), run.operationId(), run.status(), next, clock.instant())) {
+            Run latest = runs.find(run.tenantId(), run.operationId()).orElseThrow();
+            if (latest.status() != next) {
+                throw new IllegalStateException("generation operation transition conflict: expected "
+                        + run.status() + " but found " + latest.status());
+            }
+        }
+    }
+
+    private void recordMetric(Run run) {
+        try {
+            metrics.recordGenerationRun(new HistoricalProjectionMetricsPort.GenerationRunMetric(
+                    run.status().name(), run.failureCount()));
+        } catch (RuntimeException ignored) {
+            // Metrics are observational and cannot roll back a committed lifecycle transition.
         }
     }
 

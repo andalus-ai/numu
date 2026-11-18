@@ -25,9 +25,11 @@ public final class HistoricalProjectionGenerationService {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    public Generation create(UUID tenantId) { return create(tenantId, UUID.randomUUID()); }
+    public Generation create(UUID tenantId) {
+        return create(tenantId, UUID.randomUUID());
+    }
 
-    /** Idempotent generation creation for a durable orchestration operation. */
+    /** Idempotent creation used by the durable generation orchestrator. */
     public Generation create(UUID tenantId, UUID generationId) {
         authorize(tenantId);
         Objects.requireNonNull(generationId, "generationId");
@@ -49,8 +51,15 @@ public final class HistoricalProjectionGenerationService {
         authorize(tenantId);
         Generation current = store.find(tenantId, generationId)
                 .orElseThrow(() -> new IllegalArgumentException("generation does not exist"));
-        if (current.status() == Status.READY || current.status() == Status.ACTIVE || current.status() == Status.RETAINED) {
-            return current;
+        if (current.status() != Status.BUILDING) {
+            if (current.status() == Status.READY || current.status() == Status.ACTIVE || current.status() == Status.RETAINED) {
+                return current;
+            }
+            throw new IllegalStateException("generation cannot become READY from " + current.status());
+        }
+        var result = validation.validate(tenantId, generationId);
+        if (!result.passed()) {
+            throw new IllegalStateException("generation validation failed: " + result.detail());
         }
         if (current.status() != Status.BUILDING) {
             throw new IllegalStateException("generation cannot become READY from " + current.status());

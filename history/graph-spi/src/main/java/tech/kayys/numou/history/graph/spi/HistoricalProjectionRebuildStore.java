@@ -12,10 +12,16 @@ import java.util.UUID;
 public interface HistoricalProjectionRebuildStore {
     RebuildRun start(UUID tenantId, Instant now);
 
-    /** Idempotently starts or recovers a rebuild with a caller-assigned ID. */
+    /** Starts or recovers a run with a caller-persisted idempotency key. */
     default RebuildRun start(UUID tenantId, UUID runId, Instant now) {
-        throw new UnsupportedOperationException("caller-assigned rebuild run IDs are not supported");
+        RebuildRun run = start(tenantId, now);
+        if (!run.runId().equals(runId)) {
+            throw new UnsupportedOperationException("store does not support caller-assigned rebuild run IDs");
+        }
+        return run;
     }
+
+    Optional<RebuildRun> find(UUID tenantId, UUID runId);
 
     Optional<RebuildRun> find(UUID tenantId, UUID runId);
     List<ReplayEvent> nextPage(UUID tenantId, UUID runId, int limit);

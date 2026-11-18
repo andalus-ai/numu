@@ -34,19 +34,22 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
             try {
-                setTenantScope(c, tenantId);
-                // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock. Once acquired,
-                // all earlier event transactions have committed; later inserts receive a
-                // sequence above this run's immutable high-water mark.
                 Optional<RebuildRun> existing = find(c, tenantId, runId);
-                if (existing.isPresent()) { c.commit(); return existing.get(); }
-                // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock, stabilizing the
-                // high-water boundary against append transactions already in flight.
+                if (existing.isPresent()) {
+                    c.commit();
+                    return existing.get();
+                }
+                // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock. Once acquired,
+                // all earlier event transactions have committed; later inserts receive
+                // a sequence above this run's immutable high-water mark.
                 try (Statement lock = c.createStatement()) {
                     lock.execute("LOCK TABLE historical_relationship_projection_outbox IN SHARE MODE");
                 }
                 existing = find(c, tenantId, runId);
-                if (existing.isPresent()) { c.commit(); return existing.get(); }
+                if (existing.isPresent()) {
+                    c.commit();
+                    return existing.get();
+                }
                 long highWater;
                 try (Statement s = c.createStatement();
                      ResultSet r = s.executeQuery("SELECT COALESCE(MAX(projection_sequence), 0) FROM historical_relationship_projection_outbox")) {
@@ -71,10 +74,12 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 try { c.rollback(); } catch (SQLException rollback) { failure.addSuppressed(rollback); }
                 throw failure;
             }
-        } catch (SQLException failure) {
+        } catch (SQLException e) {
+            // A concurrent retry may have won the primary-key race. Resolve only if the
+            // existing run belongs to exactly the requested scope.
             Optional<RebuildRun> existing = find(tenantId, runId);
             if (existing.isPresent()) return existing.get();
-            throw new IllegalStateException("Unable to start historical projection rebuild", failure);
+            throw failure("start historical projection rebuild", e);
         }
     }
 
@@ -83,30 +88,13 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
         Objects.requireNonNull(runId, "runId");
         try (Connection c = source.getConnection()) {
             return find(c, tenantId, runId);
-        } catch (SQLException failure) {
-            throw new IllegalStateException("Unable to load historical projection rebuild", failure);
+        } catch (SQLException e) {
+            throw failure("load historical projection rebuild", e);
         }
     }
 
     private Optional<RebuildRun> find(Connection c, UUID tenantId, UUID runId) throws SQLException {
         String sql = "SELECT * FROM historical_relationship_projection_rebuild_run WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?";
-        try (Connection c = source.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                setTenantScope(c, tenantId);
-                Optional<RebuildRun> result;
-                try (PreparedStatement s = c.prepareStatement(sql)) {
-                    s.setObject(1, runId);
-                    s.setObject(2, tenantId);
-                    try (ResultSet r = s.executeQuery()) {
-                        result = r.next() ? Optional.of(mapRun(r)) : Optional.empty();
-                    }
-                }
-                c.commit();
-                return result;
-            } catch (SQLException | RuntimeException e) {
-                rollback(c, e);
-                throw e;
         try (PreparedStatement s = c.prepareStatement(sql)) {
             s.setObject(1, runId);
             s.setObject(2, tenantId);

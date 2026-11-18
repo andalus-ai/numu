@@ -4,6 +4,7 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.Claime
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.RebuildRun;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.ReplayEvent;
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -14,9 +15,7 @@ import java.util.UUID;
 
 /**
  * Resumable, bounded replay of one public or tenant-private projection scope.
- * A page cursor advances only after every event has been projected. Both cursor
- * and lifecycle version fence the checkpoint against concurrent workers and
- * pause/cancel/resume operations.
+ * A page cursor advances only after every event in its page has been projected.
  */
 public final class HistoricalProjectionRebuildService {
     private final HistoricalProjectionRebuildStore store;
@@ -49,8 +48,15 @@ public final class HistoricalProjectionRebuildService {
             HistoricalRelationshipProjectionPort projection,
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
-            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics,
-            UUID generationId, HistoricalProjectionRebuildFailurePort failurePort) {
+            Clock clock, int pageSize) {
+        this(store, projection, tenantContext, authorization, clock, pageSize, snapshot -> {});
+    }
+
+    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
+            HistoricalRelationshipProjectionPort projection,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
@@ -71,12 +77,19 @@ public final class HistoricalProjectionRebuildService {
         return store.start(tenantId, clock.instant());
     }
 
-    /** Processes at most one page. A paused or terminal run is never replayed. */
+    /** Starts or recovers a rebuild using a caller-persisted ID. */
+    public RebuildRun start(UUID tenantId, UUID runId) {
+        Objects.requireNonNull(runId, "runId");
+        authorizeScope(tenantId);
+        return store.start(tenantId, runId, clock.instant());
+    }
+
+    /** Processes at most one page against the legacy/default projection. */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
         return resumeOnePage(tenantId, runId, null);
     }
 
-    /** Replays into the exact staged generation; null means the active projection. */
+    /** Processes at most one page against the exact staged generation supplied by the coordinator. */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId, UUID generationId) {
         Objects.requireNonNull(runId, "runId");
         authorizeScope(tenantId);
@@ -85,30 +98,29 @@ public final class HistoricalProjectionRebuildService {
         }
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
-
-        if (run.status() != RebuildRun.Status.RUNNING) {
-            return progress(run, 0, run.status() == RebuildRun.Status.COMPLETED);
-        }
+        if (run.status() == RebuildRun.Status.COMPLETED) return progress(run, 0, true);
 
         List<ReplayEvent> page = store.nextPage(tenantId, runId, pageSize);
         validatePage(tenantId, run, page);
         if (page.isEmpty()) {
-            boolean completed = store.completeFenced(tenantId, runId, run.cursorSequence(),
-                    run.lifecycleVersion(), clock.instant());
-            RebuildRun latest = store.find(tenantId, runId)
-                    .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
-            return progress(latest, 0, completed || latest.status() == RebuildRun.Status.COMPLETED);
+            if (!store.complete(tenantId, runId, run.cursorSequence(), clock.instant())) {
+                RebuildRun latest = store.find(tenantId, runId)
+                        .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
+                return progress(latest, 0, latest.status() == RebuildRun.Status.COMPLETED);
+            }
+            RebuildRun completed = store.find(tenantId, runId).orElseThrow();
+            return progress(completed, 0, true);
         }
 
+        long nextCursor = page.get(page.size() - 1).sequence();
         for (ReplayEvent event : page) {
             try {
                 ClaimedProjectionEvent claimed = asClaimedEvent(event);
-                if (generationId == null) {
-                    projection.project(claimed);
-                } else {
-                    ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
-                            .projectIntoGeneration(claimed, generationId);
-                }
+                if (generationId == null) projection.project(claimed);
+                else ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
+                        .projectIntoGeneration(claimed, generationId);
+            } catch (RuntimeException failure) {
+                throw failure;
             } catch (Exception failure) {
                 String detail = "Unable to project historical relationship event " + event.eventKey()
                         + ": " + Objects.toString(failure.getMessage(), failure.getClass().getSimpleName());
@@ -123,28 +135,25 @@ public final class HistoricalProjectionRebuildService {
                 throw new IllegalStateException(detail, failure);
             }
         }
-
-        long nextCursor = page.get(page.size() - 1).sequence();
-        boolean advanced = store.advanceFenced(tenantId, runId, run.cursorSequence(),
-                nextCursor, run.lifecycleVersion(), clock.instant());
-        RebuildRun latest = store.find(tenantId, runId)
-                .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
-        // A lost fence means another worker or operator changed the run. Projection
-        // calls are required to be idempotent, so a later RUNNING worker can replay.
-        return progress(latest, advanced ? page.size() : 0,
-                latest.status() == RebuildRun.Status.COMPLETED);
+        if (!store.advance(tenantId, runId, run.cursorSequence(), nextCursor, clock.instant())) {
+            RebuildRun latest = store.find(tenantId, runId)
+                    .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
+            return progress(latest, page.size(), latest.status() == RebuildRun.Status.COMPLETED);
+        }
+        RebuildRun advanced = store.find(tenantId, runId).orElseThrow();
+        return progress(advanced, page.size(), false);
     }
 
     private void validatePage(UUID tenantId, RebuildRun run, List<ReplayEvent> page) {
-        long previousSequence = run.cursorSequence();
+        long previous = run.cursorSequence();
         for (ReplayEvent event : page) {
             if (!Objects.equals(tenantId, event.tenantId())) {
                 throw new IllegalStateException("rebuild page crossed tenant scope");
             }
-            if (event.sequence() <= previousSequence || event.sequence() > run.highWaterSequence()) {
+            if (event.sequence() <= previous || event.sequence() > run.highWaterSequence()) {
                 throw new IllegalStateException("rebuild page contains an unordered or out-of-snapshot event");
             }
-            previousSequence = event.sequence();
+            previous = event.sequence();
         }
     }
 

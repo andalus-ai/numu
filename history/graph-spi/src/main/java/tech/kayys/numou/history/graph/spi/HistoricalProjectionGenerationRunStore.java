@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Durable saga journal for one staged projection-generation operation. */
+/** Durable saga state for one staged graph-generation rebuild and cutover. */
 public interface HistoricalProjectionGenerationRunStore {
     Run create(UUID tenantId, UUID operationId, UUID generationId, UUID rebuildRunId,
                UUID expectedActiveGenerationId, Instant now);

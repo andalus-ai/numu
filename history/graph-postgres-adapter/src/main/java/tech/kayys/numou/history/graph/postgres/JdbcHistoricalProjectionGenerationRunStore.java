@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** PostgreSQL journal for resumable graph-generation operations. */
+/** PostgreSQL saga journal for graph-generation rebuild and activation operations. */
 public final class JdbcHistoricalProjectionGenerationRunStore implements HistoricalProjectionGenerationRunStore {
     private final DataSource source;
 
@@ -28,13 +28,14 @@ public final class JdbcHistoricalProjectionGenerationRunStore implements Histori
         Objects.requireNonNull(rebuildRunId, "rebuildRunId");
         Objects.requireNonNull(now, "now");
         return inTransaction(tenantId, c -> {
-            try (PreparedStatement s = c.prepareStatement("""
+            String insert = """
                     INSERT INTO historical_projection_generation_run
                         (scope_key, operation_id, tenant_id, generation_id, rebuild_run_id,
                          expected_active_generation_id, status, failure_count, last_error, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, 'PREPARING', 0, '', ?, ?)
                     ON CONFLICT (scope_key, operation_id) DO NOTHING
-                    """)) {
+                    """;
+            try (PreparedStatement s = c.prepareStatement(insert)) {
                 s.setString(1, scopeKey(tenantId));
                 s.setObject(2, operationId);
                 s.setObject(3, tenantId);
@@ -45,6 +46,7 @@ public final class JdbcHistoricalProjectionGenerationRunStore implements Histori
                 s.setTimestamp(8, Timestamp.from(now));
                 s.executeUpdate();
             }
+            // The operation ID is the idempotency key. Its first persisted binding wins.
             return select(c, tenantId, operationId)
                     .orElseThrow(() -> new SQLException("generation operation insert was not visible"));
         });
@@ -84,17 +86,15 @@ public final class JdbcHistoricalProjectionGenerationRunStore implements Histori
 
     @Override
     public void recordFailure(UUID tenantId, UUID operationId, String detail, Instant now) {
-        String message = detail == null ? "" : detail.replaceAll("[\\r\\n\\t]+", " ");
-        if (message.length() > 1000) message = message.substring(0, 1000);
+        String message = detail == null ? "" : detail.substring(0, Math.min(1000, detail.length()));
         String sql = """
                 UPDATE historical_projection_generation_run
                    SET failure_count=failure_count+1, last_error=?, updated_at=?
                  WHERE scope_key=? AND operation_id=? AND tenant_id IS NOT DISTINCT FROM ?
                 """;
-        final String safeMessage = message;
         inTransaction(tenantId, c -> {
             try (PreparedStatement s = c.prepareStatement(sql)) {
-                s.setString(1, safeMessage);
+                s.setString(1, message);
                 s.setTimestamp(2, Timestamp.from(now));
                 s.setString(3, scopeKey(tenantId));
                 s.setObject(4, operationId);
@@ -106,12 +106,13 @@ public final class JdbcHistoricalProjectionGenerationRunStore implements Histori
     }
 
     private Optional<Run> select(Connection c, UUID tenantId, UUID operationId) throws SQLException {
-        try (PreparedStatement s = c.prepareStatement("""
+        String sql = """
                 SELECT operation_id, tenant_id, generation_id, rebuild_run_id, expected_active_generation_id,
                        status, failure_count, last_error, created_at, updated_at, activated_at
                   FROM historical_projection_generation_run
                  WHERE scope_key=? AND operation_id=? AND tenant_id IS NOT DISTINCT FROM ?
-                """)) {
+                """;
+        try (PreparedStatement s = c.prepareStatement(sql)) {
             s.setString(1, scopeKey(tenantId));
             s.setObject(2, operationId);
             s.setObject(3, tenantId);
@@ -162,13 +163,18 @@ public final class JdbcHistoricalProjectionGenerationRunStore implements Histori
         };
     }
 
-    private static String scopeKey(UUID tenantId) { return tenantId == null ? "public" : tenantId.toString(); }
+    private static String scopeKey(UUID tenantId) {
+        return tenantId == null ? "public" : tenantId.toString();
+    }
+
     private static Instant instant(ResultSet r, String column) throws SQLException {
         return r.getObject(column, OffsetDateTime.class).toInstant();
     }
+
     private static Instant nullableInstant(ResultSet r, String column) throws SQLException {
         OffsetDateTime value = r.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();
     }
+
     @FunctionalInterface private interface SqlWork<T> { T apply(Connection connection) throws Exception; }
 }

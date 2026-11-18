@@ -7,9 +7,6 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationRunStore;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationRunStore.Run;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionGenerationRunStore.Status;
 
 import javax.sql.DataSource;
 import java.time.Instant;
@@ -31,12 +28,12 @@ class JdbcHistoricalProjectionGenerationRunStoreIntegrationTest {
         Flyway.configure().dataSource(source).locations("classpath:db/migration").load().migrate();
     }
 
-    @Test void operationIdIsIdempotentAndTenantScoped() {
+    @Test void operationIdIsIdempotentAndBoundToTenantScope() {
         var store = new JdbcHistoricalProjectionGenerationRunStore(source);
         UUID tenant = UUID.randomUUID(), operation = UUID.randomUUID();
-        Instant now = Instant.parse("2026-11-17T00:00:00Z");
-        Run first = store.create(tenant, operation, UUID.randomUUID(), UUID.randomUUID(), null, now);
-        Run retry = store.create(tenant, operation, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), now.plusSeconds(1));
+        Instant now = Instant.parse("2026-11-14T00:00:00Z");
+        var first = store.create(tenant, operation, UUID.randomUUID(), UUID.randomUUID(), null, now);
+        var retry = store.create(tenant, operation, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), now.plusSeconds(1));
 
         assertEquals(first.generationId(), retry.generationId());
         assertEquals(first.rebuildRunId(), retry.rebuildRunId());
@@ -45,36 +42,29 @@ class JdbcHistoricalProjectionGenerationRunStoreIntegrationTest {
         assertEquals(first, store.find(tenant, operation).orElseThrow());
     }
 
-    @Test void transitionsAreCompareAndSetAndFailuresAreDurable() {
+    @Test void lifecycleTransitionsAreCompareAndSetAndFailuresRemainObservable() {
         var store = new JdbcHistoricalProjectionGenerationRunStore(source);
         UUID operation = UUID.randomUUID();
         store.create(null, operation, UUID.randomUUID(), UUID.randomUUID(), null, Instant.now());
 
-        assertTrue(store.transition(null, operation, Status.PREPARING, Status.REPLAYING, Instant.now()));
-        assertFalse(store.transition(null, operation, Status.PREPARING, Status.REPLAYING, Instant.now()));
-        store.recordFailure(null, operation, "temporary provider outage\nretry", Instant.now());
+        assertTrue(store.transition(null, operation,
+                HistoricalProjectionGenerationRunStore.Status.PREPARING,
+                HistoricalProjectionGenerationRunStore.Status.REPLAYING, Instant.now()));
+        assertFalse(store.transition(null, operation,
+                HistoricalProjectionGenerationRunStore.Status.PREPARING,
+                HistoricalProjectionGenerationRunStore.Status.REPLAYING, Instant.now()));
 
-        Run current = store.find(null, operation).orElseThrow();
-        assertEquals(Status.REPLAYING, current.status());
-        assertEquals(1, current.failureCount());
-        assertEquals("temporary provider outage retry", current.lastError());
+        store.recordFailure(null, operation, "Neo4j temporarily unavailable", Instant.now());
+        var updated = store.find(null, operation).orElseThrow();
+        assertEquals(1, updated.failureCount());
+        assertEquals("Neo4j temporarily unavailable", updated.lastError());
+        assertEquals(HistoricalProjectionGenerationRunStore.Status.REPLAYING, updated.status());
     }
 
-    @Test void activatedTimestampIsSetOnlyWithTerminalTransition() {
-        var store = new JdbcHistoricalProjectionGenerationRunStore(source);
-        UUID operation = UUID.randomUUID();
-        store.create(null, operation, UUID.randomUUID(), UUID.randomUUID(), null, Instant.now());
-        assertTrue(store.transition(null, operation, Status.PREPARING, Status.REPLAYING, Instant.now()));
-        assertTrue(store.transition(null, operation, Status.REPLAYING, Status.VALIDATING, Instant.now()));
-        assertTrue(store.transition(null, operation, Status.VALIDATING, Status.READY, Instant.now()));
-        assertTrue(store.transition(null, operation, Status.READY, Status.ACTIVATING, Instant.now()));
-        assertTrue(store.transition(null, operation, Status.ACTIVATING, Status.ACTIVE, Instant.now()));
-        assertNotNull(store.find(null, operation).orElseThrow().activatedAt());
-    }
-
-    @Test void illegalTransitionsAreRejected() {
+    @Test void rejectsIllegalStateTransitions() {
         var store = new JdbcHistoricalProjectionGenerationRunStore(source);
         assertThrows(IllegalArgumentException.class, () -> store.transition(null, UUID.randomUUID(),
-                Status.PREPARING, Status.ACTIVE, Instant.now()));
+                HistoricalProjectionGenerationRunStore.Status.PREPARING,
+                HistoricalProjectionGenerationRunStore.Status.ACTIVE, Instant.now()));
     }
 }

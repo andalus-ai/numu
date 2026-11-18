@@ -60,13 +60,12 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - PostgreSQL outbox retention must preserve the latest event for every relationship; purging canonical history would make the comparison incomplete.
 
 
-## Durable generation orchestration (M4 follow-up)
-- A generation operation is keyed by a caller-supplied UUID. PostgreSQL journals the operation scope, generation ID, rebuild-run ID, expected active-generation ID, lifecycle phase, bounded failure count, and last sanitized failure.
-- Lifecycle phases are PREPARING → REPLAYING → VALIDATING → READY → ACTIVATING → ACTIVE. Transitions are compare-and-set; illegal transitions are rejected.
-- The coordinator advances at most one bounded step per invocation. The host scheduler/worker resumes the same operation ID until ACTIVE; retries do not allocate a new generation or rebuild run.
-- The rebuild service supports a caller-assigned rebuild ID, so the PostgreSQL operation journal and rebuild cursor remain bound to the same target generation.
-- Validation is fail-closed. A generation cannot become READY unless a complete canonical-to-candidate reconciliation has zero missing, stale, divergent, or orphaned relationships and matching counts.
-- Activation uses the expected active-generation ID captured when the operation starts. If Neo4j activation commits but the PostgreSQL journal update is interrupted, a retry recognizes the operation's candidate as ACTIVE/RETAINED and completes the journal transition.
-- PostgreSQL and Neo4j remain separate transaction domains. The lifecycle is a recoverable saga, not a distributed ACID transaction. Operators must inspect stuck ACTIVATING operations and verify the Neo4j pointer before manual intervention.
-- Migration V6 adds the operation journal without rewriting V1–V5. Metrics add a bounded generation phase/failure signal; IDs are not metric labels.
-- Retained-generation deletion is still deliberately disabled. Do not delete an active generation, an in-flight operation's target, or the rollback generation. Automated cleanup requires an explicit retention window, operator audit, and a proof that no active pointer or operation references the target.
+## Staged generation orchestration (M4 follow-up)
+- The generation coordinator uses a caller-supplied operation UUID as an idempotency key and persists the generation UUID, rebuild-run UUID, tenant/public scope, and expected active-generation UUID before performing external work.
+- The PostgreSQL generation-run journal records PREPARING, REPLAYING, VALIDATING, READY, ACTIVATING, and ACTIVE phases, plus bounded failure count and the latest error summary.
+- Rebuild run IDs are caller-assigned and idempotently recovered. The replay service accepts an explicit target generation and refuses staged replay when the configured projection adapter does not implement generation-targeted writes.
+- Each coordinator invocation performs one bounded lifecycle step. Repeated invocations with the same operation ID resume from the durable phase and rebuild cursor.
+- Validation must pass before READY. Activation remains a Neo4j compare-and-set against the active generation captured at operation creation. A retry recognizes an already ACTIVE or RETAINED target as evidence that activation committed before a PostgreSQL journal update.
+- PostgreSQL and Neo4j do not share a distributed transaction. Intermediate states are recoverable saga states, not an atomic cross-database commit.
+- The journal migration is additive V6; deployed V1–V5 migrations are not rewritten. Runtime composition must wire the JDBC journal, generation store, generation-aware projector, maintenance authorization, and a scheduler/worker that calls resume.
+- Generation deletion/retention automation is intentionally not enabled by this milestone. Retained generations remain available for rollback; cleanup requires a separately audited policy that can prove a generation is neither active nor needed by an in-flight operation.
