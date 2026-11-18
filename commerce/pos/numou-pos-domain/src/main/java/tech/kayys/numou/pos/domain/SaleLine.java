@@ -9,6 +9,10 @@ import java.util.UUID;
 /**
  * A sale-time snapshot of an item reference, display details, quantity and unit price.
  * Catalog and pricing remain the source of truth; this snapshot preserves what was sold.
+ *
+ * @param productOfferingReference opaque identity of the Commerce Product Offering.
+ *                                Null is retained for legacy/manual lines that have not
+ *                                yet been linked to the catalog.
  */
 public record SaleLine(
         UUID id,
@@ -17,7 +21,17 @@ public record SaleLine(
         String sku,
         BigDecimal quantity,
         String unitOfMeasure,
-        Money unitPrice) {
+        Money unitPrice,
+        String productOfferingReference) {
+
+    /**
+     * Compatibility constructor for existing/manual sale lines. New catalog-backed
+     * callers should use the canonical constructor and provide the offering reference.
+     */
+    public SaleLine(UUID id, String itemReference, String displayName, String sku,
+            BigDecimal quantity, String unitOfMeasure, Money unitPrice) {
+        this(id, itemReference, displayName, sku, quantity, unitOfMeasure, unitPrice, null);
+    }
 
     public SaleLine {
         Objects.requireNonNull(id, "line id cannot be null");
@@ -48,6 +62,12 @@ public record SaleLine(
             sku = sku.trim();
             if (sku.isEmpty()) {
                 sku = null;
+            }
+        }
+        if (productOfferingReference != null) {
+            productOfferingReference = productOfferingReference.trim();
+            if (productOfferingReference.isEmpty()) {
+                productOfferingReference = null;
             }
         }
     }

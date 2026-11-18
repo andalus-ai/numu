@@ -25,6 +25,7 @@ import java.util.concurrent.CompletionStage;
 public final class ApplicationInstallationOutboxDispatcher {
     private static final String SYSTEM_ACTOR = "system:application-platform";
     private static final String REQUESTED_EVENT = "APPLICATION_INSTALLATION_REQUESTED";
+    private static final String RETRY_REQUESTED_EVENT = "APPLICATION_INSTALLATION_RETRY_REQUESTED";
 
     private final ApplicationInstallationOutboxStore outbox;
     private final ApplicationInstallationTransitionStore installations;
@@ -79,10 +80,13 @@ public final class ApplicationInstallationOutboxDispatcher {
     }
 
     private CompletionStage<EventOutcome> process(ClaimedEvent event, TenantId tenantId, String workerId) {
-        if (!REQUESTED_EVENT.equals(event.eventType())) return acknowledge(event, tenantId, workerId);
-        if (!"REQUESTED".equals(event.toStatus()) || event.revision() != 1)
+        boolean initialRequest = REQUESTED_EVENT.equals(event.eventType());
+        boolean retryRequest = RETRY_REQUESTED_EVENT.equals(event.eventType());
+        if (!initialRequest && !retryRequest) return acknowledge(event, tenantId, workerId);
+        if ((initialRequest && (!"REQUESTED".equals(event.toStatus()) || event.revision() != 1))
+                || (retryRequest && !"VALIDATING".equals(event.toStatus())))
             return handleFailure(event, tenantId, workerId, new ApplicationInstallationProvisioningException(
-                    "INSTALLATION_EVENT_INVALID", false, "Initial installation event has an invalid state or revision"));
+                    "INSTALLATION_EVENT_INVALID", false, "Installation request event has an invalid state or revision"));
         return ensureProvisioned(event, tenantId).thenCompose(ignored -> acknowledge(event, tenantId, workerId))
                 .exceptionallyCompose(failure -> handleFailure(event, tenantId, workerId, unwrap(failure)));
     }
@@ -123,7 +127,7 @@ public final class ApplicationInstallationOutboxDispatcher {
                                                         tenantId, provisioning.id().value(),
                                                         provisioning.applicationId().value(),
                                                         provisioning.packageVersion().value(),
-                                                        provisioning.packageDigest(), event.eventId(),
+                                                        provisioning.packageDigest(), event.operationId(),
                                                         event.actorId(), event.correlationId(), applicationPackage)))
                                         .thenCompose(ignored -> completeInstallation(event, tenantId));
                             }));

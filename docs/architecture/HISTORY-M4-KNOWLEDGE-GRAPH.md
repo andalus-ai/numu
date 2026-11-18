@@ -58,3 +58,15 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Orphaned nodes are reported only. Destructive cleanup requires a staged generation rebuild and explicit activation protocol.
 - The host is responsible for authenticating and authorizing maintenance access before invoking reconciliation. The read ports do not replace application-level maintenance authorization.
 - PostgreSQL outbox retention must preserve the latest event for every relationship; purging canonical history would make the comparison incomplete.
+
+
+## Durable generation orchestration (M4 follow-up)
+- A generation operation is keyed by a caller-supplied UUID. PostgreSQL journals the operation scope, generation ID, rebuild-run ID, expected active-generation ID, lifecycle phase, bounded failure count, and last sanitized failure.
+- Lifecycle phases are PREPARING → REPLAYING → VALIDATING → READY → ACTIVATING → ACTIVE. Transitions are compare-and-set; illegal transitions are rejected.
+- The coordinator advances at most one bounded step per invocation. The host scheduler/worker resumes the same operation ID until ACTIVE; retries do not allocate a new generation or rebuild run.
+- The rebuild service supports a caller-assigned rebuild ID, so the PostgreSQL operation journal and rebuild cursor remain bound to the same target generation.
+- Validation is fail-closed. A generation cannot become READY unless a complete canonical-to-candidate reconciliation has zero missing, stale, divergent, or orphaned relationships and matching counts.
+- Activation uses the expected active-generation ID captured when the operation starts. If Neo4j activation commits but the PostgreSQL journal update is interrupted, a retry recognizes the operation's candidate as ACTIVE/RETAINED and completes the journal transition.
+- PostgreSQL and Neo4j remain separate transaction domains. The lifecycle is a recoverable saga, not a distributed ACID transaction. Operators must inspect stuck ACTIVATING operations and verify the Neo4j pointer before manual intervention.
+- Migration V6 adds the operation journal without rewriting V1–V5. Metrics add a bounded generation phase/failure signal; IDs are not metric labels.
+- Retained-generation deletion is still deliberately disabled. Do not delete an active generation, an in-flight operation's target, or the rollback generation. Automated cleanup requires an explicit retention window, operator audit, and a proof that no active pointer or operation references the target.

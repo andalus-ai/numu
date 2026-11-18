@@ -156,6 +156,25 @@ public final class JdbcNotificationDeliveryJobRepository implements Notification
         });
     }
 
+    @Override
+    public Optional<NotificationDeliveryJob> markSuppressed(
+            UUID tenantId, UUID jobId, UUID leaseToken, String safeReasonCode) {
+        requireScope(tenantId, jobId, leaseToken);
+        String reason = safeReasonCode == null ? "" : safeReasonCode.trim();
+        if (reason.length() > NotificationDeliveryJob.MAX_ERROR_CODE_LENGTH)
+            throw new IllegalArgumentException("safeReasonCode is too long");
+        String sql = "UPDATE notification_delivery_job SET status = 'SUPPRESSED', lease_token = NULL, "
+                + "lease_until = NULL, last_error_code = ? "
+                + "WHERE tenant_id = ? AND id = ? AND status = 'IN_FLIGHT' AND lease_token = ? "
+                + "RETURNING " + COLUMNS;
+        return transition("mark notification delivery suppressed", sql, statement -> {
+            statement.setString(1, reason);
+            statement.setObject(2, tenantId);
+            statement.setObject(3, jobId);
+            statement.setObject(4, leaseToken);
+        });
+    }
+
     private Optional<NotificationDeliveryJob> transition(
             String operation, String sql, Binder binder) {
         try (Connection connection = dataSource.getConnection();

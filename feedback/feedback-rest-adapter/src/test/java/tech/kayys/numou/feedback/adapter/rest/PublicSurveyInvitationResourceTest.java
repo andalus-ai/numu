@@ -44,6 +44,26 @@ class PublicSurveyInvitationResourceTest {
         assertEquals("respondent-1", responses.command.respondentId());
     }
 
+    @Test
+    void answerWriteCannotCrossSurveyEvenWithinSameTenant() throws Exception {
+        FakeRepository repository = new FakeRepository();
+        String token = "public-token";
+        repository.distribution = new SurveyDistribution(UUID.randomUUID(), TenantId.generate(), "survey-authoritative",
+                DistributionChannel.PUBLIC_LINK, hash(token), NOW.plusSeconds(3600), 20,
+                DistributionStatus.ACTIVE, NOW.minusSeconds(1));
+        CapturingResponses responses = new CapturingResponses();
+        responses.sessionSurvey = "another-survey";
+        var resolver = new ResolveSurveyDistributionHandler(repository);
+        var submissions = new SubmitDistributedSurveyResponseHandler(resolver, repository, (t, s, r) -> { });
+        var resource = new PublicSurveyInvitationResource(resolver, responses, submissions);
+
+        var result = resource.answer(token, "response-1", "question-1",
+                new ObjectMapper().readTree("{\\"kind\\":\\"text\\",\\"value\\":\\"hello\\"}"));
+
+        assertEquals(404, result.getStatus());
+        assertFalse(responses.answerSaved);
+    }
+
     private static String hash(String token) {
         try {
             return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
@@ -61,8 +81,15 @@ class PublicSurveyInvitationResourceTest {
             return new ResponseSession(new ResponseId("response-1"), cmd.survey(), ResponseStatus.IN_PROGRESS,
                     1, List.of(), Map.of(), Optional.empty());
         }
-        @Override public ResponseSession saveAnswer(TenantContext ctx, SaveAnswer cmd) { throw new UnsupportedOperationException(); }
-        @Override public ResponseSession getSession(TenantContext ctx, ResponseId id) { throw new UnsupportedOperationException(); }
+        @Override public ResponseSession saveAnswer(TenantContext ctx, SaveAnswer cmd) {
+            answerSaved = true;
+            return session();
+        }
+        @Override public ResponseSession getSession(TenantContext ctx, ResponseId id) { return session(); }
+        private ResponseSession session() {
+            return new ResponseSession(new ResponseId("response-1"), new SurveyId(sessionSurvey),
+                    ResponseStatus.IN_PROGRESS, 1, List.of(), Map.of(), Optional.empty());
+        }
         @Override public SubmissionResult submit(TenantContext ctx, ResponseId id) { throw new UnsupportedOperationException(); }
     }
 
