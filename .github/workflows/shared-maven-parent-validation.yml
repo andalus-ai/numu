@@ -34,6 +34,9 @@ jobs:
       - name: Validate framework aggregator model without unrelated child reactors
         run: mvn -B -ntp -N -f core/framework/pom.xml validate
 
+      - name: Install framework parent POM for independently validated child reactors
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+
       - name: Validate published platform BOM
         run: mvn -B -ntp -f core/framework/bom/pom.xml install
 

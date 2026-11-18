@@ -30,6 +30,7 @@ class ApplicationRuntimeCoordinatorTest {
             this.id = id;
             this.events = events;
             this.failureAt = failureAt;
+            this.stopFailuresRemaining = "stop".equals(failureAt) ? 1 : 0;
             this.manifest = PluginManifest.builder(id)
                     .version("9.8.7") // Plugin release is deliberately independent from capability contract.
                     .capabilities(Set.of(Capability.of(capability, contractVersion)))
@@ -45,8 +46,9 @@ class ApplicationRuntimeCoordinatorTest {
             events.add("init:" + id);
             state = PluginState.INITIALIZED;
             receivedContext = context;
-            if (id.equals("runtime.party.impl")) {
-                context.registerService(SharedMarker.class, new SharedMarker());
+            if (id.startsWith("runtime.party")) {
+                registeredService = new SharedMarker();
+                context.registerService(SharedMarker.class, registeredService);
             } else {
                 observedSharedService = context.getService(SharedMarker.class).orElse(null);
             }
@@ -75,7 +77,11 @@ class ApplicationRuntimeCoordinatorTest {
     }
 
     private ApplicationComposition composition() {
-        var manifest = new ApplicationManifest("com.example.erp", "1.0.0",
+        return composition("com.example.erp");
+    }
+
+    private ApplicationComposition composition(String applicationId) {
+        var manifest = new ApplicationManifest(applicationId, "1.0.0",
                 "com.example", "ERP", List.of(
                 new CapabilityRequirement("numou.party", "^1.0.0"),
                 new CapabilityRequirement("numou.accounting", "^2.0.0")),

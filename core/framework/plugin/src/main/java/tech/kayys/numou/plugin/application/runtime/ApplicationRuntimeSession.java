@@ -5,6 +5,7 @@ import tech.kayys.numou.plugin.api.PluginContext;
 import tech.kayys.numou.plugin.api.PluginState;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,6 +24,7 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
     private final Map<String, PluginContext> contexts;
     private final Map<String, String> providerByCapability;
     private final AtomicBoolean stopped = new AtomicBoolean();
+    private final Set<String> stoppedProviders = new HashSet<>();
 
     ApplicationRuntimeSession(String applicationId, List<String> providerIds,
             Map<String, NumouPlugin> pluginsByProvider, Map<String, PluginContext> contexts,
@@ -87,9 +89,14 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
                 failures.add(failure);
             }
         }
+        if (stoppedProviders.size() == providerIds.size()) {
+            stopped.set(true);
+        }
         if (!failures.isEmpty()) {
             ApplicationRuntimeException exception = new ApplicationRuntimeException(
-                    "Failed to stop " + failures.size() + " plugin(s) for application " + applicationId);
+                    "Failed to stop " + failures.size() + " plugin(s) for application " + applicationId
+                            + "; " + stoppedProviders.size() + "/" + providerIds.size()
+                            + " providers stopped");
             failures.forEach(exception::addSuppressed);
             throw exception;
         }

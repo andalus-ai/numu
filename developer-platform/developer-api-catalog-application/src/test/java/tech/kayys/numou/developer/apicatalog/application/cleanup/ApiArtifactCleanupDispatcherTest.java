@@ -65,13 +65,58 @@ class ApiArtifactCleanupDispatcherTest {
         ApiArtifactObjectDeletionPort storage = (tenant, reference, sha) ->
                 Uni.createFrom().failure(new IllegalStateException("storage unavailable"));
 
+        Instant beforeFailure = Instant.now();
         int count = new ApiArtifactCleanupDispatcher(repository, storage)
                 .dispatchOnce(TenantId.generate(), "worker", NOW, Duration.ofSeconds(90), 10, 5)
                 .await().indefinitely();
 
         assertThat(count).isZero();
         assertThat(repository.failureCode.get()).isEqualTo("IllegalStateException");
-        assertThat(repository.retryAt.get()).isEqualTo(NOW.plusSeconds(5));
+        assertThat(repository.retryAt.get()).isAfter(beforeFailure.plusSeconds(4))
+                .isBefore(Instant.now().plusSeconds(6));
+    }
+
+    @Test
+    void countsExpiredFailureLeaseAsLeaseLostRatherThanFailed() {
+        FakeRepository repository = new FakeRepository();
+        repository.failureRecorded.set(false);
+        ApiArtifactObjectDeletionPort storage = (tenant, reference, sha) ->
+                Uni.createFrom().failure(new IllegalStateException("late storage failure"));
+
+        ApiArtifactCleanupDispatcher.DispatchResult result = new ApiArtifactCleanupDispatcher(repository, storage)
+                .dispatchDetailedOnce(TenantId.generate(), "worker", NOW,
+                        Duration.ofSeconds(90), 10, 5).await().indefinitely();
+
+        assertThat(result.failed()).isZero();
+        assertThat(result.leaseLost()).isEqualTo(1);
+    }
+
+    @Test
+    void detailedDispatchReportsClaimsAndDeletedItems() {
+        FakeRepository repository = new FakeRepository();
+        ApiArtifactCleanupDispatcher.DispatchResult result = new ApiArtifactCleanupDispatcher(
+                repository, (tenant, reference, sha) -> Uni.createFrom().voidItem())
+                .dispatchDetailedOnce(TenantId.generate(), "worker", NOW,
+                        Duration.ofSeconds(90), 10, 5).await().indefinitely();
+
+        assertThat(result.claimed()).isEqualTo(1);
+        assertThat(result.deleted()).isEqualTo(1);
+        assertThat(result.failed()).isZero();
+        assertThat(result.leaseLost()).isZero();
+    }
+
+    @Test
+    void exposesTenantScopedOperationalSnapshot() {
+        FakeRepository repository = new FakeRepository();
+        var snapshot = new ApiArtifactCleanupDispatcher(repository,
+                (tenant, reference, sha) -> Uni.createFrom().voidItem())
+                .snapshot(TenantId.generate(), NOW, 5).await().indefinitely();
+
+        assertThat(snapshot.eligible()).isEqualTo(2);
+        assertThat(snapshot.leased()).isEqualTo(1);
+        assertThat(snapshot.terminalFailures()).isZero();
+        assertThat(snapshot.tombstones()).isEqualTo(3);
+        assertThat(snapshot.oldestDueAgeSeconds()).isEqualTo(15);
     }
 
     @Test
@@ -88,6 +133,7 @@ class ApiArtifactCleanupDispatcherTest {
         final AtomicBoolean markedDeleted = new AtomicBoolean();
         final AtomicReference<String> failureCode = new AtomicReference<>();
         final AtomicReference<Instant> retryAt = new AtomicReference<>();
+        final AtomicBoolean failureRecorded = new AtomicBoolean(true);
 
         @Override public Uni<List<CleanupLease>> claimDue(TenantId tenant, String workerId, Instant now,
                                                           Instant leaseUntil, int limit, int maximumAttempts) {
@@ -102,11 +148,17 @@ class ApiArtifactCleanupDispatcherTest {
             markedDeleted.set(true);
             return Uni.createFrom().voidItem();
         }
-        @Override public Uni<Void> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
-                                                 String code, Instant retry, int maximumAttempts) {
+        @Override public Uni<Boolean> recordFailure(TenantId tenant, CleanupLease lease, String workerId,
+                                                 String code, Instant failedAt, Instant retry, int maximumAttempts) {
             failureCode.set(code);
             retryAt.set(retry);
-            return Uni.createFrom().voidItem();
+            return Uni.createFrom().item(failureRecorded.get());
+        }
+
+        @Override public Uni<ApiArtifactCleanupRepository.CleanupOperationalSnapshot> snapshot(
+                TenantId tenant, Instant now, int maximumAttempts) {
+            return Uni.createFrom().item(new ApiArtifactCleanupRepository.CleanupOperationalSnapshot(
+                    2, 1, 0, 3, 15));
         }
     }
 }

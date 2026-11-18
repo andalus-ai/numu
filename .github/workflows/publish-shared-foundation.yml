@@ -75,3 +75,68 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -f core/framework/social-graph/pom.xml deploy
+
+      - name: Configure read credentials for clean-room package verification
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/numou-maven-home"
+          cat > "$RUNNER_TEMP/numou-maven-home/settings.xml" <<XML
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <servers>
+              <server><id>numou-platform</id><username>${GITHUB_ACTOR}</username><password>${GITHUB_TOKEN}</password></server>
+            </servers>
+            <profiles>
+              <profile><id>numou-platform</id><repositories>
+                <repository><id>numou-platform</id><url>https://maven.pkg.github.com/andalus-ai/numu</url><releases><enabled>true</enabled></releases><snapshots><enabled>true</enabled></snapshots></repository>
+              </repositories></profile>
+            </profiles>
+            <activeProfiles><activeProfile>numou-platform</activeProfile></activeProfiles>
+          </settings>
+          XML
+
+      - name: Verify published parent, BOM and required Core artifacts from an empty local repository
+        run: |
+          mkdir -p "$RUNNER_TEMP/numou-consumer"
+          cat > "$RUNNER_TEMP/numou-consumer/pom.xml" <<'POM'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+            <parent>
+              <groupId>tech.kayys.numou</groupId>
+              <artifactId>numou-parent</artifactId>
+              <version>0.1.0-SNAPSHOT</version>
+              <relativePath/>
+            </parent>
+            <groupId>tech.kayys.numou.verification</groupId>
+            <artifactId>platform-package-consumer</artifactId>
+            <version>1.0.0</version>
+            <dependencyManagement><dependencies>
+              <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-bom</artifactId>
+                <version>0.1.0-SNAPSHOT</version>
+                <type>pom</type><scope>import</scope>
+              </dependency>
+            </dependencies></dependencyManagement>
+            <dependencies>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-foundation</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-foundation-application</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-foundation-testing</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-foundation-adapter</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-cache-api</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-cache-adapter</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-observability-api</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-observability-application</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-application</artifactId></dependency>
+              <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-social-graph-persistence-jdbc</artifactId></dependency>
+            </dependencies>
+          </project>
+          POM
+          mvn -B -ntp \
+            -s "$RUNNER_TEMP/numou-maven-home/settings.xml" \
+            -Dmaven.repo.local="$RUNNER_TEMP/numou-empty-m2" \
+            -f "$RUNNER_TEMP/numou-consumer/pom.xml" \
+            dependency:go-offline
