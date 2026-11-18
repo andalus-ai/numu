@@ -1,5 +1,6 @@
 package tech.kayys.numou.history.graph.application;
 
+import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.RebuildRun;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.ReplayEvent;
@@ -73,8 +74,16 @@ public final class HistoricalProjectionRebuildService {
 
     /** Processes at most one page. A paused or terminal run is never replayed. */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
+        return resumeOnePage(tenantId, runId, null);
+    }
+
+    /** Replays into the exact staged generation; null means the active projection. */
+    public RebuildProgress resumeOnePage(UUID tenantId, UUID runId, UUID generationId) {
         Objects.requireNonNull(runId, "runId");
         authorizeScope(tenantId);
+        if (generationId != null && !(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+            throw new IllegalStateException("projection adapter does not support generation-targeted replay");
+        }
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
 
@@ -157,9 +166,7 @@ public final class HistoricalProjectionRebuildService {
         }
         UUID trustedTenant = Objects.requireNonNull(tenantContext.requireTenantId(),
                 "trusted tenant context must provide a tenant");
-        if (!trustedTenant.equals(tenantId)) {
-            throw new SecurityException("requested rebuild scope differs from authenticated tenant");
-        }
+        if (!trustedTenant.equals(tenantId)) throw new SecurityException("requested rebuild scope differs from authenticated tenant");
         authorization.requireCanRebuildTenant(trustedTenant);
     }
 

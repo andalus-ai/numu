@@ -24,8 +24,13 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
 
     @Override
     public RebuildRun start(UUID tenantId, Instant now) {
+        return start(tenantId, UUID.randomUUID(), now);
+    }
+
+    @Override
+    public RebuildRun start(UUID tenantId, UUID runId, Instant now) {
+        Objects.requireNonNull(runId, "runId");
         Objects.requireNonNull(now, "now");
-        UUID runId = UUID.randomUUID();
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -36,6 +41,8 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 try (Statement lock = c.createStatement()) {
                     lock.execute("LOCK TABLE historical_relationship_projection_outbox IN SHARE MODE");
                 }
+                existing = find(c, tenantId, runId);
+                if (existing.isPresent()) { c.commit(); return existing.get(); }
                 long highWater;
                 try (Statement s = c.createStatement();
                      ResultSet r = s.executeQuery("SELECT COALESCE(MAX(projection_sequence), 0) FROM historical_relationship_projection_outbox")) {
@@ -56,18 +63,28 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 }
                 c.commit();
                 return new RebuildRun(runId, tenantId, highWater, 0, RebuildRun.Status.RUNNING, now, now);
-            } catch (SQLException | RuntimeException e) {
-                rollback(c, e);
-                throw e;
+            } catch (SQLException | RuntimeException failure) {
+                try { c.rollback(); } catch (SQLException rollback) { failure.addSuppressed(rollback); }
+                throw failure;
             }
-        } catch (SQLException e) {
-            throw failure("start historical projection rebuild", e);
+        } catch (SQLException failure) {
+            Optional<RebuildRun> existing = find(tenantId, runId);
+            if (existing.isPresent()) return existing.get();
+            throw new IllegalStateException("Unable to start historical projection rebuild", failure);
         }
     }
 
     @Override
     public Optional<RebuildRun> find(UUID tenantId, UUID runId) {
         Objects.requireNonNull(runId, "runId");
+        try (Connection c = source.getConnection()) {
+            return find(c, tenantId, runId);
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Unable to load historical projection rebuild", failure);
+        }
+    }
+
+    private Optional<RebuildRun> find(Connection c, UUID tenantId, UUID runId) throws SQLException {
         String sql = "SELECT * FROM historical_relationship_projection_rebuild_run WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?";
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
@@ -87,8 +104,6 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 rollback(c, e);
                 throw e;
             }
-        } catch (SQLException e) {
-            throw failure("load historical projection rebuild", e);
         }
     }
 
@@ -336,13 +351,5 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
             scope.setString(1, tenantId == null ? "" : tenantId.toString());
             scope.execute();
         }
-    }
-
-    private static void rollback(Connection c, Throwable failure) {
-        try { c.rollback(); } catch (SQLException e) { failure.addSuppressed(e); }
-    }
-
-    private static IllegalStateException failure(String operation, SQLException cause) {
-        return new IllegalStateException("Unable to " + operation, cause);
     }
 }
