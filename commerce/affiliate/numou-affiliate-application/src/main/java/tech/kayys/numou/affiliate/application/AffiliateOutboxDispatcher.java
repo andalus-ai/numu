@@ -48,32 +48,73 @@ public final class AffiliateOutboxDispatcher {
             return CompletableFuture.failedFuture(new IllegalArgumentException("tenantId and workerId are required"));
         Instant now = clock.instant();
         return store.claimPending(tenantId, workerId, now, lease, batchSize)
-                .thenCompose(events -> dispatch(events, 0, workerId, 0));
+                .thenCompose(events -> dispatch(events, 0, workerId, new DispatchProgress(0, null)))
+                .thenCompose(progress -> progress.failure() == null
+                        ? CompletableFuture.completedFuture(progress.delivered())
+                        : CompletableFuture.failedFuture(
+                                new AffiliateOutboxDispatchException(progress.delivered(), progress.failure())));
     }
 
-    private CompletionStage<Integer> dispatch(List<AffiliateEventOutboxStore.ClaimedEvent> events,
-            int index, String workerId, int delivered) {
-        if (index >= events.size()) return CompletableFuture.completedFuture(delivered);
+    /**
+     * Processes every row in the claimed batch even if a stale lease or a
+     * persistence failure prevents one row from being rescheduled. The
+     * remaining rows are independent claims and must not be stranded merely
+     * because an earlier row could not be completed.
+     */
+    private CompletionStage<DispatchProgress> dispatch(
+            List<AffiliateEventOutboxStore.ClaimedEvent> events,
+            int index, String workerId, DispatchProgress progress) {
+        if (index >= events.size()) return CompletableFuture.completedFuture(progress);
+
         AffiliateEventOutboxStore.ClaimedEvent event = events.get(index);
-        CompletionStage<Integer> current;
+        CompletionStage<Void> publication;
         try {
-            current = publisher.publish(event)
-                    .thenCompose(ignored -> store.markDelivered(event.tenantId(), event.id(), workerId, event.leaseVersion(), clock.instant()))
-                    .thenApply(ignored -> delivered + 1)
-                    .exceptionallyCompose(failure -> {
-                        Instant now = clock.instant();
-                        String reason = describe(failure);
-                        return store.reschedule(event.tenantId(), event.id(), workerId, reason,
-                                now.plus(backoff(event.attempts())), now, maxAttempts, event.leaseVersion())
-                                .thenApply(ignored -> delivered);
-                    });
+            publication = Objects.requireNonNull(publisher.publish(event), "publisher returned null")
+                    .thenCompose(ignored -> store.markDelivered(event.tenantId(), event.id(),
+                            workerId, event.leaseVersion(), clock.instant()));
         } catch (RuntimeException failure) {
-            Instant now = clock.instant();
-            current = store.reschedule(event.tenantId(), event.id(), workerId, describe(failure),
-                    now.plus(backoff(event.attempts())), now, maxAttempts, event.leaseVersion()).thenApply(ignored -> delivered);
+            publication = CompletableFuture.failedFuture(failure);
         }
-        return current.thenCompose(count -> dispatch(events, index + 1, workerId, count));
+
+        return publication.handle((ignored, failure) -> {
+            if (failure == null) {
+                return CompletableFuture.completedFuture(
+                        new DispatchProgress(progress.delivered() + 1, progress.failure()));
+            }
+
+            Instant now = clock.instant();
+            CompletionStage<Void> retry;
+            try {
+                retry = Objects.requireNonNull(store.reschedule(event.tenantId(), event.id(), workerId,
+                        describe(failure), now.plus(backoff(event.attempts())), now,
+                        maxAttempts, event.leaseVersion()), "outbox store returned null reschedule stage");
+            } catch (RuntimeException rescheduleFailure) {
+                return CompletableFuture.completedFuture(withFailure(progress, rescheduleFailure));
+            }
+            return retry.handle((rescheduled, rescheduleFailure) -> rescheduleFailure == null
+                    ? progress
+                    : withFailure(progress, rescheduleFailure));
+        }).thenCompose(stage -> stage)
+                .thenCompose(next -> dispatch(events, index + 1, workerId, next));
     }
+
+    private static DispatchProgress withFailure(DispatchProgress progress, Throwable failure) {
+        Throwable cause = unwrap(failure);
+        if (progress.failure() == null) return new DispatchProgress(progress.delivered(), cause);
+        if (progress.failure() != cause) progress.failure().addSuppressed(cause);
+        return progress;
+    }
+
+    private static Throwable unwrap(Throwable failure) {
+        Throwable cause = failure;
+        while ((cause instanceof java.util.concurrent.CompletionException
+                || cause instanceof java.util.concurrent.ExecutionException) && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        return cause;
+    }
+
+    private record DispatchProgress(int delivered, Throwable failure) {}
 
     private Duration backoff(int attempt) {
         long multiplier = 1L << Math.min(30, Math.max(0, attempt - 1));
