@@ -26,10 +26,15 @@ class HistoricalProjectionRebuildServiceTest {
 
     @Test void failedProjectionLeavesCursorForSafeReplay() {
         FakeStore store = new FakeStore(); store.events = List.of(event(1), event(2)); int[] calls = {0};
-        var service = service(store, e -> { if (++calls[0] == 2) throw new IllegalStateException("temporary provider failure"); }, allowAll(), 2);
+        String[] failedReason = {null};
+        var service = new HistoricalProjectionRebuildService(store,
+                e -> { if (++calls[0] == 2) throw new IllegalStateException("temporary provider failure"); },
+                () -> TENANT, allowAll(), Clock.fixed(NOW, ZoneOffset.UTC), 2, snapshot -> {}, null,
+                (tenant, runId, reason) -> failedReason[0] = reason);
         var run = service.start(TENANT);
         assertThrows(IllegalStateException.class, () -> service.resumeOnePage(TENANT, run.runId()));
         assertEquals(0, store.cursor);
+        assertTrue(failedReason[0].contains("temporary provider failure"));
     }
 
     @Test void rejectsCrossTenantPageBeforeProjectingAnyEvent() {
