@@ -6,6 +6,8 @@ import tech.kayys.numou.content.spi.ContentPayloadCodec;
 import tech.kayys.numou.content.spi.ContentRepository;
 import java.time.Clock;
 import java.util.Map;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Objects;
 /** Typed authoring use cases. Schema validation precedes serialization and persistence. */
 public final class ContentApplicationService {
@@ -17,7 +19,7 @@ public final class ContentApplicationService {
  }
  public ContentEntry create(ContentCommandContext context,ContentTypeId typeId,int schemaVersion,String title,String slug,Map<String,?> values){
   validate(context,typeId,schemaVersion,values);
-  String body=Objects.requireNonNull(payloadCodec.encode(Map.copyOf(values)),"Encoded content body");
+  String body=Objects.requireNonNull(payloadCodec.encode(Collections.unmodifiableMap(new LinkedHashMap<>(values))),"Encoded content body");
   ContentEntry entry=ContentEntry.create(context.tenantId(),title,slug,body,typeId,schemaVersion,context.actorId(),clock.instant());
   repository.create(entry);return entry;
  }
