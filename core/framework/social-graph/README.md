@@ -216,3 +216,49 @@ discovery endpoints.
 The current read service intentionally does not expose blocker/mute lists,
 mutual connections, arbitrary graph traversal, follower counts or public
 search. Those require separate privacy and authorization contracts.
+
+
+## M2f interaction and delivery policy gate
+
+The application exposes `SocialGraphInteractionPolicyService` for consuming capabilities that need a single, typed policy decision before acting or delivering content. Its supported intents are `FOLLOW`, `MESSAGE`, `COMMENT`, `INVITE`, `ENDORSE`, `FEED_DELIVERY` and `NOTIFICATION_DELIVERY`.
+
+- Every intent checks symmetric BLOCK policy first. A block in either stored direction returns `BLOCKED`.
+- Only `FEED_DELIVERY` and `NOTIFICATION_DELIVERY` consult directional MUTE policy. A viewer-owned mute returns `MUTED`; it does not deny comments, messages, invitations, endorsements or relationship commands by itself.
+- Non-delivery intents return `ALLOWED` when no block applies. `ALLOWED` is only a Social Graph relationship-policy result; the consumer must still perform its own action authorization and domain validation.
+- Both relationship lookups in one evaluation use the same captured instant, avoiding mixed effective-time decisions.
+- Self-pairs return `ALLOWED` without a relationship-store lookup.
+- Suppression is a delivery/read decision, not event deletion. Notification and activity outbox records, audit history and source events remain intact; consumers should suppress dispatch while retaining durable intent and observability.
+- This is an application contract, not an implicit dependency from Notification or Feed into Social Graph. Hosts compose an adapter at the boundary and must supply canonical tenant-scoped Party IDs from trusted identity/domain records. Do not parse Party IDs from untrusted notification text or source-reference strings.
+
+The consumer still owns profile visibility, consent, moderation, notification preferences unrelated to Social Graph, recipient eligibility, rate limits and transport/provider behavior. No feed API, message service, notification mutation or public discovery endpoint is introduced by this increment.
+
+
+## M2g Notification delivery integration
+
+The optional `notification/notification-adapter-social-graph` artifact composes
+Notification's required `NotificationDeliveryPolicy` worker port with
+`SocialGraphInteractionPolicyService`. Notification remains the owner of
+inbox and delivery-job state; Social Graph remains the owner of BLOCK/MUTE
+semantics. Neither module accesses the other's persistence tables.
+
+For social-originated notifications, trusted producers persist the canonical
+source `PartyId` as `sourceActorPartyId`. The host supplies a
+`NotificationRecipientPartyResolver` that resolves the notification recipient
+to an active canonical Party in the same tenant. The adapter evaluates the
+recipient as viewer and source Party as author. It never assumes UUID equality
+between Notification recipient IDs and Ecosystem Party IDs.
+
+BLOCK and recipient-owned MUTE produce durable `SUPPRESSED` delivery jobs.
+An unresolved recipient Party also suppresses rather than bypassing policy.
+Policy infrastructure failures are retried without calling the provider.
+System-originated notifications with no source Party skip relationship
+checks because there is no social author. Producers must attach canonical
+source attribution for Party-authored content/actions; all other host-owned
+consent, visibility, moderation and recipient eligibility checks still apply.
+
+See [M2g Notification delivery suppression](../../../docs/architecture/SOCIAL-GRAPH-M2G-NOTIFICATION-DELIVERY.md)
+for schema, composition and verification details.
+
+## Authenticated relationship reads
+
+`SocialGraphRelationshipReadFacade` is the application boundary for following/follower list reads. It accepts only the trusted tenant and verified issuer/subject supplied by the host, resolves the viewer through the tenant-scoped Ecosystem identity association, and rejects missing or cross-tenant resolver results before querying. The caller cannot supply the viewer `PartyId`. The profile owner in a followers request is a target only; profile visibility and block policy are still enforced by `SocialGraphRelationshipReadService` through host-provided visibility policy and the authoritative Social Graph block/mute policy port. The facade returns only relationship references and timestamps, not profile/contact data. Hosts must continue to apply their route-level authentication and any additional capability authorization required by their product policy.

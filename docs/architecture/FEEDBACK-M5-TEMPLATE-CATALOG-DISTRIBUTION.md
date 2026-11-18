@@ -64,3 +64,35 @@ The application handler and Survey submission bridge are implemented, but the HT
 ### Recovery semantics
 
 A reservation is a small cross-capability protocol, not a distributed transaction. Survey owns the response commit; Feedback owns invitation quota. The five-minute claim lease plus idempotent Survey bridge makes retry recovery possible. Production runtime should monitor stale RESERVED claims and alert if they persist beyond the lease. If Survey and Feedback share one transaction manager in a deployment profile, a future adapter may collapse both steps into one local transaction.
+
+
+## Public respondent REST adapter
+
+The `feedback-rest-adapter` module now exposes invitation-scoped response operations:
+
+- `POST /api/v1/public/feedback/surveys/{token}/responses` — starts a Survey response using the tenant and survey ID resolved from the invitation.
+- `GET /api/v1/public/feedback/surveys/{token}/responses/{responseId}` — reads a response session only within the invitation tenant.
+- `PUT /api/v1/public/feedback/surveys/{token}/responses/{responseId}/answers/{questionId}` — validates and saves an answer through Survey's application use case.
+- `POST /api/v1/public/feedback/surveys/{token}/responses/{responseId}/submit` — submits through the Feedback quota coordinator and Survey submission bridge.
+
+The API does not accept a tenant ID or survey ID from the public caller. Every read/write is re-scoped to the tenant and survey on the resolved grant. Invalid tokens are deliberately mapped to a generic 404. Quota exhaustion is 410; an in-progress duplicate submission is 409. Survey domain errors are translated to transport status codes without returning internal exception details.
+
+Answer JSON uses explicit discriminators: `text`, `number`, `day`, `bool`, `choice`, `ranking`, and `matrix`. The adapter rejects malformed shapes and non-finite numeric values before calling Survey.
+
+### Runtime composition requirements
+
+This module deliberately does not choose a persistence or tenancy adapter. The host runtime must provide:
+- a `SurveyDistributionRepository` backed by the Feedback PostgreSQL adapter (and run migrations V1–V5);
+- Survey's `ResponseUseCase` backed by the deployment's persistent Survey repositories, not the in-memory development wiring;
+- the same tenant lifecycle/tenant repository semantics used by the platform so the invitation tenant is active when Survey validates the response.
+
+The CDI producer in `FeedbackInvitationConfiguration` composes the token resolver, Survey submission bridge and submission coordinator. The host remains responsible for binding `SurveyDistributionRepository` and Survey's `ResponseUseCase`.
+
+### Edge security requirements before production exposure
+
+- Apply per-IP and per-token rate limits, bot mitigation and request-body size limits at the gateway.
+- Redact the `{token}` path segment from reverse-proxy, tracing and access logs; never include it in analytics.
+- Use HTTPS only, `Cache-Control: no-store`, and avoid caching respondent sessions or answers.
+- Apply an explicit CORS allowlist where cross-origin survey embedding is required.
+- Configure retention/deletion for respondent IDs and response metadata according to tenant policy.
+- Do not expose this public route until persistent Survey repositories and the Feedback distribution repository are wired in the same runtime profile. The existing in-memory Survey bootstrap is development-only.
