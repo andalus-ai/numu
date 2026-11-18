@@ -19,4 +19,11 @@ public interface NotificationDeliveryJobRepository {
             UUID tenantId, UUID jobId, UUID leaseToken, Instant retryAt, String safeErrorCode);
     Optional<NotificationDeliveryJob> markDead(
             UUID tenantId, UUID jobId, UUID leaseToken, String safeErrorCode);
+
+    /**
+     * Persist a terminal policy suppression while the worker still owns the lease.
+     * Suppressed jobs are not provider failures and must never be reclaimed for delivery.
+     */
+    Optional<NotificationDeliveryJob> markSuppressed(
+            UUID tenantId, UUID jobId, UUID leaseToken, String safeReasonCode);
 }

@@ -107,6 +107,22 @@ class JdbcNotificationDeliveryJobRepositoryTest {
     }
 
     @Test
+    void policySuppressionIsTerminalAndNeverReclaimedAsProviderWork() {
+        Fixture fixture = fixture();
+        NotificationDeliveryJob queued = repository.enqueue(job(fixture, "suppressed"));
+        UUID lease = UUID.randomUUID();
+        repository.claimDue(now, now.plusSeconds(30), 10, lease);
+
+        NotificationDeliveryJob suppressed = repository.markSuppressed(
+                fixture.tenant(), queued.id(), lease, "social_graph_muted").orElseThrow();
+
+        assertEquals(NotificationDeliveryJob.Status.SUPPRESSED, suppressed.status());
+        assertEquals("social_graph_muted", suppressed.lastErrorCode());
+        assertTrue(repository.claimDue(now.plusSeconds(60), now.plusSeconds(90), 10, UUID.randomUUID()).isEmpty());
+        assertTrue(repository.markDelivered(fixture.tenant(), queued.id(), lease, now.plusSeconds(61)).isEmpty());
+    }
+
+    @Test
     void tenantAndRecipientMustMatchReferencedInboxAndDevice() throws Exception {
         Fixture fixture = fixture();
         NotificationDeliveryJob invalid = NotificationDeliveryJob.pending(
@@ -145,6 +161,7 @@ class JdbcNotificationDeliveryJobRepositoryTest {
 
     private static void executeMigrations(DataSource dataSource) throws Exception {
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS notification_push_token_migration_audit CASCADE");
             statement.execute("DROP TABLE IF EXISTS notification_delivery_job CASCADE");
             statement.execute("DROP TABLE IF EXISTS notification_push_device CASCADE");
             statement.execute("DROP TABLE IF EXISTS notification_inbox CASCADE");
@@ -153,7 +170,9 @@ class JdbcNotificationDeliveryJobRepositoryTest {
                 "V1__notification_inbox.sql",
                 "V2__notification_push_device.sql",
                 "V3__notification_delivery_jobs.sql",
-                "V4__notification_push_token_encryption.sql")) {
+                "V4__notification_push_token_encryption.sql",
+                "V5__notification_push_token_migration_audit.sql",
+                "V6__social_graph_delivery_suppression.sql")) {
             String sql;
             try (var stream = JdbcNotificationDeliveryJobRepositoryTest.class
                     .getResourceAsStream("/db/migration/" + migration)) {

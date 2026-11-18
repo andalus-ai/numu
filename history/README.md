@@ -7,7 +7,7 @@ Historical knowledge foundation for chronology, events, people, collectives, pla
 - entities: historical people, civilizations/cultures/polities/institutions, places, time-bounded names and location assertions, affiliations, event links, and typed graph relationships.
 - graph-spi: tenant-aware relationship and projection-outbox persistence contracts.
 - graph-application: trusted-tenant relationship use cases, lease-aware projection dispatcher/worker, authorized rebuild/reconciliation operations, and vendor-neutral observability contracts.
-- graph-postgres-adapter: authoritative append-only PostgreSQL relationship revisions, RLS isolation, transactional projection event capture, fenced outbox delivery, read-only operational health snapshots, and append-only repair audit persistence.
+- graph-postgres-adapter: authoritative append-only PostgreSQL relationship revisions, RLS isolation, transactional projection event capture, fenced outbox delivery, read-only operational health snapshots, append-only repair audit persistence, and version-fenced rebuild lifecycle persistence.
 - graph-neo4j-adapter: optional, disposable Neo4j projection for graph traversal; never the system of record.
 - source: tenant-scoped historical source catalog, immutable source revisions, claim registry, precise evidence locators, contradictory/supporting evidence links, qualitative methodology-bound source assessments, append-only editorial review decisions, bibliographic editions, contributor attributions, archival holdings, institution-scoped catalog identifiers, directed source-to-source citation/provenance relationships, and bounded authorization-aware citation graph discovery. PostgreSQL is authoritative; source binaries remain in the shared document capability.
 
@@ -27,8 +27,11 @@ PostgreSQL is authoritative. Neo4j is optional and rebuildable from the durable 
 mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 
-The history reactor is intentionally isolated from the repository's other Maven reactor roots. PostgreSQL and Neo4j adapter integration tests use Testcontainers and run in the History CI workflow. Migrations V2–V3 cover atomic event capture, lease fencing, retry accounting, and audited dead-letter replay; V5 adds immutable operator audit entries for graph reconciliation repairs.
+The history reactor is intentionally isolated from the repository's other Maven reactor roots. PostgreSQL and Neo4j adapter integration tests use Testcontainers and run in the History CI workflow. Migrations V2–V3 cover atomic event capture, lease fencing, retry accounting, and audited dead-letter replay; V5 adds immutable operator audit entries for graph reconciliation repairs; V6 adds durable rebuild pause/resume/cancel/fail/retry state, lifecycle-version fencing, and actor-attributed transition audit.
 
 
 ## Graph projection operations
 Operational metrics and recovery procedures are documented in [Historical graph projection operations](../docs/runbooks/HISTORICAL-GRAPH-PROJECTION-OPERATIONS.md). Metrics are exposed through framework-neutral application ports; the deployment runtime supplies its telemetry adapter and alert rules.
+
+
+The staged-generation lifecycle now has a durable PostgreSQL orchestration journal (migration V6): operations bind an idempotency UUID to one Neo4j generation and one rebuild cursor, then advance through replay, validation, readiness, and compare-and-set activation. The host must repeatedly resume the same operation ID using a scheduler/worker and supply trusted tenant context and maintenance authorization. PostgreSQL/Neo4j cutover is a recoverable saga, not a cross-database transaction. Retained-generation deletion remains disabled pending an audited retention policy.

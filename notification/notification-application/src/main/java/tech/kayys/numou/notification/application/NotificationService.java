@@ -31,7 +31,7 @@ public final class NotificationService {
         Objects.requireNonNull(command, "command is required");
         Notification notification = Notification.create(
                 command.tenantId(), command.recipientId(), command.type(), command.title(),
-                command.body(), command.sourceReference(), command.idempotencyKey(), Instant.now(clock));
+                command.body(), command.sourceReference(), command.idempotencyKey(), command.sourceActorPartyId(), Instant.now(clock));
         return repository.createIfAbsent(notification);
     }
 
@@ -59,7 +59,14 @@ public final class NotificationService {
             String title,
             String body,
             String sourceReference,
-            String idempotencyKey) {
+            String idempotencyKey,
+            UUID sourceActorPartyId) {
+        /** Compatibility constructor for system-originated notifications. */
+        public CreateNotification(UUID tenantId, UUID recipientId, String type, String title,
+                String body, String sourceReference, String idempotencyKey) {
+            this(tenantId, recipientId, type, title, body, sourceReference, idempotencyKey, null);
+        }
+
         public CreateNotification {
             Objects.requireNonNull(tenantId, "tenantId is required");
             Objects.requireNonNull(recipientId, "recipientId is required");
