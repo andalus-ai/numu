@@ -47,7 +47,7 @@ FOR EACH ROW EXECUTE FUNCTION content_guard_entry_update();
 CREATE OR REPLACE FUNCTION content_guard_entry_insert()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $
+AS $$
 BEGIN
     IF NEW.status <> 'DRAFT' OR NEW.current_revision <> 1 THEN
         RAISE EXCEPTION 'new content entries must begin as draft at revision one'
@@ -55,7 +55,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$;
+$$;
 
 CREATE TRIGGER trg_content_entry_initial_state
 BEFORE INSERT ON content_entry
