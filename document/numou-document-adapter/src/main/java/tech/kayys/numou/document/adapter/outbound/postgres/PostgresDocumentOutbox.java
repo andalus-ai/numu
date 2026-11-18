@@ -11,6 +11,7 @@ import tech.kayys.numou.accounting.domain.document.DocumentCreated;
 import tech.kayys.numou.accounting.domain.document.DocumentDeleted;
 import tech.kayys.numou.accounting.domain.document.DocumentPublished;
 import tech.kayys.numou.accounting.domain.document.DocumentVersionCreated;
+import tech.kayys.numou.accounting.domain.document.DocumentVersionScanCompleted;
 import tech.kayys.numou.document.application.port.DocumentOutboxPort;
 import tech.kayys.numou.foundation.domain.event.DomainEvent;
 
@@ -82,6 +83,7 @@ public class PostgresDocumentOutbox implements DocumentOutboxPort {
         var documentId = switch (event) {
             case DocumentCreated created -> created.documentId();
             case DocumentVersionCreated created -> created.documentId();
+            case DocumentVersionScanCompleted completed -> completed.documentId();
             case DocumentPublished published -> published.documentId();
             case DocumentArchived archived -> archived.documentId();
             case DocumentDeleted deleted -> deleted.documentId();
