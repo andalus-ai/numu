@@ -21,14 +21,18 @@ public record DocumentScanResult(
         Objects.requireNonNull(versionId, "versionId");
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(scannedAt, "scannedAt");
-        if (scanner == null || scanner.isBlank()) {
-            throw new IllegalArgumentException("scanner must not be blank");
+        if (scanner == null || scanner.isBlank() || scanner.length() > 200) {
+            throw new IllegalArgumentException("scanner must contain 1 to 200 characters");
+        }
+        if (signatureVersion != null && signatureVersion.length() > 200) {
+            throw new IllegalArgumentException("signatureVersion must not exceed 200 characters");
         }
         if (status == DocumentScanStatus.PENDING) {
             throw new IllegalArgumentException("A persisted scan result cannot remain PENDING");
         }
-        if (status == DocumentScanStatus.FAILED && (failureCode == null || failureCode.isBlank())) {
-            throw new IllegalArgumentException("FAILED scan results require a failureCode");
+        if (status == DocumentScanStatus.FAILED && (failureCode == null || failureCode.isBlank()
+                || failureCode.length() > 200)) {
+            throw new IllegalArgumentException("FAILED scan results require a failureCode of at most 200 characters");
         }
         if (status != DocumentScanStatus.FAILED && failureCode != null) {
             throw new IllegalArgumentException("Only FAILED scan results may contain a failureCode");

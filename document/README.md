@@ -46,3 +46,27 @@ up to ten at a time to Kafka topic `document.events`. Failed deliveries use capp
 exponential retry and move to `DEAD` after the configured attempt limit; the
 event ID is included in the envelope for consumer-side deduplication. Delivery
 is at-least-once, so consumers must deduplicate by `eventId`.
+
+## Version-scoped malware scanning
+
+Every immutable document version has its own scan state. Migration
+`V7__document_version_scan_state.sql` creates a pending scan result and durable
+scan job for existing versions, and a database trigger creates both for every
+new version. A clean verdict for an older version never approves a newer one.
+
+The application exposes a provider-neutral `DocumentScanner` port and
+`ScanDocumentVersionHandler`. The handler loads the document through the
+tenant-scoped repository, resolves the exact immutable version, passes its
+storage key and SHA-256 to the scanner, and persists the verdict and
+`document.version-scan-completed` event within the host unit of work.
+The PostgreSQL result repository allows PENDING to become a verdict, permits
+newer FAILED results to be retried, and treats CLEAN and INFECTED as terminal.
+
+The default scanner adapter is deliberately fail-closed: until a host installs
+a real scanner implementation, it returns `FAILED / SCANNER_NOT_CONFIGURED`.
+It never returns CLEAN. The durable scan-job claimant/lease worker, production
+scanner integration, operational retry/dead-letter policy, and downstream
+Feedback event consumer are still pending. Therefore scan orchestration is
+implemented, but end-to-end malware scanning is not yet operational. A host
+must not expose an attachment until it has consumed a trusted CLEAN result for
+the exact tenant, document ID, and document version ID.
