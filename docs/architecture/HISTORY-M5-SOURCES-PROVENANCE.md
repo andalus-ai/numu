@@ -2,7 +2,7 @@
 
 ## Status
 
-M5.5 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
+M5.6 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
 
 ## Ownership and boundaries
 
@@ -71,6 +71,19 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - The projection is not persisted and does not introduce graph write authority, a second source of truth, a universal reliability score, or an inference that connected sources are independent corroboration. PostgreSQL remains authoritative.
 - The existing optional Neo4j adapter for canonical historical-entity relationships is not coupled to this source graph read model. A future disposable graph projection may be introduced only with explicit rebuild, authorization, and consistency contracts.
 
+
+
+## Source ingestion and extraction provenance (M5.6)
+
+- An ingestion request is an immutable snapshot of either a shared document version or the source's canonical HTTP(S) URI. URI requests retain the exact URI at request time so later source metadata revisions cannot silently change what a worker fetches.
+- Shared document identifiers and version identifiers are opaque references. The host adapter must verify tenant ownership, version existence and permission through the shared document capability; History does not store or duplicate binary payloads.
+- Extraction artifacts are append-only provenance records containing extraction kind, extractor identity/version, input and output SHA-256 digests, locale/locator, worker reference, and a stable reference to the derived shared-document version. Extracted text, OCR and transcript payloads remain in the shared document capability.
+- PostgreSQL enforces tenant-scoped foreign keys, forced RLS and append-only triggers. A uniqueness key across ingestion, extractor/version and output document version prevents duplicate worker result registration.
+- Application authorization is explicit for request creation, worker result registration and reads. Tenant identity comes only from trusted host context.
+- URL request capture performs no network access. Any worker that fetches a URL must enforce SSRF protections (scheme/host policy, DNS and resolved-IP validation, redirect revalidation, private/link-local address blocking, and response/time/size limits). The current increment does not claim that URL fetching, OCR or transcription workers are deployed.
+
+The request and result contracts intentionally separate source identity from content storage. A future asynchronous worker/lease increment can dispatch these immutable requests and record retry/failure attempts without changing the provenance contract.
+
 ## Persistence and security
 
 - The PostgreSQL adapter sets transaction-local `numou.tenant_id` from the trusted application argument for every operation.
@@ -95,7 +108,7 @@ The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The s
 
 ## Deliberately deferred
 
-- source ingestion, OCR/transcription, content extraction and shared document-store integration;
+- asynchronous ingestion dispatch, worker leases/retries, URL fetching, OCR/transcription adapters and extraction execution;
 - durable/asynchronous source graph projections, full-text indexing, and cross-source independence analysis;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
 - REST/GraphQL APIs, full-text search indexing, ranking and corpus-scale discovery;
