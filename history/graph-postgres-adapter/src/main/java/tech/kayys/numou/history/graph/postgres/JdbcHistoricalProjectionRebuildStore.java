@@ -150,6 +150,17 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                  WHERE run_id=? AND tenant_id IS NOT DISTINCT FROM ?
                    AND status='RUNNING' AND cursor_sequence=? AND lifecycle_version=?
                    AND high_water_sequence>=?
+                   AND EXISTS (
+                       SELECT 1 FROM historical_relationship_projection_outbox target
+                        WHERE target.tenant_id IS NOT DISTINCT FROM historical_relationship_projection_rebuild_run.tenant_id
+                          AND target.projection_sequence=?
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1 FROM historical_relationship_projection_outbox skipped
+                        WHERE skipped.tenant_id IS NOT DISTINCT FROM historical_relationship_projection_rebuild_run.tenant_id
+                          AND skipped.projection_sequence > historical_relationship_projection_rebuild_run.cursor_sequence
+                          AND skipped.projection_sequence < ?
+                   )
                 """;
         try (Connection c = source.getConnection()) {
             c.setAutoCommit(false);
@@ -164,6 +175,8 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                     s.setLong(5, expectedCursor);
                     s.setLong(6, expectedLifecycleVersion);
                     s.setLong(7, nextCursor);
+                    s.setLong(8, nextCursor);
+                    s.setLong(9, nextCursor);
                     advanced = s.executeUpdate() == 1;
                 }
                 c.commit();
