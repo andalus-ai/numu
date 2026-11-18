@@ -61,3 +61,8 @@ The same optional adapter also exposes the existing structured-database use case
 | DELETE | `/databases/{databaseId}/views/{viewId}` | Delete the actor's personal view |
 
 Record query limits are bounded to 1–200, with default 50 for table and saved-view queries and 100 for board queries. The application service remains authoritative for record and table authorization, schema validation, revision checks, and atomic audited writes. Schema mutation is deliberately limited to the existing safe-evolution service contract; destructive changes still require the explicit migration workflow rather than bypassing it through HTTP.
+
+
+## SSE connection lifecycle
+
+The REST adapter uses an application-scoped `WorkspaceSseConnectionRegistry`: default maximum 2,000 connections per process, 20-second comment heartbeats, and a 60-second write-stall timeout. Slow consumers and stalled writes are disconnected rather than buffered; admission overflow returns HTTP 503. `health()` exposes process-local counters for host metrics integration. These limits are not cluster-wide, and the heartbeat is not a client-activity detector. See [M39 — Bounded SSE connection lifecycle](../docs/M39-bounded-sse-connection-lifecycle.md).
