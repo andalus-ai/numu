@@ -148,6 +148,8 @@ class OrganizationInvitationDeliveryWorkerTest {
             sentCount++; return CompletableFuture.completedFuture(true);
         }
         public CompletionStage<Boolean> retry(UUID id, TenantId tenant, UUID lease, Instant at, String code) {
+            retryCode = code;
+            retryAt = at;
             return CompletableFuture.completedFuture(true);
         }
         public CompletionStage<Boolean> deadLetter(UUID id, TenantId tenant, UUID lease, Instant at, String code) {
