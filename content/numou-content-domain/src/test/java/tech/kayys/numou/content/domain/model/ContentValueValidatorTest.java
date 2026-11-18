@@ -2,6 +2,7 @@ package tech.kayys.numou.content.domain.model;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.content.domain.TenantId;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -32,20 +33,17 @@ class ContentValueValidatorTest {
     }
     @Test void validatesNullabilityAndStructuredJson() {
         var s = ContentTypeSchema.create(new TenantId(UUID.randomUUID()), ContentTypeId.newId(),
-                "page", "Page", List.of(
-                new ContentFieldDefinition("metadata", FieldType.JSON, false, false, null, null, null, null, null, List.of())
-        ), Instant.now());
+                "page", "Page", List.of(new ContentFieldDefinition("metadata", FieldType.JSON, false, false,
+                null, null, null, null, null, List.of())), Instant.now());
         assertTrue(validator.validate(s, Map.of("metadata", Map.of("x", 1))).valid());
-        assertTrue(validator.validate(s, new java.util.HashMap<>() {{ put("metadata", null); }}).violations()
-                .stream().anyMatch(v -> v.code().equals("null_not_allowed")));
+        var nullValue = new java.util.HashMap<String, Object>(); nullValue.put("metadata", null);
+        assertTrue(validator.validate(s, nullValue).violations().stream().anyMatch(v -> v.code().equals("null_not_allowed")));
     }
     @Test void publishedSchemasAreImmutableSnapshots() {
         var first = schema().publish(Instant.parse("2026-01-02T00:00:00Z"));
         var second = first.nextDraft(List.of(new ContentFieldDefinition("title", FieldType.TEXT, true, false,
                 null, 500, null, null, null, List.of())), Instant.parse("2026-01-03T00:00:00Z"));
-        assertEquals(1, first.version());
-        assertEquals(2, second.version());
-        assertEquals(SchemaStatus.PUBLISHED, first.status());
-        assertEquals(SchemaStatus.DRAFT, second.status());
+        assertEquals(1, first.version()); assertEquals(2, second.version());
+        assertEquals(SchemaStatus.PUBLISHED, first.status()); assertEquals(SchemaStatus.DRAFT, second.status());
     }
 }
