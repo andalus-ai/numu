@@ -10,7 +10,7 @@
 - Rehydration verifies the persisted current-revision pointer against contiguous revision history.
 
 ## Historical compatibility
-V3 adds nullable schema-reference columns because records created before M3 have no schema identity. Those rows remain readable as legacy untyped history. All new writes through `ContentApplicationService` are schema-bound; legacy untyped application commands have been removed. Existing legacy rows are not silently assigned a guessed content type or schema.
+V4 adds nullable schema-reference columns because records created before M3 have no schema identity. Those rows remain readable as legacy untyped history. All new writes through `ContentApplicationService` are schema-bound; legacy untyped application commands have been removed. Existing legacy rows are not silently assigned a guessed content type or schema.
 
 ## Invariants
 1. Every authoring command names an exact content type and schema version.
@@ -22,4 +22,4 @@ V3 adds nullable schema-reference columns because records created before M3 have
 7. Serialization is an adapter responsibility behind `ContentPayloadCodec`.
 
 ## Verification boundary
-The Content Platform workflow verifies Maven compilation and unit tests. PostgreSQL migration and transaction behavior still require a live PostgreSQL integration test job before production deployment. Migration V3 has not been executed against a production database by this change.
+The Content Platform workflow verifies Maven compilation and unit tests. The dedicated workflow starts PostgreSQL 16 and applies V1 (core), V2 (schema registry), V3 (editorial lifecycle), and V4 (schema binding) before running repository integration tests. This verifies migration ordering, tenant-scoped schema foreign keys, atomic revision append, and stale-revision rejection in CI. Production rollout still requires an operator-reviewed backup and migration plan.
