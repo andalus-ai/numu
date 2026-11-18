@@ -9,7 +9,8 @@ Configuration (all values are positive integers):
 | `numou.workspace.collaboration.max-connections` | 2000 | Maximum live subscriptions in this process |
 | `numou.workspace.collaboration.max-per-tenant` | 200 | Maximum live subscriptions for one tenant |
 | `numou.workspace.collaboration.max-per-page` | 50 | Maximum live subscriptions for one tenant/page |
-| `numou.workspace.collaboration.max-per-actor` | 20 | Maximum live subscriptions for one tenant/actor |\n| `numou.workspace.collaboration.heartbeat-interval-seconds` | 25 | SSE comment heartbeat interval (5–300 seconds) |
+| `numou.workspace.collaboration.max-per-actor` | 20 | Maximum live subscriptions for one tenant/actor |
+| `numou.workspace.collaboration.heartbeat-interval-seconds` | 25 | SSE comment heartbeat interval (5–300 seconds) |
 
 The hub and shared heartbeat scheduler are closed by CDI disposal during application shutdown. The scheduler uses one daemon thread for all active SSE connections; each connection holds a cancellable recurring task rather than owning a thread. Heartbeats are SSE comment frames, skipped while a page-change frame is in flight, and do not create browser message events. Scheduler health exposes active stream count, callback count, callback failures, and shutdown state. Actor, page, and tenant revocation terminate matching subscriptions and notify the SSE resource so its connection is closed. The hub also exposes an aggregate health snapshot for host health/metrics integration.
 
