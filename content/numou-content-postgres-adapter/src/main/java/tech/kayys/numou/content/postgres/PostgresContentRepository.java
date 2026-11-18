@@ -29,10 +29,10 @@ public final class PostgresContentRepository implements ContentRepository {
    try(PreparedStatement p=c.prepareStatement(insert)){bindRevision(p,revised,revised.currentRevision());p.executeUpdate();}c.commit();return true;
   }catch(SQLException e){throw failure("append content revision",e);}
  }
- @Override public boolean updateStatus(TenantId tenantId,ContentId contentId,ContentStatus status,Instant updatedAt){
-  String sql="UPDATE content_entry SET status=?,updated_at=? WHERE tenant_id=? AND content_id=?";
-  try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setString(1,status.name());p.setTimestamp(2,Timestamp.from(updatedAt));p.setObject(3,tenantId.value());p.setObject(4,contentId.value());return p.executeUpdate()==1;}
-  catch(SQLException e){throw failure("update content status",e);}
+ @Override public boolean transitionStatus(TenantId tenantId,ContentId contentId,ContentStatus expected,ContentStatus target,Instant updatedAt){
+  String sql="UPDATE content_entry SET status=?,updated_at=? WHERE tenant_id=? AND content_id=? AND status=?";
+  try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)){p.setString(1,target.name());p.setTimestamp(2,Timestamp.from(updatedAt));p.setObject(3,tenantId.value());p.setObject(4,contentId.value());p.setString(5,expected.name());return p.executeUpdate()==1;}
+  catch(SQLException e){throw failure("transition content lifecycle",e);}
  }
  private List<ContentRevision> loadRevisions(Connection c,TenantId tenant,ContentId id)throws SQLException{
   List<ContentRevision> result=new ArrayList<>();String sql="SELECT revision_number,title,slug,body,author_id,created_at FROM content_revision WHERE tenant_id=? AND content_id=? ORDER BY revision_number";
