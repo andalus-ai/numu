@@ -5,7 +5,8 @@ import io.smallrye.config.ConfigMapping;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Disposes;
 import jakarta.enterprise.inject.Produces;
-import tech.kayys.numou.workspace.collaboration.local.LocalWorkspacePageChangeHub;\nimport tech.kayys.numou.workspace.adapter.rest.WorkspaceSseHeartbeatScheduler;
+import tech.kayys.numou.workspace.collaboration.local.LocalWorkspacePageChangeHub;
+import tech.kayys.numou.workspace.adapter.rest.WorkspaceSseHeartbeatScheduler;
 
 /**
  * Optional CDI composition for standalone and modular-monolith hosts. A host that supplies its
