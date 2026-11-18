@@ -13,7 +13,7 @@ import java.util.UUID;
  * marking a projection rebuild failed. Every successful transition is persisted
  * together with its actor-attributed audit entry by the store.
  */
-public final class HistoricalProjectionRebuildLifecycleService {
+public final class HistoricalProjectionRebuildLifecycleService implements HistoricalProjectionRebuildFailurePort {
     private final HistoricalProjectionRebuildStore store;
     private final HistoricalRelationshipTenantContext tenantContext;
     private final HistoricalProjectionMaintenanceAuthorizationPort authorization;
@@ -62,6 +62,7 @@ public final class HistoricalProjectionRebuildLifecycleService {
     }
 
     /** Worker/runtime failure must carry a configured service-principal actor. */
+    @Override
     public RebuildRun markFailed(UUID tenantId, UUID runId, String reason) {
         return transition(tenantId, runId, Action.FAIL, RebuildRun.Status.RUNNING,
                 RebuildRun.Status.FAILED, reason);
