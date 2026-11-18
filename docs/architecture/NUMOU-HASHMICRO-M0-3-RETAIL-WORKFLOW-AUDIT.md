@@ -256,3 +256,66 @@ Do not replace the existing checkout saga. The next implementation milestone sho
 5. Add real PostgreSQL concurrency/recovery tests and run the POS reactor plus focused CI jobs.
 
 No implementation code was changed in M0.3a because the correct compensation and accounting contracts must first be aligned with the existing inventory/payment/accounting capability owners.
+
+
+## 11. M0.3b — Inventory and sale-completion handoff trace (2026-11-18)
+
+### 11.1 Inventory already provides the required primitives
+
+Additional source files inspected:
+
+- `supply/inventory/inventory-application/src/main/java/tech/kayys/numou/inventory/application/InventoryService.java`
+- `supply/inventory/inventory-application/src/main/java/tech/kayys/numou/inventory/application/TenantScopedInventoryService.java`
+- `supply/inventory/inventory-spi/src/main/java/tech/kayys/numou/inventory/spi/InventoryRepository.java`
+- `supply/inventory/inventory-adapter/src/main/java/tech/kayys/numou/inventory/adapter/postgres/PostgresInventoryRepository.java`
+- `supply/inventory/inventory-adapter/src/main/java/tech/kayys/numou/inventory/adapter/postgres/PostgresTenantInventoryRepositoryProvider.java`
+- `supply/inventory/inventory-adapter/src/main/resources/db/migration/V1__inventory_ledger_and_reservations.sql`
+- `supply/inventory/inventory-adapter/src/test/java/tech/kayys/numou/inventory/adapter/postgres/PostgresInventoryRepositoryTest.java`
+
+Verified capabilities:
+- Tenant-explicit application facade scopes the repository provider and tenant-scopes idempotency keys.
+- PostgreSQL repository binds each instance to one tenant and includes tenant_id in queries.
+- Reservation creation accepts a durable command key, checks the payload fingerprint, serializes stock operations with stock-row locks, checks available stock, and stores a command receipt in the same transaction.
+- Reservation command lookup can recover the original reservation after a lost response.
+- Idempotent reserved issue atomically inserts the stock movement, changes the reservation from ACTIVE to COMMITTED and writes the command receipt.
+- Reservation release/expiry uses version checks; release-if-active returns an already RELEASED or EXPIRED reservation unchanged.
+- PostgreSQL tests cover same-key replay/payload conflict and a two-worker reservation race that must allow only one 6-unit reservation against 10 units.
+
+**Boundary:** Inventory has durable primitives for the POS adapter to implement reserve/commit/release. The POS-specific implementation of CheckoutInventoryPort was not located in the inspected source set, so the actual mapping from POS reservationReference to Inventory ReservationId, and the use of stable command keys for commit, remain unverified. Do not add another stock reservation subsystem.
+
+### 11.2 POS transactional outbox and sale lifecycle events already exist
+
+Additional source files inspected:
+
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/SaleCommandService.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/event/SaleLifecycleEvents.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/port/out/PosOutboxWriter.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/port/out/PosOutboxEvent.java`
+- `commerce/pos/numou-pos-adapter/src/main/java/tech/kayys/numou/pos/adapter/persistence/PostgresPosOutboxWriter.java`
+- `commerce/pos/numou-pos-adapter/src/main/resources/db/migration/V2__pos_transactional_outbox.sql`
+- `docs/architecture/POS-PLATFORM-M4-TRANSACTIONAL-OUTBOX.md`
+
+The outbox is not merely a proposed future component: a PostgreSQL writer, schema, application port and integration tests exist. SaleCommandService.open, complete and void append versioned sale lifecycle events through that port in the same command path as their sale mutation. SaleLifecycleEvents.completed emits event type `pos.sale.completed`. The outbox contract is at-least-once delivery; the current M4 documentation says a dispatcher/broker publisher is not included.
+
+**Correction to POS-A1:** the POS outbox and sale-completed event producer do exist. The gap is that CheckoutOrchestrationService does not invoke the sale completion command or append a checkout completion event itself, and no accounting consumer/dispatcher was established by this source trace. The remaining task is to connect the existing sale/checkout lifecycle correctly and trace downstream consumers, not to create a second outbox.
+
+### 11.3 Critical checkout-to-sale lifecycle gap
+
+The checkout orchestration service receives only a read-only CheckoutSalePort (find by tenant and sale ID). It validates the sale is OPEN, but after successful payment and inventory commit it marks only CheckoutSession COMPLETED. It does not update the Sale aggregate to COMPLETED and does not call SaleCommandService.complete.
+
+The separate SaleCommandService.complete does the correct sale transition and appends pos.sale.completed via the existing transactional outbox, but no invocation from CheckoutOrchestrationService was found.
+
+This creates a dangerous split-brain lifecycle: a checkout can be COMPLETED while its source Sale remains OPEN. A later checkout with a different checkout ID can pass the sale's OPEN check and create another payment/reservation attempt against the same sale. The sale completion command also requires an expected sale version and open-shift authorization, which the checkout orchestration currently does not carry.
+
+**POS-A7 — P0:** checkout completion and sale completion are not coordinated. Define one application-level completion contract that atomically or durably coordinates the payment-success/stock-commit result with sale state transition and the existing sale-completed outbox event. If cross-capability atomicity is impossible, model explicit intermediate states and recovery; never mark checkout complete while leaving the sale eligible for a second checkout. Add tests proving a completed sale cannot enter a second checkout, including crash/retry between stock commit and sale completion.
+
+### 11.4 Updated implementation priorities
+
+1. **P0 — Sale/checkout lifecycle convergence (POS-A7):** make sale completion idempotent and part of checkout recovery; preserve the existing SaleCommandService and outbox event contract.
+2. **P0 — Compensation recovery (POS-A2):** make every persisted non-terminal checkout state recoverable and test the compensation-required path.
+3. **P0 — Inventory adapter mapping:** prove CheckoutInventoryPort maps reservation to Inventory ReservationId and commit to idempotent issueReserved; prove release uses tenant-scoped release-if-active.
+4. **P1 — Concurrent checkout create:** insert-or-load the winner for identical tenant/checkout/sale requests; reject sale mismatch.
+5. **P1 — Refund status fidelity:** represent known refunded/partially refunded states separately from UNKNOWN.
+6. **P1 — Accounting consumer/dispatcher:** inspect existing outbox dispatch infrastructure and accounting source-reference contracts before wiring the sale-completed event to journal posting. Do not infer that a sale-completed event alone is an accounting journal.
+
+No source implementation was changed in M0.3b. The findings now identify the exact lifecycle seam that must be fixed without duplicating the existing inventory, payment, sale or outbox capabilities.
