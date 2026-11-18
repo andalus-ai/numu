@@ -7,7 +7,7 @@ ALTER TABLE content_revision
 ALTER TABLE content_revision
     ADD CONSTRAINT ck_content_revision_schema_pair CHECK (
         (content_type_id IS NULL AND schema_version IS NULL) OR
-        (content_type_id IS NOT NULL AND schema_version >= 1)
+        (content_type_id IS NOT NULL AND schema_version IS NOT NULL AND schema_version >= 1)
     );
 
 ALTER TABLE content_revision
