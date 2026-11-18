@@ -13,10 +13,15 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    IF NEW.current_revision IS DISTINCT FROM OLD.current_revision
-       AND NEW.current_revision <> OLD.current_revision + 1 THEN
-        RAISE EXCEPTION 'content revision pointer must advance exactly one revision'
-            USING ERRCODE = '23514';
+    IF NEW.current_revision IS DISTINCT FROM OLD.current_revision THEN
+        IF OLD.status <> 'DRAFT' OR NEW.status <> 'DRAFT' THEN
+            RAISE EXCEPTION 'only draft content may append revisions'
+                USING ERRCODE = '23514';
+        END IF;
+        IF NEW.current_revision <> OLD.current_revision + 1 THEN
+            RAISE EXCEPTION 'content revision pointer must advance exactly one revision'
+                USING ERRCODE = '23514';
+        END IF;
     END IF;
 
     IF NEW.status IS DISTINCT FROM OLD.status AND NOT (
@@ -62,10 +67,11 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     expected_revision INTEGER;
+    entry_status VARCHAR(24);
     previous_exists BOOLEAN;
     schema_status VARCHAR(16);
 BEGIN
-    SELECT current_revision INTO expected_revision
+    SELECT current_revision, status INTO expected_revision, entry_status
       FROM content_entry
      WHERE tenant_id = NEW.tenant_id AND content_id = NEW.content_id
      FOR UPDATE;
@@ -73,6 +79,11 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'content entry does not exist for revision'
             USING ERRCODE = '23503';
+    END IF;
+
+    IF entry_status <> 'DRAFT' THEN
+        RAISE EXCEPTION 'only draft content may receive a new revision'
+            USING ERRCODE = '23514';
     END IF;
 
     IF NEW.content_type_id IS NULL OR NEW.schema_version IS NULL THEN
