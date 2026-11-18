@@ -24,12 +24,14 @@ class ApplicationRuntimeCoordinatorTest {
         private PluginContext receivedContext;
         private Object observedSharedService;
         private PluginState state = PluginState.LOADED;
+        private int stopFailuresRemaining;
 
         private TestPlugin(String id, String capability, String contractVersion,
                 List<String> events, String failureAt) {
             this.id = id;
             this.events = events;
             this.failureAt = failureAt;
+            this.stopFailuresRemaining = "stop".equals(failureAt) ? 1 : 0;
             this.manifest = PluginManifest.builder(id)
                     .version("9.8.7") // Plugin release is deliberately independent from capability contract.
                     .capabilities(Set.of(Capability.of(capability, contractVersion)))
@@ -67,6 +69,10 @@ class ApplicationRuntimeCoordinatorTest {
         @Override
         public void stop() {
             events.add("stop:" + id);
+            if (stopFailuresRemaining > 0) {
+                stopFailuresRemaining--;
+                throw new IllegalStateException("stop failed once");
+            }
             state = PluginState.STOPPED;
         }
     }
@@ -75,7 +81,11 @@ class ApplicationRuntimeCoordinatorTest {
     }
 
     private ApplicationComposition composition() {
-        var manifest = new ApplicationManifest("com.example.erp", "1.0.0",
+        return composition("com.example.erp");
+    }
+
+    private ApplicationComposition composition(String applicationId) {
+        var manifest = new ApplicationManifest(applicationId, "1.0.0",
                 "com.example", "ERP", List.of(
                 new CapabilityRequirement("numou.party", "^1.0.0"),
                 new CapabilityRequirement("numou.accounting", "^2.0.0")),
@@ -252,6 +262,60 @@ class ApplicationRuntimeCoordinatorTest {
                 .anyMatch(provider -> provider.providerId().equals("accounting-provider")
                         && provider.state() == PluginState.FAILED && !provider.ready());
         session.stop();
+    }
+
+    @Test
+    void defaultContextFactoryIsolatesServicesAndTenantAttributesBetweenApplications() {
+        List<String> events = new ArrayList<>();
+        DefaultApplicationPluginContextFactory sharedFactory =
+                new DefaultApplicationPluginContextFactory(Map.of("region", "id-ID"),
+                        Map.of("tenant.id", "tenant-one"));
+        SharedMarker firstApplicationService = new SharedMarker();
+        sharedFactory.registerService(SharedMarker.class, firstApplicationService);
+
+        TestPlugin partyOne = new TestPlugin("runtime.party.one", "numou.party", "1.2.0", events, null);
+        TestPlugin accountingOne = new TestPlugin("runtime.accounting.one", "numou.accounting", "2.1.0", events, null);
+        ApplicationRuntimeSession first = new ApplicationRuntimeCoordinator().start(composition("app-one"),
+                Map.of("party-provider", partyOne, "accounting-provider", accountingOne), sharedFactory);
+
+        TestPlugin partyTwo = new TestPlugin("runtime.party.two", "numou.party", "1.2.0", events, null);
+        TestPlugin accountingTwo = new TestPlugin("runtime.accounting.two", "numou.accounting", "2.1.0", events, null);
+        ApplicationRuntimeSession second = new ApplicationRuntimeCoordinator().start(composition("app-two"),
+                Map.of("party-provider", partyTwo, "accounting-provider", accountingTwo), sharedFactory);
+
+        assertThat(partyOne.receivedContext.attributes())
+                .containsEntry("application.id", "app-one").containsEntry("tenant.id", "tenant-one");
+        assertThat(partyTwo.receivedContext.attributes())
+                .containsEntry("application.id", "app-two").containsEntry("tenant.id", "tenant-one");
+        assertThat(accountingOne.observedSharedService).isSameAs(firstApplicationService);
+        assertThat(accountingTwo.observedSharedService).isSameAs(firstApplicationService);
+        assertThat(first.context("party-provider")).isNotSameAs(second.context("party-provider"));
+        first.stop();
+        second.stop();
+    }
+
+    @Test
+    void retriesOnlyFailedProvidersDuringGracefulShutdown() {
+        List<String> events = new ArrayList<>();
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, "stop");
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting));
+
+        assertThatThrownBy(session::stop)
+                .isInstanceOf(ApplicationRuntimeException.class)
+                .hasMessageContaining("1/2 providers stopped");
+        assertThat(session.isStopping()).isTrue();
+        assertThat(session.isStopped()).isFalse();
+        assertThat(session.route("numou.party")).isEmpty();
+
+        session.stop();
+        assertThat(session.isStopped()).isTrue();
+        assertThat(events).containsExactly("init:runtime.party.impl", "init:runtime.ledger.impl",
+                "start:runtime.party.impl", "start:runtime.ledger.impl",
+                "stop:runtime.ledger.impl", "stop:runtime.party.impl", "stop:runtime.party.impl");
+        session.stop();
+        assertThat(events).hasSize(7);
     }
 
 }
