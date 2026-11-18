@@ -12,7 +12,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Resumable, bounded replay. A checkpoint advances only after the whole page projects. */
+/**
+ * Resumable, bounded replay of one public or tenant-private projection scope.
+ * A page cursor advances only after every event has been projected. Both cursor
+ * and lifecycle version fence the checkpoint against concurrent workers and
+ * pause/cancel/resume operations.
+ */
 public final class HistoricalProjectionRebuildService {
     private final HistoricalProjectionRebuildStore store;
     private final HistoricalRelationshipProjectionPort projection;
@@ -21,26 +26,42 @@ public final class HistoricalProjectionRebuildService {
     private final Clock clock;
     private final int pageSize;
     private final HistoricalProjectionMetricsPort metrics;
-
-    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
-            HistoricalRelationshipProjectionPort projection,
-            HistoricalRelationshipTenantContext tenantContext,
-            HistoricalProjectionMaintenanceAuthorizationPort authorization,
-            Clock clock, int pageSize) {
-        this(store, projection, tenantContext, authorization, clock, pageSize, snapshot -> {});
-    }
+    private final UUID generationId;
+    private final HistoricalProjectionRebuildFailurePort failurePort;
 
     public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
             HistoricalRelationshipProjectionPort projection,
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
             Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics) {
+        this(store, projection, tenantContext, authorization, clock, pageSize, metrics, null, null);
+    }
+
+    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
+            HistoricalRelationshipProjectionPort projection,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics, UUID generationId) {
+        this(store, projection, tenantContext, authorization, clock, pageSize, metrics, generationId, null);
+    }
+
+    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
+            HistoricalRelationshipProjectionPort projection,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics,
+            UUID generationId, HistoricalProjectionRebuildFailurePort failurePort) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.metrics = Objects.requireNonNull(metrics, "metrics");
+        this.generationId = generationId;
+        this.failurePort = failurePort;
+        if (generationId != null && !(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+            throw new IllegalArgumentException("generation-targeted rebuild requires a generation-aware projection adapter");
+        }
         if (pageSize < 1 || pageSize > 500) throw new IllegalArgumentException("pageSize must be 1..500");
         this.pageSize = pageSize;
     }
@@ -50,13 +71,7 @@ public final class HistoricalProjectionRebuildService {
         return store.start(tenantId, clock.instant());
     }
 
-    /** Starts or recovers a rebuild using a stable, caller-persisted ID. */
-    public RebuildRun start(UUID tenantId, UUID runId) {
-        Objects.requireNonNull(runId, "runId");
-        authorizeScope(tenantId);
-        return store.start(tenantId, runId, clock.instant());
-    }
-
+    /** Processes at most one page. A paused or terminal run is never replayed. */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
         return resumeOnePage(tenantId, runId, null);
     }
@@ -70,48 +85,66 @@ public final class HistoricalProjectionRebuildService {
         }
         RebuildRun run = store.find(tenantId, runId)
                 .orElseThrow(() -> new IllegalArgumentException("rebuild run does not exist in this scope"));
-        if (run.status() == RebuildRun.Status.COMPLETED) return progress(run, 0, true);
+
+        if (run.status() != RebuildRun.Status.RUNNING) {
+            return progress(run, 0, run.status() == RebuildRun.Status.COMPLETED);
+        }
 
         List<ReplayEvent> page = store.nextPage(tenantId, runId, pageSize);
         validatePage(tenantId, run, page);
         if (page.isEmpty()) {
-            if (!store.complete(tenantId, runId, run.cursorSequence(), clock.instant())) {
-                RebuildRun latest = store.find(tenantId, runId)
-                        .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
-                return progress(latest, 0, latest.status() == RebuildRun.Status.COMPLETED);
+            boolean completed = store.completeFenced(tenantId, runId, run.cursorSequence(),
+                    run.lifecycleVersion(), clock.instant());
+            RebuildRun latest = store.find(tenantId, runId)
+                    .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
+            return progress(latest, 0, completed || latest.status() == RebuildRun.Status.COMPLETED);
+        }
+
+        for (ReplayEvent event : page) {
+            try {
+                ClaimedProjectionEvent claimed = asClaimedEvent(event);
+                if (generationId == null) {
+                    projection.project(claimed);
+                } else {
+                    ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
+                            .projectIntoGeneration(claimed, generationId);
+                }
+            } catch (Exception failure) {
+                String detail = "Unable to project historical relationship event " + event.eventKey()
+                        + ": " + Objects.toString(failure.getMessage(), failure.getClass().getSimpleName());
+                if (failurePort != null) {
+                    try {
+                        failurePort.markFailed(tenantId, runId, detail);
+                    } catch (RuntimeException auditOrTransitionFailure) {
+                        failure.addSuppressed(auditOrTransitionFailure);
+                    }
+                }
+                if (failure instanceof RuntimeException runtimeFailure) throw runtimeFailure;
+                throw new IllegalStateException(detail, failure);
             }
-            return progress(store.find(tenantId, runId).orElseThrow(), 0, true);
         }
 
         long nextCursor = page.get(page.size() - 1).sequence();
-        for (ReplayEvent event : page) {
-            ClaimedProjectionEvent claimed = asClaimedEvent(event);
-            try {
-                if (generationId == null) projection.project(claimed);
-                else ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
-                        .projectIntoGeneration(claimed, generationId);
-            } catch (RuntimeException failure) {
-                throw failure;
-            } catch (Exception failure) {
-                throw new IllegalStateException("Unable to project historical relationship event " + event.eventKey(), failure);
-            }
-        }
-        if (!store.advance(tenantId, runId, run.cursorSequence(), nextCursor, clock.instant())) {
-            RebuildRun latest = store.find(tenantId, runId)
-                    .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
-            return progress(latest, page.size(), latest.status() == RebuildRun.Status.COMPLETED);
-        }
-        return progress(store.find(tenantId, runId).orElseThrow(), page.size(), false);
+        boolean advanced = store.advanceFenced(tenantId, runId, run.cursorSequence(),
+                nextCursor, run.lifecycleVersion(), clock.instant());
+        RebuildRun latest = store.find(tenantId, runId)
+                .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
+        // A lost fence means another worker or operator changed the run. Projection
+        // calls are required to be idempotent, so a later RUNNING worker can replay.
+        return progress(latest, advanced ? page.size() : 0,
+                latest.status() == RebuildRun.Status.COMPLETED);
     }
 
     private void validatePage(UUID tenantId, RebuildRun run, List<ReplayEvent> page) {
-        long previous = run.cursorSequence();
+        long previousSequence = run.cursorSequence();
         for (ReplayEvent event : page) {
-            if (!Objects.equals(tenantId, event.tenantId())) throw new IllegalStateException("rebuild page crossed tenant scope");
-            if (event.sequence() <= previous || event.sequence() > run.highWaterSequence()) {
+            if (!Objects.equals(tenantId, event.tenantId())) {
+                throw new IllegalStateException("rebuild page crossed tenant scope");
+            }
+            if (event.sequence() <= previousSequence || event.sequence() > run.highWaterSequence()) {
                 throw new IllegalStateException("rebuild page contains an unordered or out-of-snapshot event");
             }
-            previous = event.sequence();
+            previousSequence = event.sequence();
         }
     }
 
@@ -120,7 +153,7 @@ public final class HistoricalProjectionRebuildService {
             metrics.recordRebuildProgress(new HistoricalProjectionMetricsPort.RebuildMetric(
                     projected, run.cursorSequence(), run.highWaterSequence(), completed));
         } catch (RuntimeException ignored) {
-            // Telemetry cannot invalidate a durable projection checkpoint.
+            // Telemetry must never turn a committed projection checkpoint into a failed page.
         }
         return new RebuildProgress(run, projected, completed);
     }
