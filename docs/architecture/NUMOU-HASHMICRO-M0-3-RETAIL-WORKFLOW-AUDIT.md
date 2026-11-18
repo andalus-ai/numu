@@ -198,3 +198,61 @@ The scenario should not be called complete until automated tests demonstrate:
 - No implementation defect is asserted solely from absent direct POM dependencies.
 
 **M0.3 status: Partial.** The retail capability topology and high-value contract questions are now documented. The next pass must trace source code and tests before proposing or changing implementation.
+
+
+## 10. M0.3a — POS checkout source trace (2026-11-18)
+
+This section extends the initial POM-only audit using the current default-branch source files fetched during M0.3a. It traces the checkout application flow and its direct payment/persistence seams; it does not claim the entire retail workflow is complete.
+
+### 10.1 Verified checkout flow
+
+Source files inspected:
+
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/CheckoutOrchestrationService.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/CheckoutRecoveryService.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/domain/CheckoutSession.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/port/out/CheckoutInventoryPort.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/port/out/CheckoutPaymentPort.java`
+- `commerce/pos/numou-pos-application/src/main/java/tech/kayys/numou/pos/application/port/out/CheckoutRepository.java`
+- `commerce/pos/numou-pos-adapter/src/main/java/tech/kayys/numou/pos/adapter/payment/PaymentCapabilityCheckoutAdapter.java`
+- `commerce/pos/numou-pos-adapter/src/main/java/tech/kayys/numou/pos/adapter/persistence/PostgresCheckoutRepository.java`
+- `commerce/pos/numou-pos-adapter/src/main/resources/db/migration/V6__pos_checkout_sessions.sql`
+- `commerce/pos/numou-pos-application/src/test/java/tech/kayys/numou/pos/application/CheckoutOrchestrationServiceTest.java`
+- `commerce/pos/numou-pos-adapter/src/test/java/tech/kayys/numou/pos/adapter/persistence/PostgresCheckoutRepositoryTest.java`
+
+Observed state path:
+
+1. A new checkout validates that the tenant identifier is a UUID, loads the sale in tenant scope, requires an open sale with lines, and obtains the payable amount through the pricing port.
+2. `STOCK_PENDING` calls inventory reserve with deterministic key `pos:<checkoutId>:reserve`, then persists the reservation reference.
+3. `PAYMENT_PENDING` without a payment ID calls Payment `createOrGet` using deterministic key `pos:<checkoutId>:payment`, then validates tenant, amount and currency before attaching the payment ID.
+4. Reconciliation treats pending/unknown payment outcomes as non-terminal. It commits inventory only after Payment reports `SUCCEEDED`; terminal failed/cancelled/expired outcomes release the reservation.
+5. A successful payment is first persisted as `PAID`, then inventory is committed, then checkout is marked `COMPLETED`. This ordering supports retry after a crash between payment confirmation, stock commit and terminal checkout persistence, provided the inventory adapter honors the port's documented idempotency contract.
+6. Recovery is tenant-scoped and bounded to 1–500 rows. The PostgreSQL query selects pending, unknown, paid and compensation-required states.
+
+The domain state and migration enforce positive amount, currency, timestamps, required reservation references, required payment IDs for payment-bearing states, and tenant+checkout primary key. The repository performs tenant-scoped reads and compare-and-set updates by expected version. Tests cover the service's main success/pending/unknown/failure flows, retry idempotency at the fake-port level, tenant-scoped persistence reads and stale-version rejection. These are source-level test assertions only; this audit session has not run them.
+
+### 10.2 Concrete findings and risks
+
+| ID | Finding | Evidence | Required action |
+|---|---|---|---|
+| POS-A1 | No accounting-posting port, accounting event publication or outbox handoff is visible in `CheckoutOrchestrationService`. The service marks checkout completed after payment success and stock commit. | Checkout orchestration source and its declared ports | Trace sale completion/event infrastructure elsewhere. If no existing reliable handoff exists, add a transactional POS completion outbox and an accounting consumer using the existing accounting contracts; do not write accounting tables from POS. |
+| POS-A2 | `COMPENSATION_REQUIRED` is selected by `findRecoverable`, and is allowed by the DB status check, but `reconcile` has no explicit branch for it. Its current path proceeds to payment lookup and then can attempt transitions that the domain rejects. | CheckoutRecoveryService, PostgresCheckoutRepository, CheckoutOrchestrationService, CheckoutSession | Define compensation state semantics and an explicit idempotent recovery/terminal path, or remove the state from the query/schema only after proving it is unused. |
+| POS-A3 | Payment adapter maps `PARTIALLY_REFUNDED` and `REFUNDED` to `UNKNOWN`. | PaymentCapabilityCheckoutAdapter | Preserve refund outcomes as explicit statuses or route refund lifecycle to a separate refund/reversal workflow; do not conflate a known refund with an unknown provider outcome. |
+| POS-A4 | Concurrent first attempts for the same tenant+checkout ID can race between `find` and `create`; the database primary key protects uniqueness, but the losing caller currently receives a storage exception rather than loading the winner's session. | CheckoutOrchestrationService and V6 migration | Add insert-or-load semantics for identical checkout identity and reject a conflicting sale ID; test concurrent same-key starts against PostgreSQL. |
+| POS-A5 | Checkout service tests use fake inventory/payment/repository ports. The PostgreSQL tests verify persistence and optimistic conflicts, but the fetched tests do not prove the whole orchestration against real PostgreSQL plus real capability adapters. | Both test files | Add an integration test for crash/retry boundaries and adapter idempotency once the concrete inventory composition adapter is identified. |
+| POS-A6 | Payment lookup validates tenant, amount and currency but does not compare the payment's caller reference to the checkout reference. | CheckoutOrchestrationService and PaymentObligation contract | Verify the payment implementation guarantees idempotency-key/request binding; consider carrying and validating callerReference in the POS snapshot as defense in depth. |
+
+### 10.3 Payment contract evidence
+
+The framework-neutral `PaymentApplicationPort` explicitly documents tenant authorization, durable idempotency, concurrency-safe state transitions and the rule that timeout is not proof of failure. Its `find` operation is tenant-scoped, and `requestRefund` returns a refund-operation state distinct from the payment obligation. This supports retaining Payment as the capability owner and keeping POS on its public API.
+
+### 10.4 Implementation decision
+
+Do not replace the existing checkout saga. The next implementation milestone should be a narrow reliability increment around the findings above, starting with:
+1. Make checkout recovery exhaustive for every persisted non-terminal state, especially `COMPENSATION_REQUIRED`.
+2. Make concurrent checkout creation return the winning durable session for an identical request.
+3. Preserve payment refund states without mapping them to provider uncertainty.
+4. Trace the existing POS sale completion and accounting integration before adding an outbox or new event contract.
+5. Add real PostgreSQL concurrency/recovery tests and run the POS reactor plus focused CI jobs.
+
+No implementation code was changed in M0.3a because the correct compensation and accounting contracts must first be aligned with the existing inventory/payment/accounting capability owners.
