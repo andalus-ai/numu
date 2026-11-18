@@ -1,102 +1,121 @@
 package tech.kayys.numou.construction.application.consultancy;
 
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import tech.kayys.numou.construction.application.consultancy.ConsultancyEvidenceOperationStore.ClaimedConsultancyEvidenceOperation;
-import tech.kayys.numou.construction.spi.consultancy.ConsultancyEvidenceLink;
-import tech.kayys.numou.construction.spi.consultancy.ConsultancyEvidenceLinkStore;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Executes one already-claimed consultancy evidence operation.
- *
- * <p>The scheduler/claim loop is deliberately separate: this processor never
- * claims work itself. Document attachment is idempotent, so a successful
- * Document write followed by lease loss is safe to retry. Only a confirmed
- * persisted link followed by a successful fenced transition is reported as
- * linked.</p>
+ * Tenant-scoped batch runner for durable consultancy evidence operations.
+ * Tenant enumeration and scheduling are intentionally owned by the deployment.
  */
+@ApplicationScoped
 public class ConsultancyEvidenceOperationWorker {
     private final ConsultancyEvidenceOperationStore operations;
-    private final ConsultancyEvidenceAuthorization authorization;
-    private final ConsultancyEvidenceLinkStore evidenceLinks;
+    private final ConsultancyEvidenceOperationProcessor processor;
+    private final Clock clock;
 
-    public ConsultancyEvidenceOperationWorker(
-            ConsultancyEvidenceOperationStore operations,
-            ConsultancyEvidenceAuthorization authorization,
-            ConsultancyEvidenceLinkStore evidenceLinks) {
+    @Inject
+    public ConsultancyEvidenceOperationWorker(ConsultancyEvidenceOperationStore operations,
+            ConsultancyEvidenceOperationProcessor processor) {
+        this(operations, processor, Clock.systemUTC());
+    }
+
+    ConsultancyEvidenceOperationWorker(ConsultancyEvidenceOperationStore operations,
+            ConsultancyEvidenceOperationProcessor processor, Clock clock) {
         this.operations = Objects.requireNonNull(operations);
-        this.authorization = Objects.requireNonNull(authorization);
-        this.evidenceLinks = Objects.requireNonNull(evidenceLinks);
+        this.processor = Objects.requireNonNull(processor);
+        this.clock = Objects.requireNonNull(clock);
     }
 
-    public Uni<ConsultancyEvidenceLink> process(
-            ClaimedConsultancyEvidenceOperation claim, Clock clock, Duration retryDelay) {
-        Objects.requireNonNull(claim, "claim");
-        Objects.requireNonNull(clock, "clock");
-        Objects.requireNonNull(retryDelay, "retryDelay");
-        if (retryDelay.isNegative()) {
-            return Uni.createFrom().failure(new IllegalArgumentException("retryDelay cannot be negative"));
-        }
-
-        var operation = claim.operation();
-        var actor = operation.requestedBy();
-        var organization = operation.requestingOrganizationId();
-
-        return authorization.requireDeliverableAccess(
-                        new ConsultancyEvidenceAuthorization.DeliverableAccess(
-                                operation.tenantId(), actor, organization, operation.deliverableId(),
-                                ConsultancyEvidenceAuthorization.Action.ATTACH_EVIDENCE))
-                .chain(() -> authorization.requireDocumentAccess(
-                        new ConsultancyEvidenceAuthorization.DocumentAccess(
-                                operation.tenantId(), actor, organization, operation.documentId(),
-                                operation.documentVersionId(),
-                                ConsultancyEvidenceAuthorization.Action.ATTACH_EVIDENCE)))
-                .chain(() -> evidenceLinks.attach(
-                        operation.tenantId(), operation.deliverableId(), operation.documentId(),
-                        operation.documentVersionId(), operation.relationship(), actor))
-                .chain(link -> operations.markLinked(claim, clock.instant())
-                        .chain(updated -> updated
-                                ? Uni.createFrom().item(link)
-                                : Uni.createFrom().failure(new StaleConsultancyEvidenceLeaseException(
-                                        "Evidence link exists but this worker no longer owns the operation lease"))))
-                .onFailure().recoverWithUni(failure -> recordFailure(
-                        claim, failure, clock.instant(), retryDelay));
+    public Uni<BatchResult> runTenantBatch(String tenantId, String workerId, WorkerSettings settings) {
+        Objects.requireNonNull(settings, "settings");
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId is required");
+        if (workerId == null || workerId.isBlank()) throw new IllegalArgumentException("workerId is required");
+        Instant claimedAt = clock.instant();
+        return operations.claimDue(tenantId, claimedAt, claimedAt.plus(settings.leaseDuration()),
+                        settings.batchSize(), workerId)
+                .chain(claims -> processClaims(claims, settings)
+                        .map(outcomes -> summarize(claims.size(), outcomes)));
     }
 
-    private Uni<ConsultancyEvidenceLink> recordFailure(
-            ClaimedConsultancyEvidenceOperation claim, Throwable failure,
-            java.time.Instant now, Duration retryDelay) {
-        if (failure instanceof StaleConsultancyEvidenceLeaseException) {
-            return Uni.createFrom().failure(failure);
-        }
-        if (failure instanceof ConsultancyEvidenceAccessDeniedException
-                || failure instanceof ConsultancyEvidencePermanentFailureException) {
-            return operations.markTerminalFailure(claim, safeMessage(failure), now)
-                    .chain(updated -> Uni.createFrom().failure(updated ? failure
-                            : new StaleConsultancyEvidenceLeaseException(
-                                    "Authorization failed after this worker lost its lease")));
-        }
-        return operations.markRetryableFailure(
-                        claim, safeMessage(failure), now.plus(retryDelay), now)
-                .chain(updated -> Uni.createFrom().failure(updated ? failure
-                        : new StaleConsultancyEvidenceLeaseException(
-                                "Operation failed after this worker lost its lease")));
+    private Uni<List<Boolean>> processClaims(
+            List<ClaimedConsultancyEvidenceOperation> claims, WorkerSettings settings) {
+        if (claims.isEmpty()) return Uni.createFrom().item(List.of());
+        return Multi.createFrom().iterable(claims)
+                .onItem().transformToUniAndMerge(claim -> processWithLeaseRenewal(claim, settings))
+                .withConcurrency(settings.maxConcurrency())
+                .collect().asList();
     }
 
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        if (message == null || message.isBlank()) {
-            message = failure.getClass().getSimpleName();
-        }
-        return message.length() > 2000 ? message.substring(0, 2000) : message;
+    private Uni<Boolean> processWithLeaseRenewal(
+            ClaimedConsultancyEvidenceOperation initialClaim, WorkerSettings settings) {
+        AtomicBoolean processingFinished = new AtomicBoolean();
+        Uni<Boolean> processing = processor.process(initialClaim, settings.maxAttempts())
+                .onTermination().invoke(() -> processingFinished.set(true));
+        Uni<Void> heartbeat = renewUntilFinished(initialClaim, settings, processingFinished);
+        return Uni.combine().any().of(processing, heartbeat).map(Boolean.class::cast);
     }
 
-    public static final class StaleConsultancyEvidenceLeaseException extends RuntimeException {
-        public StaleConsultancyEvidenceLeaseException(String message) {
-            super(message);
+    private Uni<Void> renewUntilFinished(ClaimedConsultancyEvidenceOperation claim,
+            WorkerSettings settings, AtomicBoolean processingFinished) {
+        if (processingFinished.get()) return Uni.createFrom().nothing();
+        return Uni.createFrom().voidItem().onItem().delayIt().by(settings.leaseRenewalInterval())
+                .chain(() -> {
+                    if (processingFinished.get()) return Uni.createFrom().nothing();
+                    Instant now = clock.instant();
+                    return operations.renewLease(claim, now, now.plus(settings.leaseDuration()))
+                            .chain(renewed -> {
+                                if (renewed.isEmpty()) {
+                                    return Uni.createFrom().failure(
+                                            new ConsultancyEvidenceLeaseLostException(claim.operation().operationId()));
+                                }
+                                return renewUntilFinished(renewed.get(), settings, processingFinished);
+                            });
+                });
+    }
+
+    private static BatchResult summarize(int claimed, List<Boolean> outcomes) {
+        int completed = (int) outcomes.stream().filter(Boolean.TRUE::equals).count();
+        return new BatchResult(claimed, completed, claimed - completed);
+    }
+
+    public record WorkerSettings(int batchSize, int maxConcurrency, int maxAttempts,
+            Duration leaseDuration, Duration leaseRenewalInterval) {
+        public WorkerSettings {
+            if (batchSize < 1 || batchSize > 500) throw new IllegalArgumentException("batchSize must be between 1 and 500");
+            if (maxConcurrency < 1 || maxConcurrency > 128) throw new IllegalArgumentException("maxConcurrency must be between 1 and 128");
+            if (maxAttempts < 1) throw new IllegalArgumentException("maxAttempts must be positive");
+            Objects.requireNonNull(leaseDuration, "leaseDuration");
+            Objects.requireNonNull(leaseRenewalInterval, "leaseRenewalInterval");
+            if (leaseRenewalInterval.isZero() || leaseRenewalInterval.isNegative()) {
+                throw new IllegalArgumentException("leaseRenewalInterval must be positive");
+            }
+            if (leaseDuration.compareTo(leaseRenewalInterval.multipliedBy(3)) < 0) {
+                throw new IllegalArgumentException("leaseDuration must be at least three times leaseRenewalInterval");
+            }
+        }
+    }
+
+    public record BatchResult(int claimed, int completed, int notCompleted) {
+        public BatchResult {
+            if (claimed < 0 || completed < 0 || notCompleted < 0 || completed + notCompleted != claimed) {
+                throw new IllegalArgumentException("Inconsistent evidence worker batch counts");
+            }
+        }
+    }
+
+    public static final class ConsultancyEvidenceLeaseLostException extends RuntimeException {
+        public ConsultancyEvidenceLeaseLostException(java.util.UUID operationId) {
+            super("Lease lost while processing consultancy evidence operation " + operationId);
         }
     }
 }

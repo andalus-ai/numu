@@ -504,4 +504,113 @@ class SyirkahApiTest {
         assertThrows(IllegalArgumentException.class, () -> api.balanceSheet(id, new BalanceSheetRequest(null,
                 LocalDate.parse("2026-01-31"), null, null)));
     }
+
+    @Test
+    void previewShowsTheAllocationButStoresNothing() {
+        String id = open();
+        ClosePreview p = api.previewClose(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-31"), result("10000000"), null, "distribute", null));
+        assertEquals("PROFIT", p.result());
+        assertEquals(2, p.lines().size());
+        BigDecimal shares = p.lines().stream().map(PreviewLine::profitShare).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, new BigDecimal("10000000").compareTo(shares));
+        // nothing happened
+        assertEquals(0, api.get(id).summary().closeCount());
+        assertTrue(api.closes(id).isEmpty());
+        // the real close gives the same shares
+        CloseView real = close(id, "2026-01-01", "2026-01-31", "10000000");
+        assertEquals(0, p.netResult().compareTo(real.netResult()));
+        // a bad period is refused by the preview exactly as by the close
+        assertThrows(RuntimeException.class, () -> api.previewClose(id, new ClosePeriodRequest(null,
+                LocalDate.parse("2026-01-15"), LocalDate.parse("2026-01-20"), result("1"), null, "retain", null)));
+    }
+
+    @Test
+    void revisionPreviewListsEveryProblemAndTheChangeWithoutStoringAnything() {
+        String id = open();
+        api.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain", null));
+        // the heir contract with no lifecycle decision and no approvals
+        RevisionPreview bad = api.previewRevision(id, new ReviseRequest(heirContract(), List.of(A), death(false)));
+        assertFalse(bad.ok());
+        assertTrue(bad.problems().size() >= 1);
+        RevisionPreview good = api.previewRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        assertTrue(good.ok(), good.problems().toString());
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("REMOVED")));
+        assertTrue(good.partners().stream().anyMatch(p -> p.change().equals("ADDED")));
+        assertEquals(1, api.get(id).summary().contractVersion());
+        assertTrue(api.pending().isEmpty());
+    }
+
+    @Test
+    void partnerStatementJsonMatchesTheLedger() {
+        String id = open();
+        close(id, "2026-01-01", "2026-01-31", "10000000");
+        PartnerStatementView v = api.statement(id, A);
+        assertEquals(A, v.partnerId());
+        assertFalse(v.lines().isEmpty());
+        MovementLineView last = v.lines().get(v.lines().size() - 1);
+        assertEquals(0, last.capitalBalance().compareTo(v.closing().capitalBalance()));
+        assertEquals(0, last.profitPayable().compareTo(v.closing().profitPayable()));
+        assertThrows(IllegalArgumentException.class, () -> api.statement(id, "not-a-uuid"));
+    }
+
+    @Test
+    void aWholeSyirkahThroughTheApiWithEveryStoreWired() {
+        LocalTransactionPort tx = new LocalTransactionPort();
+        Clock clock = Clock.system(ZoneOffset.UTC);
+        InMemoryStaffRecordPort staffStore = new InMemoryStaffRecordPort();
+        InMemoryTradingRecordPort tradingStore = new InMemoryTradingRecordPort();
+        SyirkahApplicationService svc = new SyirkahApplicationService(repo, new InMemoryJournalPostingPort(),
+                new CollectingEventPublisher(), tx, accounts, clock, FormationEnforcement.OFF, null,
+                new InMemoryLifecycleRecordPort());
+        SyirkahApi a = new SyirkahApi(svc, new GovernedSyirkahService(svc, new InMemoryApprovalPort(), tx, clock),
+                new SyirkahIntegrityAuditor(repo, repo), repo, ctx, new StaffContractService(repo, staffStore, tx,
+                clock), tradingStore, tx, null);
+
+        String id = a.open(new OpenRequest(null, 0, contract(), null, null)).summary().id();
+        a.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"),
+                result("10000000"), null, "retain", null));
+
+        // partner B dies, C continues in B's place: approved by a second person
+        ApprovalView rev = a.proposeRevision(id, new ReviseRequest(heirContract(), null, death(true)));
+        ctx.actor("checker");
+        assertEquals("APPROVED", a.approve(rev.id()).status());
+        ctx.actor("maker");
+        assertEquals(2, a.get(id).summary().contractVersion());
+
+        // staff on a fixed wage, then a trading close with its figures
+        assertEquals(1, a.engageStaff(id, new StaffRequest("SYIRKAH", null, "Cashier", "12 months", "8 hours a day",
+                "FIXED_AMOUNT", new BigDecimal("3000000"), "monthly", List.of(), false)).sequence());
+        TradingDto t = new TradingDto(new BigDecimal("1000"), null, null, new BigDecimal("200"),
+                new BigDecimal("600"), null, null, new BigDecimal("300"), new BigDecimal("50"), null);
+        CloseView feb = a.closePeriod(id, new ClosePeriodRequest(null, LocalDate.parse("2026-02-01"),
+                LocalDate.parse("2026-02-28"), null, null, "retain", t));
+        assertEquals(0, new BigDecimal("450").compareTo(feb.netResult()));
+
+        // liquidation by sale, both steps approved
+        ApprovalView start = a.proposeStartLiquidation(id);
+        ctx.actor("checker");
+        a.approve(start.id());
+        ctx.actor("maker");
+        ApprovalView liq = a.proposeLiquidation(id, new LiquidateRequest(
+                List.of(new AssetSaleDto("stock", new BigDecimal("100000000"), "outsider", null, true)), null, false,
+                BigDecimal.ZERO, LocalDate.parse("2026-03-01"), null));
+        ctx.actor("checker");
+        a.approve(liq.id());
+        ctx.actor("maker");
+
+        // everything reads back
+        assertEquals("TERMINATED", a.get(id).summary().status());
+        assertEquals(2, a.closes(id).size());
+        assertTrue(a.reconciliation(id).balanced());
+        assertTrue(a.integrity(id).ok());
+        assertEquals(1, a.lifecycleRecords(id).size());
+        assertEquals(1, a.staffContracts(id).size());
+        assertEquals(0, new BigDecimal("1000").compareTo(a.closeTrading(id, feb.id()).sales()));
+        assertFalse(a.capitalChanges(id, LocalDate.parse("2026-01-01"), LocalDate.parse("2026-03-01")).rows()
+                .isEmpty());
+        assertTrue(a.audit().ok());
+        assertTrue(a.pending().isEmpty());
+    }
 }

@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tech.kayys.numou.event.spi.port.EventPublisherPort;
 import tech.kayys.numou.reliability.adapter.json.EventTypeRegistry;
+import tech.kayys.numou.reliability.adapter.json.JsonDomainEvent;
 import tech.kayys.numou.reliability.adapter.json.JsonEventSerializer;
 import tech.kayys.numou.reliability.application.idempotency.IdempotentExecutor;
 import tech.kayys.numou.reliability.application.inbox.InboxProcessor;
@@ -21,7 +22,7 @@ import tech.kayys.numou.event.spi.port.EventSerializerPort;
 import java.time.Instant;
 import java.util.concurrent.ThreadLocalRandom;
 
-/** Wires the pure reliability services into CDI. NOT COMPILED in sandbox. */
+/** Wires the pure reliability services into CDI. */
 @ApplicationScoped
 public class ReliabilityProducer {
 
@@ -31,7 +32,9 @@ public class ReliabilityProducer {
     @ApplicationScoped
     @Produces
     EventTypeRegistry registry() {
-        return new EventTypeRegistry(); // bounded contexts add their events via an observer/startup bean
+        // Every bounded context can publish the stable generic JSON event contract.
+        // Contexts may additionally register strongly typed payloads at startup.
+        return new EventTypeRegistry().registerFallback(JsonDomainEvent.class);
     }
 
     @ApplicationScoped

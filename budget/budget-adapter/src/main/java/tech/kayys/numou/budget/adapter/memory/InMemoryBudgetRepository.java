@@ -8,7 +8,8 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class InMemoryBudgetRepository implements BudgetRepository {
-    private final Map<BudgetId, PlanningBudget> budgets = new ConcurrentHashMap<>();
-    @Override public PlanningBudget save(PlanningBudget budget) { budgets.put(budget.id(), budget); return budget; }
-    @Override public Optional<PlanningBudget> find(BudgetId id) { return Optional.ofNullable(budgets.get(id)); }
+    private final Map<Key, PlanningBudget> budgets = new ConcurrentHashMap<>();
+    @Override public PlanningBudget save(PlanningBudget budget) { budgets.put(new Key(budget.tenantId(), budget.id()), budget); return budget; }
+    @Override public Optional<PlanningBudget> find(String tenantId, BudgetId id) { return Optional.ofNullable(budgets.get(new Key(tenantId, id))); }
+    private record Key(String tenantId, BudgetId budgetId) {}
 }

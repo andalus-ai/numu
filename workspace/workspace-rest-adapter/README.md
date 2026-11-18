@@ -16,6 +16,8 @@ Base path: `/api/v1`
 | GET | `/pages/{pageId}` | Read a page |
 | PUT | `/pages/{pageId}` | Update a page using `expectedRevision` |
 | GET | `/pages/{pageId}/history` | Read immutable revision history |
+| GET | `/pages/{pageId}/changes?afterRevision={cursor}&limit={n}` | Replay bounded immutable page revisions after a resumable per-page cursor (1–100, default 50) |
+| GET | `/pages/{pageId}/events` | Optional content-free SSE invalidation stream; clients recover through the `/changes` revision feed |
 | POST | `/pages/{pageId}/history/restore` | Restore a historical snapshot as a new revision, guarded by `expectedCurrentRevision` |
 | GET | `/spaces/{spaceId}/pages?parentPageId={id}` | List direct children; omit `parentPageId` to list root pages |
 | POST | `/workspaces/{workspaceId}/templates` | Create a reusable page template |
@@ -31,7 +33,7 @@ Successful create operations return `201 Created` with a resource location; link
 
 ## Authentication and tenant isolation
 
-Navigation discovery is tenant-scoped in the repository and resource-authorized in the application service. The workspace list omits resources the actor cannot read; listing spaces first verifies access to the parent workspace. The adapter intentionally does **not** accept tenant or actor IDs in request bodies. A host runtime must provide CDI-managed `WorkspaceApi` and `WorkspaceContentApi` instances configured with an `IdentityProvider` that obtains tenant and actor identifiers from trusted, authenticated request context. The resources are not a standalone deployable server and do not invent an authentication strategy or a default tenant. A host must also compose the workspace services, persistence adapters, and authorization policy.
+Navigation discovery is tenant-scoped in the repository and resource-authorized in the application service. The workspace list omits resources the actor cannot read; listing spaces first verifies access to the parent workspace. The adapter intentionally does **not** accept tenant or actor IDs in request bodies. A host runtime must provide CDI-managed `WorkspaceApi` and `WorkspaceContentApi` instances configured with an `IdentityProvider` that obtains tenant and actor identifiers from trusted, authenticated request context. The resources are not a standalone deployable server and do not invent an authentication strategy or a default tenant. A host must also compose the workspace services, persistence adapters, and authorization policy. Enabling the SSE route additionally requires a `WorkspacePageChangeSubscriptionPort` implementation and a `WorkspaceSseHeartbeatScheduler` host bean; it must enforce tenant/page subscription isolation, bounded subscriber resources, authorization revocation, and cross-instance fanout where needed. The optional `numou-workspace-collaboration-local` artifact provides a bounded single-process hub for standalone and modular-monolith deployments; `numou-workspace-collaboration-quarkus` supplies CDI composition and shutdown disposal. The hub enforces process, tenant, page, and actor quotas and supports actor/page/tenant revocation callbacks that close SSE streams; it is not a distributed broker. Multi-instance hosts must supply a broker-backed implementation of the same application ports. The Quarkus collaboration runtime supplies a shared daemon heartbeat scheduler (25-second default, configurable from 5–300 seconds) and cancels per-connection tasks on close/revocation. The application rechecks PAGE/READ on signal delivery and terminates a subscription when access is revoked.
 
 ## Composition
 
@@ -59,3 +61,8 @@ The same optional adapter also exposes the existing structured-database use case
 | DELETE | `/databases/{databaseId}/views/{viewId}` | Delete the actor's personal view |
 
 Record query limits are bounded to 1–200, with default 50 for table and saved-view queries and 100 for board queries. The application service remains authoritative for record and table authorization, schema validation, revision checks, and atomic audited writes. Schema mutation is deliberately limited to the existing safe-evolution service contract; destructive changes still require the explicit migration workflow rather than bypassing it through HTTP.
+
+
+## SSE connection lifecycle
+
+The REST adapter uses an application-scoped `WorkspaceSseConnectionRegistry`: default maximum 2,000 connections per process, 20-second comment heartbeats, and a 60-second write-stall timeout. Slow consumers and stalled writes are disconnected rather than buffered; admission overflow returns HTTP 503. `health()` exposes process-local counters for host metrics integration. These limits are not cluster-wide, and the heartbeat is not a client-activity detector. See [M39 — Bounded SSE connection lifecycle](../docs/M39-bounded-sse-connection-lifecycle.md).

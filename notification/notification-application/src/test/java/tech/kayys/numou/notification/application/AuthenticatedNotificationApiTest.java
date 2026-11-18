@@ -54,9 +54,37 @@ class AuthenticatedNotificationApiTest {
         assertThrows(AuthenticatedNotificationApi.UnauthenticatedNotificationRequestException.class,
                 () -> api.registerDevice(new AuthenticatedNotificationApi.RegisterDeviceRequest(
                         "token", PushDevice.Platform.WEB, "browser")));
+        assertThrows(AuthenticatedNotificationApi.UnauthenticatedNotificationRequestException.class,
+                api::activeDevices);
 
         assertNull(notificationRepo.tenantId);
         assertNull(deviceRepo.registered);
+        assertNull(deviceRepo.tenantId);
+    }
+
+    @Test
+    void managementOperationsUseOnlySafeSummariesAndAuthenticatedScope() {
+        var deviceRepo = new RecordingPushDeviceRepository();
+        var api = api(Optional.of(new NotificationRequestContext.Actor(TENANT, RECIPIENT)),
+                new RecordingNotificationRepository(), deviceRepo);
+
+        var registered = api.registerDevice(new AuthenticatedNotificationApi.RegisterDeviceRequest(
+                "private-web-push-subscription", PushDevice.Platform.WEB, "browser-1"));
+        var listed = api.activeDevices();
+
+        assertEquals(1, listed.size());
+        assertEquals(registered.id(), listed.getFirst().id());
+        assertTrue(listed.getFirst().active());
+        assertFalse(listed.getFirst().toString().contains("private-web-push-subscription"));
+        assertEquals(TENANT, deviceRepo.tenantId);
+        assertEquals(RECIPIENT, deviceRepo.recipientId);
+
+        var removed = api.unregisterDevice(registered.id()).orElseThrow();
+        assertFalse(removed.active());
+        assertEquals(registered.id(), removed.id());
+        assertEquals(TENANT, deviceRepo.tenantId);
+        assertEquals(RECIPIENT, deviceRepo.recipientId);
+        assertEquals(registered.id(), deviceRepo.disabledDeviceId);
     }
 
     @Test
@@ -117,6 +145,7 @@ class AuthenticatedNotificationApiTest {
         PushDevice registered;
         UUID tenantId;
         UUID recipientId;
+        UUID disabledDeviceId;
 
         @Override
         public PushDevice registerOrRefresh(PushDevice device) {
@@ -135,7 +164,19 @@ class AuthenticatedNotificationApiTest {
         public Optional<PushDevice> disable(UUID tenantId, UUID recipientId, UUID deviceId, Instant disabledAt) {
             this.tenantId = tenantId;
             this.recipientId = recipientId;
-            return Optional.empty();
+            disabledDeviceId = deviceId;
+            if (registered == null || !registered.id().equals(deviceId)) return Optional.empty();
+            return Optional.of(registered.disable(disabledAt));
+        }
+
+        @Override
+        public Optional<PushDeviceSummary> disableSummary(
+                UUID tenantId, UUID recipientId, UUID deviceId, Instant disabledAt) {
+            this.tenantId = tenantId;
+            this.recipientId = recipientId;
+            disabledDeviceId = deviceId;
+            if (registered == null || !registered.id().equals(deviceId)) return Optional.empty();
+            return Optional.of(PushDeviceSummary.from(registered.disable(disabledAt)));
         }
     }
 }

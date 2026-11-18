@@ -21,7 +21,7 @@
             <artifactId>numou-foundation-application</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
+<dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>

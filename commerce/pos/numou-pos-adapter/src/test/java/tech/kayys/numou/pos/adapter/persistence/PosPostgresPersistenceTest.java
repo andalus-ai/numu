@@ -18,7 +18,9 @@ import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -193,6 +195,65 @@ class PosPostgresPersistenceTest {
         assertTrue(sales.find(tenant, saleId).isEmpty());
         assertEquals(0, countOutboxEvents(eventId));
         assertEquals(0, countIdempotencyRows(tenant, actor, "checkout-outbox-rollback"));
+    }
+
+
+    @Test
+    void saleCommandServiceCompletionRollsBackSaleOutboxAndIdempotencyWhenAppendFails() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        UUID actor = UUID.randomUUID();
+        UUID saleId = UUID.randomUUID();
+        UUID branchId = UUID.randomUUID();
+        UUID registerId = UUID.randomUUID();
+        UUID shiftId = UUID.randomUUID();
+        String idempotencyKey = "service-complete-rollback-" + saleId;
+        Instant now = Instant.parse("2026-10-29T08:00:00Z");
+        Clock clock = Clock.fixed(now, ZoneOffset.UTC);
+        tech.kayys.numou.pos.application.port.out.OpenShiftAccess shifts =
+                (ignoredTenant, ignoredBranch, ignoredRegister, ignoredShift, ignoredActor) -> { };
+        tech.kayys.numou.pos.application.SaleCommandContext context =
+                new tech.kayys.numou.pos.application.SaleCommandContext(tenant, actor, "rollback-test");
+
+        tech.kayys.numou.pos.application.SaleCommandService setup =
+                new tech.kayys.numou.pos.application.SaleCommandService(sales, shifts, idempotency, outbox, clock);
+        setup.open(context, "open-" + saleId, saleId, branchId, registerId, shiftId, SaleChannel.POS, "IDR");
+        setup.addLine(context, "line-" + saleId, saleId, 0,
+                new SaleLine(UUID.randomUUID(), "item-1", "Coffee", "SKU-1",
+                        BigDecimal.ONE, "cup", Money.of(new BigDecimal("25000"), "IDR")));
+
+        PosOutboxWriter appendThenFail = event -> {
+            outbox.append(event);
+            throw new IllegalStateException("simulate failure after completed event append");
+        };
+        tech.kayys.numou.pos.application.SaleCommandService failing =
+                new tech.kayys.numou.pos.application.SaleCommandService(
+                        sales, shifts, idempotency, appendThenFail, clock);
+
+        assertThrows(IllegalStateException.class,
+                () -> failing.complete(context, idempotencyKey, saleId, 1));
+
+        VersionedSale persisted = sales.find(tenant, saleId).orElseThrow();
+        assertEquals(Sale.Status.OPEN, persisted.sale().status(),
+                "sale completion must roll back when event append fails");
+        assertEquals(1, persisted.version(), "the prior line addition must remain committed");
+        assertEquals(0, countOutboxEvents(tenant, saleId, "pos.sale.completed"),
+                "the completed event must roll back with the sale transition");
+        assertEquals(0, countIdempotencyRows(tenant, actor, idempotencyKey),
+                "a failed command must not leave a completed or PROCESSING idempotency row");
+    }
+
+    private int countOutboxEvents(UUID tenantId, UUID aggregateId, String eventType) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM pos_outbox_event WHERE tenant_id = ? AND aggregate_id = ? AND event_type = ?")) {
+            statement.setObject(1, tenantId);
+            statement.setString(2, aggregateId.toString());
+            statement.setString(3, eventType);
+            try (var result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        }
     }
 
     private int countOutboxEvents(UUID eventId) throws Exception {

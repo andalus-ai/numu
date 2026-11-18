@@ -14,6 +14,8 @@ public record GetBalanceSheetQuery(
         LocalDate asOfDate
 ) implements Query<BalanceSheet> {
     public GetBalanceSheetQuery {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        Objects.requireNonNull(ledgerId, "ledgerId cannot be null");
         Objects.requireNonNull(asOfDate, "asOfDate cannot be null");
     }
 }

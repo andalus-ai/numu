@@ -12,13 +12,16 @@ import java.util.UUID;
  * It deliberately owns planning data only; journal posting remains in the ledger.
  */
 public final class PlanningBudget {
+    private final String tenantId;
     private final BudgetId id;
     private final String code;
     private final int fiscalYear;
     private final List<BudgetVersion> versions = new ArrayList<>();
     private PlanningBudgetStatus status = PlanningBudgetStatus.DRAFT;
 
-    public PlanningBudget(BudgetId id, String code, int fiscalYear) {
+    public PlanningBudget(String tenantId, BudgetId id, String code, int fiscalYear) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId must not be blank");
+        this.tenantId = tenantId;
         this.id = Objects.requireNonNull(id);
         if (code == null || code.isBlank()) throw new IllegalArgumentException("budget code must not be blank");
         if (fiscalYear < 1900 || fiscalYear > 9999) throw new IllegalArgumentException("invalid fiscal year");
@@ -26,6 +29,7 @@ public final class PlanningBudget {
         this.fiscalYear = fiscalYear;
         versions.add(new BudgetVersion(1, List.of()));
     }
+    public String tenantId() { return tenantId; }
     public BudgetId id() { return id; }
     public String code() { return code; }
     public int fiscalYear() { return fiscalYear; }

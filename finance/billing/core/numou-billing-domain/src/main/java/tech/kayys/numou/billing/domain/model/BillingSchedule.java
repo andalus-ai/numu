@@ -10,7 +10,7 @@ import tech.kayys.numou.billing.domain.valueobject.DunningLevel;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,6 +47,8 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
     private String createdBy;
     private String updatedBy;
     private boolean active;
+    /** Day of month of the start date; month-based periods keep it, falling back to a short month's last day. */
+    private int anchorDay;
 
     private BillingSchedule(BillingScheduleId id) {
         super(id);
@@ -84,7 +86,8 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
         schedule.amount = amount;
         schedule.currencyCode = currencyCode;
         schedule.startDate = startDate;
-        schedule.nextBillingDate = calculateNextBillingDate(startDate, frequency);
+        schedule.anchorDay = startDate.atZone(ZoneOffset.UTC).getDayOfMonth();
+        schedule.nextBillingDate = advance(startDate, frequency, schedule.anchorDay);
         return schedule;
     }
 
@@ -92,13 +95,72 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
      * Activates the billing schedule.
      */
     public void activate() {
+        activate(Instant.now());
+    }
+
+    /**
+     * Activates the billing schedule as of the given moment: the first billing date is one period after it.
+     */
+    public void activate(Instant at) {
         if (status != BillingStatus.PENDING_ACTIVATION && status != BillingStatus.PAUSED) {
             throw new IllegalStateException("Cannot activate schedule in status: " + status);
         }
         this.status = BillingStatus.ACTIVE;
-        this.nextBillingDate = calculateNextBillingDate(Instant.now(), frequency);
+        this.nextBillingDate = advance(at, frequency, anchorDay);
         setUpdatedAt(Instant.now());
         incrementVersion();
+    }
+
+    /**
+     * Puts back the progress of a schedule that was stored: when it is next due, when it last billed, how many
+     * cycles have been billed and how many payments have failed in a row. Used when a schedule is loaded;
+     * without it a loaded schedule would look as if nothing had ever been billed and be billed again.
+     */
+    public void restoreProgress(Instant nextBillingDate, Instant lastBillingDate, int currentCycle,
+                                int failedPaymentCount) {
+        if (nextBillingDate != null) {
+            this.nextBillingDate = nextBillingDate;
+        }
+        this.lastBillingDate = lastBillingDate;
+        this.currentCycle = currentCycle;
+        this.failedPaymentCount = failedPaymentCount;
+    }
+
+    /**
+     * Puts back the cycles that were stored for this schedule (see {@link #restoreProgress}).
+     */
+    public void restoreCycles(List<BillingCycle> stored) {
+        billingCycles.clear();
+        stored.stream().sorted(java.util.Comparator.comparingInt(BillingCycle::getCycleNumber))
+            .forEach(billingCycles::add);
+    }
+
+    /**
+     * Starts a retry of a failed cycle: the one given, or the latest failed one when none is given. The schedule
+     * must still be active (it stops after too many failed payments), and the cycle is billed again against the
+     * invoice it already has; no new invoice is made.
+     */
+    public BillingCycle beginRetry(Integer cycleNumber) {
+        if (status != BillingStatus.ACTIVE) {
+            throw new IllegalStateException("Cannot retry billing in status: " + status);
+        }
+        BillingCycle cycle;
+        if (cycleNumber != null) {
+            cycle = billingCycles.stream().filter(c -> c.cycleNumber == cycleNumber).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Cycle not found: " + cycleNumber));
+        } else {
+            cycle = billingCycles.stream().filter(c -> c.status == BillingCycleStatus.FAILED)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new IllegalStateException("No failed billing cycle to retry"));
+        }
+        if (cycle.status != BillingCycleStatus.FAILED) {
+            throw new IllegalStateException("Only a failed cycle can be retried; cycle " + cycle.cycleNumber
+                + " is " + cycle.status);
+        }
+        cycle.markRetry();
+        setUpdatedAt(Instant.now());
+        incrementVersion();
+        return cycle;
     }
 
     /**
@@ -127,15 +189,30 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
     }
 
     /**
-     * Processes a billing cycle.
+     * Throws unless a cycle may be billed at the given moment: the schedule must be active, the next billing date
+     * must have been reached and the agreed number of cycles must not already have been billed. The application
+     * calls this before it creates an invoice or takes a payment.
      */
-    public BillingCycle processBillingCycle(Instant billingDate, String invoiceId) {
+    public void ensureBillable(Instant at) {
         if (status != BillingStatus.ACTIVE) {
             throw new IllegalStateException("Cannot process billing in status: " + status);
         }
-        if (billingDate.isBefore(nextBillingDate)) {
+        if (totalCycles > 0 && currentCycle >= totalCycles) {
+            throw new IllegalStateException("All " + totalCycles + " billing cycles have already been billed");
+        }
+        if (at.isBefore(nextBillingDate)) {
             throw new IllegalArgumentException("Billing date is before next billing date");
         }
+    }
+
+    /**
+     * Processes a billing cycle. The cycle is recorded as PENDING; the schedule completes only when the last
+     * cycle's payment succeeds. The next billing date moves on from the date that was due, not from the moment the
+     * cycle happened to run, so a late run does not shift the schedule. A run that is more than one period late
+     * leaves the next date in the past, so the missed periods are billed one run at a time.
+     */
+    public BillingCycle processBillingCycle(Instant billingDate, String invoiceId) {
+        ensureBillable(billingDate);
 
         BillingCycle cycle = new BillingCycle(
             currentCycle + 1,
@@ -147,16 +224,10 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
         );
         billingCycles.add(cycle);
         currentCycle++;
-        
-        // Update next billing date
-        this.nextBillingDate = calculateNextBillingDate(billingDate, frequency);
+
+        this.nextBillingDate = advance(nextBillingDate, frequency, anchorDay);
         this.lastBillingDate = billingDate;
-        
-        // Check if completed
-        if (totalCycles > 0 && currentCycle >= totalCycles) {
-            this.status = BillingStatus.COMPLETED;
-        }
-        
+
         setUpdatedAt(Instant.now());
         incrementVersion();
         return cycle;
@@ -169,6 +240,9 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
         BillingCycle cycle = findCycle(cycleNumber);
         cycle.markSuccess(transactionId);
         this.failedPaymentCount = 0;
+        if (totalCycles > 0 && cycleNumber >= totalCycles && status == BillingStatus.ACTIVE) {
+            this.status = BillingStatus.COMPLETED;
+        }
         setUpdatedAt(Instant.now());
         incrementVersion();
     }
@@ -218,10 +292,11 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
     }
 
     /**
-     * Calculates the next billing date.
+     * Moves a date on by one billing period, in UTC so the result does not depend on the server's time zone.
+     * Month-based periods keep the anchor day (31 January, then 28 February, then 31 March) instead of drifting.
      */
-    private static Instant calculateNextBillingDate(Instant from, BillingFrequency frequency) {
-        LocalDate date = from.atZone(ZoneId.systemDefault()).toLocalDate();
+    private static Instant advance(Instant from, BillingFrequency frequency, int anchorDay) {
+        LocalDate date = from.atZone(ZoneOffset.UTC).toLocalDate();
         LocalDate next = switch (frequency) {
             case DAILY -> date.plusDays(1);
             case WEEKLY -> date.plusWeeks(1);
@@ -233,7 +308,14 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
             case BIENNIAL -> date.plusYears(2);
             case CUSTOM -> date.plusMonths(1); // Default to monthly
         };
-        return next.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        boolean monthBased = switch (frequency) {
+            case DAILY, WEEKLY, BI_WEEKLY -> false;
+            default -> true;
+        };
+        if (monthBased) {
+            next = next.withDayOfMonth(Math.min(anchorDay, next.lengthOfMonth()));
+        }
+        return next.atStartOfDay(ZoneOffset.UTC).toInstant();
     }
 
     private BillingCycle findCycle(int cycleNumber) {
@@ -350,7 +432,7 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
         if (nextBillingDate == null) {
             return "N/A";
         }
-        return nextBillingDate.atZone(ZoneId.systemDefault())
+        return nextBillingDate.atZone(ZoneOffset.UTC)
             .toLocalDate().toString();
     }
 
@@ -414,6 +496,23 @@ public final class BillingSchedule extends AbstractAggregateRoot<BillingSchedule
         public String getErrorMessage() { return errorMessage; }
         public Instant getProcessedAt() { return processedAt; }
         public Instant getCompletedAt() { return completedAt; }
+
+        /** Rebuilds a stored cycle. */
+        public static BillingCycle restore(int cycleNumber, Instant billingDate, Money amount, String currencyCode,
+                                           String invoiceId, BillingCycleStatus status, String transactionId,
+                                           String errorMessage, Instant processedAt, Instant completedAt) {
+            BillingCycle c = new BillingCycle(cycleNumber, billingDate, amount, currencyCode, invoiceId, status);
+            c.transactionId = transactionId;
+            c.errorMessage = errorMessage;
+            c.processedAt = processedAt;
+            c.completedAt = completedAt;
+            return c;
+        }
+
+        public void markRetry() {
+            this.status = BillingCycleStatus.RETRY;
+            this.completedAt = null;
+        }
 
         public void markSuccess(String transactionId) {
             this.status = BillingCycleStatus.SUCCESS;

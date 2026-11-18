@@ -11,11 +11,13 @@ import tech.kayys.numou.workspace.application.WorkspaceMentionService;
 import tech.kayys.numou.workspace.application.WorkspacePorts.AccessPolicy;
 import tech.kayys.numou.workspace.application.WorkspacePorts.AuditedPageCommentRepository;
 import tech.kayys.numou.workspace.application.WorkspacePorts.PageRepository;
+import tech.kayys.numou.workspace.application.port.WorkspaceMentionDirectory;
+import tech.kayys.numou.workspace.application.port.WorkspaceMentionNotificationPort;
 import tech.kayys.numou.workspace.application.port.WorkspaceMentionOutboxStore;
 
 import java.time.Clock;
 
-/** CDI wiring for the optional comment capability using the host's existing Workspace ports and identity. */
+/** CDI wiring for comments using host-provided identity, authorization, directory, and persistence ports. */
 @ApplicationScoped
 public class WorkspaceCommentConfiguration {
 
@@ -33,7 +35,14 @@ public class WorkspaceCommentConfiguration {
     @Dependent
     WorkspaceCommentApi workspaceCommentApi(WorkspaceApi.IdentityProvider identity,
                                              PageCommentService service,
-                                             Instance<WorkspaceMentionService> mentions) {
-        return new WorkspaceCommentApi(identity, service, mentions.isResolvable() ? mentions.get() : null);
+                                             PageRepository pages,
+                                             AccessPolicy access,
+                                             Instance<WorkspaceMentionDirectory> directory,
+                                             Instance<WorkspaceMentionNotificationPort> notifications) {
+        WorkspaceMentionService mentions = directory.isResolvable()
+                ? new WorkspaceMentionService(pages, access, directory.get(),
+                        notifications.isResolvable() ? notifications.get() : null)
+                : null;
+        return new WorkspaceCommentApi(identity, service, mentions);
     }
 }

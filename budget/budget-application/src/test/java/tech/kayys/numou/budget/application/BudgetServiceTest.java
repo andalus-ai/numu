@@ -29,16 +29,33 @@ class BudgetServiceTest {
         service.register(budget);
 
         // Check 5000 -> ALLOW
-        var r1 = service.checkAvailability("B-2026-IT", Money.of(new BigDecimal("5000"), "USD"));
+        var r1 = service.checkAvailability("t1", "B-2026-IT", Money.of(new BigDecimal("5000"), "USD"));
         assertEquals(BudgetControlOutcome.ALLOW, r1.outcome());
 
         // Check 9000 (>80% of 10000) -> WARN
-        var r2 = service.checkAvailability("B-2026-IT", Money.of(new BigDecimal("9000"), "USD"));
+        var r2 = service.checkAvailability("t1", "B-2026-IT", Money.of(new BigDecimal("9000"), "USD"));
         assertEquals(BudgetControlOutcome.WARN, r2.outcome());
 
         // Check 12000 -> BLOCK
         var r3 = service.checkAvailability("B-2026-IT", Money.of(new BigDecimal("12000"), "USD"));
         assertEquals(BudgetControlOutcome.BLOCK, r3.outcome());
+    }
+
+
+    @Test
+    void operational_budget_lookup_is_tenant_scoped_even_when_ids_match() {
+        var service = new BudgetService(new TestBudgetStore());
+        service.register(new Budget("SHARED", "tenant-a", "LEDGER", "2026", "CC-A", "6100",
+                Money.of(new BigDecimal("100"), "IDR")));
+        service.register(new Budget("SHARED", "tenant-b", "LEDGER", "2026", "CC-B", "6100",
+                Money.of(new BigDecimal("900"), "IDR")));
+
+        assertEquals(new BigDecimal("100"), service.find("tenant-a", "SHARED").orElseThrow()
+                .allocatedAmount().amount());
+        assertEquals(new BigDecimal("900"), service.find("tenant-b", "SHARED").orElseThrow()
+                .allocatedAmount().amount());
+        assertTrue(service.find("tenant-c", "SHARED").isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> service.find(" ", "SHARED"));
     }
 
     @Test
@@ -57,7 +74,7 @@ class BudgetServiceTest {
         service.register(budget);
 
         // 8000 - 10000 = -2000 / 10000 = -20.00%
-        var variance = service.calculateVariancePercentage("B-2026-OPS");
+        var variance = service.calculateVariancePercentage("t1", "B-2026-OPS");
         assertEquals(new BigDecimal("-20.0000"), variance);
     }
 
@@ -65,13 +82,13 @@ class BudgetServiceTest {
         private final Map<String, Budget> budgets = new HashMap<>();
 
         @Override
-        public Optional<Budget> find(String budgetId) {
-            return Optional.ofNullable(budgets.get(budgetId));
+        public Optional<Budget> find(String tenantId, String budgetId) {
+            return Optional.ofNullable(budgets.get(tenantId + "|" + budgetId));
         }
 
         @Override
         public void save(Budget budget) {
-            budgets.put(budget.budgetId(), budget);
+            budgets.put(budget.tenantId() + "|" + budget.budgetId(), budget);
         }
     }
 }

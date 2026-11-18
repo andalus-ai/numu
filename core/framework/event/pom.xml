@@ -39,6 +39,7 @@
         <module>event-spi</module>
         <module>event-adapter</module>
         <module>event-adapter-kafka</module>
+        <module>event-adapter-postgres</module>
     </modules>
 
 </project>

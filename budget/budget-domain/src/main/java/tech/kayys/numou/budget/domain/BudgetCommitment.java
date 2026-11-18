@@ -5,6 +5,7 @@ import java.util.Objects;
 
 /** Commitment lifecycle: OPEN -> PARTIAL -> CONSUMED or RELEASED. */
 public final class BudgetCommitment {
+    private final String tenantId;
     private final CommitmentId id;
     private final BudgetId budgetId;
     private final String accountCode;
@@ -14,13 +15,15 @@ public final class BudgetCommitment {
     private BigDecimal remaining;
     private CommitmentStatus status = CommitmentStatus.OPEN;
 
-    public BudgetCommitment(CommitmentId id, BudgetId budgetId, String accountCode,
+    public BudgetCommitment(String tenantId, CommitmentId id, BudgetId budgetId, String accountCode,
                             BigDecimal amount, String reference) {
-        this(id, budgetId, accountCode, new BudgetPeriod(1, 1), amount, reference);
+        this(tenantId, id, budgetId, accountCode, new BudgetPeriod(1, 1), amount, reference);
     }
 
-    public BudgetCommitment(CommitmentId id, BudgetId budgetId, String accountCode,
+    public BudgetCommitment(String tenantId, CommitmentId id, BudgetId budgetId, String accountCode,
                             BudgetPeriod period, BigDecimal amount, String reference) {
+        if (tenantId == null || tenantId.isBlank()) throw new IllegalArgumentException("tenantId must not be blank");
+        this.tenantId = tenantId;
         this.id = Objects.requireNonNull(id);
         this.budgetId = Objects.requireNonNull(budgetId);
         if (accountCode == null || accountCode.isBlank()) throw new IllegalArgumentException("account code must not be blank");
@@ -32,6 +35,7 @@ public final class BudgetCommitment {
         this.remaining = amount;
         this.reference = reference;
     }
+    public String tenantId() { return tenantId; }
     public CommitmentId id() { return id; }
     public BudgetId budgetId() { return budgetId; }
     public String accountCode() { return accountCode; }

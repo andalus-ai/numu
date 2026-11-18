@@ -1,245 +1,190 @@
-# Public-Sector Platform — M1.0a Organization Consumer, Schema and Contract Inventory
+# Public-Sector Platform — M1.0a Organization Convergence Inventory
 
-**Status:** Source-level inventory (partial; evidence and coverage limits stated below)  
-**Repository:** `andalus-ai/numu`  
-**Branch:** `feat/public-sector-platform-m0-audit`  
-**Inspected HEAD:** `1d7feed73ffa4046b96ebbc49f5ee9664e5a0e21`  
-**Scope:** Organization identity/profile models, identifiers, memberships, direct references, persistence and event contracts relevant to M1.0 convergence.  
-**Implementation status:** Documentation only. No application code, schemas, migrations, data or API contracts changed.
+**Status:** Repository path inventory and core Organization/Party/Tenant contracts inspected; external consumer and production-data evidence remains open  
+**Branch:** `feat/public-sector-platform-m1-0a-inventory`  
+**Scope:** Identify existing Organization/Party identity contracts and the remaining evidence required before changing application code, persistence, APIs, events, or data.
+
+> This document records only source evidence inspected for this milestone. It is deliberately not a claim that every repository consumer, API, event, migration, deployment schema, or production dataset has been inventoried. No identifier mapping or migration may be inferred from this baseline.
 
 ## 1. Executive result
 
-The source inventory reveals a more nuanced situation than a simple "two Organization aggregates must be merged" framing.
+The repository has two distinct Organization representations:
 
-There are two distinct models:
+1. The top-level `organization/` capability owns an Organization aggregate keyed by `OrganizationId`, a mandatory `TenantId`, organizational units, and UserId-based organization membership.
+2. Ecosystem has an Organization profile keyed by canonical `PartyId`, with organization-specific profile/lifecycle fields and optional tenant association.
 
-1. **Top-level Organization capability** (`organization/`): uses its own `OrganizationId`, is tenant-bound, owns organization units and UserId-based memberships, and has an in-memory adapter in the inspected tree. Its domain describes a legal entity or business unit and operational organizational structure.
-2. **Ecosystem Organization profile** (`core/framework/ecosystem`): is keyed by canonical `PartyId`, validates that the Party exists, is active and has kind ORGANIZATION, and owns a Party-attached organization profile (legal/display name, type, status and optional tenant association).
+The models have different identity and ownership semantics. The current evidence does not establish a persisted `OrganizationId ↔ PartyId` mapping, a safe equivalence between their UUID values, or a complete canonical Party persistence contract.
 
-The Ecosystem Organization profile is **not a second independent identity key**: its aggregate identity is PartyId. The top-level OrganizationId is a separate operational aggregate identifier. Their profile fields overlap, but their ownership and lifecycle semantics are not yet proven equivalent. Therefore the previous proposal to automatically retire or absorb the Ecosystem profile is premature. M1.0b must first decide whether these are complementary bounded-context models, a duplicated profile, or a legacy/newer pair—and define the system-of-record for each field.
+**M1.0a outcome:** the domain-level contract inventory is sufficiently concrete to protect the next implementation decisions, but consumer/API/event/data inventory remains open. M1.0b–M1.0e must remain gated.
 
-**Recommendation:** preserve both identifiers and both current contracts. Define an explicit association only if a verified use case requires a top-level Organization aggregate to represent a particular canonical Organization Party. Do not mandate a universal one-to-one mapping before the data and domain semantics are established.
+## 2. Inspected source evidence
 
-## 2. Repository baseline and evidence method
+The following files were fetched from `feat/public-sector-platform-m0-audit` and inspected directly.
 
-The inspected branch HEAD is `1d7feed73ffa4046b96ebbc49f5ee9664e5a0e21`. The recursive tree contained 7,518 paths. The inventory:
-- inspected exact Organization, Party, membership, repository, application handler, migration, tenancy event, Workforce, Courier and Construction files;
-- enumerated paths matching OrganizationId, OrganizationRef, PartyId, PersonRef, organization migrations and related terms;
-- attempted GitHub code search for `OrganizationId`, `OrganizationRef`, `PartyId`, `OrganizationMembership`, `organizationId`, `party_id` and `organization_id`; the search integration returned zero results for all terms, so those results are treated as an indexing limitation, not proof of no consumers;
-- did not inspect every file body, generated client, external contract, runtime CDI wiring, deployment database or production dataset.
+| Area | Source | Verified finding |
+|---|---|---|
+| Organization domain | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/Organization.java` | Aggregate identity is `OrganizationId`; mandatory immutable `TenantId`; owns name, legal name, registration number and lifecycle; emits Organization lifecycle events. No Party reference is present. |
+| Organization identifier | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationId.java` | Strongly typed UUID wrapper implementing `DomainId<UUID>`. |
+| Organization unit | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationUnit.java` | Unit is separately identified and attached to `OrganizationId`; optional parent unit supports hierarchy. |
+| Account membership | `organization/organization-domain/src/main/java/tech/kayys/numou/organization/domain/OrganizationMembership.java` | Membership is keyed by its own ID and references `OrganizationId + UserId`; lifecycle is pending/active/suspended/revoked. It is not a real-world Party affiliation. |
+| Organization repository port | `organization/organization-spi/src/main/java/tech/kayys/numou/organization/spi/OrganizationRepository.java` | Asynchronous repository contract over `Organization, OrganizationId`. |
+| Membership repository port | `organization/organization-spi/src/main/java/tech/kayys/numou/organization/spi/OrganizationMembershipRepository.java` | Lookup is `findByOrganizationAndUser(OrganizationId, UserId)`; no Party-based affiliation query exists in this port. |
+| Unit repository port | `organization/organization-spi/src/main/java/tech/kayys/numou/organization/spi/OrganizationUnitRepository.java` | Repository contract is for OrganizationUnit; unit relationship remains OrganizationId-based. |
+| Organization module reactor | `organization/pom.xml` | Reactor contains domain, SPI, application and adapter modules. |
+| Organization domain POM | `organization/organization-domain/pom.xml` | Depends on foundation and identity-domain; no Ecosystem domain dependency is declared. |
+| Ecosystem Organization profile | `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/organization/Organization.java` | Profile aggregate is keyed by PartyId; owns legal/display name, type, status and optional UUID tenant association. Caller is responsible for ensuring Party kind ORGANIZATION. |
+| Party identifier | `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/PartyId.java` | Separate strongly typed UUID wrapper; not interchangeable with OrganizationId at the Java type level. |
+| Party identity association | `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/PartyIdentityAssociation.java` | Tenant-scoped mapping between external identity subject and Party; explicitly does not grant roles, tenant membership or authorization. |
+| Party participant association | `core/framework/ecosystem/ecosystem-domain/src/main/java/tech/kayys/numou/ecosystem/domain/party/PartyParticipantAssociation.java` | Tenant-scoped business classification between Party and Ecosystem Participant; explicitly not authorization or login membership. |
+| Ecosystem migration V1 | `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V1__party_identity_associations.sql` | Creates tenant-scoped Party identity links, active-subject uniqueness and history indexes. This is not an Organization-to-Party mapping table. |
+| Organization convergence ADR | `docs/architecture/organization-party-identity-convergence.md` | Confirms duplicate profile/management models and gates convergence on inventory and canonical Party persistence evidence. |
+| M1.0 implementation plan | `docs/architecture/PUBLIC-SECTOR-POPULATION-PLATFORM-M1.0-ORGANIZATION-CONVERGENCE-IMPLEMENTATION-PLAN.md` | Establishes staged expand/migrate/verify/cutover/contract strategy and prohibits destructive identifier replacement. |
 
-This is a source-level inventory of confirmed references, not a complete whole-repository call graph or production data census.
+## 3. Contract inventory
 
-## 3. Model and ownership inventory
+### 3.1 Identifiers and relationships
 
-### 3.1 Canonical Party
-
-Confirmed sources:
-- `core/framework/ecosystem/ecosystem-domain/.../party/PartyId.java`
-- `.../party/PartyRef.java`
-- `.../model/Party.java`
-- `core/framework/ecosystem/ecosystem-persistence-jdbc/.../V2__canonical_parties.sql`
-- `.../JdbcPartyRepository.java`
-
-Facts:
-- PartyId is a strongly typed UUID wrapper.
-- Party is global and not tenant-owned.
-- Party has PERSON/ORGANIZATION kind and ACTIVE/INACTIVE status.
-- The canonical table has `party_id` primary key, kind, status, timestamps and version.
-- PartyRef is a lightweight Party reference with optional/unknown kind.
-- Party does not own organization units, tenant membership, login credentials, or public-sector registry attributes.
-
-Decision: retain Party as the cross-domain identity. A PartyId is not a tenant permission and must not be substituted for OrganizationId, UserId or TenantId.
-
-### 3.2 Top-level Organization capability
-
-Confirmed sources:
-- `organization/organization-domain/.../Organization.java`
-- `.../OrganizationId.java`
-- `.../OrganizationUnit.java`
-- `.../OrganizationMembership.java`
-- `organization/organization-spi/.../OrganizationRepository.java`
-- `.../OrganizationMembershipRepository.java`
-- `.../OrganizationUnitRepository.java`
-- `organization/organization-application/.../CreateOrganizationHandler.java`
-- `.../InviteOrganizationMemberHandler.java`
-- `organization/organization-adapter/.../memory/InMemoryOrganizationRepository.java`
-- `.../InMemoryOrganizationMembershipRepository.java`
-- `.../InMemoryOrganizationUnitRepository.java`
-- `organization/pom.xml`, `organization/organization-adapter/pom.xml`
-
-Facts:
-- OrganizationId is a dedicated UUID value object.
-- Organization requires TenantId; it stores name, legal name, registration number and lifecycle.
-- OrganizationUnit is keyed independently and references OrganizationId and optional parent OrganizationUnitId.
-- OrganizationMembership is keyed independently and references OrganizationId plus Identity UserId, with PENDING/ACTIVE/SUSPENDED/REVOKED lifecycle.
-- InviteOrganizationMemberHandler checks Organization tenant equality against command tenant, active status, and IdentityUserPort.exists before creating a membership.
-- The repository SPI has Organization, OrganizationUnit and OrganizationMembership ports.
-- The inspected adapters are in-memory. The Organization reactor has domain, SPI, application and adapter modules; no JDBC/Postgres adapter, migration directory or production persistence implementation was found in the inspected tree.
-- The top-level OrganizationCreated/Suspended/Reactivated/Dissolved and OrganizationUnitCreated/Dissolved domain events carry OrganizationId and tenant context. Membership lifecycle is not shown as an event family in the inspected files.
-
-Implications:
-- OrganizationId must remain stable for internal structure and existing consumers.
-- Existing membership is an application access/account relationship because it references UserId. It must not be silently reinterpreted as real-world employee/office affiliation.
-- TenantId is currently mandatory on the aggregate. Its exact production semantics (exclusive owner, creator tenant, or data partition) are not proven.
-- Production persistence is a gate before government agency onboarding.
-
-### 3.3 Ecosystem Organization profile
-
-Confirmed sources:
-- `core/framework/ecosystem/ecosystem-domain/.../organization/Organization.java`
-- `.../organization/OrganizationType.java`
-- `.../organization/OrganizationStatus.java`
-- `core/framework/ecosystem/ecosystem-application/.../command/RegisterOrganizationHandler.java`
-- `.../port/OrganizationRepository.java`
-- `.../port/EcosystemTransactionRunner.java`
-- `core/framework/ecosystem/ecosystem-domain/.../event/OrganizationRegistered.java`
-
-Facts:
-- Ecosystem Organization extends its aggregate identity from PartyId; it does not create another OrganizationId.
-- Registration validates Party existence, ORGANIZATION kind and ACTIVE status through the transaction-scoped Party repository.
-- It rejects an already existing profile for the same PartyId.
-- The profile stores legalName, displayName, OrganizationType, OrganizationStatus and optional tenant UUID.
-- The application port is `findByPartyId(PartyId)`.
-- The registration handler saves the profile and publishes its domain events inside the Ecosystem transaction boundary.
-- No separate Organization profile JDBC implementation or migration was found in the inspected tree; the repository is exposed as a transaction-scoped port.
-
-Implications:
-- This profile is Party-attached metadata, not a competing canonical organization identity.
-- Its optional tenant association differs from the top-level Organization's mandatory TenantId.
-- The legal/display name and lifecycle fields overlap with top-level Organization, but there is no evidence that both are populated for the same real-world organizations or that they have identical semantics.
-- Do not delete, merge or automatically synchronize these fields until the system-of-record and lifecycle ownership are agreed.
-
-## 4. Identifier and consumer inventory
-
-### 4.1 Confirmed direct consumers / references
-
-| Consumer / source | Reference used | Meaning observed | Migration implication |
+| Identifier / relationship | Existing owner | Current meaning | Migration treatment |
 |---|---|---|---|
-| Top-level Organization aggregate | OrganizationId + TenantId | Tenant-bound operational organization | Preserve key and tenant boundary |
-| OrganizationUnit | OrganizationId | Structural ownership | Keep OrganizationId |
-| OrganizationMembership | OrganizationId + UserId | Account/access membership | Keep UserId semantics; do not convert to PartyId |
-| Organization SPI and handlers | OrganizationId | Application commands and repository lookup | Compatibility contract required |
-| Courier `OrganizationLookup` | TenantId + OrganizationId | Explicit tenant-scoped lookup | Preserve strict two-key query boundary |
-| Courier `OrganizationUnitLookup` | OrganizationId + OrganizationUnitId | Unit lookup scoped by parent organization | Preserve |
-| Tenancy `TenantOrganizationChanged` | Foundation OrganizationRef(UUID) | Tenant's legal-organization reference | Clarify target identity semantics before adapter mapping |
-| Workforce employment `OrganizationRef(UUID)` | Local wrapper around UUID | Employment's organization reference | Confirm whether it refers to top-level OrganizationId or another organization identity |
-| Foundation `OrganizationRef(UUID)` | Generic cross-domain UUID reference | Tenant-level lightweight organization reference | Clarify semantics; wrapper alone does not prove target model |
-| Construction evidence migration | raw `requesting_organization_id UUID` | Captures authorized requesting organization context | Identify source API and mapping before any rewrite |
-| Ecosystem Organization profile | PartyId | Profile identity is canonical Party | Do not migrate its key to OrganizationId |
-| Party identity association | PartyId + tenant + issuer/subject | Login subject ↔ Party linkage | Not Organization membership |
-| Party participant association | PartyId + ParticipantId + tenant + role | Party's business relationship to Participant | Not OrganizationMembership or agency appointment |
-| Workforce Worker | PersonRef + TenantId | Worker refers to a person identity | Separate PersonRef compatibility track; no OrganizationId conversion implied |
+| `OrganizationId` | Organization | Top-level Organization aggregate identity | Preserve; never mass-rewrite to PartyId |
+| `PartyId` | Ecosystem Party vocabulary | Canonical person/organization identity | Keep distinct; require explicit validated association |
+| `OrganizationUnitId` | Organization | Unit identity | Preserve; units continue to reference OrganizationId |
+| `OrganizationMembershipId` | Organization | Organization account-membership record | Preserve during compatibility period |
+| `UserId` | Identity | Authenticated account/principal | Remains account/access membership key |
+| `TenantId` | Foundation tenancy vocabulary | Tenant scope | Existing Organization aggregate requires it; semantics still need owner/product confirmation |
+| External identity subject | Ecosystem identity association | Issuer + subject linked to Party within tenant | Not an organization membership or authorization grant |
+| Ecosystem ParticipantId | Ecosystem | Participant identity | PartyParticipantAssociation is a distinct business relationship |
 
-### 4.2 Important contract distinctions
+### 3.2 Domain ownership and dependency direction
 
-- `PartyIdentityAssociation` links an external authenticated subject to a Party within a tenant. Its source explicitly says it does not grant roles, tenant membership or authorization.
-- `PartyParticipantAssociation` is a tenant-scoped business relationship between Party and Participant, with roles such as CUSTOMER, PARTNER, SUPPLIER, SERVICE_PROVIDER, MEMBER and EMPLOYEE. It is not a top-level Organization membership.
-- `OrganizationMembership` is UserId-based. It cannot represent a person without a login.
-- `PersonRef` and PartyId are separate wrappers. Workforce Worker stores PersonRef; do not cast or equate UUIDs without an explicit mapping contract.
-- Foundation OrganizationRef and Workforce OrganizationRef are separate UUID wrappers. Neither wrapper statically guarantees which Organization bounded context owns the referenced UUID.
-- TenantOrganizationChanged currently transports the generic Foundation OrganizationRef. Its producer/consumer adapters must be traced before changing the meaning.
-- Construction persists a raw UUID column for requesting organization. It must not be assumed to be PartyId or OrganizationId based on the column name alone.
+- Organization owns its structure and management invariants: Organization, OrganizationUnit and current UserId membership.
+- Ecosystem Party vocabulary owns canonical Party identity and Party kind.
+- Ecosystem Organization profile is keyed by PartyId but is not the owner of OrganizationUnit or UserId membership.
+- Organization domain POM does not depend on Ecosystem domain. Do not add a reverse dependency merely to read Party persistence or implementation classes.
+- Any Party validation must be an application-level port/contract, with an adapter at the composition boundary. Organization domain must remain free of Ecosystem JDBC, identity-provider and HTTP dependencies.
+- Party identity linkage, tenant membership, organization access membership, person affiliation and public-office appointment are different relationships and must not be collapsed.
 
-## 5. Persistence and migration inventory
+## 4. Compatibility and migration hazards
 
-### 5.1 Existing persisted structures confirmed
+1. **Identifier collision:** both IDs wrap UUID, but equality of their raw UUID values is not evidence of identity equivalence.
+2. **Tenant semantics:** Organization requires TenantId while Ecosystem Organization allows a nullable tenant UUID. The source does not prove whether the former means creator, owner, exclusive tenant or data partition.
+3. **Membership semantics:** existing OrganizationMembership is UserId-based. Replacing UserId with PartyId would change the meaning and break access-oriented consumers.
+4. **Unit references:** OrganizationUnit references OrganizationId and must continue doing so because it is an internal structure relationship.
+5. **Profile duplication:** Ecosystem Organization profile must not expand into a second hierarchy/membership owner. Its stored data and consumers need an explicit consolidation plan.
+6. **Party validation:** the Ecosystem Organization source says its caller must ensure Party kind ORGANIZATION; the inspected source does not itself prove a complete Party aggregate/repository validation path.
+7. **Tenant isolation:** a global Party association must never become a shortcut for reading tenant-local Organization profile, unit, membership or other data.
 
-| Storage | Confirmed schema | Ownership |
+## 5. Evidence still missing — M1.0a is not closed
+
+The following work is required before calling the inventory complete.
+
+### 5.1 Repository-wide consumer inventory
+
+Search and inspect every producer/consumer of:
+- `OrganizationId`, `PartyId`, `OrganizationRef`, `PersonRef`, `LegalEntityRef`;
+- OrganizationRepository, OrganizationMembershipRepository and OrganizationUnitRepository;
+- OrganizationCreated, OrganizationSuspended, OrganizationReactivated, OrganizationDissolved and OrganizationUnit events;
+- Ecosystem Organization registration/profile commands, queries and events.
+
+The GitHub code-search connector returned no matches during this pass, so its empty results cannot be used as proof that references do not exist. A repository-wide checkout/grep or a functioning code-search index is required to close this section.
+
+### 5.2 Persistence inventory
+
+Still inspect:
+- all Organization adapter source files and whether each adapter is test-only/in-memory or production-backed;
+- Organization schema/migrations, if any, plus deployment-specific schema definitions;
+- Ecosystem Organization persistence tables, migrations, repositories and registration handlers;
+- all seed data, fixtures and integration-test datasets;
+- migration ordering, migration runner configuration and actual database baseline.
+
+The inspected V1 Party identity migration is unrelated to Organization-to-Party association. V2/V3 and the complete Ecosystem migration set must be read before a persistence design is selected.
+
+### 5.3 API and event inventory
+
+Still inspect:
+- REST/GraphQL/resource endpoints, request/response DTOs and generated clients;
+- published OpenAPI/AsyncAPI/Avro/JSON schemas and serialized event payloads;
+- message topics, routing keys, inbox/outbox implementations and consumers;
+- public SDKs, integration adapters and external API contracts.
+
+No API or event schema is changed by this milestone.
+
+### 5.4 Runtime and data evidence
+
+Still establish:
+- the exact Organization and Ecosystem Maven reactor build commands;
+- Organization UnitOfWork/transaction, event dispatch and outbox conventions;
+- current optimistic-concurrency and aggregate rehydration behavior;
+- tenant creation/ownership/participation flows and tenant query predicates;
+- production data owners, external integrations and authoritative mapping sources;
+- whether any existing OrganizationId values are backed by Party records, based on evidence other than UUID equality.
+
+
+## 5.5 Additional verified repository-tree and adapter evidence
+
+A recursive Git tree read of `feat/public-sector-platform-m1-0a-inventory` returned 13,247 paths with `truncated=false`. This gives a complete path inventory for that branch revision, but not a complete content-level consumer scan.
+
+The following additional files were then fetched and inspected:
+
+| Area | Source | Verified finding |
 |---|---|---|
-| `ecosystem_party` | PartyId, kind, status, timestamps, version | Ecosystem |
-| `ecosystem_party_identity_associations` | TenantId, PartyId, issuer/subject, status, linked/revoked time | Ecosystem identity linkage |
-| `ecosystem_party_participant_associations` | TenantId, PartyId, ParticipantId, role, status, effective/revoked time | Ecosystem business association |
-| Top-level Organization | No SQL migration found in inspected Organization subtree | Not established in inspected tree |
-| Ecosystem Organization profile | Repository port and transaction handler found; no dedicated SQL migration or JDBC implementation found in inspected tree | Adapter implementation not established |
+| Organization adapter | `organization/organization-adapter/src/main/java/tech/kayys/numou/organization/adapter/memory/InMemoryOrganizationRepository.java` | The concrete Organization repository implementation found in the module is in-memory and uses a ConcurrentHashMap keyed by OrganizationId. |
+| Membership adapter | `organization/organization-adapter/src/main/java/tech/kayys/numou/organization/adapter/memory/InMemoryOrganizationMembershipRepository.java` | In-memory membership storage is keyed by OrganizationMembershipId; duplicate detection is OrganizationId + UserId. |
+| Organization adapter module | `organization/organization-adapter/pom.xml` | Describes in-memory and other secondary adapters; inspected source tree currently contains only in-memory Organization, membership and unit adapters, plus tests. No Organization SQL migration directory or JDBC Organization adapter appears under `organization/` in this branch tree. |
+| Organization creation | `organization/organization-application/src/main/java/tech/kayys/numou/organization/application/command/CreateOrganizationHandler.java` | Generates OrganizationId and creates the aggregate using command TenantId; no Party association is made. |
+| Organization member invitation | `organization/organization-application/src/main/java/tech/kayys/numou/organization/application/command/InviteOrganizationMemberHandler.java` | Validates Organization exists and tenant matches, checks identity UserId exists, then creates OrganizationMembership by OrganizationId + UserId. |
+| Ecosystem Organization repository port | `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/port/OrganizationRepository.java` | Separate port persists Ecosystem Organization profile and looks it up by PartyId. |
+| Ecosystem Organization registration | `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/api/command/RegisterOrganizationHandler.java` | Within EcosystemTransactionRunner, validates Party exists, kind is ORGANIZATION and status is active; rejects an existing profile; saves profile and publishes its domain events. |
+| Ecosystem transaction contract | `core/framework/ecosystem/ecosystem-application/src/main/java/tech/kayys/numou/ecosystem/application/port/EcosystemTransactionRunner.java` | Requires transaction-scoped context and commit on successful completion / rollback on failure; validation failures represented as successful Result outcomes must not write state. |
+| Canonical Party schema | `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V2__canonical_parties.sql` | Canonical Party table has global PartyId primary key, kind and status; migration comment separates cross-tenant Party identity from tenant membership and external authentication links. |
+| Party identity schema | `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V1__party_identity_associations.sql` | External issuer/subject mapping is tenant-scoped, retains revoked history, and has active-subject uniqueness within tenant. |
+| Party-participant schema | `core/framework/ecosystem/ecosystem-persistence-jdbc/src/main/resources/db/migration/V3__party_participant_associations.sql` | Business association is tenant-scoped and links Party to Participant with a role; it is not OrganizationId mapping or tenant membership. |
+| Tenant aggregate | `tenancy/tenancy-domain/src/main/java/tech/kayys/numou/tenancy/domain/tenant/Tenant.java` | Tenant is a separate aggregate with optional OrganizationRef; its comment defines Tenant as the multi-tenancy boundary and keeps membership/settings/provisioning separate. |
+| Tenant membership | `tenancy/tenancy-domain/src/main/java/tech/kayys/numou/tenancy/domain/membership/TenantMembership.java` | Membership is TenantId + UserRef, explicitly separate from authorization and workforce employment; one user may belong to multiple tenants. |
+| Tenant authorization port | `security/security-spi/src/main/java/tech/kayys/numou/security/spi/port/TenantMembershipResolver.java` | Security asks whether a Principal is an active member of a Tenant; it does not establish Organization affiliation. |
 
-### 5.2 Migration implications
+### 5.6 What the tree scan establishes — and does not establish
 
-- No existing OrganizationId-to-PartyId mapping table was found in the inspected Organization/Ecosystem migration paths.
-- Do not infer mapping by comparing UUID values.
-- Do not rewrite OrganizationUnit or other internal structure references to PartyId.
-- Do not assume the absence of a migration in the inspected subtree proves no deployment-specific schema exists.
-- A data migration cannot be designed safely until all deployment schemas and production data are inventoried.
-- The Construction migration requires a verified backfill source; its migration explicitly fails if existing rows lack a requester organization. This is an example of a strict migration gate, not proof of a general Organization reference contract.
+- The top-level Organization module currently exposes repository ports and application handlers, with in-memory adapters in the inspected module tree. This is not evidence of a production Organization database implementation.
+- The Ecosystem Organization profile has an application repository port and transactional registration handler. The inspected Ecosystem persistence tree has JDBC Party repositories and migrations V1–V3, but no JDBC Organization-profile repository implementation or Organization-profile table migration was present in the returned path inventory.
+- The two models are not presently joined by an observed mapping contract in the inspected source tree.
+- The recursive tree confirms relevant paths and missing path patterns for this branch snapshot; it does not prove absence of external consumers, generated clients, deployed schemas, or production records outside this repository.
+- The repository's GitHub code-search endpoint is indexed against the default branch, not this feature branch. Empty search responses therefore remain non-evidence for the branch's complete content.
 
-## 6. Tenant semantics inventory
+### 5.7 Updated source-level checklist
 
-Confirmed:
-- Top-level Organization requires TenantId.
-- OrganizationMembership invitation compares the command TenantId to the aggregate TenantId.
-- Courier OrganizationLookup requires both TenantId and OrganizationId and explicitly rejects global lookup followed by in-memory filtering.
-- Ecosystem Organization profile permits a null tenantId.
-- Party is global.
-- Party identity and participant associations are tenant-scoped.
-- Tenancy emits TenantOrganizationChanged with Foundation OrganizationRef.
+- [x] Inspect all files under the top-level `organization/` source tree using the recursive tree inventory.
+- [x] Confirm concrete Organization and membership adapters found in that tree are in-memory.
+- [x] Confirm no Organization migration/JDBC adapter path appears under `organization/` in this branch tree.
+- [x] Inspect Ecosystem Organization repository port and registration handler.
+- [x] Inspect Ecosystem Party migrations V1–V3 and canonical Party table migration.
+- [x] Inspect Tenant aggregate, TenantMembership aggregate and security membership resolver port.
+- [ ] Complete content-level cross-repository call-site and serialized consumer search; GitHub code search is default-branch indexed and cannot close this for the feature branch.
+- [ ] Inspect all Ecosystem persistence Java source and runtime wiring to confirm whether Organization profile persistence is implemented outside the path patterns reviewed.
+- [ ] Inspect REST/API, schema registry, event transport and deployment configuration beyond the Organization/Ecosystem module trees.
+- [ ] Obtain production data and external integration evidence.
 
-Not yet established:
-- Whether top-level Organization TenantId means owner tenant, creation tenant, data partition or exclusive tenant.
-- Whether one top-level Organization can participate in multiple tenants.
-- Whether TenantOrganizationChanged references the top-level Organization aggregate, an Ecosystem Party profile or an external organization.
-- Whether cross-tenant agencies are currently represented as shared references or duplicated tenant-local organization rows.
-- Whether tenant-level organization association is authoritative for legal identity, billing, security or merely display.
 
-Decision: no tenantId removal or multi-tenant schema change until these semantics and all child-record query predicates are audited.
+## 6. M1.0a closure checklist
 
-## 7. Event and API compatibility inventory
+- [x] Confirm OrganizationId and PartyId are distinct Java types.
+- [x] Confirm Organization aggregate currently requires TenantId.
+- [x] Confirm OrganizationUnit remains OrganizationId-based.
+- [x] Confirm current OrganizationMembership is UserId-based.
+- [x] Confirm Ecosystem Organization profile is PartyId-based and tenant is optional.
+- [x] Confirm PartyIdentityAssociation and PartyParticipantAssociation do not grant authorization.
+- [x] Confirm Organization module has domain/SPI/application/adapter reactor modules.
+- [ ] Complete all repository-wide identifier and repository-port call sites.
+- [ ] Complete persistence/migration/seed/fixture inventory.
+- [ ] Complete API, DTO, event-schema and consumer inventory.
+- [ ] Verify transaction, outbox and rehydration conventions in the Organization reactor.
+- [ ] Obtain authoritative tenant semantics and production-data ownership evidence.
+- [ ] Review the complete inventory before authorizing M1.0b–M1.0e.
 
-Confirmed event/API families:
-- Top-level Organization lifecycle events use OrganizationId and TenantId.
-- Organization unit events use OrganizationUnitId, OrganizationId and optional parent unit ID.
-- Ecosystem OrganizationRegistered uses PartyId identity and organization profile attributes.
-- TenantOrganizationChanged uses Foundation OrganizationRef.
-- WorkerCreated uses PersonRef.
-- Construction requester organization is stored as UUID in a tenant-specific evidence operation table.
+## 7. Implementation decision
 
-Required before contract changes:
-- Find all publishers, subscribers, event serialization formats, REST/GraphQL DTOs, generated SDKs and external consumers for these events and identifiers.
-- Inspect compatibility and schema registry rules, if present.
-- Identify API payloads that serialize bare UUIDs and cannot reveal which ID namespace they contain.
-- Verify outbox/transaction semantics for both Organization and Ecosystem adapters.
-- Define event versioning and dual-read/write only where a real consumer migration requires it.
+Do not add an Organization-to-Party association table, change aggregate identifiers, introduce Party-based affiliation, or alter tenant ownership in this inventory milestone. Those changes depend on the missing evidence above.
 
-No event or API payload should be renamed or have its UUID semantics changed in place.
+The next safe implementation task is to complete the repository-wide source inventory from a full checkout or functioning GitHub code-search index, then record the verified consumer and schema matrix. Once that is reviewed, M1.0b can settle tenant and membership semantics; M1.0c can introduce the association contract without guessing at persistence or consumer behavior.
 
-## 8. M1.0b decisions required before designing association or persistence
-
-1. **Model relationship:** Are the Ecosystem Party-attached organization profile and top-level tenant-bound Organization complementary bounded contexts or duplicate profiles? Define ownership for legal name, display name, type/classification, registration identifiers and lifecycle.
-2. **Mapping cardinality:** Is an operational Organization aggregate always a legal organization Party, or can it represent a business unit, branch, department, project consortium or internal team? If the latter, a universal one-to-one OrganizationId↔PartyId mapping is invalid; only legal-entity-like Organizations should be linkable to an Organization Party.
-3. **Tenant semantics:** What does the current mandatory Organization.tenantId represent? Which data are tenant-owned versus globally shared?
-4. **Membership semantics:** Retain UserId access membership; define separate PartyId-based person affiliation only when needed. Do not replace the current relation.
-5. **Reference namespaces:** Standardize the semantic meaning of Foundation OrganizationRef and Workforce OrganizationRef without forcing an immediate shared Java type or UUID rewrite.
-6. **External organization identifiers:** Decide how issuer, namespace, jurisdiction, validity and verification evidence are represented.
-7. **Persistence:** Select a production persistence design for the top-level Organization capability and verify the actual Ecosystem adapter/runtime wiring.
-8. **Migration source:** Identify production database schemas, seed data, API clients and external integrations before any backfill.
-
-## 9. Recommended implementation order
-
-| Order | Work | Exit condition |
-|---|---|---|
-| M1.0a.1 | Finish runtime and schema discovery for Organization and Ecosystem adapters | Production wiring and all migrations located |
-| M1.0a.2 | Trace tenancy OrganizationRef producer/consumer and Workforce OrganizationRef origin | Each reference namespace has documented semantics |
-| M1.0a.3 | Trace all OrganizationId API/event/consumer paths in selected modules | Compatibility inventory reviewed |
-| M1.0b | Decide complementary models vs profile duplication and field ownership | Domain decision recorded |
-| M1.0c | Define optional, typed association only for eligible legal-entity Organizations | Cardinality and validation rules accepted |
-| M1.0d | Establish Organization persistence and tenancy behavior | Adapter and integration test baseline proven |
-| M1.0e | Implement compatibility queries and migration only where verified data exists | Reconciliation and rollback accepted |
-
-M1.0a is not complete until runtime wiring and external data references are inspected. The current inventory is sufficient to correct the design direction, but not to authorize implementation.
-
-## 10. Acceptance criteria for the next design gate
-
-- No assumption that all Organization aggregates represent legal entities.
-- No assumption that Ecosystem Organization profile is a duplicate identity.
-- OrganizationId, PartyId, PersonRef, UserId, TenantId and generic OrganizationRef remain distinct.
-- OrganizationUnit remains owned by OrganizationId.
-- UserId access membership remains separate from Party/person affiliation.
-- Tenant boundary is enforced independently of canonical Party association.
-- Any association is optional and evidence-backed; no UUID equality inference.
-- All runtime persistence adapters, event publishers/subscribers, API clients and production schemas are inventoried.
-- No destructive migration or PR is opened without explicit approval.
-
-## 11. Verification limitations
-
-This milestone inspected the branch tree and selected source files listed in the repository paths above. GitHub code search returned no indexed matches for the identifier queries used, so it cannot be relied upon for coverage. No full repository clone/grep, production database inspection, generated client inventory, runtime deployment inspection, Maven build, unit test, integration test or CI run was performed.
-
-No application code, migrations, event schemas, API contracts, data or tests were changed or executed by this documentation-only milestone.
+**No application code, schema, migration, API, event contract, or production data was changed by this milestone.**

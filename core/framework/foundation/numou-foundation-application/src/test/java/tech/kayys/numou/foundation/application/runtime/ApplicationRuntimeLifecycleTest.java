@@ -95,4 +95,108 @@ class ApplicationRuntimeLifecycleTest {
         assertEquals(ReadinessStatus.NOT_READY, defaultRuntime.readinessStatus());
         assertFalse(defaultRuntime.reasons().isEmpty());
     }
+
+    @Test
+    @DisplayName("Runtime health follows the application lifecycle")
+    void runtimeHealthFollowsLifecycle() {
+        ApplicationRuntime runtime = ApplicationRuntimeBuilder.create().build();
+
+        assertFalse(runtime.registry().health().isHealthy());
+        assertEquals("DOWN", runtime.registry().health().status());
+
+        runtime.start().await().indefinitely();
+        assertTrue(runtime.registry().health().isHealthy());
+        assertEquals("UP", runtime.registry().health().status());
+
+        runtime.stop().await().indefinitely();
+        assertFalse(runtime.registry().health().isHealthy());
+        assertEquals("DOWN", runtime.registry().health().status());
+    }
+
+    @Test
+    @DisplayName("Duplicate component and module IDs are rejected")
+    void duplicateCompositionIdsAreRejected() {
+        RuntimeComponent first = component("duplicate", Uni.createFrom().voidItem(), Uni.createFrom().voidItem());
+        RuntimeComponent second = component("duplicate", Uni.createFrom().voidItem(), Uni.createFrom().voidItem());
+
+        assertThrows(IllegalStateException.class, () -> ApplicationRuntimeBuilder.create()
+                .component(first)
+                .component(second)
+                .build());
+
+        ApplicationModule firstModule = () -> "duplicate-module";
+        ApplicationModule secondModule = () -> "duplicate-module";
+        assertThrows(IllegalStateException.class, () -> ApplicationRuntimeBuilder.create()
+                .module(firstModule)
+                .module(secondModule)
+                .build());
+    }
+
+    @Test
+    @DisplayName("Startup rollback attempts cleanup of a partially started component and records failures")
+    void startupRollbackRecordsCleanupFailures() {
+        RuntimeComponent partiallyStarted = component(
+                "partial",
+                Uni.createFrom().voidItem(),
+                Uni.createFrom().failure(new IllegalStateException("sensitive cleanup detail"))
+        );
+        RuntimeComponent failing = component(
+                "failing",
+                Uni.createFrom().failure(new IllegalStateException("startup failed")),
+                Uni.createFrom().voidItem()
+        );
+
+        DefaultApplicationRuntime runtime = (DefaultApplicationRuntime) ApplicationRuntimeBuilder.create()
+                .component(partiallyStarted)
+                .component(failing)
+                .build();
+
+        assertThrows(RuntimeException.class, () -> runtime.start().await().indefinitely());
+        assertEquals(ApplicationRuntimeState.FAILED, runtime.state());
+        assertTrue(runtime.reasons().stream().anyMatch(reason ->
+                reason.code().equals("STARTUP_ROLLBACK_FAILURE")));
+        assertTrue(runtime.reasons().stream().noneMatch(reason ->
+                reason.message().contains("sensitive cleanup detail")));
+    }
+
+    @Test
+    @DisplayName("Shutdown continues cleanup and fails visibly when a component cannot stop")
+    void shutdownCleanupFailuresAreVisible() {
+        RuntimeComponent failingStop = component(
+                "failing-stop",
+                Uni.createFrom().voidItem(),
+                Uni.createFrom().failure(new IllegalStateException("sensitive shutdown detail"))
+        );
+        DefaultApplicationRuntime runtime = (DefaultApplicationRuntime) ApplicationRuntimeBuilder.create()
+                .component(failingStop)
+                .build();
+
+        runtime.start().await().indefinitely();
+        assertThrows(ApplicationRuntimeException.class, () -> runtime.stop().await().indefinitely());
+
+        assertEquals(ApplicationRuntimeState.FAILED, runtime.state());
+        assertTrue(runtime.reasons().stream().anyMatch(reason ->
+                reason.code().equals("SHUTDOWN_FAILURE")));
+        assertTrue(runtime.reasons().stream().noneMatch(reason ->
+                reason.message().contains("sensitive shutdown detail")));
+    }
+
+    private static RuntimeComponent component(String id, Uni<Void> start, Uni<Void> stop) {
+        return new RuntimeComponent() {
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public Uni<Void> start() {
+                return start;
+            }
+
+            @Override
+            public Uni<Void> stop() {
+                return stop;
+            }
+        };
+    }
 }

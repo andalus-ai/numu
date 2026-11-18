@@ -5,9 +5,12 @@ import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import tech.kayys.numou.document.application.command.CompleteUploadHandler;
 import tech.kayys.numou.document.application.command.CreateUploadSessionHandler;
+import tech.kayys.numou.document.application.command.ScanDocumentVersionHandler;
 import tech.kayys.numou.document.application.port.DocumentAccessPort;
 import tech.kayys.numou.document.application.port.DocumentOutboxPort;
 import tech.kayys.numou.document.application.port.DocumentRepository;
+import tech.kayys.numou.document.application.port.DocumentScanResultRepository;
+import tech.kayys.numou.document.application.port.DocumentScanner;
 import tech.kayys.numou.document.application.port.DocumentStoragePort;
 import tech.kayys.numou.document.application.port.UploadSessionRepository;
 import tech.kayys.numou.foundation.application.transaction.UnitOfWork;
@@ -31,6 +34,12 @@ public class DocumentHandlerProducers {
     DocumentOutboxPort outbox;
 
     @Inject
+    DocumentScanResultRepository scanResults;
+
+    @Inject
+    DocumentScanner scanner;
+
+    @Inject
     UnitOfWork unitOfWork;
 
     @Inject
@@ -48,5 +57,11 @@ public class DocumentHandlerProducers {
         return new CompleteUploadHandler(
                 documentAccess, storage, documents, uploadSessions, outbox, unitOfWork, clock
         );
+    }
+
+    @Produces
+    @ApplicationScoped
+    public ScanDocumentVersionHandler scanDocumentVersionHandler() {
+        return new ScanDocumentVersionHandler(documents, scanner, scanResults, outbox, unitOfWork);
     }
 }

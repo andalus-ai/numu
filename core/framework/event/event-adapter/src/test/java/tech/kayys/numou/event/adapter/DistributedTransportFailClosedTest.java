@@ -12,6 +12,7 @@ import tech.kayys.numou.event.spi.port.EventPublisherPort;
 import tech.kayys.numou.event.spi.port.EventSubscriberPort;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,6 +20,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DistributedTransportFailClosedTest {
 
     private static final class TestEvent implements BusinessEvent {
+        private final UUID eventId = UUID.randomUUID();
+        private final Instant occurredAt = Instant.parse("2026-01-01T00:00:00Z");
+
+        @Override
+        public UUID eventId() {
+            return eventId;
+        }
+
+        @Override
+        public Instant occurredAt() {
+            return occurredAt;
+        }
+
         @Override
         public String eventType() {
             return "test.event";

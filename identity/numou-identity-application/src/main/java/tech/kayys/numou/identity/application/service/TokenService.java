@@ -66,33 +66,57 @@ public class TokenService {
                                     "BAD_CREDENTIALS", "Invalid username or password"
                             ).toException());
                         }
-                        String token = tokenIssuer.issueToken(
-                                user.id().value(),
-                                "USER",
-                                user.displayName().value()
-                        );
-                        boolean rememberMe = request.rememberMe();
-                        String rememberMeToken = null;
-                        if (rememberMe) {
-                            var patResponse = patService.issue(
-                                    new CreatePatRequest(
-                                            "USER",
-                                            user.id().value(),
-                                            "remember-me:" + user.id().value(),
-                                            Instant.now().plusSeconds(30L * 24L * 60L * 60L)
-                                    )
-                            ).await().indefinitely();
-                            rememberMeToken = patResponse.token();
+                        Uni<Void> upgrade = Uni.createFrom().voidItem();
+                        if (passwordHasher.needsRehash(user.passwordHash())) {
+                            var verifiedHash = user.passwordHash();
+                            upgrade = userRepository.updatePasswordHash(user.id(), verifiedHash,
+                                            passwordHasher.hash(request.password()))
+                                    .chain(updated -> updated
+                                            ? Uni.createFrom().voidItem()
+                                            : verifyCredentialStillCurrent(user.id(), request.password()));
                         }
-                        return Uni.createFrom().item(new AccessTokenResponse(
-                                token, "Bearer", lifespanSeconds, rememberMeToken
-                        ));
+                        return upgrade.map(ignored -> {
+                            String token = tokenIssuer.issueToken(
+                                    user.id().value(),
+                                    "USER",
+                                    user.displayName().value()
+                            );
+                            boolean rememberMe = request.rememberMe();
+                            String rememberMeToken = null;
+                            if (rememberMe) {
+                                var patResponse = patService.issue(
+                                        new CreatePatRequest(
+                                                "USER",
+                                                user.id().value(),
+                                                "remember-me:" + user.id().value(),
+                                                Instant.now().plusSeconds(30L * 24L * 60L * 60L)
+                                        )
+                                ).await().indefinitely();
+                                rememberMeToken = patResponse.token();
+                            }
+                            return new AccessTokenResponse(
+                                    token, "Bearer", lifespanSeconds, rememberMeToken
+                            );
+                        });
                     });
         } catch (IllegalArgumentException e) {
             return Uni.createFrom().failure(ApplicationError.of(
                     "BAD_CREDENTIALS", "Invalid username or password format"
             ).toException());
         }
+    }
+
+    private Uni<Void> verifyCredentialStillCurrent(
+            tech.kayys.numou.identity.domain.user.UserId userId, String rawPassword) {
+        return userRepository.findById(userId).chain(current -> {
+            if (current.isPresent() && current.get().isActive()
+                    && passwordHasher.matches(rawPassword, current.get().passwordHash())) {
+                return Uni.createFrom().voidItem();
+            }
+            return Uni.createFrom().failure(ApplicationError.of(
+                    "BAD_CREDENTIALS", "Invalid username or password"
+            ).toException());
+        });
     }
 
     public AccessTokenResponse issueFor(UUID principalId, String principalType, String displayName) {

@@ -32,11 +32,11 @@ public class SecurityProducer {
         return new TokenBucketRateLimiter(c.capacity(), c.refillPerSecond(), c.maxKeys());
     }
 
-    /** Role matrix for the restaurant suite; replace the bean to use another matrix or a database-backed GrantResolver. */
+    /** Role matrix for the platform defaults, including explicit Social Graph membership grants; replace the bean to use another matrix or a database-backed GrantResolver. */
     @Produces
     @ApplicationScoped
     RolePermissionMatrix roleMatrix() {
-        return RolePermissionMatrix.restaurantDefaults();
+        return RolePermissionMatrix.restaurantDefaults().merge(RolePermissionMatrix.socialGraphDefaults());
     }
 
     @Produces

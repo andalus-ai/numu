@@ -13,9 +13,11 @@ import java.util.function.Supplier;
  * <p>Typical use: the {@code Idempotency-Key} header on {@code POST /reservations}, so a
  * client retrying after a network timeout does not create a second booking.
  *
- * <p>Failure handling: if the work fails the claim is <em>released</em> so a retry can run;
- * a duplicate that arrives while the first attempt is still running gets
- * {@link DuplicateRequestException} (HTTP 409) rather than a second execution.
+ * <p>Failure handling: if the business work fails the claim is <em>released</em> so a retry
+ * can run. If the work succeeds but encoding or persisting its result fails, the claim is
+ * deliberately retained: the outcome is uncertain and re-executing could duplicate a side
+ * effect. A duplicate without a recorded result gets {@link DuplicateRequestException} (HTTP 409)
+ * and requires reconciliation rather than automatic re-execution.
  */
 public final class IdempotentExecutor {
 
@@ -37,11 +39,14 @@ public final class IdempotentExecutor {
                         : Uni.createFrom().item(() -> decodeResult.apply(outcome.resultRef()));
             }
             return Uni.createFrom().<R>deferred(() -> work.get())
-                    .flatMap(result -> store.recordResult(key, scope, encodeResult.apply(result)).replaceWith(result))
+                    // Only a failed business operation may release the claim. Once work has
+                    // succeeded, a result-store/encoding failure must leave the claim in place:
+                    // retrying the business operation could otherwise duplicate its side effect.
                     .onFailure().recoverWithUni(failure ->
                             store.release(key, scope)
                                     .onFailure().recoverWithItem((Void) null)
-                                    .flatMap(ignored -> Uni.<R>createFrom().failure(failure)));
+                                    .flatMap(ignored -> Uni.<R>createFrom().failure(failure)))
+                    .flatMap(result -> store.recordResult(key, scope, encodeResult.apply(result)).replaceWith(result));
         });
     }
 }

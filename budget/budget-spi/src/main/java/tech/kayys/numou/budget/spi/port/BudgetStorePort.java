@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /** Persistence port for the operational budget aggregate. */
 public interface BudgetStorePort {
-    Optional<Budget> find(String budgetId);
+    Optional<Budget> find(String tenantId, String budgetId);
 
     void save(Budget budget);
 }

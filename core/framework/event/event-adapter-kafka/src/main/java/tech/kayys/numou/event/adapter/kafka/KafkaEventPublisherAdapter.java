@@ -67,14 +67,16 @@ public class KafkaEventPublisherAdapter implements EventPublisherPort {
         }
 
         return Uni.createFrom().item(() -> {
+                    // Validate the destination before invoking application serialization.
+                    // This keeps invalid event types from reaching custom serializers.
+                    OutgoingKafkaRecordMetadata<String> metadata = kafkaMetadata(envelope);
                     String serialized = serializer.serialize(envelope);
                     if (serialized == null || serialized.isBlank()) {
                         throw new IllegalStateException("Event serializer returned an empty payload");
                     }
-                    return serialized;
+                    return Message.of(serialized).addMetadata(metadata);
                 })
-                .chain(payload -> sendMessage.apply(Message.of(payload).addMetadata(
-                        kafkaMetadata(envelope))));
+                .chain(sendMessage::apply);
     }
 
     /**

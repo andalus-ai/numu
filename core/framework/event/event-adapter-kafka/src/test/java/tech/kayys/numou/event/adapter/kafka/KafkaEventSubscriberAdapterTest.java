@@ -1,7 +1,7 @@
 package tech.kayys.numou.event.adapter.kafka;
 
 import io.smallrye.mutiny.Uni;
-import io.smallrye.reactive.messaging.kafka.IncomingKafkaRecordMetadata;
+import io.smallrye.reactive.messaging.kafka.api.IncomingKafkaRecordMetadata;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.eclipse.microprofile.reactive.messaging.Message;
 import org.junit.jupiter.api.Test;
@@ -14,6 +14,7 @@ import tech.kayys.numou.event.domain.valueobject.EventVersion;
 import tech.kayys.numou.event.spi.port.EventSerializerPort;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -52,15 +53,14 @@ class KafkaEventSubscriberAdapterTest {
     }
 
     @Test
-    void nacksHandlerFailureAndPropagatesOriginalFailure() {
+    void nacksHandlerFailureAndCompletesAfterConnectorDisposition() {
         EventEnvelope<TestEvent> envelope = envelope();
         KafkaEventSubscriberAdapter adapter = new KafkaEventSubscriberAdapter(serializer(envelope));
         IllegalStateException failure = new IllegalStateException("temporary downstream failure");
         adapter.subscribe(EVENT_TYPE, ignored -> Uni.createFrom().failure(failure));
         Message<String> message = message(PAYLOAD, EVENT_TYPE);
 
-        assertThatThrownBy(() -> adapter.consume(message).await().indefinitely())
-                .isSameAs(failure);
+        adapter.consume(message).await().indefinitely();
 
         verify(message, never()).ack();
         verify(message, times(1)).nack(failure);
@@ -77,8 +77,10 @@ class KafkaEventSubscriberAdapterTest {
         Message<String> firstDelivery = message(PAYLOAD, EVENT_TYPE);
         Message<String> redelivery = message(PAYLOAD, EVENT_TYPE);
 
-        assertThatThrownBy(() -> adapter.consume(firstDelivery).await().indefinitely())
-                .isInstanceOf(IllegalStateException.class);
+        // The configured connector failure strategy has accepted the nack;
+        // the adapter must complete this invocation and remain able to process
+        // a later redelivery rather than fail the channel.
+        adapter.consume(firstDelivery).await().indefinitely();
         adapter.consume(redelivery).await().indefinitely();
 
         assertThat(attempts).hasValue(2);
@@ -115,8 +117,7 @@ class KafkaEventSubscriberAdapterTest {
         });
         Message<String> message = message(PAYLOAD, null);
 
-        assertThatThrownBy(() -> adapter.consume(message).await().indefinitely())
-                .isInstanceOf(IllegalArgumentException.class);
+        adapter.consume(message).await().indefinitely();
 
         assertThat(handled).hasValue(0);
         verify(message, never()).ack();
@@ -166,6 +167,10 @@ class KafkaEventSubscriberAdapterTest {
     }
 
     private static final class TestEvent implements BusinessEvent {
+        private final UUID eventId = UUID.randomUUID();
+        private final Instant occurredAt = Instant.parse("2026-01-01T00:00:00Z");
+        @Override public UUID eventId() { return eventId; }
+        @Override public Instant occurredAt() { return occurredAt; }
         @Override public String eventType() { return EVENT_TYPE; }
         @Override public EventVersion eventVersion() { return EventVersion.V1; }
     }

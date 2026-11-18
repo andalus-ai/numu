@@ -88,3 +88,29 @@ mvn -pl event/event-adapter-kafka -am test
 Do not enable POS distributed dispatch in production until a deployment supplies its
 production serializer, registers all event contracts, and verifies its broker, security,
 retry, and dead-letter configuration end to end.
+
+
+## Dead-letter operations and recovery boundary
+
+The broker acceptance test checks that a malformed record routed to the configured
+DLQ retains its original source topic, partition, offset, failure reason/cause, and
+Numou event-type header. This provides diagnostic context and a stable source-record
+reference for operational triage.
+
+A production replay command must be implemented by the consuming application behind
+its tenant-scoped authorization and audit boundary. It must validate the event
+contract, preserve the original event ID and envelope metadata, record actor/reason,
+prevent concurrent duplicate replay, and rely on the application's inbox/idempotency
+boundary for at-least-once redelivery. Do not publish arbitrary DLQ payloads through
+an unauthenticated endpoint or treat a Kafka source offset as a business idempotency
+key. The shared transport adapter intentionally does not expose an administrative
+replay API.
+
+
+## Controlled dead-letter replay
+
+The shared event application now contains a transport-neutral replay use case.
+See [event-application controlled replay](../event-application/README.md) for
+the authorization, durable claim/audit, tenant validation and at-least-once
+delivery contract. Kafka only supplies the dead-letter record to a trusted
+application adapter; it does not expose an administrative replay endpoint.

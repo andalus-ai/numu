@@ -20,7 +20,7 @@ public class ServiceAccountEntity extends PanacheEntityBase {
     @Id
     public UUID id;
 
-    @Column(name = "tenant_id")
+    @Column(name = "tenant_id", nullable = false)
     public UUID tenantId;
 
     @Column(nullable = false)
@@ -44,7 +44,6 @@ public class ServiceAccountEntity extends PanacheEntityBase {
     @Column(name = "revoked_at")
     public Instant revokedAt;
 
-    // --- AuditMeta (tech.kayys.numou.foundation.domain.audit) ---
     @Column(name = "audit_created_by")
     public String auditCreatedBy;
 

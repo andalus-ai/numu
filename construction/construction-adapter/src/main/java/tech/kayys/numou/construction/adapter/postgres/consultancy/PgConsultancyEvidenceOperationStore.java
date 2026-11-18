@@ -177,6 +177,30 @@ public class PgConsultancyEvidenceOperationStore implements ConsultancyEvidenceO
     }
 
     @Override
+    public Uni<Optional<ClaimedConsultancyEvidenceOperation>> renewLease(
+            ClaimedConsultancyEvidenceOperation claim, Instant now, Instant leaseUntil) {
+        Objects.requireNonNull(claim, "claim");
+        Objects.requireNonNull(now, "now");
+        Objects.requireNonNull(leaseUntil, "leaseUntil");
+        if (!leaseUntil.isAfter(now)) {
+            throw new IllegalArgumentException("leaseUntil must be after now");
+        }
+        return pool.preparedQuery(RENEW_LEASE).execute(Tuple.of(
+                claim.operation().tenantId(), claim.operation().operationId(),
+                toOffsetDateTime(now), toOffsetDateTime(leaseUntil), claim.leaseToken()))
+                .map(rows -> {
+                    if (!rows.iterator().hasNext()) {
+                        return Optional.empty();
+                    }
+                    Row row = rows.iterator().next();
+                    return Optional.of(new ClaimedConsultancyEvidenceOperation(
+                            claim.operation(), row.getString("worker_id"),
+                            row.getUUID("lease_token"),
+                            row.getOffsetDateTime("locked_until").toInstant()));
+                });
+    }
+
+    @Override
     public Uni<Boolean> markLinked(ClaimedConsultancyEvidenceOperation claim, Instant now) {
         Objects.requireNonNull(claim, "claim");
         return pool.preparedQuery(MARK_LINKED).execute(Tuple.of(

@@ -3,8 +3,12 @@ package tech.kayys.numou.accounting.interfaces.rest.dto;
 import java.math.BigDecimal;
 import java.util.List;
 
+/** Company/ledger/period are requested resource scope, not tenant identity or authorization claims. */
 public record RegisterVendorInvoiceRequest(
         String invoiceId,
+        String companyId,
+        String ledgerId,
+        String periodId,
         String vendorId,
         String vendorRef,
         String currency,

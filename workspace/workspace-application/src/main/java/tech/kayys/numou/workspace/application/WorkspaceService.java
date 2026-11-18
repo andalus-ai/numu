@@ -2,6 +2,8 @@ package tech.kayys.numou.workspace.application;
 
 import tech.kayys.numou.workspace.application.WorkspacePorts.*;
 import tech.kayys.numou.workspace.domain.*;
+import tech.kayys.numou.workspace.application.port.WorkspacePageChangeNotifier;
+import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSignal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
@@ -20,10 +22,17 @@ public final class WorkspaceService {
  private final AttachmentPolicy attachments;
  private final Clock clock;
  private final boolean allowNonAtomicAuditFallback;
+ private final WorkspacePageChangeNotifier pageChangeNotifier;
 
  public WorkspaceService(WorkspaceRepository w, SpaceRepository s, PageRepository p, AccessPolicy a,
                           AuditSink audit, AttachmentPolicy files, Clock clock) {
-  this(w, s, p, a, audit, files, clock, false);
+  this(w, s, p, a, audit, files, clock, false, signal -> {});
+ }
+
+ public WorkspaceService(WorkspaceRepository w, SpaceRepository s, PageRepository p, AccessPolicy a,
+                          AuditSink audit, AttachmentPolicy files, Clock clock,
+                          WorkspacePageChangeNotifier pageChangeNotifier) {
+  this(w, s, p, a, audit, files, clock, false, pageChangeNotifier);
  }
 
  /**
@@ -34,10 +43,17 @@ public final class WorkspaceService {
  public WorkspaceService(WorkspaceRepository w, SpaceRepository s, PageRepository p, AccessPolicy a,
                           AuditSink audit, AttachmentPolicy files, Clock clock,
                           boolean allowNonAtomicAuditFallback) {
+  this(w, s, p, a, audit, files, clock, allowNonAtomicAuditFallback, signal -> {});
+ }
+
+ public WorkspaceService(WorkspaceRepository w, SpaceRepository s, PageRepository p, AccessPolicy a,
+                          AuditSink audit, AttachmentPolicy files, Clock clock,
+                          boolean allowNonAtomicAuditFallback, WorkspacePageChangeNotifier pageChangeNotifier) {
   this.workspaces=Objects.requireNonNull(w); this.spaces=Objects.requireNonNull(s); this.pages=Objects.requireNonNull(p);
   this.access=Objects.requireNonNull(a); this.audit=Objects.requireNonNull(audit);
   this.attachments=Objects.requireNonNull(files); this.clock=Objects.requireNonNull(clock);
   this.allowNonAtomicAuditFallback=allowNonAtomicAuditFallback;
+  this.pageChangeNotifier=Objects.requireNonNull(pageChangeNotifier, "pageChangeNotifier");
  }
 
  public Workspace createWorkspace(UUID tenant, UUID actor, String name, String description) {
@@ -111,6 +127,7 @@ public final class WorkspaceService {
   else if (allowNonAtomicAuditFallback) { saved=pages.saveWithRevision(page,rev,0); if(saved) audit.record(event); }
   else throw new IllegalStateException("Atomic audited page writes require AuditedMutationRepository");
   if(!saved) throw new IllegalStateException("Page, initial revision and audit event could not be committed atomically");
+  notifyPageChange(page, actor, WorkspacePageChangeSignal.ChangeType.CREATED, now);
   return page;
  }
 
@@ -127,6 +144,7 @@ public final class WorkspaceService {
   else if (allowNonAtomicAuditFallback) { saved=pages.saveWithRevision(revised,rev,expectedRevision); if(saved) audit.record(event); }
   else throw new IllegalStateException("Atomic audited page updates require AuditedMutationRepository");
   if(!saved) throw new RevisionConflictException(pageId,expectedRevision,current.revision());
+  notifyPageChange(revised, actor, WorkspacePageChangeSignal.ChangeType.UPDATED, now);
   return revised;
  }
 
@@ -178,7 +196,20 @@ public final class WorkspaceService {
    throw new IllegalStateException("Atomic audited page restores require AuditedMutationRepository");
   }
   if (!saved) throw new RevisionConflictException(pageId, expectedCurrentRevision, current.revision());
+  notifyPageChange(restored, actor, WorkspacePageChangeSignal.ChangeType.RESTORED, now);
   return restored;
+ }
+ /**
+  * Invalidation is deliberately post-commit and advisory. A transport failure must not make
+  * callers retry a page command that has already committed; missed signals are recovered by M35.
+  */
+ private void notifyPageChange(Page page, UUID actor, WorkspacePageChangeSignal.ChangeType type, Instant occurredAt) {
+  try {
+   pageChangeNotifier.notifyChanged(new WorkspacePageChangeSignal(page.tenantId(), page.workspaceId(),
+           page.spaceId(), page.id(), page.revision(), actor, type, occurredAt));
+  } catch (RuntimeException ignored) {
+   // Host notifiers must report delivery failures through their own telemetry.
+  }
  }
  private List<PageBlock> validateFiles(UUID tenant,UUID actor,List<PageBlock> blocks) {
   List<PageBlock> safe=blocks==null?List.of():List.copyOf(blocks);
