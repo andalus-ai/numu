@@ -22,6 +22,12 @@ public record ContentFieldDefinition(
             throw new IllegalArgumentException("minLength cannot exceed maxLength");
         if (minNumber != null && maxNumber != null && minNumber.compareTo(maxNumber) > 0)
             throw new IllegalArgumentException("minNumber cannot exceed maxNumber");
+        boolean stringLike = type == FieldType.STRING || type == FieldType.TEXT || type == FieldType.EMAIL || type == FieldType.URL;
+        boolean numeric = type == FieldType.INTEGER || type == FieldType.DECIMAL;
+        if ((minLength != null || maxLength != null || pattern != null) && !stringLike)
+            throw new IllegalArgumentException("Length and pattern constraints require a string-like field");
+        if ((minNumber != null || maxNumber != null) && !numeric)
+            throw new IllegalArgumentException("Numeric range constraints require an integer or decimal field");
         if (pattern != null) {
             try { Pattern.compile(pattern); }
             catch (PatternSyntaxException e) { throw new IllegalArgumentException("Invalid field pattern", e); }
