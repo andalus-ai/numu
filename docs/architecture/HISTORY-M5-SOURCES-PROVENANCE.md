@@ -72,7 +72,6 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - The existing optional Neo4j adapter for canonical historical-entity relationships is not coupled to this source graph read model. A future disposable graph projection may be introduced only with explicit rebuild, authorization, and consistency contracts.
 
 
-
 ## Source ingestion and extraction provenance (M5.6)
 
 - An ingestion request is an immutable snapshot of either a shared document version or the source's canonical HTTP(S) URI. URI requests retain the exact URI at request time so later source metadata revisions cannot silently change what a worker fetches.
@@ -104,7 +103,7 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test verifies database-level tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalogue identifiers, directed source relationships and append-only enforcement. The source application unit tests separately verify citation graph breadth-first traversal, cycle deduplication, depth/node/relationship bounds, truncation reporting, tenant scoping, per-source authorization, malformed repository relationship rejection and graph value invariants. These are separate test boundaries; the database integration test does not claim to execute the application graph service.
+The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test verifies database-level tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalogue identifiers, directed source relationships, ingestion requests, extraction records, duplicate worker-result rejection and append-only enforcement. The source application unit tests separately verify citation graph breadth-first traversal, cycle deduplication, depth/node/relationship bounds, truncation reporting, tenant scoping, per-source authorization, malformed repository relationship rejection and graph value invariants. These are separate test boundaries; the database integration test does not claim to execute the application graph service.
 
 ## Deliberately deferred
 
