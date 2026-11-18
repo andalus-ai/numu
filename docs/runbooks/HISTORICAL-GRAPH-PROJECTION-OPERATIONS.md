@@ -50,12 +50,19 @@ Do not use a single global threshold for all tenants without considering workloa
 
 ## Rebuild procedure
 
+The rebuild lifecycle is persisted in PostgreSQL. Its state machine is RUNNING → PAUSED → RUNNING, or RUNNING/PAUSED/FAILED → CANCELLED; RUNNING → FAILED → RUNNING is the explicit retry path. COMPLETED and CANCELLED are terminal. Every successful state transition increments a monotonic lifecycle version and appends an actor-attributed audit row in the same transaction.
+
+Operator commands must load the run in the authorized scope, capture its lifecycle version, and issue a compare-and-set transition. A stale command returns a conflict and must reload state rather than retry blindly. The rebuild worker must use the fenced checkpoint/completion methods with the lifecycle version it observed; the legacy unfenced checkpoint methods are not supported by the PostgreSQL adapter.
+
 1. Verify the Neo4j target database and credentials. Schema bootstrap requires schema privileges and is a separate deployment operation.
 2. Start a rebuild for exactly one authorized scope. A run captures an immutable outbox high-water sequence.
 3. Process one bounded page at a time. The cursor advances only after the entire page projects successfully.
-4. If a page fails, fix the projection/provider problem and resume the same run. Projection application must remain idempotent for replay.
-5. Confirm the run completes and the outbox continues to deliver events created after the captured high-water mark.
-6. Run a read-only reconciliation and review missing, stale, divergent, and orphaned counts.
+4. Pause a run before planned maintenance; pause takes effect at the next page boundary. A page already being projected may finish, but its checkpoint is rejected if the lifecycle version changed.
+5. If a page fails, mark the run FAILED through the lifecycle operation using a configured operator or service-principal identity. Fix the projection/provider problem, then explicitly retry the same run. Retry resumes from the last committed cursor; projection application must remain idempotent.
+6. Cancel only when the run should not be resumed. COMPLETED and CANCELLED are terminal; a FAILED run must be explicitly retried or cancelled.
+7. Every pause, resume, failure, retry, and cancellation is actor-attributed and appended to the PostgreSQL lifecycle audit in the same transaction as the state transition. Stale operator commands and worker checkpoints fail their lifecycle-version compare-and-set.
+8. Confirm the run completes and the outbox continues to deliver events created after the captured high-water mark.
+9. Run a read-only reconciliation and review missing, stale, divergent, and orphaned counts.
 
 Never run tenant and public rebuilds by passing client-supplied scope values. Never increase page limits beyond the service's enforced bounds to accelerate a recovery.
 
@@ -68,17 +75,35 @@ Repair (repair=true) requires audit and rebuild authorization, an authenticated 
 ## Recovery and rollback
 
 - If Neo4j is lost or corrupted, provision a clean projection database, bootstrap its constraints/indexes, and rebuild from PostgreSQL's retained outbox.
-- If a rebuild fails, preserve the run and resume from its last durable cursor after resolving the cause. Do not delete the run or reset its cursor manually.
+- If a rebuild fails, preserve the FAILED run and its last durable cursor. After resolving the cause, use the authorized, audited retry operation. Do not delete the run or reset its cursor manually.
+- If a rebuild is paused, resume it through the authorized lifecycle operation. Do not restart a second run merely to bypass a pause.
+- If a rebuild is cancelled, start a new run only after confirming that the cancelled snapshot is no longer required; cancelled runs cannot be resumed.
 - If a deployment introduces an incompatible event schema, roll back the projection consumer or deploy a compatible adapter; do not rewrite historical outbox payloads.
 - If PostgreSQL is unavailable, stop projection maintenance operations. Never fall back to treating Neo4j as canonical.
 - Capture the run ID, deployment version, scope, time window, metric snapshot, and reconciliation report in the incident record, subject to tenant data access policy.
 
 ## Deployment checklist
 
-- Apply Flyway migrations using the host's approved migration process before enabling adapters.
+- Apply Flyway migrations V1–V6 using the host's approved migration process before enabling adapters.
 - Provision PostgreSQL and Neo4j credentials with least privilege; runtime projection role must not have canonical revision mutation rights.
 - Bootstrap Neo4j schema using a schema-capable deployment identity, not the application read/write identity.
 - Wire a metrics adapter and alert rules before production rollout.
-- Configure tenant context and maintenance authorization from trusted server-side security infrastructure.
-- Exercise a tenant-scoped rebuild, public rebuild (where applicable), dry-run reconciliation, and an audited dead-letter replay in a non-production environment.
+- Configure tenant context, maintenance authorization, and authenticated operator context from trusted server-side security infrastructure. Worker-triggered failure transitions must use a configured service-principal actor.
+- Exercise a tenant-scoped rebuild, public rebuild (where applicable), pause/resume, cancel, failure/retry, stale-worker fencing, dry-run reconciliation, and an audited dead-letter replay in a non-production environment.
 - Verify the History PostgreSQL/Neo4j CI workflow and retain the test report with the release evidence.
+
+
+## Staged-generation orchestration
+
+The application coordinator persists a generation operation before external work. The operator or host scheduler must:
+
+1. Generate one operation UUID for the requested scope and persist/return it to the caller. Reuse this exact UUID for retries; never generate a new one to resume.
+2. Invoke the authorized coordinator start operation. It creates or recovers the bound generation and rebuild-run IDs, then advances one lifecycle phase.
+3. Schedule bounded resume invocations with the same scope and operation UUID. REPLAYING advances at most one outbox page per invocation; a failed page leaves its cursor unchanged and can be replayed.
+4. Allow VALIDATING to complete only when full canonical-to-candidate reconciliation succeeds. A failed validation remains in VALIDATING, records a failure, and must be investigated before retry.
+5. Confirm ACTIVE in the PostgreSQL operation journal and independently inspect the Neo4j active pointer before declaring the cutover complete.
+6. Keep the prior generation RETAINED for rollback. Do not automatically delete it or any other generation until an audited retention policy is deployed.
+
+The journal and Neo4j pointer are separate transactions. If an operation remains ACTIVATING after a process interruption, inspect the target generation status and active pointer first. If the target is ACTIVE or RETAINED, the coordinator can complete the journal phase on retry. If the target is still READY/BUILDING, resume the compare-and-set activation only when the expected active generation still matches. If it does not, stop and reconcile rather than force activation.
+
+The operation journal records only the latest bounded error summary and failure count; it is not a replacement for access-controlled operator logs, traces, or the immutable repair-audit stream.

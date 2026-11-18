@@ -43,18 +43,28 @@ public final class ApplicationRuntimeCoordinator {
         Objects.requireNonNull(contextFactory, "Application plugin context factory is required");
 
         List<BoundPlugin> ordered = preflight(composition, implementations);
+        ApplicationPluginContextFactory applicationContextFactory =
+                contextFactory.forApplication(composition.applicationId());
+        if (applicationContextFactory == null) {
+            throw new ApplicationRuntimeException("Application context factory returned null for "
+                    + composition.applicationId());
+        }
         List<BoundPlugin> attempted = new ArrayList<>();
         Map<String, PluginContext> contexts = new java.util.LinkedHashMap<>();
+        Map<String, NumouPlugin> pluginsByProvider = new java.util.LinkedHashMap<>();
+        Map<String, String> providerByCapability = new java.util.LinkedHashMap<>();
         String currentProvider = null;
         try {
             for (BoundPlugin binding : ordered) {
                 currentProvider = binding.provider().providerId();
-                PluginContext context = contextFactory.create(binding.provider(), binding.plugin());
+                PluginContext context = applicationContextFactory.create(binding.provider(), binding.plugin());
                 if (context == null || !binding.plugin().id().equals(context.pluginId())) {
                     throw new IllegalStateException("Context factory must return a context for plugin "
                             + binding.plugin().id() + " (provider " + currentProvider + ")");
                 }
                 contexts.put(currentProvider, context);
+                pluginsByProvider.put(currentProvider, binding.plugin());
+                providerByCapability.put(binding.provider().capabilityId(), currentProvider);
                 attempted.add(binding);
                 binding.plugin().initialize(context);
             }
@@ -64,7 +74,7 @@ public final class ApplicationRuntimeCoordinator {
             }
             return new ApplicationRuntimeSession(composition.applicationId(),
                     ordered.stream().map(b -> b.provider().providerId()).toList(),
-                    attempted.stream().map(BoundPlugin::plugin).toList(), contexts);
+                    pluginsByProvider, contexts, providerByCapability);
         } catch (Exception failure) {
             ApplicationRuntimeException startupFailure = new ApplicationRuntimeException(
                     "Failed to start application " + composition.applicationId()

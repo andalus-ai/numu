@@ -64,7 +64,8 @@ public final class SaleCommandService {
                 line.id().toString(), line.itemReference(), line.displayName(),
                 line.sku() == null ? "" : line.sku(),
                 line.quantity().stripTrailingZeros().toPlainString(), line.unitOfMeasure(),
-                line.unitPrice().amount().stripTrailingZeros().toPlainString(), line.unitPrice().currency());
+                line.unitPrice().amount().stripTrailingZeros().toPlainString(), line.unitPrice().currency(),
+                line.productOfferingReference() == null ? "" : line.productOfferingReference());
         return execute(context, idempotencyKey, "sale.add-line", fingerprint, () -> {
             VersionedSale current = load(context, saleId);
             requireOpenShift(context, current.sale());

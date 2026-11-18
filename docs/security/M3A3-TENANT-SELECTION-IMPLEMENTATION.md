@@ -37,15 +37,15 @@
 ## Required verification
 
 - Unit tests: active tenant discovery projection; active membership permits token issuance; inactive/revoked membership does not issue a token; missing tenant is rejected before membership lookup; tenant claim parsing and tenant context propagation through gRPC response.
-- Adapter integration test added: PostgreSQL query returns only active memberships for active users, sorted deterministically.
+- Existing adapter integration test verifies that an active user's active membership is returned and a revoked membership is excluded. Broader coverage for multiple active memberships, deterministic ordering, and inactive users remains outstanding.
 - JWT tests: selection and access tokens have distinct `token_use`, audiences, claims, and bounded lifetimes.
-- Request-level tests: route allowlist unit tests cover JAX-RS restrictions; generic JWT-verifier unit tests cover rejection by the Identity token-verification/gRPC principal-resolution path. Full Quarkus request tests remain required.
+- Request-level tests: route allowlist unit tests cover JAX-RS restrictions; generic JWT-verifier unit tests cover rejection by the Identity token-verification/gRPC principal-resolution path. A Quarkus HTTP-boundary test now signs real selection/access JWTs and exercises discovery, exchange, wrong-method routes, login-route denial, and the service-account management boundary. The test is committed but has not yet been executed; CI must verify it on the exact branch head.
 - CI must run against the exact PR head. No local build or CI success is claimed until evidence is available.
 
 ## Remaining before production enablement
 
-1. Add PostgreSQL integration coverage for `PostgresTenantDiscoveryAdapter`.
-2. Add signed-JWT tests for `TenantJwtTokenIssuerAdapter` and request-level filter tests.
+1. Expand PostgreSQL integration coverage for `PostgresTenantDiscoveryAdapter` to include multiple active memberships, deterministic ordering, and inactive users.
+2. Execute the signed-JWT, route-filter, PostgreSQL, and new Quarkus HTTP-boundary tests on the exact branch head; fix any failures.
 3. Integrate OIDC, SAML and LDAP flows with tenant-selection credential issuance.
 4. Define refresh/PAT/service-account semantics and align all consumers on `tenant_id`.
 5. Confirm the API gateway and downstream resource servers enforce the audience and `token_use=access` contract.
