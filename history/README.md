@@ -32,3 +32,6 @@ The history reactor is intentionally isolated from the repository's other Maven 
 
 ## Graph projection operations
 Operational metrics and recovery procedures are documented in [Historical graph projection operations](../docs/runbooks/HISTORICAL-GRAPH-PROJECTION-OPERATIONS.md). Metrics are exposed through framework-neutral application ports; the deployment runtime supplies its telemetry adapter and alert rules.
+
+
+The staged-generation lifecycle now has a durable PostgreSQL orchestration journal (migration V6): operations bind an idempotency UUID to one Neo4j generation and one rebuild cursor, then advance through replay, validation, readiness, and compare-and-set activation. The host must repeatedly resume the same operation ID using a scheduler/worker and supply trusted tenant context and maintenance authorization. PostgreSQL/Neo4j cutover is a recoverable saga, not a cross-database transaction. Retained-generation deletion remains disabled pending an audited retention policy.

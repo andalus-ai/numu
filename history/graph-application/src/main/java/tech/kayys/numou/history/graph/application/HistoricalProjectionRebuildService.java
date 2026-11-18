@@ -4,7 +4,6 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.Claime
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.RebuildRun;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.ReplayEvent;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;

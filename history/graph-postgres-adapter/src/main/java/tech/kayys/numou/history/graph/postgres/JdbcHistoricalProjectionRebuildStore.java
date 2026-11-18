@@ -38,6 +38,10 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
                 // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock. Once acquired,
                 // all earlier event transactions have committed; later inserts receive a
                 // sequence above this run's immutable high-water mark.
+                Optional<RebuildRun> existing = find(c, tenantId, runId);
+                if (existing.isPresent()) { c.commit(); return existing.get(); }
+                // SHARE conflicts with outbox INSERT's ROW EXCLUSIVE lock, stabilizing the
+                // high-water boundary against append transactions already in flight.
                 try (Statement lock = c.createStatement()) {
                     lock.execute("LOCK TABLE historical_relationship_projection_outbox IN SHARE MODE");
                 }
@@ -103,6 +107,11 @@ public final class JdbcHistoricalProjectionRebuildStore implements HistoricalPro
             } catch (SQLException | RuntimeException e) {
                 rollback(c, e);
                 throw e;
+        try (PreparedStatement s = c.prepareStatement(sql)) {
+            s.setObject(1, runId);
+            s.setObject(2, tenantId);
+            try (ResultSet r = s.executeQuery()) {
+                return r.next() ? Optional.of(mapRun(r)) : Optional.empty();
             }
         }
     }
