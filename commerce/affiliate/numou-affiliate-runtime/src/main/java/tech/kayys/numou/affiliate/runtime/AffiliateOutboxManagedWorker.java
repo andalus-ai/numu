@@ -2,6 +2,7 @@ package tech.kayys.numou.affiliate.runtime;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.numou.affiliate.application.AffiliateOutboxDispatcher;
+import tech.kayys.numou.affiliate.application.AffiliateOutboxDispatchException;
 import tech.kayys.numou.affiliate.spi.AffiliateEventOutboxStore;
 import tech.kayys.numou.foundation.application.runtime.ManagedWorker;
 
@@ -58,8 +59,19 @@ public final class AffiliateOutboxManagedWorker implements ManagedWorker {
                     dispatcher.dispatchOnce(tenantId, workerId), "dispatcher returned null stage");
             dispatch.whenComplete((delivered, failure) -> {
                 try {
-                    if (failure != null) recordFailureSafely();
-                    else recordDeliveredSafely(delivered == null ? 0 : delivered);
+                    if (failure != null) {
+                        Throwable cause = failure;
+                        while ((cause instanceof CompletionException || cause instanceof ExecutionException)
+                                && cause.getCause() != null) {
+                            cause = cause.getCause();
+                        }
+                        if (cause instanceof AffiliateOutboxDispatchException partial) {
+                            recordDeliveredSafely(partial.deliveredCount());
+                        }
+                        recordFailureSafely();
+                    } else {
+                        recordDeliveredSafely(delivered);
+                    }
                 } finally {
                     // Telemetry must never own worker liveness. Always attempt the
                     // health refresh and release the gate even if a metrics adapter fails.

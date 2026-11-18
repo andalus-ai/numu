@@ -39,3 +39,11 @@ The host must provide an `EventPublisherPort`, an `AffiliateEventMetadataResolve
 - Reclaiming an expired lease increments the row version. A late completion from the previous claim is rejected even when a deployment reuses the same worker ID.
 - This is an optimistic fencing token, not a broker exactly-once guarantee. A publish accepted by the broker before a process crash may still be delivered again; consumers continue to deduplicate by the stable outbox EventId.
 - The existing version column is reused; no new migration is required. The SPI signature change requires custom AffiliateEventOutboxStore implementations to carry the claim version through completion operations.
+
+
+## M21 — claimed-batch failure isolation
+
+- A stale lease or persistence failure for one claimed event no longer prevents the dispatcher from attempting later independent claims in the same bounded batch.
+- Retry/dead-letter rescheduling is still attempted with the original claim's fencing version. If that operation also fails because the lease has been reclaimed, the dispatcher records the batch-level failure and continues processing remaining events.
+- The final batch result reports a failure after all claimed events have been attempted. The exception carries the count of events whose delivery acknowledgement succeeded, so runtime telemetry does not lose successful partial progress.
+- This is not a claim that the failed row was recovered: a row whose lease completion and reschedule both fail remains protected by fencing and is eligible for normal lease-expiry recovery.
