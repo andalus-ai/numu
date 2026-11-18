@@ -70,7 +70,7 @@ public final class AffiliateOutboxDispatcher {
         } catch (RuntimeException failure) {
             Instant now = clock.instant();
             current = store.reschedule(event.tenantId(), event.id(), workerId, describe(failure),
-                    now.plus(backoff(event.attempts())), now, maxAttempts).thenApply(ignored -> delivered);
+                    now.plus(backoff(event.attempts())), now, maxAttempts, event.leaseVersion()).thenApply(ignored -> delivered);
         }
         return current.thenCompose(count -> dispatch(events, index + 1, workerId, count));
     }
