@@ -97,7 +97,7 @@ class AffiliateOutboxManagedWorkerTest {
         }
 
         @Override public CompletionStage<Void> reschedule(String tenantId, java.util.UUID eventId,
-                String workerId, String reason, Instant retryAt, Instant now, int maxAttempts) {
+                String workerId, String reason, Instant retryAt, Instant now, int maxAttempts, long leaseVersion) {
             return CompletableFuture.completedFuture(null);
         }
 
