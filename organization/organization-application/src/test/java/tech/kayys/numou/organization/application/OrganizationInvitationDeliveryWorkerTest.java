@@ -136,7 +136,9 @@ class OrganizationInvitationDeliveryWorkerTest {
     private static final class SingleClaimOutbox implements OrganizationInvitationDeliveryOutboxPort {
         private final ClaimedDelivery claimed;
         private int sentCount;
-        private String deadLetterCode;\n        private String retryCode;\n        private Instant retryAt;
+        private String deadLetterCode;
+        private String retryCode;
+        private Instant retryAt;
         private SingleClaimOutbox(ClaimedDelivery claimed) { this.claimed = claimed; }
         public CompletionStage<Void> enqueue(DeliveryMessage message) { return CompletableFuture.completedFuture(null); }
         public CompletionStage<List<ClaimedDelivery>> claim(Instant now, Instant leaseUntil, int limit) {
