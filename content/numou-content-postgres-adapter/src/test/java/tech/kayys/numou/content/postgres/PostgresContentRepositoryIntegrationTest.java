@@ -26,7 +26,7 @@ class PostgresContentRepositoryIntegrationTest {
         String password=System.getenv().getOrDefault("CONTENT_TEST_DB_PASSWORD","postgres");
         dataSource=new DriverManagerDataSource(url,user,password);
         repository=new PostgresContentRepository(dataSource);
-        for(String migration:new String[]{"V1__content_core.sql","V2__content_type_schemas.sql","V3__content_lifecycle.sql","V4__bind_content_revisions_to_schema.sql"}) {
+        for(String migration:new String[]{"V1__content_core.sql","V2__content_type_schemas.sql","V3__content_lifecycle.sql","V4__bind_content_revisions_to_schema.sql","V5__content_database_invariant_hardening.sql"}) {
             try(InputStream in=getClassResource(migration)) {
                 String sql=new String(Objects.requireNonNull(in,"Missing migration resource: "+migration).readAllBytes(),StandardCharsets.UTF_8);
                 try(Connection c=dataSource.getConnection();Statement s=c.createStatement()){s.execute(sql);}
@@ -59,6 +59,61 @@ class PostgresContentRepositoryIntegrationTest {
         ContentEntry invalid=ContentEntry.create(tenant,"Invalid","invalid","{}",ContentTypeId.newId(),1,actor,Instant.now());
         assertThrows(IllegalStateException.class,()->repository.create(invalid));
         assertTrue(repository.find(tenant,invalid.id()).isEmpty(),"Header insert must roll back when revision schema FK fails");
+    }
+
+
+    @Test void publishedSchemaAndItsFieldsAreImmutableAtTheDatabaseBoundary() throws Exception {
+        TenantId tenant=new TenantId(UUID.randomUUID());
+        ContentTypeId type=seedPublishedSchema(tenant,1);
+        assertThrows(SQLException.class,()->execute(
+                "INSERT INTO content_type_field(tenant_id,content_type_id,schema_version,field_name,field_type,required,nullable) VALUES ('"+
+                        tenant.value()+"','"+type.value()+"',1,'headline','STRING',true,false)"));
+        assertThrows(SQLException.class,()->execute(
+                "UPDATE content_type_schema SET published_at=published_at + INTERVAL '1 second' WHERE tenant_id='"+
+                        tenant.value()+"' AND content_type_id='"+type.value()+"' AND schema_version=1"));
+        assertThrows(SQLException.class,()->execute(
+                "DELETE FROM content_type_schema WHERE tenant_id='"+tenant.value()+"' AND content_type_id='"+
+                        type.value()+"' AND schema_version=1"));
+    }
+
+    @Test void revisionHistoryIsAppendOnlyAndCurrentPointerMustReferenceAnExistingRevision() throws Exception {
+        TenantId tenant=new TenantId(UUID.randomUUID());ActorId actor=new ActorId(UUID.randomUUID());
+        ContentTypeId type=seedPublishedSchema(tenant,1);
+        ContentEntry entry=ContentEntry.create(tenant,"Original","original","{}",type,1,actor,Instant.now());
+        repository.create(entry);
+
+        assertThrows(SQLException.class,()->execute("UPDATE content_revision SET title='tampered' WHERE tenant_id='"+
+                tenant.value()+"' AND content_id='"+entry.id().value()+"' AND revision_number=1"));
+        assertThrows(SQLException.class,()->execute("DELETE FROM content_revision WHERE tenant_id='"+
+                tenant.value()+"' AND content_id='"+entry.id().value()+"' AND revision_number=1"));
+        assertThrows(SQLException.class,()->execute("UPDATE content_entry SET current_revision=3 WHERE tenant_id='"+
+                tenant.value()+"' AND content_id='"+entry.id().value()+"'"));
+
+        try(Connection c=dataSource.getConnection();Statement s=c.createStatement()) {
+            c.setAutoCommit(false);
+            s.executeUpdate("UPDATE content_entry SET current_revision=2 WHERE tenant_id='"+tenant.value()+
+                    "' AND content_id='"+entry.id().value()+"'");
+            assertThrows(SQLException.class,c::commit,
+                    "Deferred head-to-revision FK must reject a pointer without a matching revision");
+        }
+        assertEquals(1,repository.find(tenant,entry.id()).orElseThrow().currentRevisionNumber());
+    }
+
+    @Test void databaseRejectsIllegalLifecycleTransitionsButAllowsTheEditorialPath() throws Exception {
+        TenantId tenant=new TenantId(UUID.randomUUID());ActorId actor=new ActorId(UUID.randomUUID());
+        ContentTypeId type=seedPublishedSchema(tenant,1);
+        ContentEntry entry=ContentEntry.create(tenant,"Lifecycle","lifecycle","{}",type,1,actor,Instant.now());
+        repository.create(entry);
+        assertThrows(SQLException.class,()->execute("UPDATE content_entry SET status='PUBLISHED' WHERE tenant_id='"+
+                tenant.value()+"' AND content_id='"+entry.id().value()+"'"));
+        execute("UPDATE content_entry SET status='IN_REVIEW' WHERE tenant_id='"+tenant.value()+"' AND content_id='"+entry.id().value()+"'");
+        execute("UPDATE content_entry SET status='APPROVED' WHERE tenant_id='"+tenant.value()+"' AND content_id='"+entry.id().value()+"'");
+        execute("UPDATE content_entry SET status='PUBLISHED' WHERE tenant_id='"+tenant.value()+"' AND content_id='"+entry.id().value()+"'");
+        assertEquals(ContentStatus.PUBLISHED,repository.find(tenant,entry.id()).orElseThrow().status());
+    }
+
+    private static void execute(String sql) throws SQLException {
+        try(Connection c=dataSource.getConnection();Statement s=c.createStatement()){s.execute(sql);}
     }
 
     private static ContentTypeId seedPublishedSchema(TenantId tenant,int version) throws SQLException {
