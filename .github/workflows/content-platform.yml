@@ -2,7 +2,7 @@ name: Content Platform Verification
 
 on:
   pull_request:
-    branches: [main, content/m1-content-core]
+    branches: [main, content/m1-content-core, content/m3-content-lifecycle]
     paths:
       - "content/**"
       - "core/framework/pom.xml"
