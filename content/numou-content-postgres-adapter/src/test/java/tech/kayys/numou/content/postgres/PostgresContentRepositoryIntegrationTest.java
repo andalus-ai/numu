@@ -128,10 +128,20 @@ class PostgresContentRepositoryIntegrationTest {
     }
 
     private static void seedSchemaVersion(TenantId tenant,ContentTypeId type,int version) throws SQLException {
-        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(
-                "INSERT INTO content_type_schema(tenant_id,content_type_id,schema_version,status,created_at,published_at) VALUES (?,?,?,'PUBLISHED',?,?)")) {
-            Timestamp now=Timestamp.from(Instant.now());p.setObject(1,tenant.value());p.setObject(2,type.value());
-            p.setInt(3,version);p.setTimestamp(4,now);p.setTimestamp(5,now);p.executeUpdate();
+        Timestamp now=Timestamp.from(Instant.now());
+        try(Connection c=dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try(PreparedStatement insert=c.prepareStatement(
+                    "INSERT INTO content_type_schema(tenant_id,content_type_id,schema_version,status,created_at,published_at) VALUES (?,?,?,'DRAFT',?,NULL)")) {
+                insert.setObject(1,tenant.value());insert.setObject(2,type.value());
+                insert.setInt(3,version);insert.setTimestamp(4,now);insert.executeUpdate();
+            }
+            try(PreparedStatement publish=c.prepareStatement(
+                    "UPDATE content_type_schema SET status='PUBLISHED',published_at=? WHERE tenant_id=? AND content_type_id=? AND schema_version=? AND status='DRAFT'")) {
+                publish.setTimestamp(1,now);publish.setObject(2,tenant.value());publish.setObject(3,type.value());publish.setInt(4,version);
+                assertEquals(1,publish.executeUpdate());
+            }
+            c.commit();
         }
     }
 
