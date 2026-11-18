@@ -45,7 +45,7 @@ class JdbcHistoricalProjectionRebuildStoreIntegrationTest {
     }
 
     @Test void checkpointAndCompletionAreVersionFencedAndScopeBound() throws Exception {
-        UUID tenant = UUID.randomUUID(), aggregate = insertRevision(UUID.randomUUID());
+        UUID tenant = UUID.randomUUID();
         var store = new JdbcHistoricalProjectionRebuildStore(source);
         var run = store.start(tenant, Instant.now());
         assertTrue(store.nextPage(tenant, run.runId(), 10).isEmpty());
