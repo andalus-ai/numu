@@ -49,6 +49,20 @@ class SaleTest {
     }
 
     @Test
+    void offeringReferenceIsExplicitAndLegacyLinesRemainSupported() {
+        SaleLine legacy = line("coffee", "1", "15000");
+        assertNull(legacy.productOfferingReference());
+
+        SaleLine catalogBacked = new SaleLine(UUID.randomUUID(), "coffee", "Coffee", "SKU-1",
+                BigDecimal.ONE, "each", Money.of(new BigDecimal("15000"), "IDR"), " offering-123 ");
+        assertEquals("offering-123", catalogBacked.productOfferingReference());
+
+        SaleLine blankOffering = new SaleLine(UUID.randomUUID(), "manual", "Manual", null,
+                BigDecimal.ONE, "each", Money.of(new BigDecimal("1000"), "IDR"), "   ");
+        assertNull(blankOffering.productOfferingReference());
+    }
+
+    @Test
     void completingRequiresLinesAndLocksFurtherMutation() {
         Sale empty = openSale();
         assertThrows(IllegalStateException.class,

@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.*;
@@ -49,6 +50,11 @@ public class ApiCatalogResource {
         public AddVersionRequest { scopes = scopes == null ? List.of() : List.copyOf(scopes); }
     }
 
+    public record LegalHoldRequest(@NotNull Boolean held, @NotBlank @Size(max = 500) String reason) { }
+
+    public record RetentionRequest(@NotNull java.time.Instant retentionUntil,
+                                   @NotBlank @Size(max = 500) String reason) { }
+
     public record PageResponse<T>(List<T> content, long totalElements, int page, int size, int totalPages) { }
 
     @Inject CreateApiProductCommandHandler createProduct;
@@ -60,6 +66,9 @@ public class ApiCatalogResource {
     @Inject RetireApiVersionCommandHandler retireVersion;
     @Inject UploadApiSpecificationCommandHandler uploadSpecification;
     @Inject GetApiSpecificationArtifactQueryHandler getSpecificationArtifact;
+    @Inject SetApiArtifactLegalHoldCommandHandler setArtifactLegalHold;
+    @Inject ExtendApiArtifactRetentionCommandHandler extendArtifactRetention;
+    @Inject GetApiArtifactGovernanceQueryHandler getArtifactGovernance;
 
     @POST
     @Operation(summary = "Register an API product for the authenticated provider tenant")
@@ -157,6 +166,38 @@ public class ApiCatalogResource {
     @Operation(summary = "Deprecate a published API version")
     public Uni<Response> deprecate(@PathParam("productId") UUID productId, @PathParam("version") String version) {
         return deprecateVersion.handle(new DeprecateApiVersionCommand(productId.toString(), version))
+                .replaceWith(Response.noContent().build());
+    }
+
+
+    @GET
+    @Path("/{productId}/versions/{version}/governance")
+    @Operation(summary = "Get artifact retention, legal-hold and cleanup governance state")
+    public Uni<tech.kayys.numou.developer.apicatalog.application.port.ApiArtifactGovernanceRepository.ArtifactGovernanceView>
+            getArtifactGovernance(@PathParam("productId") UUID productId,
+                                  @PathParam("version") String version) {
+        return getArtifactGovernance.handle(new GetApiArtifactGovernanceQuery(productId, version));
+    }
+
+    @PUT
+    @Path("/{productId}/versions/{version}/legal-hold")
+    @Operation(summary = "Apply or release a legal hold on an API specification artifact")
+    public Uni<Response> setArtifactLegalHold(@PathParam("productId") UUID productId,
+                                              @PathParam("version") String version,
+                                              @Valid LegalHoldRequest request) {
+        return setArtifactLegalHold.handle(new SetApiArtifactLegalHoldCommand(
+                        productId, version, request.held(), request.reason()))
+                .replaceWith(Response.noContent().build());
+    }
+
+    @PUT
+    @Path("/{productId}/versions/{version}/retention")
+    @Operation(summary = "Extend the retention deadline for an API specification artifact")
+    public Uni<Response> extendArtifactRetention(@PathParam("productId") UUID productId,
+                                                  @PathParam("version") String version,
+                                                  @Valid RetentionRequest request) {
+        return extendArtifactRetention.handle(new ExtendApiArtifactRetentionCommand(
+                        productId, version, request.retentionUntil(), request.reason()))
                 .replaceWith(Response.noContent().build());
     }
 
