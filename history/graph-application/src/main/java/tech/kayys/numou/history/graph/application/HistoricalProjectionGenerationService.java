@@ -61,6 +61,11 @@ public final class HistoricalProjectionGenerationService {
         if (!result.passed()) {
             throw new IllegalStateException("generation validation failed: " + result.detail());
         }
+        if (current.status() != Status.BUILDING) {
+            throw new IllegalStateException("generation cannot become READY from " + current.status());
+        }
+        var result = validation.validate(tenantId, generationId);
+        if (!result.passed()) throw new IllegalStateException("generation validation failed: " + result.detail());
         if (!store.markReady(tenantId, generationId, clock.instant())) {
             Generation latest = store.find(tenantId, generationId).orElseThrow();
             if (latest.status() != Status.READY && latest.status() != Status.ACTIVE && latest.status() != Status.RETAINED) {
