@@ -21,6 +21,7 @@ import tech.kayys.numou.reliability.adapter.json.EventTypeRegistry;
 import tech.kayys.numou.reliability.adapter.json.JsonDomainEvent;
 import tech.kayys.numou.reliability.adapter.json.JsonEventSerializer;
 import tech.kayys.numou.reliability.outbox.OutboxClaim;
+import tech.kayys.numou.reliability.outbox.OutboxClaim;
 
 import javax.sql.DataSource;
 import java.io.InputStream;
@@ -72,7 +73,7 @@ class PgOutboxStorePoisonRowPostgresTest {
 
     @AfterAll
     static void closeStore() {
-        if (pool != null) pool.close();
+        if (pool != null) pool.close().await().indefinitely();
         if (vertx != null) vertx.closeAndAwait();
     }
 
