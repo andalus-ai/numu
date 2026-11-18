@@ -85,8 +85,12 @@ public class WorkspacePageChangeSseResource {
                     }
                     // Heartbeats are best-effort and skipped while a data frame is in flight.
                     // A comment frame keeps proxies alive without dispatching a browser event.
-                    send(sse.newEventBuilder().comment("keep-alive").build(), sink, sending,
-                            registration, heartbeatRegistration, false);
+                    try {
+                        send(sse.newEventBuilder().comment("keep-alive").build(), sink, sending,
+                                registration, heartbeatRegistration, false);
+                    } catch (RuntimeException heartbeatFailure) {
+                        closeConnection(sink, registration, heartbeatRegistration);
+                    }
                 });
                 heartbeatRegistration.set(heartbeat);
             } catch (RuntimeException schedulerUnavailable) {
