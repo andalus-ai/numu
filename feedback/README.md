@@ -26,7 +26,7 @@ Feedback is a reusable, tenant-owned capability for comments, bug reports, ideas
 - The host composition implements `FeedbackDocumentPort` using the Document capability's public application contract. The adapter must resolve both document and exact version within the supplied tenant.
 - Attachment metadata is persisted in `feedback_attachments`, with a composite tenant/feedback foreign key and tenant-scoped lookup methods.
 - A newly linked attachment begins as `PENDING_SCAN`. It must not be exposed as downloadable until the authoritative Document scanning workflow has confirmed it is safe.
-- **Scanning integration is not yet implemented.** The current Document lifecycle has ACTIVE/PUBLISHED/ARCHIVED/DELETED states but no malware-scan result contract. Do not mark evidence AVAILABLE based only on a completed upload. Add scanning to Document or integrate a trusted scanner there, then propagate the resulting status/event to Feedback.
+- **Document scan contract is now defined, but end-to-end scanning is not yet operational.** Document migration V7 creates a tenant- and immutable-version-scoped scan result plus a durable scan job for every existing and newly inserted version. The provider-neutral `DocumentScanner` port and `DocumentScanResult` model define CLEAN / INFECTED / FAILED outcomes. However, a vendor scanner adapter, lease-claiming worker, result persistence/outbox event, and Feedback consumer are still pending. Until those are deployed, versions remain PENDING and Feedback attachments must remain unavailable. Never mark evidence AVAILABLE based on upload completion.
 - Removing an attachment association does not delete the underlying Document, which may be referenced by other capabilities. Document authorization must be re-evaluated on every download.
 
 ## Transactional outbox and delivery
@@ -99,3 +99,21 @@ The framework parent resolves from `core/framework/pom.xml`. Foundation artifact
 - `V3__feedback_outbox_leases_and_dead_letters.sql`: leases, retry scheduling, fencing tokens and dead-letter state.
 
 PostgreSQL Testcontainers tests cover attachment persistence, tenant isolation, outbox lease recovery and dead-letter handling. They still require execution in CI or a Docker-enabled build environment before this milestone can be called verified.
+
+## M7 — Discussion and comment threads
+
+M7 adds append-only comments and replies to a Feedback item.
+
+- Every comment is scoped to a tenant and a Feedback item.
+- Visibility is explicit: `PUBLIC` or `INTERNAL`.
+- A reply must reference a parent comment from the same tenant and Feedback item.
+- A reply must have the same visibility as its parent; public threads cannot branch into internal notes.
+- Public retrieval requires an explicit `PUBLIC` visibility predicate. The repository API does not provide an all-visibility shortcut.
+- Internal visibility is not authorization. Both add and list use cases require the host-provided `FeedbackCommentAccessPolicy` port, which must delegate to the Security capability.
+- Comment creation is idempotent per tenant and stores its `feedback.comment-added.v1` outbox event in the same PostgreSQL transaction.
+- The event payload contains identifiers and visibility only; it deliberately excludes comment body text.
+- M7 comments are append-only. Editing, deletion, moderation, attachments and rich-text rendering are not included.
+
+See [Feedback M7 — Discussion and comment threads](../docs/architecture/FEEDBACK-M7-DISCUSSION-COMMENTS.md) for invariants, persistence details and verification requirements.
+
+Migration: `V7__feedback_discussion_comments.sql`. The separate M6 public-invitation branch introduces V6; reconcile and apply migrations in order before enabling both milestones.

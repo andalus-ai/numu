@@ -41,7 +41,7 @@ class NotificationDeliveryWorkerTest {
             public Optional<PushDevice> disable(UUID t, UUID r, UUID id, Instant at) { return Optional.empty(); }
         };
         var worker = new NotificationDeliveryWorker(jobs, notificationRepository, deviceRepository, Map.of("TEST", provider),
-                notification -> NotificationDeliveryPolicy.Decision.ALLOW,
+                ignoredNotification -> NotificationDeliveryPolicy.Decision.ALLOW,
                 new NotificationDeliveryRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10), 0),
                 Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), 10);
 

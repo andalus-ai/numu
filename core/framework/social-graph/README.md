@@ -258,3 +258,7 @@ consent, visibility, moderation and recipient eligibility checks still apply.
 
 See [M2g Notification delivery suppression](../../../docs/architecture/SOCIAL-GRAPH-M2G-NOTIFICATION-DELIVERY.md)
 for schema, composition and verification details.
+
+## Authenticated relationship reads
+
+`SocialGraphRelationshipReadFacade` is the application boundary for following/follower list reads. It accepts only the trusted tenant and verified issuer/subject supplied by the host, resolves the viewer through the tenant-scoped Ecosystem identity association, and rejects missing or cross-tenant resolver results before querying. The caller cannot supply the viewer `PartyId`. The profile owner in a followers request is a target only; profile visibility and block policy are still enforced by `SocialGraphRelationshipReadService` through host-provided visibility policy and the authoritative Social Graph block/mute policy port. The facade returns only relationship references and timestamps, not profile/contact data. Hosts must continue to apply their route-level authentication and any additional capability authorization required by their product policy.

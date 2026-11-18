@@ -5,6 +5,7 @@ import tech.kayys.numou.workspace.application.WorkspacePorts.Action;
 import tech.kayys.numou.workspace.application.WorkspacePorts.PageRepository;
 import tech.kayys.numou.workspace.application.WorkspacePorts.Resource;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSignal;
+import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscription;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscriptionPort;
 import java.util.Objects;
 import java.util.UUID;
@@ -12,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-/** Authenticates and authorizes a page subscription before delegating to host-owned fanout. */
+/** Authenticates, authorizes, and manages the lifecycle of a page-change subscription. */
 public final class WorkspacePageChangeSubscriptionApi {
     private final WorkspaceApi.IdentityProvider identity;
     private final PageRepository pages;
@@ -27,7 +28,7 @@ public final class WorkspacePageChangeSubscriptionApi {
         this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
     }
 
-    public AutoCloseable subscribe(UUID pageId, Consumer<WorkspacePageChangeSignal> listener) {
+    public WorkspacePageChangeSubscription subscribe(UUID pageId, Consumer<WorkspacePageChangeSignal> listener) {
         Objects.requireNonNull(pageId, "pageId");
         Objects.requireNonNull(listener, "listener");
         WorkspaceApi.AuthenticatedActor actor = identity.currentActor();
@@ -38,26 +39,26 @@ public final class WorkspacePageChangeSubscriptionApi {
                 .orElseThrow(() -> new WorkspaceApi.ApiException(404, "Page not found"));
         requireRead(actor.tenantId(), actor.actorId(), pageId);
 
-        AtomicBoolean active = new AtomicBoolean(true);
-        AtomicReference<AutoCloseable> delegateRef = new AtomicReference<>();
-        AutoCloseable delegate = Objects.requireNonNull(
+        ManagedSubscription managed = new ManagedSubscription();
+        WorkspacePageChangeSubscription delegate = Objects.requireNonNull(
                 subscriptions.subscribe(actor.tenantId(), actor.actorId(), pageId, signal -> {
-                    if (!active.get() || signal == null
+                    if (!managed.active.get() || signal == null
                             || !actor.tenantId().equals(signal.tenantId())
                             || !pageId.equals(signal.pageId())) return;
-                    // Re-check on delivery so permission revocation takes effect without waiting
-                    // for a new connection. A denied subscriber is closed and receives no frame.
                     try {
+                        // Re-check on every signal; explicit host revocation can close idle streams
+                        // without waiting for a later page mutation.
                         requireRead(actor.tenantId(), actor.actorId(), pageId);
                     } catch (WorkspaceApi.ApiException revoked) {
-                        close(active, delegateRef.get());
+                        managed.revoke();
                         return;
                     }
                     listener.accept(signal);
                 }), "subscription handle");
-        delegateRef.set(delegate);
-        if (!active.get()) closeQuietly(delegate);
-        return () -> close(active, delegate);
+        managed.delegate.set(delegate);
+        delegate.onRevoked(managed::revoke);
+        if (!managed.active.get()) closeQuietly(delegate);
+        return managed;
     }
 
     private void requireRead(UUID tenantId, UUID actorId, UUID pageId) {
@@ -68,12 +69,42 @@ public final class WorkspacePageChangeSubscriptionApi {
         }
     }
 
-    private static void close(AtomicBoolean active, AutoCloseable delegate) {
-        if (active.compareAndSet(true, false)) closeQuietly(delegate);
-    }
-
     private static void closeQuietly(AutoCloseable handle) {
         if (handle == null) return;
         try { handle.close(); } catch (Exception ignored) { /* best-effort lifecycle cleanup */ }
+    }
+
+    private static final class ManagedSubscription implements WorkspacePageChangeSubscription {
+        private final AtomicBoolean active = new AtomicBoolean(true);
+        private final AtomicBoolean revoked = new AtomicBoolean();
+        private final AtomicReference<WorkspacePageChangeSubscription> delegate = new AtomicReference<>();
+        private final AtomicReference<Runnable> revocationCallback = new AtomicReference<>();
+
+        @Override
+        public void onRevoked(Runnable callback) {
+            Objects.requireNonNull(callback, "callback");
+            if (revoked.get()) {
+                callback.run();
+                return;
+            }
+            revocationCallback.set(callback);
+            if (revoked.get()) {
+                Runnable registered = revocationCallback.getAndSet(null);
+                if (registered != null) registered.run();
+            }
+        }
+
+        @Override
+        public void close() {
+            if (active.compareAndSet(true, false)) closeQuietly(delegate.get());
+        }
+
+        private void revoke() {
+            if (!active.compareAndSet(true, false)) return;
+            revoked.set(true);
+            closeQuietly(delegate.get());
+            Runnable callback = revocationCallback.getAndSet(null);
+            if (callback != null) callback.run();
+        }
     }
 }

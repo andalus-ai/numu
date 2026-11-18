@@ -53,5 +53,7 @@ class NotificationDeliveryEnqueuerTest {
         @Override public Optional<NotificationDeliveryJob> markDelivered(UUID tenantId, UUID jobId, UUID leaseToken, Instant now) { return Optional.empty(); }
         @Override public Optional<NotificationDeliveryJob> scheduleRetry(UUID tenantId, UUID jobId, UUID leaseToken, Instant retryAt, String safeErrorCode) { return Optional.empty(); }
         @Override public Optional<NotificationDeliveryJob> markDead(UUID tenantId, UUID jobId, UUID leaseToken, String safeErrorCode) { return Optional.empty(); }
+        @Override public Optional<NotificationDeliveryJob> markSuppressed(
+                UUID tenantId, UUID jobId, UUID leaseToken, String safeReasonCode) { return Optional.empty(); }
     }
 }
