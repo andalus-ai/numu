@@ -1,4 +1,4 @@
--- Durable, version-fenced lifecycle controls for historical graph projection rebuilds.
+-- Durable lifecycle controls and actor-attributed audit for historical graph rebuilds.
 ALTER TABLE historical_relationship_projection_rebuild_run
     ADD COLUMN lifecycle_version BIGINT NOT NULL DEFAULT 0 CHECK (lifecycle_version >= 0),
     ADD COLUMN failure_detail VARCHAR(1000) NOT NULL DEFAULT '',
@@ -45,10 +45,10 @@ CREATE TABLE historical_projection_rebuild_audit (
     run_id UUID NOT NULL,
     tenant_id UUID NULL,
     actor_id UUID NOT NULL,
-    action VARCHAR(16) NOT NULL CHECK (action IN ('PAUSE','RESUME','CANCEL','RETRY','FAIL')),
-    previous_status VARCHAR(16) NOT NULL CHECK (previous_status IN ('RUNNING','PAUSED','CANCELLED','FAILED','COMPLETED')),
-    resulting_status VARCHAR(16) NOT NULL CHECK (resulting_status IN ('RUNNING','PAUSED','CANCELLED','FAILED','COMPLETED')),
-    lifecycle_version BIGINT NOT NULL CHECK (lifecycle_version >= 1),
+    action VARCHAR(24) NOT NULL CHECK (action IN ('PAUSE','RESUME','CANCEL','RETRY','FAIL')),
+    previous_status VARCHAR(16) NOT NULL,
+    resulting_status VARCHAR(16) NOT NULL,
+    lifecycle_version BIGINT NOT NULL CHECK (lifecycle_version >= 0),
     detail VARCHAR(1000) NOT NULL DEFAULT '',
     occurred_at TIMESTAMPTZ NOT NULL
 );
