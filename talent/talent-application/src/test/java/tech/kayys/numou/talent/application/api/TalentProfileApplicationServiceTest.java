@@ -48,7 +48,7 @@ class TalentProfileApplicationServiceTest {
     void createsAndPublishesProfileEventsWithinApplicationTransaction() {
         TalentProfileId id = TalentProfileId.generate();
 
-        TalentProfileView view = service.create(context, id, person, "Backend Engineer", null, "Bandung")
+        TalentProfileView view = service.create(commandContext(), id, person, "Backend Engineer", null, "Bandung")
                 .await().indefinitely();
 
         assertThat(view.id()).isEqualTo(id);
@@ -65,7 +65,7 @@ class TalentProfileApplicationServiceTest {
     @Test
     void repositoryRejectsUpdateWhenExpectedVersionIsStale() {
         TalentProfileId id = TalentProfileId.generate();
-        service.create(context, id, person, "Engineer", null, null).await().indefinitely();
+        service.create(commandContext(), id, person, "Engineer", null, null).await().indefinitely();
         TalentProfile stored = unitOfWork.repository.findByTenantAndId(tenant, id).await().indefinitely().orElseThrow();
         stored.updatePresentation("Updated", null, null);
 
@@ -75,8 +75,46 @@ class TalentProfileApplicationServiceTest {
     }
 
     @Test
+    void sameIdempotencyKeyAndFingerprintReplayOriginalCreateResultWithoutDuplicateEvents() {
+        TalentProfileId id = TalentProfileId.generate();
+        ExecutionContext command = context.withAttribute(
+                TalentProfileApplicationService.IDEMPOTENCY_KEY_ATTRIBUTE, "create-retry-001");
+
+        TalentProfileView first = service.create(command, id, person, "Backend Engineer", null, "Bandung")
+                .await().indefinitely();
+        TalentProfileView replay = service.create(command, id, person, "Backend Engineer", null, "Bandung")
+                .await().indefinitely();
+
+        assertThat(replay).isEqualTo(first);
+        assertThat(unitOfWork.publishedEvents).hasSize(1);
+        assertThat(unitOfWork.repository.profiles).hasSize(1);
+    }
+
+    @Test
+    void reusingIdempotencyKeyForDifferentCommandIsRejected() {
+        TalentProfileId id = TalentProfileId.generate();
+        ExecutionContext command = context.withAttribute(
+                TalentProfileApplicationService.IDEMPOTENCY_KEY_ATTRIBUTE, "create-retry-002");
+
+        service.create(command, id, person, "Backend Engineer", null, "Bandung").await().indefinitely();
+
+        assertThatThrownBy(() -> service.create(command, id, person, "Platform Engineer", null, "Bandung")
+                .await().indefinitely())
+                .isInstanceOf(TalentProfileCommandIdempotencyConflictException.class);
+        assertThat(unitOfWork.publishedEvents).hasSize(1);
+    }
+
+    @Test
+    void rejectsWriteWithoutIdempotencyKey() {
+        assertThatThrownBy(() -> service.create(context, TalentProfileId.generate(), person,
+                "Engineer", null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("idempotency key");
+    }
+
+    @Test
     void rejectsPartyThatIsNotPresentInTheActiveTenant() {
-        assertThatThrownBy(() -> service.create(context, TalentProfileId.generate(),
+        assertThatThrownBy(() -> service.create(commandContext(), TalentProfileId.generate(),
                 PartyRef.of(PartyId.generate(), PartyKind.PERSON), "Engineer", null, null)
                 .await().indefinitely()).isInstanceOf(IllegalArgumentException.class);
         assertThat(unitOfWork.repository.profiles).isEmpty();
@@ -86,7 +124,7 @@ class TalentProfileApplicationServiceTest {
     @Test
     void tenantScopePreventsReadingAnotherTenantsProfile() {
         TalentProfileId id = TalentProfileId.generate();
-        service.create(context, id, person, "Engineer", null, null).await().indefinitely();
+        service.create(commandContext(), id, person, "Engineer", null, null).await().indefinitely();
 
         ExecutionContext foreign = ExecutionContext.builder()
                 .tenantId(otherTenant).actorId(ActorId.of("user:bob")).build();
@@ -98,7 +136,7 @@ class TalentProfileApplicationServiceTest {
     @Test
     void deniedReadNeverReturnsProfileView() {
         TalentProfileId id = TalentProfileId.generate();
-        service.create(context, id, person, "Private Engineer", null, null).await().indefinitely();
+        service.create(commandContext(), id, person, "Private Engineer", null, null).await().indefinitely();
         access.allowed = false;
 
         assertThatThrownBy(() -> service.get(context, id).await().indefinitely())
@@ -108,11 +146,11 @@ class TalentProfileApplicationServiceTest {
     @Test
     void deniedMutationDoesNotChangeAggregateOrPublishEvents() {
         TalentProfileId id = TalentProfileId.generate();
-        service.create(context, id, person, "Engineer", null, null).await().indefinitely();
+        service.create(commandContext(), id, person, "Engineer", null, null).await().indefinitely();
         int eventCount = unitOfWork.publishedEvents.size();
         access.allowed = false;
 
-        assertThatThrownBy(() -> service.updatePresentation(context, id, "Changed", null, null)
+        assertThatThrownBy(() -> service.updatePresentation(commandContext(), id, "Changed", null, null)
                 .await().indefinitely())
                 .isInstanceOf(TalentProfileAccessDeniedException.class);
 
@@ -124,12 +162,12 @@ class TalentProfileApplicationServiceTest {
     @Test
     void rejectsUnverifiedSkillClaimBeforeChangingProfile() {
         TalentProfileId id = TalentProfileId.generate();
-        service.create(context, id, person, "Engineer", null, null).await().indefinitely();
+        service.create(commandContext(), id, person, "Engineer", null, null).await().indefinitely();
         evidenceVerifier.allowed = false;
         var skill = new ProfileContent.Skill(UUID.randomUUID(), "Java", null,
                 ProfileContent.SkillLevel.EXPERT, ProfileContent.Verification.PLATFORM_VERIFIED);
 
-        assertThatThrownBy(() -> service.replaceSkills(context, id, List.of(skill)).await().indefinitely())
+        assertThatThrownBy(() -> service.replaceSkills(commandContext(), id, List.of(skill)).await().indefinitely())
                 .isInstanceOf(SecurityException.class);
 
         TalentProfile stored = unitOfWork.repository.findByTenantAndId(tenant, id).await().indefinitely().orElseThrow();
@@ -146,6 +184,11 @@ class TalentProfileApplicationServiceTest {
         ExecutionContext withoutTenant = ExecutionContext.builder().actorId(ActorId.of("user:alice")).build();
         assertThatThrownBy(() -> service.get(withoutTenant, TalentProfileId.generate()))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    private ExecutionContext commandContext() {
+        return context.withAttribute(TalentProfileApplicationService.IDEMPOTENCY_KEY_ATTRIBUTE,
+                UUID.randomUUID().toString());
     }
 
     private static final class MutableAccessPolicy implements TalentProfileAccessPolicy {
@@ -172,6 +215,7 @@ class TalentProfileApplicationServiceTest {
     }
 
     private static final class InMemoryUnitOfWork implements TalentProfileTransactionRunner, TalentProfileTransaction {
+        private final Map<ReceiptKey, ReceiptEntry> receipts = new HashMap<>();
         private final InMemoryRepository repository = new InMemoryRepository();
         private final List<DomainEvent> publishedEvents = new ArrayList<>();
         private final List<ExecutionContext> publishedContexts = new ArrayList<>();
@@ -184,6 +228,42 @@ class TalentProfileApplicationServiceTest {
         @Override
         public TalentProfileRepository profiles() {
             return repository;
+        }
+
+        @Override
+        public TalentProfileCommandReceiptStore commandReceipts() {
+            return new TalentProfileCommandReceiptStore() {
+                @Override
+                public Uni<Claim> claim(TenantId tenantId, String actorId, String key,
+                                        String operation, String fingerprint) {
+                    ReceiptKey receiptKey = new ReceiptKey(tenantId, actorId, key);
+                    ReceiptEntry existing = receipts.get(receiptKey);
+                    if (existing == null) {
+                        receipts.put(receiptKey, new ReceiptEntry(operation, fingerprint));
+                        return Uni.createFrom().item(Claim.acquired());
+                    }
+                    if (!existing.fingerprint.equals(fingerprint) || !existing.operation.equals(operation)) {
+                        return Uni.createFrom().failure(new TalentProfileCommandIdempotencyConflictException());
+                    }
+                    if (existing.result == null) {
+                        return Uni.createFrom().failure(new IllegalStateException(
+                                "In-memory test receipt is still in progress"));
+                    }
+                    return Uni.createFrom().item(Claim.replay(existing.result));
+                }
+
+                @Override
+                public Uni<Void> complete(TenantId tenantId, String actorId, String key,
+                                          String fingerprint, TalentProfileView result) {
+                    ReceiptEntry existing = receipts.get(new ReceiptKey(tenantId, actorId, key));
+                    if (existing == null || !existing.fingerprint.equals(fingerprint) || existing.result != null) {
+                        return Uni.createFrom().failure(new IllegalStateException(
+                                "Talent command receipt cannot be completed"));
+                    }
+                    existing.result = result;
+                    return Uni.createFrom().voidItem();
+                }
+            };
         }
 
         @Override
@@ -231,5 +311,18 @@ class TalentProfileApplicationServiceTest {
         }
 
         private record Key(TenantId tenantId, TalentProfileId profileId) {}
+    }
+
+    private record ReceiptKey(TenantId tenantId, String actorId, String idempotencyKey) {}
+
+    private static final class ReceiptEntry {
+        private final String operation;
+        private final String fingerprint;
+        private TalentProfileView result;
+
+        private ReceiptEntry(String operation, String fingerprint) {
+            this.operation = operation;
+            this.fingerprint = fingerprint;
+        }
     }
 }
