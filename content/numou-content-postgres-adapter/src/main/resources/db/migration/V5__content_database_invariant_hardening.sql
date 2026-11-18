@@ -39,6 +39,23 @@ CREATE TRIGGER trg_content_entry_guard_update
 BEFORE UPDATE ON content_entry
 FOR EACH ROW EXECUTE FUNCTION content_guard_entry_update();
 
+CREATE OR REPLACE FUNCTION content_guard_entry_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $
+BEGIN
+    IF NEW.status <> 'DRAFT' OR NEW.current_revision <> 1 THEN
+        RAISE EXCEPTION 'new content entries must begin as draft at revision one'
+            USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+END;
+$;
+
+CREATE TRIGGER trg_content_entry_initial_state
+BEFORE INSERT ON content_entry
+FOR EACH ROW EXECUTE FUNCTION content_guard_entry_insert();
+
 CREATE OR REPLACE FUNCTION content_guard_revision_insert()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -46,6 +63,7 @@ AS $$
 DECLARE
     expected_revision INTEGER;
     previous_exists BOOLEAN;
+    schema_status VARCHAR(16);
 BEGIN
     SELECT current_revision INTO expected_revision
       FROM content_entry
@@ -54,6 +72,21 @@ BEGIN
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'content entry does not exist for revision'
+            USING ERRCODE = '23503';
+    END IF;
+
+    IF NEW.content_type_id IS NULL OR NEW.schema_version IS NULL THEN
+        RAISE EXCEPTION 'new content revisions must reference a published schema version'
+            USING ERRCODE = '23514';
+    END IF;
+
+    SELECT status INTO schema_status
+      FROM content_type_schema
+     WHERE tenant_id = NEW.tenant_id
+       AND content_type_id = NEW.content_type_id
+       AND content_type_schema.schema_version = NEW.schema_version;
+    IF NOT FOUND OR schema_status <> 'PUBLISHED' THEN
+        RAISE EXCEPTION 'content revisions must reference an existing published schema version'
             USING ERRCODE = '23503';
     END IF;
 
@@ -107,6 +140,14 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.status <> 'DRAFT' OR NEW.published_at IS NOT NULL THEN
+            RAISE EXCEPTION 'new content schema versions must begin as draft'
+                USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END IF;
+
     IF TG_OP = 'DELETE' THEN
         IF OLD.status = 'PUBLISHED' THEN
             RAISE EXCEPTION 'published content schema versions cannot be deleted'
@@ -130,7 +171,7 @@ END;
 $$;
 
 CREATE TRIGGER trg_content_schema_version_guard
-BEFORE UPDATE OR DELETE ON content_type_schema
+BEFORE INSERT OR UPDATE OR DELETE ON content_type_schema
 FOR EACH ROW EXECUTE FUNCTION content_guard_schema_version();
 
 CREATE OR REPLACE FUNCTION content_guard_schema_child()
