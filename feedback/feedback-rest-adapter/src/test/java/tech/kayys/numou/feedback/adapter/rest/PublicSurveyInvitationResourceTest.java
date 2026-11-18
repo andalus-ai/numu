@@ -74,8 +74,6 @@ class PublicSurveyInvitationResourceTest {
     private static final class CapturingResponses implements ResponseUseCase {
         TenantContext context;
         StartResponse command;
-        String sessionSurvey = "survey-authoritative";
-        boolean answerSaved;
 
         @Override public ResponseSession start(TenantContext ctx, StartResponse cmd) {
             context = ctx;
