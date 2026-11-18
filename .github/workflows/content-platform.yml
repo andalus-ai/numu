@@ -49,6 +49,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - name: Install shared Maven parent POM
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install
       - name: Install framework parent POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install Foundation dependencies
