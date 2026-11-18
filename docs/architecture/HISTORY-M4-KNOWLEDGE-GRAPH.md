@@ -58,3 +58,14 @@ M4 adds a provider-neutral relationship model to the existing History entities d
 - Orphaned nodes are reported only. Destructive cleanup requires a staged generation rebuild and explicit activation protocol.
 - The host is responsible for authenticating and authorizing maintenance access before invoking reconciliation. The read ports do not replace application-level maintenance authorization.
 - PostgreSQL outbox retention must preserve the latest event for every relationship; purging canonical history would make the comparison incomplete.
+
+
+## Staged generation orchestration (M4 follow-up)
+- The generation coordinator uses a caller-supplied operation UUID as an idempotency key and persists the generation UUID, rebuild-run UUID, tenant/public scope, and expected active-generation UUID before performing external work.
+- The PostgreSQL generation-run journal records PREPARING, REPLAYING, VALIDATING, READY, ACTIVATING, and ACTIVE phases, plus bounded failure count and the latest error summary.
+- Rebuild run IDs are caller-assigned and idempotently recovered. The replay service accepts an explicit target generation and refuses staged replay when the configured projection adapter does not implement generation-targeted writes.
+- Each coordinator invocation performs one bounded lifecycle step. Repeated invocations with the same operation ID resume from the durable phase and rebuild cursor.
+- Validation must pass before READY. Activation remains a Neo4j compare-and-set against the active generation captured at operation creation. A retry recognizes an already ACTIVE or RETAINED target as evidence that activation committed before a PostgreSQL journal update.
+- PostgreSQL and Neo4j do not share a distributed transaction. Intermediate states are recoverable saga states, not an atomic cross-database commit.
+- The journal migration is additive V6; deployed V1–V5 migrations are not rewritten. Runtime composition must wire the JDBC journal, generation store, generation-aware projector, maintenance authorization, and a scheduler/worker that calls resume.
+- Generation deletion/retention automation is intentionally not enabled by this milestone. Retained generations remain available for rollback; cleanup requires a separately audited policy that can prove a generation is neither active nor needed by an in-flight operation.
