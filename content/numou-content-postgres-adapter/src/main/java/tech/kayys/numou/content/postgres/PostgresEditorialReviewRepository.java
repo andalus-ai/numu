@@ -56,13 +56,15 @@ public final class PostgresEditorialReviewRepository implements EditorialReviewR
             try {
                 EditorialReview previous=load(c,review.tenantId(),review.id()).orElse(null);
                 if(previous==null || previous.version()!=expectedVersion) { c.rollback(); return false; }
+                // Child-history insert guards require the review row to remain active until
+                // the append has succeeded. The following CAS and all writes share this transaction.
+                insertNewHistory(c,previous,review);
                 try(PreparedStatement p=c.prepareStatement(update)) {
                     p.setString(1,review.status().name()); p.setLong(2,review.version());
                     p.setTimestamp(3,Timestamp.from(review.updatedAt())); p.setObject(4,review.tenantId().value());
                     p.setObject(5,review.id().value()); p.setLong(6,expectedVersion);
                     if(p.executeUpdate()!=1) { c.rollback(); return false; }
                 }
-                insertNewHistory(c,previous,review);
                 if(review.status()!=EditorialReview.Status.IN_REVIEW) {
                     String target=review.status()==EditorialReview.Status.APPROVED?"APPROVED":"DRAFT";
                     try(PreparedStatement p=c.prepareStatement("UPDATE content_entry SET status=?, updated_at=? WHERE tenant_id=? AND content_id=? AND status='IN_REVIEW'")) {
