@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicBoolean;\nimport java.util.concurrent.ConcurrentHashMap;
 
 /** Owns one application's selected plugins, routing boundary and shutdown lifecycle. */
 public final class ApplicationRuntimeSession implements AutoCloseable {
@@ -21,7 +21,7 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
     private final Map<String, String> providerByCapability;
     private final AtomicBoolean stopRequested = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
-    private final Set<String> stoppedProviders = new HashSet<>();
+    private final Set<String> stoppedProviders = new HashSet<>();\n    private final Map<String, String> stopFailures = new ConcurrentHashMap<>();
 
     ApplicationRuntimeSession(String applicationId, List<String> providerIds,
             Map<String, NumouPlugin> pluginsByProvider, Map<String, PluginContext> contexts,
@@ -62,7 +62,7 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
             PluginState state = plugin == null ? PluginState.FAILED : plugin.state();
             providers.add(new ApplicationRuntimeProviderHealth(providerId,
                     plugin == null ? null : plugin.id(), state,
-                    !stopRequested.get() && state == PluginState.ACTIVE));
+                    !stopRequested.get() && state == PluginState.ACTIVE, stopFailures.get(providerId)));
         }
         boolean ready = !stopRequested.get() && !providers.isEmpty()
                 && providers.stream().allMatch(ApplicationRuntimeProviderHealth::ready);
