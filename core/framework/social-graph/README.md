@@ -275,9 +275,9 @@ request accepts a profile-owner Party only as its target.
 The read facade is composed from the tenant-scoped actor resolver, PostgreSQL
 relationship query and policy ports, and the host-provided
 `SocialGraphRelationshipVisibilityPort`. The host must supply exactly one
-authoritative, fail-closed visibility/consent implementation to enable this
-read composition. If it is absent, CDI composition fails rather than exposing
-relationship data without profile policy. The relationship list remains
+authoritative, fail-closed visibility/consent implementation to enable reads.
+If it is absent or ambiguous, the read invoker fails closed with access denied;
+command composition remains available and no relationship data is exposed. The relationship list remains
 bounded and keyset-paginated; profile/contact data is not returned.
 
 The default `social-graph-member` role now receives explicit
