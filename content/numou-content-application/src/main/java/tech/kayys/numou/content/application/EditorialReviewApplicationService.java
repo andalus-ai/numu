@@ -54,6 +54,15 @@ public final class EditorialReviewApplicationService {
         return changed;
     }
 
+    public EditorialReview cancel(ContentCommandContext context, EditorialReviewId reviewId) {
+        EditorialReview current=reviews.find(context.tenantId(),reviewId).orElseThrow(ContentNotFoundException::new);
+        authorization.requireSubmit(context.tenantId(),context.actorId(),current.contentId());
+        EditorialReview cancelled=current.cancel(clock.instant());
+        if(!reviews.update(cancelled,current.version()))
+            throw new IllegalStateException("Editorial review changed concurrently; reload before retrying");
+        return cancelled;
+    }
+
     public EditorialReview get(ContentCommandContext context, EditorialReviewId reviewId) {
         return reviews.find(context.tenantId(),reviewId).orElseThrow(ContentNotFoundException::new);
     }
