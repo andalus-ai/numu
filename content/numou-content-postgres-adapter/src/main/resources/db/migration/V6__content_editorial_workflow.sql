@@ -183,3 +183,10 @@ CREATE INDEX ix_editorial_outbox_pending ON content_editorial_outbox (created_at
 CREATE TRIGGER trg_editorial_reviewer_immutable
 BEFORE UPDATE OR DELETE ON content_editorial_reviewer
 FOR EACH ROW EXECUTE FUNCTION content_reject_editorial_history_mutation();
+
+ALTER TABLE content_editorial_outbox
+    ADD COLUMN available_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ADD COLUMN lease_owner UUID,
+    ADD COLUMN lease_until TIMESTAMPTZ,
+    ADD CONSTRAINT ck_editorial_outbox_lease_pair
+        CHECK ((lease_owner IS NULL) = (lease_until IS NULL));
