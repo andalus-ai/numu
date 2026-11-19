@@ -90,7 +90,10 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
             try {
                 plugin.stop();
                 stoppedProviders.add(providerId);
+                stopFailures.remove(providerId);
             } catch (Exception failure) {
+                stopFailures.put(providerId, failure.getClass().getSimpleName() + ": "
+                        + String.valueOf(failure.getMessage()));
                 failures.add(failure);
             }
         }
