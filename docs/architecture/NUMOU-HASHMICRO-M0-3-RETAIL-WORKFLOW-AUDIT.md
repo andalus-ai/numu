@@ -401,3 +401,77 @@ Acceptance evidence for the next code milestone:
 - Focused POS, Inventory and Accounting Maven reactor tests plus CI run links.
 
 **M0.3b status: source trace completed; runtime composition and Accounting posting route remain unverified. No production implementation or build/test pass is claimed in this pass.**
+
+
+## 12. M0.3c — Runtime composition and Accounting idempotency contract trace (2026-11-20)
+
+This pass traces the current default-branch source after M0.3b. It intentionally does not add an Inventory adapter or an Accounting consumer until the existing host composition and durable command semantics are established.
+
+### 12.1 POS runtime composition
+
+Inspected the complete tracked POS Java source paths and the POS adapter POM.
+
+Verified:
+- The POS adapter has CDI composition for the Payment checkout adapter, POS sale repository adapter, and POS outbox dispatcher.
+- The POS adapter POM declares POS application, Payment API and Foundation adapter dependencies.
+- No Inventory API/SPI/application dependency is declared in the POS adapter POM.
+- No implementation of `CheckoutInventoryPort` appears in the tracked POS adapter Java source paths.
+- The generic POS event consumer is an application service around `PosEventInbox`; it is not itself a CDI registration of a business consumer.
+- The outbox dispatcher composes a configured `PosEventPublisher`; the publisher is a provider-neutral port and does not register Accounting handlers.
+
+Conclusion: the POS adapter has proven Payment and outbox composition seams, but **the Inventory checkout adapter and broker/Accounting consumer registration remain unproven**. The absence is bounded to the inspected POS subtree and tracked source tree, not asserted as proof that no external deployment may provide the binding.
+
+### 12.2 Accounting local integration and posting API
+
+Inspected:
+- `finance/accounting/numou-accounting-local-integrations/.../AccountingLocalIntegrationsProducer.java`
+- `finance/accounting/numou-accounting-application/.../PostJournalEntryCommand.java`
+- `finance/accounting/numou-accounting-application/.../PostJournalEntryHandler.java`
+- `finance/accounting/numou-accounting-application/.../JournalEntryRepository.java`
+- `finance/accounting/numou-accounting-application/.../PostingInstruction.java`
+- `finance/accounting/numou-accounting-application/.../IdempotencyGuard.java`
+- `finance/accounting/numou-accounting-domain/.../BridgeIdempotencyRegistry.java`
+- `finance/accounting/numou-accounting-adapter/.../V7__processed_command.sql`
+
+Verified:
+- `AccountingLocalIntegrationsProducer` explicitly documents itself as local-development/demo/test composition and produces Inventory, Budget and Project services backed by in-memory adapters. It is not a production POS-to-Inventory bridge.
+- `PostJournalEntryCommand` carries explicit tenant and ledger scope, and includes `sourceType` and `sourceId`.
+- `PostJournalEntryHandler` validates the journal, applies account movements, saves the journal and writes accounting outbox events. In the inspected handler, `sourceType` and `sourceId` are not used for lookup, uniqueness enforcement or duplicate-source rejection.
+- `JournalEntryRepository` exposes save and lookup methods by journal ID/tenant/ledger, but no source-type/source-ID lookup contract.
+- `PostingInstruction` independently validates balanced debit and credit totals, but this value object is not itself evidence that the POS event has a configured mapping or reaches the journal command handler.
+- Accounting has a generic `processed_command` table migration and an in-memory `IdempotencyGuard`. The inspected `PostJournalEntryHandler` does not use either of these to protect a source event from replay.
+- `BridgeIdempotencyRegistry` and its inspected in-memory implementation cover bridge dispatch bookkeeping, not proof of durable journal posting idempotency for POS sale events.
+
+Conclusion: Accounting has useful primitives, but **the current inspected journal posting path does not demonstrate durable idempotency by source event or source business reference**. A repeated POS event could therefore be dangerous if a future consumer simply invokes this handler repeatedly without a durable transactional guard. This is a verified integration gap in the inspected path, not a claim that every Accounting entry point is non-idempotent.
+
+### 12.3 M0.3c findings
+
+| ID | Finding | Status | Required next action |
+|---|---|---|---|
+| POS-A11 | No concrete `CheckoutInventoryPort` implementation was found in POS tracked adapter sources; POS POM does not depend on Inventory contracts. | Open — no registered production binding established | Implement a dedicated adapter against public Inventory application/SPI contracts, or document the external host binding and prove it with a composition test. |
+| POS-A12 | POS publisher port and generic inbox exist, but no Accounting event consumer registration was found in inspected composition. | Open — deployment registration not established | Add a consumer in an explicit composition/integration module and test broker delivery through the real inbox. |
+| POS-A13 | Accounting command includes `sourceType`/`sourceId`, but inspected journal handler ignores them and does not consult the generic processed-command table or in-memory guard. | Verified in inspected handler | Add durable tenant + ledger + source-type + source-id uniqueness/claim semantics at the Accounting persistence boundary; store/replay the result and commit claim, journal, account movements and outbox atomically. |
+| POS-A14 | Accounting's generic `processed_command` migration exists, but the inspected handler does not demonstrate its use. | Verified source separation | Reuse only after verifying schema scope, atomicity, retention and replay-result semantics; do not add a parallel idempotency table by default. |
+| POS-A15 | Local Accounting composition uses in-memory Inventory adapters and is explicitly non-production. | Verified | Do not reuse this producer as production POS composition. |
+
+### 12.4 Implementation decision
+
+M0.3c completes the source/composition audit gate. The next implementation milestone is **M0.4 — Retail Integration Reliability**, split into two independently testable slices:
+
+1. **M0.4a — Accounting source idempotency:** define the stable external source identity (tenant, ledger, source type, source ID), inspect and reuse the existing processed-command infrastructure where safe, add a durable unique constraint/claim protocol, and guarantee that account movements, journal save, processed result and accounting outbox are one transaction. Duplicate requests must return the original journal/result without applying account movements again. Conflicting payloads for the same source identity must fail explicitly rather than silently returning a different result.
+2. **M0.4b — POS-to-Inventory adapter and consumer composition:** bind `CheckoutInventoryPort` through Inventory's public contract; bind the POS outbox publisher to the selected transport; register a stable Accounting consumer name using the existing inbox contract; verify tenant and event identity propagation and the transactional relationship between inbox claim and journal posting.
+
+Do not combine the two slices into a new monolithic retail service. POS owns sale lifecycle, Inventory owns stock ledger/reservations, Payment owns tender/refund lifecycle, and Accounting owns journals and source idempotency.
+
+### 12.5 M0.4 acceptance gates
+
+- Concurrent duplicate accounting commands with the same tenant/ledger/source identity produce exactly one journal and one set of account balance changes.
+- A retry after a process crash returns the previously committed result.
+- Same source identity with a different canonical payload is rejected and audited.
+- Journal, account updates, processed-command result and accounting outbox are committed atomically.
+- Duplicate `pos.sale.completed` delivery is harmless through the registered stable consumer.
+- Inventory reserve/commit/release replay returns the original result and cannot cross tenant boundaries.
+- Integration tests run with PostgreSQL; no in-memory fake is accepted as sole proof of the durable path.
+- Focused POS, Inventory and Accounting Maven reactor builds/tests pass in CI.
+
+**M0.3c status: source and composition trace completed. M0.4 implementation is now sufficiently scoped; no code change or passing test is claimed in this audit milestone.**
