@@ -56,7 +56,7 @@ public final class EditorialReviewApplicationService {
 
     public EditorialReview cancel(ContentCommandContext context, EditorialReviewId reviewId) {
         EditorialReview current=reviews.find(context.tenantId(),reviewId).orElseThrow(ContentNotFoundException::new);
-        authorization.requireSubmit(context.tenantId(),context.actorId(),current.contentId());
+        authorization.requireCancel(context.tenantId(),context.actorId(),current.contentId());
         EditorialReview cancelled=current.cancel(clock.instant());
         if(!reviews.update(cancelled,current.version()))
             throw new IllegalStateException("Editorial review changed concurrently; reload before retrying");
