@@ -179,6 +179,37 @@ class PostgresContentRepositoryIntegrationTest {
         assertEquals(ContentStatus.DRAFT,repository.find(tenant,entry.id()).orElseThrow().status());
     }
 
+    @Test void editorialOutboxLeasesRetryAndWorkerOwnedAcknowledgement() throws Exception {
+        TenantId tenant=new TenantId(UUID.randomUUID());
+        ActorId author=new ActorId(UUID.randomUUID());
+        ContentTypeId type=seedPublishedSchema(tenant,1);
+        ContentEntry entry=ContentEntry.create(tenant,"Outbox","outbox","{}",type,1,author,Instant.now());
+        repository.create(entry);
+        UUID reviewer=UUID.randomUUID();
+        var policy=new tech.kayys.numou.content.domain.editorial.EditorialReviewPolicy(
+                tech.kayys.numou.content.domain.editorial.EditorialReviewPolicy.Mode.SINGLE,
+                java.util.List.of(reviewer),1);
+        Instant now=Instant.now();
+        var review=tech.kayys.numou.content.domain.editorial.EditorialReview.submit(tenant,entry.id(),1,policy,now);
+        new PostgresEditorialReviewRepository(dataSource).submit(review);
+
+        PostgresEditorialOutboxRepository outbox=new PostgresEditorialOutboxRepository(dataSource);
+        UUID worker=UUID.randomUUID();
+        var claimed=outbox.claim(worker,now.plusSeconds(1),now.plusSeconds(121),10);
+        assertEquals(1,claimed.size());
+        assertEquals("REVIEW_SUBMITTED",claimed.get(0).eventType());
+        assertFalse(outbox.markPublished(tenant,claimed.get(0).eventId(),UUID.randomUUID(),now.plusSeconds(2)),
+                "A different worker must not acknowledge this lease");
+        assertTrue(outbox.releaseForRetry(tenant,claimed.get(0).eventId(),worker,now.plusSeconds(10),"temporary failure"));
+
+        var retried=outbox.claim(worker,now.plusSeconds(11),now.plusSeconds(131),10);
+        assertEquals(1,retried.size());
+        assertEquals(2,retried.get(0).attempts());
+        assertTrue(outbox.markPublished(tenant,retried.get(0).eventId(),worker,now.plusSeconds(12)));
+        assertTrue(outbox.claim(worker,now.plusSeconds(13),now.plusSeconds(133),10).isEmpty(),
+                "Published rows must no longer be claimed");
+    }
+
     private static void execute(String sql) throws SQLException {
         try(Connection c=dataSource.getConnection();Statement s=c.createStatement()){s.execute(sql);}
     }
