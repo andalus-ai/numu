@@ -304,12 +304,17 @@ class ApplicationRuntimeCoordinatorTest {
         assertThatThrownBy(session::stop)
                 .isInstanceOf(ApplicationRuntimeException.class)
                 .hasMessageContaining("1/2 providers stopped");
+        assertThat(session.health().providers())
+                .anyMatch(provider -> provider.providerId().equals("party-provider")
+                        && provider.failure().contains("stop failed once"));
         assertThat(session.isStopping()).isTrue();
         assertThat(session.isStopped()).isFalse();
         assertThat(session.route("numou.party")).isEmpty();
 
         session.stop();
         assertThat(session.isStopped()).isTrue();
+        assertThat(session.health().providers())
+                .allMatch(provider -> provider.failure() == null);
         assertThat(events).containsExactly("init:runtime.party.impl", "init:runtime.ledger.impl",
                 "start:runtime.party.impl", "start:runtime.ledger.impl",
                 "stop:runtime.ledger.impl", "stop:runtime.party.impl", "stop:runtime.party.impl");
