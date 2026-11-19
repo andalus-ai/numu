@@ -32,7 +32,7 @@ public final class PostgresEditorialReviewRepository implements EditorialReviewR
                     p.setTimestamp(9,Timestamp.from(review.updatedAt())); p.executeUpdate();
                 }
                 insertReviewers(c,review); appendOutbox(c,review,"REVIEW_SUBMITTED"); c.commit();
-            } catch(Exception e) { c.rollback(); throw e; }
+            } catch(SQLException | RuntimeException e) { c.rollback(); throw e; }
         } catch(SQLException e) { throw failure("submit editorial review",e); }
     }
 
@@ -119,7 +119,7 @@ public final class PostgresEditorialReviewRepository implements EditorialReviewR
             } p.executeBatch();
         }
     }
-    private void insertNewHistory(Connection c,EditorialReview before,EditorialReview after)throwsSQLException {
+    private void insertNewHistory(Connection c,EditorialReview before,EditorialReview after)throws SQLException {
         for(var e:after.decisions().entrySet()) if(!before.decisions().containsKey(e.getKey())) {
             var d=e.getValue();
             try(PreparedStatement p=c.prepareStatement("INSERT INTO content_editorial_decision(tenant_id,review_id,reviewer_id,decision,comment,decided_at) VALUES (?,?,?,?,?,?)")) {
