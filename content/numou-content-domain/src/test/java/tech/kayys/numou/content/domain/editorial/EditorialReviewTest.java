@@ -72,6 +72,9 @@ class EditorialReviewTest {
         EditorialReview replay = added.comment(comment, NOW.plusSeconds(2));
         assertEquals(1, replay.comments().size());
         assertEquals(1, replay.version());
+        assertThrows(IllegalStateException.class, () -> added.comment(
+                new EditorialReview.ReviewComment(commentId, editor, "Different text", NOW.plusSeconds(3)),
+                NOW.plusSeconds(3)));
     }
 
     @Test
