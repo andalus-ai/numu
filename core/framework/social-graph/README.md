@@ -262,3 +262,25 @@ for schema, composition and verification details.
 ## Authenticated relationship reads
 
 `SocialGraphRelationshipReadFacade` is the application boundary for following/follower list reads. It accepts only the trusted tenant and verified issuer/subject supplied by the host, resolves the viewer through the tenant-scoped Ecosystem identity association, and rejects missing or cross-tenant resolver results before querying. The caller cannot supply the viewer `PartyId`. The profile owner in a followers request is a target only; profile visibility and block policy are still enforced by `SocialGraphRelationshipReadService` through host-provided visibility policy and the authoritative Social Graph block/mute policy port. The facade returns only relationship references and timestamps, not profile/contact data. Hosts must continue to apply their route-level authentication and any additional capability authorization required by their product policy.
+
+## M2i authenticated relationship-read runtime boundary
+
+The optional security adapter now exposes `AuthenticatedSocialGraphRelationshipReadGateway`.
+The gateway obtains tenant scope from the current verified `SecurityContext`,
+requires authenticated tenant membership and the explicit
+`social-graph.read` permission, then obtains issuer/subject from the verified
+identity provider. The caller cannot supply the viewer Party ID. A followers
+request accepts a profile-owner Party only as its target.
+
+The read facade is composed from the tenant-scoped actor resolver, PostgreSQL
+relationship query and policy ports, and the host-provided
+`SocialGraphRelationshipVisibilityPort`. The host must supply exactly one
+authoritative, fail-closed visibility/consent implementation to enable this
+read composition. If it is absent, CDI composition fails rather than exposing
+relationship data without profile policy. The relationship list remains
+bounded and keyset-paginated; profile/contact data is not returned.
+
+The default `social-graph-member` role now receives explicit
+`social-graph.read` in addition to its existing create/perform permissions.
+Hosts may narrow or replace that role mapping. Route authentication and
+tenant-claim validation remain host responsibilities.

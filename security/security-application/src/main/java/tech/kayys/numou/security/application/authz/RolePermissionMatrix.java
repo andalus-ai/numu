@@ -131,6 +131,7 @@ public final class RolePermissionMatrix {
     public static RolePermissionMatrix socialGraphDefaults() {
         return builder()
                 .grant("social-graph-member", CREATE, "social-graph")
+                .grant("social-graph-member", READ, "social-graph")
                 .grant("social-graph-member", PERFORM, "social-graph")
                 .build();
     }
