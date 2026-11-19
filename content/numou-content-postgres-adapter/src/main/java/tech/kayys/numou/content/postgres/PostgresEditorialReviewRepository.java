@@ -75,7 +75,7 @@ public final class PostgresEditorialReviewRepository implements EditorialReviewR
                 }
                 appendOutbox(c,review,"REVIEW_"+(review.status()==EditorialReview.Status.IN_REVIEW?"ACTIVITY":review.status().name()));
                 c.commit(); return true;
-            } catch(Exception e) { c.rollback(); throw e; }
+            } catch(SQLException | RuntimeException e) { c.rollback(); throw e; }
         } catch(SQLException e) { throw failure("update editorial review",e); }
     }
 
