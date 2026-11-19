@@ -127,7 +127,7 @@ request headers, query parameters, or body fields. The
 canonical security-domain context and derives effective permissions from the
 configured role matrix.
 
-The default role matrix grants `social-graph.create` and
+The default role matrix grants `social-graph.create`, `social-graph.read` and
 `social-graph.perform` to the `social-graph-member` role. Hosts should
 assign that role only to users permitted to create and manage their own
 connections, or replace/extend the matrix with their own policy. The route
