@@ -68,14 +68,19 @@ public final class EditorialReview {
     public EditorialReview decide(UUID reviewerId, Decision decision, String comment, Instant now) {
         requireOpen();
         if(!policy.reviewers().contains(reviewerId)) throw new IllegalArgumentException("Actor is not assigned to this review");
-        if(decisions.containsKey(reviewerId)) throw new IllegalStateException("Reviewer has already submitted a decision");
+        ReviewDecision requested=new ReviewDecision(reviewerId,decision,comment,now);
+        ReviewDecision previous=decisions.get(reviewerId);
+        if(previous!=null) {
+            if(previous.decision()==requested.decision() && previous.comment().equals(requested.comment())) return this;
+            throw new IllegalStateException("Reviewer has already submitted a different decision");
+        }
         if(policy.mode()==EditorialReviewPolicy.Mode.SEQUENTIAL) {
             int next=decisions.size();
             if(!policy.reviewers().get(next).equals(reviewerId))
                 throw new IllegalStateException("Sequential review must follow the configured reviewer order");
         }
         Map<UUID,ReviewDecision> next=new LinkedHashMap<>(decisions);
-        next.put(reviewerId,new ReviewDecision(reviewerId,decision,comment,now));
+        next.put(reviewerId,requested);
         long approvals=next.values().stream().filter(d->d.decision()==Decision.APPROVE).count();
         boolean rejected=next.values().stream().anyMatch(d->d.decision()==Decision.REQUEST_CHANGES);
         Status nextStatus=rejected ? Status.CHANGES_REQUESTED
@@ -85,8 +90,14 @@ public final class EditorialReview {
 
     public EditorialReview comment(ReviewComment comment, Instant now) {
         requireOpen();
-        if(comments.stream().anyMatch(c->c.id().equals(comment.id()))) return this;
-        List<ReviewComment> next=new ArrayList<>(comments); next.add(Objects.requireNonNull(comment));
+        Objects.requireNonNull(comment);
+        Optional<ReviewComment> duplicate=comments.stream().filter(c->c.id().equals(comment.id())).findFirst();
+        if(duplicate.isPresent()) {
+            ReviewComment previous=duplicate.get();
+            if(previous.authorId().equals(comment.authorId()) && previous.body().equals(comment.body())) return this;
+            throw new IllegalStateException("Comment ID was already used for different content");
+        }
+        List<ReviewComment> next=new ArrayList<>(comments); next.add(comment);
         return copy(status,decisions,next,now);
     }
 
