@@ -51,6 +51,14 @@ public final class EditorialReview {
         if(!policy.reviewers().containsAll(this.decisions.keySet())) throw new IllegalArgumentException("Decision by an unassigned reviewer");
     }
 
+    public static EditorialReview rehydrate(EditorialReviewId id, TenantId tenantId, ContentId contentId,
+            int revisionNumber, EditorialReviewPolicy policy, Status status,
+            Map<UUID, ReviewDecision> decisions, List<ReviewComment> comments,
+            long version, Instant createdAt, Instant updatedAt) {
+        return new EditorialReview(id, tenantId, contentId, revisionNumber, policy, status,
+                decisions, comments, version, createdAt, updatedAt);
+    }
+
     public static EditorialReview submit(TenantId tenantId, ContentId contentId, int revisionNumber,
             EditorialReviewPolicy policy, Instant now) {
         return new EditorialReview(EditorialReviewId.newId(), tenantId, contentId, revisionNumber, policy,
