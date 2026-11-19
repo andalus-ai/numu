@@ -160,3 +160,26 @@ FOR EACH ROW EXECUTE FUNCTION content_guard_editorial_child_insert();
 CREATE TRIGGER trg_editorial_comment_insert_guard
 BEFORE INSERT ON content_editorial_comment
 FOR EACH ROW EXECUTE FUNCTION content_guard_editorial_child_insert();
+
+-- Durable dispatch intent. A relay may publish these records to Gamelan after commit.
+CREATE TABLE content_editorial_outbox (
+    tenant_id UUID NOT NULL,
+    event_id UUID NOT NULL,
+    review_id UUID NOT NULL,
+    event_type VARCHAR(48) NOT NULL,
+    payload JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    published_at TIMESTAMPTZ,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error VARCHAR(2000),
+    PRIMARY KEY (tenant_id, event_id),
+    CONSTRAINT fk_editorial_outbox_review FOREIGN KEY (tenant_id, review_id)
+        REFERENCES content_editorial_review (tenant_id, review_id) ON DELETE RESTRICT,
+    CONSTRAINT ck_editorial_outbox_attempts CHECK (attempts >= 0)
+);
+CREATE INDEX ix_editorial_outbox_pending ON content_editorial_outbox (created_at)
+    WHERE published_at IS NULL;
+
+CREATE TRIGGER trg_editorial_reviewer_immutable
+BEFORE UPDATE OR DELETE ON content_editorial_reviewer
+FOR EACH ROW EXECUTE FUNCTION content_reject_editorial_history_mutation();
