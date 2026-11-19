@@ -10,5 +10,6 @@ public interface EditorialAuthorizationPort {
     void requireSubmit(TenantId tenantId, ActorId actorId, ContentId contentId);
     void requireReview(TenantId tenantId, ActorId actorId, ContentId contentId);
     void requireComment(TenantId tenantId, ActorId actorId, ContentId contentId);
+    void requireCancel(TenantId tenantId, ActorId actorId, ContentId contentId);
     void requireReviewerEligible(TenantId tenantId, ActorId actorId, UUID reviewerId);
 }
