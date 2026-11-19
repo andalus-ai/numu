@@ -46,12 +46,12 @@ public final class EditorialOutboxDispatcher {
 
     private void dispatch(EditorialOutboxMessage message) {
         switch(message.eventType()) {
-            case "REVIEW_SUBMITTED" -> workflow.start(message.tenantId(),message.contentId(),
+            case "REVIEW_SUBMITTED" -> workflow.start(message.tenantId(),message.eventId(),message.contentId(),
                     message.revisionNumber(),message.reviewId());
-            case "REVIEW_APPROVED" -> workflow.complete(message.tenantId(),message.reviewId());
-            case "REVIEW_CANCELLED" -> workflow.cancel(message.tenantId(),message.reviewId());
+            case "REVIEW_APPROVED" -> workflow.complete(message.tenantId(),message.eventId(),message.reviewId());
+            case "REVIEW_CANCELLED" -> workflow.cancel(message.tenantId(),message.eventId(),message.reviewId());
             case "REVIEW_ACTIVITY", "REVIEW_CHANGES_REQUESTED" ->
-                    workflow.signal(message.tenantId(),message.reviewId(),message.eventType(),message.payload());
+                    workflow.signal(message.tenantId(),message.eventId(),message.reviewId(),message.eventType(),message.payload());
             default -> throw new IllegalArgumentException("Unsupported editorial outbox event: "+message.eventType());
         }
     }
