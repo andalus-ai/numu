@@ -29,8 +29,6 @@ CREATE TABLE leaderboard_score_entry (
             OR (entry_kind <> 'REVERSAL' AND reverses_entry_id IS NULL)),
     CONSTRAINT ck_leaderboard_score_adjustment_reason
         CHECK (entry_kind <> 'ADJUSTMENT' OR (reason IS NOT NULL AND length(btrim(reason)) > 0)),
-    CONSTRAINT ck_leaderboard_score_time_order
-        CHECK (recorded_at >= effective_at)
 );
 
 CREATE UNIQUE INDEX uq_leaderboard_score_single_reversal
