@@ -15,7 +15,7 @@ public record ParticipantRef(String subjectType, String subjectId) {
     private static String requireText(String value, String field) {
         Objects.requireNonNull(value, field);
         String normalized = value.trim();
-        if (normalized.isEmpty()) {
+        if (normalized.isEmpty() || normalized.length() > (field.equals("subjectType") ? 120 : 200)) {
             throw new IllegalArgumentException(field + " must not be blank");
         }
         return normalized;
