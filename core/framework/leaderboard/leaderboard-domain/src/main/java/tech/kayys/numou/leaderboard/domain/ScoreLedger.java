@@ -41,7 +41,7 @@ public final class ScoreLedger {
         Objects.requireNonNull(candidate, "candidate");
         ScoreEntry existing = byKey.get(candidate.idempotencyKey());
         if (existing != null) {
-            if (existing.equals(candidate)) return new AppendResult(AppendStatus.DUPLICATE, existing);
+            if (existing.sameIdempotentPayload(candidate)) return new AppendResult(AppendStatus.DUPLICATE, existing);
             throw new IllegalStateException("idempotency key was already used for a different score entry");
         }
         validateScopeAndParticipant(candidate);
