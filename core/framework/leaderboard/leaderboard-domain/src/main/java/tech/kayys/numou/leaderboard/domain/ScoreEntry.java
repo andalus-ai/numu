@@ -90,7 +90,7 @@ public record ScoreEntry(
     private static String requireText(String value, String field) {
         Objects.requireNonNull(value, field);
         String normalized = value.trim();
-        if (normalized.isEmpty()) throw new IllegalArgumentException(field + " must not be blank");
+        if (normalized.isEmpty() || normalized.length() > 500) throw new IllegalArgumentException(field + " must contain 1..500 characters");
         return normalized;
     }
 }
