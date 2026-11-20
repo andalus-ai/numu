@@ -108,6 +108,8 @@ class ScoreLedgerTest {
     @Test
     void rejectsExcessiveScaleAndZeroScore() {
         assertThatThrownBy(() -> ScoreValue.of("1.0000001")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ScoreValue.of("1000000000000")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(ScoreValue.of("999999999999.999999")).isEqualTo(ScoreValue.of("999999999999.999999"));
         assertThatThrownBy(() -> ScoreEntry.contribution(ScoreEntryId.newId(), leaderboardId, scope,
                 driver, ScoreValue.of(0), new SourceReference("event", "zero"),
                 new IdempotencyKey("zero"), NOW, NOW)).isInstanceOf(IllegalArgumentException.class);

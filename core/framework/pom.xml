@@ -252,6 +252,13 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- Leaderboard capability -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-leaderboard-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- Social Graph -->
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
