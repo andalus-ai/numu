@@ -4,6 +4,7 @@ import tech.kayys.numou.plugin.api.NumouPlugin;
 import tech.kayys.numou.plugin.api.PluginContext;
 import tech.kayys.numou.plugin.api.PluginState;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +21,8 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
     private final Map<String, NumouPlugin> pluginsByProvider;
     private final Map<String, PluginContext> contexts;
     private final Map<String, String> providerByCapability;
+    private final ApplicationRuntimeLifecycleObserver lifecycleObserver;
+    private final Clock clock;
     private final AtomicBoolean stopRequested = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Set<String> stoppedProviders = new HashSet<>();
@@ -28,11 +31,21 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
     ApplicationRuntimeSession(String applicationId, List<String> providerIds,
             Map<String, NumouPlugin> pluginsByProvider, Map<String, PluginContext> contexts,
             Map<String, String> providerByCapability) {
+        this(applicationId, providerIds, pluginsByProvider, contexts, providerByCapability,
+                ApplicationRuntimeLifecycleObserver.NOOP, Clock.systemUTC());
+    }
+
+    ApplicationRuntimeSession(String applicationId, List<String> providerIds,
+            Map<String, NumouPlugin> pluginsByProvider, Map<String, PluginContext> contexts,
+            Map<String, String> providerByCapability,
+            ApplicationRuntimeLifecycleObserver lifecycleObserver, Clock clock) {
         this.applicationId = applicationId;
         this.providerIds = List.copyOf(providerIds);
         this.pluginsByProvider = Map.copyOf(pluginsByProvider);
         this.contexts = Map.copyOf(contexts);
         this.providerByCapability = Map.copyOf(providerByCapability);
+        this.lifecycleObserver = ApplicationRuntimeLifecycleEvents.observerOrNoop(lifecycleObserver);
+        this.clock = clock;
     }
 
     public String applicationId() { return applicationId; }
@@ -79,7 +92,10 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
      */
     public synchronized void stop() {
         if (stopped.get()) return;
+        boolean retry = stopRequested.get();
         stopRequested.set(true);
+        ApplicationRuntimeLifecycleEvents.emit(lifecycleObserver, clock, applicationId, null, null,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED, retry ? "retry" : null);
         List<Throwable> failures = new ArrayList<>();
         for (int i = providerIds.size() - 1; i >= 0; i--) {
             String providerId = providerIds.get(i);
@@ -93,16 +109,24 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
                 plugin.stop();
                 stoppedProviders.add(providerId);
                 stopFailures.remove(providerId);
+                ApplicationRuntimeLifecycleEvents.emit(lifecycleObserver, clock, applicationId,
+                        providerId, plugin.id(), ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED, null);
             } catch (Exception failure) {
                 stopFailures.put(providerId, failure.getClass().getSimpleName() + ": "
                         + String.valueOf(failure.getMessage()));
                 failures.add(failure);
+                ApplicationRuntimeLifecycleEvents.emit(lifecycleObserver, clock, applicationId,
+                        providerId, plugin.id(), ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOP_FAILED,
+                        failure.getClass().getSimpleName() + ": " + String.valueOf(failure.getMessage()));
             }
         }
         if (stoppedProviders.size() == providerIds.size()) {
             stopped.set(true);
         }
         if (!failures.isEmpty()) {
+            ApplicationRuntimeLifecycleEvents.emit(lifecycleObserver, clock, applicationId, null, null,
+                    ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_FAILED,
+                    failures.size() + " provider stop failure(s)");
             ApplicationRuntimeException exception = new ApplicationRuntimeException(
                     "Failed to stop " + failures.size() + " plugin(s) for application " + applicationId
                             + "; " + stoppedProviders.size() + "/" + providerIds.size()
@@ -110,5 +134,7 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
             failures.forEach(exception::addSuppressed);
             throw exception;
         }
+        ApplicationRuntimeLifecycleEvents.emit(lifecycleObserver, clock, applicationId, null, null,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_COMPLETED, null);
     }
 }
