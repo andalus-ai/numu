@@ -47,7 +47,8 @@ public final class Leaderboard {
 
     public void activate(Instant at) {
         requireStatus(LeaderboardStatus.DRAFT, LeaderboardStatus.PAUSED);
-        this.activatedAt = requireNotBeforeCreation(at);
+        Instant activation = requireNotBeforeCreation(at);
+        if (this.activatedAt == null) this.activatedAt = activation;
         this.status = LeaderboardStatus.ACTIVE;
     }
 
@@ -59,8 +60,8 @@ public final class Leaderboard {
     public void complete(Instant at) {
         requireStatus(LeaderboardStatus.ACTIVE, LeaderboardStatus.PAUSED);
         Instant completed = Objects.requireNonNull(at, "at");
-        if (completed.isBefore(createdAt)) {
-            throw new IllegalArgumentException("completion time cannot precede creation");
+        if (completed.isBefore(activatedAt)) {
+            throw new IllegalArgumentException("completion time cannot precede first activation");
         }
         this.completedAt = completed;
         this.status = LeaderboardStatus.COMPLETED;
