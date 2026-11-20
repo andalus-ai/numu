@@ -81,6 +81,10 @@ class JdbcScoreLedgerRepositoryTest {
         assertThat(repository.append(first).status()).isEqualTo(ScoreLedger.AppendStatus.APPENDED);
         assertThat(repository.append(retry).status()).isEqualTo(ScoreLedger.AppendStatus.DUPLICATE);
         assertThat(repository.totalFor(tenant, board, participant)).isEqualTo(ScoreValue.of("10"));
+        ScoreEntry conflicting = contribution("event-1", "11", NOW);
+        assertThatThrownBy(() -> repository.append(conflicting))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different score entry");
     }
 
     @Test
@@ -95,6 +99,11 @@ class JdbcScoreLedgerRepositoryTest {
         repository.append(original);
         assertThat(repository.append(reversal).status()).isEqualTo(ScoreLedger.AppendStatus.APPENDED);
         assertThat(repository.totalFor(tenant, board, participant)).isEqualTo(ScoreValue.of(0));
+        ScoreEntry secondReversal = ScoreEntry.reversal(ScoreEntryId.newId(), original,
+                new SourceReference("moderation.case", "case-8"),
+                new IdempotencyKey("reversal-2"), NOW, NOW.plusSeconds(2));
+        assertThatThrownBy(() -> repository.append(secondReversal))
+                .isInstanceOf(ScoreLedgerPersistenceException.class);
     }
 
     @Test
