@@ -210,6 +210,28 @@ class PostgresContentRepositoryIntegrationTest {
                 "Published rows must no longer be claimed");
     }
 
+    @Test void editorialOutboxDeadLettersPoisonEventsAndStopsClaimingThem() throws Exception {
+        TenantId tenant=new TenantId(UUID.randomUUID());
+        ActorId author=new ActorId(UUID.randomUUID());
+        ContentTypeId type=seedPublishedSchema(tenant,1);
+        ContentEntry entry=ContentEntry.create(tenant,"Dead letter","dead-letter","{}",type,1,author,Instant.now());
+        repository.create(entry);
+        UUID reviewer=UUID.randomUUID();
+        var policy=new tech.kayys.numou.content.domain.editorial.EditorialReviewPolicy(
+                tech.kayys.numou.content.domain.editorial.EditorialReviewPolicy.Mode.SINGLE,
+                java.util.List.of(reviewer),1);
+        Instant now=Instant.now();
+        var review=tech.kayys.numou.content.domain.editorial.EditorialReview.submit(tenant,entry.id(),1,policy,now);
+        new PostgresEditorialReviewRepository(dataSource).submit(review);
+        PostgresEditorialOutboxRepository outbox=new PostgresEditorialOutboxRepository(dataSource);
+        UUID worker=UUID.randomUUID();
+        var claimed=outbox.claim(worker,now.plusSeconds(1),now.plusSeconds(121),10);
+        assertEquals(1,claimed.size());
+        assertTrue(outbox.markDeadLetter(tenant,claimed.get(0).eventId(),worker,now.plusSeconds(2),"permanent workflow error"));
+        assertTrue(outbox.claim(worker,now.plusSeconds(3),now.plusSeconds(123),10).isEmpty(),
+                "Dead-lettered rows must never re-enter the claim queue");
+    }
+
     private static void execute(String sql) throws SQLException {
         try(Connection c=dataSource.getConnection();Statement s=c.createStatement()){s.execute(sql);}
     }
