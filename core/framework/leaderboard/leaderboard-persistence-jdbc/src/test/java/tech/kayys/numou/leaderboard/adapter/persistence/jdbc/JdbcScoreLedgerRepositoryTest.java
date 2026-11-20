@@ -50,6 +50,7 @@ class JdbcScoreLedgerRepositoryTest {
             migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
         try (Connection connection = source.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS leaderboard_score_outbox CASCADE");
             statement.execute("DROP TABLE IF EXISTS leaderboard_score_entry CASCADE");
             statement.execute("DROP FUNCTION IF EXISTS leaderboard_score_validate_reversal() CASCADE");
             statement.execute("DROP FUNCTION IF EXISTS leaderboard_score_reject_mutation() CASCADE");
@@ -72,6 +73,7 @@ class JdbcScoreLedgerRepositoryTest {
         assertThat(repository.totalFor(tenant, board, participant)).isEqualTo(ScoreValue.of("13"));
         assertThat(repository.findByIdempotencyKey(tenant, board, new IdempotencyKey("trip-99")))
                 .contains(first);
+        assertThat(outboxCount()).isEqualTo(2);
     }
 
     @Test
@@ -81,6 +83,7 @@ class JdbcScoreLedgerRepositoryTest {
         assertThat(repository.append(first).status()).isEqualTo(ScoreLedger.AppendStatus.APPENDED);
         assertThat(repository.append(retry).status()).isEqualTo(ScoreLedger.AppendStatus.DUPLICATE);
         assertThat(repository.totalFor(tenant, board, participant)).isEqualTo(ScoreValue.of("10"));
+        assertThat(outboxCount()).isEqualTo(1);
         ScoreEntry conflicting = contribution("event-1", "11", NOW);
         assertThatThrownBy(() -> repository.append(conflicting))
                 .isInstanceOf(IllegalStateException.class)
@@ -104,6 +107,15 @@ class JdbcScoreLedgerRepositoryTest {
                 new IdempotencyKey("reversal-2"), NOW, NOW.plusSeconds(2));
         assertThatThrownBy(() -> repository.append(secondReversal))
                 .isInstanceOf(ScoreLedgerPersistenceException.class);
+    }
+
+    private int outboxCount() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             var rs = statement.executeQuery("SELECT COUNT(*) FROM leaderboard_score_outbox")) {
+            rs.next();
+            return rs.getInt(1);
+        }
     }
 
     @Test
