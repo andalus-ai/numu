@@ -37,6 +37,7 @@
         <module>foundation</module>
         <module>ecosystem</module>
         <module>social-graph</module>
+        <module>leaderboard</module>
         <module>event</module>
         <module>integration</module>
         <module>observability</module>
