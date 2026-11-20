@@ -50,6 +50,10 @@ The Quarkus adapter exposes:
 
 Identity issues tenant-bound access JWTs only after checking active membership during tenant exchange. The HTTP adapter accepts only signed `USER` access tokens (`token_use=access`), rejects tenant-selection/service tokens and conflicting tenant claims, and binds the verified tenant claim to request-scoped `RequestContextHolder`. It ignores caller-supplied tenant headers, query parameters and body fields. Effective permission checks revalidate active membership and authorization on each operation.
 
+### Permission provisioning
+
+Identity migration `V10__automotive_parts_receipt_posting_permissions.sql` registers both permission codes in the global catalog. It intentionally does not grant them to all roles. A tenant administrator must assign `automotive-parts.receipt-posting.inspect` to the relevant operations role and `automotive-parts.receipt-posting.requeue` only to a narrower recovery role through the normal tenant role-permission management flow. The requeue grant should be treated as a privileged operational action.
+
 Expected outcomes: 401 anonymous, 403 invalid credential or denied permission, 404 missing/out-of-scope dead letter, 400 invalid input, and generic 500 for unexpected failures. The host must configure JWT issuer/audience verification and provide the JDBC `DataSource`, Identity permission port, and Foundation request context.
 
 ## Verification
