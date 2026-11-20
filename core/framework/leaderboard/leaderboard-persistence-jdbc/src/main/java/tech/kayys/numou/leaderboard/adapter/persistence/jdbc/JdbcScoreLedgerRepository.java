@@ -53,7 +53,7 @@ public final class JdbcScoreLedgerRepository implements ScoreLedgerRepository {
                 ScoreEntry existing = findByIdempotencyKey(connection, entry.scope(),
                         entry.leaderboardId(), entry.idempotencyKey())
                         .orElseThrow(() -> new SQLException("idempotency conflict row disappeared"));
-                if (!existing.equals(entry)) {
+                if (!existing.sameIdempotentPayload(entry)) {
                     throw new IllegalStateException("idempotency key was already used for a different score entry");
                 }
                 connection.commit();
@@ -86,7 +86,7 @@ public final class JdbcScoreLedgerRepository implements ScoreLedgerRepository {
                 }
                 if (!reversal.participant().subjectType().equals(rs.getString("participant_type"))
                         || !reversal.participant().subjectId().equals(rs.getString("participant_id"))
-                        || new ScoreValue(rs.getBigDecimal("score_value")).compareTo(reversal.value()) != 0) {
+                        || new ScoreValue(rs.getBigDecimal("score_value")).negate().compareTo(reversal.value()) != 0) {
                     throw new IllegalArgumentException("reversal must negate the original score for the same participant");
                 }
             }
