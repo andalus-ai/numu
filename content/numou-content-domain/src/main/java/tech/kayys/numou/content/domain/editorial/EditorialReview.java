@@ -66,7 +66,6 @@ public final class EditorialReview {
     }
 
     public EditorialReview decide(UUID reviewerId, Decision decision, String comment, Instant now) {
-        requireOpen();
         if(!policy.reviewers().contains(reviewerId)) throw new IllegalArgumentException("Actor is not assigned to this review");
         ReviewDecision requested=new ReviewDecision(reviewerId,decision,comment,now);
         ReviewDecision previous=decisions.get(reviewerId);
@@ -74,6 +73,7 @@ public final class EditorialReview {
             if(previous.decision()==requested.decision() && previous.comment().equals(requested.comment())) return this;
             throw new IllegalStateException("Reviewer has already submitted a different decision");
         }
+        requireOpen();
         if(policy.mode()==EditorialReviewPolicy.Mode.SEQUENTIAL) {
             int next=decisions.size();
             if(!policy.reviewers().get(next).equals(reviewerId))
@@ -89,7 +89,6 @@ public final class EditorialReview {
     }
 
     public EditorialReview comment(ReviewComment comment, Instant now) {
-        requireOpen();
         Objects.requireNonNull(comment);
         Optional<ReviewComment> duplicate=comments.stream().filter(c->c.id().equals(comment.id())).findFirst();
         if(duplicate.isPresent()) {
@@ -97,6 +96,7 @@ public final class EditorialReview {
             if(previous.authorId().equals(comment.authorId()) && previous.body().equals(comment.body())) return this;
             throw new IllegalStateException("Comment ID was already used for different content");
         }
+        requireOpen();
         List<ReviewComment> next=new ArrayList<>(comments); next.add(comment);
         return copy(status,decisions,next,now);
     }
