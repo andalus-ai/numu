@@ -188,5 +188,8 @@ ALTER TABLE content_editorial_outbox
     ADD COLUMN available_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     ADD COLUMN lease_owner UUID,
     ADD COLUMN lease_until TIMESTAMPTZ,
+    ADD COLUMN dead_lettered_at TIMESTAMPTZ,
     ADD CONSTRAINT ck_editorial_outbox_lease_pair
-        CHECK ((lease_owner IS NULL) = (lease_until IS NULL));
+        CHECK ((lease_owner IS NULL) = (lease_until IS NULL)),
+    ADD CONSTRAINT ck_editorial_outbox_terminal_delivery
+        CHECK (published_at IS NULL OR dead_lettered_at IS NULL);
