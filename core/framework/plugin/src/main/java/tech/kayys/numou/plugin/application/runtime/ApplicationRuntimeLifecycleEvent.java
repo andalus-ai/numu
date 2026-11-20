@@ -22,6 +22,7 @@ public record ApplicationRuntimeLifecycleEvent(
         PROVIDER_ROLLBACK_COMPLETED,
         PROVIDER_ROLLBACK_FAILED,
         ROLLBACK_COMPLETED,
+        ROLLBACK_FAILED,
         SHUTDOWN_STARTED,
         PROVIDER_STOPPED,
         PROVIDER_STOP_FAILED,
