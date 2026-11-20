@@ -9,8 +9,8 @@ import java.util.Objects;
 
 /**
  * In-memory domain aggregate expressing append-only ledger invariants.
- * Durable concurrency/idempotency is implemented by the application/persistence
- * adapter in a later milestone using a unique (tenant, leaderboard, key) constraint.
+ * Durable concurrency/idempotency is enforced by the application persistence
+ * adapter using tenant-scoped database uniqueness constraints.
  */
 public final class ScoreLedger {
     public enum AppendStatus { APPENDED, DUPLICATE }
@@ -41,7 +41,7 @@ public final class ScoreLedger {
         Objects.requireNonNull(candidate, "candidate");
         ScoreEntry existing = byKey.get(candidate.idempotencyKey());
         if (existing != null) {
-            if (existing.equals(candidate)) return new AppendResult(AppendStatus.DUPLICATE, existing);
+            if (existing.sameIdempotentPayload(candidate)) return new AppendResult(AppendStatus.DUPLICATE, existing);
             throw new IllegalStateException("idempotency key was already used for a different score entry");
         }
         validateScopeAndParticipant(candidate);
