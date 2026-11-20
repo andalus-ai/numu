@@ -10,5 +10,9 @@
   <packaging>pom</packaging>
   <name>Numou Leaderboard</name>
   <description>Application-neutral leaderboard domain capability.</description>
-  <modules><module>leaderboard-domain</module></modules>
+  <modules>
+    <module>leaderboard-domain</module>
+    <module>leaderboard-application</module>
+    <module>leaderboard-persistence-jdbc</module>
+  </modules>
 </project>

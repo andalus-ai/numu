@@ -40,6 +40,9 @@ public record ScoreEntry(
             reason = requireText(reason, "reason");
         } else if (reason != null) {
             reason = reason.trim().isEmpty() ? null : reason.trim();
+            if (reason != null && reason.length() > 500) {
+                throw new IllegalArgumentException("reason must not exceed 500 characters");
+            }
         }
     }
 
@@ -69,10 +72,28 @@ public record ScoreEntry(
                 original.id(), "Reversal of " + original.id().value(), effectiveAt, recordedAt);
     }
 
+    /**
+     * Compares the immutable business request, excluding generated entry identity
+     * and ingestion timestamp so a retried delivery remains idempotent.
+     */
+    public boolean sameIdempotentPayload(ScoreEntry other) {
+        return other != null
+                && leaderboardId.equals(other.leaderboardId)
+                && scope.equals(other.scope)
+                && participant.equals(other.participant)
+                && kind == other.kind
+                && value.equals(other.value)
+                && source.equals(other.source)
+                && idempotencyKey.equals(other.idempotencyKey)
+                && Objects.equals(reversesEntryId, other.reversesEntryId)
+                && Objects.equals(reason, other.reason)
+                && effectiveAt.equals(other.effectiveAt);
+    }
+
     private static String requireText(String value, String field) {
         Objects.requireNonNull(value, field);
         String normalized = value.trim();
-        if (normalized.isEmpty()) throw new IllegalArgumentException(field + " must not be blank");
+        if (normalized.isEmpty() || normalized.length() > 500) throw new IllegalArgumentException(field + " must contain 1..500 characters");
         return normalized;
     }
 }
