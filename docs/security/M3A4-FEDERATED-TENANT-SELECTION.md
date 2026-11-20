@@ -7,7 +7,7 @@ Federated authentication must enter the same tenant-selection exchange as local-
 ## Implemented in this slice
 
 - `FederatedAuthenticationService.completeForTenantSelection` provides an OIDC completion path that preserves the existing JIT provisioning and group synchronization, then issues a short-lived `token_use=tenant_selection` credential through `TenantTokenIssuerPort`.
-- `TenantFederatedAuthResource` exposes `GET /api/v2/auth/federated/providers`, `GET /api/v2/auth/federated/{providerId}/authorize`, and `GET /api/v2/auth/federated/{providerId}/callback`. It uses a separate HttpOnly, SameSite=Lax flow cookie and leaves the legacy v1 federation callback unchanged.
+- `TenantFederatedAuthResource` exposes `GET /api/v2/auth/federated/providers`, `GET /api/v2/auth/federated/{providerId}/authorize`, and `GET /api/v2/auth/federated/{providerId}/callback`. It uses a separate HttpOnly, SameSite=Lax flow cookie and leaves the legacy v1 federation callback unchanged. The v2 routes have an explicit public Quarkus auth permission placed before the authenticated API catch-all; selection JWTs are still rejected by the request filter on these routes.
 - `DirectoryAuthenticationService.loginForTenantSelection` and `SamlAuthenticationService.consumeForTenantSelection` provide matching application-service paths after their respective protocol adapters verify credentials/assertions.
 - The federated selection token carries no tenant ID. The user must still call `GET /api/v2/auth/tenants` and `POST /api/v2/auth/tenant-exchange`; exchange rechecks active membership before issuing tenant-bound access.
 
