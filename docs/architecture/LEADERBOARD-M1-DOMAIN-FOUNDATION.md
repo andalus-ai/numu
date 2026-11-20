@@ -56,7 +56,7 @@ Source files and POMs were written to and fetched back from the feature branch s
 - **Source/branch verification:** passed.
 - **Maven compile:** not run.
 - **JUnit/ArchUnit execution:** not run.
-- **CI:** not run / no PR workflow run available.
+- **CI:** a dedicated pull-request workflow was added; it has not executed because no PR has been opened.
 - **Merge:** not performed.
 
 Run from the framework reactor when a checkout/build environment is available:
