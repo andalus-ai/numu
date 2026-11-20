@@ -13,6 +13,7 @@ import java.util.UUID;
 public final class EditorialOutboxDispatcher {
     private static final Duration LEASE=Duration.ofMinutes(2);
     private static final Duration MAX_BACKOFF=Duration.ofMinutes(15);
+    private static final int MAX_ATTEMPTS=12;
     private final EditorialOutboxRepository outbox;
     private final EditorialWorkflowOrchestrator workflow;
     private final Clock clock;
@@ -37,8 +38,12 @@ public final class EditorialOutboxDispatcher {
                 long multiplier=1L << Math.min(10,Math.max(0,message.attempts()-1));
                 Duration backoff=Duration.ofSeconds(Math.min(MAX_BACKOFF.toSeconds(),30L*multiplier));
                 String detail=failure.getClass().getSimpleName()+": "+String.valueOf(failure.getMessage());
-                outbox.releaseForRetry(message.tenantId(),message.eventId(),workerId,
-                        clock.instant().plus(backoff),detail);
+                if(message.attempts()>=MAX_ATTEMPTS) {
+                    outbox.markDeadLetter(message.tenantId(),message.eventId(),workerId,clock.instant(),detail);
+                } else {
+                    outbox.releaseForRetry(message.tenantId(),message.eventId(),workerId,
+                            clock.instant().plus(backoff),detail);
+                }
             }
         }
         return published;
