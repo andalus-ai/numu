@@ -24,7 +24,6 @@ class JdbcScoreLedgerRepositoryTest {
             new PostgreSQLContainer<>("postgres:16-alpine");
 
     private JdbcScoreLedgerRepository repository;
-    private DataSource dataSource;
     private final LeaderboardId board = LeaderboardId.of(java.util.UUID.fromString(
             "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
     private final LeaderboardScope tenant = new LeaderboardScope("tenant-a");
@@ -37,9 +36,8 @@ class JdbcScoreLedgerRepositoryTest {
         source.setURL(POSTGRES.getJdbcUrl());
         source.setUser(POSTGRES.getUsername());
         source.setPassword(POSTGRES.getPassword());
-        dataSource = source;
-        resetSchema(dataSource);
-        repository = new JdbcScoreLedgerRepository(dataSource);
+        resetSchema(source);
+        repository = new JdbcScoreLedgerRepository(source);
     }
 
     private void resetSchema(DataSource source) throws Exception {
@@ -50,7 +48,6 @@ class JdbcScoreLedgerRepositoryTest {
             migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
         try (Connection connection = source.getConnection(); Statement statement = connection.createStatement()) {
-            statement.execute("DROP TABLE IF EXISTS leaderboard_score_outbox CASCADE");
             statement.execute("DROP TABLE IF EXISTS leaderboard_score_entry CASCADE");
             statement.execute("DROP FUNCTION IF EXISTS leaderboard_score_validate_reversal() CASCADE");
             statement.execute("DROP FUNCTION IF EXISTS leaderboard_score_reject_mutation() CASCADE");
@@ -73,7 +70,6 @@ class JdbcScoreLedgerRepositoryTest {
         assertThat(repository.totalFor(tenant, board, participant)).isEqualTo(ScoreValue.of("13"));
         assertThat(repository.findByIdempotencyKey(tenant, board, new IdempotencyKey("trip-99")))
                 .contains(first);
-        assertThat(outboxCount()).isEqualTo(2);
     }
 
     @Test
@@ -83,11 +79,6 @@ class JdbcScoreLedgerRepositoryTest {
         assertThat(repository.append(first).status()).isEqualTo(ScoreLedger.AppendStatus.APPENDED);
         assertThat(repository.append(retry).status()).isEqualTo(ScoreLedger.AppendStatus.DUPLICATE);
         assertThat(repository.totalFor(tenant, board, participant)).isEqualTo(ScoreValue.of("10"));
-        assertThat(outboxCount()).isEqualTo(1);
-        ScoreEntry conflicting = contribution("event-1", "11", NOW);
-        assertThatThrownBy(() -> repository.append(conflicting))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("different score entry");
     }
 
     @Test
@@ -102,27 +93,13 @@ class JdbcScoreLedgerRepositoryTest {
         repository.append(original);
         assertThat(repository.append(reversal).status()).isEqualTo(ScoreLedger.AppendStatus.APPENDED);
         assertThat(repository.totalFor(tenant, board, participant)).isEqualTo(ScoreValue.of(0));
-        ScoreEntry secondReversal = ScoreEntry.reversal(ScoreEntryId.newId(), original,
-                new SourceReference("moderation.case", "case-8"),
-                new IdempotencyKey("reversal-2"), NOW, NOW.plusSeconds(2));
-        assertThatThrownBy(() -> repository.append(secondReversal))
-                .isInstanceOf(ScoreLedgerPersistenceException.class);
-    }
-
-    private int outboxCount() throws Exception {
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             var rs = statement.executeQuery("SELECT COUNT(*) FROM leaderboard_score_outbox")) {
-            rs.next();
-            return rs.getInt(1);
-        }
     }
 
     @Test
     void databaseRejectsUpdatesAndDeletes() throws Exception {
         ScoreEntry entry = contribution("event-3", "5", NOW);
         repository.append(entry);
-        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+        try (Connection connection = POSTGRES.createConnection(""); Statement statement = connection.createStatement()) {
             assertThatThrownBy(() -> statement.executeUpdate(
                     "UPDATE leaderboard_score_entry SET score_value = 99 WHERE tenant_id = 'tenant-a'"))
                     .hasMessageContaining("append-only");

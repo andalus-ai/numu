@@ -28,7 +28,7 @@ CREATE TABLE leaderboard_score_entry (
         CHECK ((entry_kind = 'REVERSAL' AND reverses_entry_id IS NOT NULL)
             OR (entry_kind <> 'REVERSAL' AND reverses_entry_id IS NULL)),
     CONSTRAINT ck_leaderboard_score_adjustment_reason
-        CHECK (entry_kind <> 'ADJUSTMENT' OR (reason IS NOT NULL AND length(btrim(reason)) > 0))
+        CHECK (entry_kind <> 'ADJUSTMENT' OR (reason IS NOT NULL AND length(btrim(reason)) > 0)),
 );
 
 CREATE UNIQUE INDEX uq_leaderboard_score_single_reversal
@@ -84,29 +84,3 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_leaderboard_score_append_only
     BEFORE UPDATE OR DELETE ON leaderboard_score_entry
     FOR EACH ROW EXECUTE FUNCTION leaderboard_score_reject_mutation();
-
-
--- The event row is inserted in the same transaction as its score entry.
--- A relay can publish pending rows without risking a committed score with no event.
-CREATE TABLE leaderboard_score_outbox (
-    event_id       UUID PRIMARY KEY,
-    tenant_id      VARCHAR(160) NOT NULL,
-    leaderboard_id UUID NOT NULL,
-    aggregate_id   UUID NOT NULL,
-    event_type     VARCHAR(160) NOT NULL,
-    schema_version INTEGER NOT NULL CHECK (schema_version > 0),
-    payload        JSONB NOT NULL,
-    occurred_at    TIMESTAMPTZ NOT NULL,
-    created_at     TIMESTAMPTZ NOT NULL,
-    available_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    attempts       INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
-    published_at   TIMESTAMPTZ NULL,
-    last_error     VARCHAR(2000) NULL,
-    CONSTRAINT fk_leaderboard_score_outbox_entry
-        FOREIGN KEY (tenant_id, leaderboard_id, aggregate_id)
-        REFERENCES leaderboard_score_entry (tenant_id, leaderboard_id, entry_id)
-);
-
-CREATE INDEX ix_leaderboard_score_outbox_pending
-    ON leaderboard_score_outbox (available_at, created_at, event_id)
-    WHERE published_at IS NULL;

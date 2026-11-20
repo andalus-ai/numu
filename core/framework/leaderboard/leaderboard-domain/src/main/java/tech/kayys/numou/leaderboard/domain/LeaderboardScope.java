@@ -11,7 +11,7 @@ public record LeaderboardScope(String tenantId) {
         Objects.requireNonNull(tenantId, "tenantId");
         tenantId = tenantId.trim();
         if (tenantId.isEmpty() || tenantId.length() > 160) {
-            throw new IllegalArgumentException("tenantId must contain 1..160 characters");
+            throw new IllegalArgumentException("tenantId must not be blank");
         }
     }
 }
