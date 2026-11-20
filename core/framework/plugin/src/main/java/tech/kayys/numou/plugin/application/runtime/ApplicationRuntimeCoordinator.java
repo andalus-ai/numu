@@ -110,7 +110,7 @@ public final class ApplicationRuntimeCoordinator {
             ApplicationRuntimeLifecycleEvents.emit(observer, clock, composition.applicationId(),
                     currentProvider, currentPluginId(ordered, currentProvider),
                     ApplicationRuntimeLifecycleEvent.Type.STARTUP_FAILED,
-                    failure.getClass().getSimpleName() + ": " + String.valueOf(failure.getMessage()));
+                    failure.getClass().getSimpleName());
             ApplicationRuntimeException startupFailure = new ApplicationRuntimeException(
                     "Failed to start application " + composition.applicationId()
                             + " at provider " + currentProvider,
@@ -194,12 +194,13 @@ public final class ApplicationRuntimeCoordinator {
                 ApplicationRuntimeLifecycleEvents.emit(observer, clock, applicationId,
                         binding.provider().providerId(), binding.plugin().id(),
                         ApplicationRuntimeLifecycleEvent.Type.PROVIDER_ROLLBACK_FAILED,
-                        cleanupFailure.getClass().getSimpleName() + ": "
-                                + String.valueOf(cleanupFailure.getMessage()));
+                        cleanupFailure.getClass().getSimpleName());
             }
         }
         ApplicationRuntimeLifecycleEvents.emit(observer, clock, applicationId, null, null,
-                ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_COMPLETED,
+                failure.getSuppressed().length == 0
+                        ? ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_COMPLETED
+                        : ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_FAILED,
                 failure.getSuppressed().length == 0 ? null : failure.getSuppressed().length + " cleanup failure(s)");
     }
 
