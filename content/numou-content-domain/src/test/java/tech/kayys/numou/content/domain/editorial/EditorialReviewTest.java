@@ -23,8 +23,8 @@ class EditorialReviewTest {
         assertEquals(EditorialReview.Status.APPROVED, decided.status());
         assertEquals(4, decided.revisionNumber());
         assertEquals(1, decided.version());
-        assertThrows(IllegalStateException.class,
-                () -> decided.decide(editor, EditorialReview.Decision.APPROVE, null, NOW.plusSeconds(2)));
+        assertSame(decided, decided.decide(editor, EditorialReview.Decision.APPROVE, null, NOW.plusSeconds(2)),
+                "A retry of the same terminal decision must be idempotent");
     }
 
     @Test
@@ -69,9 +69,11 @@ class EditorialReviewTest {
                 new EditorialReviewPolicy(EditorialReviewPolicy.Mode.SINGLE, List.of(editor), 1), NOW);
         var comment = new EditorialReview.ReviewComment(commentId, editor, "Please review the image caption", NOW);
         EditorialReview added = review.comment(comment, NOW.plusSeconds(1));
-        EditorialReview replay = added.comment(comment, NOW.plusSeconds(2));
+        EditorialReview approved = added.decide(editor, EditorialReview.Decision.APPROVE, null, NOW.plusSeconds(2));
+        EditorialReview replay = approved.comment(comment, NOW.plusSeconds(3));
         assertEquals(1, replay.comments().size());
-        assertEquals(1, replay.version());
+        assertEquals(2, replay.version());
+        assertSame(approved, replay, "A retry of a comment after terminal approval must be idempotent");
         assertThrows(IllegalStateException.class, () -> added.comment(
                 new EditorialReview.ReviewComment(commentId, editor, "Different text", NOW.plusSeconds(3)),
                 NOW.plusSeconds(3)));
