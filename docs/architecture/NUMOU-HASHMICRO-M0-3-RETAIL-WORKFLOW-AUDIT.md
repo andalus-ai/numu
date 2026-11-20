@@ -403,115 +403,37 @@ Acceptance evidence for the next code milestone:
 **M0.3b status: source trace completed; runtime composition and Accounting posting route remain unverified. No production implementation or build/test pass is claimed in this pass.**
 
 
-## 12. M0.3c — POS runtime delivery and Accounting posting contract trace (2026-11-20)
+## 13. M0.4a — Accounting production persistence safety gate (2026-11-20)
 
-This pass inspects the POS outbox runtime, POS event inbox, Accounting local integration composition and journal posting application API. It also revisits the completion boundary to identify the minimum safe implementation contract. Source inspection only; no Maven build or test was run.
+The next implementation step was originally planned as durable source idempotency. Source inspection identified a more fundamental prerequisite that must be resolved first.
 
-### 12.1 Correction: POS outbox dispatcher is implemented
+### 13.1 Verified production-path limitation
 
-The earlier M0.3b note that the M4 outbox documentation described the dispatcher as not included is stale relative to the current source. The current POS adapter contains:
+The Accounting adapter currently provides:
+- `PostgresAccountRepository` for durable chart-of-accounts reads/writes.
+- `InMemoryJournalEntryRepository` as the only tracked implementation of `JournalEntryRepository`.
+- `InMemoryOutboxRepository` as the only tracked implementation of `OutboxRepository`.
+- `AccountingServiceProducer` injects these ports into the production-facing command bus without a build-profile restriction.
+- `application.properties` configures PostgreSQL and Flyway, but a configured database does not make the in-memory journal/outbox durable.
+- `V7__processed_command.sql` creates a processed-command table, but no tracked repository/handler path claims or commits a processed source identity with the journal, account balance changes and outbox record.
 
-- `PosOutboxDispatchJob`: Quarkus scheduled trigger, enabled by `numou.pos.outbox.enabled`, with skip-overlap behavior.
-- `PosOutboxDispatcherProducer`: constructs the application dispatcher from configured lease, retry backoff, batch size and max-attempt values.
-- `PostgresPosOutboxDeliveryStore`: PostgreSQL `FOR UPDATE SKIP LOCKED` claims, lease tokens/fencing, retry rescheduling and published marking.
-- `V3__pos_outbox_delivery_leases.sql`: lease token and expiry columns plus due/expired-lease indexes.
-- `V4__pos_consumer_inbox.sql`: tenant + logical consumer + event ID primary key.
-- `PostgresPosEventInbox`: executes the inbox marker and consumer handler in the same transactional method.
-- `PosOutboxOperations`: delivery status counts and audited dead-letter replay.
+This is a critical consistency risk: journal/account/outbox side effects are not currently demonstrated as one durable transaction. A journal may be held only in process memory while account balance changes are persisted in PostgreSQL. A restart can therefore lose the journal/outbox evidence while leaving account movements applied.
 
-The dispatcher is bounded, publishes at least once, retries with capped exponential backoff, and moves exhausted deliveries to DEAD. The database lease token prevents an expired worker from marking a row published after another worker has reclaimed it.
+### 13.2 Safe code change
 
-**Correction to M0.3b:** the POS outbox dispatcher and generic inbox are present. The unresolved point is not the absence of dispatch infrastructure; it is the concrete publisher binding and the downstream consumer registration.
+M0.4a begins with a fail-closed production-profile guard:
+- `InMemoryJournalEntryRepository` is now excluded from the `prod` build profile.
+- `InMemoryOutboxRepository` is now excluded from the `prod` build profile.
+- Both remain available to development and test profiles.
 
-### 12.2 Runtime publisher and consumer composition
+Until durable implementations are supplied, production CDI composition should fail rather than silently wire ephemeral journal/outbox stores into financial posting. This intentionally exposes the missing production adapter at build time; it does not pretend that durable idempotency has already been implemented.
 
-Inspected the complete `commerce/pos/numou-pos-adapter` source tree and the application ports.
+### 13.3 Required next implementation
 
-- `PosOutboxDispatcherProducer` injects `PosEventPublisher` and `PosOutboxDeliveryStore`.
-- The POS adapter subtree contains the dispatcher producer and delivery store but no concrete `PosEventPublisher` implementation.
-- `PosEventConsumer` is a generic application helper; `PostgresPosEventInbox` supplies durable deduplication.
-- No concrete Accounting handler for `pos.sale.completed` was found in the inspected POS adapter or Accounting local-integration source.
-- GitHub's code-search endpoint returned incomplete results for exact-symbol searches, so this is not a proof that no host-level publisher/consumer exists anywhere in every deployment module.
+1. Implement PostgreSQL journal persistence (aggregate header + lines) with tenant/ledger scoped reads and reconstitution.
+2. Implement PostgreSQL outbox persistence using the existing outbox schema.
+3. Define one transaction boundary for account balance updates, journal header/lines, processed-command claim/result and accounting outbox insert.
+4. Add a durable source-idempotency port keyed by tenant + ledger + source type + source ID, with canonical payload fingerprint and stored result.
+5. Prove duplicate, concurrent, payload-conflict and crash/retry behavior with PostgreSQL integration tests.
 
-The deployment must provide a real `PosEventPublisher` when `numou.pos.outbox.enabled=true`. That binding should be explicit in the host composition, and it must preserve event ID, tenant, schema version, ordering/correlation metadata and at-least-once semantics. The consumer must use a stable logical consumer name and the POS inbox (or a compatible shared inbox) in the same transaction as the durable Accounting effect.
-
-### 12.3 Accounting posting capability exists, but POS posting policy does not appear in the inspected route
-
-Inspected:
-- `finance/accounting/numou-accounting-application/.../api/command/PostJournalEntryCommand.java`
-- `finance/accounting/numou-accounting-application/.../handler/PostJournalEntryHandler.java`
-- `finance/accounting/numou-accounting-application/.../spi/AccountingCommandService.java`
-- `finance/accounting/numou-accounting-application/.../posting/PostingInstruction.java`
-- `finance/accounting/numou-accounting-application/.../posting/PostingLine.java`
-- `finance/accounting/numou-accounting-application/.../posting/ar/CustomerInvoicePostedRule.java`
-- `finance/accounting/numou-accounting-application/.../posting/ar/CustomerPaymentReceivedRule.java`
-- `finance/accounting/numou-accounting-application/.../posting/ap/SupplierInvoicePostedRule.java`
-- `finance/accounting/numou-accounting-local-integrations/.../AccountingLocalIntegrationsProducer.java`
-
-Verified:
-- Accounting exposes a journal-posting command with explicit tenant and ledger scope and fields for source type/source ID.
-- The handler validates journal/account/fiscal-period constraints, persists the journal, and appends Accounting domain events to its own outbox.
-- Posting instructions enforce balanced debit and credit totals.
-- Existing inspected posting rules cover AR invoice, AR customer receipt and AP supplier invoice.
-- The inspected local integration producer only composes in-memory Inventory, Budget and Project Finance services. Its class documentation explicitly limits it to local development, demonstrations and isolated tests; it is not the POS-to-Accounting production bridge.
-
-Not established:
-- No POS sale revenue/tax/discount/fee/COGS posting rule or handler was found in the inspected Accounting application source tree.
-- No registered consumer maps `pos.sale.completed` to `PostJournalEntryCommand`.
-- No evidence proves durable deduplication of an externally sourced POS journal by tenant + sale/event source reference.
-- The existence of a generic journal command does not define retail accounting policy or chart-of-accounts mapping.
-
-### 12.4 POS completion event is not a sufficient accounting document
-
-The current schema-version-1 `pos.sale.completed` payload contains sale ID, branch ID, register ID, shift ID, channel, currency, line count and completion timestamp. It does not contain:
-- authoritative gross/net amount or tax breakdown;
-- discount, promotion or rounding allocations;
-- tender allocations (cash/card/QRIS/wallet), payment transaction IDs or fees;
-- immutable sale-line snapshots and revenue account/tax category mapping;
-- inventory cost valuation / COGS amounts;
-- legal entity, accounting ledger, accounting date or effective tax-policy reference.
-
-Therefore an Accounting consumer must **not** infer or fabricate a journal from this event. The current event is a lifecycle notification, not a complete financial posting document.
-
-**POS-A11 — P0:** introduce an immutable, versioned financial completion snapshot at the correct POS application boundary (or a dedicated posting-request contract) that references the sale and checkout, contains the authoritative pricing/tax/tender/valuation results, and is appended transactionally to the existing POS outbox. The Accounting consumer must validate the snapshot, resolve tenant/legal-entity/ledger/account mappings, create a balanced journal and record durable source idempotency. Keep the current lightweight `pos.sale.completed` event backward compatible.
-
-### 12.5 Minimum safe checkout-to-sale completion contract
-
-Further inspection of `CheckoutOrchestrationService`, `CheckoutSalePort`, `SaleCommandService`, `SaleCommandContext`, `SaleRepository` and `CheckoutSession` establishes why a direct call to the existing sale command is not a safe one-line fix:
-
-- Checkout currently has a read-only `CheckoutSalePort`; it receives a `Sale` snapshot but not its repository version.
-- `SaleCommandService.complete` requires a trusted `SaleCommandContext` (tenant, actor, correlation ID) and expected sale version.
-- `CheckoutOrchestrationService.start/reconcile` receives tenant, checkout ID and sale ID, but no authenticated actor/correlation context and no sale-completion port.
-- `CheckoutSession` does not persist the actor/correlation context needed to recover the completion command after a process restart.
-- The checkout flow commits Inventory and marks the checkout COMPLETED, but does not transition the Sale aggregate.
-
-The safe fix needs a dedicated application-level completion contract that captures trusted initiation metadata and a stable operation key, retrieves/checks the versioned Sale state, and calls the existing idempotent sale lifecycle command. The recovery worker must be able to complete the same transition without trusting a new caller's actor identity. Preserve the actor who initiated checkout and the original correlation ID as durable audit metadata. Do not let an untrusted caller supply actor or tenant identity.
-
-**POS-A12 — P0:** checkout completion and Sale completion must converge under one durable, replayable command. Add a persisted completion intent/operation record or extend the checkout state with the required trusted audit context and sale version. The transition must prevent a second checkout against a sale whose payment/stock effects have already succeeded. Define crash recovery for the boundary between stock commit, Sale completion and checkout terminal state.
-
-### 12.6 Remaining recovery and payment findings confirmed
-
-- `COMPENSATION_REQUIRED` remains in the database recoverable query and enum, but the inspected domain has no transition method into that state and `reconcile` has no explicit compensation handler. It can be loaded from persistence without a valid recovery action.
-- `PaymentCapabilityCheckoutAdapter` still maps known `PARTIALLY_REFUNDED` and `REFUNDED` states to `UNKNOWN`. Refunds are known financial outcomes and require an explicit reversal/return workflow rather than provider-uncertainty semantics.
-- The checkout's initial `find` then `create` is not an atomic insert-or-load operation; PostgreSQL uniqueness prevents duplicate rows but the losing concurrent caller receives a storage failure rather than the winner's session.
-
-### 12.7 M0.3c findings and implementation order
-
-| ID | Finding | Priority | Next action |
-|---|---|---|---|
-| POS-A11 | Current sale-completed event lacks financial data required for safe revenue/tax/tender/COGS posting. | P0 | Add versioned immutable financial completion snapshot to existing outbox; define Accounting mapping and source idempotency. |
-| POS-A12 | Checkout can complete without Sale completion; checkout lacks trusted actor/correlation and versioned Sale completion contract. | P0 | Persist trusted initiation/audit context and use a replayable versioned Sale completion command. |
-| POS-A13 | Outbox dispatch exists, but concrete `PosEventPublisher` binding is not present in the inspected POS adapter subtree. | P1 | Verify host binding in each supported runtime profile; add a composition test with the real publisher. |
-| POS-A14 | No POS-specific Accounting consumer/posting rule was established in inspected Accounting local-integration/application source. | P0 | Implement consumer using existing journal command and balanced posting primitives only after the financial snapshot and account policy are defined. |
-| POS-A15 | `COMPENSATION_REQUIRED` is persisted/recoverable but has no explicit domain transition/recovery behavior. | P0 | Define compensation state machine and idempotent inventory/payment recovery. |
-| POS-A16 | Known refunded payment statuses are collapsed into UNKNOWN. | P1 | Preserve refund state and model refund/reversal as a distinct lifecycle. |
-| POS-A17 | Concurrent first checkout creation is not insert-or-load. | P1 | Implement atomic insert-or-load with sale ID payload conflict protection and PostgreSQL race tests. |
-
-### 12.8 Decision
-
-Do not add a second POS outbox, a second event inbox, a second Inventory ledger or a replacement Accounting engine. The next code milestone should be split into two safe increments:
-
-1. **M0.3d — Checkout/Sale lifecycle convergence:** trusted durable actor/correlation metadata, versioned Sale completion command, explicit compensation state machine, atomic insert-or-load, and PostgreSQL crash/concurrency tests.
-2. **M0.3e — Financial posting contract:** authoritative financial snapshot, host publisher binding, Accounting consumer, tenant/ledger/account mapping, durable source idempotency, balanced journal tests and refund/return reversal policy.
-
-Do not create accounting postings from the current lifecycle-only event. No source implementation was changed in M0.3c because the current contract lacks the trusted context and financial facts needed to make a safe cross-capability change. No Maven build or test result is claimed.
+**M0.4a status:** production fail-closed guard implemented in the two ephemeral repositories. Durable PostgreSQL journal/outbox/idempotency and transactional tests remain open. No Maven build/test result is claimed in this pass.

@@ -262,3 +262,19 @@ for schema, composition and verification details.
 ## Authenticated relationship reads
 
 `SocialGraphRelationshipReadFacade` is the application boundary for following/follower list reads. It accepts only the trusted tenant and verified issuer/subject supplied by the host, resolves the viewer through the tenant-scoped Ecosystem identity association, and rejects missing or cross-tenant resolver results before querying. The caller cannot supply the viewer `PartyId`. The profile owner in a followers request is a target only; profile visibility and block policy are still enforced by `SocialGraphRelationshipReadService` through host-provided visibility policy and the authoritative Social Graph block/mute policy port. The facade returns only relationship references and timestamps, not profile/contact data. Hosts must continue to apply their route-level authentication and any additional capability authorization required by their product policy.
+
+### Security adapter composition for relationship reads
+
+The Security Social Graph adapter exposes
+`AuthenticatedSocialGraphRelationshipReadGateway`. It derives tenant and
+issuer/subject only from the verified request `SecurityContext` and OIDC
+identity provider, and requires the explicit `social-graph:read` permission
+as well as active tenant membership. The viewer Party remains resolved by the
+application facade; the gateway never accepts it from a request.
+
+The adapter composes the read facade only when the host supplies exactly one
+`SocialGraphRelationshipVisibilityPort`. If no unambiguous host policy is
+available, reads fail closed at invocation time. This keeps command-only
+deployments bootable without inventing a default public-profile policy. Hosts
+must grant `social-graph:read` deliberately and implement visibility,
+consent, moderation and tenant-sharing checks before exposing routes.

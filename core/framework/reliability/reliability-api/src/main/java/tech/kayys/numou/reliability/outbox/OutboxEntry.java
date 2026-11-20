@@ -7,58 +7,49 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * A business event written in the same transaction as the state change
- * that produced it (base01.md §P1-14).
- *
- * <p>This is what makes "persist, then publish" atomic: either both the
- * aggregate change and the event land, or neither does. A relay later
- * drains pending entries to the broker - and retries until they go.
- *
- * @param entryId    unique row identity
- * @param envelope   the event to publish
- * @param createdAt  when the owning transaction committed
- * @param availableAt earliest time the relay may attempt delivery
- * @param attempts   how many relay attempts have been made
- * @param published  true once a broker acknowledged it
- */
+/** A business event persisted atomically with the state change that produced it. */
 public record OutboxEntry(
         UUID entryId,
         EventEnvelope<? extends BusinessEvent> envelope,
         Instant createdAt,
         Instant availableAt,
         int attempts,
-        boolean published) {
+        boolean published,
+        String lastError) {
 
     public static final int MAX_ATTEMPTS = 10;
+    public static final int MAX_ERROR_LENGTH = 2000;
+
+    /** Compatibility constructor for callers that do not yet supply diagnostics. */
+    public OutboxEntry(UUID entryId, EventEnvelope<? extends BusinessEvent> envelope,
+                       Instant createdAt, Instant availableAt, int attempts, boolean published) {
+        this(entryId, envelope, createdAt, availableAt, attempts, published, null);
+    }
 
     public OutboxEntry {
         Objects.requireNonNull(entryId, "entryId cannot be null");
         Objects.requireNonNull(envelope, "envelope cannot be null");
         Objects.requireNonNull(createdAt, "createdAt cannot be null");
         Objects.requireNonNull(availableAt, "availableAt cannot be null");
-        if (attempts < 0) {
-            throw new IllegalArgumentException("attempts cannot be negative");
-        }
+        if (attempts < 0) throw new IllegalArgumentException("attempts cannot be negative");
+        lastError = bounded(lastError);
     }
 
     /** Creates a fresh, unpublished entry ready for the relay. */
     public static OutboxEntry pending(EventEnvelope<? extends BusinessEvent> envelope) {
         final var now = Instant.now();
-        return new OutboxEntry(UUID.randomUUID(), envelope, now, now, 0, false);
+        return new OutboxEntry(UUID.randomUUID(), envelope, now, now, 0, false, null);
     }
 
-    /** Returns a copy recorded after a failed delivery attempt. */
+    /** Returns a copy recorded after a failed delivery attempt, preserving prior diagnostics. */
     public OutboxEntry recordFailure(Instant retryAt) {
-        if (published) {
-            throw new IllegalStateException("A published entry cannot be retried");
-        }
-        return new OutboxEntry(entryId, envelope, createdAt, retryAt, attempts + 1, false);
+        return recordFailure(retryAt, lastError);
     }
 
-    /** Returns a copy recorded after a successful delivery. */
-    public OutboxEntry markPublished() {
-        return new OutboxEntry(entryId, envelope, createdAt, createdAt, attempts, true);
+    /** Returns a copy recorded after a failed delivery attempt with its diagnostic. */
+    public OutboxEntry recordFailure(Instant retryAt, String error) {
+        if (published) throw new IllegalStateException("A published entry cannot be retried");
+        return new OutboxEntry(entryId, envelope, createdAt, retryAt, attempts + 1, false, error);
     }
 
     /** Whether the relay should give up instead of retrying. */
@@ -66,7 +57,17 @@ public record OutboxEntry(
         return attempts >= MAX_ATTEMPTS;
     }
 
+    /** Returns a copy recorded after a successful delivery and clears stale failure details. */
+    public OutboxEntry markPublished() {
+        return new OutboxEntry(entryId, envelope, createdAt, createdAt, attempts, true, null);
+    }
+
     public boolean isDue(Instant now) {
         return !published && !availableAt.isAfter(now);
+    }
+
+    private static String bounded(String value) {
+        if (value == null || value.length() <= MAX_ERROR_LENGTH) return value;
+        return value.substring(0, MAX_ERROR_LENGTH);
     }
 }
