@@ -10,4 +10,6 @@ public interface EditorialOutboxRepository {
     List<EditorialOutboxMessage> claim(UUID workerId, Instant now, Instant leaseUntil, int limit);
     boolean markPublished(TenantId tenantId, UUID eventId, UUID workerId, Instant publishedAt);
     boolean releaseForRetry(TenantId tenantId, UUID eventId, UUID workerId, Instant retryAt, String error);
+    /** Permanently removes a poison event from the claim queue while retaining its audit record. */
+    boolean markDeadLetter(TenantId tenantId, UUID eventId, UUID workerId, Instant failedAt, String error);
 }
