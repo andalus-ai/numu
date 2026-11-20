@@ -298,8 +298,11 @@ class ApplicationRuntimeCoordinatorTest {
         List<String> events = new ArrayList<>();
         TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, "stop");
         TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        List<ApplicationRuntimeLifecycleEvent.Type> lifecycleEvents = new ArrayList<>();
         ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
-                Map.of("party-provider", party, "accounting-provider", accounting));
+                Map.of("party-provider", party, "accounting-provider", accounting),
+                new DefaultApplicationPluginContextFactory(),
+                event -> lifecycleEvents.add(event.type()));
 
         assertThatThrownBy(session::stop)
                 .isInstanceOf(ApplicationRuntimeException.class)
@@ -315,6 +318,14 @@ class ApplicationRuntimeCoordinatorTest {
         assertThat(session.isStopped()).isTrue();
         assertThat(session.health().providers())
                 .allMatch(provider -> provider.failure() == null);
+        assertThat(lifecycleEvents).containsSubsequence(
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOP_FAILED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_FAILED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_COMPLETED);
         assertThat(events).containsExactly("init:runtime.party.impl", "init:runtime.ledger.impl",
                 "start:runtime.party.impl", "start:runtime.ledger.impl",
                 "stop:runtime.ledger.impl", "stop:runtime.party.impl", "stop:runtime.party.impl");
