@@ -437,7 +437,7 @@ class ApplicationRuntimeCoordinatorTest {
                 Map.of("party-provider", party, "accounting-provider", accounting));
         var check = new ApplicationRuntimeHealthCheck(session);
 
-        assertThat(check.id()).isEqualTo("application-runtime");
+        assertThat(check.id()).isEqualTo("application-runtime:com.example.erp");
         assertThat(check.category()).isEqualTo(tech.kayys.numou.observability.HealthCheckCategory.RUNTIME);
         assertThat(check.criticality())
                 .isEqualTo(tech.kayys.numou.observability.HealthCheckCriticality.REQUIRED);
