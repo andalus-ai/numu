@@ -117,7 +117,7 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
                 failures.add(failure);
                 ApplicationRuntimeLifecycleEvents.emit(lifecycleObserver, clock, applicationId,
                         providerId, plugin.id(), ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOP_FAILED,
-                        failure.getClass().getSimpleName() + ": " + String.valueOf(failure.getMessage()));
+                        failure.getClass().getSimpleName());
             }
         }
         if (stoppedProviders.size() == providerIds.size()) {
