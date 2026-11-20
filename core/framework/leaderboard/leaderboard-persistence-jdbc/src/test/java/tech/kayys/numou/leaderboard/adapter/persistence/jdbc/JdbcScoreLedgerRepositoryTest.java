@@ -24,6 +24,7 @@ class JdbcScoreLedgerRepositoryTest {
             new PostgreSQLContainer<>("postgres:16-alpine");
 
     private JdbcScoreLedgerRepository repository;
+    private DataSource dataSource;
     private final LeaderboardId board = LeaderboardId.of(java.util.UUID.fromString(
             "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
     private final LeaderboardScope tenant = new LeaderboardScope("tenant-a");
@@ -36,8 +37,9 @@ class JdbcScoreLedgerRepositoryTest {
         source.setURL(POSTGRES.getJdbcUrl());
         source.setUser(POSTGRES.getUsername());
         source.setPassword(POSTGRES.getPassword());
-        resetSchema(source);
-        repository = new JdbcScoreLedgerRepository(source);
+        dataSource = source;
+        resetSchema(dataSource);
+        repository = new JdbcScoreLedgerRepository(dataSource);
     }
 
     private void resetSchema(DataSource source) throws Exception {
@@ -99,7 +101,7 @@ class JdbcScoreLedgerRepositoryTest {
     void databaseRejectsUpdatesAndDeletes() throws Exception {
         ScoreEntry entry = contribution("event-3", "5", NOW);
         repository.append(entry);
-        try (Connection connection = POSTGRES.createConnection(""); Statement statement = connection.createStatement()) {
+        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
             assertThatThrownBy(() -> statement.executeUpdate(
                     "UPDATE leaderboard_score_entry SET score_value = 99 WHERE tenant_id = 'tenant-a'"))
                     .hasMessageContaining("append-only");
