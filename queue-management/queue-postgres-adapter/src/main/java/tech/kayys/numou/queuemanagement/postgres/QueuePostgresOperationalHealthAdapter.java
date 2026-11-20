@@ -61,11 +61,10 @@ public class QueuePostgresOperationalHealthAdapter implements QueueOperationalHe
                         ))),
                         0
                     )::bigint AS oldest_pending_age_seconds
-                FROM clock
-                LEFT JOIN queue_outbox ON queue_outbox.tenant_id = ?
-                GROUP BY clock.captured_at
                 FROM queue_outbox
-                WHERE tenant_id = ?
+                CROSS JOIN clock
+                WHERE queue_outbox.tenant_id = ?
+                GROUP BY clock.captured_at
             )
             SELECT (SELECT captured_at FROM clock), entry_stats.waiting_entries, entry_stats.active_entries,
                    outbox_stats.pending_outbox, outbox_stats.due_outbox,

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>tech.kayys.numou</groupId><artifactId>numou-feedback</artifactId>
+    <version>0.1.0-SNAPSHOT</version><relativePath>../pom.xml</relativePath>
+  </parent>
+  <artifactId>numou-feedback-rest-adapter</artifactId>
+  <name>Numou Feedback - REST Adapter</name>
+  <description>Public invitation respondent API; runtime security and rate limiting are supplied by the host.</description>
+  <dependencies>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-feedback-application</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-feedback-survey-adapter</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-survey-application</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-survey-domain</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>jakarta.ws.rs</groupId><artifactId>jakarta.ws.rs-api</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>jakarta.enterprise</groupId><artifactId>jakarta.enterprise.cdi-api</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>jakarta.inject</groupId><artifactId>jakarta.inject-api</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+  </dependencies>
+</project>

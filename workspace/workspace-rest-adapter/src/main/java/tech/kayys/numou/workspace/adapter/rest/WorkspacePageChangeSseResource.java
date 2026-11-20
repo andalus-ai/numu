@@ -6,6 +6,7 @@ import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.sse.OutboundSseEvent;
@@ -13,21 +14,24 @@ import jakarta.ws.rs.sse.Sse;
 import jakarta.ws.rs.sse.SseEventSink;
 import tech.kayys.numou.workspace.application.WorkspacePageChangeSubscriptionApi;
 import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSignal;
+import tech.kayys.numou.workspace.application.port.WorkspacePageChangeSubscription;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Optional SSE transport. The host must compose a tenant-aware subscription port; this resource
- * does not create an in-memory or single-instance production broker.
+ * Optional SSE transport. The host must compose a tenant-aware subscription port and a shared
+ * heartbeat scheduler; this resource does not create an in-memory broker or per-connection thread.
  */
 @Path("/api/v1/pages/{pageId}/events")
 public class WorkspacePageChangeSseResource {
     private final WorkspacePageChangeSubscriptionApi subscriptions;
+    private final WorkspaceSseHeartbeatScheduler heartbeats;
 
     @Inject
-    public WorkspacePageChangeSseResource(WorkspacePageChangeSubscriptionApi subscriptions) {
+    public WorkspacePageChangeSseResource(WorkspacePageChangeSubscriptionApi subscriptions,
+            WorkspaceSseHeartbeatScheduler heartbeats) {
         this.subscriptions = subscriptions;
+        this.heartbeats = heartbeats;
     }
 
     @GET
@@ -48,18 +52,15 @@ public class WorkspacePageChangeSseResource {
 
         AtomicBoolean sending = new AtomicBoolean();
         AtomicReference<AutoCloseable> registration = new AtomicReference<>();
-        sink.onClose(() -> closeQuietly(registration.get()));
+        AtomicReference<AutoCloseable> heartbeatRegistration = new AtomicReference<>();
+        sink.onClose(() -> {
+            closeQuietly(registration.get());
+            closeQuietly(heartbeatRegistration.get());
+        });
 
-        AutoCloseable handle = subscriptions.subscribe(pageId, signal -> {
-            if (sink.isClosed()) {
-                closeQuietly(registration.get());
-                return;
-            }
-            // One outstanding write per connection. A slow consumer is disconnected rather
-            // than allowing an unbounded queue of SSE frames to accumulate.
-            if (!sending.compareAndSet(false, true)) {
-                sink.close();
-                closeQuietly(registration.get());
+        WorkspacePageChangeSubscription handle = subscriptions.subscribe(pageId, signal -> {
+            if (signal == null || sink.isClosed()) {
+                closeConnection(sink, registration, heartbeatRegistration);
                 return;
             }
             OutboundSseEvent event = sse.newEventBuilder()
@@ -68,22 +69,64 @@ public class WorkspacePageChangeSseResource {
                     .mediaType(MediaType.APPLICATION_JSON_TYPE)
                     .data(ChangeEvent.class, ChangeEvent.from(signal))
                     .build();
-            try {
-                sink.send(event).whenComplete((ignored, failure) -> {
-                    sending.set(false);
-                    if (failure != null) {
-                        sink.close();
-                        closeQuietly(registration.get());
-                    }
-                });
-            } catch (RuntimeException sendFailure) {
-                sending.set(false);
-                sink.close();
-                closeQuietly(registration.get());
-            }
+            // A page change arriving while another frame is still being written means this
+            // consumer is behind. Disconnect and recover from the M35 durable revision feed.
+            send(event, sink, sending, registration, heartbeatRegistration, true);
         });
         registration.set(handle);
-        if (sink.isClosed()) closeQuietly(registration.get());
+        handle.onRevoked(sink::close);
+
+        if (!sink.isClosed()) {
+            try {
+                AutoCloseable heartbeat = heartbeats.schedule(() -> {
+                    if (sink.isClosed()) {
+                        closeQuietly(heartbeatRegistration.get());
+                        return;
+                    }
+                    // Heartbeats are best-effort and skipped while a data frame is in flight.
+                    // A comment frame keeps proxies alive without dispatching a browser event.
+                    try {
+                        send(sse.newEventBuilder().comment("keep-alive").build(), sink, sending,
+                                registration, heartbeatRegistration, false);
+                    } catch (RuntimeException heartbeatFailure) {
+                        closeConnection(sink, registration, heartbeatRegistration);
+                    }
+                });
+                heartbeatRegistration.set(heartbeat);
+            } catch (RuntimeException schedulerUnavailable) {
+                closeConnection(sink, registration, heartbeatRegistration);
+            }
+        }
+        if (sink.isClosed()) closeConnection(sink, registration, heartbeatRegistration);
+    }
+
+    private static void send(OutboundSseEvent event, SseEventSink sink, AtomicBoolean sending,
+            AtomicReference<AutoCloseable> registration, AtomicReference<AutoCloseable> heartbeatRegistration,
+            boolean closeWhenBusy) {
+        if (sink.isClosed()) {
+            closeConnection(sink, registration, heartbeatRegistration);
+            return;
+        }
+        if (!sending.compareAndSet(false, true)) {
+            if (closeWhenBusy) closeConnection(sink, registration, heartbeatRegistration);
+            return;
+        }
+        try {
+            sink.send(event).whenComplete((ignored, failure) -> {
+                sending.set(false);
+                if (failure != null) closeConnection(sink, registration, heartbeatRegistration);
+            });
+        } catch (RuntimeException sendFailure) {
+            sending.set(false);
+            closeConnection(sink, registration, heartbeatRegistration);
+        }
+    }
+
+    private static void closeConnection(SseEventSink sink, AtomicReference<AutoCloseable> registration,
+            AtomicReference<AutoCloseable> heartbeatRegistration) {
+        if (!sink.isClosed()) sink.close();
+        closeQuietly(registration.get());
+        closeQuietly(heartbeatRegistration.get());
     }
 
     private static void closeQuietly(AutoCloseable handle) {

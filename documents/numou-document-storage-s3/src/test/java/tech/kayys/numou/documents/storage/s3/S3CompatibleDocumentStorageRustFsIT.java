@@ -7,6 +7,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
@@ -36,6 +37,7 @@ class S3CompatibleDocumentStorageRustFsIT {
         String secretKey = System.getenv().getOrDefault("NUMOU_RUSTFS_SECRET_KEY", "numou-ci-secret");
         bucket = System.getenv().getOrDefault("NUMOU_RUSTFS_BUCKET", "numou-document-integration");
         client = S3Client.builder()
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .endpointOverride(URI.create(endpoint))
                 .region(Region.US_EAST_1)
                 .credentialsProvider(StaticCredentialsProvider.create(
@@ -53,6 +55,33 @@ class S3CompatibleDocumentStorageRustFsIT {
     @AfterAll
     static void tearDown() {
         if (storage != null) storage.close();
+    }
+
+    @Test
+    void tenantPrefixesIsolateIdenticalObjectIdsAndOverwriteIsVisible() throws Exception {
+        String objectId = "shared/" + UUID.randomUUID() + ".txt";
+        StorageKey tenantA = new StorageKey("tenant-a", objectId);
+        StorageKey tenantB = new StorageKey("tenant-b", objectId);
+        byte[] first = "tenant-a-original".getBytes(StandardCharsets.UTF_8);
+        byte[] replacement = "tenant-a-replacement".getBytes(StandardCharsets.UTF_8);
+        String firstSha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(first));
+        String replacementSha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(replacement));
+
+        storage.put(tenantA, new ByteArrayInputStream(first), first.length, "text/plain", firstSha);
+        assertTrue(storage.head(tenantA).isPresent());
+        assertTrue(storage.head(tenantB).isEmpty());
+
+        storage.put(tenantA, new ByteArrayInputStream(replacement), replacement.length,
+                "text/plain", replacementSha);
+        try (var object = storage.get(tenantA).orElseThrow()) {
+            assertArrayEquals(replacement, object.content().readAllBytes());
+            assertEquals(java.util.Optional.of(replacementSha), object.metadata().sha256());
+        }
+        assertTrue(storage.head(tenantB).isEmpty());
+
+        assertTrue(storage.delete(tenantA));
+        assertTrue(storage.head(tenantA).isEmpty());
+        assertTrue(storage.head(tenantB).isEmpty());
     }
 
     @Test

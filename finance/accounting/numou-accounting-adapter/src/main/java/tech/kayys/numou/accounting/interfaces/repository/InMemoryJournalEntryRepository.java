@@ -2,6 +2,7 @@ package tech.kayys.numou.accounting.interfaces.repository;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import tech.kayys.numou.accounting.application.port.JournalEntryRepository;
 import tech.kayys.numou.accounting.domain.identifier.JournalEntryId;
 import tech.kayys.numou.accounting.domain.ledger.LedgerId;
@@ -15,7 +16,13 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/**
+ * Ephemeral adapter for local development and tests only. The production
+ * profile intentionally excludes this bean: journal persistence and the
+ * accounting outbox must be durable before production posting is enabled.
+ */
 @ApplicationScoped
+@UnlessBuildProfile("prod")
 public class InMemoryJournalEntryRepository implements JournalEntryRepository {
     private final Map<JournalEntryId, JournalEntry> store = new ConcurrentHashMap<>();
 

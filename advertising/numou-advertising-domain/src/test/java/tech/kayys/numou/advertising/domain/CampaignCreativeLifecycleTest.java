@@ -38,6 +38,7 @@ class CampaignCreativeLifecycleTest {
     assertEquals(CreativeStatus.APPROVED,submitted.approve().status());
     assertThrows(IllegalStateException.class,draft::approve);
     assertThrows(IllegalStateException.class,()->draft.reject(" "));
+    assertThrows(IllegalArgumentException.class,()->submitted.reject(" "));
   }
 
   @Test void creativeRequiresDestinationAndContentForSubmission() {

@@ -3,6 +3,8 @@ package tech.kayys.numou.advertising.application;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.advertising.domain.*;
 import tech.kayys.numou.advertising.spi.AdvertisingAccountStore;
+import tech.kayys.numou.advertising.spi.AdvertisingPage;
+import tech.kayys.numou.advertising.spi.AdvertisingPageRequest;
 
 import java.net.URI;
 import java.time.Clock;
@@ -50,11 +52,12 @@ class AdvertisingAccountServiceTest {
 
         PublisherAccount publisher=service.registerPublisher(TENANT,new PartyReference("publisher-a"),"Publisher").toCompletableFuture().join();
         assertEquals(AccountStatus.PENDING,publisher.status());
-        assertThrows(CompletionException.class,()->service.registerProperty(TENANT,publisher.id(),"Website",
+        AdvertisingAccountId publisherId=publisher.id();
+        assertThrows(CompletionException.class,()->service.registerProperty(TENANT,publisherId,"Website",
             URI.create("https://publisher.example")).toCompletableFuture().join());
 
-        publisher=service.activatePublisher(TENANT,publisher.id()).toCompletableFuture().join();
-        PublisherProperty property=service.registerProperty(TENANT,publisher.id(),"Website",
+        publisher=service.activatePublisher(TENANT,publisherId).toCompletableFuture().join();
+        PublisherProperty property=service.registerProperty(TENANT,publisherId,"Website",
             URI.create("https://publisher.example")).toCompletableFuture().join();
         assertEquals(PropertyStatus.PENDING_VERIFICATION,property.status());
 
@@ -75,11 +78,22 @@ class AdvertisingAccountServiceTest {
 
         public CompletionStage<AdvertiserAccount> saveAdvertiser(AdvertiserAccount a){advertisers.put(key(a.tenantId(),a.id()),a);return CompletableFuture.completedFuture(a);}
         public CompletionStage<Optional<AdvertiserAccount>> findAdvertiser(TenantId t,AdvertisingAccountId id){return CompletableFuture.completedFuture(Optional.ofNullable(advertisers.get(key(t,id))));}
+        public CompletionStage<AdvertisingPage<AdvertiserAccount>> listAdvertisers(TenantId t,AdvertisingPageRequest p){return page(advertisers,t,p);}
         public CompletionStage<PublisherAccount> savePublisher(PublisherAccount a){publishers.put(key(a.tenantId(),a.id()),a);return CompletableFuture.completedFuture(a);}
         public CompletionStage<Optional<PublisherAccount>> findPublisher(TenantId t,AdvertisingAccountId id){return CompletableFuture.completedFuture(Optional.ofNullable(publishers.get(key(t,id))));}
+        public CompletionStage<AdvertisingPage<PublisherAccount>> listPublishers(TenantId t,AdvertisingPageRequest p){return page(publishers,t,p);}
         public CompletionStage<PublisherProperty> saveProperty(PublisherProperty p){properties.put(key(p.tenantId(),p.id()),p);return CompletableFuture.completedFuture(p);}
         public CompletionStage<Optional<PublisherProperty>> findProperty(TenantId t,PublisherPropertyId id){return CompletableFuture.completedFuture(Optional.ofNullable(properties.get(key(t,id))));}
+        public CompletionStage<AdvertisingPage<PublisherProperty>> listProperties(TenantId t,AdvertisingAccountId publisherId,AdvertisingPageRequest p){return page(properties,t,p,v->v.publisherId().equals(publisherId));}
         public CompletionStage<AdPlacement> savePlacement(AdPlacement p){placements.put(key(p.tenantId(),p.id()),p);return CompletableFuture.completedFuture(p);}
         public CompletionStage<Optional<AdPlacement>> findPlacement(TenantId t,AdPlacementId id){return CompletableFuture.completedFuture(Optional.ofNullable(placements.get(key(t,id))));}
+        public CompletionStage<AdvertisingPage<AdPlacement>> listPlacements(TenantId t,PublisherPropertyId propertyId,AdvertisingPageRequest p){return page(placements,t,p,v->v.propertyId().equals(propertyId));}
+
+        private static <T> CompletionStage<AdvertisingPage<T>> page(Map<String,T> source,TenantId tenant,AdvertisingPageRequest page){return page(source,tenant,page,v->true);}
+        private static <T> CompletionStage<AdvertisingPage<T>> page(Map<String,T> source,TenantId tenant,AdvertisingPageRequest page,java.util.function.Predicate<T> filter){
+            List<T> all=source.entrySet().stream().filter(e->e.getKey().startsWith(tenant.value()+":")).map(Map.Entry::getValue).filter(filter).toList();
+            int from=Math.min(page.offset(),all.size()),to=Math.min(from+page.size(),all.size());
+            return CompletableFuture.completedFuture(new AdvertisingPage<>(all.subList(from,to),all.size(),page.page(),page.size()));
+        }
     }
 }
