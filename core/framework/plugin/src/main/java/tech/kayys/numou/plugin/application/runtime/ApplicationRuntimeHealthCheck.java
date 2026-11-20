@@ -18,15 +18,17 @@ import java.util.Objects;
  */
 public final class ApplicationRuntimeHealthCheck implements HealthCheck {
 
-    public static final String CHECK_ID = "application-runtime";
+    private static final String CHECK_ID_PREFIX = "application-runtime:";
 
     private final ApplicationRuntimeSession session;
+    private final String checkId;
 
     public ApplicationRuntimeHealthCheck(ApplicationRuntimeSession session) {
         this.session = Objects.requireNonNull(session, "Application runtime session is required");
+        this.checkId = CHECK_ID_PREFIX + session.applicationId();
     }
 
-    @Override public String id() { return CHECK_ID; }
+    @Override public String id() { return checkId; }
 
     @Override public String name() { return "Application runtime readiness"; }
 
@@ -45,7 +47,7 @@ public final class ApplicationRuntimeHealthCheck implements HealthCheck {
                     ? "ready: " + readyProviders + "/" + snapshot.providers().size() + " providers"
                     : "not ready: " + readyProviders + "/" + snapshot.providers().size()
                             + " providers" + (snapshot.stopped() ? "; stopped" : "");
-            return new HealthCheckResult(CHECK_ID,
+            return new HealthCheckResult(checkId,
                     snapshot.ready() ? HealthStatus.Status.UP : HealthStatus.Status.DOWN,
                     message, Instant.now(), Duration.ofNanos(System.nanoTime() - startedAt));
         });
