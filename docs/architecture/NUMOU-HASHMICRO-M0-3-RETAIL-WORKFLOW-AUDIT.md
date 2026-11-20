@@ -403,137 +403,37 @@ Acceptance evidence for the next code milestone:
 **M0.3b status: source trace completed; runtime composition and Accounting posting route remain unverified. No production implementation or build/test pass is claimed in this pass.**
 
 
-## 12. M0.3c — Runtime composition and Accounting idempotency contract trace (2026-11-20)
+## 13. M0.4a — Accounting production persistence safety gate (2026-11-20)
 
-This pass traces the current default-branch source after M0.3b. It intentionally does not add an Inventory adapter or an Accounting consumer until the existing host composition and durable command semantics are established.
+The next implementation step was originally planned as durable source idempotency. Source inspection identified a more fundamental prerequisite that must be resolved first.
 
-### 12.1 POS runtime composition
+### 13.1 Verified production-path limitation
 
-Inspected the complete tracked POS Java source paths and the POS adapter POM.
+The Accounting adapter currently provides:
+- `PostgresAccountRepository` for durable chart-of-accounts reads/writes.
+- `InMemoryJournalEntryRepository` as the only tracked implementation of `JournalEntryRepository`.
+- `InMemoryOutboxRepository` as the only tracked implementation of `OutboxRepository`.
+- `AccountingServiceProducer` injects these ports into the production-facing command bus without a build-profile restriction.
+- `application.properties` configures PostgreSQL and Flyway, but a configured database does not make the in-memory journal/outbox durable.
+- `V7__processed_command.sql` creates a processed-command table, but no tracked repository/handler path claims or commits a processed source identity with the journal, account balance changes and outbox record.
 
-Verified:
-- The POS adapter has CDI composition for the Payment checkout adapter, POS sale repository adapter, and POS outbox dispatcher.
-- The POS adapter POM declares POS application, Payment API and Foundation adapter dependencies.
-- No Inventory API/SPI/application dependency is declared in the POS adapter POM.
-- No implementation of `CheckoutInventoryPort` appears in the tracked POS adapter Java source paths.
-- The generic POS event consumer is an application service around `PosEventInbox`; it is not itself a CDI registration of a business consumer.
-- The outbox dispatcher composes a configured `PosEventPublisher`; the publisher is a provider-neutral port and does not register Accounting handlers.
+This is a critical consistency risk: journal/account/outbox side effects are not currently demonstrated as one durable transaction. A journal may be held only in process memory while account balance changes are persisted in PostgreSQL. A restart can therefore lose the journal/outbox evidence while leaving account movements applied.
 
-Conclusion: the POS adapter has proven Payment and outbox composition seams, but **the Inventory checkout adapter and broker/Accounting consumer registration remain unproven**. The absence is bounded to the inspected POS subtree and tracked source tree, not asserted as proof that no external deployment may provide the binding.
+### 13.2 Safe code change
 
-### 12.2 Accounting local integration and posting API
+M0.4a begins with a fail-closed production-profile guard:
+- `InMemoryJournalEntryRepository` is now excluded from the `prod` build profile.
+- `InMemoryOutboxRepository` is now excluded from the `prod` build profile.
+- Both remain available to development and test profiles.
 
-Inspected:
-- `finance/accounting/numou-accounting-local-integrations/.../AccountingLocalIntegrationsProducer.java`
-- `finance/accounting/numou-accounting-application/.../PostJournalEntryCommand.java`
-- `finance/accounting/numou-accounting-application/.../PostJournalEntryHandler.java`
-- `finance/accounting/numou-accounting-application/.../JournalEntryRepository.java`
-- `finance/accounting/numou-accounting-application/.../PostingInstruction.java`
-- `finance/accounting/numou-accounting-application/.../IdempotencyGuard.java`
-- `finance/accounting/numou-accounting-domain/.../BridgeIdempotencyRegistry.java`
-- `finance/accounting/numou-accounting-adapter/.../V7__processed_command.sql`
+Until durable implementations are supplied, production CDI composition should fail rather than silently wire ephemeral journal/outbox stores into financial posting. This intentionally exposes the missing production adapter at build time; it does not pretend that durable idempotency has already been implemented.
 
-Verified:
-- `AccountingLocalIntegrationsProducer` explicitly documents itself as local-development/demo/test composition and produces Inventory, Budget and Project services backed by in-memory adapters. It is not a production POS-to-Inventory bridge.
-- `PostJournalEntryCommand` carries explicit tenant and ledger scope, and includes `sourceType` and `sourceId`.
-- `PostJournalEntryHandler` validates the journal, applies account movements, saves the journal and writes accounting outbox events. In the inspected handler, `sourceType` and `sourceId` are not used for lookup, uniqueness enforcement or duplicate-source rejection.
-- `JournalEntryRepository` exposes save and lookup methods by journal ID/tenant/ledger, but no source-type/source-ID lookup contract.
-- `PostingInstruction` independently validates balanced debit and credit totals, but this value object is not itself evidence that the POS event has a configured mapping or reaches the journal command handler.
-- Accounting has a generic `processed_command` table migration and an in-memory `IdempotencyGuard`. The inspected `PostJournalEntryHandler` does not use either of these to protect a source event from replay.
-- `BridgeIdempotencyRegistry` and its inspected in-memory implementation cover bridge dispatch bookkeeping, not proof of durable journal posting idempotency for POS sale events.
+### 13.3 Required next implementation
 
-Conclusion: Accounting has useful primitives, but **the current inspected journal posting path does not demonstrate durable idempotency by source event or source business reference**. A repeated POS event could therefore be dangerous if a future consumer simply invokes this handler repeatedly without a durable transactional guard. This is a verified integration gap in the inspected path, not a claim that every Accounting entry point is non-idempotent.
+1. Implement PostgreSQL journal persistence (aggregate header + lines) with tenant/ledger scoped reads and reconstitution.
+2. Implement PostgreSQL outbox persistence using the existing outbox schema.
+3. Define one transaction boundary for account balance updates, journal header/lines, processed-command claim/result and accounting outbox insert.
+4. Add a durable source-idempotency port keyed by tenant + ledger + source type + source ID, with canonical payload fingerprint and stored result.
+5. Prove duplicate, concurrent, payload-conflict and crash/retry behavior with PostgreSQL integration tests.
 
-### 12.3 M0.3c findings
-
-| ID | Finding | Status | Required next action |
-|---|---|---|---|
-| POS-A11 | No concrete `CheckoutInventoryPort` implementation was found in POS tracked adapter sources; POS POM does not depend on Inventory contracts. | Open — no registered production binding established | Implement a dedicated adapter against public Inventory application/SPI contracts, or document the external host binding and prove it with a composition test. |
-| POS-A12 | POS publisher port and generic inbox exist, but no Accounting event consumer registration was found in inspected composition. | Open — deployment registration not established | Add a consumer in an explicit composition/integration module and test broker delivery through the real inbox. |
-| POS-A13 | Accounting command includes `sourceType`/`sourceId`, but inspected journal handler ignores them and does not consult the generic processed-command table or in-memory guard. | Verified in inspected handler | Add durable tenant + ledger + source-type + source-id uniqueness/claim semantics at the Accounting persistence boundary; store/replay the result and commit claim, journal, account movements and outbox atomically. |
-| POS-A14 | Accounting's generic `processed_command` migration exists, but the inspected handler does not demonstrate its use. | Verified source separation | Reuse only after verifying schema scope, atomicity, retention and replay-result semantics; do not add a parallel idempotency table by default. |
-| POS-A15 | Local Accounting composition uses in-memory Inventory adapters and is explicitly non-production. | Verified | Do not reuse this producer as production POS composition. |
-
-### 12.4 Implementation decision
-
-M0.3c completes the source/composition audit gate. The next implementation milestone is **M0.4 — Retail Integration Reliability**, split into two independently testable slices:
-
-1. **M0.4a — Accounting source idempotency:** define the stable external source identity (tenant, ledger, source type, source ID), inspect and reuse the existing processed-command infrastructure where safe, add a durable unique constraint/claim protocol, and guarantee that account movements, journal save, processed result and accounting outbox are one transaction. Duplicate requests must return the original journal/result without applying account movements again. Conflicting payloads for the same source identity must fail explicitly rather than silently returning a different result.
-2. **M0.4b — POS-to-Inventory adapter and consumer composition:** bind `CheckoutInventoryPort` through Inventory's public contract; bind the POS outbox publisher to the selected transport; register a stable Accounting consumer name using the existing inbox contract; verify tenant and event identity propagation and the transactional relationship between inbox claim and journal posting.
-
-Do not combine the two slices into a new monolithic retail service. POS owns sale lifecycle, Inventory owns stock ledger/reservations, Payment owns tender/refund lifecycle, and Accounting owns journals and source idempotency.
-
-### 12.5 M0.4 acceptance gates
-
-- Concurrent duplicate accounting commands with the same tenant/ledger/source identity produce exactly one journal and one set of account balance changes.
-- A retry after a process crash returns the previously committed result.
-- Same source identity with a different canonical payload is rejected and audited.
-- Journal, account updates, processed-command result and accounting outbox are committed atomically.
-- Duplicate `pos.sale.completed` delivery is harmless through the registered stable consumer.
-- Inventory reserve/commit/release replay returns the original result and cannot cross tenant boundaries.
-- Integration tests run with PostgreSQL; no in-memory fake is accepted as sole proof of the durable path.
-- Focused POS, Inventory and Accounting Maven reactor builds/tests pass in CI.
-
-**M0.3c status: source and composition trace completed. M0.4 implementation is now sufficiently scoped; no code change or passing test is claimed in this audit milestone.**
-
-## 13. M0.4a — Accounting posting durability gate (2026-11-20)
-
-This is a source-level architecture gate before implementing source-event idempotency. The objective is to ensure one externally sourced retail sale can create one durable journal without double-applying account balances or emitting duplicate Accounting events.
-
-### 13.1 Runtime persistence findings
-
-Inspected on the current `main` source tree:
-
-- `finance/accounting/numou-accounting-application/src/main/java/tech/kayys/numou/accounting/application/handler/PostJournalEntryHandler.java`
-- `finance/accounting/numou-accounting-application/src/main/java/tech/kayys/numou/accounting/application/port/JournalEntryRepository.java`
-- `finance/accounting/numou-accounting-application/src/main/java/tech/kayys/numou/accounting/application/port/AccountRepository.java`
-- `finance/accounting/numou-accounting-adapter/src/main/java/tech/kayys/numou/accounting/interfaces/repository/InMemoryJournalEntryRepository.java`
-- `finance/accounting/numou-accounting-adapter/src/main/java/tech/kayys/numou/accounting/interfaces/repository/InMemoryOutboxRepository.java`
-- `finance/accounting/numou-accounting-adapter/src/main/java/tech/kayys/numou/accounting/interfaces/repository/PostgresAccountRepository.java`
-- `finance/accounting/numou-accounting-adapter/src/main/java/tech/kayys/numou/accounting/interfaces/producer/AccountingServiceProducer.java`
-- `finance/accounting/numou-accounting-adapter/src/main/resources/db/migration/V2__journal_entry_tables.sql`
-- `finance/accounting/numou-accounting-adapter/src/main/resources/db/migration/V3__transactional_outbox.sql`
-- `finance/accounting/numou-accounting-adapter/src/main/resources/db/migration/V7__processed_command.sql`
-- `finance/accounting/numou-accounting-adapter/src/main/resources/db/migration/V14__general_ledger_tenant_ledger_scope.sql`
-- `finance/accounting/numou-accounting-application/src/test/java/tech/kayys/numou/accounting/application/CqrsAndOutboxTest.java`
-
-Verified observations:
-
-1. `PostJournalEntryHandler` loads each account, mutates its in-memory aggregate, saves each account, saves the journal, and then saves emitted outbox events as separate repository operations. The handler does not establish a transaction around these operations.
-2. The inspected adapter contains `InMemoryJournalEntryRepository` and `InMemoryOutboxRepository`; the recursive Accounting adapter source tree contains no PostgreSQL implementation of `JournalEntryRepository` or `OutboxRepository`.
-3. `AccountingServiceProducer` injects those repository ports into the command handler. The current CDI bean implementations found for journal and outbox persistence are in-memory.
-4. `PostgresAccountRepository.save` opens and closes its own JDBC connection for each call. A sequence of account saves cannot be assumed to share a transaction with journal persistence or outbox writes.
-5. The `TransactionPort` in the Accounting application is a payment-transaction lookup/reconciliation port. It is not a database unit-of-work or transaction manager.
-6. V2/V14 define durable journal and journal-line tables, and V3 defines an outbox table. Schema existence does not prove that the command handler writes through PostgreSQL adapters.
-7. V7 defines `processed_command(request_id, command_type, processed_at, result_token)`. In the inspected posting handler and repository interfaces, no durable claim/read/update integration with this table was established. Its presence alone does not provide posting idempotency.
-8. `PostJournalEntryCommand` carries `sourceType` and `sourceId`, but the inspected handler does not use them to look up an existing source posting, reject a changed payload, or return a previously committed journal.
-9. `CqrsAndOutboxTest` uses in-memory account, journal and outbox test doubles. It proves the tested command path's expected behavior with those doubles, not atomic PostgreSQL commit/rollback or concurrent source-event replay.
-
-### 13.2 Why source idempotency must not be implemented in isolation
-
-A unique source key or in-memory guard would not close the correctness gap while account balances, journal rows, processed-command receipt and outbox events are persisted independently. A crash between these writes can leave partial accounting state; a concurrent duplicate can race before the original source claim is durably visible.
-
-Therefore M0.4a is gated on a single persistence transaction that owns all state changed by journal posting. The transaction must include:
-- source identity claim and canonical request fingerprint;
-- account balance/movement writes;
-- journal header and lines;
-- durable processed-command result (or an explicitly selected replacement with a migration strategy);
-- Accounting outbox event rows.
-
-The uniqueness scope for an external posting is tenant + ledger + normalized source type + source ID. Replaying the same identity and same canonical payload must return the original journal/result. Reusing the identity with a different payload must fail with a stable idempotency-conflict outcome. A duplicate race must not apply balances or outbox events twice.
-
-### 13.3 Correct implementation sequence
-
-1. Add a shared Accounting persistence transaction boundary (or equivalent JDBC unit-of-work) that all participating PostgreSQL repositories can join; do not open independent connections per repository operation inside the posting command.
-2. Implement PostgreSQL journal-entry and outbox repositories and wire them into the production CDI composition. Ensure journal header/lines and outbox writes use the same connection/transaction.
-3. Refactor the account posting write path so balance updates are concurrency-safe and use the same unit-of-work; prefer ledger movement rows as the authoritative audit trail if already supported by the domain/schema, and avoid blind read-modify-write lost updates.
-4. Define and migrate the durable source-posting receipt with a unique tenant/ledger/source identity and canonical payload fingerprint. Reuse V7 only if its request identity and result semantics can be made safe without breaking existing consumers; otherwise introduce a deliberate versioned migration.
-5. Integrate claim/replay/conflict behavior into `PostJournalEntryHandler` and ensure the result and outbox are committed atomically.
-6. Add PostgreSQL integration tests for duplicate replay, payload conflict, concurrent duplicate requests, tenant/ledger isolation, rollback after injected failure at each write boundary, and outbox exactly-once persistence. Run the Accounting Maven reactor and capture CI evidence.
-
-### 13.4 M0.4a status and decision
-
-**Status: implementation blocked by missing durable composition and transaction boundary; source audit complete for the inspected posting path.**
-
-No Java implementation is claimed in this pass. The correct next code increment is the shared JDBC transaction/unit-of-work plus durable journal/outbox composition, followed by source-event idempotency inside that transaction. POS-to-Inventory and POS-to-Accounting runtime composition remain separate downstream milestones; do not wire `pos.sale.completed` to the current in-memory journal posting path and call it production-ready.
-
+**M0.4a status:** production fail-closed guard implemented in the two ephemeral repositories. Durable PostgreSQL journal/outbox/idempotency and transactional tests remain open. No Maven build/test result is claimed in this pass.

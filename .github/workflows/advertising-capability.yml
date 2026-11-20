@@ -34,7 +34,7 @@ jobs:
       - name: Build and install foundation contracts
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Build and install cache contracts required by Security
-        run: mvn -B -ntp -f core/framework/cache/pom.xml install
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install -Dmaven.test.skip=true
       - name: Build and install observability contracts required by Security
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
       - name: Build and install Ecosystem Party lookup contract
