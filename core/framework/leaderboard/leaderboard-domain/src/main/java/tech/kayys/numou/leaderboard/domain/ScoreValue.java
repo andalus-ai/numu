@@ -16,8 +16,9 @@ public record ScoreValue(BigDecimal amount) implements Comparable<ScoreValue> {
         } catch (ArithmeticException ex) {
             throw new IllegalArgumentException("score supports at most six fractional digits", ex);
         }
-        if (amount.precision() > MAX_PRECISION) {
-            throw new IllegalArgumentException("score exceeds maximum precision");
+        if (amount.precision() > MAX_PRECISION
+                || amount.abs().compareTo(BigDecimal.TEN.pow(12)) >= 0) {
+            throw new IllegalArgumentException("score exceeds NUMERIC(18,6) storage range");
         }
         if (amount.signum() == 0) amount = BigDecimal.ZERO;
     }
