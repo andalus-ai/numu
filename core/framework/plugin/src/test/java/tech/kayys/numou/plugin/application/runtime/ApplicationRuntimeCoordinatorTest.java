@@ -332,4 +332,88 @@ class ApplicationRuntimeCoordinatorTest {
                 .hasMessageContaining("Tenant-bound context factory is already assigned to application app-one");
     }
 
-}
+
+    @Test
+    void emitsDeterministicLifecycleEventsAcrossStartupAndShutdown() {
+        List<String> pluginEvents = new ArrayList<>();
+        List<ApplicationRuntimeLifecycleEvent> observed = new ArrayList<>();
+        var fixedInstant = java.time.Instant.parse("2026-11-20T03:00:00Z");
+        var clock = java.time.Clock.fixed(fixedInstant, java.time.ZoneOffset.UTC);
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", pluginEvents, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", pluginEvents, null);
+
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator(clock).start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting),
+                new DefaultApplicationPluginContextFactory(), observed::add);
+        session.stop();
+
+        assertThat(observed).extracting(ApplicationRuntimeLifecycleEvent::type).containsExactly(
+                ApplicationRuntimeLifecycleEvent.Type.APPLICATION_STARTING,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZATION_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZATION_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_START_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_START_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_COMPLETED);
+        assertThat(observed).allSatisfy(event -> {
+            assertThat(event.applicationId()).isEqualTo("com.example.erp");
+            assertThat(event.occurredAt()).isEqualTo(fixedInstant);
+        });
+        assertThat(observed.get(1).providerId()).isEqualTo("party-provider");
+        assertThat(observed.get(10).providerId()).isEqualTo("accounting-provider");
+    }
+
+    @Test
+    void observerFailuresNeverInterruptStartupRollbackOrShutdown() {
+        List<String> pluginEvents = new ArrayList<>();
+        List<ApplicationRuntimeLifecycleEvent.Type> attemptedObservations = new ArrayList<>();
+        ApplicationRuntimeLifecycleObserver unreliableObserver = event -> {
+            attemptedObservations.add(event.type());
+            throw new IllegalStateException("telemetry unavailable");
+        };
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", pluginEvents, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0",
+                pluginEvents, null);
+
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting),
+                new DefaultApplicationPluginContextFactory(), unreliableObserver);
+        assertThat(session.health().ready()).isTrue();
+        session.stop();
+
+        assertThat(session.isStopped()).isTrue();
+        assertThat(attemptedObservations).contains(
+                ApplicationRuntimeLifecycleEvent.Type.APPLICATION_STARTING,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_COMPLETED);
+        assertThat(pluginEvents).contains("start:runtime.party.impl", "start:runtime.ledger.impl",
+                "stop:runtime.ledger.impl", "stop:runtime.party.impl");
+
+        List<String> rollbackPluginEvents = new ArrayList<>();
+        List<ApplicationRuntimeLifecycleEvent.Type> rollbackObservations = new ArrayList<>();
+        TestPlugin failingParty = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0",
+                rollbackPluginEvents, null);
+        TestPlugin failingAccounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0",
+                rollbackPluginEvents, "start");
+        assertThatThrownBy(() -> new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", failingParty, "accounting-provider", failingAccounting),
+                new DefaultApplicationPluginContextFactory(), event -> {
+                    rollbackObservations.add(event.type());
+                    throw new IllegalStateException("telemetry unavailable");
+                })).isInstanceOf(ApplicationRuntimeException.class);
+        assertThat(rollbackPluginEvents).containsExactly("init:runtime.party.impl", "init:runtime.ledger.impl",
+                "start:runtime.party.impl", "start:runtime.ledger.impl",
+                "stop:runtime.ledger.impl", "stop:runtime.party.impl");
+        assertThat(rollbackObservations).contains(
+                ApplicationRuntimeLifecycleEvent.Type.STARTUP_FAILED,
+                ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_ROLLBACK_COMPLETED,
+                ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_COMPLETED);
+    }
+\n}\n
