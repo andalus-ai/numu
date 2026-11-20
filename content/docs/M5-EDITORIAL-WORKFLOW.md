@@ -23,9 +23,9 @@ CMS owns editorial policy snapshots, reviewer assignments, review decisions, com
 - PostgreSQL triggers reject mutation of reviewer assignments, decisions, and comments and enforce valid review state transitions.
 
 ## Workflow dispatch
-The outbox uses `FOR UPDATE SKIP LOCKED` leases, worker-owned acknowledgements, retry scheduling, attempt counts, and bounded error text. The dispatcher commits the claim before calling the optional `EditorialWorkflowOrchestrator` port. Calls carry the durable event ID so a Gamelan adapter can deduplicate at-least-once delivery. Failures release the lease with exponential retry delay.
+The outbox uses `FOR UPDATE SKIP LOCKED` leases, worker-owned acknowledgements, retry scheduling, attempt counts, bounded error text, and a terminal dead-letter state after twelve failed deliveries. The dispatcher commits the claim before calling the optional `EditorialWorkflowOrchestrator` port. Calls carry the durable event ID so a Gamelan adapter can deduplicate at-least-once delivery. Failures release the lease with exponential retry delay.
 
-The adapter port is implemented as a framework-neutral SPI. A concrete Gamelan adapter, scheduler/worker registration, operational metrics, and dead-letter policy are still required before production rollout. The outbox dispatcher is not automatically scheduled by this capability module.
+The adapter port is implemented as a framework-neutral SPI. A concrete Gamelan adapter, scheduler/worker registration, operational metrics, and operator-facing dead-letter inspection/replay are still required before production rollout. The outbox dispatcher is not automatically scheduled by this capability module.
 
 ## Verification
 The Content Platform PostgreSQL integration suite covers:
@@ -33,7 +33,7 @@ The Content Platform PostgreSQL integration suite covers:
 - approval and content lifecycle synchronization;
 - change requests, comments, and content returning to DRAFT;
 - tenant-scoped review reads;
-- outbox lease ownership, retry, and acknowledgement.
+- outbox lease ownership, retry, acknowledgement, and terminal dead-letter behavior.
 
 The dedicated Content Platform workflow is the authoritative build/test signal. Do not treat this milestone as complete until the latest branch run passes and the composed runtime wires authorization and workflow adapters.
 
