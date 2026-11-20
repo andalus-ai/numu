@@ -9,8 +9,8 @@ import java.util.Objects;
 
 /**
  * In-memory domain aggregate expressing append-only ledger invariants.
- * Durable concurrency/idempotency is implemented by the application/persistence
- * adapter in a later milestone using a unique (tenant, leaderboard, key) constraint.
+ * Durable concurrency/idempotency is enforced by the application persistence
+ * adapter using tenant-scoped database uniqueness constraints.
  */
 public final class ScoreLedger {
     public enum AppendStatus { APPENDED, DUPLICATE }
