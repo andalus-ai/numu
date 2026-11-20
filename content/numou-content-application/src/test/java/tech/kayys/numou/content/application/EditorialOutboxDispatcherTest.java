@@ -10,11 +10,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class EditorialOutboxDispatcherTest {
     static final class Outbox implements EditorialOutboxRepository {
-        final EditorialOutboxMessage message; boolean acknowledged; Instant retryAt; String error;
+        final EditorialOutboxMessage message; boolean acknowledged,deadLettered; Instant retryAt,deadLetterAt; String error;
         Outbox(EditorialOutboxMessage message){this.message=message;}
         public List<EditorialOutboxMessage> claim(UUID worker,Instant now,Instant lease,int limit){return List.of(message);}
         public boolean markPublished(TenantId tenant,UUID event,UUID worker,Instant at){acknowledged=true;return true;}
         public boolean releaseForRetry(TenantId tenant,UUID event,UUID worker,Instant at,String failure){retryAt=at;error=failure;return true;}
+        public boolean markDeadLetter(TenantId tenant,UUID event,UUID worker,Instant at,String failure){deadLettered=true;deadLetterAt=at;error=failure;return true;}
     }
     static final class Workflow implements EditorialWorkflowOrchestrator {
         int starts,signals,completes,cancels; boolean fail;
@@ -23,9 +24,10 @@ class EditorialOutboxDispatcherTest {
         public void complete(TenantId t,UUID event,EditorialReviewId review){completes++;}
         public void cancel(TenantId t,UUID event,EditorialReviewId review){cancels++;}
     }
-    private EditorialOutboxMessage message(String type){
+    private EditorialOutboxMessage message(String type){return message(type,1);}
+    private EditorialOutboxMessage message(String type,int attempts){
         return new EditorialOutboxMessage(new TenantId(UUID.randomUUID()),UUID.randomUUID(),EditorialReviewId.newId(),
-                ContentId.newId(),1,type,"{}",1,Instant.parse("2026-01-01T00:00:00Z"));
+                ContentId.newId(),1,type,"{}",attempts,Instant.parse("2026-01-01T00:00:00Z"));
     }
 
     @Test void dispatchesAfterClaimAndAcknowledgesSuccessfulWorkflowCall(){
@@ -43,6 +45,16 @@ class EditorialOutboxDispatcherTest {
         assertEquals(0,dispatcher.dispatchBatch(10));assertFalse(outbox.acknowledged);
         assertEquals(Instant.parse("2026-01-01T00:00:30Z"),outbox.retryAt);
         assertTrue(outbox.error.contains("offline"));
+    }
+
+
+    @Test void exhaustedDeliveryAttemptsAreDeadLetteredInsteadOfRetriedForever(){
+        var outbox=new Outbox(message("REVIEW_SUBMITTED",12));var workflow=new Workflow();workflow.fail=true;
+        var dispatcher=new EditorialOutboxDispatcher(outbox,workflow,
+                Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"),ZoneOffset.UTC),UUID.randomUUID());
+        assertEquals(0,dispatcher.dispatchBatch(10));
+        assertTrue(outbox.deadLettered);assertNull(outbox.retryAt);
+        assertEquals(Instant.parse("2026-01-01T00:00:00Z"),outbox.deadLetterAt);
     }
 
     @Test void rejectsInvalidBatchLimits(){
