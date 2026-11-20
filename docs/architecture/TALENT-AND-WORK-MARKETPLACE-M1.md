@@ -1,6 +1,6 @@
 # Talent & Work Marketplace — M1 Talent Profile Foundation
 
-- **Status:** M1a–M1b domain and M1c application increments committed on a feature branch; PostgreSQL persistence and transport adapters remain pending.
+- **Status:** M1a–M1d-b domain/application contracts implemented; PostgreSQL receipt/profile persistence, transaction adapter and integration verification remain pending.
 - **Owner:** Talent capability.
 - **Repository:** `andalus-ai/numu`.
 - **Scope:** establish the first production-oriented domain boundary for professional profiles.
@@ -77,6 +77,24 @@ Authorization is delegated to a mandatory policy port so host applications can e
 
 A deterministic in-memory repository/unit-of-work test adapter exercises tenant isolation, party existence, anonymous-context rejection, denied reads, denied writes and rejected unverified skill claims. It is test-only and is not represented as a production persistence adapter.
 
+### M1d-a — persistence-safe aggregate rehydration
+
+The domain aggregate now exposes an explicit `rehydrate(...)` factory for persistence adapters. It restores the full profile snapshot, including all five profile sections, lifecycle state, creation/update timestamps and the exact optimistic-lock version. Rehydration does not emit a creation event or replay lifecycle transitions. It reuses the aggregate's bounded collection and identity validation, rejects negative versions and invalid timestamp ordering, and enforces the archived/private visibility invariant.
+
+The application persistence port now separates `insert(...)` from `update(..., expectedVersion)`, preventing accidental update-as-upsert behavior. The application service captures the loaded version before mutation and passes it explicitly to the update port; a concrete adapter must include tenant, profile ID and expected version in its conditional update predicate and reject a zero-row update as an optimistic conflict. A real state change advances the aggregate version by exactly one; a no-op command may retain the expected version and must not manufacture an update event. The in-memory application test double exercises the stale-version rejection contract.
+
+This is still a domain/application contract only: no PostgreSQL schema, JDBC adapter or production transaction implementation is implied yet. A production adapter must append outbox events in the same database transaction as the aggregate write.
+
+### M1d-b — tenant-scoped command idempotency
+
+All profile write operations now require the host's trusted execution pipeline to attach an idempotency key through the `talent.idempotency-key` execution-context attribute. The key is scoped by tenant and authenticated actor; it is not accepted from profile payload fields and is bounded to 128 characters. The application service calculates a versioned SHA-256 fingerprint from the operation and normalized command inputs.
+
+The transaction port now exposes a command-receipt store. A matching completed receipt returns the original immutable profile view without reapplying the aggregate mutation or publishing events. Reusing the same tenant/actor/key with a different operation or fingerprint must raise an idempotency conflict. Replay is evaluated only after the current request has passed the relevant authorization check, so possession of a key does not grant access to a stored result.
+
+The receipt claim, profile insert/update, outbox append and receipt completion are required to share one transaction. The production store must enforce a unique key on (tenant_id, actor_id, idempotency_key) and implement conflict-safe claim semantics so concurrent duplicate requests wait for the winning transaction and then observe its completed receipt. An incomplete receipt must never be committed. The in-memory test implementation exercises replay and key-reuse conflict behavior only; it does not prove database concurrency, rollback or durability.
+
+The fingerprint algorithm is explicitly versioned (`talent-command-v1`). The production persistence adapter must retain the fingerprint and operation with the receipt, persist the complete immutable result projection in a versioned representation, and define receipt retention/expiry without allowing an unexpired key to be reused prematurely.
+
 ## 5. Security and privacy constraints
 
 - Public visibility does not bypass tenant, consent, moderation, block-list or privacy checks.
@@ -91,7 +109,7 @@ A deterministic in-memory repository/unit-of-work test adapter exercises tenant 
 1. M1a: profile identity, presentation and lifecycle domain.
 2. M1b: skills, experience, education, credential and portfolio references with explicit provenance and bounded immutable sections.
 3. M1c: tenant-aware application ports, authorization boundary, immutable read model, transaction/event contract and in-memory application tests.
-4. M1d: PostgreSQL persistence, migrations, tenant-scoped constraints, optimistic concurrency, idempotency and integration tests.
+4. M1d-c: PostgreSQL profile and command-receipt persistence, migrations, tenant-scoped constraints, optimistic concurrency and transaction integration tests.
 5. M2: job vacancy aggregate, publication lifecycle, search criteria and employer authorization.
 6. M3: recruitment application aggregate and ATS pipeline.
 7. M4–M5: freelance and crowdsourcing engagement lifecycles.
@@ -99,4 +117,4 @@ A deterministic in-memory repository/unit-of-work test adapter exercises tenant 
 
 ## 7. Verification status
 
-Domain and application unit tests are included in this increment. Build execution, PostgreSQL persistence, REST/API exposure, search integration and a concrete production authorization policy are not claimed by this document. The domain module must be built with the framework reactor and the test result recorded before merge.
+Domain and application unit tests are included in this increment. Build execution, PostgreSQL persistence and concurrent idempotency verification, REST/API exposure, search integration and a concrete production authorization policy are not claimed by this document. The domain module must be built with the framework reactor and the test result recorded before merge.

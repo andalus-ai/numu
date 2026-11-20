@@ -31,16 +31,31 @@ Migration V1003 adds an append-only requeue audit table. A PostgreSQL trigger wr
 
 ## Operator operations API
 
-`ReceiptPostingOperations` is the transport-neutral synchronous facade for non-reactive hosts. Reactive Quarkus hosts should use `IdentityReceiptPostingOperations`:
-- Effective permissions are loaded through Identity's `EffectivePermissionPort` in the verified tenant scope.
+`ReceiptPostingOperations` is the transport-neutral synchronous facade for non-reactive hosts. `IdentityReceiptPostingOperations` is the reactive Identity-integrated application facade:
+- Effective permissions are loaded through Identity's `EffectivePermissionPort` in the tenant scope.
 - Required permission codes are `automotive-parts.receipt-posting.inspect` and `automotive-parts.receipt-posting.requeue`.
 - JDBC queries and ledger mutations are scheduled on Mutiny's worker pool; the event-loop thread is never blocked.
-- The current tenant must come from `RequestContextHolder` after verified tenant selection. The actor is taken from Quarkus `SecurityIdentity` and must be a UUID user subject. Neither is accepted from request parameters or payloads.
 - Permission lookup failures deny access. The facade does not treat an Identity outage as an authorization bypass.
 - The V1003 audit trigger persists requeue evidence in the same transaction as the ledger state transition.
 
-`RequestContextReceiptPostingOperator` is the trusted context adapter for the reactive facade. The host still owns the authenticated REST resource, route-level authentication, HTTP error mapping, and runtime CDI composition. Do not expose JDBC repositories directly as HTTP resources. Return 404 for receipts outside the current tenant and 403 for denied operations.
+The HTTP/runtime adapter is intentionally a separate artifact: `automotive-parts-purchasing-quarkus`. It owns Quarkus REST resources, verified tenant request binding, authenticated actor resolution, and CDI composition. The capability integration artifact does not depend on Quarkus HTTP or security APIs.
+
+### HTTP contract
+
+The Quarkus adapter exposes:
+- `GET /api/v1/automotive-parts/receipt-postings` — tenant-scoped operational summary.
+- `GET /api/v1/automotive-parts/receipt-postings/dead-letters?cursor=&limit=50` — bounded keyset page (limit 1–200).
+- `GET /api/v1/automotive-parts/receipt-postings/dead-letters/{receiptId}?historyLimit=100` — failure detail and immutable requeue history.
+- `POST /api/v1/automotive-parts/receipt-postings/dead-letters/{receiptId}/requeue` — JSON body `{"reason":"..."}`; reason is mandatory and limited to 2,000 characters.
+
+Identity issues tenant-bound access JWTs only after checking active membership during tenant exchange. The HTTP adapter accepts only signed `USER` access tokens (`token_use=access`), rejects tenant-selection/service tokens and conflicting tenant claims, and binds the verified tenant claim to request-scoped `RequestContextHolder`. It ignores caller-supplied tenant headers, query parameters and body fields. Effective permission checks revalidate active membership and authorization on each operation.
+
+### Permission provisioning
+
+Identity migration `V10__automotive_parts_receipt_posting_permissions.sql` registers both permission codes in the global catalog. It intentionally does not grant them to all roles. A tenant administrator must assign `automotive-parts.receipt-posting.inspect` to the relevant operations role and `automotive-parts.receipt-posting.requeue` only to a narrower recovery role through the normal tenant role-permission management flow. The requeue grant should be treated as a privileged operational action.
+
+Expected outcomes: 401 anonymous, 403 invalid credential or denied permission, 404 missing/out-of-scope dead letter, 400 invalid input, and generic 500 for unexpected failures. The host must configure JWT issuer/audience verification and provide the JDBC `DataSource`, Identity permission port, and Foundation request context.
 
 ## Verification
 
-PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, immutable audit history, operator pagination, summary counts, synchronous authorization denial, and reactive Identity authorization/recovery. Deployment-level HTTP authentication and authorization integration tests belong in the host application.
+PostgreSQL Testcontainers tests cover durable Inventory idempotency, tenant isolation, stale claims, lease recovery, repeated requeues, immutable audit history, operator pagination, summary counts, synchronous authorization denial, and reactive Identity authorization/recovery. The Quarkus adapter includes tenant-claim validation unit tests. Full HTTP-level tests against a configured host/JWT issuer remain pending; they are not claimed by this module-only suite.

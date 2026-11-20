@@ -11,6 +11,7 @@ import tech.kayys.numou.security.domain.authorization.SecurityContext;
 import tech.kayys.numou.socialgraph.application.SocialGraphAccessDeniedException;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationship;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -48,6 +49,34 @@ public class AuthenticatedSocialGraphCommandGateway {
         return withTrustedIdentity((tenant, subject) -> commands.removeConnection(tenant, subject, id, key));
     }
 
+    public Uni<SocialRelationship> follow(PartyId target, String key) {
+        return withTrustedRelationshipIdentity((tenant, subject) -> commands.follow(tenant, subject, target, key));
+    }
+    public Uni<SocialRelationship> unfollow(PartyId target, String key) {
+        return withTrustedRelationshipIdentity((tenant, subject) -> commands.unfollow(tenant, subject, target, key));
+    }
+    public Uni<SocialRelationship> block(PartyId target, String key) {
+        return withTrustedRelationshipIdentity((tenant, subject) -> commands.block(tenant, subject, target, key));
+    }
+    public Uni<SocialRelationship> unblock(PartyId target, String key) {
+        return withTrustedRelationshipIdentity((tenant, subject) -> commands.unblock(tenant, subject, target, key));
+    }
+    public Uni<SocialRelationship> mute(PartyId target, String key) {
+        return withTrustedRelationshipIdentity((tenant, subject) -> commands.mute(tenant, subject, target, key));
+    }
+    public Uni<SocialRelationship> unmute(PartyId target, String key) {
+        return withTrustedRelationshipIdentity((tenant, subject) -> commands.unmute(tenant, subject, target, key));
+    }
+
+    private Uni<SocialRelationship> withTrustedRelationshipIdentity(TrustedRelationshipCommand command) {
+        Optional<SecurityContext> current = securityContexts.current();
+        SecurityContext context = current == null ? null : current.orElse(null);
+        if (context == null || !context.authenticated() || !context.tenantMember()) return deniedRelationship();
+        Optional<IdentitySubjectRef> subject = identitySubjects.current();
+        if (subject == null || subject.isEmpty()) return deniedRelationship();
+        return command.execute(context.tenantId(), subject.get());
+    }
+
     private Uni<SocialConnection> withTrustedIdentity(TrustedCommand command) {
         Optional<SecurityContext> current = securityContexts.current();
         SecurityContext context = current == null ? null : current.orElse(null);
@@ -65,9 +94,16 @@ public class AuthenticatedSocialGraphCommandGateway {
     private static Uni<SocialConnection> denied() {
         return Uni.createFrom().failure(new SocialGraphAccessDeniedException());
     }
+    private static Uni<SocialRelationship> deniedRelationship() {
+        return Uni.createFrom().failure(new SocialGraphAccessDeniedException());
+    }
 
     @FunctionalInterface
     private interface TrustedCommand {
         Uni<SocialConnection> execute(TenantId tenant, IdentitySubjectRef subject);
+    }
+    @FunctionalInterface
+    private interface TrustedRelationshipCommand {
+        Uni<SocialRelationship> execute(TenantId tenant, IdentitySubjectRef subject);
     }
 }

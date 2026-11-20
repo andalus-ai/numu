@@ -23,9 +23,7 @@ class ApplicationRuntimeCoordinatorTest {
         private final String failureAt;
         private PluginContext receivedContext;
         private Object observedSharedService;
-        private Object registeredService;
         private PluginState state = PluginState.LOADED;
-        private int stopFailuresRemaining;
 
         private TestPlugin(String id, String capability, String contractVersion,
                 List<String> events, String failureAt) {
@@ -71,10 +69,6 @@ class ApplicationRuntimeCoordinatorTest {
         @Override
         public void stop() {
             events.add("stop:" + id);
-            if (stopFailuresRemaining > 0) {
-                stopFailuresRemaining--;
-                throw new IllegalStateException("stop failed once");
-            }
             state = PluginState.STOPPED;
         }
     }
@@ -298,8 +292,11 @@ class ApplicationRuntimeCoordinatorTest {
         List<String> events = new ArrayList<>();
         TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, "stop");
         TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        List<ApplicationRuntimeLifecycleEvent.Type> lifecycleEvents = new ArrayList<>();
         ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
-                Map.of("party-provider", party, "accounting-provider", accounting));
+                Map.of("party-provider", party, "accounting-provider", accounting),
+                new DefaultApplicationPluginContextFactory(),
+                event -> lifecycleEvents.add(event.type()));
 
         assertThatThrownBy(session::stop)
                 .isInstanceOf(ApplicationRuntimeException.class)
@@ -315,6 +312,14 @@ class ApplicationRuntimeCoordinatorTest {
         assertThat(session.isStopped()).isTrue();
         assertThat(session.health().providers())
                 .allMatch(provider -> provider.failure() == null);
+        assertThat(lifecycleEvents).containsSubsequence(
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOP_FAILED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_FAILED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_COMPLETED);
         assertThat(events).containsExactly("init:runtime.party.impl", "init:runtime.ledger.impl",
                 "start:runtime.party.impl", "start:runtime.ledger.impl",
                 "stop:runtime.ledger.impl", "stop:runtime.party.impl", "stop:runtime.party.impl");
@@ -332,4 +337,115 @@ class ApplicationRuntimeCoordinatorTest {
                 .hasMessageContaining("Tenant-bound context factory is already assigned to application app-one");
     }
 
-}
+
+    @Test
+    void emitsDeterministicLifecycleEventsAcrossStartupAndShutdown() {
+        List<String> pluginEvents = new ArrayList<>();
+        List<ApplicationRuntimeLifecycleEvent> observed = new ArrayList<>();
+        var fixedInstant = java.time.Instant.parse("2026-11-20T03:00:00Z");
+        var clock = java.time.Clock.fixed(fixedInstant, java.time.ZoneOffset.UTC);
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", pluginEvents, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", pluginEvents, null);
+
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator(clock).start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting),
+                new DefaultApplicationPluginContextFactory(), observed::add);
+        session.stop();
+
+        assertThat(observed).extracting(ApplicationRuntimeLifecycleEvent::type).containsExactly(
+                ApplicationRuntimeLifecycleEvent.Type.APPLICATION_STARTING,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZATION_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZATION_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_INITIALIZED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_START_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_START_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STOPPED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_COMPLETED);
+        assertThat(observed).allSatisfy(event -> {
+            assertThat(event.applicationId()).isEqualTo("com.example.erp");
+            assertThat(event.occurredAt()).isEqualTo(fixedInstant);
+        });
+        assertThat(observed.get(1).providerId()).isEqualTo("party-provider");
+        assertThat(observed.get(10).providerId()).isEqualTo("accounting-provider");
+    }
+
+    @Test
+    void observerFailuresNeverInterruptStartupRollbackOrShutdown() {
+        List<String> pluginEvents = new ArrayList<>();
+        List<ApplicationRuntimeLifecycleEvent.Type> attemptedObservations = new ArrayList<>();
+        ApplicationRuntimeLifecycleObserver unreliableObserver = event -> {
+            attemptedObservations.add(event.type());
+            throw new IllegalStateException("telemetry unavailable");
+        };
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", pluginEvents, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0",
+                pluginEvents, null);
+
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting),
+                new DefaultApplicationPluginContextFactory(), unreliableObserver);
+        assertThat(session.health().ready()).isTrue();
+        session.stop();
+
+        assertThat(session.isStopped()).isTrue();
+        assertThat(attemptedObservations).contains(
+                ApplicationRuntimeLifecycleEvent.Type.APPLICATION_STARTING,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_COMPLETED);
+        assertThat(pluginEvents).contains("start:runtime.party.impl", "start:runtime.ledger.impl",
+                "stop:runtime.ledger.impl", "stop:runtime.party.impl");
+
+        List<String> rollbackPluginEvents = new ArrayList<>();
+        List<ApplicationRuntimeLifecycleEvent.Type> rollbackObservations = new ArrayList<>();
+        TestPlugin failingParty = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0",
+                rollbackPluginEvents, null);
+        TestPlugin failingAccounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0",
+                rollbackPluginEvents, "start");
+        assertThatThrownBy(() -> new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", failingParty, "accounting-provider", failingAccounting),
+                new DefaultApplicationPluginContextFactory(), event -> {
+                    rollbackObservations.add(event.type());
+                    throw new IllegalStateException("telemetry unavailable");
+                })).isInstanceOf(ApplicationRuntimeException.class);
+        assertThat(rollbackPluginEvents).containsExactly("init:runtime.party.impl", "init:runtime.ledger.impl",
+                "start:runtime.party.impl", "start:runtime.ledger.impl",
+                "stop:runtime.ledger.impl", "stop:runtime.party.impl");
+        assertThat(rollbackObservations).contains(
+                ApplicationRuntimeLifecycleEvent.Type.STARTUP_FAILED,
+                ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_STARTED,
+                ApplicationRuntimeLifecycleEvent.Type.PROVIDER_ROLLBACK_COMPLETED,
+                ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_COMPLETED);
+    }
+\n
+    @Test
+    void adaptsApplicationReadinessToSharedHealthCheckContract() {
+        List<String> events = new ArrayList<>();
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting));
+        var check = new ApplicationRuntimeHealthCheck(session);
+
+        assertThat(check.id()).isEqualTo("application-runtime:com.example.erp");
+        assertThat(check.category()).isEqualTo(tech.kayys.numou.observability.HealthCheckCategory.RUNTIME);
+        assertThat(check.criticality())
+                .isEqualTo(tech.kayys.numou.observability.HealthCheckCriticality.REQUIRED);
+        assertThat(check.check().await().indefinitely().status())
+                .isEqualTo(tech.kayys.numou.observability.HealthStatus.Status.UP);
+
+        accounting.state = PluginState.FAILED;
+        var degradedRuntime = check.check().await().indefinitely();
+        assertThat(degradedRuntime.status()).isEqualTo(tech.kayys.numou.observability.HealthStatus.Status.DOWN);
+        assertThat(degradedRuntime.message()).contains("not ready: 1/2 providers");
+
+        session.stop();
+        var stoppedRuntime = check.check().await().indefinitely();
+        assertThat(stoppedRuntime.status()).isEqualTo(tech.kayys.numou.observability.HealthStatus.Status.DOWN);
+        assertThat(stoppedRuntime.message()).contains("stopped");
+    }
+\n}\n

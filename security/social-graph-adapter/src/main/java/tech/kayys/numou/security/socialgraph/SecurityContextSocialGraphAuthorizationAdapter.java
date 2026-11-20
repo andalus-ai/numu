@@ -35,8 +35,8 @@ public class SecurityContextSocialGraphAuthorizationAdapter implements SocialGra
         var current = securityContexts.current();
         SecurityContext context = current == null ? null : current.orElse(null);
         Permission required = switch (action) {
-            case REQUEST_CONNECTION -> REQUEST;
-            case MANAGE_CONNECTION -> MANAGE;
+            case REQUEST_CONNECTION -> REQUEST_CONNECTION;
+            case MANAGE_CONNECTION, MANAGE_RELATIONSHIP -> MANAGE_CONNECTION;
         };
         if (context == null || !context.authenticated()
                 || !actor.tenantId().equals(context.tenantId())

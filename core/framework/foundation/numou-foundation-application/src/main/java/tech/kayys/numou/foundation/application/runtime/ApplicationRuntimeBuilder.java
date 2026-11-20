@@ -11,6 +11,7 @@ import tech.kayys.numou.foundation.application.startup.StartupValidator;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Fluent builder for assembling and composing an ApplicationRuntime (config01.md §P4-01 #6).
@@ -87,7 +88,11 @@ public final class ApplicationRuntimeBuilder {
 
         RuntimeSettings settings = new DefaultRuntimeSettings(finalConfig);
         RuntimeDiagnostics diagnostics = new DefaultRuntimeDiagnostics(Instant.now());
-        RuntimeHealth health = new DefaultRuntimeHealth(() -> true);
+        AtomicReference<ApplicationRuntimeState> runtimeState =
+                new AtomicReference<>(ApplicationRuntimeState.NEW);
+        RuntimeHealth health = new DefaultRuntimeHealth(
+                () -> runtimeState.get() == ApplicationRuntimeState.RUNNING
+        );
 
         RuntimeRegistry registry = new DefaultRuntimeRegistry(
                 finalCommandBus,
@@ -115,7 +120,8 @@ public final class ApplicationRuntimeBuilder {
                 modRegistry,
                 compRegistry,
                 validator,
-                workers
+                workers,
+                runtimeState::set
         );
     }
 }

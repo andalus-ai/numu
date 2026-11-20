@@ -33,7 +33,9 @@ jobs:
         run: python3 tools/verify-module-topology.py
       - name: Enforce domain dependency boundaries
         run: python3 tools/verify-domain-boundaries.py
-      - name: Install framework parent POM
+      - name: Install shared framework parent POM
+        run: mvn -B -ntp -f core/framework/parent/pom.xml install
+      - name: Install framework aggregator POM
         run: mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install foundation capabilities required by Numou security integration
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
@@ -43,6 +45,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
       - name: Install Numou security adapter and its required modules
         run: mvn -B -ntp -f security/pom.xml -pl security-adapter -am install
+      - name: Install Ecosystem identity contracts for Social Graph integration
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Install Social Graph policy contracts for notification integration
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Verify notification domain, application, and host adapters
         run: mvn -B -ntp -f notification/pom.xml verify
       - name: Upload notification Maven test reports

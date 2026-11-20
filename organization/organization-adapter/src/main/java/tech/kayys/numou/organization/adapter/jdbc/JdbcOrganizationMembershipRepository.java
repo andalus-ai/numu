@@ -60,10 +60,27 @@ public final class JdbcOrganizationMembershipRepository implements OrganizationM
 
     @Override
     public CompletionStage<Optional<OrganizationMembership>> findById(OrganizationMembershipId id) {
-        Objects.requireNonNull(id, "id");
-        return CompletableFuture.supplyAsync(() -> queryOne(
-                "SELECT " + COLUMNS + " FROM organization_memberships WHERE membership_id = ?",
-                statement -> statement.setObject(1, id.value())), jdbcExecutor);
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "TenantId is required for membership reads; use findByTenantAndId"));
+    }
+
+    @Override
+    public CompletionStage<Boolean> existsByTenantAndId(TenantId tenantId, OrganizationMembershipId membershipId) {
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(membershipId, "membershipId");
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT 1 FROM organization_memberships WHERE tenant_id = ? AND membership_id = ?")) {
+                statement.setObject(1, tenantId.value());
+                statement.setObject(2, membershipId.value());
+                try (ResultSet rows = statement.executeQuery()) {
+                    return rows.next();
+                }
+            } catch (SQLException e) {
+                throw persistenceFailure("check tenant-scoped organization membership existence", e);
+            }
+        }, jdbcExecutor);
     }
 
     @Override
@@ -82,14 +99,8 @@ public final class JdbcOrganizationMembershipRepository implements OrganizationM
     @Override
     public CompletionStage<Optional<OrganizationMembership>> findByOrganizationAndUser(
             OrganizationId organizationId, UserId userId) {
-        Objects.requireNonNull(organizationId, "organizationId");
-        Objects.requireNonNull(userId, "userId");
-        return CompletableFuture.supplyAsync(() -> queryOne(
-                "SELECT " + COLUMNS + " FROM organization_memberships WHERE organization_id = ? AND user_id = ?",
-                statement -> {
-                    statement.setObject(1, organizationId.value());
-                    statement.setObject(2, userId.value());
-                }), jdbcExecutor);
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "TenantId is required for membership reads; use findByTenantAndOrganizationAndUser"));
     }
 
     @Override
@@ -110,19 +121,8 @@ public final class JdbcOrganizationMembershipRepository implements OrganizationM
 
     @Override
     public CompletionStage<Boolean> existsById(OrganizationMembershipId id) {
-        Objects.requireNonNull(id, "id");
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = dataSource.getConnection();
-                 PreparedStatement statement = connection.prepareStatement(
-                         "SELECT 1 FROM organization_memberships WHERE membership_id = ?")) {
-                statement.setObject(1, id.value());
-                try (ResultSet rows = statement.executeQuery()) {
-                    return rows.next();
-                }
-            } catch (SQLException e) {
-                throw persistenceFailure("check organization membership existence", e);
-            }
-        }, jdbcExecutor);
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "TenantId is required for membership existence checks; use existsByTenantAndId"));
     }
 
     @Override

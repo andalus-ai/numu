@@ -8,6 +8,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.postgresql.ds.PGSimpleDataSource;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOutboxStore;
 import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationStore;
+import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOperationsPort.RedriveCommand;
+import tech.kayys.numou.applicationplatform.application.installation.ApplicationInstallationOperationsPort.RedriveResult;
 import tech.kayys.numou.applicationplatform.domain.installation.*;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 
@@ -40,9 +42,13 @@ class PostgresApplicationInstallationStoreTest {
         adminDataSource = source;
         try (var connection = source.getConnection(); var statement = connection.createStatement();
              InputStream migration = PostgresApplicationInstallationStoreTest.class
-                     .getResourceAsStream("/db/migration/V1__application_installation.sql")) {
+                     .getResourceAsStream("/db/migration/V1__application_installation.sql");
+             InputStream migration2 = PostgresApplicationInstallationStoreTest.class
+                     .getResourceAsStream("/db/migration/V2__application_installation_operator_redrive.sql")) {
             assertThat(migration).as("installation migration resource").isNotNull();
+            assertThat(migration2).as("operator redrive migration resource").isNotNull();
             statement.execute(new String(migration.readAllBytes(), StandardCharsets.UTF_8));
+            statement.execute(new String(migration2.readAllBytes(), StandardCharsets.UTF_8));
             statement.execute("CREATE ROLE numou_app_test LOGIN PASSWORD 'numou-app-test' NOSUPERUSER NOBYPASSRLS");
             statement.execute("GRANT USAGE ON SCHEMA public TO numou_app_test");
             statement.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO numou_app_test");
@@ -187,6 +193,65 @@ class PostgresApplicationInstallationStoreTest {
     }
 
     @Test
+    void operatorRedriveIsTenantScopedAuditedIdempotentAndPreservesOperationIdentity() {
+        TenantId tenant = TenantId.generate();
+        Instant now = Instant.parse("2026-11-03T10:08:00Z");
+        var installation = requested(tenant, "com.example.redrive", "1.0.0", "actor-a", now);
+        store.createIfAbsent(installation, hash("client-key-redrive-01"), installation.requestedEvent(now))
+                .toCompletableFuture().join();
+
+        var original = store.claimDue(tenant, "worker-a", now.plusSeconds(1), Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join().get(0);
+        UUID originalOperationId = original.operationId();
+        assertThat(store.retry(tenant, original.eventId(), "worker-a", original.leaseToken(),
+                "PROVISIONING_TEMPORARY_FAILURE", now.plusSeconds(2), now.plusSeconds(2), 1)
+                .toCompletableFuture().join()).isEqualTo(ApplicationInstallationOutboxStore.RetryOutcome.DEAD_LETTERED);
+        assertThat(store.deadLetters(tenant, 10).toCompletableFuture().join()).hasSize(1);
+
+        var command = new RedriveCommand(tenant, installation.id(), "operator:alice",
+                "Verified package and corrected temporary host dependency",
+                hash("operator-redrive-key-0001"), now.plusSeconds(10));
+        var queued = store.redrive(command).toCompletableFuture().join();
+        assertThat(queued.outcome()).isEqualTo(RedriveResult.Outcome.QUEUED);
+        assertThat(queued.operationId()).isEqualTo(originalOperationId);
+        assertThat(store.redrive(command).toCompletableFuture().join().outcome())
+                .isEqualTo(RedriveResult.Outcome.REPLAYED);
+
+        var conflicting = new RedriveCommand(tenant, installation.id(), "operator:alice",
+                "Different reason with same idempotency key", command.idempotencyKeySha256(), now.plusSeconds(11));
+        assertThat(store.redrive(conflicting).toCompletableFuture().join().outcome())
+                .isEqualTo(RedriveResult.Outcome.CONFLICT);
+
+        var recovered = store.find(tenant, installation.id()).toCompletableFuture().join().orElseThrow();
+        assertThat(recovered.status()).isEqualTo(ApplicationInstallationStatus.VALIDATING);
+        assertThat(recovered.revision()).isEqualTo(3);
+        var history = store.history(tenant, installation.id(), 10).toCompletableFuture().join();
+        assertThat(history).hasSize(3);
+        assertThat(history.get(0).toStatus()).isEqualTo("VALIDATING");
+        assertThat(history.get(0).actorId()).isEqualTo("operator:alice");
+        assertThat(history.get(0).reasonCode()).isEqualTo("OPERATOR_REDRIVE");
+        var audit = store.redriveHistory(tenant, installation.id(), 10).toCompletableFuture().join();
+        assertThat(audit).hasSize(1);
+        assertThat(audit.get(0).actorId()).isEqualTo("operator:alice");
+        assertThat(audit.get(0).reason()).isEqualTo("Verified package and corrected temporary host dependency");
+        assertThat(audit.get(0).deadEventId()).isEqualTo(original.eventId());
+        assertThat(audit.get(0).redriveEventId()).isEqualTo(queued.redriveEventId());
+
+        var events = store.claimDue(tenant, "worker-b", now.plusSeconds(12), Duration.ofSeconds(30), 10)
+                .toCompletableFuture().join();
+        var retryEvent = events.stream()
+                .filter(event -> "APPLICATION_INSTALLATION_RETRY_REQUESTED".equals(event.eventType()))
+                .findFirst().orElseThrow();
+        assertThat(retryEvent.operationId()).isEqualTo(originalOperationId);
+        assertThat(retryEvent.eventId()).isEqualTo(queued.redriveEventId());
+
+        TenantId otherTenant = TenantId.generate();
+        assertThat(store.history(otherTenant, installation.id(), 10).toCompletableFuture().join()).isEmpty();
+        assertThat(store.deadLetters(otherTenant, 10).toCompletableFuture().join()).isEmpty();
+        assertThat(store.redriveHistory(otherTenant, installation.id(), 10).toCompletableFuture().join()).isEmpty();
+    }
+
+    @Test
     void transitionHistoryRejectsMutation() throws Exception {
         TenantId tenant = TenantId.generate();
         Instant now = Instant.parse("2026-11-03T10:05:00Z");
@@ -230,6 +295,55 @@ class PostgresApplicationInstallationStoreTest {
         } catch (java.sql.SQLException failure) {
             throw new IllegalStateException(failure);
         }
+    }
+
+    @Test
+    void enabledInstallationQueryIsTenantScopedAndDeterministicallyOrdered() {
+        TenantId tenant = TenantId.generate();
+        TenantId otherTenant = TenantId.generate();
+        Instant now = Instant.parse("2026-11-03T10:07:00Z");
+
+        var zulu = requested(tenant, "com.example.zulu", "1.0.0", "actor-a", now);
+        store.createIfAbsent(zulu, hash("client-key-00000010"), zulu.requestedEvent(now))
+                .toCompletableFuture().join();
+        var alpha = requested(tenant, "com.example.alpha", "1.0.0", "actor-a", now.plusSeconds(1));
+        store.createIfAbsent(alpha, hash("client-key-00000011"), alpha.requestedEvent(now.plusSeconds(1)))
+                .toCompletableFuture().join();
+        var pending = requested(tenant, "com.example.pending", "1.0.0", "actor-a", now.plusSeconds(2));
+        store.createIfAbsent(pending, hash("client-key-00000012"), pending.requestedEvent(now.plusSeconds(2)))
+                .toCompletableFuture().join();
+        var other = requested(otherTenant, "com.example.other", "1.0.0", "actor-a", now);
+        store.createIfAbsent(other, hash("client-key-00000013"), other.requestedEvent(now))
+                .toCompletableFuture().join();
+
+        enable(zulu, now.plusSeconds(10));
+        enable(alpha, now.plusSeconds(20));
+        enable(other, now.plusSeconds(30));
+
+        assertThat(store.findEnabled(tenant).toCompletableFuture().join())
+                .extracting(i -> i.applicationId().value())
+                .containsExactly("com.example.alpha", "com.example.zulu");
+        assertThat(store.findEnabled(otherTenant).toCompletableFuture().join())
+                .extracting(i -> i.applicationId().value())
+                .containsExactly("com.example.other");
+    }
+
+    private static void enable(ApplicationInstallation installation, Instant now) {
+        long expected = installation.revision();
+        var validating = installation.beginValidation("worker", now);
+        assertThat(store.appendTransition(installation, validating, expected).toCompletableFuture().join()).isTrue();
+
+        expected = installation.revision();
+        var provisioning = installation.beginProvisioning("worker", now.plusSeconds(1));
+        assertThat(store.appendTransition(installation, provisioning, expected).toCompletableFuture().join()).isTrue();
+
+        expected = installation.revision();
+        var installed = installation.completeProvisioning("worker", now.plusSeconds(2));
+        assertThat(store.appendTransition(installation, installed, expected).toCompletableFuture().join()).isTrue();
+
+        expected = installation.revision();
+        var enabled = installation.enable("operator", now.plusSeconds(3));
+        assertThat(store.appendTransition(installation, enabled, expected).toCompletableFuture().join()).isTrue();
     }
 
     private static ApplicationInstallation requested(TenantId tenant, String app, String version,
