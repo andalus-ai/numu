@@ -47,6 +47,7 @@ public final class JdbcScoreLedgerRepository implements ScoreLedgerRepository {
                     inserted = statement.executeUpdate();
                 }
                 if (inserted == 1) {
+                    insertOutboxEvent(connection, entry);
                     connection.commit();
                     return new ScoreLedger.AppendResult(ScoreLedger.AppendStatus.APPENDED, entry);
                 }
@@ -65,6 +66,54 @@ public final class JdbcScoreLedgerRepository implements ScoreLedgerRepository {
             }
         } catch (SQLException failure) {
             throw new ScoreLedgerPersistenceException("Unable to acquire score-ledger connection", failure);
+        }
+    }
+
+    private void insertOutboxEvent(Connection connection, ScoreEntry entry) throws SQLException {
+        String sql = """
+                INSERT INTO leaderboard_score_outbox (
+                    event_id, tenant_id, leaderboard_id, aggregate_id,
+                    event_type, schema_version, payload, occurred_at, created_at
+                ) VALUES (?, ?, ?, ?, 'leaderboard.score-entry-recorded.v1', 1,
+                    jsonb_build_object(
+                        'entryId', ?::text,
+                        'tenantId', ?,
+                        'leaderboardId', ?::text,
+                        'participantType', ?,
+                        'participantId', ?,
+                        'entryKind', ?,
+                        'scoreValue', ?,
+                        'sourceType', ?,
+                        'sourceId', ?,
+                        'idempotencyKey', ?,
+                        'reversesEntryId', ?,
+                        'reason', ?,
+                        'effectiveAt', ?,
+                        'recordedAt', ?
+                    ), ?, ?)
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, UUID.randomUUID());
+            statement.setString(2, entry.scope().tenantId());
+            statement.setObject(3, entry.leaderboardId().value());
+            statement.setObject(4, entry.id().value());
+            statement.setObject(5, entry.id().value());
+            statement.setString(6, entry.scope().tenantId());
+            statement.setObject(7, entry.leaderboardId().value());
+            statement.setString(8, entry.participant().subjectType());
+            statement.setString(9, entry.participant().subjectId());
+            statement.setString(10, entry.kind().name());
+            statement.setBigDecimal(11, entry.value().amount());
+            statement.setString(12, entry.source().sourceType());
+            statement.setString(13, entry.source().sourceId());
+            statement.setString(14, entry.idempotencyKey().value());
+            statement.setString(15, entry.reversesEntryId() == null ? null : entry.reversesEntryId().value().toString());
+            statement.setString(16, entry.reason());
+            statement.setTimestamp(17, Timestamp.from(entry.effectiveAt()));
+            statement.setTimestamp(18, Timestamp.from(entry.recordedAt()));
+            statement.setTimestamp(19, Timestamp.from(entry.recordedAt()));
+            statement.setTimestamp(20, Timestamp.from(entry.recordedAt()));
+            statement.executeUpdate();
         }
     }
 
