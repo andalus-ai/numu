@@ -37,6 +37,17 @@ class ScoreLedgerTest {
     }
 
     @Test
+    void treatsRedeliveryWithNewEntryIdAndRecordedAtAsDuplicate() {
+        ScoreEntry first = contribution("retry-event", "10");
+        ScoreEntry retry = ScoreEntry.contribution(ScoreEntryId.newId(), leaderboardId, scope,
+                driver, ScoreValue.of("10"), new SourceReference("mobility.trip", "trip-99"),
+                new IdempotencyKey("retry-event"), NOW, NOW.plusSeconds(30));
+        assertThat(ledger.append(first).status()).isEqualTo(ScoreLedger.AppendStatus.APPENDED);
+        assertThat(ledger.append(retry).status()).isEqualTo(ScoreLedger.AppendStatus.DUPLICATE);
+        assertThat(ledger.size()).isEqualTo(1);
+    }
+
+    @Test
     void rejectsSameIdempotencyKeyWithDifferentPayload() {
         ledger.append(contribution("event-1", "10"));
         assertThatThrownBy(() -> ledger.append(contribution("event-1", "11")))
