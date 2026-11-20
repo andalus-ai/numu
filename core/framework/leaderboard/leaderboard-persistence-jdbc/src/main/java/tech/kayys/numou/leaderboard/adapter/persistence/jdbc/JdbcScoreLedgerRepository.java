@@ -109,8 +109,8 @@ public final class JdbcScoreLedgerRepository implements ScoreLedgerRepository {
             statement.setString(14, entry.idempotencyKey().value());
             statement.setString(15, entry.reversesEntryId() == null ? null : entry.reversesEntryId().value().toString());
             statement.setString(16, entry.reason());
-            statement.setTimestamp(17, Timestamp.from(entry.effectiveAt()));
-            statement.setTimestamp(18, Timestamp.from(entry.recordedAt()));
+            statement.setString(17, entry.effectiveAt().toString());
+            statement.setString(18, entry.recordedAt().toString());
             statement.setTimestamp(19, Timestamp.from(entry.recordedAt()));
             statement.setTimestamp(20, Timestamp.from(entry.recordedAt()));
             statement.executeUpdate();
