@@ -68,6 +68,16 @@ public final class PostgresEditorialOutboxRepository implements EditorialOutboxR
         } catch(SQLException e) { throw failure("release editorial outbox for retry",e); }
     }
 
+    @Override public boolean markDeadLetter(TenantId tenantId,UUID eventId,UUID workerId,Instant failedAt,String error) {
+        String sql="UPDATE content_editorial_outbox SET dead_lettered_at=?,lease_owner=NULL,lease_until=NULL,last_error=? WHERE tenant_id=? AND event_id=? AND lease_owner=? AND published_at IS NULL AND dead_lettered_at IS NULL";
+        String safe=error==null?"Unknown dispatch failure":error;
+        if(safe.length()>2000)safe=safe.substring(0,2000);
+        try(Connection c=dataSource.getConnection();PreparedStatement p=c.prepareStatement(sql)) {
+            p.setTimestamp(1,Timestamp.from(failedAt));p.setString(2,safe);p.setObject(3,tenantId.value());
+            p.setObject(4,eventId);p.setObject(5,workerId);return p.executeUpdate()==1;
+        } catch(SQLException e) { throw failure("dead-letter editorial outbox",e); }
+    }
+
     private String jsonString(String json,String key) {
         String marker="\""+key+"\":\"";int start=json.indexOf(marker);
         if(start<0)throw new IllegalStateException("Outbox payload is missing "+key);
