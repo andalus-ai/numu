@@ -29,7 +29,7 @@ The exact externally reachable origin and path must match the provider registrat
 
 ## Remaining before production rollout
 
-1. Add HTTP-level tests for v2 OIDC authorize/callback, including cookie state mismatch, provider error, missing cookie, and successful selection-token claims.
+1. HTTP-level callback tests now cover missing parameters, missing/malformed flow cookies, state mismatch, and sanitized provider errors. Successful selection-token issuance is covered at the application-service boundary; a full provider-backed authorize/callback round trip remains an integration-test follow-up.
 2. Add inbound REST resources for LDAP and SAML tenant-selection flows only if those login modes are enabled as interactive public endpoints; their application-service entry points are implemented, but this slice does not add public LDAP/SAML routes.
 3. Execute the identity application and adapter Maven test reactors, including PostgreSQL/Testcontainers and Quarkus HTTP tests, on the exact branch head.
 4. Verify each IdP redirect URI, issuer/audience configuration, key rotation, and downstream enforcement of `token_use=access` for tenant-bound APIs.
