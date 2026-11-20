@@ -15,8 +15,6 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.Optional;
-
 /** Authenticated HTTP adapter for tenant-scoped receipt-posting operations. */
 @Path("/api/v1/automotive-parts/receipt-postings")
 @Authenticated
@@ -47,10 +45,8 @@ public class ReceiptPostingOperationsResource {
     public Uni<DeadLetterReceiptPostingDetail> detail(
             @PathParam("receiptId") String receiptId,
             @QueryParam("historyLimit") @DefaultValue("100") int historyLimit) {
-        Uni<Optional<DeadLetterReceiptPostingDetail>> result =
-                operations.getDeadLetter(receiptId, historyLimit);
-        return mapFailures(result.onItem().transform(value ->
-                value.orElseThrow(ReceiptPostingNotFoundException::new)));
+        return mapFailures(operations.getDeadLetter(receiptId, historyLimit)
+                .onItem().transform(value -> value.orElseThrow(ReceiptPostingNotFoundException::new)));
     }
 
     @POST
@@ -69,12 +65,8 @@ public class ReceiptPostingOperationsResource {
     }
 
     private static RuntimeException httpFailure(Throwable failure) {
-        if (failure instanceof WebApplicationException web) {
-            return web;
-        }
-        if (failure instanceof SecurityException) {
-            return new WebApplicationException("Forbidden", 403);
-        }
+        if (failure instanceof WebApplicationException web) return web;
+        if (failure instanceof SecurityException) return new WebApplicationException("Forbidden", 403);
         if (failure instanceof ReceiptPostingNotFoundException) {
             return new WebApplicationException("Receipt posting not found", 404);
         }
@@ -84,6 +76,5 @@ public class ReceiptPostingOperationsResource {
         return new WebApplicationException("Receipt-posting operation failed", 500);
     }
 
-    public record RequeueRequest(String reason) {
-    }
+    public record RequeueRequest(String reason) { }
 }

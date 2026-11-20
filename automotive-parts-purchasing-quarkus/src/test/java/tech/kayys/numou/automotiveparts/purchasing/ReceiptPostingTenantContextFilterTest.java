@@ -10,17 +10,13 @@ class ReceiptPostingTenantContextFilterTest {
     @Test
     void acceptsOnlyTenantBoundHumanAccessTokens() {
         String tenant = UUID.randomUUID().toString();
-
-        assertEquals(tenant, ReceiptPostingTenantContextFilter.resolveVerifiedTenant(
-                "USER", "access", tenant, tenant));
-        assertEquals(tenant, ReceiptPostingTenantContextFilter.resolveVerifiedTenant(
-                "USER", "access", null, tenant));
+        assertEquals(tenant, ReceiptPostingTenantContextFilter.resolveVerifiedTenant("USER", "access", tenant, tenant));
+        assertEquals(tenant, ReceiptPostingTenantContextFilter.resolveVerifiedTenant("USER", "access", null, tenant));
     }
 
     @Test
     void rejectsSelectionTokensServiceTokensAndTenantlessLegacyTokens() {
         String tenant = UUID.randomUUID().toString();
-
         assertThrows(IllegalArgumentException.class, () ->
                 ReceiptPostingTenantContextFilter.resolveVerifiedTenant("USER", "tenant_selection", tenant, null));
         assertThrows(IllegalArgumentException.class, () ->
@@ -32,10 +28,8 @@ class ReceiptPostingTenantContextFilterTest {
     @Test
     void rejectsConflictingOrNonCanonicalTenantClaims() {
         String tenant = UUID.randomUUID().toString();
-
         assertThrows(IllegalArgumentException.class, () ->
-                ReceiptPostingTenantContextFilter.resolveVerifiedTenant(
-                        "USER", "access", tenant, UUID.randomUUID().toString()));
+                ReceiptPostingTenantContextFilter.resolveVerifiedTenant("USER", "access", tenant, UUID.randomUUID().toString()));
         assertThrows(IllegalArgumentException.class, () ->
                 ReceiptPostingTenantContextFilter.resolveVerifiedTenant("USER", "access", "1-1-1-1-1", null));
     }

@@ -13,8 +13,8 @@ import tech.kayys.numou.foundation.adapter.context.RequestContextHolder;
 import java.util.UUID;
 
 /**
- * Binds only a verified, tenant-bound access token to the receipt-posting request context.
- * Caller-controlled tenant headers, query parameters and payload fields are deliberately ignored.
+ * Binds only a tenant-bound access token issued by Identity after active membership validation.
+ * Caller-controlled tenant headers, query parameters and payload fields are never consulted.
  */
 @Provider
 @Priority(Priorities.AUTHORIZATION - 100)
@@ -33,15 +33,9 @@ public class ReceiptPostingTenantContextFilter implements ContainerRequestFilter
     @Override
     public void filter(ContainerRequestContext request) {
         String path = request.getUriInfo().getPath();
-        while (path != null && path.startsWith("/")) {
-            path = path.substring(1);
-        }
-        if (path == null || !(path.equals(BASE_PATH) || path.startsWith(BASE_PATH + "/"))) {
-            return;
-        }
-        if (identity.isAnonymous()) {
-            throw new WebApplicationException("Authentication required", 401);
-        }
+        while (path != null && path.startsWith("/")) path = path.substring(1);
+        if (path == null || !(path.equals(BASE_PATH) || path.startsWith(BASE_PATH + "/"))) return;
+        if (identity.isAnonymous()) throw new WebApplicationException("Authentication required", 401);
 
         try {
             String tenantId = resolveVerifiedTenant(
@@ -56,31 +50,24 @@ public class ReceiptPostingTenantContextFilter implements ContainerRequestFilter
     }
 
     static String resolveVerifiedTenant(String principalType, String tokenUse,
-                                        String canonicalTenant, String compatibilityTenant) {
+                                         String canonicalTenant, String compatibilityTenant) {
         if (!"USER".equals(principalType) || !"access".equals(tokenUse)) {
             throw new IllegalArgumentException("A human access token is required");
         }
-        if (canonicalTenant == null || canonicalTenant.isBlank()) {
-            canonicalTenant = compatibilityTenant;
-        } else if (compatibilityTenant != null && !compatibilityTenant.isBlank()) {
+        if (canonicalTenant == null || canonicalTenant.isBlank()) canonicalTenant = compatibilityTenant;
+        else if (compatibilityTenant != null && !compatibilityTenant.isBlank()) {
             UUID canonical = canonicalUuid(canonicalTenant);
             UUID compatibility = canonicalUuid(compatibilityTenant);
-            if (!canonical.equals(compatibility)) {
-                throw new IllegalArgumentException("Tenant claims disagree");
-            }
+            if (!canonical.equals(compatibility)) throw new IllegalArgumentException("Tenant claims disagree");
             return canonical.toString();
         }
         return canonicalUuid(canonicalTenant).toString();
     }
 
     private static UUID canonicalUuid(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Tenant claim is required");
-        }
+        if (value == null || value.isBlank()) throw new IllegalArgumentException("Tenant claim is required");
         UUID parsed = UUID.fromString(value);
-        if (!parsed.toString().equals(value)) {
-            throw new IllegalArgumentException("Tenant claim must be a canonical UUID");
-        }
+        if (!parsed.toString().equals(value)) throw new IllegalArgumentException("Tenant claim must be canonical");
         return parsed;
     }
 }
