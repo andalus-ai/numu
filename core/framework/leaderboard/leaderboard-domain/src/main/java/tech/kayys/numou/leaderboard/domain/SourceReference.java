@@ -11,7 +11,9 @@ public record SourceReference(String sourceType, String sourceId) {
     private static String requireText(String value, String field) {
         Objects.requireNonNull(value, field);
         String normalized = value.trim();
-        if (normalized.isEmpty()) throw new IllegalArgumentException(field + " must not be blank");
+        if (normalized.isEmpty() || normalized.length() > (field.equals("sourceType") ? 160 : 200)) {
+            throw new IllegalArgumentException(field + " must contain a non-blank value within its storage limit");
+        }
         return normalized;
     }
 }
