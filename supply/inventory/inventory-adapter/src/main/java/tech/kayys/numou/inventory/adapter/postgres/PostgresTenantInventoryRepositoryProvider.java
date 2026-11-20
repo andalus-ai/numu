@@ -5,12 +5,12 @@ import tech.kayys.numou.inventory.spi.TenantInventoryRepositoryProvider;
 
 import javax.sql.DataSource;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
- * Shared-table PostgreSQL provider. Repository instances are tenant-bound and
- * cached so application code cannot accidentally reuse an unscoped repository.
+ * Shared-table PostgreSQL provider. Each call creates a lightweight tenant-bound
+ * repository over the shared DataSource. Repository instances hold no tenant
+ * state beyond their immutable tenant identifier, so caching them would create
+ * an unbounded per-tenant in-memory registry without providing a connection benefit.
  *
  * <p>Callers must pass the authenticated tenant identifier, not a client-selected
  * storage identifier. Tenant authorization remains the responsibility of the
@@ -18,7 +18,6 @@ import java.util.concurrent.ConcurrentMap;
  */
 public final class PostgresTenantInventoryRepositoryProvider implements TenantInventoryRepositoryProvider {
     private final DataSource dataSource;
-    private final ConcurrentMap<String, InventoryRepository> repositories = new ConcurrentHashMap<>();
 
     public PostgresTenantInventoryRepositoryProvider(DataSource dataSource) {
         this.dataSource = Objects.requireNonNull(dataSource, "DataSource is required");
@@ -31,7 +30,6 @@ public final class PostgresTenantInventoryRepositoryProvider implements TenantIn
         if (normalized.isBlank() || normalized.length() > 80) {
             throw new IllegalArgumentException("Tenant must contain 1..80 characters");
         }
-        return repositories.computeIfAbsent(normalized,
-                tenant -> new PostgresInventoryRepository(dataSource, tenant));
+        return new PostgresInventoryRepository(dataSource, normalized);
     }
 }
