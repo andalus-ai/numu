@@ -146,7 +146,7 @@ class PostgresContentRepositoryIntegrationTest {
             statement.setObject(1,tenant.value());statement.setObject(2,submitted.id().value());
             try(ResultSet result=statement.executeQuery()){assertTrue(result.next());assertEquals(2,result.getInt(1));}
         }
-        assertTrue(editorial.find(TenantId.of(UUID.randomUUID()),submitted.id()).isEmpty(),
+        assertTrue(editorial.find(new TenantId(UUID.randomUUID()),submitted.id()).isEmpty(),
                 "Review lookup must remain tenant scoped");
     }
 
