@@ -9,7 +9,6 @@ import tech.kayys.numou.reliability.retry.RetryPolicy;
 import tech.kayys.numou.reliability.spi.port.OutboxRelayPort;
 import tech.kayys.numou.reliability.spi.port.OutboxStorePort;
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 import java.util.function.DoubleSupplier;
 import java.util.function.Function;
@@ -72,27 +71,30 @@ public final class OutboxRelayService implements OutboxRelayPort {
                     .onFailure().recoverWithUni(failure -> recordFailure(claim, failure).replaceWith(0))
                     .flatMap(delta -> relayNext(processed + 1, relayed + delta));
         });
-    private Uni<Integer> relayAll(List<OutboxClaim> due, int index, int relayed) {
-        if (index >= due.size()) return Uni.createFrom().item(relayed);
-        final OutboxClaim claim = due.get(index);
-        return relay(claim).map(ok -> 1)
-                .onFailure().recoverWithUni(failure -> recordFailure(claim, failure).replaceWith(0))
-                .flatMap(delta -> relayAll(due, index + 1, relayed + delta));
     }
 
     private Uni<Void> recordFailure(OutboxClaim claim, Throwable failure) {
         final var classification = classifier.apply(failure);
         final Instant now = clock.get();
         final OutboxEntry entry = claim.entry();
+        final String diagnostic = diagnostic(failure);
         final OutboxEntry next;
         if (!retryPolicy.allows(classification)) {
             next = new OutboxEntry(entry.entryId(), entry.envelope(), entry.createdAt(), now,
-                    OutboxEntry.MAX_ATTEMPTS, false);
+                    OutboxEntry.MAX_ATTEMPTS, false, diagnostic);
         } else {
             final var delay = retryPolicy.delayFor(entry.attempts() + 1, random.getAsDouble());
-            next = entry.recordFailure(now.plus(delay));
+            next = entry.recordFailure(now.plus(delay), diagnostic);
         }
         // A stale claim cannot overwrite the current owner's state.
         return store.update(claim, next).replaceWithVoid();
+    }
+
+    private static String diagnostic(Throwable failure) {
+        final String message = failure.getMessage();
+        final String detail = failure.getClass().getSimpleName()
+                + (message == null || message.isBlank() ? "" : ": " + message);
+        return detail.length() <= OutboxEntry.MAX_ERROR_LENGTH
+                ? detail : detail.substring(0, OutboxEntry.MAX_ERROR_LENGTH);
     }
 }

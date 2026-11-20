@@ -12,12 +12,18 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
-/** PostgreSQL adapter for tenant-scoped configuration with atomic revision history. */
+/**
+ * PostgreSQL implementation of tenant-scoped, revisioned application configuration.
+ * Each write serializes on a transaction-scoped advisory lock and atomically updates
+ * the current snapshot and appends its immutable revision.
+ */
 public final class PostgresApplicationConfigurationStore implements ApplicationConfigurationStore {
     private static final String SELECT_CURRENT = """
             SELECT schema_version, revision, payload_json, payload_sha256, updated_by, updated_at
-            FROM application_configurations WHERE tenant_id=? AND application_id=?
+            FROM application_configurations
+            WHERE tenant_id=? AND application_id=?
             """;
+
     private final DataSource dataSource;
 
     public PostgresApplicationConfigurationStore(DataSource dataSource) {
@@ -50,12 +56,76 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
     }
 
     @Override
+    public CompletionStage<HistoryPage> findHistory(
+            TenantId tenantId, ApplicationId applicationId, Long beforeRevision, int pageSize) {
+        try {
+            Objects.requireNonNull(tenantId, "tenantId");
+            Objects.requireNonNull(applicationId, "applicationId");
+            if (beforeRevision != null && beforeRevision < 1)
+                throw new IllegalArgumentException("beforeRevision must be positive");
+            if (pageSize < 1 || pageSize > 100)
+                throw new IllegalArgumentException("pageSize must be between 1 and 100");
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    setTenant(connection, tenantId);
+                    String sql = """
+                            SELECT revision, schema_version, payload_json, payload_sha256, updated_by, updated_at
+                            FROM application_configuration_revisions
+                            WHERE tenant_id=? AND application_id=? AND (? IS NULL OR revision < ?)
+                            ORDER BY revision DESC
+                            LIMIT ?
+                            """;
+                    java.util.List<ApplicationConfigurationSnapshot> revisions = new java.util.ArrayList<>();
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statement.setObject(1, tenantId.value());
+                        statement.setString(2, applicationId.value());
+                        if (beforeRevision == null) {
+                            statement.setNull(3, Types.BIGINT);
+                            statement.setNull(4, Types.BIGINT);
+                        } else {
+                            statement.setLong(3, beforeRevision);
+                            statement.setLong(4, beforeRevision);
+                        }
+                        statement.setInt(5, pageSize + 1);
+                        try (ResultSet result = statement.executeQuery()) {
+                            while (result.next()) {
+                                revisions.add(new ApplicationConfigurationSnapshot(
+                                        tenantId, applicationId, result.getString("schema_version"),
+                                        result.getLong("revision"), result.getString("payload_json"),
+                                        result.getString("payload_sha256"), result.getString("updated_by"),
+                                        result.getTimestamp("updated_at").toInstant()));
+                            }
+                        }
+                    }
+                    Long nextBeforeRevision = null;
+                    if (revisions.size() > pageSize) {
+                        revisions.remove(revisions.size() - 1);
+                        nextBeforeRevision = revisions.get(revisions.size() - 1).revision();
+                    }
+                    connection.commit();
+                    return CompletableFuture.completedFuture(
+                            new HistoryPage(revisions, nextBeforeRevision));
+                } catch (SQLException | RuntimeException failure) {
+                    rollback(connection, failure);
+                    throw failure;
+                }
+            }
+        } catch (SQLException failure) {
+            return CompletableFuture.failedFuture(storageFailure("find application configuration history", failure));
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedFuture(failure);
+        }
+    }
+
+    @Override
     public CompletionStage<SaveResult> save(ApplicationConfigurationSnapshot snapshot, long expectedRevision) {
         try {
             Objects.requireNonNull(snapshot, "snapshot");
             if (expectedRevision < 0) throw new IllegalArgumentException("expectedRevision cannot be negative");
             if (snapshot.revision() != Math.addExact(expectedRevision, 1))
                 throw new IllegalArgumentException("snapshot revision must be expectedRevision + 1");
+
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -68,11 +138,14 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
                         connection.commit();
                         return CompletableFuture.completedFuture(new SaveResult(false, current));
                     }
+
                     if (current.isEmpty()) insertCurrent(connection, snapshot);
                     else updateCurrent(connection, snapshot, expectedRevision);
                     appendRevision(connection, snapshot);
                     connection.commit();
                     return CompletableFuture.completedFuture(new SaveResult(true, Optional.of(snapshot)));
+                    return CompletableFuture.completedFuture(
+                            new SaveResult(true, Optional.of(snapshot)));
                 } catch (SQLException | RuntimeException failure) {
                     rollback(connection, failure);
                     throw failure;
@@ -109,10 +182,11 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
             statement.setString(2, applicationId.value());
             try (ResultSet result = statement.executeQuery()) {
                 if (!result.next()) return Optional.empty();
-                return Optional.of(new ApplicationConfigurationSnapshot(tenantId, applicationId,
-                        result.getString("schema_version"), result.getLong("revision"),
-                        result.getString("payload_json"), result.getString("payload_sha256"),
-                        result.getString("updated_by"), result.getTimestamp("updated_at").toInstant()));
+                return Optional.of(new ApplicationConfigurationSnapshot(
+                        tenantId, applicationId, result.getString("schema_version"),
+                        result.getLong("revision"), result.getString("payload_json"),
+                        result.getString("payload_sha256"), result.getString("updated_by"),
+                        result.getTimestamp("updated_at").toInstant()));
             }
         }
     }
@@ -121,11 +195,12 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
             throws SQLException {
         String sql = """
                 INSERT INTO application_configurations
-                    (tenant_id,application_id,schema_version,revision,payload_json,payload_sha256,updated_by,updated_at)
-                VALUES (?,?,?,?,?,?,?,?)
+                    (tenant_id, application_id, schema_version, revision, payload_json,
+                     payload_sha256, updated_by, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            bindCurrent(statement, snapshot);
+            bindSnapshot(statement, snapshot);
             statement.executeUpdate();
         }
     }
@@ -134,7 +209,7 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
             long expectedRevision) throws SQLException {
         String sql = """
                 UPDATE application_configurations
-                SET schema_version=?,revision=?,payload_json=?,payload_sha256=?,updated_by=?,updated_at=?
+                SET schema_version=?, revision=?, payload_json=?, payload_sha256=?, updated_by=?, updated_at=?
                 WHERE tenant_id=? AND application_id=? AND revision=?
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -148,7 +223,7 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
             statement.setString(8, snapshot.applicationId().value());
             statement.setLong(9, expectedRevision);
             if (statement.executeUpdate() != 1)
-                throw new SQLException("configuration compare-and-set lost after transaction lock", "40001");
+                throw new SQLException("configuration compare-and-set lost after lock", "40001");
         }
     }
 
@@ -156,8 +231,9 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
             throws SQLException {
         String sql = """
                 INSERT INTO application_configuration_revisions
-                    (tenant_id,application_id,revision,schema_version,payload_json,payload_sha256,updated_by,updated_at)
-                VALUES (?,?,?,?,?,?,?,?)
+                    (tenant_id, application_id, revision, schema_version, payload_json,
+                     payload_sha256, updated_by, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, snapshot.tenantId().value());
@@ -172,7 +248,7 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
         }
     }
 
-    private static void bindCurrent(PreparedStatement statement, ApplicationConfigurationSnapshot snapshot)
+    private static void bindSnapshot(PreparedStatement statement, ApplicationConfigurationSnapshot snapshot)
             throws SQLException {
         statement.setObject(1, snapshot.tenantId().value());
         statement.setString(2, snapshot.applicationId().value());
@@ -185,8 +261,11 @@ public final class PostgresApplicationConfigurationStore implements ApplicationC
     }
 
     private static void rollback(Connection connection, Throwable original) {
-        try { connection.rollback(); }
-        catch (SQLException rollbackFailure) { original.addSuppressed(rollbackFailure); }
+        try {
+            connection.rollback();
+        } catch (SQLException rollbackFailure) {
+            original.addSuppressed(rollbackFailure);
+        }
     }
 
     private static RuntimeException storageFailure(String operation, SQLException failure) {

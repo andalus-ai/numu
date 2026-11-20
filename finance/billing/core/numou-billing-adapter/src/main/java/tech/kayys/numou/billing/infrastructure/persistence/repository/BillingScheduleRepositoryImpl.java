@@ -1,5 +1,6 @@
 package tech.kayys.numou.billing.infrastructure.persistence.repository;
 
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.tuples.Tuple2;
@@ -7,6 +8,7 @@ import tech.kayys.numou.billing.domain.identifier.BillingScheduleId;
 import tech.kayys.numou.billing.domain.model.BillingSchedule;
 import tech.kayys.numou.billing.domain.repository.BillingScheduleRepository;
 import tech.kayys.numou.billing.domain.valueobject.BillingStatus;
+import tech.kayys.numou.billing.infrastructure.persistence.entity.BillingCycleEntity;
 import tech.kayys.numou.billing.infrastructure.persistence.entity.BillingScheduleEntity;
 import tech.kayys.numou.billing.application.api.query.BillingStatistics;
 import tech.kayys.numou.foundation.domain.valueobject.Money;
@@ -14,7 +16,10 @@ import tech.kayys.numou.foundation.persistence.BaseRepository;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -26,20 +31,23 @@ import java.util.stream.Collectors;
 public class BillingScheduleRepositoryImpl extends BaseRepository<BillingScheduleEntity> 
         implements BillingScheduleRepository {
 
+    /**
+     * Inserts a new schedule or updates a stored one, together with its cycles, in one transaction. (The id is
+     * always set, so "has an id" cannot tell the two apart; the stored row decides. The version column belongs to
+     * Hibernate and is never copied from the domain object.)
+     */
     @Override
     @WithTransaction
     public Uni<BillingSchedule> save(BillingSchedule schedule) {
         BillingScheduleEntity entity = BillingScheduleEntity.fromDomain(schedule);
-        
-        if (entity.id != null) {
-            return super.findById(entity.id)
-                .chain(existing -> {
-                    if (existing == null) {
-                        return Uni.createFrom().failure(
-                            new IllegalArgumentException("Billing schedule not found: " + schedule.getId())
-                        );
-                    }
-                    // Update fields
+
+        return super.findById(entity.id)
+            .chain(existing -> {
+                Uni<BillingScheduleEntity> stored;
+                if (existing == null) {
+                    entity.version = null;
+                    stored = persist(entity);
+                } else {
                     existing.subscriptionId = entity.subscriptionId;
                     existing.customerId = entity.customerId;
                     existing.customerEmail = entity.customerEmail;
@@ -60,32 +68,65 @@ public class BillingScheduleRepositoryImpl extends BaseRepository<BillingSchedul
                     existing.sendSmsNotifications = entity.sendSmsNotifications;
                     existing.active = entity.active;
                     existing.updatedAt = entity.updatedAt;
-                    existing.version = entity.version;
-                    
-                    return persist(existing)
-                        .onItem()
-                        .transform(v -> {
-                            schedule.clearEvents();
-                            return schedule;
-                        });
-                });
-        } else {
-            return persist(entity)
-                .onItem()
-                .transform(v -> {
+                    stored = persist(existing);
+                }
+                return stored.chain(v -> saveCycles(schedule)).map(v -> {
                     schedule.clearEvents();
                     return schedule;
                 });
+            });
+    }
+
+    /** Writes each cycle of the schedule: a new one is inserted, a known one takes its current state. */
+    private Uni<Void> saveCycles(BillingSchedule schedule) {
+        UUID scheduleId = schedule.getId().getValue();
+        return BillingCycleEntity.<BillingCycleEntity>find("scheduleId = ?1", scheduleId).list()
+            .chain(rows -> {
+                Map<Integer, BillingCycleEntity> byNumber = new HashMap<>();
+                rows.forEach(r -> byNumber.put(r.cycleNumber, r));
+                Uni<Void> chain = Uni.createFrom().voidItem();
+                for (BillingSchedule.BillingCycle cycle : schedule.getBillingCycles()) {
+                    BillingCycleEntity row = byNumber.get(cycle.getCycleNumber());
+                    if (row == null) {
+                        chain = chain.chain(() -> BillingCycleEntity.fromDomain(scheduleId, cycle).persist()
+                            .replaceWithVoid());
+                    } else {
+                        row.copyFrom(cycle);
+                        chain = chain.chain(() -> row.persist().replaceWithVoid());
+                    }
+                }
+                return chain;
+            });
+    }
+
+    /** Builds domain schedules from stored rows, with their cycles (one query for all of them). */
+    private Uni<List<BillingSchedule>> hydrate(List<BillingScheduleEntity> entities) {
+        if (entities.isEmpty()) {
+            return Uni.createFrom().item(List.of());
         }
+        List<UUID> ids = entities.stream().map(e -> e.id).collect(Collectors.toList());
+        return BillingCycleEntity.<BillingCycleEntity>find("scheduleId in ?1", ids).list()
+            .map(rows -> {
+                Map<UUID, List<BillingSchedule.BillingCycle>> bySchedule = new HashMap<>();
+                rows.forEach(r -> bySchedule.computeIfAbsent(r.scheduleId, k -> new ArrayList<>()).add(r.toDomain()));
+                return entities.stream().map(e -> {
+                    BillingSchedule schedule = e.toDomain();
+                    schedule.restoreCycles(bySchedule.getOrDefault(e.id, List.of()));
+                    return schedule;
+                }).collect(Collectors.toList());
+            });
     }
 
     @Override
+    @WithSession
     public Uni<Optional<BillingSchedule>> findById(BillingScheduleId id) {
         return this.<BillingScheduleEntity>findById(id.getValue())
-            .map(entity -> Optional.ofNullable(entity).map(BillingScheduleEntity::toDomain));
+            .chain(entity -> entity == null ? Uni.createFrom().item(Optional.<BillingSchedule>empty())
+                : hydrate(List.of(entity)).map(list -> Optional.of(list.get(0))));
     }
 
     @Override
+    @WithSession
     public Uni<Boolean> existsById(BillingScheduleId id) {
         return findById(id)
             .onItem()
@@ -109,69 +150,55 @@ public class BillingScheduleRepositoryImpl extends BaseRepository<BillingSchedul
     }
 
     @Override
+    @WithSession
     public Uni<Optional<BillingSchedule>> findBySubscriptionId(UUID subscriptionId) {
         return find("subscriptionId = ?1", subscriptionId)
             .firstResult()
-            .onItem()
-            .transform(entity -> entity != null ? Optional.of(entity.toDomain()) : Optional.empty());
+            .chain(entity -> entity == null ? Uni.createFrom().item(Optional.<BillingSchedule>empty())
+                : hydrate(List.of(entity)).map(list -> Optional.of(list.get(0))));
     }
 
     @Override
+    @WithSession
     public Uni<List<BillingSchedule>> findByCustomerId(String customerId) {
         return find("customerId = ?1 order by startDate desc", customerId)
             .list()
-            .onItem()
-            .transform(entities -> entities.stream()
-                .map(BillingScheduleEntity::toDomain)
-                .collect(Collectors.toList())
-            );
+            .chain(this::hydrate);
     }
 
     @Override
+    @WithSession
     public Uni<List<BillingSchedule>> findByStatus(BillingStatus status) {
         return find("status = ?1 order by nextBillingDate asc", status.name())
             .list()
-            .onItem()
-            .transform(entities -> entities.stream()
-                .map(BillingScheduleEntity::toDomain)
-                .collect(Collectors.toList())
-            );
+            .chain(this::hydrate);
     }
 
     @Override
+    @WithSession
     public Uni<List<BillingSchedule>> findDueSchedules() {
         Instant now = Instant.now();
         return find("status = 'ACTIVE' and nextBillingDate <= ?1 order by nextBillingDate asc", now)
             .list()
-            .onItem()
-            .transform(entities -> entities.stream()
-                .map(BillingScheduleEntity::toDomain)
-                .collect(Collectors.toList())
-            );
+            .chain(this::hydrate);
     }
 
     @Override
+    @WithSession
     public Uni<List<BillingSchedule>> findSchedulesWithPaymentFailures() {
         return find("status = 'ACTIVE' and failedPaymentCount > 0 order by failedPaymentCount desc")
             .list()
-            .onItem()
-            .transform(entities -> entities.stream()
-                .map(BillingScheduleEntity::toDomain)
-                .collect(Collectors.toList())
-            );
+            .chain(this::hydrate);
     }
 
     @Override
+    @WithSession
     public Uni<List<BillingSchedule>> findUpcomingBilling(int daysAhead) {
         Instant now = Instant.now();
         Instant future = now.plusSeconds(daysAhead * 24L * 60L * 60L);
         return find("status = 'ACTIVE' and nextBillingDate between ?1 and ?2 order by nextBillingDate asc", now, future)
             .list()
-            .onItem()
-            .transform(entities -> entities.stream()
-                .map(BillingScheduleEntity::toDomain)
-                .collect(Collectors.toList())
-            );
+            .chain(this::hydrate);
     }
 
     public Uni<BillingStatistics> getStatistics(Instant fromDate, Instant toDate) {
@@ -212,11 +239,7 @@ public class BillingScheduleRepositoryImpl extends BaseRepository<BillingSchedul
         Instant now = Instant.now();
         return find("status = 'ACTIVE' and endDate is not null and endDate <= ?1", now)
             .list()
-            .onItem()
-            .transform(entities -> entities.stream()
-                .map(BillingScheduleEntity::toDomain)
-                .collect(Collectors.toList())
-            );
+            .chain(this::hydrate);
     }
 
     /**

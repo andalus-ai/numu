@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
 import tech.kayys.numou.billing.application.api.command.BatchBillingCommand;
 import tech.kayys.numou.billing.application.api.command.ProcessBillingCycleCommand;
+import tech.kayys.numou.billing.application.api.command.RetryBillingCycleCommand;
 import tech.kayys.numou.billing.application.api.query.BatchBillingResult;
 import tech.kayys.numou.billing.application.api.query.BillingCycleResult;
 import tech.kayys.numou.billing.application.port.InvoicePort;
@@ -190,5 +191,29 @@ class BillingProcessorTest {
         BatchBillingResult r = join(processor.processDueBillings(new BatchBillingCommand("b3", Instant.now())));
         assertEquals("EUR", r.totalAmount().getCurrency().getCurrencyCode());
         assertEquals(0, new java.math.BigDecimal("200").compareTo(r.totalAmount().getAmount()));
+    }
+
+    @Test
+    void aFailedCycleIsRetriedAgainstItsExistingInvoice() {
+        BillingSchedule s = due("c1", "USD", "tok1");
+        payment = x -> new PaymentPort.PaymentResult(false, null, "declined");
+        assertFalse(join(processor.processBillingCycle(new ProcessBillingCycleCommand(s.getId()))).success());
+        payment = x -> new PaymentPort.PaymentResult(true, "tx-2", "ok");
+        BillingCycleResult r = join(processor.retryBillingCycle(new RetryBillingCycleCommand(s.getId())));
+        assertTrue(r.success());
+        assertEquals("inv-1", r.invoiceId());
+        assertEquals(1, invoices.get(), "no second invoice");
+        assertEquals(2, charges.get());
+        assertEquals(BillingSchedule.BillingCycleStatus.SUCCESS, s.getBillingCycles().get(0).getStatus());
+        assertEquals(0, s.getFailedPaymentCount());
+    }
+
+    @Test
+    void thereIsNothingToRetryWhenNothingFailed() {
+        BillingSchedule s = due("c1", "USD", "tok1");
+        join(processor.processBillingCycle(new ProcessBillingCycleCommand(s.getId())));
+        assertThrows(CompletionException.class,
+                () -> join(processor.retryBillingCycle(new RetryBillingCycleCommand(s.getId()))));
+        assertEquals(1, charges.get());
     }
 }

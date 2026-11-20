@@ -1,0 +1,135 @@
+package tech.kayys.numou.attendee.domain;
+
+import tech.kayys.numou.ecosystem.domain.party.PartyId;
+import tech.kayys.numou.foundation.domain.tenant.TenantId;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Objects;
+import java.util.UUID;
+
+/**
+ * Contextual attendee profile for an application or participation context.
+ *
+ * <p>This is deliberately not a person master. The canonical identity is the
+ * Ecosystem Party; this aggregate stores only attendee-facing presentation
+ * and lifecycle data owned by the consuming tenant. Registration, tickets,
+ * attendance, branch assignment, coverage and authorization are separate
+ * capabilities and must not be inferred from this profile.
+ */
+public record AttendeeProfile(
+        UUID id,
+        TenantId tenantId,
+        PartyId partyId,
+        String profileKind,
+        String displayName,
+        String preferredName,
+        String preferredLanguage,
+        AttendeeProfileStatus status,
+        Instant createdAt,
+        Instant updatedAt,
+        long revision) {
+
+    public AttendeeProfile {
+        Objects.requireNonNull(id, "id cannot be null");
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        Objects.requireNonNull(partyId, "partyId cannot be null");
+        profileKind = requireText(profileKind, "profileKind", 80);
+        displayName = requireText(displayName, "displayName", 240);
+        preferredName = optionalText(preferredName, "preferredName", 240);
+        preferredLanguage = optionalText(preferredLanguage, "preferredLanguage", 35);
+        Objects.requireNonNull(status, "status cannot be null");
+        Objects.requireNonNull(createdAt, "createdAt cannot be null");
+        Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
+        // PostgreSQL TIMESTAMPTZ stores microsecond precision. Normalize at the
+        // domain boundary so in-memory revisions round-trip without false
+        // immutable-createdAt conflicts after persistence.
+        createdAt = createdAt.truncatedTo(ChronoUnit.MICROS);
+        updatedAt = updatedAt.truncatedTo(ChronoUnit.MICROS);
+        if (updatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("updatedAt cannot be before createdAt");
+        }
+        if (revision < 0) {
+            throw new IllegalArgumentException("revision cannot be negative");
+        }
+    }
+
+    public static AttendeeProfile create(
+            UUID id,
+            TenantId tenantId,
+            PartyId partyId,
+            String profileKind,
+            String displayName,
+            String preferredName,
+            String preferredLanguage,
+            Instant now) {
+        Objects.requireNonNull(now, "now cannot be null");
+        return new AttendeeProfile(id, tenantId, partyId, profileKind, displayName,
+                preferredName, preferredLanguage, AttendeeProfileStatus.PENDING, now, now, 0);
+    }
+
+    public AttendeeProfile activate(Instant now) {
+        if (status != AttendeeProfileStatus.PENDING && status != AttendeeProfileStatus.SUSPENDED) {
+            throw new IllegalStateException("Only pending or suspended profiles can be activated");
+        }
+        return changed(AttendeeProfileStatus.ACTIVE, displayName, preferredName, preferredLanguage, now);
+    }
+
+    public AttendeeProfile suspend(Instant now) {
+        if (status != AttendeeProfileStatus.ACTIVE) {
+            throw new IllegalStateException("Only active profiles can be suspended");
+        }
+        return changed(AttendeeProfileStatus.SUSPENDED, displayName, preferredName, preferredLanguage, now);
+    }
+
+    public AttendeeProfile archive(Instant now) {
+        if (status == AttendeeProfileStatus.ARCHIVED) {
+            throw new IllegalStateException("Profile is already archived");
+        }
+        return changed(AttendeeProfileStatus.ARCHIVED, displayName, preferredName, preferredLanguage, now);
+    }
+
+    public AttendeeProfile updatePresentation(
+            String displayName, String preferredName, String preferredLanguage, Instant now) {
+        if (status == AttendeeProfileStatus.ARCHIVED) {
+            throw new IllegalStateException("Archived profiles cannot be modified");
+        }
+        return changed(status, displayName, preferredName, preferredLanguage, now);
+    }
+
+    private AttendeeProfile changed(
+            AttendeeProfileStatus nextStatus,
+            String nextDisplayName,
+            String nextPreferredName,
+            String nextPreferredLanguage,
+            Instant now) {
+        Objects.requireNonNull(now, "now cannot be null");
+        if (now.isBefore(updatedAt)) {
+            throw new IllegalArgumentException("now cannot be before updatedAt");
+        }
+        return new AttendeeProfile(id, tenantId, partyId, profileKind, nextDisplayName,
+                nextPreferredName, nextPreferredLanguage, nextStatus, createdAt, now, revision + 1);
+    }
+
+    private static String requireText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
+        }
+        return normalized;
+    }
+
+    private static String optionalText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
+        }
+        return normalized;
+    }
+}

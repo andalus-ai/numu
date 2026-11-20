@@ -23,9 +23,7 @@ class ApplicationRuntimeCoordinatorTest {
         private final String failureAt;
         private PluginContext receivedContext;
         private Object observedSharedService;
-        private Object registeredService;
         private PluginState state = PluginState.LOADED;
-        private int stopFailuresRemaining;
 
         private TestPlugin(String id, String capability, String contractVersion,
                 List<String> events, String failureAt) {
@@ -71,10 +69,6 @@ class ApplicationRuntimeCoordinatorTest {
         @Override
         public void stop() {
             events.add("stop:" + id);
-            if (stopFailuresRemaining > 0) {
-                stopFailuresRemaining--;
-                throw new IllegalStateException("stop failed once");
-            }
             state = PluginState.STOPPED;
         }
     }
