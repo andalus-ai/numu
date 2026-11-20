@@ -40,6 +40,9 @@ public record ScoreEntry(
             reason = requireText(reason, "reason");
         } else if (reason != null) {
             reason = reason.trim().isEmpty() ? null : reason.trim();
+            if (reason != null && reason.length() > 500) {
+                throw new IllegalArgumentException("reason must not exceed 500 characters");
+            }
         }
     }
 
