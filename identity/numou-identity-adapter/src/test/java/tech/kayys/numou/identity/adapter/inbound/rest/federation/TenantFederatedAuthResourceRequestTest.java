@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.numou.identity.adapter.outbound.postgres.IdentityPostgresTestResource;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -16,6 +15,7 @@ import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
@@ -68,7 +68,7 @@ class TenantFederatedAuthResourceRequestTest {
         assertEquals(400, response.statusCode(), response.body());
         assertTrue(response.body().contains("FEDERATION_DENIED"), response.body());
         assertTrue(response.body().contains("provider_error"), response.body());
-        assertTrue(!response.body().contains("secret"), response.body());
+        assertFalse(response.body().contains("secret"), response.body());
     }
 
     private String callbackPath() {
