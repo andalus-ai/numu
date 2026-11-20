@@ -19,11 +19,14 @@ import tech.kayys.numou.foundation.application.result.ApplicationError;
 import tech.kayys.numou.foundation.application.result.ApplicationErrorException;
 import tech.kayys.numou.identity.application.dto.FederationCallback;
 import tech.kayys.numou.identity.application.dto.FederatedAuthorizationStart;
+import tech.kayys.numou.identity.application.port.IdentityProviderConfigRepository;
 import tech.kayys.numou.identity.application.service.FederatedAuthenticationService;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Versioned OIDC callback for tenant-selection login. Configure the provider's registered
@@ -38,21 +41,36 @@ public class TenantFederatedAuthResource {
     private static final String COOKIE_PATH = "/api/v2/auth/federated";
 
     private final FederatedAuthenticationService federation;
+    private final IdentityProviderConfigRepository providerConfigs;
     private final ObjectMapper objectMapper;
     private final boolean cookieSecure;
 
     @Inject
     public TenantFederatedAuthResource(
             FederatedAuthenticationService federation,
+            IdentityProviderConfigRepository providerConfigs,
             ObjectMapper objectMapper,
             @ConfigProperty(name = "numou.identity.federation.cookie-secure", defaultValue = "false")
             boolean cookieSecure) {
         this.federation = federation;
+        this.providerConfigs = providerConfigs;
         this.objectMapper = objectMapper;
         this.cookieSecure = cookieSecure;
     }
 
     private record FlowCookie(String state, String nonce, String verifier) { }
+    record ProviderSummary(UUID id, String name, String type) { }
+
+    @GET
+    @Path("/providers")
+    @Operation(summary = "List enabled identity providers for tenant-selection federation")
+    public Uni<List<ProviderSummary>> providers() {
+        return providerConfigs.findEnabled()
+                .map(list -> list.stream()
+                        .map(config -> new ProviderSummary(
+                                config.id().value(), config.name(), config.type().name()))
+                        .toList());
+    }
 
     @GET
     @Path("/{providerId}/authorize")
