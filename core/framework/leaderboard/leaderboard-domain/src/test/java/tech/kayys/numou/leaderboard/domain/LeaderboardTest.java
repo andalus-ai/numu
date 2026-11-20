@@ -51,6 +51,26 @@ class LeaderboardTest {
     }
 
     @Test
+    void preservesFirstActivationAcrossPauseAndResume() {
+        Leaderboard leaderboard = draft();
+        Instant firstActivation = CREATED.plusSeconds(60);
+        leaderboard.activate(firstActivation);
+        leaderboard.pause();
+        leaderboard.activate(firstActivation.plusSeconds(300));
+        assertThat(leaderboard.activatedAt()).isEqualTo(firstActivation);
+    }
+
+    @Test
+    void rejectsCompletionBeforeActivation() {
+        Leaderboard leaderboard = draft();
+        Instant activated = CREATED.plusSeconds(60);
+        leaderboard.activate(activated);
+        leaderboard.pause();
+        assertThatThrownBy(() -> leaderboard.complete(activated.minusSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void rejectsActivationBeforeCreation() {
         assertThatThrownBy(() -> draft().activate(CREATED.minusSeconds(1)))
                 .isInstanceOf(IllegalArgumentException.class);
