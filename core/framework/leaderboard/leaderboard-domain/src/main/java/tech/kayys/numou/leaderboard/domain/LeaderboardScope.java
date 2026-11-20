@@ -10,7 +10,7 @@ public record LeaderboardScope(String tenantId) {
     public LeaderboardScope {
         Objects.requireNonNull(tenantId, "tenantId");
         tenantId = tenantId.trim();
-        if (tenantId.isEmpty()) {
+        if (tenantId.isEmpty() || tenantId.length() > 160) {
             throw new IllegalArgumentException("tenantId must not be blank");
         }
     }
