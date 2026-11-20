@@ -6,6 +6,7 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionAuditStore.Canonic
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRepairAuditStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRepairAuditStore.RepairOutcome;
+import tech.kayys.numou.history.graph.application.HistoricalProjectionOperatorContext;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.Instant;
@@ -24,7 +25,7 @@ class HistoricalProjectionReconciliationServiceTest {
         graph.rows.put(divergent,projected(divergent,2,"wrong"));
         graph.rows.put(orphan,projected(orphan,1,"orphan"));
         List<ClaimedProjectionEvent> repairs=new ArrayList<>();
-        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add,allowAll())
+        var report=auditedService(audit,graph,repairs::add,allowAll())
                 .reconcile(TENANT,2,true);
         assertEquals(3,report.canonicalChecked());assertEquals(1,report.missing());assertEquals(1,report.stale());
         assertEquals(1,report.divergent());assertEquals(1,report.orphaned());assertEquals(3,report.repaired());
@@ -34,7 +35,7 @@ class HistoricalProjectionReconciliationServiceTest {
     @Test void neverOverwritesGraphRevisionNewerThanCanonical() throws Exception {
         UUID id=UUID.randomUUID();FakeAudit audit=new FakeAudit(List.of(row(id,1)));FakeInspection graph=new FakeInspection();
         graph.rows.put(id,projected(id,2,"newer"));List<ClaimedProjectionEvent> repairs=new ArrayList<>();
-        var report=new HistoricalProjectionReconciliationService(audit,graph,repairs::add,allowAll()).reconcile(TENANT,10,true);
+        var report=auditedService(audit,graph,repairs::add,allowAll()).reconcile(TENANT,10,true);
         assertEquals(1,report.divergent());assertTrue(repairs.isEmpty());
     }
 
@@ -51,6 +52,28 @@ class HistoricalProjectionReconciliationServiceTest {
         var service=new HistoricalProjectionReconciliationService(audit,graph,e->{},denyAudit());
         assertThrows(SecurityException.class,()->service.reconcile(null,10,false));
         assertEquals(0,audit.pageCalls);
+    }
+
+    @Test void repairFailsClosedWithoutDurableAuditWiring() {
+        FakeAudit audit = new FakeAudit(List.of());
+        FakeInspection graph = new FakeInspection();
+        var service = new HistoricalProjectionReconciliationService(audit, graph, event -> {}, allowAll());
+        assertThrows(IllegalStateException.class, () -> service.reconcile(TENANT, 10, true));
+        assertEquals(0, audit.pageCalls);
+        assertEquals(0, graph.findCalls);
+    }
+
+    private static HistoricalProjectionReconciliationService auditedService(
+            HistoricalProjectionAuditStore canonical, HistoricalProjectionInspectionPort inspection,
+            HistoricalRelationshipProjectionPort replay, HistoricalProjectionMaintenanceAuthorizationPort auth) {
+        HistoricalProjectionRepairAuditStore auditStore = new HistoricalProjectionRepairAuditStore() {
+            public UUID start(UUID tenant, UUID actor, int pageSize, Instant at) { return UUID.randomUUID(); }
+            public void complete(UUID tenant, UUID actor, UUID operation, RepairOutcome outcome, Instant at) {}
+            public void fail(UUID tenant, UUID actor, UUID operation, int pageSize, String reason, Instant at) {}
+        };
+        HistoricalProjectionOperatorContext operator = () -> UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        return new HistoricalProjectionReconciliationService(canonical, inspection, replay, auth,
+                auditStore, operator, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static CanonicalRelationship row(UUID id,long rev) {
