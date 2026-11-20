@@ -29,6 +29,14 @@ class TenantFederatedAuthResourceRequestTest {
     private final HttpClient http = HttpClient.newHttpClient();
 
     @Test
+    void providerDiscoveryIsAvailableBeforeAuthentication() throws Exception {
+        HttpResponse<String> response = get("api/v2/auth/federated/providers");
+
+        assertEquals(200, response.statusCode(), response.body());
+        assertTrue(response.body().startsWith("["), response.body());
+    }
+
+    @Test
     void callbackRejectsMissingAuthorizationParametersBeforeCallingProvider() throws Exception {
         HttpResponse<String> response = get(callbackPath() + "?code=auth-code");
 
