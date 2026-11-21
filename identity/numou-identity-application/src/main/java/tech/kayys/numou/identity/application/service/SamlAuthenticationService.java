@@ -30,6 +30,19 @@ public class SamlAuthenticationService {
         this.saml = Objects.requireNonNull(saml);
     }
 
+    /** Consumes a verified SAML response and returns a restricted tenant-selection credential. */
+    public Uni<FederatedLoginResponse> consumeForTenantSelection(
+            UUID providerId, String samlResponse, String expectedInResponseTo) {
+        Objects.requireNonNull(providerId, "providerId cannot be null");
+        if (samlResponse == null || samlResponse.isBlank()) {
+            return Uni.createFrom().failure(ApplicationError.of(
+                    "SAML_RESPONSE_REQUIRED", "SAMLResponse is required").toException());
+        }
+        return federation.requireProvider(providerId, IdentityProviderType.SAML, "SAML 2.0")
+                .chain(config -> saml.validateResponse(config, samlResponse, expectedInResponseTo)
+                        .chain(identity -> federation.authenticateForTenantSelection(config, identity)));
+    }
+
     /**
      * Consumes one base64 {@code SAMLResponse} from the ACS and returns an internal access token.
      *

@@ -14,6 +14,7 @@ import tech.kayys.numou.identity.application.port.FederatedIdentityProviderPort;
 import tech.kayys.numou.identity.application.port.FederatedIdentityRepository;
 import tech.kayys.numou.identity.application.port.FederationSettingsPort;
 import tech.kayys.numou.identity.application.port.IdentityProviderConfigRepository;
+import tech.kayys.numou.identity.application.port.TenantTokenIssuerPort;
 import tech.kayys.numou.identity.application.support.InMemoryPasswordHasher;
 import tech.kayys.numou.identity.application.support.InMemoryUserRepository;
 import tech.kayys.numou.identity.application.support.PassthroughUnitOfWork;
@@ -107,9 +108,17 @@ class FederatedAuthenticationServiceTest {
                         new PassthroughUnitOfWork(), clock)
         );
 
+        TenantTokenIssuerPort tenantTokens = new TenantTokenIssuerPort() {
+            @Override public String issueTenantSelectionToken(UUID principalId, String displayName) {
+                return "selection-token-for-" + principalId;
+            }
+            @Override public String issueTenantAccessToken(UUID principalId, String displayName, UUID tenantId) {
+                return "access-token-for-" + principalId + "-in-" + tenantId;
+            }
+        };
         service = new FederatedAuthenticationService(
                 configs, provider, settingsPort, links, users, roleAssignments,
-                new InMemoryPasswordHasher(), events, tokenService,
+                new InMemoryPasswordHasher(), events, tokenService, tenantTokens,
                 new PassthroughUnitOfWork(), clock
         );
     }
@@ -153,6 +162,21 @@ class FederatedAuthenticationServiceTest {
         assertTrue(events.published().stream().anyMatch(UserRegistered.class::isInstance));
         assertTrue(events.published().stream().anyMatch(UserActivated.class::isInstance));
         assertTrue(links.findByProviderAndSubject(PROVIDER_ID, "sub-alice").await().indefinitely().isPresent());
+    }
+
+    @Test
+    void tenantAwareOidcCompletionIssuesSelectionCredentialNotLegacyAccessToken() {
+        provider.identity = new FederatedIdentity(
+                PROVIDER_ID.toString(), "sub-tenant", "tenant@corp.example",
+                "Tenant User", Set.of(), Map.of()
+        );
+
+        FederatedLoginResponse response = service.completeForTenantSelection(PROVIDER_ID,
+                new FederationCallback("auth-code", "state", "verifier", "nonce")).await().indefinitely();
+
+        assertTrue(response.token().accessToken().startsWith("selection-token-for-"));
+        assertEquals(300, response.token().expiresIn());
+        assertNull(response.token().rememberMeToken());
     }
 
     @Test
