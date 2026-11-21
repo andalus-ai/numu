@@ -25,6 +25,23 @@ public class DirectoryAuthenticationService {
         this.directory = Objects.requireNonNull(directory);
     }
 
+    /** Authenticates LDAP/AD credentials and returns the restricted tenant-selection credential. */
+    public Uni<FederatedLoginResponse> loginForTenantSelection(
+            UUID providerId, String username, String password) {
+        Objects.requireNonNull(providerId, "providerId cannot be null");
+        if (username == null || username.isBlank()) {
+            return Uni.createFrom().failure(tech.kayys.numou.foundation.application.result.ApplicationError.of(
+                    "LDAP_USERNAME_REQUIRED", "Directory username is required").toException());
+        }
+        if (password == null || password.isEmpty()) {
+            return Uni.createFrom().failure(tech.kayys.numou.foundation.application.result.ApplicationError.of(
+                    "LDAP_PASSWORD_REQUIRED", "Directory password is required").toException());
+        }
+        return federation.requireProvider(providerId, IdentityProviderType.LDAP, "LDAP bind")
+                .chain(config -> directory.authenticate(config, username, password)
+                        .chain(identity -> federation.authenticateForTenantSelection(config, identity)));
+    }
+
     /**
      * Authenticates one directory user and returns an internal Numou access token.
      *

@@ -42,6 +42,7 @@ class AdvertisingAdServingServiceTest {
 
     Fixture disabled=new Fixture();
     disabled.inventory=new AdServingInventory(disabled.placement.disable(),disabled.property,disabled.publisher);
+    disabled.store.inventory=Optional.of(disabled.inventory);
     var disabledResult=disabled.service.serve(disabled.request("https://publisher.example/page","IMAGE")).toCompletableFuture().join();
     assertEquals(AdDecisionReason.INVENTORY_NOT_ELIGIBLE,disabledResult.decision().reason());
     assertEquals(3,origin.store.decisions.size()+format.store.decisions.size()+disabled.store.decisions.size());
