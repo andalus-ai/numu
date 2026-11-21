@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
@@ -193,6 +194,58 @@ class TalentProfileTest {
         profile.archive();
         assertThatThrownBy(() -> profile.replaceSkills(List.of()))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void rehydratesCompleteSnapshotWithoutEmittingCreationEvents() {
+        var id = TalentProfileId.generate();
+        var createdAt = Instant.parse("2026-01-01T10:00:00Z");
+        var updatedAt = Instant.parse("2026-02-01T10:00:00Z");
+        var skill = new ProfileContent.Skill(UUID.randomUUID(), "Java", "Engineering",
+                ProfileContent.SkillLevel.EXPERT, ProfileContent.Verification.SELF_REPORTED);
+
+        var restored = TalentProfile.rehydrate(
+                id, tenantId, person, "Platform Engineer", "Builds platforms", "Bandung",
+                ProfileVisibility.NETWORK, TalentProfileStatus.PUBLISHED,
+                List.of(skill), List.of(), List.of(), List.of(), List.of(),
+                createdAt, updatedAt, 7
+        );
+
+        assertThat(restored.id()).isEqualTo(id);
+        assertThat(restored.tenantId()).isEqualTo(tenantId);
+        assertThat(restored.subject()).isEqualTo(person);
+        assertThat(restored.headline()).isEqualTo("Platform Engineer");
+        assertThat(restored.summary()).isEqualTo("Builds platforms");
+        assertThat(restored.locationLabel()).isEqualTo("Bandung");
+        assertThat(restored.visibility()).isEqualTo(ProfileVisibility.NETWORK);
+        assertThat(restored.status()).isEqualTo(TalentProfileStatus.PUBLISHED);
+        assertThat(restored.skills()).containsExactly(skill);
+        assertThat(restored.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(restored.getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(restored.getVersion()).isEqualTo(7);
+        assertThat(restored.pullDomainEvents()).isEmpty();
+    }
+
+    @Test
+    void rejectsInvalidPersistedSnapshotMetadata() {
+        var now = Instant.parse("2026-01-01T10:00:00Z");
+        assertThatThrownBy(() -> TalentProfile.rehydrate(
+                TalentProfileId.generate(), tenantId, person, "Engineer", null, null,
+                ProfileVisibility.PUBLIC, TalentProfileStatus.ARCHIVED,
+                List.of(), List.of(), List.of(), List.of(), List.of(), now, now, 1
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> TalentProfile.rehydrate(
+                TalentProfileId.generate(), tenantId, person, "Engineer", null, null,
+                ProfileVisibility.PRIVATE, TalentProfileStatus.DRAFT,
+                List.of(), List.of(), List.of(), List.of(), List.of(), now, now.minusSeconds(1), 1
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> TalentProfile.rehydrate(
+                TalentProfileId.generate(), tenantId, person, "Engineer", null, null,
+                ProfileVisibility.PRIVATE, TalentProfileStatus.DRAFT,
+                List.of(), List.of(), List.of(), List.of(), List.of(), now, now, -1
+        )).isInstanceOf(IllegalArgumentException.class);
     }
 
     private TalentProfile profile() {

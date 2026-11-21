@@ -23,9 +23,7 @@ class ApplicationRuntimeCoordinatorTest {
         private final String failureAt;
         private PluginContext receivedContext;
         private Object observedSharedService;
-        private Object registeredService;
         private PluginState state = PluginState.LOADED;
-        private int stopFailuresRemaining;
 
         private TestPlugin(String id, String capability, String contractVersion,
                 List<String> events, String failureAt) {
@@ -71,10 +69,6 @@ class ApplicationRuntimeCoordinatorTest {
         @Override
         public void stop() {
             events.add("stop:" + id);
-            if (stopFailuresRemaining > 0) {
-                stopFailuresRemaining--;
-                throw new IllegalStateException("stop failed once");
-            }
             state = PluginState.STOPPED;
         }
     }
@@ -426,5 +420,32 @@ class ApplicationRuntimeCoordinatorTest {
                 ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_STARTED,
                 ApplicationRuntimeLifecycleEvent.Type.PROVIDER_ROLLBACK_COMPLETED,
                 ApplicationRuntimeLifecycleEvent.Type.ROLLBACK_COMPLETED);
+    }
+\n
+    @Test
+    void adaptsApplicationReadinessToSharedHealthCheckContract() {
+        List<String> events = new ArrayList<>();
+        TestPlugin party = new TestPlugin("runtime.party.impl", "numou.party", "1.2.0", events, null);
+        TestPlugin accounting = new TestPlugin("runtime.ledger.impl", "numou.accounting", "2.1.0", events, null);
+        ApplicationRuntimeSession session = new ApplicationRuntimeCoordinator().start(composition(),
+                Map.of("party-provider", party, "accounting-provider", accounting));
+        var check = new ApplicationRuntimeHealthCheck(session);
+
+        assertThat(check.id()).isEqualTo("application-runtime:com.example.erp");
+        assertThat(check.category()).isEqualTo(tech.kayys.numou.observability.HealthCheckCategory.RUNTIME);
+        assertThat(check.criticality())
+                .isEqualTo(tech.kayys.numou.observability.HealthCheckCriticality.REQUIRED);
+        assertThat(check.check().await().indefinitely().status())
+                .isEqualTo(tech.kayys.numou.observability.HealthStatus.Status.UP);
+
+        accounting.state = PluginState.FAILED;
+        var degradedRuntime = check.check().await().indefinitely();
+        assertThat(degradedRuntime.status()).isEqualTo(tech.kayys.numou.observability.HealthStatus.Status.DOWN);
+        assertThat(degradedRuntime.message()).contains("not ready: 1/2 providers");
+
+        session.stop();
+        var stoppedRuntime = check.check().await().indefinitely();
+        assertThat(stoppedRuntime.status()).isEqualTo(tech.kayys.numou.observability.HealthStatus.Status.DOWN);
+        assertThat(stoppedRuntime.message()).contains("stopped");
     }
 \n}\n

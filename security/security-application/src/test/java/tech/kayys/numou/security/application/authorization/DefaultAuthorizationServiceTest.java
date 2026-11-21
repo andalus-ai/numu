@@ -11,6 +11,7 @@ import tech.kayys.numou.security.domain.identifier.PrincipalId;
 import tech.kayys.numou.security.domain.valueobject.ActionType;
 import tech.kayys.numou.security.domain.valueobject.Decision;
 import tech.kayys.numou.security.spi.port.PolicyPort;
+import tech.kayys.numou.security.spi.port.AuthorizationServicePort;
 import tech.kayys.numou.security.spi.port.ResourceAuthorizationPort;
 
 import java.util.Set;
@@ -20,6 +21,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DefaultAuthorizationServiceTest {
+
+
+    @Test
+    void shouldExposeAuthorizationThroughPublicSecuritySpi() {
+        PolicyPort policyPort = (principal, tenant) -> Uni.createFrom().item(Set.of());
+        var authService = new DefaultAuthorizationService(policyPort);
+
+        assertInstanceOf(AuthorizationServicePort.class, authService);
+    }
 
     @Test
     void shouldAllowWhenPrincipalHasPermission() {

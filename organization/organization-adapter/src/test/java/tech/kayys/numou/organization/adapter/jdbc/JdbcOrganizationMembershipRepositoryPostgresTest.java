@@ -39,6 +39,8 @@ class JdbcOrganizationMembershipRepositoryPostgresTest {
 
         assertTrue(repository.findByTenantAndId(tenantA, a.getId()).toCompletableFuture().join().isPresent());
         assertTrue(repository.findByTenantAndId(tenantB, a.getId()).toCompletableFuture().join().isEmpty());
+        assertTrue(repository.existsByTenantAndId(tenantA, a.getId()).toCompletableFuture().join());
+        assertFalse(repository.existsByTenantAndId(tenantB, a.getId()).toCompletableFuture().join());
         assertTrue(repository.findByTenantAndOrganizationAndUser(tenantA, org, user)
                 .toCompletableFuture().join().isPresent());
         assertTrue(repository.findByTenantAndOrganizationAndUser(tenantB, org, user)
@@ -88,6 +90,9 @@ class JdbcOrganizationMembershipRepositoryPostgresTest {
         var membership = OrganizationMembership.invite(
                 OrganizationMembershipId.generate(), OrganizationId.generate(), UserId.newId());
         assertThrows(RuntimeException.class, () -> repository.save(membership).toCompletableFuture().join());
+        assertThrows(RuntimeException.class, () -> repository.findById(membership.getId()).toCompletableFuture().join());
+        assertThrows(RuntimeException.class, () -> repository.existsById(membership.getId()).toCompletableFuture().join());
+        assertThrows(RuntimeException.class, () -> repository.deleteById(membership.getId()).toCompletableFuture().join());
     }
 
     private OrganizationMembershipRepository repository() throws Exception {

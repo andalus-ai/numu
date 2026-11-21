@@ -6,9 +6,12 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.domain.SocialConnection;
 import tech.kayys.numou.socialgraph.domain.SocialConnectionId;
+import tech.kayys.numou.socialgraph.domain.SocialRelationship;
+import tech.kayys.numou.socialgraph.spi.SocialGraphUnitOfWork;
+
+import java.time.Clock;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -31,6 +34,21 @@ import java.util.function.Function;
 public final class SocialGraphCommandFacade {
     private final SocialGraphActorResolver actorResolver;
     private final SocialGraphService service;
+
+    /**
+     * Creates the application facade while keeping the command service package-private.
+     * Infrastructure hosts compose through this factory rather than depending on
+     * the service implementation or weakening its visibility.
+     */
+    public static SocialGraphCommandFacade compose(
+            SocialGraphUnitOfWork unitOfWork,
+            PartyDirectoryPort parties,
+            SocialGraphAuthorizationPort authorization,
+            SocialGraphActorResolver actorResolver,
+            Clock clock) {
+        SocialGraphService service = new SocialGraphService(unitOfWork, parties, authorization, clock);
+        return new SocialGraphCommandFacade(actorResolver, service);
+    }
 
     public SocialGraphCommandFacade(SocialGraphActorResolver actorResolver, SocialGraphService service) {
         this.actorResolver = Objects.requireNonNull(actorResolver, "actorResolver cannot be null");
@@ -70,6 +88,30 @@ public final class SocialGraphCommandFacade {
             SocialConnectionId connectionId, String idempotencyKey) {
         return withActor(trustedTenant, authenticatedSubject,
                 actor -> service.removeConnection(actor, connectionId, idempotencyKey));
+    }
+
+    public Uni<SocialRelationship> follow(TenantId tenant, IdentitySubjectRef subject, PartyId target, String key) {
+        return withActor(tenant, subject, actor -> service.follow(actor, target, key));
+    }
+
+    public Uni<SocialRelationship> unfollow(TenantId tenant, IdentitySubjectRef subject, PartyId target, String key) {
+        return withActor(tenant, subject, actor -> service.unfollow(actor, target, key));
+    }
+
+    public Uni<SocialRelationship> block(TenantId tenant, IdentitySubjectRef subject, PartyId target, String key) {
+        return withActor(tenant, subject, actor -> service.block(actor, target, key));
+    }
+
+    public Uni<SocialRelationship> unblock(TenantId tenant, IdentitySubjectRef subject, PartyId target, String key) {
+        return withActor(tenant, subject, actor -> service.unblock(actor, target, key));
+    }
+
+    public Uni<SocialRelationship> mute(TenantId tenant, IdentitySubjectRef subject, PartyId target, String key) {
+        return withActor(tenant, subject, actor -> service.mute(actor, target, key));
+    }
+
+    public Uni<SocialRelationship> unmute(TenantId tenant, IdentitySubjectRef subject, PartyId target, String key) {
+        return withActor(tenant, subject, actor -> service.unmute(actor, target, key));
     }
 
     private <T> Uni<T> withActor(

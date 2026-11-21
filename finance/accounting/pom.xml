@@ -28,5 +28,6 @@
         <module>numou-accounting-treasury</module>
         <module>numou-accounting-governance</module>
         <module>numou-accounting-adapter</module>
+        <module>numou-accounting-local-integrations</module>
     </modules>
 </project>

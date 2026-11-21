@@ -97,4 +97,46 @@ class BillingScheduleTest {
         assertEquals(at("2026-04-15T00:00:00Z"), s.getNextBillingDate());
         assertThrows(IllegalArgumentException.class, () -> s.ensureBillable(at("2026-03-20T00:00:00Z")));
     }
+
+    @Test
+    void aFailedCycleCanBeRetriedOnceAndOnlyWhileTheScheduleIsActive() {
+        BillingSchedule s = active(BillingFrequency.MONTHLY, "2026-01-15T00:00:00Z");
+        assertThrows(IllegalStateException.class, () -> s.beginRetry(null), "nothing has failed yet");
+        BillingSchedule.BillingCycle c = s.processBillingCycle(at("2026-02-15T00:00:00Z"), "inv-1");
+        assertThrows(IllegalStateException.class, () -> s.beginRetry(null), "a pending cycle is not a failed one");
+        s.markCycleFailed(c.getCycleNumber(), "declined");
+        BillingSchedule.BillingCycle again = s.beginRetry(null);
+        assertSame(c, again);
+        assertEquals(BillingSchedule.BillingCycleStatus.RETRY, c.getStatus());
+        assertEquals("inv-1", c.getInvoiceId(), "the retry uses the invoice it already has");
+        assertThrows(IllegalStateException.class, () -> s.beginRetry(null), "already being retried");
+        s.markCycleSuccess(c.getCycleNumber(), "tx-2");
+        assertEquals(BillingSchedule.BillingCycleStatus.SUCCESS, c.getStatus());
+        assertEquals(0, s.getFailedPaymentCount());
+    }
+
+    @Test
+    void aStoppedScheduleIsNotRetried() {
+        BillingSchedule s = active(BillingFrequency.MONTHLY, "2026-01-15T00:00:00Z");
+        s.setMaxFailedPayments(1);
+        s.processBillingCycle(at("2026-02-15T00:00:00Z"), "inv-1");
+        s.markCycleFailed(1, "declined");
+        assertEquals(BillingStatus.FAILED, s.getStatus());
+        assertThrows(IllegalStateException.class, () -> s.beginRetry(null));
+    }
+
+    @Test
+    void storedCyclesComeBackInOrderWithTheirOutcome() {
+        BillingSchedule s = active(BillingFrequency.MONTHLY, "2026-01-15T00:00:00Z");
+        BillingSchedule.BillingCycle two = BillingSchedule.BillingCycle.restore(2, at("2026-03-15T00:00:00Z"),
+                Money.of(100L, "USD"), "USD", "inv-2", BillingSchedule.BillingCycleStatus.FAILED, null, "declined",
+                at("2026-03-15T00:00:01Z"), at("2026-03-15T00:00:02Z"));
+        BillingSchedule.BillingCycle one = BillingSchedule.BillingCycle.restore(1, at("2026-02-15T00:00:00Z"),
+                Money.of(100L, "USD"), "USD", "inv-1", BillingSchedule.BillingCycleStatus.SUCCESS, "tx-1", null,
+                at("2026-02-15T00:00:01Z"), at("2026-02-15T00:00:02Z"));
+        s.restoreCycles(java.util.List.of(two, one));
+        assertEquals(java.util.List.of(1, 2), s.getBillingCycles().stream().map(c -> c.getCycleNumber()).toList());
+        s.restoreProgress(at("2026-04-15T00:00:00Z"), at("2026-03-15T00:00:00Z"), 2, 1);
+        assertSame(two, s.beginRetry(null));
+    }
 }

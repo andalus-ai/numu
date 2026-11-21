@@ -31,8 +31,7 @@ public class AccountResource {
     @Inject
     CommandBus commandBus;
 
-    
-public record CreateAccountRequest(
+    public record CreateAccountRequest(
             String tenantId,
             String ledgerId,
             String accountNumber,
@@ -43,45 +42,71 @@ public record CreateAccountRequest(
     ) {}
 
     @GET
-    @Operation(summary = "List all accounts in Chart of Accounts")
-    public Uni<List<Account>> listAccounts() {
-        return accountRepository.findAll();
+    @Operation(summary = "List accounts in the specified tenant and ledger")
+    public Uni<List<Account>> listAccounts(
+            @QueryParam("tenantId") String tenantId,
+            @QueryParam("ledgerId") String ledgerId) {
+        Scope scope = requireScope(tenantId, ledgerId);
+        return accountRepository.findAll(scope.tenantId(), scope.ledgerId());
     }
 
     @GET
     @Path("/{id}")
-    @Operation(summary = "Get account details by ID")
-    public Uni<Response> getAccount(@PathParam("id") UUID id) {
-        return accountRepository.findById(AccountId.of(id))
+    @Operation(summary = "Get account details by ID within a tenant and ledger")
+    public Uni<Response> getAccount(
+            @PathParam("id") UUID id,
+            @QueryParam("tenantId") String tenantId,
+            @QueryParam("ledgerId") String ledgerId) {
+        Scope scope = requireScope(tenantId, ledgerId);
+        return accountRepository.findById(scope.tenantId(), scope.ledgerId(), AccountId.of(id))
                 .map(opt -> opt.map(a -> Response.ok(a).build())
-                               .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build()));
+                        .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build()));
     }
 
     @POST
     @Operation(summary = "Create a new Account via CQRS Command Bus")
     public Uni<Response> createAccount(CreateAccountRequest req) {
-        TenantRef tId = req.tenantId() != null ? TenantRef.of(req.tenantId()) : TenantRef.defaultTenant();
-        LedgerId lId = req.ledgerId() != null ? LedgerId.of(req.ledgerId()) : LedgerId.primary();
+        if (req == null) {
+            throw new BadRequestException("Request body is required");
+        }
+        TenantRef tenantId = req.tenantId() != null ? TenantRef.of(req.tenantId()) : TenantRef.defaultTenant();
+        LedgerId ledgerId = req.ledgerId() != null ? LedgerId.of(req.ledgerId()) : LedgerId.primary();
         AccountType type = AccountType.valueOf(req.accountType().toUpperCase());
 
-        CreateAccountCommand cmd = new CreateAccountCommand(tId, lId, req.accountNumber(), req.name(), req.description(), type, req.currencyCode());
+        CreateAccountCommand cmd = new CreateAccountCommand(
+                tenantId, ledgerId, req.accountNumber(), req.name(), req.description(), type, req.currencyCode());
         return commandBus.<CreateAccountCommand, AccountId>dispatch(cmd)
                 .map(newId -> Response.status(Response.Status.CREATED).entity(newId).build());
     }
 
     @PUT
     @Path("/{id}/deactivate")
-    @Operation(summary = "Deactivate an account")
-    public Uni<Response> deactivateAccount(@PathParam("id") UUID id) {
-        return accountRepository.findById(AccountId.of(id))
+    @Operation(summary = "Deactivate an account within a tenant and ledger")
+    public Uni<Response> deactivateAccount(
+            @PathParam("id") UUID id,
+            @QueryParam("tenantId") String tenantId,
+            @QueryParam("ledgerId") String ledgerId) {
+        Scope scope = requireScope(tenantId, ledgerId);
+        return accountRepository.findById(scope.tenantId(), scope.ledgerId(), AccountId.of(id))
                 .chain(opt -> {
                     if (opt.isEmpty()) {
                         return Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build());
                     }
-                    Account acc = opt.get();
-                    acc.deactivate();
-                    return accountRepository.save(acc)
-                            .map(v -> Response.ok(acc).build());
+                    Account account = opt.get();
+                    account.deactivate();
+                    return accountRepository.save(account).map(v -> Response.ok(account).build());
                 });
     }
+
+    private static Scope requireScope(String tenantId, String ledgerId) {
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new BadRequestException("tenantId query parameter is required");
+        }
+        if (ledgerId == null || ledgerId.isBlank()) {
+            throw new BadRequestException("ledgerId query parameter is required");
+        }
+        return new Scope(TenantRef.of(tenantId), LedgerId.of(ledgerId));
+    }
+
+    private record Scope(TenantRef tenantId, LedgerId ledgerId) {}
 }

@@ -2,6 +2,7 @@ package tech.kayys.numou.accounting.interfaces.repository;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import tech.kayys.numou.accounting.application.outbox.OutboxEvent;
 import tech.kayys.numou.accounting.application.outbox.OutboxRepository;
 
@@ -11,7 +12,13 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Ephemeral adapter for local development and tests only. The production
+ * profile intentionally excludes this bean: journal persistence and the
+ * accounting outbox must be durable before production posting is enabled.
+ */
 @ApplicationScoped
+@UnlessBuildProfile("prod")
 public class InMemoryOutboxRepository implements OutboxRepository {
     private final Map<UUID, OutboxEvent> store = new ConcurrentHashMap<>();
 

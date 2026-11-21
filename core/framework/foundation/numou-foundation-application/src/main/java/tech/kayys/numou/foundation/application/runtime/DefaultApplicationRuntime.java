@@ -13,6 +13,7 @@ import tech.kayys.numou.foundation.application.startup.StartupValidator;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Standard implementation of {@link ApplicationRuntime} executing the canonical lifecycle state machine:
@@ -25,6 +26,7 @@ public final class DefaultApplicationRuntime implements ApplicationRuntime, Live
     private final ApplicationComponentRegistry componentRegistry;
     private final StartupValidator startupValidator;
     private final List<ManagedWorker> workers;
+    private final Consumer<ApplicationRuntimeState> stateListener;
 
     private volatile ApplicationRuntimeState state = ApplicationRuntimeState.NEW;
     private volatile Uni<Void> startupOperation;
@@ -41,12 +43,38 @@ public final class DefaultApplicationRuntime implements ApplicationRuntime, Live
             ApplicationComponentRegistry componentRegistry,
             StartupValidator startupValidator,
             Collection<ManagedWorker> workers) {
+        this(registry, moduleRegistry, componentRegistry, startupValidator, workers, ignored -> { });
+    }
+
+    public DefaultApplicationRuntime(
+            RuntimeRegistry registry,
+            ModuleRegistry moduleRegistry,
+            ApplicationComponentRegistry componentRegistry,
+            StartupValidator startupValidator,
+            Collection<ManagedWorker> workers,
+            Consumer<ApplicationRuntimeState> stateListener) {
 
         this.registry = Objects.requireNonNull(registry, "registry cannot be null");
         this.moduleRegistry = Objects.requireNonNull(moduleRegistry, "moduleRegistry cannot be null");
         this.componentRegistry = Objects.requireNonNull(componentRegistry, "componentRegistry cannot be null");
         this.startupValidator = Objects.requireNonNull(startupValidator, "startupValidator cannot be null");
         this.workers = workers != null ? new ArrayList<>(workers) : new ArrayList<>();
+        this.stateListener = Objects.requireNonNull(stateListener, "stateListener cannot be null");
+        validateWorkerIds(this.workers);
+    }
+
+    private static void validateWorkerIds(Collection<ManagedWorker> workers) {
+        Set<String> ids = new HashSet<>();
+        for (ManagedWorker worker : workers) {
+            Objects.requireNonNull(worker, "worker cannot be null");
+            String id = worker.id();
+            if (id == null || id.isBlank()) {
+                throw new IllegalArgumentException("worker ID cannot be blank");
+            }
+            if (!ids.add(id)) {
+                throw new IllegalStateException("Managed worker is already registered: " + id);
+            }
+        }
     }
 
     @Override
@@ -109,14 +137,16 @@ public final class DefaultApplicationRuntime implements ApplicationRuntime, Live
 
             // Start components in order
             for (RuntimeComponent comp : componentRegistry.components()) {
-                comp.start().await().atMost(registry.settings().startupTimeout());
+                // Register before start so rollback also attempts cleanup when start partially succeeds.
                 startedComponents.push(comp);
+                comp.start().await().atMost(registry.settings().startupTimeout());
             }
 
-            // Start workers
+            // Start workers after infrastructure components.
             for (ManagedWorker worker : workers) {
-                worker.start().await().atMost(registry.settings().startupTimeout());
+                // A failed start may still have acquired resources; stop is part of rollback.
                 startedWorkers.push(worker);
+                worker.start().await().atMost(registry.settings().startupTimeout());
             }
 
             // 3. RUNNING
@@ -133,21 +163,28 @@ public final class DefaultApplicationRuntime implements ApplicationRuntime, Live
     }
 
     private void rollbackStartup(Throwable cause) {
-        // Stop started workers in reverse order
+        // Stop started workers in reverse order and retain cleanup failures without masking the startup cause.
         while (!startedWorkers.isEmpty()) {
             ManagedWorker worker = startedWorkers.pop();
             try {
                 worker.stop().await().atMost(registry.settings().shutdownTimeout());
-            } catch (Exception ignored) {}
+            } catch (RuntimeException cleanupFailure) {
+                availabilityReasons.add(cleanupFailure("STARTUP_ROLLBACK_FAILURE", worker.id(), cleanupFailure));
+            }
         }
-        // Stop started components in reverse order
+        // Stop started components in reverse order.
         while (!startedComponents.isEmpty()) {
-            RuntimeComponent comp = startedComponents.pop();
+            RuntimeComponent component = startedComponents.pop();
             try {
-                comp.stop().await().atMost(registry.settings().shutdownTimeout());
-            } catch (Exception ignored) {}
+                component.stop().await().atMost(registry.settings().shutdownTimeout());
+            } catch (RuntimeException cleanupFailure) {
+                availabilityReasons.add(cleanupFailure("STARTUP_ROLLBACK_FAILURE", component.id(), cleanupFailure));
+            }
         }
-        availabilityReasons.add(AvailabilityReason.of("STARTUP_FAILURE", cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName()));
+        availabilityReasons.add(AvailabilityReason.of(
+                "STARTUP_FAILURE",
+                "Startup failed (" + cause.getClass().getSimpleName() + ")"
+        ));
     }
 
     @Override
@@ -175,35 +212,52 @@ public final class DefaultApplicationRuntime implements ApplicationRuntime, Live
     }
 
     private synchronized void executeShutdownSequence() {
-        try {
-            // Stop workers first
-            while (!startedWorkers.isEmpty()) {
-                ManagedWorker worker = startedWorkers.pop();
-                try {
-                    worker.stop().await().atMost(registry.settings().shutdownTimeout());
-                } catch (Exception ignored) {}
+        List<RuntimeException> failures = new ArrayList<>();
+
+        // Stop workers first, continuing after failures so all resources get a cleanup attempt.
+        while (!startedWorkers.isEmpty()) {
+            ManagedWorker worker = startedWorkers.pop();
+            try {
+                worker.stop().await().atMost(registry.settings().shutdownTimeout());
+            } catch (RuntimeException failure) {
+                failures.add(failure);
+                availabilityReasons.add(cleanupFailure("SHUTDOWN_FAILURE", worker.id(), failure));
             }
-            // Stop components
-            while (!startedComponents.isEmpty()) {
-                RuntimeComponent comp = startedComponents.pop();
-                try {
-                    comp.stop().await().atMost(registry.settings().shutdownTimeout());
-                } catch (Exception ignored) {}
-            }
-            transition(ApplicationRuntimeState.STOPPED);
-        } catch (Throwable t) {
-            transition(ApplicationRuntimeState.FAILED);
-            if (t instanceof RuntimeException re) {
-                throw re;
-            }
-            throw new ApplicationRuntimeException("Shutdown sequence failed", t);
         }
+
+        // Stop components in reverse startup order.
+        while (!startedComponents.isEmpty()) {
+            RuntimeComponent component = startedComponents.pop();
+            try {
+                component.stop().await().atMost(registry.settings().shutdownTimeout());
+            } catch (RuntimeException failure) {
+                failures.add(failure);
+                availabilityReasons.add(cleanupFailure("SHUTDOWN_FAILURE", component.id(), failure));
+            }
+        }
+
+        if (!failures.isEmpty()) {
+            transition(ApplicationRuntimeState.FAILED);
+            throw new ApplicationRuntimeException(
+                    "Runtime shutdown completed with " + failures.size() + " cleanup failure(s)",
+                    failures.get(0)
+            );
+        }
+        transition(ApplicationRuntimeState.STOPPED);
+    }
+
+    private static AvailabilityReason cleanupFailure(String code, String componentId, RuntimeException failure) {
+        return AvailabilityReason.of(
+                code,
+                componentId + " cleanup failed (" + failure.getClass().getSimpleName() + ")"
+        );
     }
 
     private void transition(ApplicationRuntimeState next) {
         LifecycleTransition trans = LifecycleTransition.of(state, next);
         transitions.add(trans);
         state = next;
+        stateListener.accept(next);
     }
 
     // Availability contracts

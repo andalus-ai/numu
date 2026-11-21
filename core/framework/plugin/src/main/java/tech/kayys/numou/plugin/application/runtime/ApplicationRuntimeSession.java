@@ -10,11 +10,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Owns one application's selected plugins, routing boundary and shutdown lifecycle. */
+/**
+ * Owns the plugins selected for one application composition.
+ *
+ * Routing is deliberately application-scoped: this session never consults the global plugin
+ * registry, so an unrelated or unselected plugin cannot become a fallback provider.
+ */
 public final class ApplicationRuntimeSession implements AutoCloseable {
     private final String applicationId;
     private final List<String> providerIds;
@@ -49,6 +53,7 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
     }
 
     public String applicationId() { return applicationId; }
+
     public List<String> providerIds() { return providerIds; }
 
     public Optional<PluginContext> context(String providerId) {
@@ -57,9 +62,12 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
 
     public Map<String, PluginContext> contexts() { return contexts; }
 
-    /** Resolve only this application's selected provider, and only while it remains ACTIVE. */
+    /**
+     * Resolve only the provider selected by this application's composition. A provider is
+     * routable only while its plugin reports ACTIVE and the session has not been stopped.
+     */
     public Optional<NumouPlugin> route(String capabilityId) {
-        if (stopRequested.get() || capabilityId == null) return Optional.empty();
+        if (stopped.get() || capabilityId == null) return Optional.empty();
         String providerId = providerByCapability.get(capabilityId);
         NumouPlugin plugin = providerId == null ? null : pluginsByProvider.get(providerId);
         return plugin != null && plugin.state() == PluginState.ACTIVE
@@ -67,9 +75,8 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
     }
 
     public boolean isStopped() { return stopped.get(); }
-    public boolean isStopping() { return stopRequested.get() && !stopped.get(); }
 
-    /** Point-in-time readiness; stopping sessions are immediately unready. */
+    /** Immutable point-in-time health view; readiness requires every selected plugin to be ACTIVE. */
     public ApplicationRuntimeHealth health() {
         List<ApplicationRuntimeProviderHealth> providers = new ArrayList<>();
         for (String providerId : providerIds) {
@@ -79,7 +86,7 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
                     plugin == null ? null : plugin.id(), state,
                     !stopRequested.get() && state == PluginState.ACTIVE, stopFailures.get(providerId)));
         }
-        boolean ready = !stopRequested.get() && !providers.isEmpty()
+        boolean ready = !stopped.get() && !providers.isEmpty()
                 && providers.stream().allMatch(ApplicationRuntimeProviderHealth::ready);
         return new ApplicationRuntimeHealth(applicationId, ready, stopped.get(), providers);
     }
@@ -98,13 +105,8 @@ public final class ApplicationRuntimeSession implements AutoCloseable {
                 ApplicationRuntimeLifecycleEvent.Type.SHUTDOWN_STARTED, retry ? "retry" : null);
         List<Throwable> failures = new ArrayList<>();
         for (int i = providerIds.size() - 1; i >= 0; i--) {
-            String providerId = providerIds.get(i);
-            if (stoppedProviders.contains(providerId)) continue;
-            NumouPlugin plugin = pluginsByProvider.get(providerId);
-            if (plugin == null) {
-                stoppedProviders.add(providerId);
-                continue;
-            }
+            NumouPlugin plugin = pluginsByProvider.get(providerIds.get(i));
+            if (plugin == null) continue;
             try {
                 plugin.stop();
                 stoppedProviders.add(providerId);

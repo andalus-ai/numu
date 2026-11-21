@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+ <modelVersion>4.0.0</modelVersion>
+ <groupId>tech.kayys.numou</groupId><artifactId>numou-history-graph-neo4j-adapter</artifactId><version>0.1.0-SNAPSHOT</version>
+ <name>Numou History Graph Neo4j Adapter</name><description>Optional rebuildable Neo4j projection for historical relationship traversal.</description>
+ <properties><maven.compiler.release>21</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><junit.version>5.11.0</junit.version><testcontainers.version>1.21.3</testcontainers.version><neo4j.driver.version>5.26.0</neo4j.driver.version><jackson.version>2.18.2</jackson.version></properties>
+ <dependencies>
+  <dependency><groupId>tech.kayys.numou</groupId><artifactId>numou-history-graph-application</artifactId><version>${project.version}</version></dependency>
+  <dependency><groupId>org.neo4j.driver</groupId><artifactId>neo4j-java-driver</artifactId><version>${neo4j.driver.version}</version></dependency>
+  <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><version>${jackson.version}</version></dependency>
+  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>${junit.version}</version><scope>test</scope></dependency>
+  <dependency><groupId>org.testcontainers</groupId><artifactId>neo4j</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
+  <dependency><groupId>org.testcontainers</groupId><artifactId>junit-jupiter</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
+ </dependencies>
+ <build><plugins>
+  <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.13.0</version></plugin>
+  <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.0</version><configuration><useModulePath>false</useModulePath></configuration></plugin>
+ </plugins></build>
+</project>

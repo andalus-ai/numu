@@ -29,6 +29,7 @@ import tech.kayys.numou.identity.application.port.ServiceAccountRepository;
 import tech.kayys.numou.identity.application.port.TenantMembershipPort;
 import tech.kayys.numou.identity.application.port.TokenIssuerPort;
 import tech.kayys.numou.identity.application.port.TokenVerifierPort;
+import tech.kayys.numou.identity.application.port.TenantTokenIssuerPort;
 import tech.kayys.numou.identity.application.port.UserRepository;
 import tech.kayys.numou.identity.application.query.GetUserByIdQueryHandler;
 import tech.kayys.numou.identity.application.query.ListUsersQueryHandler;
@@ -123,6 +124,9 @@ public class IdentityHandlerProducers {
     @Inject
     TokenVerifierPort tokenVerifier;
 
+    @Inject
+    TenantTokenIssuerPort tenantTokenIssuer;
+
     @Produces
     @ApplicationScoped
     public AuthorizationService authorizationService() {
@@ -179,7 +183,7 @@ public class IdentityHandlerProducers {
         return new FederatedAuthenticationService(
                 identityProviderConfigs, federatedIdentityProvider, federationSettings,
                 federatedIdentityRepository, userRepository, scopedRoleAssignmentService(),
-                passwordHasher, eventPublisher, tokenService(), unitOfWork, domainClock);
+                passwordHasher, eventPublisher, tokenService(), tenantTokenIssuer, unitOfWork, domainClock);
     }
 
     @Produces

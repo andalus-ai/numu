@@ -18,6 +18,7 @@ import tech.kayys.numou.identity.adapter.inbound.security.IdentityManagementGuar
 import tech.kayys.numou.identity.application.dto.CreateServiceAccountRequest;
 import tech.kayys.numou.identity.application.dto.ServiceAccountResponse;
 import tech.kayys.numou.identity.application.service.ServiceAccountService;
+import tech.kayys.numou.security.domain.valueobject.ActionType;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,8 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ServiceAccountResource {
+
+    private static final String RESOURCE_TYPE = "identity.service-account";
 
     private final ServiceAccountService serviceAccountService;
     private final IdentityManagementGuard guard;
@@ -43,8 +46,8 @@ public class ServiceAccountResource {
     @POST
     @Operation(summary = "Create a new service account")
     public Uni<Response> create(@Valid CreateServiceAccountRequest request) {
-        return guard.require("identity.service-account.manage")
-                .chain(actor -> serviceAccountService.create(request))
+        return guard.requireTenantAuthorization(RESOURCE_TYPE, ActionType.CREATE)
+                .chain(context -> serviceAccountService.create(context.tenantId(), request))
                 .map(sa -> Response.status(Response.Status.CREATED).entity(sa).build());
     }
 
@@ -52,14 +55,14 @@ public class ServiceAccountResource {
     @Path("/{id}/disable")
     @Operation(summary = "Disable a service account")
     public Uni<ServiceAccountResponse> disable(@PathParam("id") UUID id) {
-        return guard.require("identity.service-account.manage")
-                .chain(actor -> serviceAccountService.disable(id, actor));
+        return guard.requireTenantAuthorization(RESOURCE_TYPE, ActionType.UPDATE)
+                .chain(context -> serviceAccountService.disable(context.tenantId(), id, context.actorId()));
     }
 
     @GET
-    @Operation(summary = "List all service accounts")
+    @Operation(summary = "List service accounts in the active tenant")
     public Uni<List<ServiceAccountResponse>> listAll() {
-        return guard.require("identity.service-account.read")
-                .chain(actor -> serviceAccountService.listAll());
+        return guard.requireTenantAuthorization(RESOURCE_TYPE, ActionType.READ)
+                .chain(context -> serviceAccountService.listAll(context.tenantId()));
     }
 }

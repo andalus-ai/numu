@@ -32,6 +32,39 @@ jobs:
       - name: Enforce declared capability dependency directions
         run: python3 tools/verify-capability-boundaries.py
 
+  organization-invitation:
+    name: Organization invitation lifecycle verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
+      - name: Build and install foundation contracts
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+      - name: Build and install ecosystem contracts
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install cache contracts required by Identity
+        run: mvn -B -ntp -f core/framework/cache/pom.xml install
+      - name: Build and install Identity contracts
+        run: mvn -B -ntp -f identity/pom.xml -pl numou-identity-domain,numou-identity-application -am install
+      - name: Build and install Vault encryption contracts
+        run: mvn -B -ntp -f security/pom.xml -pl security-vault-spi -am install -Dmaven.test.skip=true
+      - name: Verify Organization and invitation lifecycle
+        run: mvn -B -ntp -f organization/pom.xml verify
+      - name: Upload Organization Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: organization-invitation-test-reports
+          path: "organization/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
+
   queue-management-postgres:
     name: Queue Management PostgreSQL runtime verification
     runs-on: ubuntu-24.04
@@ -45,7 +78,7 @@ jobs:
       - name: Validate capability reactor parent paths
         run: python3 tools/verify-module-topology.py
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Verify Queue Management domain and PostgreSQL runtime
@@ -84,7 +117,7 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Verify and install Geo capability
@@ -93,6 +126,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security capability
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
@@ -162,7 +199,7 @@ jobs:
       # published POMs inherit from numou-framework. A child reactor resolving its
       # parent through relativePath does not install that parent into the local repo.
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       # Install cross-reactor capability contracts before consumers that depend on them.
@@ -174,6 +211,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts used by security
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security contracts used by framework adapters
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
@@ -216,6 +257,9 @@ jobs:
       - name: Build and install identity contracts (tests deferred)
         id: identity_bootstrap
         run: mvn -B -ntp -f identity/pom.xml install -DskipTests
+
+      - name: Verify Document capability domain, application and PostgreSQL adapter
+        run: mvn -B -ntp -f document/pom.xml verify
       - name: Build and install organization contracts used by Courier
         run: mvn -B -ntp -f organization/pom.xml install
       - name: Build and install quantity contracts
@@ -286,7 +330,7 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       # The PostgreSQL integration test must run as a role that is neither a
@@ -340,7 +384,7 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install foundation contracts
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Install event platform contracts
@@ -369,7 +413,7 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Install finance parent POMs for payment API contract
         run: |
           mvn -B -ntp -N -f finance/pom.xml install
@@ -399,7 +443,7 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Verify Workforce reactor
@@ -439,7 +483,7 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Install the finance parent POM
@@ -475,13 +519,17 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Build and install cache contracts
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security capability
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
@@ -526,7 +574,7 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Build and install foundation capabilities
         run: mvn -B -ntp -f core/framework/foundation/pom.xml install
       - name: Verify and install Geo capability
@@ -535,6 +583,10 @@ jobs:
         run: mvn -B -ntp -f core/framework/cache/pom.xml install
       - name: Build and install observability contracts used by security
         run: mvn -B -ntp -f core/framework/observability/pom.xml -pl observability-api,observability-application -am install
+      - name: Build and install ecosystem contracts for security adapters
+        run: mvn -B -ntp -f core/framework/ecosystem/pom.xml install
+      - name: Build and install Social Graph contracts for security adapters
+        run: mvn -B -ntp -f core/framework/social-graph/pom.xml install
       - name: Build and install security contracts used by framework adapters
         run: mvn -B -ntp -f security/pom.xml install
       - name: Build and install framework reactor
@@ -571,7 +623,7 @@ jobs:
       - name: Enforce domain dependency boundaries
         run: python3 tools/verify-domain-boundaries.py
       - name: Install framework parent POM
-        run: mvn -B -ntp -N -f core/framework/pom.xml install
+        run: mvn -B -ntp -N -f core/framework/parent/pom.xml install && mvn -B -ntp -N -f core/framework/pom.xml install
       - name: Verify Hospitality capability reactor
         run: mvn -B -ntp -f hospitality/pom.xml verify
       - name: Upload Hospitality Maven test reports

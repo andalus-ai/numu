@@ -1,0 +1,99 @@
+package tech.kayys.numou.identity.adapter.inbound.security;
+
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.http.TestHTTPResource;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.Test;
+import tech.kayys.numou.identity.adapter.outbound.postgres.IdentityPostgresTestResource;
+import tech.kayys.numou.identity.adapter.outbound.security.TenantJwtTokenIssuerAdapter;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@QuarkusTest
+@QuarkusTestResource(IdentityPostgresTestResource.class)
+class TenantSelectionCredentialRequestTest {
+    private static final String FILTER_DENIAL =
+            "Tenant-selection credential cannot access this resource";
+
+    @TestHTTPResource("/")
+    URI baseUri;
+
+    @Inject
+    TenantJwtTokenIssuerAdapter tokenIssuer;
+
+    private final HttpClient http = HttpClient.newHttpClient();
+
+    @Test
+    void selectionCredentialCanDiscoverTenantsButCannotCallManagementApi() throws Exception {
+        String token = tokenIssuer.issueTenantSelectionToken(UUID.randomUUID(), "Selection Test");
+
+        HttpResponse<String> discovery = request("GET", "api/v2/auth/tenants", token);
+        assertEquals(200, discovery.statusCode(), discovery.body());
+
+        HttpResponse<String> exchange = request("POST", "api/v2/auth/tenant-exchange", token,
+                "{\"tenantId\":\"" + UUID.randomUUID() + "\"}");
+        assertEquals(400, exchange.statusCode(), exchange.body());
+        assertTrue(exchange.body().contains("TENANT_MEMBERSHIP_REQUIRED"), exchange.body());
+        assertFalse(exchange.body().contains(FILTER_DENIAL), exchange.body());
+
+        HttpResponse<String> providerDiscovery = request("GET", "api/v2/auth/federated/providers", token);
+        assertEquals(403, providerDiscovery.statusCode(), providerDiscovery.body());
+        assertTrue(providerDiscovery.body().contains(FILTER_DENIAL), providerDiscovery.body());
+
+        HttpResponse<String> management = request("GET", "api/v1/service-accounts", token);
+        assertEquals(403, management.statusCode(), management.body());
+        assertTrue(management.body().contains(FILTER_DENIAL), management.body());
+    }
+
+    @Test
+    void selectionCredentialCannotUseDiscoveryOrExchangeWithWrongHttpMethod() throws Exception {
+        String token = tokenIssuer.issueTenantSelectionToken(UUID.randomUUID(), "Selection Test");
+
+        HttpResponse<String> postDiscovery = request("POST", "api/v2/auth/tenants", token);
+        assertEquals(403, postDiscovery.statusCode(), postDiscovery.body());
+        assertTrue(postDiscovery.body().contains(FILTER_DENIAL), postDiscovery.body());
+
+        HttpResponse<String> getExchange = request("GET", "api/v2/auth/tenant-exchange", token);
+        assertEquals(403, getExchange.statusCode(), getExchange.body());
+        assertTrue(getExchange.body().contains(FILTER_DENIAL), getExchange.body());
+
+        HttpResponse<String> login = request("POST", "api/v2/auth/login", token);
+        assertEquals(403, login.statusCode(), login.body());
+        assertTrue(login.body().contains(FILTER_DENIAL), login.body());
+    }
+
+    @Test
+    void tenantBoundAccessCredentialIsNotRejectedBySelectionBoundary() throws Exception {
+        String token = tokenIssuer.issueTenantAccessToken(
+                UUID.randomUUID(), "Access Test", UUID.randomUUID());
+
+        HttpResponse<String> response = request("GET", "api/v1/service-accounts", token);
+
+        assertFalse(response.body().contains(FILTER_DENIAL), response.body());
+    }
+
+    private HttpResponse<String> request(String method, String path, String token) throws Exception {
+        return request(method, path, token, "{}");
+    }
+
+    private HttpResponse<String> request(String method, String path, String token, String body) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(baseUri.resolve(path))
+                .header("Authorization", "Bearer " + token)
+                .header("Accept", "application/json");
+        if ("POST".equals(method)) {
+            builder.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body));
+        } else {
+            builder.GET();
+        }
+        return http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
+}

@@ -64,6 +64,16 @@ public final class Survey {
         return new Survey(id, tenantId, kind, title, description, 1, null, now);
     }
 
+    /** Creates a draft from an immutable reusable template without sharing mutable collections. */
+    public static Survey draftFromTemplate(SurveyId id, TenantId tenantId, SurveyTemplate template, Instant now) {
+        Objects.requireNonNull(template, "template cannot be null");
+        Survey survey = new Survey(id, tenantId, template.kind(), template.title(),
+                template.description(), 1, null, now);
+        survey.sections.addAll(template.sections());
+        survey.settings = template.settings();
+        return survey;
+    }
+
     /** Deep-enough copy (sections/questions are immutable) used by persistence adapters to avoid aliasing. */
     public Survey copy() { return new Survey(this); }
 
