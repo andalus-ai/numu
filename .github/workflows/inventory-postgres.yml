@@ -1,0 +1,60 @@
+name: Inventory PostgreSQL CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supply/inventory/**"
+      - "supply/pom.xml"
+      - "core/framework/**"
+      - ".github/workflows/inventory-postgres.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supply/inventory/**"
+      - "supply/pom.xml"
+      - "core/framework/**"
+      - ".github/workflows/inventory-postgres.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: inventory-postgres-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inventory-postgres:
+    name: Inventory Maven and PostgreSQL integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Validate capability reactor parent paths
+        run: python3 tools/verify-module-topology.py
+
+      - name: Install framework parent POM
+        run: mvn -B -ntp -N -f core/framework/pom.xml install
+
+      - name: Build and install foundation contracts
+        run: mvn -B -ntp -f core/framework/foundation/pom.xml install
+
+      - name: Verify Inventory domain, SPI and PostgreSQL adapter
+        run: mvn -B -ntp -f supply/inventory/pom.xml verify
+
+      - name: Upload Inventory Maven test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventory-postgres-test-reports
+          path: "supply/inventory/**/target/surefire-reports/**"
+          if-no-files-found: warn
+          retention-days: 7
