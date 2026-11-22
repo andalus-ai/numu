@@ -6,7 +6,7 @@ import tech.kayys.numou.ecosystem.domain.party.PartyId;
 import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.socialgraph.application.SocialGraphRelationshipReadPage;
 
-/** Internal invocation seam for authenticated, policy-filtered relationship reads. */
+/** Internal invocation seam for authenticated relationship-list reads. */
 public interface SocialGraphRelationshipReadInvoker {
     Uni<SocialGraphRelationshipReadPage> following(
             TenantId tenant, IdentitySubjectRef subject, String cursor, int limit);

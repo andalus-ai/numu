@@ -10,13 +10,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RolePermissionMatrixSocialGraphTest {
     @Test
-    void socialGraphMemberReceivesOnlyTheExplicitSocialGraphCommandGrants() {
+    void socialGraphMemberReceivesOnlyTheExplicitSocialGraphGrants() {
         var permissions = RolePermissionMatrix.socialGraphDefaults()
                 .permissionsFor(Set.of("social-graph-member"));
 
         assertTrue(permissions.contains(Permission.of("social-graph", "create")));
+        assertTrue(permissions.contains(Permission.of("social-graph", "read")));
         assertTrue(permissions.contains(Permission.of("social-graph", "perform")));
-        assertEquals(2, permissions.size());
+        assertEquals(3, permissions.size());
     }
 
     @Test

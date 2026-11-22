@@ -3,9 +3,7 @@ package tech.kayys.numou.security.socialgraph;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef;
 import tech.kayys.numou.ecosystem.domain.party.PartyId;
-import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import tech.kayys.numou.security.application.context.SecurityContextProvider;
 import tech.kayys.numou.security.domain.authorization.Permission;
 import tech.kayys.numou.security.domain.authorization.SecurityContext;
@@ -14,15 +12,15 @@ import tech.kayys.numou.socialgraph.application.SocialGraphRelationshipReadPage;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.BiFunction;
 
 /**
- * Request-facing read boundary. Tenant, actor identity and read permission are
- * derived from the verified request context, never from query parameters.
+ * Request-facing relationship-read boundary. The viewer Party is resolved
+ * downstream from the verified tenant and issuer/subject, never supplied by
+ * the caller. The caller may supply a profile owner only as a read target.
  */
 @ApplicationScoped
 public class AuthenticatedSocialGraphRelationshipReadGateway {
-    private static final Permission READ_RELATIONSHIPS = Permission.of("social-graph", "read");
+    private static final Permission READ_PERMISSION = Permission.of("social-graph", "read");
 
     private final SecurityContextProvider securityContexts;
     private final VerifiedIdentitySubjectProvider identitySubjects;
@@ -43,27 +41,34 @@ public class AuthenticatedSocialGraphRelationshipReadGateway {
         return withTrustedIdentity((tenant, subject) -> reads.following(tenant, subject, cursor, limit));
     }
 
-    /** Reads a profile owner's followers; profileOwner is a target, never the viewer. */
+    /** Reads followers of a target profile; the authenticated viewer is never caller-controlled. */
     public Uni<SocialGraphRelationshipReadPage> followers(PartyId profileOwner, String cursor, int limit) {
-        if (profileOwner == null) return denied();
-        return withTrustedIdentity((tenant, subject) -> reads.followers(tenant, subject, profileOwner, cursor, limit));
+        Objects.requireNonNull(profileOwner, "profileOwner cannot be null");
+        return withTrustedIdentity((tenant, subject) ->
+                reads.followers(tenant, subject, profileOwner, cursor, limit));
     }
 
-    private Uni<SocialGraphRelationshipReadPage> withTrustedIdentity(
-            BiFunction<TenantId, IdentitySubjectRef, Uni<SocialGraphRelationshipReadPage>> read) {
+    private Uni<SocialGraphRelationshipReadPage> withTrustedIdentity(TrustedRead read) {
         Optional<SecurityContext> current = securityContexts.current();
         SecurityContext context = current == null ? null : current.orElse(null);
         if (context == null || !context.authenticated() || !context.tenantMember()
-                || !context.hasPermission(READ_RELATIONSHIPS)) {
+                || !context.hasPermission(READ_PERMISSION)) {
             return denied();
         }
 
-        Optional<IdentitySubjectRef> subject = identitySubjects.current();
+        Optional<tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef> subject = identitySubjects.current();
         if (subject == null || subject.isEmpty()) return denied();
-        return read.apply(context.tenantId(), subject.get());
+        return read.execute(context.tenantId(), subject.get());
     }
 
     private static Uni<SocialGraphRelationshipReadPage> denied() {
         return Uni.createFrom().failure(new SocialGraphAccessDeniedException());
+    }
+
+    @FunctionalInterface
+    private interface TrustedRead {
+        Uni<SocialGraphRelationshipReadPage> execute(
+                tech.kayys.numou.foundation.domain.tenant.TenantId tenant,
+                tech.kayys.numou.ecosystem.domain.party.IdentitySubjectRef subject);
     }
 }
