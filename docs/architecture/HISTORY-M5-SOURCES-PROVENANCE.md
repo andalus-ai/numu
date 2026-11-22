@@ -2,7 +2,7 @@
 
 ## Status
 
-M5.6 implementation increment. This document describes the source catalog, claim-evidence provenance, qualitative source assessments, and append-only editorial review contracts; it does not claim that all planned M5 capabilities are complete.
+M5.6 ingestion provenance and M5.7 durable dispatch implementation increments. This document describes implemented contracts and explicitly separates implementation from verification; it does not claim that URL fetching, OCR/transcription execution, or production worker deployment is complete.
 
 ## Ownership and boundaries
 
@@ -81,7 +81,16 @@ Contradictory evidence is preserved alongside supporting evidence. The system do
 - Application authorization is explicit for request creation, worker result registration and reads. Tenant identity comes only from trusted host context.
 - URL request capture performs no network access. Any worker that fetches a URL must enforce SSRF protections (scheme/host policy, DNS and resolved-IP validation, redirect revalidation, private/link-local address blocking, and response/time/size limits). The current increment does not claim that URL fetching, OCR or transcription workers are deployed.
 
-The request and result contracts intentionally separate source identity from content storage. A future asynchronous worker/lease increment can dispatch these immutable requests and record retry/failure attempts without changing the provenance contract.
+The request and result contracts intentionally separate source identity from content storage.
+
+## Durable dispatch and worker leases (M5.7)
+
+- Creating an immutable ingestion request atomically creates its PENDING dispatch row and append-only ENQUEUED event through a PostgreSQL trigger in the same transaction. A request cannot be committed without being queued.
+- Workers claim work with PostgreSQL SKIP LOCKED; independent workers do not receive the same active lease. Expired leases are reclaimable and increment the attempt counter.
+- Every claim receives a fresh random lease token and a bounded lease expiry. Completion, retry scheduling and dead-letter transitions require the trusted tenant, worker identity, current token and an unexpired lease. A stale worker or a worker whose lease has expired receives false and cannot change the job.
+- Dispatch state is operational and mutable; transition events are append-only. The event stream records enqueue, claim, completion, retry scheduling and dead-letter transitions with attempt number, worker, token, timestamp and bounded error detail.
+- Forced RLS protects dispatch state and event history. The application service obtains tenant identity from trusted context and checks worker authorization before claiming or transitioning work.
+- Retry timing and terminal-failure policy remain the caller/orchestrator's responsibility. This increment provides durable primitives; it does not add a scheduler, automatic exponential-backoff policy, vendor OCR adapter or URL fetcher.
 
 ## Persistence and security
 
@@ -103,14 +112,25 @@ mvn -B -ntp -f geo/pom.xml install
 mvn -B -ntp -f history/pom.xml verify
 ```
 
-The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration test verifies database-level tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalogue identifiers, directed source relationships, ingestion requests, extraction records, duplicate worker-result rejection and append-only enforcement. The source application unit tests separately verify citation graph breadth-first traversal, cycle deduplication, depth/node/relationship bounds, truncation reporting, tenant scoping, per-source authorization, malformed repository relationship rejection and graph value invariants. These are separate test boundaries; the database integration test does not claim to execute the application graph service.
+The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The source adapter integration tests verify database-level tenant isolation, source revision compare-and-set, duplicate registration, claims, evidence, qualitative assessments, editorial reviews, editions, contributor attributions, archival holdings, catalogue identifiers, directed source relationships, ingestion requests, extraction records, duplicate worker-result rejection, exclusive dispatch claims, expired-lease reclamation, stale worker fencing, retry/dead-letter transitions and append-only dispatch events. The source application unit tests separately verify citation graph breadth-first traversal, cycle deduplication, depth/node/relationship bounds, truncation reporting, tenant scoping, per-source authorization, malformed repository relationship rejection and graph value invariants. These are separate test boundaries; the database integration test does not claim to execute the application graph service.
 
 ## Deliberately deferred
 
-- asynchronous ingestion dispatch, worker leases/retries, URL fetching, OCR/transcription adapters and extraction execution;
+- URL fetching, OCR/transcription adapters and extraction execution;
+- automatic retry/backoff policy, worker scheduling/operations UI and lease renewal;
 - durable/asynchronous source graph projections, full-text indexing, and cross-source independence analysis;
 - public/shared corpus ingestion and its separately privileged authorization boundary;
 - REST/GraphQL APIs, full-text search indexing, ranking and corpus-scale discovery;
 - cross-tenant sharing or public-source visibility policies.
 
 These should be separate M5 increments. In particular, no universal numeric reliability score should be introduced without a documented, explainable assessment model.
+
+## Source ingestion and extraction provenance — M5.6a
+
+- An ingestion request references an existing shared-document object by opaque document reference and captures its original SHA-256 digest, media type, extractor identifier/version, configuration fingerprint, requesting actor reference and timestamp.
+- The idempotency key is scoped by tenant and source in the persistence contract. Replaying the same key with identical immutable inputs returns the original request; reusing it with different inputs is a conflict.
+- Each extraction attempt is a separate immutable artifact with an attempt number, status, timestamps, optional language/locator, and a separate shared-document reference plus digest for derived output.
+- Failed attempts cannot publish extracted content. Successful/partial attempts require a derived-content reference, digest and media type. Attempts are never updated in place.
+- The History capability stores references and provenance only. It does not store original or extracted binary content, fetch arbitrary URLs, run OCR/transcription, or choose a storage provider.
+- The application contract checks tenant context, source existence and host authorization. The host authorization adapter must bind actor references to the authenticated principal.
+- This increment adds domain, SPI and application contracts plus unit coverage. PostgreSQL persistence, transactional job/outbox dispatch, lease/retry workers, document-capability integration and safe URL-fetch adapters remain follow-up M5.6 increments; this slice does not claim those adapters are implemented.

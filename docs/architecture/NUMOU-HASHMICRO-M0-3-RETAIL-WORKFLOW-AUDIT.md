@@ -401,3 +401,39 @@ Acceptance evidence for the next code milestone:
 - Focused POS, Inventory and Accounting Maven reactor tests plus CI run links.
 
 **M0.3b status: source trace completed; runtime composition and Accounting posting route remain unverified. No production implementation or build/test pass is claimed in this pass.**
+
+
+## 13. M0.4a — Accounting production persistence safety gate (2026-11-20)
+
+The next implementation step was originally planned as durable source idempotency. Source inspection identified a more fundamental prerequisite that must be resolved first.
+
+### 13.1 Verified production-path limitation
+
+The Accounting adapter currently provides:
+- `PostgresAccountRepository` for durable chart-of-accounts reads/writes.
+- `InMemoryJournalEntryRepository` as the only tracked implementation of `JournalEntryRepository`.
+- `InMemoryOutboxRepository` as the only tracked implementation of `OutboxRepository`.
+- `AccountingServiceProducer` injects these ports into the production-facing command bus without a build-profile restriction.
+- `application.properties` configures PostgreSQL and Flyway, but a configured database does not make the in-memory journal/outbox durable.
+- `V7__processed_command.sql` creates a processed-command table, but no tracked repository/handler path claims or commits a processed source identity with the journal, account balance changes and outbox record.
+
+This is a critical consistency risk: journal/account/outbox side effects are not currently demonstrated as one durable transaction. A journal may be held only in process memory while account balance changes are persisted in PostgreSQL. A restart can therefore lose the journal/outbox evidence while leaving account movements applied.
+
+### 13.2 Safe code change
+
+M0.4a begins with a fail-closed production-profile guard:
+- `InMemoryJournalEntryRepository` is now excluded from the `prod` build profile.
+- `InMemoryOutboxRepository` is now excluded from the `prod` build profile.
+- Both remain available to development and test profiles.
+
+Until durable implementations are supplied, production CDI composition should fail rather than silently wire ephemeral journal/outbox stores into financial posting. This intentionally exposes the missing production adapter at build time; it does not pretend that durable idempotency has already been implemented.
+
+### 13.3 Required next implementation
+
+1. Implement PostgreSQL journal persistence (aggregate header + lines) with tenant/ledger scoped reads and reconstitution.
+2. Implement PostgreSQL outbox persistence using the existing outbox schema.
+3. Define one transaction boundary for account balance updates, journal header/lines, processed-command claim/result and accounting outbox insert.
+4. Add a durable source-idempotency port keyed by tenant + ledger + source type + source ID, with canonical payload fingerprint and stored result.
+5. Prove duplicate, concurrent, payload-conflict and crash/retry behavior with PostgreSQL integration tests.
+
+**M0.4a status:** production fail-closed guard implemented in the two ephemeral repositories. Durable PostgreSQL journal/outbox/idempotency and transactional tests remain open. No Maven build/test result is claimed in this pass.
