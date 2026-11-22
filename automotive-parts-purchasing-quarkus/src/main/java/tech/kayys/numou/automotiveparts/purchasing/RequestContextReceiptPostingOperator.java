@@ -7,13 +7,7 @@ import tech.kayys.numou.foundation.domain.tenant.TenantId;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * Resolves the operator from authenticated runtime context.
- *
- * <p>The tenant must have been verified by the authentication/tenant-selection
- * filter. The actor is taken from Quarkus SecurityIdentity, never from a
- * request header, body, or query parameter.
- */
+/** Resolves the operator from the authenticated, verified request context. */
 public final class RequestContextReceiptPostingOperator implements CurrentReceiptPostingOperatorPort {
     private final RequestContextHolder requestContext;
     private final SecurityIdentity securityIdentity;
@@ -32,16 +26,12 @@ public final class RequestContextReceiptPostingOperator implements CurrentReceip
         if (!requestContext.tenantVerified()) {
             throw new SecurityException("A verified tenant scope is required");
         }
-
-        final String tenantId;
-        final String actorId;
         try {
-            tenantId = TenantId.of(requestContext.tenantId()).toString();
-            // Identity's verified actor filter requires the principal subject to be a UUID.
-            actorId = UUID.fromString(securityIdentity.getPrincipal().getName()).toString();
+            String tenantId = TenantId.of(requestContext.tenantId()).toString();
+            String actorId = UUID.fromString(securityIdentity.getPrincipal().getName()).toString();
+            return new ReceiptPostingOperatorContext(tenantId, actorId);
         } catch (RuntimeException invalidIdentity) {
             throw new SecurityException("Authenticated tenant and actor identifiers are invalid", invalidIdentity);
         }
-        return new ReceiptPostingOperatorContext(tenantId, actorId);
     }
 }

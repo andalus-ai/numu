@@ -46,7 +46,7 @@ public class PgOutboxStore implements OutboxStorePort {
               FROM candidates c
              WHERE o.entry_id = c.entry_id
             RETURNING o.entry_id, o.lease_token, o.locked_until, o.payload::text AS payload,
-                      o.event_type, o.created_at, o.available_at, o.attempts, o.published_at""";
+                      o.event_type, o.created_at, o.available_at, o.attempts, o.published_at, o.last_error""";
 
     static final String UPDATE = """
             UPDATE platform_outbox
@@ -65,7 +65,8 @@ public class PgOutboxStore implements OutboxStorePort {
                AND published_at IS NULL""";
 
     static final String FIND = """
-            SELECT entry_id, payload::text AS payload, event_type, created_at, available_at, attempts, published_at
+            SELECT entry_id, payload::text AS payload, event_type, created_at, available_at, attempts,
+                   published_at, last_error
               FROM platform_outbox WHERE entry_id = $1""";
     static final String COUNT_PENDING = "SELECT count(*) AS n FROM platform_outbox WHERE published_at IS NULL AND attempts < 10";
     static final String COUNT_DEAD = "SELECT count(*) AS n FROM platform_outbox WHERE published_at IS NULL AND attempts >= 10";
@@ -132,7 +133,8 @@ public class PgOutboxStore implements OutboxStorePort {
     public Uni<Boolean> update(OutboxClaim claim, OutboxEntry entry) {
         return pool.preparedQuery(UPDATE)
                 .execute(Tuple.of(claim.entry().entryId(), claim.token(), entry.attempts(),
-                        utc(entry.availableAt()), entry.published() ? utc(Instant.now()) : null, null))
+                        utc(entry.availableAt()), entry.published() ? utc(Instant.now()) : null,
+                        boundedError(entry.lastError())))
                 .map(rows -> rows.rowCount() > 0);
     }
 
@@ -150,11 +152,15 @@ public class PgOutboxStore implements OutboxStorePort {
         return pool.query(sql).execute().map(rows -> rows.iterator().next().getLong(column));
     }
 
+    private static String boundedError(String detail) {
+        if (detail == null || detail.length() <= OutboxEntry.MAX_ERROR_LENGTH) return detail;
+        return detail.substring(0, OutboxEntry.MAX_ERROR_LENGTH);
+    }
+
     private static String boundedError(RuntimeException failure) {
         String message = failure.getMessage();
-        String detail = failure.getClass().getSimpleName()
-                + (message == null || message.isBlank() ? "" : ": " + message);
-        return detail.length() <= 2000 ? detail : detail.substring(0, 2000);
+        return boundedError(failure.getClass().getSimpleName()
+                + (message == null || message.isBlank() ? "" : ": " + message));
     }
 
     private OutboxClaim toClaim(Row row) {
@@ -162,12 +168,13 @@ public class PgOutboxStore implements OutboxStorePort {
                 row.getOffsetDateTime("locked_until").toInstant());
     }
 
-    private OutboxEntry toEntry(Row r) {
-        final var envelope = serializer.deserialize(r.getString("payload"), r.getString("event_type"));
-        final boolean published = r.getColumnIndex("published_at") >= 0 && r.getOffsetDateTime("published_at") != null;
-        return new OutboxEntry(r.getUUID("entry_id"), envelope,
-                r.getOffsetDateTime("created_at").toInstant(), r.getOffsetDateTime("available_at").toInstant(),
-                r.getInteger("attempts"), published);
+    private OutboxEntry toEntry(Row row) {
+        final var envelope = serializer.deserialize(row.getString("payload"), row.getString("event_type"));
+        final boolean published = row.getColumnIndex("published_at") >= 0 && row.getOffsetDateTime("published_at") != null;
+        final String lastError = row.getColumnIndex("last_error") >= 0 ? row.getString("last_error") : null;
+        return new OutboxEntry(row.getUUID("entry_id"), envelope,
+                row.getOffsetDateTime("created_at").toInstant(), row.getOffsetDateTime("available_at").toInstant(),
+                row.getInteger("attempts"), published, lastError);
     }
 
     private static OffsetDateTime utc(Instant instant) {

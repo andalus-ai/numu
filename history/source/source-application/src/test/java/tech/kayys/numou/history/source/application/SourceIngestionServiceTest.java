@@ -14,108 +14,106 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SourceIngestionServiceTest {
-    private static final Instant NOW = Instant.parse("2026-11-18T00:00:00Z");
-    private static final String INPUT_HASH = "a".repeat(64);
-    private static final String OUTPUT_HASH = "b".repeat(64);
+    private static final UUID TENANT = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static final String SHA = "a".repeat(64);
+    private final HistoricalSource source = HistoricalSource.register(
+        HistoricalSourceId.generate(), HistoricalSourceKind.BOOK, "Primary source", null,
+        null, null, null, null, "en", Instant.parse("2026-11-20T00:00:00Z"));
+    private final MemoryIngestions ingestions = new MemoryIngestions();
+    private final SourceIngestionService service = new SourceIngestionService(
+        sourceRepository(), ingestions, () -> TENANT, new SourceIngestionAuthorizationPort() {
+            @Override public void requireCanIngestSource(UUID tenantId, HistoricalSourceId sourceId, String actor) {
+                assertEquals(TENANT, tenantId);
+                assertEquals(source.id(), sourceId);
+                assertEquals("editor:1", actor);
+            }
+            @Override public void requireCanReadSourceIngestion(UUID tenantId, HistoricalSourceId sourceId) {
+                assertEquals(TENANT, tenantId);
+                assertEquals(source.id(), sourceId);
+            }
+        }, Clock.fixed(Instant.parse("2026-11-20T01:00:00Z"), ZoneOffset.UTC));
 
     @Test
-    void documentIngestionRecordsExtractionAgainstSharedDocumentVersions() {
-        UUID tenant = UUID.randomUUID();
-        UUID inputDocument = UUID.randomUUID();
-        UUID inputVersion = UUID.randomUUID();
-        UUID outputDocument = UUID.randomUUID();
-        UUID outputVersion = UUID.randomUUID();
-        var source = HistoricalSource.register(HistoricalSourceId.generate(), HistoricalSourceKind.MANUSCRIPT,
-                "Archive scan", null, null, null, "Archive", "c. 1890", "id", NOW);
-        var state = new RepositoryState(source);
-        var references = new ArrayList<String>();
-        var service = service(tenant, source, state, references);
-
-        var request = service.requestDocumentIngestion(source.id(), inputDocument, inputVersion,
-                INPUT_HASH, "application/pdf", "actor:researcher");
-        var extraction = service.recordExtraction(request.id(), SourceExtractionKind.OCR_TEXT,
-                "ocr-engine", "2.1.0", outputDocument, outputVersion, INPUT_HASH, OUTPUT_HASH,
-                "id-id", "page:12", "worker:ocr-1");
-
-        assertEquals(inputDocument, request.inputDocumentId());
-        assertEquals(inputVersion, request.inputDocumentVersionId());
-        assertEquals(request.id(), extraction.ingestionId());
-        assertEquals("id-ID", extraction.languageTag());
-        assertEquals(1, service.listIngestions(source.id(), 10).size());
-        assertEquals(1, service.listExtractions(request.id(), 10).size());
-        assertEquals(3, references.size(), "input is checked at request and extraction; output is checked before linking");
+    void idempotentReplayReturnsOriginalRequestAndRejectsChangedInputs() {
+        SourceIngestionRequest first = request("request-1", "doc:original");
+        SourceIngestionRequest replay = request("request-1", "doc:original");
+        assertEquals(first.id(), replay.id());
+        assertThrows(HistoricalSourceConflictException.class, () -> request("request-1", "doc:changed"));
     }
 
     @Test
-    void uriIngestionSnapshotsCanonicalUriAndRejectsChecksumMismatch() {
-        UUID tenant = UUID.randomUUID();
-        var source = HistoricalSource.register(HistoricalSourceId.generate(), HistoricalSourceKind.WEBSITE,
-                "Archive portal", null, null, "https://archive.example/catalogue/42",
-                null, null, "en", NOW);
-        var state = new RepositoryState(source);
-        var service = service(tenant, source, state, new ArrayList<>());
+    void recordsImmutableExtractionAttemptAgainstOriginalRequest() {
+        SourceIngestionRequest request = request("request-2", "doc:original");
+        SourceExtractionArtifact artifact = service.recordExtraction(
+            request.id(), 1, SourceExtractionStatus.SUCCEEDED, "doc:extracted", SHA,
+            "text/plain", "en", "page:1-3", null, null,
+            Instant.parse("2026-11-20T00:30:00Z"));
 
-        var request = service.requestCanonicalUriIngestion(source.id(), "actor:researcher");
-        assertEquals("https://archive.example/catalogue/42", request.inputUri());
-        assertEquals(SourceIngestionInputKind.CANONICAL_URI, request.inputKind());
-
-        assertThrows(IllegalArgumentException.class, () -> service.recordExtraction(request.id(),
-                SourceExtractionKind.TEXT_EXTRACTION, "extractor", "1",
-                UUID.randomUUID(), UUID.randomUUID(), "wrong", OUTPUT_HASH,
-                "en", null, "worker:1"));
+        assertEquals(request.id(), artifact.requestId());
+        assertEquals(source.id(), artifact.sourceId());
+        assertEquals("doc:extracted", artifact.extractedDocumentRef());
+        assertEquals("doc:original", ingestions.requests.get(request.id()).originalDocumentRef());
+        assertEquals(List.of(artifact), service.listExtractions(request.id(), 10));
     }
 
-    private static SourceIngestionService service(
-            UUID tenant, HistoricalSource source, RepositoryState state, List<String> references) {
-        HistoricalSourceRepository sourceRepository = (HistoricalSourceRepository) Proxy.newProxyInstance(
-                HistoricalSourceRepository.class.getClassLoader(),
-                new Class<?>[]{HistoricalSourceRepository.class},
-                (proxy, method, args) -> {
-                    if (method.getName().equals("find")) return Optional.of(source);
-                    if (method.getName().equals("list")) return List.of(source);
-                    if (method.getReturnType().equals(boolean.class)) return false;
-                    if (method.getReturnType().equals(Optional.class)) return Optional.empty();
-                    if (method.getReturnType().equals(List.class)) return List.of();
-                    return null;
-                });
-
-        SourceIngestionRepository ingestionRepository = (SourceIngestionRepository) Proxy.newProxyInstance(
-                SourceIngestionRepository.class.getClassLoader(),
-                new Class<?>[]{SourceIngestionRepository.class},
-                (proxy, method, args) -> switch (method.getName()) {
-                    case "appendIngestion" -> {
-                        var request = (SourceIngestionRequest) args[1];
-                        state.requests.put(request.id(), request);
-                        yield true;
-                    }
-                    case "findIngestion" -> Optional.ofNullable(state.requests.get((UUID) args[1]));
-                    case "listIngestions" -> state.requests.values().stream()
-                            .filter(request -> request.sourceId().value().equals(args[1])).toList();
-                    case "appendExtraction" -> {
-                        state.artifacts.add((SourceExtractionArtifact) args[1]);
-                        yield true;
-                    }
-                    case "listExtractions" -> state.artifacts.stream()
-                            .filter(artifact -> artifact.ingestionId().equals(args[1])).toList();
-                    default -> throw new UnsupportedOperationException(method.getName());
-                });
-
-        SourceIngestionAuthorizationPort authorization = new SourceIngestionAuthorizationPort() {
-            public void requireCanRequestIngestion(UUID t, UUID s, String actor) {}
-            public void requireCanReadIngestions(UUID t, UUID s) {}
-            public void requireCanRecordExtraction(UUID t, UUID i, String worker) {}
-            public void requireCanReadExtractions(UUID t, UUID i) {}
-        };
-        SourceContentReferencePort contentReferences = (t, documentId, versionId) ->
-                references.add(documentId + ":" + versionId);
-
-        return new SourceIngestionService(sourceRepository, ingestionRepository, () -> tenant,
-                authorization, contentReferences, Clock.fixed(NOW, ZoneOffset.UTC));
+    @Test
+    void rejectsFailedAttemptThatPublishesExtractedContent() {
+        assertThrows(IllegalArgumentException.class, () -> SourceExtractionArtifact.create(
+            UUID.randomUUID(), source.id(), 1, SourceExtractionStatus.FAILED,
+            "doc:should-not-exist", SHA, "text/plain", null, null, "OCR_FAILED",
+            "provider failed", Instant.parse("2026-11-20T00:00:00Z"),
+            Instant.parse("2026-11-20T00:01:00Z")));
     }
 
-    private static final class RepositoryState {
+    private SourceIngestionRequest request(String key, String documentRef) {
+        return service.request(source.id(), key, documentRef, SHA, "application/pdf",
+            "ocr.provider-neutral", "1.0", "cfg:sha256:1", "editor:1");
+    }
+
+    private HistoricalSourceRepository sourceRepository() {
+        return (HistoricalSourceRepository) Proxy.newProxyInstance(
+            HistoricalSourceRepository.class.getClassLoader(),
+            new Class<?>[]{HistoricalSourceRepository.class},
+            (proxy, method, args) -> {
+                if (method.getName().equals("find")) {
+                    return Objects.equals(args[0], TENANT) && Objects.equals(args[1], source.id())
+                        ? Optional.of(source) : Optional.empty();
+                }
+                if (method.getName().equals("toString")) return "HistoricalSourceRepositoryTestProxy";
+                if (method.getName().equals("hashCode")) return System.identityHashCode(proxy);
+                if (method.getName().equals("equals")) return proxy == args[0];
+                throw new UnsupportedOperationException(method.getName());
+            });
+    }
+
+    private final class MemoryIngestions implements SourceIngestionRepository {
         private final Map<UUID, SourceIngestionRequest> requests = new LinkedHashMap<>();
-        private final List<SourceExtractionArtifact> artifacts = new ArrayList<>();
-        private RepositoryState(HistoricalSource ignored) {}
+        private final Map<String, UUID> keys = new HashMap<>();
+        private final Map<UUID, List<SourceExtractionArtifact>> artifacts = new HashMap<>();
+
+        @Override public Optional<SourceIngestionRequest> findRequestByIdempotencyKey(
+            UUID tenantId, HistoricalSourceId sourceId, String key) {
+            UUID id = keys.get(tenantId + ":" + sourceId + ":" + key);
+            return Optional.ofNullable(id).map(requests::get);
+        }
+        @Override public boolean appendRequest(UUID tenantId, SourceIngestionRequest request) {
+            String key = tenantId + ":" + request.sourceId() + ":" + request.idempotencyKey();
+            if (keys.containsKey(key)) return false;
+            keys.put(key, request.id());
+            requests.put(request.id(), request);
+            return true;
+        }
+        @Override public Optional<SourceIngestionRequest> findRequest(UUID tenantId, UUID requestId) {
+            return Optional.ofNullable(requests.get(requestId));
+        }
+        @Override public boolean appendExtraction(UUID tenantId, SourceExtractionArtifact artifact) {
+            List<SourceExtractionArtifact> rows = artifacts.computeIfAbsent(artifact.requestId(), ignored -> new ArrayList<>());
+            if (rows.stream().anyMatch(row -> row.attempt() == artifact.attempt())) return false;
+            rows.add(artifact);
+            return true;
+        }
+        @Override public List<SourceExtractionArtifact> listExtractions(UUID tenantId, UUID requestId, int limit) {
+            return artifacts.getOrDefault(requestId, List.of()).stream().limit(limit).toList();
+        }
     }
 }
