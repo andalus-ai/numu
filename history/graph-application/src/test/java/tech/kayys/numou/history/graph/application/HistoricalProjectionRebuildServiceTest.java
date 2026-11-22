@@ -145,13 +145,6 @@ class HistoricalProjectionRebuildServiceTest {
                     run.createdAt(), now, expectedVersion + 1, run.failureDetail());
             return true;
         }
-        public boolean completeFenced(UUID tenant, UUID id, long expected, long expectedVersion, Instant now) {
-            if (cursor != expected || run.lifecycleVersion() != expectedVersion || run.status() != RebuildRun.Status.RUNNING
-                    || events.stream().anyMatch(e -> e.sequence() > cursor)) return false;
-            run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, RebuildRun.Status.COMPLETED,
-                    run.createdAt(), now, expectedVersion + 1, run.failureDetail());
-            return true;
-        }
         public boolean complete(UUID tenant, UUID id, long expected, Instant now) {
             if (cursor != expected || events.stream().anyMatch(e -> e.sequence() > cursor)) return false;
             run = new RebuildRun(run.runId(), tenant, run.highWaterSequence(), cursor, RebuildRun.Status.COMPLETED, run.createdAt(), now);

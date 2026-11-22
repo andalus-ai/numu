@@ -4,7 +4,6 @@ import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.Claime
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.RebuildRun;
 import tech.kayys.numou.history.graph.spi.HistoricalProjectionRebuildStore.ReplayEvent;
-import tech.kayys.numou.history.graph.spi.HistoricalProjectionOutboxStore.ClaimedProjectionEvent;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -32,6 +31,14 @@ public final class HistoricalProjectionRebuildService {
             HistoricalRelationshipProjectionPort projection,
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
+            Clock clock, int pageSize) {
+        this(store, projection, tenantContext, authorization, clock, pageSize, snapshot -> {}, null, null);
+    }
+
+    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
+            HistoricalRelationshipProjectionPort projection,
+            HistoricalRelationshipTenantContext tenantContext,
+            HistoricalProjectionMaintenanceAuthorizationPort authorization,
             Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics) {
         this(store, projection, tenantContext, authorization, clock, pageSize, metrics, null, null);
     }
@@ -48,15 +55,8 @@ public final class HistoricalProjectionRebuildService {
             HistoricalRelationshipProjectionPort projection,
             HistoricalRelationshipTenantContext tenantContext,
             HistoricalProjectionMaintenanceAuthorizationPort authorization,
-            Clock clock, int pageSize) {
-        this(store, projection, tenantContext, authorization, clock, pageSize, snapshot -> {});
-    }
-
-    public HistoricalProjectionRebuildService(HistoricalProjectionRebuildStore store,
-            HistoricalRelationshipProjectionPort projection,
-            HistoricalRelationshipTenantContext tenantContext,
-            HistoricalProjectionMaintenanceAuthorizationPort authorization,
-            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics) {
+            Clock clock, int pageSize, HistoricalProjectionMetricsPort metrics, UUID generationId,
+            HistoricalProjectionRebuildFailurePort failurePort) {
         this.store = Objects.requireNonNull(store, "store");
         this.projection = Objects.requireNonNull(projection, "projection");
         this.tenantContext = Objects.requireNonNull(tenantContext, "tenantContext");
@@ -84,16 +84,17 @@ public final class HistoricalProjectionRebuildService {
         return store.start(tenantId, runId, clock.instant());
     }
 
-    /** Processes at most one page against the legacy/default projection. */
+    /** Processes at most one page against the configured/default projection. */
     public RebuildProgress resumeOnePage(UUID tenantId, UUID runId) {
-        return resumeOnePage(tenantId, runId, null);
+        return resumeOnePage(tenantId, runId, generationId);
     }
 
     /** Processes at most one page against the exact staged generation supplied by the coordinator. */
-    public RebuildProgress resumeOnePage(UUID tenantId, UUID runId, UUID generationId) {
+    public RebuildProgress resumeOnePage(UUID tenantId, UUID runId, UUID targetGenerationId) {
         Objects.requireNonNull(runId, "runId");
         authorizeScope(tenantId);
-        if (generationId != null && !(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
+        if (targetGenerationId != null
+                && !(projection instanceof GenerationTargetedHistoricalRelationshipProjectionPort)) {
             throw new IllegalStateException("projection adapter does not support generation-targeted replay");
         }
         RebuildRun run = store.find(tenantId, runId)
@@ -108,19 +109,16 @@ public final class HistoricalProjectionRebuildService {
                         .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
                 return progress(latest, 0, latest.status() == RebuildRun.Status.COMPLETED);
             }
-            RebuildRun completed = store.find(tenantId, runId).orElseThrow();
-            return progress(completed, 0, true);
+            return progress(store.find(tenantId, runId).orElseThrow(), 0, true);
         }
 
         long nextCursor = page.get(page.size() - 1).sequence();
         for (ReplayEvent event : page) {
             try {
                 ClaimedProjectionEvent claimed = asClaimedEvent(event);
-                if (generationId == null) projection.project(claimed);
+                if (targetGenerationId == null) projection.project(claimed);
                 else ((GenerationTargetedHistoricalRelationshipProjectionPort) projection)
-                        .projectIntoGeneration(claimed, generationId);
-            } catch (RuntimeException failure) {
-                throw failure;
+                        .projectIntoGeneration(claimed, targetGenerationId);
             } catch (Exception failure) {
                 String detail = "Unable to project historical relationship event " + event.eventKey()
                         + ": " + Objects.toString(failure.getMessage(), failure.getClass().getSimpleName());
@@ -140,8 +138,7 @@ public final class HistoricalProjectionRebuildService {
                     .orElseThrow(() -> new IllegalStateException("rebuild run disappeared"));
             return progress(latest, page.size(), latest.status() == RebuildRun.Status.COMPLETED);
         }
-        RebuildRun advanced = store.find(tenantId, runId).orElseThrow();
-        return progress(advanced, page.size(), false);
+        return progress(store.find(tenantId, runId).orElseThrow(), page.size(), false);
     }
 
     private void validatePage(UUID tenantId, RebuildRun run, List<ReplayEvent> page) {
@@ -174,7 +171,9 @@ public final class HistoricalProjectionRebuildService {
         }
         UUID trustedTenant = Objects.requireNonNull(tenantContext.requireTenantId(),
                 "trusted tenant context must provide a tenant");
-        if (!trustedTenant.equals(tenantId)) throw new SecurityException("requested rebuild scope differs from authenticated tenant");
+        if (!trustedTenant.equals(tenantId)) {
+            throw new SecurityException("requested rebuild scope differs from authenticated tenant");
+        }
         authorization.requireCanRebuildTenant(trustedTenant);
     }
 
