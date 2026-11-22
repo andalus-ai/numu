@@ -66,3 +66,19 @@ The PR-triggered Numou CI run associated with the M3 head completed with failure
 - [ ] Add tenant-aware workflow orchestration port and idempotent create/reconciliation contract only after that protocol evidence is available.
 - [ ] Audit existing workflow adapter consumers before renaming or replacing the in-memory implementation.
 - [ ] Add durable tenant installation lifecycle only after the descriptor and entitlement/authorization contracts are agreed.
+
+## 7. Runtime binding and observability integration follow-up
+
+The M3 composition result can now be bound to concrete host plugin implementations through the application runtime coordinator. This is a separate execution boundary from manifest validation and capability resolution:
+
+- Provider IDs bind resolved capability descriptors to concrete `NumouPlugin` instances; plugin release versions remain independent from capability contract versions.
+- Startup is preflighted before lifecycle callbacks, executes in dependency order, and rolls back attempted plugins in reverse order.
+- Each application owns an isolated runtime session, provider routing map and plugin contexts. Tenant-bound context factories cannot be reused across application identities.
+- Shutdown disables routing immediately, reports provider-level failures, and retries only providers whose previous stop attempt failed.
+- Runtime lifecycle events are exposed through a vendor-neutral observer. Observer failures are best-effort and must not interrupt startup, rollback or shutdown.
+
+The plugin reactor now depends on the shared `numou-observability-api` contract. `ObservabilityApplicationRuntimeLifecycleObserver` maps lifecycle events to bounded-cardinality metrics and reactive tracing spans. Application, provider and plugin identifiers are trace attributes, not metric tags. `ApplicationRuntimeHealthCheck` adapts per-application readiness to the shared health registry contract; its check ID is application-scoped to support multiple application sessions in one host.
+
+This is an adapter to the shared ports, not a direct dependency on Micrometer or OpenTelemetry. Hosts select and provide the concrete metrics and tracing adapters. Lifecycle spans currently represent individual events; end-to-end startup/shutdown duration spans and exporter delivery guarantees are not claimed.
+
+The runtime binding and observability follow-up has unit tests added, but Maven compilation and test execution remain unverified for the current branch.

@@ -2,14 +2,14 @@ name: Content Platform Verification
 
 on:
   push:
-    branches: [content/m4-media-management]
+    branches: [content/m4-media-management, content/m5-editorial-workflow]
     paths:
       - "content/**"
       - "document/**"
       - "core/framework/**"
       - ".github/workflows/content-platform.yml"
   pull_request:
-    branches: [main, content/m1-content-core, content/m3-content-lifecycle]
+    branches: [main, content/m1-content-core, content/m3-content-lifecycle, content/m5-editorial-workflow]
     paths:
       - "content/**"
       - "core/framework/pom.xml"

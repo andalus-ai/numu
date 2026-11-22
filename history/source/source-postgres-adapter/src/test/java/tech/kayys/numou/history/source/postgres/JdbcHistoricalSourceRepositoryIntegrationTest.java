@@ -27,6 +27,8 @@ class JdbcHistoricalSourceRepositoryIntegrationTest {
    s.execute("GRANT USAGE ON SCHEMA public TO history_app");
    s.execute("GRANT SELECT, INSERT, UPDATE ON historical_source TO history_app");
    s.execute("GRANT SELECT, INSERT ON historical_source_revision, historical_claim, historical_claim_evidence, historical_source_assessment, historical_source_assessment_review, historical_source_contributor, historical_source_edition, historical_archival_holding, historical_archival_catalog_identifier, historical_source_relationship, historical_source_ingestion, historical_source_extraction TO history_app");
+   s.execute("GRANT SELECT, INSERT, UPDATE ON historical_source_ingestion_dispatch TO history_app");
+   s.execute("GRANT SELECT, INSERT ON historical_source_ingestion_dispatch_event TO history_app");
   }
   appDataSource=new PGSimpleDataSource(); appDataSource.setURL(POSTGRES.getJdbcUrl());
   appDataSource.setUser("history_app"); appDataSource.setPassword("history-password");

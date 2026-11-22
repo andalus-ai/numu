@@ -45,6 +45,10 @@ class TenantSelectionCredentialRequestTest {
         assertTrue(exchange.body().contains("TENANT_MEMBERSHIP_REQUIRED"), exchange.body());
         assertFalse(exchange.body().contains(FILTER_DENIAL), exchange.body());
 
+        HttpResponse<String> providerDiscovery = request("GET", "api/v2/auth/federated/providers", token);
+        assertEquals(403, providerDiscovery.statusCode(), providerDiscovery.body());
+        assertTrue(providerDiscovery.body().contains(FILTER_DENIAL), providerDiscovery.body());
+
         HttpResponse<String> management = request("GET", "api/v1/service-accounts", token);
         assertEquals(403, management.statusCode(), management.body());
         assertTrue(management.body().contains(FILTER_DENIAL), management.body());
