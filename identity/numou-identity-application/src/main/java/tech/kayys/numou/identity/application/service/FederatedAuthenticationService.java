@@ -18,6 +18,7 @@ import tech.kayys.numou.identity.application.port.FederationSettingsPort;
 import tech.kayys.numou.identity.application.port.IdentityProviderConfigRepository;
 import tech.kayys.numou.identity.application.port.PasswordHasher;
 import tech.kayys.numou.identity.application.port.UserRepository;
+import tech.kayys.numou.identity.application.port.TenantTokenIssuerPort;
 import tech.kayys.numou.identity.domain.idp.FederatedIdentityLink;
 import tech.kayys.numou.identity.domain.idp.IdentityProviderConfig;
 import tech.kayys.numou.identity.domain.idp.IdentityProviderConfigId;
@@ -61,6 +62,7 @@ public class FederatedAuthenticationService {
     private final PasswordHasher passwordHasher;
     private final EventPublisher eventPublisher;
     private final TokenService tokenService;
+    private final TenantTokenIssuerPort tenantTokenIssuer;
     private final UnitOfWork unitOfWork;
     private final DomainClock clock;
 
@@ -74,6 +76,7 @@ public class FederatedAuthenticationService {
             PasswordHasher passwordHasher,
             EventPublisher eventPublisher,
             TokenService tokenService,
+            TenantTokenIssuerPort tenantTokenIssuer,
             UnitOfWork unitOfWork,
             DomainClock clock
     ) {
@@ -86,6 +89,7 @@ public class FederatedAuthenticationService {
         this.passwordHasher = Objects.requireNonNull(passwordHasher);
         this.eventPublisher = Objects.requireNonNull(eventPublisher);
         this.tokenService = Objects.requireNonNull(tokenService);
+        this.tenantTokenIssuer = Objects.requireNonNull(tenantTokenIssuer);
         this.unitOfWork = Objects.requireNonNull(unitOfWork);
         this.clock = Objects.requireNonNull(clock);
     }
@@ -140,6 +144,28 @@ public class FederatedAuthenticationService {
                         principal.userId(),
                         identity.groups()
                 ));
+    }
+
+    /** Completes OIDC login with a tenant-selection credential instead of a tenantless access token. */
+    public Uni<FederatedLoginResponse> completeForTenantSelection(UUID providerId, FederationCallback callback) {
+        Objects.requireNonNull(providerId, "providerId cannot be null");
+        Objects.requireNonNull(callback, "callback cannot be null");
+        return loadProvider(providerId)
+                .chain(config -> federationPort.exchangeCode(config, callback)
+                        .chain(identity -> authenticateForTenantSelection(config, identity)));
+    }
+
+    /** Issues the same restricted credential for a protocol-verified LDAP or SAML identity. */
+    Uni<FederatedLoginResponse> authenticateForTenantSelection(
+            IdentityProviderConfig config, FederatedIdentity identity) {
+        Objects.requireNonNull(config, "config cannot be null");
+        Objects.requireNonNull(identity, "identity cannot be null");
+        return resolvePrincipal(config, identity)
+                .map(principal -> new FederatedLoginResponse(
+                        tech.kayys.numou.identity.application.dto.AccessTokenResponse.bearer(
+                                tenantTokenIssuer.issueTenantSelectionToken(
+                                        principal.userId(), principal.displayName()), 300),
+                        principal.provisioned(), principal.userId(), identity.groups()));
     }
 
     /**

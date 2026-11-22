@@ -124,3 +124,13 @@ The History workflow runs Java 21 and the PostgreSQL Testcontainers suite. The s
 - cross-tenant sharing or public-source visibility policies.
 
 These should be separate M5 increments. In particular, no universal numeric reliability score should be introduced without a documented, explainable assessment model.
+
+## Source ingestion and extraction provenance — M5.6a
+
+- An ingestion request references an existing shared-document object by opaque document reference and captures its original SHA-256 digest, media type, extractor identifier/version, configuration fingerprint, requesting actor reference and timestamp.
+- The idempotency key is scoped by tenant and source in the persistence contract. Replaying the same key with identical immutable inputs returns the original request; reusing it with different inputs is a conflict.
+- Each extraction attempt is a separate immutable artifact with an attempt number, status, timestamps, optional language/locator, and a separate shared-document reference plus digest for derived output.
+- Failed attempts cannot publish extracted content. Successful/partial attempts require a derived-content reference, digest and media type. Attempts are never updated in place.
+- The History capability stores references and provenance only. It does not store original or extracted binary content, fetch arbitrary URLs, run OCR/transcription, or choose a storage provider.
+- The application contract checks tenant context, source existence and host authorization. The host authorization adapter must bind actor references to the authenticated principal.
+- This increment adds domain, SPI and application contracts plus unit coverage. PostgreSQL persistence, transactional job/outbox dispatch, lease/retry workers, document-capability integration and safe URL-fetch adapters remain follow-up M5.6 increments; this slice does not claim those adapters are implemented.

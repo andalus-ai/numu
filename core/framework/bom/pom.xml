@@ -66,6 +66,24 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- Leaderboard capability -->
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-leaderboard-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-leaderboard-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.kayys.numou</groupId>
+                <artifactId>numou-leaderboard-persistence-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- Attendee capability -->
             <dependency>
                 <groupId>tech.kayys.numou</groupId>
